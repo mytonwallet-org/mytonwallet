@@ -6,6 +6,7 @@ import type { Theme } from '../../global/types';
 
 import { requestMutation } from '../../lib/fasterdom/fasterdom';
 import { animateInstantly } from '../../util/animation';
+import { getIsInBackground } from '../../util/backgroundMode';
 import buildClassName from '../../util/buildClassName';
 import { clamp } from '../../util/math';
 import { random } from '../../util/random';
@@ -13,7 +14,6 @@ import { DPR } from '../../util/windowEnvironment';
 
 import { useGetIsIntersectingWithApp } from '../../hooks/useAppIntersectionObserver';
 import useAppTheme from '../../hooks/useAppTheme';
-import { getIsInBackground } from '../../hooks/useBackgroundMode';
 import useDerivedSignal from '../../hooks/useDerivedSignal';
 
 import styles from './SensitiveDataMask.module.scss';

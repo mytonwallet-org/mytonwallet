@@ -2,13 +2,12 @@ package org.mytonwallet.app_air.uiinappbrowser.span
 
 import android.text.style.URLSpan
 import android.view.View
-import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
-class InAppBrowserUrlSpan(url: String, private val tabBarController: ITabsVC?) : URLSpan(url) {
+class InAppBrowserUrlSpan(url: String) : URLSpan(url) {
     override fun onClick(widget: View) {
         val context = widget.context
         val parentWindow = context as? WWindow
@@ -16,7 +15,6 @@ class InAppBrowserUrlSpan(url: String, private val tabBarController: ITabsVC?) :
 
         val inAppBrowserVC = InAppBrowserVC(
             context,
-            tabBarController,
             InAppBrowserConfig(
                 url = url,
                 injectDappConnect = true

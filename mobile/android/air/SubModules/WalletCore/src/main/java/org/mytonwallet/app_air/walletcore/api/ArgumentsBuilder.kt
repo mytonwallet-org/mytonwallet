@@ -60,10 +60,16 @@ class ArgumentsBuilder(private val moshi: Moshi? = null) {
         return this
     }
 
-    fun <T> jsObject(value: T, clazz: Type): ArgumentsBuilder {
+    fun <T> jsObject(
+        value: T,
+        clazz: Type,
+        shouldSerializeNulls: Boolean = false
+    ): ArgumentsBuilder {
         value?.let {
             val adapter: JsonAdapter<T> = (moshi ?: WalletCore.moshi).adapter(clazz)
-            args.add(adapter.toJson(value))
+            args.add(
+                (if (shouldSerializeNulls) adapter.serializeNulls() else adapter).toJson(value)
+            )
         } ?: run {
             args.add("null")
         }

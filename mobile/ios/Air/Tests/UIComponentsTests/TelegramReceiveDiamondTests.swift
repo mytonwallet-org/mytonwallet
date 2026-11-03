@@ -7,6 +7,66 @@ import WalletCore
 
 @Suite("Telegram receive diamond")
 struct TelegramReceiveDiamondTests {
+    @Test func welcomeTapCompletesThreeHorizontalTurnsFromTheCurrentAngle() {
+        var motion = DiamondMotion()
+        motion.externalYaw = 0.7
+        motion.step(dt: 0.05, speed: 0.4, reduceMotion: false, time: 0.05)
+        let start = motion.renderedYaw
+        motion.turnOnTap()
+        for index in 1...36 {
+            motion.step(dt: 0.05, speed: 0.8, reduceMotion: false, time: 0.05 + Float(index) * 0.05)
+            #expect(motion.pitch == DiamondMotion.referencePitch)
+            if index == 2 { #expect(motion.renderedYaw - start > 1) }
+        }
+        #expect(abs(motion.renderedYaw - start - 6 * .pi) < 0.001)
+    }
+
+    @Test func repeatedWelcomeTapKeepsItsCurrentAngularVelocity() {
+        var motion = DiamondMotion()
+        motion.turnOnTap()
+        for _ in 0..<90 {
+            motion.step(dt: 0.01, speed: 0, reduceMotion: false)
+        }
+        let before = motion.renderedYaw
+        motion.step(dt: 0.01, speed: 0, reduceMotion: false)
+        let atPress = motion.renderedYaw
+        let previousTravel = atPress - before
+        motion.begin(at: 1)
+        motion.step(dt: 0.05, speed: 0, reduceMotion: false)
+        #expect(motion.renderedYaw == atPress)
+        motion.end(at: 1.05)
+        motion.turnOnTap()
+        motion.step(dt: 0.01, speed: 0, reduceMotion: false)
+        let nextTravel = motion.renderedYaw - atPress
+        #expect(nextTravel > previousTravel * 0.9)
+        #expect(nextTravel < previousTravel * 1.1)
+        for _ in 0..<179 {
+            motion.step(dt: 0.01, speed: 0, reduceMotion: false)
+        }
+        #expect(abs(motion.renderedYaw - atPress - 6 * .pi) < 0.001)
+    }
+
+    @Test func welcomeTurnStopsWhenGrabbedOrMotionIsDisabled() {
+        for reducedMotion in [false, true] {
+            var motion = DiamondMotion()
+            motion.turnOnTap()
+            for index in 1...6 {
+                motion.step(dt: 0.05, speed: 0.4, reduceMotion: false, time: Float(index) * 0.05)
+            }
+            let angle = motion.externalYaw
+            if reducedMotion {
+                motion.step(dt: 0.05, speed: 0.4, reduceMotion: true, time: 0.35)
+            } else {
+                motion.begin(at: 0.3)
+                motion.end(at: 0.3, cancelled: true)
+            }
+            for index in 1...20 {
+                motion.step(dt: 0.05, speed: 0.4, reduceMotion: false, time: 0.35 + Float(index) * 0.05)
+            }
+            #expect(motion.externalYaw == angle)
+        }
+    }
+
     @Test @MainActor func headerRefractionKeepsSnapshotTopAndBottomAligned() throws {
         let device = try #require(MTLCreateSystemDefaultDevice())
         let format = UIGraphicsImageRendererFormat()

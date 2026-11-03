@@ -14,8 +14,8 @@ import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 internal class AgentTimelineViewport(private val host: Host) {
@@ -42,6 +42,7 @@ internal class AgentTimelineViewport(private val host: Host) {
     var currentBottom = 0
         private set
     private var keyboardAnimator: ValueAnimator? = null
+    private var keyboardTransition: KeyboardTransition? = null
     var isUserScrolling = false
         private set
     private var isApplyingSharedScrollPosition = false
@@ -49,6 +50,8 @@ internal class AgentTimelineViewport(private val host: Host) {
         private set
     var isOnBottom = true
         private set
+
+    private var isShowingItemAtTop = false
     var pinnedMessageId: String? = null
         private set
     var pendingPinMessageId: String? = null
@@ -58,8 +61,13 @@ internal class AgentTimelineViewport(private val host: Host) {
     var deferredPinMessageId: String? = null
         private set
     private var cachedPinnedTarget = 0
-    private var appliedBottom = 0
+
+    /** The composer's bottom as laid out now, which moves to [currentBottom] with the keyboard */
+    var appliedBottom = 0
+        private set
+
     private var pinScrollSpring: SpringAnimation? = null
+    private val latestScroll = AgentRecyclerAnimationScrollHelper(host.recyclerView)
     var pinScrollExtraSpace = 0
         private set
 
@@ -81,8 +89,22 @@ internal class AgentTimelineViewport(private val host: Host) {
         val atBottom = !chatRecyclerView.canScrollVertically(1)
         if (pinnedMessageId != null || isOnBottom == atBottom) return
         isOnBottom = atBottom
+        // A scroll callback may run within a layout pass, where the layout manager must not change
+        if (isBottomAnchorPending) return
+        isBottomAnchorPending = true
+        post {
+            isBottomAnchorPending = false
+            if (pinnedMessageId == null) applyBottomAnchor()
+        }
+    }
+
+    private var isBottomAnchorPending = false
+
+    /** Anchors the list to its bottom while [isOnBottom], and to the first visible row otherwise */
+    private fun applyBottomAnchor() {
         val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (atBottom) {
+        if (lm.stackFromEnd == isOnBottom) return
+        if (isOnBottom) {
             lm.stackFromEnd = true
             return
         }
@@ -103,12 +125,14 @@ internal class AgentTimelineViewport(private val host: Host) {
     }
 
     fun resetPlacement() {
+        latestScroll.finish()
         unpin()
         pendingPinMessageId = null
         clearOutgoingPlacement()
     }
 
     fun requestMessagePin(messageId: String, preservePadding: Boolean = false) {
+        latestScroll.finish()
         pendingSharedScrollPosition = null
         if (preservePadding) {
             val lm = chatRecyclerView.layoutManager as? LinearLayoutManager
@@ -137,6 +161,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         items: List<AgentTimelineItem>,
         forcePin: Boolean = false
     ): Boolean {
+        latestScroll.finish()
         pendingSharedScrollPosition = null
         pendingPinMessageId = messageId
         deferredPinMessageId = null
@@ -148,6 +173,7 @@ internal class AgentTimelineViewport(private val host: Host) {
     }
 
     fun prepareEditInsertion(preservePin: Boolean = false) {
+        latestScroll.finish()
         pendingSharedScrollPosition = null
         if (preservePin) pinScrollSpring?.cancel() else clearPin()
         pendingPinMessageId = null
@@ -236,6 +262,7 @@ internal class AgentTimelineViewport(private val host: Host) {
 
     fun dispose() {
         isDisposed = true
+        latestScroll.finish()
         pendingPosts.forEach(chatRecyclerView::removeCallbacks)
         pendingPosts.clear()
         pendingLayouts.forEach(chatRecyclerView::removeOnLayoutChangeListener)
@@ -243,6 +270,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         pendingDraws.forEach { it.removeListener() }
         pendingDraws.clear()
         keyboardAnimator?.cancel()
+        keyboardTransition = null
         clearPin()
         pendingPinMessageId = null
         pendingSharedScrollPosition = null
@@ -251,12 +279,22 @@ internal class AgentTimelineViewport(private val host: Host) {
 
     private var hasAppliedInitialLayout = false
 
-    fun updateLayout(targetBottom: Int, ime: Int, navigationBottom: Int) {
+    /**
+     * Moves the composer's bottom to [targetBottom]. With [shouldFollowKeyboard] the keyboard's own
+     * animation carries it there through [followKeyboard]; otherwise it slides there by itself.
+     */
+    fun updateLayout(
+        targetBottom: Int,
+        ime: Int,
+        navigationBottom: Int,
+        shouldFollowKeyboard: Boolean = false
+    ) {
         if (isDisposed) return
         if (ime == 0) stableBottomInset = navigationBottom
 
         if (targetBottom != currentBottom) {
-            val fromBottom = currentBottom
+            latestScroll.finish()
+            val fromBottom = if (hasAppliedInitialLayout) appliedBottom else currentBottom
             val keyboardPaddingStart =
                 if (ime > 0 && targetBottom > fromBottom) {
                     releasePinForKeyboardIfCovered(targetBottom)
@@ -272,23 +310,63 @@ internal class AgentTimelineViewport(private val host: Host) {
             }
 
             keyboardAnimator?.cancel()
-            keyboardAnimator = ValueAnimator.ofInt(fromBottom, targetBottom).apply {
+            keyboardAnimator = null
+            val transition = KeyboardTransition(fromBottom, targetBottom, keyboardPaddingStart)
+            if (shouldFollowKeyboard) {
+                keyboardTransition = transition
+                return
+            }
+            keyboardTransition = null
+            keyboardAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = 220
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { animator ->
-                    val value = animator.animatedValue as Int
-                    val bottomPadding = keyboardPaddingStart?.let { start ->
-                        val target = baseChatBottomPadding(targetBottom)
-                        start + ((target - start) * animator.animatedFraction).roundToInt()
-                    }
-                    applyBottom(value, bottomPadding)
+                    applyTransition(transition, animator.animatedValue as Float)
                 }
                 start()
             }
-        } else if (keyboardAnimator?.isRunning != true) {
+        } else if (keyboardTransition != null && !shouldFollowKeyboard) {
+            finishKeyboardMotion()
+        } else if (keyboardAnimator?.isRunning != true && keyboardTransition == null) {
             applyBottom(targetBottom)
         }
     }
+
+    /** Places the composer's bottom at [bottom], where the keyboard's motion has brought it */
+    fun followKeyboard(bottom: Int) {
+        val transition = keyboardTransition ?: return
+        val distance = transition.targetBottom - transition.fromBottom
+        val fraction = if (distance == 0) {
+            1f
+        } else {
+            ((bottom - transition.fromBottom).toFloat() / distance).coerceIn(0f, 1f)
+        }
+        applyTransition(transition, fraction)
+    }
+
+    /** The keyboard has come to rest, and the composer with it */
+    fun finishKeyboardMotion() {
+        val transition = keyboardTransition ?: return
+        keyboardTransition = null
+        applyTransition(transition, 1f)
+    }
+
+    private fun applyTransition(transition: KeyboardTransition, fraction: Float) {
+        val distance = transition.targetBottom - transition.fromBottom
+        val bottomPadding = transition.paddingStart?.let { start ->
+            val target = baseChatBottomPadding(transition.targetBottom)
+            start + ((target - start) * fraction).roundToInt()
+        }
+        applyBottom(transition.fromBottom + (distance * fraction).roundToInt(), bottomPadding)
+    }
+
+    // A move of the composer's bottom; a pin released because the keyboard would cover its content
+    // hands the list's bottom padding over from `paddingStart`
+    private class KeyboardTransition(
+        val fromBottom: Int,
+        val targetBottom: Int,
+        val paddingStart: Int?
+    )
 
     private fun applyBottom(bottom: Int, bottomPaddingOverride: Int? = null) {
         if (isDisposed) return
@@ -297,9 +375,19 @@ internal class AgentTimelineViewport(private val host: Host) {
 
         val topPadding = chatTopPadding()
         val bottomPadding = bottomPaddingOverride ?: chatBottomPadding(bottom)
-        val paddingChanged = chatRecyclerView.paddingTop != topPadding ||
-            chatRecyclerView.paddingBottom != bottomPadding
+        val bottomPaddingChange = bottomPadding - chatRecyclerView.paddingBottom
+        val paddingChanged = chatRecyclerView.paddingTop != topPadding || bottomPaddingChange != 0
         if (paddingChanged) chatRecyclerView.setPadding(0, topPadding, 0, bottomPadding)
+        if (bottomPaddingChange != 0) keepMessagesOnComposer(bottomPaddingChange)
+    }
+
+    /** Scrolled up, the list lays out from its top, so messages must scroll with the keyboard themselves. */
+    private fun keepMessagesOnComposer(bottomPaddingChange: Int) {
+        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val isHeldInPlace = pinnedMessageId != null || pendingPinMessageId != null ||
+            pendingSharedScrollPosition != null
+        if (!hasAppliedInitialLayout || lm.stackFromEnd || isUserScrolling || isHeldInPlace) return
+        chatRecyclerView.scrollBy(0, bottomPaddingChange)
     }
 
     private fun chatTopPadding(): Int = host.topPadding
@@ -330,27 +418,25 @@ internal class AgentTimelineViewport(private val host: Host) {
         return maxOf(base, pinned)
     }
 
-    val pinnedTopOffset: Int
-        get() = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+    private fun pinnedItemOffset(index: Int, itemHeight: Int): Int {
+        val topInset = if (index > 0) AGENT_LIST_TOP_INSET.dp else 0
+        return agentPinnedItemOffset(
+            timelineItems[index],
+            itemHeight,
+            chatTopPadding() - topInset,
+            chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
+                MIN_MESSAGE_CELL_HEIGHT.dp
+        ) - topInset
+    }
 
-    private fun pinnedItemOffset(index: Int, itemHeight: Int): Int = agentPinnedItemOffset(
-        timelineItems[index],
-        itemHeight,
-        chatTopPadding(),
-        pinnedTopOffset,
-        chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
-            MIN_MESSAGE_CELL_HEIGHT.dp
-    )
-
-    private fun pinnedMessageHeight(view: View): Int =
-        (view as? AgentMessageCell)?.layoutTargetHeight ?: view.height
+    private fun pinnedMessageHeight(view: View): Int = when (view) {
+        is AgentMessageCell -> view.layoutTargetHeight
+        is AgentNewsPostCell -> view.layoutTargetHeight
+        else -> view.height
+    }
 
     private fun pinnedItemOffset(index: Int, view: View?): Int =
-        if (view == null && timelineItems[index] !is AgentTimelineItem.DateHeader) {
-            -pinnedTopOffset
-        } else {
-            pinnedItemOffset(index, view?.let(::pinnedMessageHeight) ?: 0)
-        }
+        if (view == null) 0 else pinnedItemOffset(index, pinnedMessageHeight(view))
 
     private fun pinAnchorIndex(messageId: String): Int =
         timelineItems.agentPinAnchorIndex(timelineIndexOf(messageId))
@@ -383,11 +469,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         return target
     }
 
-    fun preservePinAcrossSizeTransition(
-        messageId: String,
-        cell: AgentMessageCell,
-        previousHeight: Int
-    ) {
+    fun preservePinAcrossSizeTransition(messageId: String, cell: View, previousHeight: Int) {
         if (isUserScrolling || pendingPinMessageId != null ||
             pinScrollSpring?.isRunning == true ||
             chatRecyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
@@ -466,20 +548,43 @@ internal class AgentTimelineViewport(private val host: Host) {
             return
         }
         val atBottom = !chatRecyclerView.canScrollVertically(1)
+        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        if (atBottom && !lm.stackFromEnd && !chatRecyclerView.canScrollVertically(-1)) return
         if (atBottom == isOnBottom) return
         isOnBottom = atBottom
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (atBottom) {
-            lm.stackFromEnd = true
-        } else {
-            val firstPos = lm.findFirstVisibleItemPosition()
-            if (firstPos == RecyclerView.NO_POSITION) return
-            val offset =
-                (lm.findViewByPosition(firstPos)?.top ?: 0) - chatRecyclerView.paddingTop
-            lm.stackFromEnd = false
-            lm.scrollToPositionWithOffset(firstPos, offset)
-        }
+        applyBottomAnchor()
     }
+
+    /** How far the latest row reaches below the part of the list that the composer leaves visible */
+    fun measureLatestRowOverhang(): Int {
+        val lastIndex = timelineItems.lastIndex
+        if (isDisposed || lastIndex < 0 || chatRecyclerView.childCount == 0) return 0
+        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return 0
+        val visibleBottom = chatRecyclerView.height - baseChatBottomPadding(appliedBottom)
+        val view = lm.findViewByPosition(lastIndex)
+            ?: return if (lm.findLastVisibleItemPosition() < lastIndex) Int.MAX_VALUE else 0
+        return lm.getDecoratedBottom(view) - visibleBottom
+    }
+
+    fun scrollToLatest() {
+        if (isDisposed || timelineItems.isEmpty() || latestScroll.isRunning) return
+        pendingSharedScrollPosition = null
+        pendingPinMessageId = null
+        clearOutgoingPlacement()
+        unpin()
+        chatRecyclerView.stopScroll()
+        isUserScrolling = false
+        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager
+        if (layoutManager == null || host.isPopupVisible) {
+            scrollToBottom()
+            return
+        }
+        isOnBottom = true
+        layoutManager.stackFromEnd = true
+        latestScroll.scrollDown { layoutManager.scrollToPosition(timelineItems.lastIndex) }
+    }
+
+    fun finishLatestScroll() = latestScroll.finish()
 
     fun scrollToBottom() {
         if (isDisposed) return
@@ -518,7 +623,9 @@ internal class AgentTimelineViewport(private val host: Host) {
         if (isDisposed) return
         if (isApplyingSharedScrollPosition || pendingSharedScrollPosition != null) return
         val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (pinnedMessageId == null && !chatRecyclerView.canScrollVertically(1)) {
+        if (pinnedMessageId == null && layoutManager.stackFromEnd &&
+            !chatRecyclerView.canScrollVertically(1)
+        ) {
             host.publishScrollPosition(
                 AgentVM.ScrollPosition(AgentVM.ScrollAnchor.Bottom)
             )
@@ -562,7 +669,9 @@ internal class AgentTimelineViewport(private val host: Host) {
 
     fun restoreSharedScrollPosition(): Boolean {
         if (isDisposed) return false
+        if (isShowingItemAtTop) return true
         val position = host.scrollPosition ?: return false
+        latestScroll.finish()
         pendingSharedScrollPosition = position
         isApplyingSharedScrollPosition = true
         try {
@@ -573,12 +682,30 @@ internal class AgentTimelineViewport(private val host: Host) {
         return true
     }
 
-    fun showInitialPromptAtBottom() {
-        isApplyingSharedScrollPosition = false
-        val position = AgentVM.ScrollPosition(AgentVM.ScrollAnchor.Bottom)
+    /** Until the row is laid out there, the chat's shared position waits. */
+    fun showItemAtTop(index: Int) {
+        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        latestScroll.finish()
         pendingSharedScrollPosition = null
-        host.publishScrollPosition(position)
-        applySharedScrollPosition(position)
+        unpin()
+        isOnBottom = false
+        layoutManager.stackFromEnd = false
+        layoutManager.scrollToPositionWithOffset(index, 0)
+        isShowingItemAtTop = true
+        doOnNextLayout {
+            isShowingItemAtTop = false
+            refreshIsOnBottom()
+            shareScrollPosition()
+        }
+    }
+
+    fun showInitialChatAtTop() {
+        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        latestScroll.finish()
+        pendingSharedScrollPosition = null
+        isOnBottom = false
+        layoutManager.stackFromEnd = false
+        layoutManager.scrollToPositionWithOffset(0, 0)
     }
 
     private fun applySharedScrollPosition(position: AgentVM.ScrollPosition) {
@@ -657,7 +784,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         when (val item = timelineItems.getOrNull(index)) {
             is AgentTimelineItem.Message -> AgentVM.ScrollAnchor.Message(item.message.id)
             is AgentTimelineItem.Hints -> AgentVM.ScrollAnchor.Hints
-            is AgentTimelineItem.DateHeader -> null
+            is AgentTimelineItem.DateHeader, AgentTimelineItem.UnreadDivider -> null
             null -> null
         }
 
@@ -892,6 +1019,17 @@ internal class AgentTimelineViewport(private val host: Host) {
         pinScrollSpring?.cancel()
     }
 
+    /** Returns whether a scroll ran. */
+    fun stopProgrammaticScroll(): Boolean {
+        if (latestScroll.stop()) {
+            refreshIsOnBottom()
+            return true
+        }
+        val spring = pinScrollSpring?.takeIf { it.isRunning } ?: return false
+        spring.cancel()
+        return true
+    }
+
     private fun startPinScroll(
         messageId: String,
         animated: Boolean = WGlobalStorage.getAreAnimationsActive()
@@ -1051,15 +1189,13 @@ internal fun List<AgentTimelineItem>.agentPinAnchorIndex(messageIndex: Int): Int
         messageIndex
     }
 
+/** A question reaching below [previewTop] moves up so its answer's start shows. */
 internal fun agentPinnedItemOffset(
     item: AgentTimelineItem,
     itemHeight: Int,
     topPadding: Int,
-    pinnedTopOffset: Int,
     previewTop: Int
 ): Int {
     if (item is AgentTimelineItem.DateHeader) return 0
-    val regularOffset = -pinnedTopOffset
-    val itemBottom = topPadding + regularOffset + itemHeight
-    return regularOffset - (itemBottom - previewTop).coerceAtLeast(0)
+    return -(topPadding + itemHeight - previewTop).coerceAtLeast(0)
 }

@@ -136,26 +136,22 @@ $footerPaddingBottomMin: 1rem;
 }
 
 .logoParticles {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-
-  @include mixins.respond-above(xs) {
-    top: -1.875rem;
-  }
+  --particle-offset-y: 0rem;
 }
 
-.logo {
+.logoInteraction {
   position: relative;
   z-index: 1;
-
-  display: block !important;
 
   width: 7.5rem;
   height: 7.5rem;
   margin: 3.125rem auto 0;
+}
+
+.logo {
+  display: block !important;
+  width: 100%;
+  height: 100%;
 
   @include mixins.transition('opacity 1s ease, transform 350ms ease-out', !important);
 
@@ -203,11 +199,6 @@ $footerPaddingBottomMin: 1rem;
   color: var(--color-gray-1);
 
   background: var(--color-background-first);
-}
-
-.lawBlock {
-  width: 100%;
-  margin-top: 1.25rem;
 }
 
 .text {
@@ -524,24 +515,7 @@ $footerPaddingBottomMin: 1rem;
 }
 
 .divider {
-  display: flex;
-  gap: 0.625rem;
-  align-items: center;
-  justify-content: center;
-
   margin: 2.6875rem 0 1.5rem;
-
-  font-size: 1rem;
-  line-height: 1rem;
-  color: var(--color-gray-2);
-
-  &::before,
-  &::after {
-    content: '';
-    width: 4.5rem;
-    height: 0.0625rem;
-    box-shadow: inset 0 0.0375rem 0 0 var(--color-separator);
-  }
 
   @include mixins.respond-above(xs) {
     font-size: 0.9375rem;
@@ -655,23 +629,11 @@ $footerPaddingBottomMin: 1rem;
   text-align: center;
 }
 
-.responsibilityCheckbox {
-  margin-bottom: 1rem;
-}
-
-.responsibilityCheckboxContent {
-  margin-top: 0.0625rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-
-  &::before,
-  &::after {
-    top: 0 !important;
-  }
-}
-
-.responsibilityCheckboxLink {
-  font-weight: 650;
+.legalNotice {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 23.125rem;
+  margin: 1.5rem 0 0;
 }
 
 .buttons {
@@ -769,4 +731,14 @@ $footerPaddingBottomMin: 1rem;
   @include mixins.respond-below(xs) {
     padding-bottom: max(calc(var(--safe-area-bottom) - 1.5rem), 0px);
   }
+}
+
+.transitionContainer.gramWelcome {
+  max-width: 50rem;
+}
+
+.gramAboutSlide {
+  position: relative !important;
+  max-width: v.$landscapeAuthContentMaxWidth;
+  margin-inline: auto;
 }

@@ -111,6 +111,43 @@ enum AgentTextLinks {
             && link.dropFirst(SELF_PROTOCOL.count).range(of: appScreenPath, options: .regularExpression) != nil
     }
 
+    static func newsSourceURL(_ rawURL: String?) -> URL? {
+        guard let rawURL, let url = URL(string: rawURL) else { return nil }
+        let isHttpSource = url.scheme?.lowercased() == "http"
+            && url.host?.isEmpty == false && url.user == nil && url.password == nil
+        let isTelegramSource = url.scheme?.lowercased() == "tg" && url.isTelegramURL
+        return isOpenable(url) || isHttpSource || isTelegramSource ? url : nil
+    }
+
+    @MainActor
+    static func openNewsSource(
+        _ rawURL: String?,
+        openInBrowser: (URL) -> Void = { AppActions.openInBrowser($0, title: nil, injectDappConnect: false) },
+        openTelegramURL: (URL) -> Void = { UIApplication.shared.open($0) },
+        showLinkError: (DisplayError) -> Void = { AppActions.showError(error: $0) }
+    ) {
+        guard let rawURL else { return }
+        guard let url = newsSourceURL(rawURL) else {
+            showLinkError(DisplayError(text: lang("Unsupported link")))
+            return
+        }
+        if isAppScreenLink(url) {
+            if WalletContextManager.delegate?.handleDeeplink(url: url) != true {
+                showLinkError(DisplayError(text: lang("Unsupported link")))
+            }
+        } else if url.isTelegramURL {
+            openTelegramURL(url)
+        } else {
+            openInBrowser(url)
+        }
+    }
+
+    static func newsCopyText(headline: String, body: String?, sourceURL: String?) -> String {
+        [headline, body?.replacingOccurrences(of: "**", with: ""), sourceURL]
+            .compactMap { $0 }
+            .joined(separator: "\n\n")
+    }
+
     private static func decodedURL(_ encodedURL: String) -> URL? {
         guard let url = encodedURL.removingPercentEncoding.flatMap(URL.init(string:)), isOpenable(url) else { return nil }
         return url

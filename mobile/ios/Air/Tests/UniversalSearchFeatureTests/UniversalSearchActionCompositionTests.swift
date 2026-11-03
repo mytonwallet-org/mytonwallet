@@ -159,20 +159,20 @@ struct UniversalSearchActionCompositionTests {
             corpusDocumentCount: 1,
             generatedAt: Date(timeIntervalSince1970: 1)
         )
-        let presentation = UniversalSearchResultsPresenter().browsePresentation(
+        let presenter = UniversalSearchResultsPresenter()
+        let presentation = presenter.browsePresentation(
             for: browse,
             context: context
         )
-        let emptyConversationChats = try #require(presentation.sections.first)
-        let startItem = try #require(emptyConversationChats.items.first)
-        guard case .chat = startItem.content else {
-            Issue.record("Expected the empty conversation action to use the chat row")
+        let suggestions = try #require(presentation.sections.first)
+        #expect(suggestions.id == "chats")
+        guard case .toggle(_, _, .secondary) = suggestions.headerAccessory,
+              case .promptPages = suggestions.layout else {
+            Issue.record("Expected suggestions to lead the chats section without conversations")
             return
         }
-        #expect(emptyConversationChats.items.count == 1)
-        let suggestions = try #require(presentation.sections.dropFirst().first)
-        #expect(suggestions.id == "agent-suggestions")
         #expect(suggestions.items.map(\.id) == ["agent-suggestion:portfolio.performance"])
+        #expect(!presentation.sections.dropFirst().contains { $0.id == "chats" })
         guard case .some(.agent(let prompt, let hintEntryPoint)) = presentation
             .routesByItemID["agent-suggestion:portfolio.performance"] else {
             Issue.record("Expected a starter hint route")
@@ -180,7 +180,26 @@ struct UniversalSearchActionCompositionTests {
         }
         #expect(prompt == "Analyze my wallet portfolio and explain what stands out.")
         #expect(hintEntryPoint == .emptyState(hintId: "portfolio.performance", catalogVersion: "agent-starter-hints-v1"))
-        guard case .some(.agent(let emptyConversationQuery, let entryPoint)) = presentation
+
+        let recent = presenter.browsePresentation(
+            for: browse,
+            selectedModes: ["chats": .recent],
+            context: context
+        )
+        let emptyConversationChats = try #require(recent.sections.first)
+        #expect(emptyConversationChats.id == "chats")
+        guard case .toggle(_, _, .primary) = emptyConversationChats.headerAccessory else {
+            Issue.record("Expected Recent to stay selectable without conversations")
+            return
+        }
+        let startItem = try #require(emptyConversationChats.items.first)
+        guard case .chat = startItem.content else {
+            Issue.record("Expected the empty conversation action to use the chat row")
+            return
+        }
+        #expect(emptyConversationChats.items.count == 1)
+        #expect(recent.routesByItemID["agent-suggestion:portfolio.performance"] == nil)
+        guard case .some(.agent(let emptyConversationQuery, let entryPoint)) = recent
             .routesByItemID[startItem.id] else {
             Issue.record("Expected the empty conversation row to open Agent")
             return

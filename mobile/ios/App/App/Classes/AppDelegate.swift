@@ -1,4 +1,5 @@
 import UIKit
+import CoreSpotlight
 import AirAsFramework
 import WalletContext
 import UIComponents
@@ -74,7 +75,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    func application(_ application: UIApplication, willContinueUserActivityWithType userActivityType: String) -> Bool {
+        userActivityType == CSQueryContinuationActionType || userActivityType == NSUserActivityTypeBrowsingWeb
+    }
+
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        if let action = AirSystemAction(searchContinuation: userActivity) {
+            AirLauncher.handle(systemAction: action)
+            return true
+        }
         // Called when the app was launched with an activity, including Universal Links.
         // Feel free to add additional processing here, but if you want the App API to support
         // tracking app url opens, make sure to keep this call

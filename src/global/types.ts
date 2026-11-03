@@ -5,6 +5,7 @@ import type {
   AgentAnswerLinkV1,
   AgentAnswerTableReferenceV1,
   AgentAnswerTableV1,
+  AgentThreadNewsCardV2,
 } from '../api/agentV2/protocol/types';
 import type {
   AgentPersistedActionV2,
@@ -56,6 +57,11 @@ import type {
   ApiNetwork,
   ApiNft,
   ApiNftCollection,
+  ApiPerpsAssetDetail,
+  ApiPerpsAssetId,
+  ApiPerpsGetAssetsResult,
+  ApiPerpsListedAsset,
+  ApiPerpsOperation,
   ApiPortfolioHistoryResponse,
   ApiPriceHistoryPeriod,
   ApiSite,
@@ -137,7 +143,7 @@ export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
-export type DialogAction = 'openReturnUrl';
+export type DialogAction = 'openReturnUrl' | 'exportLogs';
 export type ToastAction = 'openRenameWallet';
 // Why the running bundle needs a reload: the host serves another build, or a chunk failed to load from this one
 export type AppReloadReason = 'buildOutdated' | 'chunkLoadFailed';
@@ -246,14 +252,12 @@ export enum AuthState {
   confirmPin,
   createBiometrics,
   createPassword,
-  disclaimerAndBackup,
   importWalletCheckPassword,
   importWallet,
   importWalletCreatePin,
   importWalletConfirmPin,
   importWalletCreateBiometrics,
   importWalletCreatePassword,
-  disclaimer,
   about,
   safetyRules,
   mnemonicPage,
@@ -504,6 +508,27 @@ export enum ContentTab {
 
 export enum MediaType {
   Nft,
+  /** The pictures of the Agent's News, which the viewer is given when it opens */
+  AgentNews,
+}
+
+/** The news a picture of the Agent's News belongs to, which the media viewer captions it with and offers actions on */
+export interface MediaViewerPictureNews
+  extends Pick<AgentThreadNewsCardV2, 'headline' | 'body' | 'sources' | 'source'> {
+  /** When the news came, as its card or post dates it */
+  timestamp: number;
+}
+
+interface MediaViewerPicture {
+  url: string;
+  title: string;
+  news: MediaViewerPictureNews;
+}
+
+/** The pictures the media viewer pages through, in their order, when they are not the account's NFTs */
+export interface MediaViewerPictures {
+  ids: string[];
+  byId: Record<string, MediaViewerPicture>;
 }
 
 /** Section of the "Hidden NFTs" settings screen the media viewer was opened from */
@@ -548,10 +573,14 @@ export type TokenChartMode = 'price' | 'netWorth';
 
 export type PriceHistoryPeriods = Partial<Record<ApiPriceHistoryPeriod, ApiHistoryList>>;
 
-/** Absent while the request is in flight; an entry with neither field means the backend has no info */
+/** Absent while the first request is in flight; an entry with neither `data` nor `hasError` means there is no info */
 export type TokenDetailsState = {
   data?: ApiTokenDetails;
   hasError?: true;
+  /** The language of the last successful response, as the backend localizes the description */
+  langCode?: LangCode;
+  /** The time of the last successful response, in milliseconds */
+  fetchedAt?: number;
 };
 
 export type DieselStatus = 'not-available' | 'not-authorized' | 'pending-previous' | 'available' | 'stars-fee';
@@ -600,6 +629,7 @@ export interface AgentMessage {
   text: string;
   shouldCommitMarkdownTail?: boolean;
   isOutgoing: boolean;
+  isNewsPost?: boolean;
   timestamp: number;
   isTyping?: boolean;
   isStreaming?: boolean;
@@ -609,6 +639,8 @@ export interface AgentMessage {
   actionPresentations?: Record<string, AgentV2ActionPresentation>;
   followups?: AgentPublicFollowUpV2[];
   error?: AgentV2MessageError;
+  /** A failure of the chat itself rather than of an answer, in words of its own, as a history that did not load */
+  failureText?: string;
   isRetryAvailable?: boolean;
   /** The server stores the answer as complete, so the user can rate it */
   isComplete?: boolean;
@@ -622,6 +654,27 @@ export interface AgentHint {
   subtitle: string;
   prompt: string;
 }
+
+export type PerpsAssetDetailState = {
+  data?: ApiPerpsAssetDetail;
+  hasError?: boolean;
+  fetchedAt?: number;
+};
+
+export type GlobalPerpsAssets = ApiPerpsGetAssetsResult & {
+  byId: Record<ApiPerpsAssetId, ApiPerpsListedAsset>;
+  langCode?: string;
+  fetchedAt: number;
+};
+
+/** Latest balance-deposit progress. Not written to the cache. */
+export type PerpsBalanceDepositProgress = {
+  phase: 'submitted' | 'complete' | 'failed';
+  depositTxHash?: string;
+  status?: string;
+  error?: string;
+  at: number;
+};
 
 export interface AccountState {
   balances?: {
@@ -700,6 +753,12 @@ export interface AccountState {
   currentTokenSlug?: string;
   currentActivityId?: string;
   currentTokenPeriod?: TokenPeriod;
+  /** Catalogue id of the perp whose page is open. Detail and chart load for this id. */
+  currentPerpsAssetId?: string;
+  currentPerpsAssetPeriod?: ApiPriceHistoryPeriod;
+  perpsAssetDetailById?: Record<string, PerpsAssetDetailState>;
+  perpsOperations?: Record<string, ApiPerpsOperation>;
+  perpsBalanceDeposit?: PerpsBalanceDepositProgress;
   tokenNetWorthHistory?: Record<string, PriceHistoryPeriods>;
   savedAddresses?: SavedAddress[];
   activeContentTab?: ContentTab;
@@ -886,6 +945,8 @@ export type GlobalState = {
     toAddressName?: string;
     resolvedAddress?: string;
     error?: string;
+    /** The transaction draft check has rejected `toAddress`, which the address format check alone can't detect */
+    toAddressError?: ApiAnyDisplayError;
     // Should be ignored when `nfts` is defined and not empty
     amount?: bigint;
     comment?: string;
@@ -1142,6 +1203,8 @@ export type GlobalState = {
     isUnstaking?: boolean;
     amount?: bigint;
     initialAmount?: bigint | 'all';
+    // Paid out by the instant foreign unstake the stake form has returned from, so the form offers to restake it
+    restakeAmount?: bigint;
     tokenAmount?: bigint;
     fee?: bigint;
     error?: string;
@@ -1179,10 +1242,17 @@ export type GlobalState = {
 
   tokenPriceHistory: {
     bySlug: Record<string, PriceHistoryPeriods>;
+    restoredBySlug: Record<string, PriceHistoryPeriods>;
   };
 
   tokenDetails: {
     bySlug: Record<string, TokenDetailsState>;
+  };
+
+  perpsAssets?: GlobalPerpsAssets;
+
+  perpsAssetChart?: {
+    byAssetId: Record<string, PriceHistoryPeriods>;
   };
 
   byAccountId: Record<string, AccountState>;
@@ -1316,6 +1386,7 @@ export type GlobalState = {
     txId?: string;
     hiddenNfts?: HiddenNftsSection;
     noGhostAnimation?: boolean;
+    pictures?: MediaViewerPictures;
   };
 
   currentTransactionInfo: {
@@ -1374,8 +1445,6 @@ export interface ActionPayloads {
   cleanAuthError: undefined;
   openAbout: undefined;
   closeAbout: undefined;
-  openDisclaimer: undefined;
-  closeDisclaimer: undefined;
   startImportViewAccount: undefined;
   closeImportViewAccount: undefined;
   openAuthImportWalletModal: undefined;
@@ -1427,6 +1496,9 @@ export interface ActionPayloads {
   };
 
   selectToken: { slug?: string } | undefined;
+  openPerpsAsset: { assetId: string };
+  closePerpsAsset: undefined;
+  setCurrentPerpsAssetPeriod: { period: ApiPriceHistoryPeriod };
   openBackupWalletModal: undefined;
   closeBackupWalletModal: undefined;
   setIsBackupRequired: { isMnemonicChecked: boolean };
@@ -1844,6 +1916,8 @@ export interface ActionPayloads {
     txId?: string;
     hiddenNfts?: HiddenNftsSection;
     noGhostAnimation?: boolean;
+    /** The pictures of a viewer other than the NFTs', which it keeps while it pages through them */
+    pictures?: MediaViewerPictures;
   };
   closeMediaViewer: undefined;
 
@@ -1860,7 +1934,10 @@ export interface ActionPayloads {
     period: ApiPriceHistoryPeriod;
     currency?: ApiBaseCurrency;
   };
-  loadTokenDetails: { slug: string };
+  loadTokenDetails: { slugs: string[] };
+  preloadTokenDetails: undefined;
+  loadPerpsAsset: { assetId: string };
+  loadPerpsAssetChart: { assetId: string; period: ApiPriceHistoryPeriod };
 
   showIncorrectTimeError: undefined;
 

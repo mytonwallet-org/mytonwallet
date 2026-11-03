@@ -14,6 +14,7 @@ import {
 } from '../../../config';
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
+import { resetAgentV2LocalState } from '../../../util/agent/agentV2LocalState';
 import clearLegacyAgentStorage from '../../../util/agent/clearLegacyAgentStorage';
 import {
   getDeeplinkFromLocation,
@@ -21,6 +22,7 @@ import {
   processDeeplinkAfterInit,
   processDeeplinkAfterSignIn,
 } from '../../../util/deeplink';
+import { clearIndexedDbLossEvidence } from '../../../util/indexedDbLoss';
 import { omit } from '../../../util/iteratees';
 import { clearPreviousLangpacks, getTranslation, setLanguage } from '../../../util/langProvider';
 import { initializeSounds } from '../../../util/notificationSound';
@@ -165,10 +167,12 @@ addActionHandler('afterSignIn', (global, actions) => {
 
 addActionHandler('afterSignOut', async (global, actions, payload) => {
   if (payload?.shouldReset) {
+    resetAgentV2LocalState();
     await enclave.reset();
     actions.resetApiSettings({ areAllDisabled: true });
 
     void clearLegacyAgentStorage();
+    clearIndexedDbLossEvidence();
   }
 });
 

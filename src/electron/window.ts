@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, systemPreferences } from 'electron';
+import { app, BrowserWindow, ipcMain, systemPreferences } from 'electron';
 import windowStateKeeper from 'electron-window-state';
 import path from 'path';
 
@@ -11,6 +11,7 @@ import {
 import { AUTO_UPDATE_SETTING_KEY, getIsAutoUpdateEnabled, setupAutoUpdates } from './autoUpdates';
 import { processDeeplink } from './deeplink';
 import { validateIpcSender } from './ipcSecurity';
+import { handlePermissionRequest, handleWindowOpen, preventDisallowedRedirect } from './navigationGuards';
 import { captureStorage, restoreStorage } from './storageUtils';
 import tray from './tray';
 import { shouldStartUpdater } from './updateChannel';
@@ -82,10 +83,9 @@ export function createWindow() {
 
   windowState.manage(mainWindow);
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  mainWindow.webContents.setWindowOpenHandler(handleWindowOpen);
+
+  mainWindow.webContents.session.setPermissionRequestHandler(handlePermissionRequest);
 
   mainWindow.webContents.session.setDevicePermissionHandler(({ deviceType, origin }) => {
     return deviceType === 'hid' && ALLOWED_DEVICE_ORIGINS.includes(origin);
@@ -96,6 +96,8 @@ export function createWindow() {
       event.preventDefault();
     }
   });
+
+  window.webContents.on('will-redirect', preventDisallowedRedirect);
 
   if (!IS_MAC_OS) {
     setupWindowsTitleBar();
@@ -137,6 +139,25 @@ function loadWindowUrl(): void {
 }
 
 export function setupElectronActionHandlers() {
+  ipcMain.handle(ElectronAction.REQUEST_MICROPHONE_ACCESS, async (event) => {
+    validateIpcSender(event);
+
+    if (IS_MAC_OS) {
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      if (status === 'not-determined') {
+        return systemPreferences.askForMediaAccess('microphone');
+      }
+
+      return status === 'granted';
+    }
+
+    if (IS_WINDOWS) {
+      return systemPreferences.getMediaAccessStatus('microphone') === 'granted';
+    }
+
+    return true;
+  });
+
   ipcMain.handle(ElectronAction.HANDLE_DOUBLE_CLICK, (event) => {
     validateIpcSender(event);
 

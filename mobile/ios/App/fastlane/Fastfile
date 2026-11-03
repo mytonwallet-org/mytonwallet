@@ -1,5 +1,7 @@
 default_platform(:ios)
 
+require 'shellwords'
+
 $package_json_path = '../../../../package.json'
 $workspace_path = 'App.xcworkspace'
 $project_path = '../App.xcodeproj/project.pbxproj'
@@ -123,6 +125,8 @@ $handoff_path = env_value('IOS_TESTFLIGHT_HANDOFF', '../testflight-handoff.json'
 
 def write_distribution_handoff(version, build_number, changelog)
   File.write($handoff_path, JSON.pretty_generate(
+    'app_identifier' => $app_identifier,
+    'testflight_group' => $testflight_group,
     'version' => version,
     'build_number' => build_number.to_s,
     'changelog' => changelog
@@ -137,6 +141,10 @@ def read_distribution_handoff
   end
 
   handoff = JSON.parse(File.read($handoff_path))
+  unless handoff['app_identifier'] == $app_identifier
+    UI.user_error!("Distribution app #{$app_identifier} does not match the uploaded app #{handoff['app_identifier'].inspect}")
+  end
+  $testflight_group = handoff.fetch('testflight_group')
   version = handoff['version']
   build_number = handoff['build_number']
   UI.user_error!("Distribution handoff is missing a version or a build number: #{handoff.inspect}") if version.nil? || build_number.nil?
@@ -151,6 +159,16 @@ end
 # nothing.
 def builds_an_archive?(lane)
   lane.to_sym != :distribute
+end
+
+def archive_xcargs
+  args = ['-skipMacroValidation']
+  if env_value('IOS_BUILD_CHANNEL') == 'preview'
+    api_url = env_value('BRILLIANT_API_BASE_URL')
+    UI.user_error!('BRILLIANT_API_BASE_URL is required for Preview widgets') unless api_url
+    args << Shellwords.escape("WIDGET_API_BASE_URL=#{api_url}")
+  end
+  args.join(' ')
 end
 
 def update_version_and_build_number
@@ -299,6 +317,9 @@ platform :ios do
   desc "Push a new beta build to TestFlight"
 
   before_all do |lane|
+    if lane.to_sym == :release && $app_identifier == 'org.mytonwallet.app.preview'
+      UI.user_error!('Preview is distributed through TestFlight, not the App Store release lane')
+    end
     app_store_connect_api_key(
       key_id: $asc_key_id,
       issuer_id: $asc_issuer_id,
@@ -356,7 +377,7 @@ platform :ios do
           $app_identifier_notification => $profile_name_notification,
         }
       },
-      xcargs: "-skipMacroValidation",
+      xcargs: archive_xcargs,
     )
 
     # The provenance line is stamped here rather than in the distributing lane so it keeps naming
@@ -442,7 +463,7 @@ platform :ios do
           $app_identifier_notification => $profile_name_notification,
         }
       },
-      xcargs: "-skipMacroValidation",
+      xcargs: archive_xcargs,
     )
 
     upload_options = {

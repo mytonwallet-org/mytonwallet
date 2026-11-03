@@ -73,7 +73,7 @@ object TonConnectHelper {
                 const timeoutMs = undefined;
                 const timeoutId = timeoutMs ? setTimeout(() => reject(new Error('bridge timeout for function with name: ' + name)), timeoutMs) : null;
                 window._mtwAir_promises[invocationId] = { resolve: resolve, reject: reject, timeoutId: timeoutId };
-                $TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE.invokeFunc(JSON.stringify({
+                $TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE.postMessage(JSON.stringify({
                     type: '${WebViewBridgeMessageType.INVOKE_FUNC.key}',
                     invocationId: invocationId,
                     name: name,
@@ -89,7 +89,8 @@ object TonConnectHelper {
             window.addEventListener('click', function(e) {
                 const href = e.target.closest('a')?.href;
                 const target = e.target.closest('a')?.target;
-                if (href && (target === '_blank' || !href.startsWith('http'))) {
+                const isScriptUrl = /^javascript:/i.test(href || '');
+                if (href && !isScriptUrl && (target === '_blank' || !href.startsWith('http'))) {
                     e.preventDefault();
                     window._mtwAir_invokeFunc('window:open', { url: href });
                 }

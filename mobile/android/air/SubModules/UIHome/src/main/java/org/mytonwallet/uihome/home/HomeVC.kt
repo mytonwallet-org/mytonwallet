@@ -67,6 +67,7 @@ import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -81,7 +82,9 @@ import org.mytonwallet.uihome.home.views.ActivityListView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView
 import org.mytonwallet.uihome.home.views.header.StickyHeaderView.Mode
+import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
+import org.mytonwallet.uihome.tabs.views.HomeSearchField
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 
 class HomeVC(context: Context, private val mode: MScreenMode) :
@@ -94,6 +97,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     ISortableView {
     companion object {
         private const val TOP_TABS_CARD_OFFSET = 7
+        private const val WIDE_HOME_TOP_GAP_REDUCTION = 10
 
         private val TOP_TABS_BLUR_OFFSET =
             PhoneTabsVC.TOP_TABS_TOP_MARGIN + PhoneTabsVC.TOP_TABS_BOTTOM_EDGE + 4
@@ -445,7 +449,17 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
     }
 
-    private val stickyHeaderView = StickyHeaderView(context, mode) { onClick(it) }
+    private val stickyHeaderView = StickyHeaderView(context, mode) { onClick(it) }.apply {
+        onWideAccessoryWidthsChanged = {
+            navigationController?.tabBarController?.rootTopAccessoryWidthsChanged()
+        }
+    }
+
+    override val rootTopLeadingWidth: Int
+        get() = if (isWideHome) stickyHeaderView.wideLeadingWidth else 0
+
+    override val rootTopTrailingWidth: Int
+        get() = if (isWideHome) stickyHeaderView.wideTrailingWidth else 0
     private val stickyHeaderViewMode: Mode
         get() {
             return when {
@@ -459,10 +473,17 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     private var isActionGradientExpanded = false
 
     private fun stickyHeaderTop(): Int {
-        if (!hasTopTabs ||
-            !isHeaderActionModeActive ||
-            isWideHome
-        ) {
+        if (isWideHome) {
+            // Centers the buttons on the search field.
+            val searchCenterOffset = if (isRootTopGradientEnabled) {
+                (TabletTabsVC.SEARCH_TOP_MARGIN + HomeSearchField.HEIGHT / 2).dp -
+                    HomeHeaderView.navDefaultHeight / 2
+            } else {
+                0
+            }
+            return (window?.systemBars?.top ?: 0) + searchCenterOffset
+        }
+        if (!hasTopTabs || !isHeaderActionModeActive) {
             return navigationController?.getSystemBars()?.top ?: 0
         }
         val tabsCenteringOffset = PhoneTabsVC.TOP_TABS_TOP_MARGIN.dp +
@@ -472,7 +493,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     private fun enterHeaderActionMode() {
-        if (!hasTopTabs || isWideHome) return
+        if (!hasTopTabs) return
         // The exit fade keeps the flag set until it completes; re-entering during that window must
         // still restore the expanded gradient and hide the tabs.
         if (isHeaderActionModeActive && isActionGradientExpanded) return
@@ -480,6 +501,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         isActionGradientExpanded = true
         updateStickyHeaderTop()
         updateTopReversedCornerViewHeight(animated = true)
+        animateWideActionBarSpace(1f)
         navigationController?.tabBarController?.hideTabBar()
     }
 
@@ -487,7 +509,34 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (!isHeaderActionModeActive) return
         isActionGradientExpanded = false
         updateTopReversedCornerViewHeight(animated = true)
+        animateWideActionBarSpace(0f)
         navigationController?.tabBarController?.showTabBar()
+    }
+
+    private var wideActionBarSpace = 0f
+    private var wideActionBarSpaceAnimator: ValueAnimator? = null
+
+    private fun animateWideActionBarSpace(target: Float) {
+        wideActionBarSpaceAnimator?.cancel()
+        wideActionBarSpaceAnimator = null
+        if (!isWideHome || wideActionBarSpace == target) {
+            wideActionBarSpace = target
+            return
+        }
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            wideActionBarSpace = target
+            allActivityListViews.forEach { it.updateHeaderHeights() }
+            return
+        }
+        wideActionBarSpaceAnimator = ValueAnimator.ofFloat(wideActionBarSpace, target).apply {
+            duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
+            addUpdateListener { animator ->
+                wideActionBarSpace = animator.animatedValue as Float
+                allActivityListViews.forEach { it.updateHeaderHeights() }
+            }
+            start()
+        }
     }
 
     private fun finishHeaderActionMode() {
@@ -804,7 +853,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         get() = topBlurReversedCornerView
 
     private val usesTopGradient: Boolean
-        get() = (isRootTopGradientEnabled || (!hasTopTabs && !isWideHome)) &&
+        get() = (
+            isRootTopGradientEnabled || (!hasTopTabs && !isWideHome) || (hasTopTabs && isWideHome)
+            ) &&
             WGlobalStorage.isGradientNavigationBarActive()
 
     override fun onRootTopGradientModeChanged(enabled: Boolean) = syncTopOverlayMode()
@@ -884,6 +935,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        if (isWideHome) updateTopBlurHorizontalPadding()
         phoneHeaderView.viewWillAppear()
         syncTopOverlayMode()
         if (restoreScrollOnAppear) {
@@ -900,6 +952,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        (navigationController?.tabBarController as? TabletTabsVC)?.setContentBottomBarPadding(null)
         restoreScrollOnAppear = !isWideHome &&
             currentActivityListView.recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
         phoneHeaderView.viewWillDisappear()
@@ -927,6 +980,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun onDestroy() {
         super.onDestroy()
         topOverlayHeightAnimator?.cancel()
+        wideActionBarSpaceAnimator?.cancel()
         initialContentRenderCallback = null
         homeVM.destroy()
         infoBannersByAccount.clear()
@@ -1066,7 +1120,18 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             endSorting()
         }
         this.swipeFadeInPercent = actionsFadeInPercent
-        swipeItemsOffset = verticalOffset
+        swipeItemsOffset = if (isWideHome) {
+            (
+                verticalOffset * (TabletHeaderActionsView.HEIGHT - ViewConstants.GAP) /
+                    HomeHeaderView.ACTIONS_SWIPE_OFFSET
+                ).roundToInt()
+        } else {
+            verticalOffset
+        }
+        if (isWideHome) {
+            val tabletActionsAlpha = if (progress == 0f) 1f else actionsFadeInPercent
+            allActivityListViews.forEach { it.tabletActionsAlpha = tabletActionsAlpha }
+        }
         allActivityListViews.forEach { it.updateHeaderHeights(isHorizontalSwipe = progress != 0f) }
         if (progress > 0.02) {
             nextActivityListView.isInvisible = false
@@ -1184,8 +1249,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private fun topOverlayHeight(): Int = (navigationController?.getSystemBars()?.top ?: 0) +
         when {
-            isWideHome || isActionGradientExpanded ->
+            isActionGradientExpanded || (isWideHome && !hasTopTabs) ->
                 HomeHeaderView.navDefaultHeight + ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+
+            isWideHome -> ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
 
             usesTopGradient ->
                 if (hasTopTabs) {
@@ -1386,27 +1453,34 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     private fun updateTopBlurHorizontalPadding() {
-        val blurBottom = topBlurReversedCornerView.height
+        val (start, end) = blurHorizontalPadding(0, topBlurReversedCornerView.height)
+        topBlurReversedCornerView.setHorizontalPadding(start, end)
+        val tabs = navigationController?.tabBarController as? TabletTabsVC ?: return
+        val bottomBarHeight = (window?.systemBars?.bottom ?: 0) +
+            ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+        tabs.setContentBottomBarPadding(
+            blurHorizontalPadding(view.height - bottomBarHeight, view.height)
+        )
+    }
 
-        fun isUnderBlur(cell: View?): Boolean =
-            cell != null && cell.parent != null && cell.top < blurBottom && cell.bottom > 0
+    // Assets reach the trailing edge; a scrolled row also the leading one.
+    private fun blurHorizontalPadding(bandTop: Int, bandBottom: Int): Pair<Float, Float> {
+        fun isUnder(cell: View?): Boolean =
+            cell?.parent != null && cell.top < bandBottom && cell.bottom > bandTop
 
-        val innerScrollOffset = if (isUnderBlur(_actionsView?.asCell)) {
+        val isAssetsUnder = isUnder(currentActivityListView.assetsCell?.asCell)
+        val innerScrollOffset = if (isUnder(_actionsView?.asCell)) {
             _actionsView?.horizontalScrollOffset ?: 0
-        } else if (isUnderBlur(currentActivityListView.assetsCell?.asCell)) {
+        } else if (isAssetsUnder) {
             currentActivityListView.assetsCell?.horizontalScrollOffset ?: 0
         } else {
             0
         }
-        if (innerScrollOffset != 0) {
-            topBlurReversedCornerView.setHorizontalPadding(
-                -ViewConstants.TABLET_CONTENT_START_PADDING.dp,
-                0f
-            )
-        } else {
-            topBlurReversedCornerView.setHorizontalPadding(
-                ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
-            )
+        val padding = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+        return when {
+            innerScrollOffset != 0 -> -ViewConstants.TABLET_CONTENT_START_PADDING.dp to 0f
+            isAssetsUnder -> padding to 0f
+            else -> padding to padding
         }
     }
 
@@ -1765,7 +1839,19 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     // Return header height to activity list viewer
     override fun activityListViewHeaderHeight(): Int {
         if (isWideHome) {
-            return (window?.systemBars?.top ?: 0) + HomeHeaderView.navDefaultHeight
+            val topBarHeight = if (hasTopTabs) {
+                lerp(
+                    -WIDE_HOME_TOP_GAP_REDUCTION.dp.toFloat(),
+                    HomeHeaderView.navDefaultHeight.toFloat(),
+                    wideActionBarSpace
+                ).roundToInt()
+            } else {
+                HomeHeaderView.navDefaultHeight
+            }
+            return (
+                (window?.systemBars?.top ?: 0) + topBarHeight +
+                    if (activityListReserveActionsCell()) 0 else ViewConstants.GAP.dp
+                ).coerceAtLeast(0)
         }
         return phoneHeaderView.collapsedMinHeight +
             if (rvMode == HomeHeaderView.Mode.Expanded) {

@@ -17,11 +17,22 @@ func isSwapEstimateRateLimited(_ error: Error) -> Bool {
     return message.contains("too many requests") || (message.contains("request") && message.contains("limit"))
 }
 
+/// The backend's `error` answer to the estimate. A thrown bridge or transport failure carries no answer.
+func swapEstimateRefusal(from error: Error) -> String? {
+    if let response = error as? ApiSwapEstimateErrorResponse {
+        return response.error
+    }
+    if case .some(.apiReturnedError(let message, _, _)) = error as? SdkError {
+        return message
+    }
+    return nil
+}
+
 func swapEstimateIssue(from error: Error) -> SwapIssue {
-    guard let message = swapEstimateBackendMessage(from: error) else {
+    guard let refusal = swapEstimateRefusal(from: error) else {
         return .unexpectedEstimateError
     }
-    switch message.trimmingCharacters(in: .whitespacesAndNewlines) {
+    switch refusal.trimmingCharacters(in: .whitespacesAndNewlines) {
     case "Insufficient liquidity":
         return .insufficientLiquidity
     case "Tokens must be different", "Asset not found", "Pair not found":
@@ -33,6 +44,6 @@ func swapEstimateIssue(from error: Error) -> SwapIssue {
     case "Swap routers are unavailable":
         return .serviceUnavailable
     default:
-        return .unexpectedEstimateError
+        return .quoteUnavailable
     }
 }

@@ -58,6 +58,8 @@ public extension ApiActivity {
         case .dnsRenew: ["Renewed Domain", "Renewing Domain", "$renew_domain_action"]
         case .liquidityDeposit: ["Provided Liquidity", "Providing Liquidity", "$provide_liquidity_action"]
         case .liquidityWithdraw: ["Withdrawn Liquidity", "Withdrawing Liquidity", "$withdraw_liquidity_action"]
+        case .perpsDeposit: ["Perps Deposit", "Perps Deposit", "$perps_deposit_action"]
+        case .perpsWithdraw: ["Perps Withdrawal", "Perps Withdrawal", "$perps_withdraw_action"]
         
         case .nftTrade: ["NFT Bought", "Buying NFT", "Buy NFT"]
         case .nftPurchase: ["NFT Bought", "Buying NFT", "Buy NFT"]
@@ -214,9 +216,9 @@ public extension ApiActivity {
             "ActionNftBought"
         case .dnsChangeAddress, .dnsChangeSite, .dnsChangeSubdomains, .dnsChangeStorage, .dnsDelete, .dnsRenew:
             "ActionSiteTon"
-        case .liquidityDeposit:
+        case .liquidityDeposit, .perpsDeposit:
             "ActionProvidedLiquidity"
-        case .liquidityWithdraw:
+        case .liquidityWithdraw, .perpsWithdraw:
             "ActionWithdrawnLiquidity"
         case .swap:
             "ActionSwap"
@@ -264,9 +266,9 @@ public extension ApiActivity {
             blue
         case .dnsChangeAddress, .dnsChangeSite, .dnsChangeSubdomains, .dnsChangeStorage, .dnsDelete, .dnsRenew:
             gray
-        case .liquidityDeposit:
+        case .liquidityDeposit, .perpsDeposit:
             blue
-        case .liquidityWithdraw:
+        case .liquidityWithdraw, .perpsWithdraw:
             green
         case .swap:
             switch swap?.displayStatus() {

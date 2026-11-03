@@ -1,5 +1,6 @@
 import type { Methods } from './types';
 
+import { IS_PERPS_ENABLED } from '../../config';
 import * as agentV2Methods from './agentV2';
 import * as extraMethods from './extra';
 import * as commonMethods from '.';
@@ -18,4 +19,11 @@ export const methods = { ...commonMethods } as Methods;
 // statically false there. If the branch survived, the stubs would reach the bundle and the build would fail.
 if (process.env.NO_EXTRA_FEATURES !== '1') {
   Object.assign(methods, extraMethods, agentV2Methods);
+
+  // Hidden Perps UI is not enough: a client calling by name would still reach backend-built signing
+  if (!IS_PERPS_ENABLED) {
+    for (const name of Object.keys(methods)) {
+      if (/^(init)?perps/i.test(name)) delete (methods as AnyLiteral)[name];
+    }
+  }
 }

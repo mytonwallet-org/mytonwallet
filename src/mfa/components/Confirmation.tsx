@@ -223,7 +223,7 @@ function Confirmation({
 
     try {
       const txHash = await sendActions(transaction!.payload, transaction!.signature, extensionAddress);
-      await confirmTransaction(requestId, txHash);
+      await confirmTransaction(requestId, txHash, getTelegramApp()!.initData);
 
       onConfirm();
     } catch (err: any) {

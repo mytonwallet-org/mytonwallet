@@ -41,13 +41,14 @@ import org.mytonwallet.app_air.uicomponents.extensions.asImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.image.Content
+import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
-import org.mytonwallet.app_air.uicomponents.widgets.chart.WChartTimeLineView
 import org.mytonwallet.app_air.uicomponents.widgets.chart.WLineChartView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
@@ -79,7 +80,9 @@ class TokenChartCell(
     var activePeriod: MHistoryTimePeriod,
     var onSelectedPeriodChanged: ((MHistoryTimePeriod) -> Unit)?,
     private var onAnalyze: (() -> Unit)?,
-    private var onHeightChange: ((isExpanding: Boolean, height: Int) -> Unit)?
+    private var onHeightChange: ((isExpanding: Boolean, height: Int) -> Unit)?,
+    // Stable resource id for UI automation, set before containerView is anchored to the cell's id
+    viewId: Int? = null
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
@@ -88,6 +91,8 @@ class TokenChartCell(
         private const val ANALYZE_BUTTON_HEIGHT_DP = 35
         private const val ANALYZE_BUTTON_BOTTOM_MARGIN_DP = 19f
         private const val ANALYZE_BUTTON_VERTICAL_SPACING_DP = 27
+        private const val ICON_SIZE_DP = 40
+        private const val ICON_LABELS_SHIFT_DP = 44
     }
 
     private var percentChange: Double? = null
@@ -128,6 +133,29 @@ class TokenChartCell(
                 }
             }
         }
+
+    private val iconView = WCustomImageView(context).apply {
+        id = generateViewId()
+        alpha = 0f
+        visibility = INVISIBLE
+    }
+    private var iconTokenSlug: String? = null
+
+    var iconProgress = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            applyIconProgress()
+        }
+
+    private fun applyIconProgress() {
+        iconView.alpha = iconProgress
+        iconView.visibility = if (iconProgress > 0f) VISIBLE else INVISIBLE
+        val shift = ICON_LABELS_SHIFT_DP.dp * iconProgress * if (LocaleController.isRTL) -1 else 1
+        titleLabel.translationX = shift
+        priceLabel.translationX = shift
+        priceChangeLabel.translationX = shift
+    }
 
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
@@ -175,17 +203,6 @@ class TokenChartCell(
         id = generateViewId()
     }
 
-    private val chartTimeLineView = WChartTimeLineView(context, startPercentageChanged = {
-        startPercentage = it
-        setupLineChart()
-    }, endPercentageChanged = {
-        endPercentage = it
-        setupLineChart()
-    }).apply {
-        alpha = 0f
-        visibility = INVISIBLE
-    }
-
     private val noDataLabelWidth: Int
     private val noDataLabelHeight: Int
     private var noDataMaxX = Float.MAX_VALUE
@@ -212,8 +229,6 @@ class TokenChartCell(
         }
         setOnSelectedOptionChangeCallback {
             activePeriod = MHistoryTimePeriod.allPeriods[it]
-            startPercentage = 0f
-            endPercentage = 1f
             if (!areChartsFadeOut) {
                 isChangingPeriod = true
                 token?.let { configure(it, null, activePeriod) }
@@ -260,6 +275,7 @@ class TokenChartCell(
     private val progressTaskManager = TaskManager()
 
     private val containerView = WView(context).apply {
+        addView(iconView, LayoutParams(ICON_SIZE_DP.dp, ICON_SIZE_DP.dp))
         addView(titleLabel)
         addView(priceLabel)
         addView(priceChangeLabel)
@@ -270,7 +286,6 @@ class TokenChartCell(
         addView(expandedChartImageView, LayoutParams(0, 0))
         addView(progressView)
         addView(noDataLabel)
-        addView(chartTimeLineView, LayoutParams(MATCH_CONSTRAINT, 36.dp))
         addView(segmentedControlGroupContainer, LayoutParams(0, 46.dp))
         addView(
             agentHintView,
@@ -279,6 +294,8 @@ class TokenChartCell(
             }
         )
         setConstraints {
+            toTop(iconView, 12f)
+            toStart(iconView, 12f)
             toTop(titleLabel, 10f)
             toStart(titleLabel, 20f)
             toTop(priceLabel, 30f)
@@ -291,8 +308,6 @@ class TokenChartCell(
             toEnd(collapsedChartView, 60f)
             toTop(expandedChartView, 52f) // overlaps header by 12dp
             toCenterX(expandedChartView)
-            toCenterX(chartTimeLineView)
-            bottomToTop(chartTimeLineView, segmentedControlGroupContainer, 8f)
             toCenterX(segmentedControlGroupContainer, 12f)
             toCenterX(agentHintView, 20f)
             if (hasAnalyzeButton) {
@@ -342,11 +357,10 @@ class TokenChartCell(
     private var token: MToken? = null
     private var historyData: Array<Array<Double>>? = null
     private var highlightedHistoryData: Array<Array<Double>>? = null
-    private var startPercentage = 0f
-    private var endPercentage = 1f
     private var highlight: Highlight? = null
 
     init {
+        viewId?.let { id = it }
         addView(containerView, LayoutParams(MATCH_PARENT, 64.dp))
 
         setConstraints {
@@ -392,8 +406,6 @@ class TokenChartCell(
             expandedChartView.visibility = VISIBLE
             segmentedControlGroupContainer.alpha = 1f
             segmentedControlGroupContainer.visibility = VISIBLE
-            chartTimeLineView.alpha = 1f
-            chartTimeLineView.isVisible = historyData?.isNotEmpty() == true
             containerView.doOnPreDraw {
                 if (isExpanded && !isAnimating) settleAnalyzeButtonLayout()
             }
@@ -407,6 +419,22 @@ class TokenChartCell(
             val chartHeight = (width - 20.dp) * 79 / 392 + 28.dp
             if (expandedChartView.layoutParams.height != chartHeight) {
                 expandedChartView.updateLayoutParams { height = chartHeight }
+                if (isExpanded && !isAnimating) {
+                    renderProgressView(
+                        expandedChartView.x,
+                        expandedChartView.y,
+                        expandedChartView.width - 20.dp,
+                        chartHeight - 16.dp,
+                        1f
+                    )
+                    renderNoDataLabel(
+                        expandedChartView.x,
+                        expandedChartView.y,
+                        expandedChartView.width - 20.dp,
+                        chartHeight - 16.dp,
+                        1f
+                    )
+                }
             }
             if (isExpanded && !isAnimating) settleAnalyzeButtonLayout()
         }
@@ -426,7 +454,6 @@ class TokenChartCell(
         priceLabel.setTextColor(WColor.PrimaryText.color)
         roundDrawable.color = WColor.Tint.color
         updatePriceChangeLabelColor()
-        chartTimeLineView.updateTheme()
         segmentedControlGroup.updateTheme()
         agentHintView.updateTheme()
     }
@@ -494,7 +521,6 @@ class TokenChartCell(
         )
 
         segmentedControlGroupContainer.alpha = max(0f, fraction - 0.7f) * 5
-        chartTimeLineView.alpha = max(0f, fraction - 0.6f) * 5 / 2
         val renderedChartAlpha = max(collapsedChartImageView.alpha, expandedChartImageView.alpha)
         val analyzeButtonGapProgress = currentAnalyzeButtonGapProgress()
         updateAnalyzeButtonAlpha(renderedChartAlpha, allowVisible = true)
@@ -518,7 +544,7 @@ class TokenChartCell(
             (expandProgress * 10.dp)
         progressView.y =
             chartY + (chartHeight - progressViewWidth) / 2 +
-            (35.dp * expandProgress)
+            (13.dp * expandProgress)
     }
 
     private fun renderNoDataLabel(
@@ -536,7 +562,7 @@ class TokenChartCell(
                 expandProgress
             )
         noDataLabel.y =
-            chartY + (chartHeight - noDataLabelHeight) / 2 + (35.dp * expandProgress)
+            chartY + (chartHeight - noDataLabelHeight) / 2 + (13.dp * expandProgress)
     }
 
     private fun startSpringAnimation(startValue: Float, endValue: Float) {
@@ -582,6 +608,10 @@ class TokenChartCell(
         activePeriod: MHistoryTimePeriod
     ) {
         this.token = token
+        if (iconTokenSlug != token.slug) {
+            iconTokenSlug = token.slug
+            iconView.set(Content.of(token = token, showChain = true))
+        }
         this.historyData = historyData
         this.activePeriod = activePeriod
         if (!isAnimating && (!isChangingPeriod || historyData == null)) {
@@ -602,7 +632,6 @@ class TokenChartCell(
             onUpdate(targetHeight.toFloat())
             onEnd()
             segmentedControlGroupContainer.translationY = 0f
-            chartTimeLineView.translationY = 0f
             return
         }
 
@@ -615,7 +644,6 @@ class TokenChartCell(
                 currentControlsTranslation
             }
         segmentedControlGroupContainer.translationY = initialControlsTranslation
-        chartTimeLineView.translationY = initialControlsTranslation
         val animation = SpringAnimation(FloatValueHolder()).apply {
             setStartValue(startHeight.toFloat())
             spring = SpringForce(targetHeight.toFloat()).apply {
@@ -629,7 +657,6 @@ class TokenChartCell(
             containerView.updateLayoutParams { this.height = height }
             val controlsTranslation = initialControlsTranslation + startHeight - height
             segmentedControlGroupContainer.translationY = controlsTranslation
-            chartTimeLineView.translationY = controlsTranslation
             onUpdate(height.toFloat())
             onHeightChange?.invoke(isExpanding, height)
         }
@@ -641,12 +668,10 @@ class TokenChartCell(
                 val finalControlsTranslation =
                     initialControlsTranslation + startHeight - targetHeight
                 segmentedControlGroupContainer.translationY = finalControlsTranslation
-                chartTimeLineView.translationY = finalControlsTranslation
                 onHeightChange?.invoke(isExpanding, targetHeight)
                 onUpdate(targetHeight.toFloat())
                 onEnd()
                 segmentedControlGroupContainer.translationY = 0f
-                chartTimeLineView.translationY = 0f
             }
         }
         WGlobalStorage.incDoNotSynchronize()
@@ -664,7 +689,6 @@ class TokenChartCell(
     private fun settleAnalyzeButtonLayout() {
         cancelAnalyzeButtonAnimation()
         segmentedControlGroupContainer.translationY = 0f
-        chartTimeLineView.translationY = 0f
 
         if (isExpanded && !isAnimating) {
             val oldHeight = containerView.height
@@ -705,7 +729,6 @@ class TokenChartCell(
         if (WGlobalStorage.getAreAnimationsActive()) {
             val controlsTranslation = (newHeight - containerView.height).toFloat()
             segmentedControlGroupContainer.translationY = controlsTranslation
-            chartTimeLineView.translationY = controlsTranslation
             startAnalyzeButtonHeightSpring(
                 newHeight,
                 onUpdate = { updateAnalyzeButtonAlpha() },
@@ -776,7 +799,7 @@ class TokenChartCell(
         chartFadeAnimator = null
     }
 
-    private fun baseExpandedHeight() = 182.dp + ((width - 20.dp) * 79 / 392)
+    private fun baseExpandedHeight() = 138.dp + ((width - 20.dp) * 79 / 392)
 
     private fun analyzeButtonAreaHeight() =
         maxOf(agentHintView.measuredHeight, ANALYZE_BUTTON_HEIGHT_DP.dp) +
@@ -876,8 +899,8 @@ class TokenChartCell(
     private fun resolvePercentChange(price: Double?, firstPrice: Double?): Double? =
         resolveTokenChartPercentChange(
             activePeriod,
-            startPercentage,
-            endPercentage,
+            0f,
+            1f,
             token?.percentChange24h,
             price,
             firstPrice
@@ -887,7 +910,7 @@ class TokenChartCell(
         val entries = mutableListOf<Entry>()
 
         highlightedHistoryData =
-            DatasetHelpers.getHistoryDataInRange(this.historyData, startPercentage, endPercentage)
+            DatasetHelpers.getHistoryDataInRange(this.historyData, 0f, 1f)
         highlightedHistoryData?.forEach { pair ->
             val timestamp = pair[0].toFloat()
             val value = pair[1].toFloat()
@@ -896,7 +919,7 @@ class TokenChartCell(
         setupTexts()
 
         if (dataTransitionAnimator != null) {
-            if (historyData === displayedHistoryData && isFullRange()) return
+            if (historyData === displayedHistoryData) return
             endDataTransition()
         }
 
@@ -933,7 +956,6 @@ class TokenChartCell(
                     expandedChartView.xAxis.labelCount = 5
                 }
             }
-            chartTimeLineView.configure(this.historyData)
             displayedHistoryData = this.historyData
             displayedPeriod = activePeriod
         }
@@ -947,18 +969,12 @@ class TokenChartCell(
                 } else if (expandedChartView.isVisible) {
                     animation1 = alphaObjectAnimator(expandedChartView, 0f)
                 }
-                val animation2 =
-                    if (chartTimeLineView.isVisible) {
-                        alphaObjectAnimator(chartTimeLineView, 0f)
-                    } else {
-                        null
-                    }
                 val animation3 =
                     if (noDataLabel.isVisible) alphaObjectAnimator(noDataLabel, 0f) else null
                 animation1?.addUpdateListener { updateAnalyzeButtonAlpha() }
                 updateAnalyzeButtonAlpha()
                 startChartFadeAnimation(
-                    arrayOf(animation1, animation2, animation3).filterNotNull()
+                    arrayOf(animation1, animation3).filterNotNull()
                 ) {
                     if (hasAnalyzeButton && agentHintView.alpha == 0f) {
                         agentHintView.visibility = INVISIBLE
@@ -968,8 +984,6 @@ class TokenChartCell(
                         progressTaskManager.startTaskIfEmpty({
                             progressView.visibility = VISIBLE
                             progressView.fadeIn()
-                            chartTimeLineView.periodChanged()
-                            if (areChartsFadeOut) chartTimeLineView.visibility = INVISIBLE
                         }, 1000)
                         setDataSet()
                     }
@@ -989,11 +1003,9 @@ class TokenChartCell(
                 areChartsFadeOut = false
                 cancelChartFadeAnimation()
                 var animation1: ObjectAnimator? = null
-                var animation2: ObjectAnimator? = null
                 var animation3: ObjectAnimator? = null
                 if (collapsedChartView.isVisible) {
                     collapsedChartView.alpha = 0f
-                    chartTimeLineView.isVisible = historyData?.isNotEmpty() == true
                     animation1 = alphaObjectAnimator(collapsedChartView, 1f)
                 } else {
                     collapsedChartView.alpha = 1f
@@ -1001,10 +1013,6 @@ class TokenChartCell(
                 if (expandedChartView.isVisible) {
                     expandedChartView.alpha = 0f
                     animation1 = alphaObjectAnimator(expandedChartView, 1f)
-                    chartTimeLineView.isVisible = historyData?.isNotEmpty() == true
-                    if (chartTimeLineView.isVisible) {
-                        animation2 = alphaObjectAnimator(chartTimeLineView, 1f)
-                    }
                 } else {
                     expandedChartView.alpha = 1f
                 }
@@ -1013,7 +1021,7 @@ class TokenChartCell(
                 animation1?.addUpdateListener { updateAnalyzeButtonAlpha() }
                 updateAnalyzeButtonAlpha()
                 startChartFadeAnimation(
-                    arrayOf(animation1, animation2, animation3).filterNotNull()
+                    arrayOf(animation1, animation3).filterNotNull()
                 )
             }
         }
@@ -1047,8 +1055,6 @@ class TokenChartCell(
         expandedChartView.invalidate()
     }
 
-    private fun isFullRange() = startPercentage == 0f && endPercentage == 1f
-
     private fun dataTransition(): TokenChartTransition? {
         val from = displayedHistoryData ?: return null
         val to = historyData ?: return null
@@ -1059,7 +1065,6 @@ class TokenChartCell(
             isAnimating ||
             highlight != null ||
             displayedPeriod != activePeriod ||
-            !isFullRange() ||
             !WGlobalStorage.getAreAnimationsActive()
         ) {
             return null
@@ -1091,7 +1096,6 @@ class TokenChartCell(
             dataTransitionAnimator = null
             resetChartWindows()
             setChartsData(finalData)
-            chartTimeLineView.configure(displayedHistoryData)
         }
         WGlobalStorage.incDoNotSynchronize()
         animator.start()
@@ -1105,13 +1109,6 @@ class TokenChartCell(
         val window = transition.window(fraction)
         val entries = transition.entries(fraction)
         val lineData = createLineData(entries, fill)
-        chartTimeLineView.renderTransitionFrame(
-            entries,
-            window.minX.toFloat(),
-            window.maxX.toFloat(),
-            window.minY.toFloat(),
-            window.maxY.toFloat()
-        )
         for (chart in arrayOf(collapsedChartView, expandedChartView)) {
             chart.xAxis.axisMinimum = window.minX.toFloat()
             chart.xAxis.axisMaximum = window.maxX.toFloat()
@@ -1136,7 +1133,6 @@ class TokenChartCell(
             chart.axisLeft.resetAxisMinimum()
             chart.axisLeft.resetAxisMaximum()
         }
-        chartTimeLineView.resetTransitionWindow()
     }
 
     fun onDestroy() {

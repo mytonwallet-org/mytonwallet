@@ -58,8 +58,12 @@ public final class LedgerConnectionManager: WalletCoreData.EventsObserver, Swift
     }
     
     public func connectToTonApp(peripheralID id: PeripheralIdentifier) async throws -> LedgerAppInfo {
+        ledgerInfo = nil
         try await bleTransport.openAppIfNeeded("TON")
         let appInfo = try await bleTransport.getAppAndVersion()
+        guard appInfo.name == "TON" else {
+            throw LedgerError.tonAppNotOpen
+        }
         let ledgerInfo = LedgerAppInfo(version: appInfo.version)
         self.ledgerInfo = ledgerInfo
         return ledgerInfo

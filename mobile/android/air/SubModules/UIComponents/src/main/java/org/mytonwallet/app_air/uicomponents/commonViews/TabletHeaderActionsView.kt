@@ -494,7 +494,7 @@ class TabletHeaderActionsView(
                 add(
                     Item(
                         HeaderActionsView.Identifier.BUY,
-                        context.requireDrawableCompat(R.drawable.ic_header_buy_outline),
+                        context.requireDrawableCompat(R.drawable.ic_header_action_buy),
                         LocaleController.getString("Buy")
                     )
                 )
@@ -508,7 +508,7 @@ class TabletHeaderActionsView(
                 add(
                     Item(
                         HeaderActionsView.Identifier.SWAP,
-                        context.requireDrawableCompat(R.drawable.ic_header_swap_outline),
+                        context.requireDrawableCompat(R.drawable.ic_header_action_trade),
                         LocaleController.getString("Trade")
                     )
                 )
@@ -516,7 +516,7 @@ class TabletHeaderActionsView(
                     add(
                         Item(
                             HeaderActionsView.Identifier.EARN,
-                            context.requireDrawableCompat(R.drawable.ic_header_earn_outline),
+                            context.requireDrawableCompat(R.drawable.ic_header_action_earn),
                             LocaleController.getString("Earn")
                         )
                     )
@@ -531,14 +531,14 @@ class TabletHeaderActionsView(
                 add(
                     Item(
                         HeaderActionsView.Identifier.SEND,
-                        context.requireDrawableCompat(R.drawable.ic_header_send_outline),
+                        context.requireDrawableCompat(R.drawable.ic_header_action_send),
                         LocaleController.getString("Send")
                     )
                 )
                 add(
                     Item(
                         HeaderActionsView.Identifier.SCAN_QR,
-                        context.requireDrawableCompat(R.drawable.ic_qr_code_scan_18_24),
+                        context.requireDrawableCompat(R.drawable.ic_header_action_scan),
                         LocaleController.getString("Scan QR")
                     )
                 )

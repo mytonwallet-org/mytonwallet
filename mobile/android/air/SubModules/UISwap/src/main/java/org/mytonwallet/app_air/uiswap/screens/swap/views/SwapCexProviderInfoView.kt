@@ -103,14 +103,14 @@ class SwapCexProviderInfoView @JvmOverloads constructor(
                     "%terms%",
                     SpanHelpers.buildSpannable(
                         LocaleController.getString("\$swap_cex_terms_of_use"),
-                        InAppBrowserUrlSpan(termsOfUseUrl, null)
+                        InAppBrowserUrlSpan(termsOfUseUrl)
                     )
                 ),
                 Pair(
                     "%policy%",
                     SpanHelpers.buildSpannable(
                         LocaleController.getString("\$swap_cex_privacy_policy"),
-                        InAppBrowserUrlSpan(privacyPolicyUrl, null)
+                        InAppBrowserUrlSpan(privacyPolicyUrl)
                     )
                 )
             )
@@ -121,7 +121,7 @@ class SwapCexProviderInfoView @JvmOverloads constructor(
                         SpanHelpers.buildSpannable(
                             providerName + " " +
                                 LocaleController.getString($$"$swap_cex_aml_kyc_policy"),
-                            InAppBrowserUrlSpan(amlKycPolicyUrl, null)
+                            InAppBrowserUrlSpan(amlKycPolicyUrl)
                         )
                     )
                 )

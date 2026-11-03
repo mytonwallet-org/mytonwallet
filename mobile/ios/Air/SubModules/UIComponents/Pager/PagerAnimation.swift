@@ -18,10 +18,7 @@ final class PagerAnimation {
         self.update = update
         self.completion = completion
         startTime = CACurrentMediaTime()
-        let target = DisplayLinkTarget { [weak self] in self?.tick() }
-        let link = CADisplayLink(target: target, selector: #selector(DisplayLinkTarget.tick))
-        displayLink = link
-        link.add(to: .main, forMode: .common)
+        displayLink = .makeWeak(owner: self) { animation, _ in animation.tick() }
         update(0)
     }
 
@@ -44,10 +41,4 @@ final class PagerAnimation {
     }
 
     deinit { displayLink?.invalidate() }
-
-    @MainActor private final class DisplayLinkTarget: NSObject {
-        let update: () -> Void
-        init(update: @escaping () -> Void) { self.update = update }
-        @objc func tick() { update() }
-    }
 }

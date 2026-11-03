@@ -6,17 +6,21 @@ import android.view.ViewGroup
 import androidx.core.net.toUri
 import androidx.core.view.doOnPreDraw
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListVC
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchOutcome
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
+import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
@@ -35,7 +39,9 @@ import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.HomeVC
@@ -95,7 +101,7 @@ abstract class BaseTabsVC(context: Context) :
 
                 AppTabsManager.ID_MARKET -> MarketVC(context)
 
-                AppTabsManager.ID_AGENT -> AgentVC(context)
+                AppTabsManager.ID_AGENT -> AgentThreadListVC(context)
 
                 AppTabsManager.ID_EXPLORE -> ExploreVC(context).also {
                     cachedExploreVC = it
@@ -114,6 +120,66 @@ abstract class BaseTabsVC(context: Context) :
     }
 
     protected fun navForOrNull(id: Int): WNavigationController? = stackNavigationControllers[id]
+
+    override fun searchExplore(
+        query: String?,
+        focused: Boolean,
+        targetNavigationController: WNavigationController
+    ) {
+        if (cachedExploreVC == null) getNavigationStack(AppTabsManager.ID_EXPLORE)
+        cachedExploreVC?.search(query, focused, targetNavigationController, isGlobalSearch = true)
+    }
+
+    override fun submitExploreSearch(field: WSearchEditText) {
+        val submittedText = field.typedText()
+        if (submittedText.isBlank()) {
+            field.clearFocus()
+            field.hideKeyboard()
+            return
+        }
+        if (WalletContextManager.delegate?.get()
+                ?.handleDeeplink(submittedText, DeeplinkOpenSource.SEARCH) == true
+        ) {
+            field.setText("")
+            field.clearFocus()
+            field.hideKeyboard()
+            return
+        }
+        val onBestMatchResolved: (SearchBestMatchOutcome) -> Unit = { outcome ->
+            if (outcome == SearchBestMatchOutcome.IGNORED) {
+                field.hideKeyboard(clearFocus = false)
+            } else if (outcome == SearchBestMatchOutcome.OPENED) {
+                field.setText("")
+                field.clearFocus()
+                field.hideKeyboard()
+            } else {
+                val (isValidUrl, uri) = InAppBrowserVC.convertToUri(submittedText)
+                if (!isValidUrl) {
+                    ExploreHistoryStore.saveSearchHistory(submittedText)
+                }
+                val config = InAppBrowserConfig(
+                    url = uri.toString(),
+                    injectDappConnect = true,
+                    saveInVisitedHistory = isValidUrl
+                )
+                val inAppBrowserVC = InAppBrowserVC(
+                    context,
+                    config
+                )
+                window?.let { window ->
+                    val nav = WNavigationController(window)
+                    nav.setRoot(inAppBrowserVC)
+                    window.present(nav, onCompletion = {
+                        field.setText("")
+                    })
+                }
+                field.clearFocus()
+                field.hideKeyboard()
+            }
+        }
+        if (cachedExploreVC?.openBestSearchMatch(onBestMatchResolved) == true) return
+        onBestMatchResolved(SearchBestMatchOutcome.NOT_FOUND)
+    }
 
     /** Creates the Home stack ahead of its first layout; it stays detached until the tabs show it. */
     fun prepareHomeStack() {
@@ -169,23 +235,22 @@ abstract class BaseTabsVC(context: Context) :
     private fun initialHomeVC(): HomeVC? =
         activeNavigationController?.viewControllers?.singleOrNull() as? HomeVC
 
-    protected fun submitAgentPrompt(
+    protected fun openAgentChat(
         prompt: String?,
-        entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
+        entryPoint: AgentV2EntryPoint,
+        thread: AgentV2ThreadSummary?
     ) {
-        if (prompt.isNullOrBlank()) return
-        val agentVC = getNavigationStack(AppTabsManager.ID_AGENT)
-            .viewControllers
-            .firstOrNull() as? AgentVC ?: return
-        agentVC.submitPrompt(prompt, entryPoint)
-    }
-
-    protected fun showAgentMessage(messageId: String?) {
-        if (messageId.isNullOrBlank()) return
-        val agentVC = getNavigationStack(AppTabsManager.ID_AGENT)
-            .viewControllers
-            .firstOrNull() as? AgentVC ?: return
-        agentVC.showMessage(messageId)
+        val navigationController = getNavigationStack(AppTabsManager.ID_AGENT)
+        navigationController.popToRoot(false) {
+            if (thread != null) {
+                navigationController.push(
+                    AgentVC(context, thread)
+                )
+            } else if (prompt != null) {
+                (navigationController.viewControllers.firstOrNull() as? AgentThreadListVC)
+                    ?.openNewChat(prompt, entryPoint)
+            }
+        }
     }
 
     protected val navStacks: Collection<WNavigationController>
@@ -302,11 +367,7 @@ abstract class BaseTabsVC(context: Context) :
     // Shared WalletEvent routing //////////////////////////////////////////////////////////////////
     private fun openUrl(config: InAppBrowserConfig) {
         val window = window ?: return
-        val tabBarController = this.takeIf {
-            window.topViewController === this &&
-                mainNavigationController?.viewControllers?.size == 1
-        }
-        val browserVC = InAppBrowserVC(context, tabBarController, config)
+        val browserVC = InAppBrowserVC(context, config)
         val nav = WNavigationController(window)
         nav.setRoot(browserVC)
         window.present(nav)

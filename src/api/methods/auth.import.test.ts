@@ -1,19 +1,47 @@
 import { mnemonicValidate } from '@ton/crypto';
 import * as bip39 from 'bip39';
+import * as idb from 'idb-keyval';
 import nacl from 'tweetnacl';
 
 import { ApiCommonError, ApiTransactionError } from '../types';
 
-import { getCurrentAccountId } from '../common/accounts';
+import Deferred from '../../util/Deferred';
+import { logDebugError } from '../../util/logs';
+import {
+  fetchStoredAccounts, getCurrentAccountId, removeAccountValue, removeNetworkAccountsValue,
+} from '../common/accounts';
 import { getEnvironment } from '../environment';
 import { ApiServerError } from '../errors';
+import { storage } from '../storages';
 import { activateAccount, deactivateAllAccounts } from './accounts';
 import { resetAgentV2 } from './agentV2Lifecycle';
 import {
-  importMnemonic, removeAccount, removeNetworkAccounts, resetAccounts,
+  clearStorageForExplorerMode, importMnemonic, removeAccount, removeNetworkAccounts, resetAccounts,
 } from './auth';
 import { removeAccountDapps, removeAllDapps, removeNetworkDapps } from './dapps';
 import { isBackendAuthTokenValid } from './other';
+import { removeAllPollingAccounts, removePollingAccount } from './polling';
+
+jest.mock('idb-keyval', () => {
+  const items = new Map();
+  return {
+    createStore: jest.fn(() => jest.fn()),
+    get: jest.fn((key) => Promise.resolve(items.get(key))),
+    set: jest.fn((key, value) => {
+      items.set(key, value);
+      return Promise.resolve();
+    }),
+    keys: jest.fn(() => Promise.resolve([...items.keys()])),
+    delMany: jest.fn((keys) => {
+      keys.forEach((key: string) => items.delete(key));
+      return Promise.resolve();
+    }),
+    clear: jest.fn(() => {
+      items.clear();
+      return Promise.resolve();
+    }),
+  };
+});
 
 jest.mock('../chains', () => ({
   __esModule: true,
@@ -23,6 +51,9 @@ jest.mock('../chains', () => ({
     },
     ton: {
       getWalletFromBip39Mnemonic: jest.fn(),
+      dns: {
+        clearCache: jest.fn(() => jest.requireActual('../chains/ton/domains').clearDnsCache()),
+      },
       // The native-mnemonic group proxies the same module the `../chains/ton` mock below provides, so the
       // assertions can keep driving those jest.fn()s directly.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -67,7 +98,7 @@ jest.mock('../common/accounts', () => ({
   setAccountValue: jest.fn(),
   getAccountChains: jest.fn().mockReturnValue({}),
   fetchStoredAccount: jest.fn(),
-  fetchStoredAccounts: jest.fn(),
+  fetchStoredAccounts: jest.fn().mockResolvedValue({}),
   fetchStoredChainAccount: jest.fn(),
   getCurrentAccountId: jest.fn(),
   removeAccountValue: jest.fn().mockResolvedValue(undefined),
@@ -96,15 +127,30 @@ jest.mock('./dapps', () => ({
   removeAllDapps: jest.fn(),
   removeNetworkDapps: jest.fn(),
 }));
-jest.mock('../storages', () => ({
-  storage: {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
+jest.mock('../storages', () => {
+  const items = new Map();
+  const storage = {
+    getItem: jest.fn((key) => Promise.resolve(items.get(key))),
+    setItem: jest.fn((key, value) => {
+      items.set(key, value);
+      return Promise.resolve();
+    }),
     mutateItem: jest.fn(),
-    removeItem: jest.fn().mockResolvedValue(undefined),
-  },
-}));
+    removeItem: jest.fn((key) => {
+      items.delete(key);
+      return Promise.resolve();
+    }),
+    clear: jest.fn(() => {
+      items.clear();
+      return Promise.resolve();
+    }),
+  };
+  return { storage, getCurrentStorage: () => storage };
+});
 jest.mock('./agentV2Lifecycle', () => ({ resetAgentV2: jest.fn() }));
+jest.mock('../../util/logs', () => ({
+  ...jest.requireActual('../../util/logs'), logDebugError: jest.fn(),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ton = require('../chains/ton') as {
@@ -117,7 +163,7 @@ const ton = require('../chains/ton') as {
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const chains = require('../chains').default as {
-  ton: { getWalletFromBip39Mnemonic: jest.Mock };
+  ton: { getWalletFromBip39Mnemonic: jest.Mock; dns: { clearCache: jest.Mock } };
   arc: { getWalletFromBip39Mnemonic: jest.Mock };
   solana: { getWalletFromBip39Mnemonic: jest.Mock };
 };
@@ -417,6 +463,11 @@ describe('importMnemonic', () => {
 });
 
 describe('resetAccounts', () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await idb.clear();
+  });
+
   it('clears Agent V2 state even when the runtime is disabled', async () => {
     const previousNoExtraFeatures = process.env.NO_EXTRA_FEATURES;
     delete process.env.NO_EXTRA_FEATURES;
@@ -429,6 +480,138 @@ describe('resetAccounts', () => {
     }
 
     expect(resetAgentV2).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['account reset', resetAccounts],
+    ['explorer reset', clearStorageForExplorerMode],
+    ['network sign-out', () => removeNetworkAccounts('testnet')],
+    ['last network account removal', () => removeAccount('0-ton-testnet', undefined)],
+  ])('removes persisted TON DNS data through the real %s path', async (_name, reset) => {
+    await storage.setItem('tonDnsCache', {
+      'mainnet:domain-nft': {
+        lastSeenAt: 1,
+        domain: { name: 'alice.ton', resolverAddress: 'domain-nft' },
+        verification: { linkedAddress: 'wallet', verifiedLinkedAddress: 'wallet', checkedAt: 1 },
+      },
+    });
+
+    await reset();
+
+    await expect(storage.getItem('tonDnsCache')).resolves.toBeUndefined();
+    expect(chains.ton.dns.clearCache).toHaveBeenCalledTimes(1);
+    expect(storage.removeItem).toHaveBeenCalledWith('tonDnsCache');
+  });
+
+  it.each([true, false])('cleans Explorer snapshots with current account retained: %s', async (hasCurrent) => {
+    const firstId = '0-ton-mainnet';
+    const currentId = '1-ton-mainnet';
+    const firstAccount = { type: 'view', byChain: {} };
+    const currentAccount = { type: 'view', byChain: {} };
+    await storage.setItem('accounts', { [firstId]: firstAccount, [currentId]: currentAccount });
+    await storage.setItem('currentAccountId', hasCurrent ? currentId : undefined);
+    await idb.set(`${firstId}:ton`, { syncToken: 'first' });
+    await idb.set(`${currentId}:ton`, { syncToken: 'current' });
+
+    await clearStorageForExplorerMode();
+
+    await expect(idb.get(`${firstId}:ton`)).resolves.toBeUndefined();
+    await expect(idb.get(`${currentId}:ton`)).resolves.toEqual(hasCurrent ? { syncToken: 'current' } : undefined);
+    await expect(storage.getItem('accounts')).resolves.toEqual(
+      hasCurrent ? { [currentId]: currentAccount } : undefined,
+    );
+    expect(jest.mocked(removePollingAccount).mock.calls).toEqual(hasCurrent ? [[firstId]] : []);
+    expect(removeAllPollingAccounts).toHaveBeenCalledTimes(hasCurrent ? 0 : 1);
+  });
+
+  it('clears DNS caches only after the last account of a network is removed individually', async () => {
+    const snapshotKeys = [
+      '0-ton-mainnet:ton', '1-ton-mainnet:ton', '2-ton-testnet:ton',
+    ] as const;
+    await Promise.all(snapshotKeys.map((key) => idb.set(key, {})));
+    jest.mocked(fetchStoredAccounts)
+      .mockResolvedValueOnce({
+        '1-ton-mainnet': { type: 'view', byChain: {} },
+        '2-ton-testnet': { type: 'view', byChain: {} },
+      })
+      .mockResolvedValueOnce({
+        '2-ton-testnet': { type: 'view', byChain: {} },
+      });
+
+    await removeAccount('0-ton-mainnet', '1-ton-mainnet');
+
+    expect(chains.ton.dns.clearCache).not.toHaveBeenCalled();
+    await expect(idb.keys()).resolves.toEqual(snapshotKeys.slice(1));
+    await expect(idb.get(snapshotKeys[0])).resolves.toBeUndefined();
+    await expect(idb.get(snapshotKeys[1])).resolves.toEqual({});
+
+    await removeAccount('1-ton-mainnet', '2-ton-testnet');
+
+    expect(chains.ton.dns.clearCache).toHaveBeenCalledTimes(1);
+    await expect(idb.keys()).resolves.toEqual(snapshotKeys.slice(2));
+    await expect(idb.get(snapshotKeys[1])).resolves.toBeUndefined();
+    await expect(idb.get(snapshotKeys[2])).resolves.toEqual({});
+  });
+
+  it.each([
+    ['account removal', () => removeAccount('0-ton-testnet', '1-ton-mainnet'), removeAccountValue, '1-ton-mainnet'],
+    ['network sign-out', () => removeNetworkAccounts('testnet'), removeNetworkAccountsValue, undefined],
+  ])('clears DNS caches after stored account deletion (%s)', async (_name, remove, removeStored, nextAccountId) => {
+    const deletion = new Deferred();
+    const deletionCompleted = jest.fn();
+    jest.mocked(removeStored).mockImplementationOnce(async () => {
+      await deletion.promise;
+      deletionCompleted();
+    });
+
+    const removal = remove();
+    await flushPromises();
+
+    expect(chains.ton.dns.clearCache).not.toHaveBeenCalled();
+    deletion.resolve();
+    await removal;
+
+    expect(deletionCompleted.mock.invocationCallOrder[0]).toBeLessThan(
+      chains.ton.dns.clearCache.mock.invocationCallOrder[0],
+    );
+    if (nextAccountId !== undefined) {
+      expect(activateAccount).toHaveBeenCalledWith(nextAccountId, undefined);
+      expect(chains.ton.dns.clearCache.mock.invocationCallOrder[0]).toBeLessThan(
+        jest.mocked(activateAccount).mock.invocationCallOrder[0],
+      );
+    }
+  });
+
+  it('activates the next account when reading remaining accounts fails', async () => {
+    const error = new Error('Account storage read failed');
+    jest.mocked(fetchStoredAccounts).mockRejectedValueOnce(error);
+
+    await expect(removeAccount('0-ton-testnet', '1-ton-mainnet')).resolves.toBeUndefined();
+
+    expect(activateAccount).toHaveBeenCalledWith('1-ton-mainnet', undefined);
+    expect(chains.ton.dns.clearCache).not.toHaveBeenCalled();
+    expect(logDebugError).toHaveBeenCalledWith('removeAccount: check remaining accounts', error);
+  });
+
+  it.each([
+    ['account removal', () => removeAccount('0-ton-testnet', '1-ton-mainnet')],
+    ['network sign-out', () => removeNetworkAccounts('testnet')],
+    ['account reset', resetAccounts],
+  ])('completes %s when DNS cache cleanup throws', async (_name, remove) => {
+    const error = new Error('DNS cache cleanup failed');
+    const clearCache = chains.ton.dns.clearCache.getMockImplementation()!;
+    chains.ton.dns.clearCache.mockImplementation(() => {
+      throw error;
+    });
+
+    try {
+      await expect(remove()).resolves.toBeUndefined();
+
+      expect(chains.ton.dns.clearCache).toHaveBeenCalledTimes(1);
+      expect(logDebugError).toHaveBeenCalledWith('clearDnsCaches', error);
+    } finally {
+      chains.ton.dns.clearCache.mockImplementation(clearCache);
+    }
   });
 });
 

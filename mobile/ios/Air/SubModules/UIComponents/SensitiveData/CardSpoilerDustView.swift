@@ -405,11 +405,10 @@ final class CardSpoilerDustView: UIView {
         if shouldRun {
             guard link == nil else { return }
             previousTime = 0
-            let proxy = DustDisplayLinkTarget(view: self)
-            let link = CADisplayLink(target: proxy, selector: #selector(DustDisplayLinkTarget.tick(_:)))
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
-            link.add(to: .main, forMode: .common)
-            self.link = link
+            link = .makeWeak(
+                owner: self,
+                frameRateRange: CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
+            ) { view, link in view.tick(link) }
         } else {
             link?.invalidate(); link = nil
             interactionPoint = nil
@@ -609,11 +608,4 @@ final class CardSpoilerDustView: UIView {
             context.endTransparencyLayer(); context.restoreGState()
         }
     }
-}
-
-@MainActor
-private final class DustDisplayLinkTarget: NSObject {
-    weak var view: CardSpoilerDustView?
-    init(view: CardSpoilerDustView) { self.view = view }
-    @objc func tick(_ link: CADisplayLink) { view?.tick(link) }
 }

@@ -9,52 +9,7 @@ public enum TokenTradeDirection: Sendable {
     case sell
 }
 
-/// Keeps native text edits decimal and lossless until they enter the shared quote pipeline.
-struct TokenTradeAmountInput: Equatable {
-    private(set) var text = ""
-
-    struct Edit {
-        let input: TokenTradeAmountInput
-        let caret: Int
-    }
-
-    func replacing(_ range: NSRange, with replacement: String, decimals: Int) -> Edit? {
-        guard let swiftRange = Range(range, in: text) else { return nil }
-        let replacement = replacement.normalizeArabicPersianNumeralStringToWestern()
-        let allowed = CharacterSet(charactersIn: "0123456789., '\u{00A0}\u{202F}\u{2009}’")
-        guard replacement.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
-        if replacement == "." || replacement == "," {
-            guard !text.replacingCharacters(in: swiftRange, with: "").contains(".") else { return nil }
-        }
-        let raw = text.replacingCharacters(in: swiftRange, with: replacement)
-        let normalized = normalizeAmountInput(raw, preserveTrailingSeparator: true)
-        let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
-        guard (parts.first?.count ?? 0) <= 12,
-              parts.count < 2 || (decimals > 0 && parts[1].count <= decimals) else { return nil }
-
-        // Map the insertion point through removed grouping characters and leading zeroes.
-        let rawCaret = range.location + replacement.utf16.count
-        let separator = raw.lastIndex { $0 == "." || $0 == "," }
-        let prefix = String(decoding: raw.utf16.prefix(rawCaret), as: UTF16.self)
-        var caret = prefix.filter(\.isWholeNumber).count
-        if let separator, raw.distance(from: raw.startIndex, to: separator) < prefix.count { caret += 1 }
-        if raw.first == "." || raw.first == "," { caret += 1 }
-        let integral = String(parts.first ?? "")
-        let trimmed = integral.drop { $0 == "0" }
-        let removedZeros = integral.count - max(1, trimmed.count)
-        let result = String(normalized.dropFirst(max(0, removedZeros)))
-        caret = min(result.utf16.count, max(0, caret - max(0, removedZeros)))
-        return Edit(input: TokenTradeAmountInput(text: result), caret: caret)
-    }
-
-    mutating func set(_ amount: BigInt, decimals: Int) {
-        text = amount > 0 ? bigIntToDoubleString(amount, decimals: decimals) : ""
-    }
-
-    func amount(decimals: Int) -> BigInt {
-        normalizedAmountValue(text, digits: decimals)
-    }
-}
+typealias TokenTradeAmountInput = TradeAmountInput
 
 @Perceptible @MainActor
 final class TokenTradeModel {
@@ -67,6 +22,8 @@ final class TokenTradeModel {
     private var cardMaximum: TokenAmount?
     private var cardMaximumError: String?
     private var retainedTokenAmount: TokenAmount?
+    // A sold 100% follows the maximum of each way to receive: a pair reduces it by its swap fee, a card by its transfer fee
+    private var isUsingMax = false
     @PerceptionIgnored @AccountContext var account: MAccount
 
     init(swap: SwapModel, direction: TokenTradeDirection, token: ApiToken, accountContext: AccountContext) {
@@ -113,7 +70,7 @@ final class TokenTradeModel {
             guard token.chain.isOnrampSupported else { return [] }
             return OnRampCurrencyPolicy.supportedCurrencies(for: token.chain)
         }
-        guard token.chain.isOfframpSupported else { return [] }
+        guard token.chain.isOfframpSupported, !ConfigStore.shared.shouldRestrictSell else { return [] }
         let allowed = ConfigStore.shared.config?.allowedOnOffRampCurrencies
         return Moonpay.Offramp.supportedCurrencies.filter { currency in
             allowed?.contains { $0.uppercased() == currency.rawValue } ?? true
@@ -253,6 +210,7 @@ final class TokenTradeModel {
         guard self.input != input else { return }
         self.input = input
         retainedTokenAmount = nil
+        isUsingMax = false
         updateSwapAmount()
     }
 
@@ -265,6 +223,7 @@ final class TokenTradeModel {
 
     func useFraction(_ percentage: Int) {
         guard let maximum = maximumTokenAmount else { return }
+        isUsingMax = !isBuying && percentage == 100
         if cardCurrency == nil {
             guard let selling = swap.input.sellingToken else { return }
             let maximumSelling = swap.input.maxAmount ?? swap.input.tokenBalance ?? 0
@@ -306,6 +265,7 @@ final class TokenTradeModel {
     func resetAmount() {
         input = TokenTradeAmountInput()
         retainedTokenAmount = nil
+        isUsingMax = false
         cardMaximum = nil
         cardMaximumError = nil
         if let cardCurrency, !availableCardCurrencies.contains(cardCurrency) { self.cardCurrency = nil }
@@ -324,7 +284,10 @@ final class TokenTradeModel {
 
     private func updateSwapAmount() {
         guard cardCurrency == nil else { return }
-        if isBuying && swap.input.buyingAmountInputDisabled {
+        if isUsingMax {
+            swap.input.userTappedUseAll()
+            setInput(TokenAmount(swap.input.sellingAmount ?? 0, currentToken))
+        } else if isBuying && swap.input.buyingAmountInputDisabled {
             guard let payingToken = paymentToken, let payingPrice = payingToken.priceUsd, payingPrice > 0 else {
                 swap.input.userEditedAmount(nil, side: .selling)
                 return
@@ -357,7 +320,9 @@ final class TokenTradeModel {
                 amount = min(amount, TokenAmount.fromDouble(limit, token).amount)
             }
             guard !Task.isCancelled, cardMaximumRequest == request else { return }
-            cardMaximum = TokenAmount(max(0, amount), currentToken)
+            let maximum = TokenAmount(max(0, amount), currentToken)
+            cardMaximum = maximum
+            if isUsingMax { setInput(maximum) }
         } catch {
             guard !Task.isCancelled, cardMaximumRequest == request else { return }
             cardMaximumError = lang("Unexpected Error")

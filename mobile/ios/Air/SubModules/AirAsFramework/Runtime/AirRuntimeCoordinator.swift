@@ -80,6 +80,9 @@ final class AirRuntimeCoordinator: NSObject {
     func reset() {
         TonConnect.shared.suspendRequests(discardingQueued: true)
         _isWalletReady = false
+        if #available(iOS 18.4, *) {
+            TokenSpotlightIndexer.shared.setWalletReady(false)
+        }
         AgentEntryPoint.setWalletReady(false)
         universalSearchIndexService?.setWalletReady(false)
         didSchedulePushPermissionRequest = false
@@ -156,6 +159,8 @@ final class AirRuntimeCoordinator: NSObject {
         guard AccountStore.account != nil else { return }
 
         switch systemAction {
+        case let .search(query):
+            AppActions.showSearch(query: query)
         case .scanQR:
             AppActions.scanAndHandleQR(accountContext: AccountContext(source: .current))
         case let .openReceive(accountId, chain):
@@ -201,7 +206,11 @@ final class AirRuntimeCoordinator: NSObject {
 
     private func openToken(accountId: String?, tokenSlug: String) async {
         guard await activateAccountIfNeeded(accountId: accountId) != nil else { return }
-        guard let token = TokenStore.getToken(slug: tokenSlug) ?? ApiChain.allCases.first(where: { $0.nativeToken.slug == tokenSlug })?.nativeToken else { return }
+        var token = TokenStore.getToken(slug: tokenSlug) ?? ApiChain.allCases.first(where: { $0.nativeToken.slug == tokenSlug })?.nativeToken
+        if token == nil, #available(iOS 18.4, *) {
+            token = await TokenSpotlightStore.shared.entities().first { $0.id == tokenSlug }?.apiTokenFallback
+        }
+        guard let token else { return }
         AppActions.showToken(accountSource: .current, token: token, isInModal: false)
     }
 
@@ -333,6 +342,9 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
     func walletIsReady(isReady: Bool) {
         TonConnectTrace.record("wallet ready=\(isReady)")
         _isWalletReady = isReady
+        if #available(iOS 18.4, *) {
+            TokenSpotlightIndexer.shared.setWalletReady(isReady)
+        }
         if !isReady {
             TonConnect.shared.suspendRequests()
         }
@@ -350,9 +362,6 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
             StartupTrace.markOnce("wallet.ready", details: "source=AirRuntimeCoordinator")
             flushPendingActionsIfPossible()
             presentStartupImportErrorIfNeeded()
-            if #available(iOS 18.4, *) {
-                TokenSpotlightIndexer.shared.reindexSoon()
-            }
             if !didSchedulePushPermissionRequest {
                 didSchedulePushPermissionRequest = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -367,6 +376,9 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
         // Restart lifecycle subscriptions with WalletCore rather than carrying
         // pending work from the previous wallet session into the next one.
         universalSearchIndexService?.stop()
+        if #available(iOS 18.4, *) {
+            TokenSpotlightIndexer.shared.stop()
+        }
         AgentEntryPoint.setWalletReady(false)
         WalletCoreData.removeObservers()
         TonConnect.shared.suspendRequests()

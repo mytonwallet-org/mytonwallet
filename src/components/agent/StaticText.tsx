@@ -3,7 +3,7 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { AnswerTableProps } from './AnswerMessageContent';
 
 import { markAnswerLinks } from '../../util/agent/answerLinkMarkers';
-import renderMarkdown from '../../util/renderMarkdown';
+import renderFinishedMarkdown from './helpers/renderFinishedMarkdown';
 
 import AnswerMessageContent from './AnswerMessageContent';
 
@@ -26,7 +26,7 @@ function StaticText({
     [links, tableReferences, text],
   );
   const html = useMemo(
-    () => renderMarkdown(marked.text, { areLinksEnabled }).html,
+    () => renderFinishedMarkdown(marked.text, areLinksEnabled),
     [areLinksEnabled, marked],
   );
 

@@ -21,6 +21,7 @@ dependencies {
     implementation(project("$airSubModulePath:UICreateWallet"))
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:UIHome"))
+    implementation(project("$airSubModulePath:UIAgent"))
     implementation(project("$airSubModulePath:UIPortfolio"))
     implementation(project("$airSubModulePath:UISend"))
     implementation(project("$airSubModulePath:UIReceive"))

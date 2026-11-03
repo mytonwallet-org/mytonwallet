@@ -63,6 +63,72 @@ extension Api {
         return try requireAgentV2OperationValue(result, methodName: "getAgentV2Messages")
     }
 
+    @concurrent public static func listAgentV2Threads(
+        cursor: String? = nil,
+        limit: Int? = nil,
+        query: String? = nil
+    ) async throws -> ApiAgentV2ThreadListResponse {
+        let result = try await bridge.callApi(
+            "listAgentV2Threads",
+            ApiAgentV2ThreadListRequest(cursor: cursor, limit: limit, query: query),
+            decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadListResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "listAgentV2Threads")
+    }
+
+    @concurrent public static func getAgentV2NewsFeed(
+        lang: String,
+        cursor: String? = nil
+    ) async throws -> ApiAgentV2NewsFeedPage {
+        let result = try await bridge.callApi(
+            "getAgentV2NewsFeed",
+            ApiAgentV2NewsFeedRequest(lang: lang, cursor: cursor),
+            decoding: ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "getAgentV2NewsFeed")
+    }
+
+    @concurrent public static func createAgentV2Thread(
+        news: ApiAgentV2ThreadNewsRequest? = nil
+    ) async throws -> ApiAgentV2ThreadCreateResponse {
+        let result: ApiAgentV2MutationResult<ApiAgentV2ThreadCreateResponse>
+        if let news {
+            result = try await bridge.callApi(
+                "createAgentV2Thread",
+                ApiAgentV2ThreadCreateRequest(news: news),
+                decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadCreateResponse>.self
+            )
+        } else {
+            result = try await bridge.callApi(
+                "createAgentV2Thread",
+                decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadCreateResponse>.self
+            )
+        }
+        return try requireAgentV2OperationValue(result, methodName: "createAgentV2Thread")
+    }
+
+    @concurrent public static func updateAgentV2Thread(
+        threadId: String,
+        update: ApiAgentV2ThreadUpdate
+    ) async throws -> ApiAgentV2ThreadUpdateResponse {
+        let result = try await bridge.callApi(
+            "updateAgentV2Thread",
+            threadId,
+            update,
+            decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadUpdateResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "updateAgentV2Thread")
+    }
+
+    @concurrent public static func deleteAgentV2Thread(threadId: String) async throws -> ApiAgentV2ThreadDeleteResponse {
+        let result = try await bridge.callApi(
+            "deleteAgentV2Thread",
+            threadId,
+            decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadDeleteResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "deleteAgentV2Thread")
+    }
+
     @concurrent public static func startAgentV2Run(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
         let result = try await bridge.callApi("startAgentV2Run", command, decoding: ApiAgentV2RunResult.self)
         try await bridge.waitForPendingUpdates()
@@ -106,6 +172,17 @@ extension Api {
             decoding: ApiAgentV2MutationResult<ApiAgentV2ProblemReportResponse>.self
         )
         return try requireAgentV2OperationValue(result, methodName: "reportAgentV2Problem")
+    }
+
+    @concurrent public static func transcribeAgentV2Audio(
+        _ request: ApiAgentV2TranscriptionRequest
+    ) async throws -> ApiAgentV2TranscriptionResponse {
+        let result = try await bridge.callApi(
+            "transcribeAgentV2Audio",
+            request,
+            decoding: ApiAgentV2MutationResult<ApiAgentV2TranscriptionResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "transcribeAgentV2Audio")
     }
 
     /// Sets the user's rating of the complete answer `messageId`, or withdraws it without `feedback`

@@ -142,12 +142,16 @@ final class TokenInfoCell: FirstRowCell {
     private func toggleExpanded() {
         guard let model, heightAnimator == nil, model.canExpand else { return }
 
-        let willExpand = !model.isExpanded
         setUserToggleAnimationActive(true)
+        if !model.hasBalance {
+            model.toggleDescription()
+            return
+        }
+        let willExpand = !model.isExpanded
         model.setExpanded(willExpand)
         let targetExpansionProgress = model.targetExpansionProgress
 
-        if UIAccessibility.isReduceMotionEnabled {
+        if UIAccessibility.isReduceMotionEnabled || !AppStorageHelper.animations {
             setHeight(
                 targetHeight,
                 expansionProgress: targetExpansionProgress,
@@ -170,12 +174,7 @@ final class TokenInfoCell: FirstRowCell {
         heightAnimator?.invalidate()
         let startHeight = currentHeight
         let startExpansionProgress = model?.expansionProgress ?? targetExpansionProgress
-        let animator = ValueAnimator(
-            startValue: startHeight,
-            endValue: targetHeight,
-            duration: TokenInfoModel.animationDuration,
-            dampingRatio: 0.93
-        )
+        let animator = AssetInfoExpansion.animator(from: startHeight, to: targetHeight)
         heightAnimator = animator
         animator.addUpdateBlock { [weak self] progress, height in
             let expansionProgress = startExpansionProgress
@@ -230,6 +229,7 @@ final class TokenInfoCell: FirstRowCell {
             return
         }
 
+        let previousTargetHeight = targetHeight
         if model.canExpand {
             model.updateMeasuredExpandedHeight(height)
             hostingHeightConstraint?.constant = model.measuredExpandedHeight
@@ -239,12 +239,18 @@ final class TokenInfoCell: FirstRowCell {
             beginPresentationTransition(revision: revision)
         } else if heightAnimator == nil {
             synchronizeHeight(notify: true)
+        } else if abs(targetHeight - previousTargetHeight) > 0.5 {
+            // Description measurements can settle after the presentation animation starts.
+            animateHeight(
+                to: targetHeight,
+                targetExpansionProgress: model.targetExpansionProgress
+            )
         }
     }
 
     private func beginPresentationTransition(revision: Int) {
         guard let model else { return }
-        let animated = !UIAccessibility.isReduceMotionEnabled
+        let animated = !UIAccessibility.isReduceMotionEnabled && AppStorageHelper.animations
         let newHeight = targetHeight
         let targetExpansionProgress = model.targetExpansionProgress
 
@@ -264,6 +270,7 @@ final class TokenInfoCell: FirstRowCell {
                 expansionProgress: targetExpansionProgress,
                 notify: true
             )
+            setUserToggleAnimationActive(false)
         }
     }
 

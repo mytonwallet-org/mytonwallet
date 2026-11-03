@@ -1,4 +1,4 @@
-import type { ApiBalanceBySlug } from '../../types';
+import type { ApiBalanceBySlug, ApiNetwork } from '../../types';
 import type { StampedBalances } from '../../types';
 import type {
   AbstractWebsocketClient,
@@ -524,8 +524,9 @@ describe('BalanceStream freshness guard', () => {
 
   interface SocketScenario {
     stream: BalanceStream;
-    /** Fires a native-token (toncoin) socket delta and applies it (advances the 100ms throttle). */
-    deliverNativeSocketBalance: (balance: bigint) => Promise<void>;
+    /** Fires a native-token socket delta and applies it (advances the 100ms throttle) */
+    deliverNativeSocketBalance: (balance: bigint, blockNumber?: number) => Promise<void>;
+    onBalanceUpdate: BalanceUpdateCallback;
     updateEvents: Array<{ balances: ApiBalanceBySlug; source: string }>;
   }
 
@@ -536,8 +537,10 @@ describe('BalanceStream freshness guard', () => {
    */
   function createSocketScenario(
     fetchBalancesCb: jest.Mock,
-    chain: 'ton' | 'polygon' = 'ton',
+    chain: 'ton' | 'polygon' | 'ethereum' | 'base' = 'ton',
     address = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ',
+    fetchCrosschainBalancesCb?: jest.Mock,
+    network: ApiNetwork = 'mainnet',
   ): SocketScenario {
     let onBalanceUpdate: BalanceUpdateCallback | undefined;
 
@@ -557,24 +560,751 @@ describe('BalanceStream freshness guard', () => {
     const stream = new BalanceStream({
       chain,
       wsClient,
-      network: 'mainnet',
+      network,
       address,
       sendUpdateTokens: jest.fn(),
       fallbackPollingOptions: FAST_POLLING_OPTIONS,
       fetchBalancesCb,
+      fetchCrosschainBalancesCb,
     });
 
     stream.onUpdate((balances, source) => updateEvents.push({ balances: { ...balances }, source }));
 
-    const deliverNativeSocketBalance = async (balance: bigint) => {
+    const deliverNativeSocketBalance = async (balance: bigint, blockNumber?: number) => {
       // `tokenAddress: undefined` denotes the chain native token.
-      onBalanceUpdate!({ address, balance, finality: 'confirmed' });
+      onBalanceUpdate!({ address, balance, blockNumber, finality: 'confirmed' });
       // The socket handler is throttled by 100ms, then awaits token preload before committing.
       await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
     };
 
-    return { stream, deliverNativeSocketBalance, updateEvents };
+    return { stream, deliverNativeSocketBalance, onBalanceUpdate: onBalanceUpdate!, updateEvents };
   }
+
+  it('inherits cross-chain blocks until thirty minutes after publication', async () => {
+    jest.useFakeTimers();
+
+    const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+    const fetchBalances = jest.fn();
+    let publishedAt = 0;
+    const fetchCrosschainBalances = jest.fn(() => {
+      publishedAt = Date.now();
+      return Promise.resolve({ balances: { eth: 100n, base: 7n }, blockBySlug: { eth: 100, base: 110 } });
+    });
+    const publisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchCrosschainBalances);
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    const lateBase = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    publisher.stream.start();
+    base.stream.start();
+    lateBase.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetchCrosschainBalances).toHaveBeenCalledTimes(1);
+      expect(fetchBalances).not.toHaveBeenCalled();
+      expect(await publisher.stream.getBalances()).toEqual({ eth: 100n, base: 7n });
+
+      jest.setSystemTime(publishedAt + 29 * 60_000);
+      await base.deliverNativeSocketBalance(2n, 105);
+      expect(base.updateEvents.at(-1)).toBeUndefined();
+
+      await base.deliverNativeSocketBalance(3n, 111);
+      expect(base.updateEvents.at(-1)).toEqual({ balances: { base: 3n }, source: 'socket' });
+
+      jest.setSystemTime(publishedAt + 30 * 60_000);
+      await lateBase.deliverNativeSocketBalance(2n, 105);
+      expect(lateBase.updateEvents.at(-1)).toEqual({ balances: { base: 2n }, source: 'socket' });
+      expect(fetchBalances).not.toHaveBeenCalled();
+    } finally {
+      publisher.stream.destroy();
+      base.stream.destroy();
+      lateBase.stream.destroy();
+    }
+  });
+
+  it('removes a cross-chain block when the next publication does not provide one', async () => {
+    jest.useFakeTimers();
+
+    const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+    const fetchBalances = jest.fn();
+    const fetchCrosschainBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n, base: 7n }, blockBySlug: { base: 110 } })
+      .mockResolvedValueOnce({ balances: { eth: 100n, base: 9n }, blockBySlug: {} });
+    const publisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchCrosschainBalances);
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    const nextPublisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchCrosschainBalances);
+    const nextBase = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    publisher.stream.start();
+    base.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      await base.deliverNativeSocketBalance(2n, 105);
+      expect(base.updateEvents.at(-1)).toBeUndefined();
+
+      publisher.stream.destroy();
+      base.stream.destroy();
+      nextPublisher.stream.start();
+      nextBase.stream.start();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetchCrosschainBalances).toHaveBeenCalledTimes(2);
+      expect(await nextPublisher.stream.getBalances()).toEqual({ eth: 100n, base: 9n });
+
+      await nextBase.deliverNativeSocketBalance(2n, 105);
+      expect(nextBase.updateEvents.at(-1)).toEqual({ balances: { base: 2n }, source: 'socket' });
+      expect(fetchBalances).not.toHaveBeenCalled();
+    } finally {
+      publisher.stream.destroy();
+      base.stream.destroy();
+      nextPublisher.stream.destroy();
+      nextBase.stream.destroy();
+    }
+  });
+
+  it('waits for a cross-chain snapshot before applying a socket delta', async () => {
+    jest.useFakeTimers();
+
+    const address = '0x0000000000000000000000000000000000000055';
+    const fetchBalances = jest.fn();
+    const fetchCrosschainBalances = jest.fn();
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    base.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      await base.deliverNativeSocketBalance(2n, 105);
+
+      expect(base.updateEvents).toEqual([]);
+      expect(fetchBalances).not.toHaveBeenCalled();
+      expect(fetchCrosschainBalances).not.toHaveBeenCalled();
+    } finally {
+      base.stream.destroy();
+    }
+  });
+
+  it('inherits a pending cross-chain snapshot before applying later socket deltas', async () => {
+    jest.useFakeTimers();
+
+    const address = '0x0000000000000000000000000000000000000066';
+    const tokenSlug = 'base-0x12345678';
+    const pendingPoll = new Deferred<StampedBalances>();
+    const fetchBalances = jest.fn();
+    const fetchCrosschainBalances = jest.fn().mockReturnValue(pendingPoll.promise);
+    const publisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchCrosschainBalances);
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    publisher.stream.start();
+    base.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetchCrosschainBalances).toHaveBeenCalledTimes(1);
+      await base.deliverNativeSocketBalance(2n, 105);
+      expect(base.updateEvents).toEqual([]);
+
+      pendingPoll.resolve({
+        balances: { eth: 100n, base: 7n, [tokenSlug]: 5n },
+        blockBySlug: { base: 110, [tokenSlug]: 110 },
+      });
+      await jest.advanceTimersByTimeAsync(1);
+      await base.deliverNativeSocketBalance(2n, 105);
+      expect(base.updateEvents).toEqual([]);
+
+      await base.deliverNativeSocketBalance(8n, 111);
+      expect(base.updateEvents.at(-1)).toEqual({
+        balances: { base: 8n, [tokenSlug]: 5n }, source: 'socket',
+      });
+      expect(fetchBalances).not.toHaveBeenCalled();
+    } finally {
+      publisher.stream.destroy();
+      base.stream.destroy();
+    }
+  });
+
+  it.each([
+    { scope: 'wallet', network: 'mainnet' as const, block: 115, foreignBlock: 120 },
+    { scope: 'network', network: 'testnet' as const, block: 500, foreignBlock: 1000 },
+  ])('scopes cross-chain stamps to each $scope', async ({ scope, network, block, foreignBlock }) => {
+    jest.useFakeTimers();
+
+    const address = '0x0000000000000000000000000000000000000011';
+    const foreignAddress = scope === 'wallet' ? '0x0000000000000000000000000000000000000022' : address;
+    const fetchBalances = jest.fn();
+    const fetchTarget = jest.fn().mockResolvedValue({ balances: { base: 7n }, blockBySlug: { base: 110 } });
+    const fetchForeign = jest.fn().mockResolvedValue({
+      balances: { base: 9n }, blockBySlug: { base: foreignBlock },
+    });
+    const publisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchTarget, network);
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchTarget, network);
+    const foreignPublisher = createSocketScenario(fetchBalances, 'ethereum', foreignAddress, fetchForeign);
+    const foreignBase = createSocketScenario(fetchBalances, 'base', foreignAddress, fetchForeign);
+    publisher.stream.start();
+    base.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      foreignPublisher.stream.start();
+      foreignBase.stream.start();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(fetchForeign).toHaveBeenCalledTimes(1);
+      expect(fetchTarget).toHaveBeenCalledTimes(1);
+      foreignPublisher.stream.destroy();
+      foreignBase.stream.destroy();
+
+      await base.deliverNativeSocketBalance(2n, block);
+      expect(base.updateEvents.at(-1)).toEqual({ balances: { base: 2n }, source: 'socket' });
+      expect(fetchBalances).not.toHaveBeenCalled();
+    } finally {
+      publisher.stream.destroy();
+      base.stream.destroy();
+      foreignPublisher.stream.destroy();
+      foreignBase.stream.destroy();
+    }
+  });
+
+  it.each([
+    { path: 'fast', isSocketDuringPoll: false },
+    { path: 'slow', isSocketDuringPoll: true },
+  ])('retains inherited token balances when its own poll takes the $path path', async ({ isSocketDuringPoll }) => {
+    jest.useFakeTimers();
+
+    const address = isSocketDuringPoll
+      ? '0x0000000000000000000000000000000000000044'
+      : '0x0000000000000000000000000000000000000033';
+    const tokenSlug = 'base-0x12345678';
+    const otherTokenAddress = '0x9876543210987654321098765432109876543210';
+    const otherTokenSlug = 'base-0x98765432';
+    const pendingPoll = new Deferred<StampedBalances>();
+    const fetchBalances = jest.fn().mockReturnValue(pendingPoll.promise);
+    const fetchCrosschainBalances = jest.fn().mockResolvedValue({
+      balances: { base: 7n, [tokenSlug]: 5n, [otherTokenSlug]: 0n },
+      blockBySlug: { base: 110, [tokenSlug]: 110 },
+    });
+    const publisher = createSocketScenario(fetchBalances, 'ethereum', address, fetchCrosschainBalances);
+    const base = createSocketScenario(fetchBalances, 'base', address, fetchCrosschainBalances);
+    publisher.stream.start();
+    base.stream.start();
+
+    try {
+      await jest.advanceTimersByTimeAsync(1);
+      await base.deliverNativeSocketBalance(8n, 111);
+      base.stream.markWalletActiveAndForcePoll();
+      await Promise.resolve();
+      expect(fetchBalances).toHaveBeenCalledTimes(1);
+
+      if (isSocketDuringPoll) {
+        base.onBalanceUpdate({
+          address, tokenAddress: otherTokenAddress, balance: 3n, blockNumber: 112, finality: 'confirmed',
+        });
+        await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+      }
+      pendingPoll.resolve({
+        balances: { base: 8n, [tokenSlug]: 4n, [otherTokenSlug]: 0n },
+        blockBySlug: { base: 111, [tokenSlug]: 100, [otherTokenSlug]: 112 },
+      });
+      await jest.advanceTimersByTimeAsync(1);
+
+      expect(base.updateEvents.at(-1)?.balances).toEqual({ base: 8n, [tokenSlug]: 5n, [otherTokenSlug]: 0n });
+    } finally {
+      publisher.stream.destroy();
+      base.stream.destroy();
+    }
+  });
+
+  it('keeps the socket balance until the positions snapshot reaches its block', async () => {
+    jest.useFakeTimers();
+
+    const oldBalance = 24_120_000_000_000_000_000n;
+    const socketBalance = 2_000_000_000_000_000n;
+    const receivedBalance = 500_000_000_000_000_000n;
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: oldBalance }, blockBySlug: { eth: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: oldBalance }, blockBySlug: { eth: 100 }, asOf: Date.now(),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: oldBalance }, blockBySlug: { eth: 100 }, asOf: Date.now(),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: receivedBalance }, blockBySlug: { eth: 105 }, asOf: Date.now(),
+      }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    await deliverNativeSocketBalance(socketBalance, 105);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: socketBalance });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: socketBalance }, source: 'socket' });
+
+    jest.setSystemTime(Date.now() + 10 * 60_000);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: socketBalance });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(4);
+    expect(await stream.getBalances()).toEqual({ eth: receivedBalance });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: receivedBalance }, source: 'poll' });
+    stream.destroy();
+  });
+
+  it.each([
+    { isSocketDuringPoll: false },
+    { isSocketDuringPoll: true },
+  ])('keeps a confirmed balance against an older fallback block: %j', async ({ isSocketDuringPoll }) => {
+    jest.useFakeTimers();
+
+    const cachedPositionsAt = Date.now();
+    const confirmingPoll = new Deferred<StampedBalances>();
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      // The RPC read at block 106 confirms the socket balance next to cached positions
+      .mockReturnValueOnce(confirmingPoll.promise)
+      // The RPC read fails and the same cached positions page supplies the balance before the transfer
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 100n }, blockBySlug: { eth: 100 }, asOf: cachedPositionsAt,
+      }));
+    const { stream, deliverNativeSocketBalance } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    if (!isSocketDuringPoll) await deliverNativeSocketBalance(2n, 105);
+    stream.markWalletActiveAndForcePoll();
+    await Promise.resolve();
+    if (isSocketDuringPoll) await deliverNativeSocketBalance(2n, 105);
+    confirmingPoll.resolve({ balances: { eth: 2n }, blockBySlug: { eth: 106 }, asOf: cachedPositionsAt });
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 2n });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: 2n });
+    stream.destroy();
+  });
+
+  it.each([
+    { block: 110, expectedBalance: 7n },
+    { block: 104, expectedBalance: 2n },
+  ])('ranks snapshot block $block before an older observation time', async ({ block, expectedBalance }) => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 7n }, blockBySlug: { eth: block }, asOf: Date.now() - 60_000,
+      }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(2n, 105);
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: expectedBalance });
+    expect(updateEvents.at(-1)).toEqual({
+      balances: { eth: expectedBalance }, source: block >= 105 ? 'poll' : 'socket',
+    });
+    stream.destroy();
+  });
+
+  it.each([
+    { block: 105, expectedBalance: 7n },
+    { block: 104, expectedBalance: 2n },
+  ])('ranks an in-flight snapshot block $block per slug', async ({ block, expectedBalance }) => {
+    jest.useFakeTimers();
+
+    const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+    const tokenAddress = '0x1234567890123456789012345678901234567890';
+    const tokenSlug = 'ethereum-0x12345678';
+    const slowPoll = new Deferred<StampedBalances>();
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n, [tokenSlug]: 100n }, blockBySlug: { eth: 100 } })
+      .mockReturnValueOnce(slowPoll.promise);
+    const { stream, deliverNativeSocketBalance, onBalanceUpdate, updateEvents } = createSocketScenario(
+      fetchBalances, 'ethereum', address,
+    );
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    stream.markWalletActiveAndForcePoll();
+    await Promise.resolve();
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+
+    await deliverNativeSocketBalance(2n, 105);
+    onBalanceUpdate({ address, tokenAddress, balance: 3n, finality: 'confirmed' });
+    await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+
+    slowPoll.resolve({
+      balances: { eth: 7n, [tokenSlug]: 50n }, blockBySlug: { eth: block }, asOf: Date.now() - 60_000,
+    });
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(await stream.getBalances()).toEqual({ eth: expectedBalance, [tokenSlug]: 3n });
+    expect(updateEvents.at(-1)).toEqual({
+      balances: { eth: expectedBalance, [tokenSlug]: 3n }, source: block >= 105 ? 'poll' : 'socket',
+    });
+    stream.destroy();
+  });
+
+  it('allows a lower-block snapshot exactly thirty minutes after the socket observation', async () => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementation(() => Promise.resolve({
+        balances: { eth: 50n }, blockBySlug: { eth: 100 }, asOf: Date.now(),
+      }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(2n, 105);
+    const observedAt = Date.now();
+
+    jest.setSystemTime(observedAt + 30 * 60_000 - 1);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 2n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 2n }, source: 'socket' });
+
+    await jest.advanceTimersByTimeAsync(1);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(Date.now()).toBe(observedAt + 30 * 60_000);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: 50n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 50n }, source: 'poll' });
+    stream.destroy();
+  });
+
+  it.each([
+    {
+      name: 'refreshes the block stamp on a no-op socket re-emit',
+      firstBalance: 2n, firstBlock: 105, secondBlock: 106, expectedBalance: 2n,
+    },
+    {
+      name: 'keeps the largest block across separate socket batches',
+      firstBalance: 3n, firstBlock: 106, secondBlock: 105, expectedBalance: 3n,
+    },
+  ])('$name', async ({ firstBalance, firstBlock, secondBlock, expectedBalance }) => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 50n }, blockBySlug: { eth: 105 }, asOf: Date.now(),
+      }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    await deliverNativeSocketBalance(firstBalance, firstBlock);
+    await deliverNativeSocketBalance(2n, secondBlock);
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: expectedBalance });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: expectedBalance }, source: 'socket' });
+    stream.destroy();
+  });
+
+  it('ignores an older socket block until the thirty-minute stamp expires', async () => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn().mockResolvedValue({ balances: { eth: 100n }, blockBySlug: { eth: 100 } });
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(3n, 106);
+    const observedAt = Date.now();
+
+    jest.setSystemTime(observedAt + 29 * 60_000);
+    await deliverNativeSocketBalance(2n, 105);
+
+    expect(await stream.getBalances()).toEqual({ eth: 3n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 3n }, source: 'socket' });
+
+    jest.setSystemTime(observedAt + 30 * 60_000);
+    await deliverNativeSocketBalance(2n, 105);
+
+    expect(await stream.getBalances()).toEqual({ eth: 2n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 2n }, source: 'socket' });
+    stream.destroy();
+  });
+
+  it.each([
+    { path: 'fast', isSocketDuringPoll: false },
+    { path: 'slow', isSocketDuringPoll: true },
+  ])('ranks delayed socket blocks against a poll-only stamp in the $path path', async ({ isSocketDuringPoll }) => {
+    jest.useFakeTimers();
+
+    const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+    const tokenAddress = '0x1234567890123456789012345678901234567890';
+    const tokenSlug = 'ethereum-0x12345678';
+    const pendingPoll = new Deferred<StampedBalances>();
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n, [tokenSlug]: 100n } })
+      .mockReturnValueOnce(pendingPoll.promise);
+    const { stream, deliverNativeSocketBalance, onBalanceUpdate, updateEvents } = createSocketScenario(
+      fetchBalances, 'ethereum', address,
+    );
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    stream.markWalletActiveAndForcePoll();
+    await Promise.resolve();
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    if (isSocketDuringPoll) {
+      onBalanceUpdate({ address, tokenAddress, balance: 3n, finality: 'confirmed' });
+      await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+    }
+    pendingPoll.resolve({ balances: { eth: 7n, [tokenSlug]: 100n }, blockBySlug: { eth: 110 } });
+    await jest.advanceTimersByTimeAsync(1);
+    const observedAt = Date.now();
+    const expectedBalances = { eth: 7n, [tokenSlug]: isSocketDuringPoll ? 3n : 100n };
+    expect(await stream.getBalances()).toEqual(expectedBalances);
+
+    jest.setSystemTime(observedAt + 29 * 60_000);
+    await deliverNativeSocketBalance(2n, 105);
+    expect(await stream.getBalances()).toEqual(expectedBalances);
+    expect(updateEvents.at(-1)).toEqual({ balances: expectedBalances, source: 'poll' });
+
+    jest.setSystemTime(observedAt + 30 * 60_000);
+    await deliverNativeSocketBalance(2n, 105);
+    expect(await stream.getBalances()).toEqual({ ...expectedBalances, eth: 2n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { ...expectedBalances, eth: 2n }, source: 'socket' });
+    stream.destroy();
+  });
+
+  it('keeps a poll-only block against fallback positions and removes an absent position immediately', async () => {
+    jest.useFakeTimers();
+
+    const tokenSlug = 'ethereum-0x12345678';
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n, [tokenSlug]: 7n }, blockBySlug: { [tokenSlug]: 110 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 100n, [tokenSlug]: 50n }, blockBySlug: { [tokenSlug]: 100 }, asOf: Date.now(),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({ balances: { eth: 100n }, blockBySlug: {}, asOf: Date.now() }));
+    const { stream, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 100n, [tokenSlug]: 7n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 100n, [tokenSlug]: 7n }, source: 'poll' });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: 100n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 100n }, source: 'poll' });
+    stream.destroy();
+  });
+
+  it('replaces a poll-only block stamp with a newer socket block', async () => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 7n }, blockBySlug: { eth: 110 } })
+      .mockResolvedValueOnce({ balances: { eth: 8n }, blockBySlug: { eth: 120 } })
+      .mockImplementationOnce(() => Promise.resolve({ balances: {}, blockBySlug: {}, asOf: Date.now() }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    await deliverNativeSocketBalance(2n, 105);
+    expect(await stream.getBalances()).toEqual({ eth: 7n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 7n }, source: 'poll' });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 8n });
+
+    await deliverNativeSocketBalance(2n, 115);
+    expect(await stream.getBalances()).toEqual({ eth: 8n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 8n }, source: 'poll' });
+
+    await deliverNativeSocketBalance(3n, 121);
+    expect(await stream.getBalances()).toEqual({ eth: 3n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 3n }, source: 'socket' });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: 3n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 3n }, source: 'socket' });
+    stream.destroy();
+  });
+
+  it('ignores a socket block older than the stamp carried from a snapshot', async () => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 7n }, blockBySlug: { eth: 110 }, asOf: Date.now(),
+      }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(2n, 105);
+    const observedAt = Date.now();
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 7n });
+
+    jest.setSystemTime(observedAt + 29 * 60_000);
+    await deliverNativeSocketBalance(3n, 109);
+
+    expect(await stream.getBalances()).toEqual({ eth: 7n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 7n }, source: 'poll' });
+
+    jest.setSystemTime(observedAt + 30 * 60_000);
+    await deliverNativeSocketBalance(3n, 109);
+
+    expect(await stream.getBalances()).toEqual({ eth: 3n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 3n }, source: 'socket' });
+    stream.destroy();
+  });
+
+  it.each([false, true])('clears a batched block at an unstamped delta, then accepts a known block: %s',
+    async (hasLaterKnownBlock) => {
+      jest.useFakeTimers();
+
+      const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+      const fetchBalances = jest.fn()
+        .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+        .mockImplementationOnce(() => Promise.resolve({
+          balances: { eth: 7n }, blockBySlug: { eth: 105 }, asOf: Date.now(),
+        }));
+      const { stream, onBalanceUpdate } = createSocketScenario(fetchBalances, 'ethereum', address);
+      stream.start();
+      await jest.advanceTimersByTimeAsync(1);
+
+      onBalanceUpdate({ address, balance: 3n, blockNumber: 110, finality: 'confirmed' });
+      onBalanceUpdate({ address, balance: 2n, finality: 'confirmed' });
+      if (hasLaterKnownBlock) {
+        onBalanceUpdate({ address, balance: 1n, blockNumber: 105, finality: 'confirmed' });
+      }
+      await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+      expect(await stream.getBalances()).toEqual({ eth: hasLaterKnownBlock ? 1n : 2n });
+
+      stream.markWalletActiveAndForcePoll();
+      await jest.advanceTimersByTimeAsync(1);
+
+      expect(fetchBalances).toHaveBeenCalledTimes(2);
+      expect(await stream.getBalances()).toEqual({ eth: 7n });
+      stream.destroy();
+    });
+
+  it.each([
+    { balances: { eth: 0n } },
+    { balances: {} },
+  ])('protects a missing position block for ten minutes: $balances', async ({ balances }) => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementation(() => Promise.resolve({ balances, blockBySlug: {}, asOf: Date.now() }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(2n, 105);
+
+    jest.setSystemTime(Date.now() + 10 * 60_000 - 2);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 2n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 2n }, source: 'socket' });
+
+    jest.setSystemTime(Date.now() + 2);
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual(balances);
+    expect(updateEvents.at(-1)).toEqual({ balances, source: 'poll' });
+    stream.destroy();
+  });
+
+  it.each([
+    { blockNumber: 105, blockBySlug: undefined },
+    { blockNumber: undefined, blockBySlug: { eth: 100 } },
+  ])('uses existing ordering without blocks on both sources: %j', async ({ blockNumber, blockBySlug }) => {
+    jest.useFakeTimers();
+
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n }, blockBySlug: { eth: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({ balances: { eth: 500n }, blockBySlug, asOf: Date.now() }));
+    const { stream, deliverNativeSocketBalance, updateEvents } = createSocketScenario(fetchBalances, 'ethereum');
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+    await deliverNativeSocketBalance(2n, blockNumber);
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 500n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 500n }, source: 'poll' });
+    stream.destroy();
+  });
+
+  it('carries the maximum block per token through a throttled socket batch', async () => {
+    jest.useFakeTimers();
+
+    const address = '0x41835810168DEaf5B36c2F38c0fE24a87675Ae49';
+    const tokenAddress = '0x1234567890123456789012345678901234567890';
+    const tokenSlug = 'ethereum-0x12345678';
+    const fetchBalances = jest.fn()
+      .mockResolvedValueOnce({ balances: { eth: 100n, [tokenSlug]: 100n }, blockBySlug: { [tokenSlug]: 100 } })
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 100n, [tokenSlug]: 500n }, blockBySlug: { [tokenSlug]: 107 }, asOf: Date.now(),
+      }))
+      .mockImplementationOnce(() => Promise.resolve({
+        balances: { eth: 100n, [tokenSlug]: 500n }, blockBySlug: { [tokenSlug]: 110 }, asOf: Date.now(),
+      }));
+    const { stream, onBalanceUpdate, updateEvents } = createSocketScenario(fetchBalances, 'ethereum', address);
+    stream.start();
+    await jest.advanceTimersByTimeAsync(1);
+
+    onBalanceUpdate({ address, tokenAddress, balance: 3n, blockNumber: 110, finality: 'confirmed' });
+    onBalanceUpdate({ address, tokenAddress, balance: 2n, blockNumber: 105, finality: 'confirmed' });
+    onBalanceUpdate({ address, balance: 100n, blockNumber: 999, finality: 'confirmed' });
+    await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(2);
+    expect(await stream.getBalances()).toEqual({ eth: 100n, [tokenSlug]: 3n });
+    expect(updateEvents.at(-1)).toEqual({ balances: { eth: 100n, [tokenSlug]: 3n }, source: 'socket' });
+
+    stream.markWalletActiveAndForcePoll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).toHaveBeenCalledTimes(3);
+    expect(await stream.getBalances()).toEqual({ eth: 100n, [tokenSlug]: 500n });
+    stream.destroy();
+  });
 
   it('keeps a fresher socket balance when an older poll (started before the delta) resolves later', async () => {
     jest.useFakeTimers();

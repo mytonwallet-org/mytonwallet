@@ -387,3 +387,10 @@ public class ExploreTabVC: WViewController {
         RecentSearchStore.shared.saveSearch(accountId: accountId, text: text, tag: exploreHistoryTag)
     }
 }
+
+extension ExploreTabVC: WPagingBackgroundTinting {
+    public func setPagingBackgroundColor(_ color: UIColor?) {
+        view.backgroundColor = color ?? .air.background
+        exploreVC.setPagingBackgroundColor(color)
+    }
+}

@@ -15,6 +15,7 @@ export enum ElectronAction {
 
   INSTALL_UPDATE = 'install-update',
   HANDLE_DOUBLE_CLICK = 'handle-double-click',
+  REQUEST_MICROPHONE_ACCESS = 'request-microphone-access',
 
   TOGGLE_DEEPLINK_HANDLER = 'toggle-deeplink-handler',
 
@@ -45,6 +46,7 @@ export interface ElectronApi {
 
   installUpdate: () => Promise<void>;
   handleDoubleClick: () => Promise<void>;
+  requestMicrophoneAccess: () => Promise<boolean>;
 
   toggleDeeplinkHandler: (isEnabled: boolean) => Promise<void>;
 

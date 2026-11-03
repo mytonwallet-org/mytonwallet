@@ -183,10 +183,10 @@ export async function authorize(
 }
 
 /**
- * The same authorization, with the reason it failed left intact. `authorize` answers the unlock
- * screens, which read `undefined` as a refused passcode and have nothing else to say; the migration
- * has to tell the user what happened, and a missing salt, an unreadable store and a wrong verifier
- * are not the same answer.
+ * The same authorization, with the reason it failed left intact. `authorize` answers the setup flows,
+ * which have just found the auth provisioned and read `undefined` as a refused passcode; the unlock
+ * screens and the migration have to tell the user what happened, and a missing salt, an unreadable
+ * store and a wrong verifier are not the same answer.
  */
 export async function authorizeOrThrow(
   authType: AuthType, isLong?: boolean, passcode?: string, usageCount?: number,

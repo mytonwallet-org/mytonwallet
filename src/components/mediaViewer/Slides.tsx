@@ -1,3 +1,4 @@
+import type { ElementRef } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useLayoutEffect, useRef, useState,
 } from '../../lib/teact/teact';
@@ -15,6 +16,7 @@ import {
 import { clamp, isBetween, round } from '../../util/math';
 import { debounce } from '../../util/schedulers';
 import { IS_IOS, IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import { getEdgePressDirection, getEdgeZoneWidth } from './helpers/getEdgePressDirection';
 
 import useDebouncedCallback from '../../hooks/useDebouncedCallback';
 import useDerivedState from '../../hooks/useDerivedState';
@@ -24,6 +26,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useSignal from '../../hooks/useSignal';
 import { useSignalRef } from '../../hooks/useSignalRef';
 import useWindowSize from '../../hooks/useWindowSize';
+import useControlsSignal from './hooks/useControlsSignal';
 import useZoomChange from './hooks/useZoomChangeSignal';
 
 import Media from './Media';
@@ -33,6 +36,13 @@ import styles from './MediaViewer.module.scss';
 interface OwnProps {
   isOpen: boolean;
   mediaId?: string;
+  /**
+   * The media are pictures with Telegram's header and caption: a tap on a touch screen toggles them, a swipe down
+   * hides them and fades the viewer, and a press near an edge that pages shades that side
+   */
+  isPicture?: boolean;
+  /** The viewer, whose backdrop a swipe down fades */
+  rootRef?: ElementRef<HTMLDivElement>;
   getMediaId: (fromId?: string, direction?: number) => string | undefined;
   selectMedia: (id: string) => void;
   withAnimation: boolean;
@@ -58,6 +68,12 @@ const DEBOUNCE_SELECT_MEDIA = 350; // ms
 const DEBOUNCE_SWIPE = 500; // ms
 const DOUBLE_TAP_ZOOM = 3;
 const CLICK_Y_THRESHOLD = 80; // px
+const TOUCH_CLICK_X_THRESHOLD = 40; // px
+// How far a press near an edge moves before it counts as a drag and its shade goes, as Android's touch slop
+const EDGE_PRESS_SLOP = 8; // px
+// The backdrop fades to half as the picture is swiped down by a quarter of the width, as on Telegram for Android
+const SWIPE_DOWN_FADE_SHARE = 1 / 4;
+const SWIPE_DOWN_MIN_BACKDROP_OPACITY = 0.5;
 const MAX_ZOOM = 4;
 const MIN_ZOOM = 1;
 
@@ -67,7 +83,7 @@ let cancelAnimation: ReturnType<typeof animateNumber> | undefined;
 let cancelZoomAnimation: ReturnType<typeof animateNumber> | undefined;
 
 function Slides({
-  isOpen, mediaId, selectMedia, getMediaId, withAnimation, onClose,
+  isOpen, mediaId, isPicture = false, rootRef, selectMedia, getMediaId, withAnimation, onClose,
 }: OwnProps) {
   const lang = useLang();
 
@@ -89,6 +105,13 @@ function Slides({
   const isScaled = useDerivedState(() => getTransform().scale !== 1, [getTransform]);
   const activeMediaId = useDerivedState(getActiveMediaId);
   const { height: windowHeight, width: windowWidth, isResizing } = useWindowSize();
+  const { getAreControlsVisible, setAreControlsVisible, setIsZoomed } = useControlsSignal();
+  // A swipe down hides the header and caption. If the user lets go before the viewer closes, they return to their
+  // visibility from before the swipe, which this ref keeps. It is unset while no swipe is in progress.
+  const shouldShowControlsAfterSwipeRef = useRef<boolean>();
+  // The side a press near an edge pages to, which a shade marks until the press ends or turns into a drag
+  const [edgePressDirection, setEdgePressDirection] = useState<number | undefined>();
+  const edgePressStartRef = useRef<{ x: number; y: number }>();
 
   useHistoryBack({
     isActive: isOpen,
@@ -101,7 +124,10 @@ function Slides({
     swipeDirectionRef.current = undefined;
   }, [], DEBOUNCE_SWIPE, true);
 
-  const clickXThreshold = IS_TOUCH_ENV ? 40 : windowWidth / 10;
+  // Pictures page with a tap in Telegram's edge zone, which their press shade covers
+  const clickXThreshold = IS_TOUCH_ENV
+    ? (isPicture ? getEdgeZoneWidth(windowWidth) : TOUCH_CLICK_X_THRESHOLD)
+    : windowWidth / 10;
 
   useEffect(() => {
     const { scale, x, y } = transformRef.current;
@@ -113,6 +139,15 @@ function Slides({
 
   useLayoutEffect(() => {
     const { x, y, scale } = getTransform();
+    // A zoomed-in picture covers its caption, as Telegram's
+    setIsZoomed(scale !== 1);
+    if (isPicture && rootRef?.current) {
+      const fadeDistance = windowWidth * SWIPE_DOWN_FADE_SHARE;
+      const backdropOpacity = scale === 1 && x === 0
+        ? Math.max(SWIPE_DOWN_MIN_BACKDROP_OPACITY, 1 - Math.min(Math.abs(y), fadeDistance) / fadeDistance)
+        : 1;
+      rootRef.current.style.setProperty('--backdrop-opacity', String(backdropOpacity));
+    }
     if (leftSlideRef.current) {
       leftSlideRef.current.style.transform = getTransformStyle(-windowWidth + x - SLIDES_GAP);
     }
@@ -122,7 +157,68 @@ function Slides({
     if (rightSlideRef.current) {
       rightSlideRef.current.style.transform = getTransformStyle(windowWidth + x + SLIDES_GAP);
     }
-  }, [getTransform, windowWidth]);
+  }, [getTransform, isPicture, rootRef, setIsZoomed, windowWidth]);
+
+  const hideControlsForSwipe = useLastCallback(() => {
+    if (!isPicture || !IS_TOUCH_ENV || shouldShowControlsAfterSwipeRef.current !== undefined) return;
+
+    shouldShowControlsAfterSwipeRef.current = getAreControlsVisible();
+    setAreControlsVisible(false);
+  });
+
+  const restoreControlsAfterSwipe = useLastCallback(() => {
+    if (shouldShowControlsAfterSwipeRef.current === undefined) return;
+
+    setAreControlsVisible(shouldShowControlsAfterSwipeRef.current);
+    shouldShowControlsAfterSwipeRef.current = undefined;
+  });
+
+  const clearEdgePress = useLastCallback(() => {
+    edgePressStartRef.current = undefined;
+    setEdgePressDirection(undefined);
+  });
+
+  // A press near an edge with a picture on that side shades the side, as on Telegram for Android
+  const handleEdgePressStart = useLastCallback((e: TouchEvent) => {
+    const touch = e.touches.length === 1 ? e.touches[0] : undefined;
+    const direction = touch && transformRef.current.scale === 1
+      ? getEdgePressDirection(
+        touch.clientX,
+        windowWidth,
+        getMediaId(activeMediaIdRef.current, -1) !== undefined,
+        getMediaId(activeMediaIdRef.current, 1) !== undefined,
+      )
+      : undefined;
+    edgePressStartRef.current = direction !== undefined ? { x: touch!.clientX, y: touch!.clientY } : undefined;
+    setEdgePressDirection(direction);
+  });
+
+  const handleEdgePressMove = useLastCallback((e: TouchEvent) => {
+    const start = edgePressStartRef.current;
+    const touch = e.touches[0];
+    if (!start || !touch) return;
+
+    if (Math.abs(touch.clientX - start.x) > EDGE_PRESS_SLOP || Math.abs(touch.clientY - start.y) > EDGE_PRESS_SLOP) {
+      clearEdgePress();
+    }
+  });
+
+  const hasSlides = activeMediaId !== undefined;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!isPicture || !IS_TOUCH_ENV || !container) return undefined;
+
+    container.addEventListener('touchstart', handleEdgePressStart, { passive: true });
+    container.addEventListener('touchmove', handleEdgePressMove, { passive: true });
+    container.addEventListener('touchend', clearEdgePress);
+    container.addEventListener('touchcancel', clearEdgePress);
+    return () => {
+      container.removeEventListener('touchstart', handleEdgePressStart);
+      container.removeEventListener('touchmove', handleEdgePressMove);
+      container.removeEventListener('touchend', clearEdgePress);
+      container.removeEventListener('touchcancel', clearEdgePress);
+    };
+  }, [clearEdgePress, handleEdgePressMove, handleEdgePressStart, hasSlides, isPicture]);
 
   const changeSlide = useLastCallback((direction: number, dryRun = false) => {
     let lastTransform = lastTransformRef.current;
@@ -260,6 +356,7 @@ function Slides({
 
       // If scale is less than 1 we need to bounce back
       if (scale < 1) {
+        restoreControlsAfterSwipe();
         lastTransform = { x: 0, y: 0, scale: 1 };
         cancelAnimation = animateNumber({
           from: [x, y, scale],
@@ -275,6 +372,7 @@ function Slides({
         return;
       }
       if (scale > 1) {
+        restoreControlsAfterSwipe();
         // Get current content boundaries
         const s1 = Math.min(scale, MAX_ZOOM);
         const scaleFactor = s1 / scale;
@@ -318,9 +416,11 @@ function Slides({
         scale,
       };
       if (absY >= SWIPE_Y_THRESHOLD) {
+        shouldShowControlsAfterSwipeRef.current = undefined;
         onClose();
         return;
       }
+      restoreControlsAfterSwipe();
       // Bounce back if vertical swipe is below threshold
       if (absY > 0) {
         cancelAnimation = animateNumber({
@@ -369,7 +469,7 @@ function Slides({
     const cleanup = captureEvents(containerRef.current, {
       isNotPassive: true,
       withNativeDrag: true,
-      excludedClosestSelector: `${styles.header}, .${styles.contentDescription}`,
+      excludedClosestSelector: `.${styles.header}, .${styles.contentDescription}, .${styles.captionText}`,
       minZoom: MIN_ZOOM,
       maxZoom: MAX_ZOOM,
       doubleTapZoom: DOUBLE_TAP_ZOOM,
@@ -466,6 +566,8 @@ function Slides({
         // If vertical shift is dominant we change only vertical position
         if (swipeDirectionRef.current === SwipeDirection.Vertical
           || Math.abs(y) > SWIPE_DIRECTION_THRESHOLD || absOffsetY / absOffsetX > SWIPE_DIRECTION_TOLERANCE) {
+          // A swipe down takes the header and caption away, as on Telegram for Android
+          if ('touches' in event) hideControlsForSwipe();
           swipeDirectionRef.current = SwipeDirection.Vertical;
           const limit = windowHeight;
           const y1 = clamp(dragOffsetY, -limit, limit);
@@ -532,7 +634,12 @@ function Slides({
           if (!hasNextSlide) onClose();
           return;
         }
-        if (lastTransform.scale !== 1 || IS_TOUCH_ENV) return;
+        // A tap on a touch screen shows or hides a picture's header and caption, as in Telegram
+        if (IS_TOUCH_ENV) {
+          if (isPicture) setAreControlsVisible(!getAreControlsVisible());
+          return;
+        }
+        if (lastTransform.scale !== 1) return;
         onClose();
       },
       onDoubleClick(e, {
@@ -602,6 +709,11 @@ function Slides({
     setActiveMediaId,
     activeMediaIdRef,
     changeSlide,
+    isPicture,
+    getAreControlsVisible,
+    setAreControlsVisible,
+    hideControlsForSwipe,
+    restoreControlsAfterSwipe,
   ]);
 
   useEffect(() => {
@@ -659,18 +771,36 @@ function Slides({
         className={buildClassName(styles.slide, styles.slide_active, isMoving && styles.slide_moving)}
         ref={activeSlideRef}
       >
-        <Media mediaId={activeMediaId} />
+        <Media mediaId={activeMediaId} isActive />
       </div>
       <div className={styles.slide} ref={rightSlideRef}>
         {hasNext && !isScaled && !isResizing && (
           <Media mediaId={nextMediaId} />
         )}
       </div>
+      {isPicture && IS_TOUCH_ENV && (
+        <>
+          <div
+            className={buildClassName(
+              styles.edgePress, styles.edgePress_prev, edgePressDirection === -1 && styles.edgePress_visible,
+            )}
+            aria-hidden
+          />
+          <div
+            className={buildClassName(
+              styles.edgePress, styles.edgePress_next, edgePressDirection === 1 && styles.edgePress_visible,
+            )}
+            aria-hidden
+          />
+        </>
+      )}
       {hasPrev && !isScaled && !IS_TOUCH_ENV && (
         <button
           type="button"
           onClick={handlePrevSlide}
-          className={buildClassName(styles.navigation, styles.navigation_prev)}
+          className={buildClassName(
+            styles.navigation, styles.navigation_prev, isPicture && styles.navigation_picturePrev,
+          )}
           aria-label={lang('Previous')}
           dir={lang.isRtl ? 'rtl' : undefined}
         />
@@ -679,7 +809,9 @@ function Slides({
         <button
           type="button"
           onClick={handleNextSlide}
-          className={buildClassName(styles.navigation, styles.navigation_next)}
+          className={buildClassName(
+            styles.navigation, styles.navigation_next, isPicture && styles.navigation_pictureNext,
+          )}
           aria-label={lang('Next')}
           dir={lang.isRtl ? 'rtl' : undefined}
         />

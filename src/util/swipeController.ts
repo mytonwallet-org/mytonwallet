@@ -23,13 +23,17 @@ export function captureControlledSwipe(
     onSwipeLeftStart?: NoneToVoidFunction;
     onSwipeRightStart?: NoneToVoidFunction;
     onCancel: NoneToVoidFunction;
+    /** Elements where a swipe is not this one, besides those with `SWIPE_DISABLED_CLASS_NAME` */
+    excludedSelector?: string;
   },
 ) {
   return captureEvents(element, {
     swipeThreshold: 10,
 
     withNativeDrag: true,
-    excludedClosestSelector: `.${SWIPE_DISABLED_CLASS_NAME}`,
+    excludedClosestSelector: options.excludedSelector
+      ? `.${SWIPE_DISABLED_CLASS_NAME}, ${options.excludedSelector}`
+      : `.${SWIPE_DISABLED_CLASS_NAME}`,
 
     onSwipe(e, direction, offsets) {
       if (direction === SwipeDirection.Left) {

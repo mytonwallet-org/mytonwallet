@@ -11,7 +11,7 @@ final class SegmentedControlLensTests: XCTestCase {
         let (window, _) = host(lens)
         defer { window.isHidden = true }
         lens.frame = CGRect(x: 20, y: 100, width: 300, height: 24)
-        let native = try XCTUnwrap(descendants(lens).first { String(describing: type(of: $0)) == String("weiVsneLdiuqiLIU_".reversed()) })
+        let native = try XCTUnwrap(descendants(lens).first { String(describing: type(of: $0)) == PrivateAPI.liquidLensView.string })
 
         for (startWidth, endWidth) in [(CGFloat(80), CGFloat(160)), (160, 80)] {
             var selection = CGRect(x: 0, y: 0, width: startWidth, height: 24)
@@ -51,7 +51,7 @@ final class SegmentedControlLensTests: XCTestCase {
         lens.cancelAnimations()
         lens.update(selectionFrame: CGRect(x: 0, y: 0, width: 80, height: 34), isLifted: false, color: .gray, animated: false)
         try await Task.sleep(for: .milliseconds(500))
-        let native = try XCTUnwrap(descendants(lens).first { String(describing: type(of: $0)) == String("weiVsneLdiuqiLIU_".reversed()) })
+        let native = try XCTUnwrap(descendants(lens).first { String(describing: type(of: $0)) == PrivateAPI.liquidLensView.string })
         XCTAssertEqual(native.bounds.width, 80, accuracy: 0.5)
         XCTAssertEqual(native.center.x, 40, accuracy: 0.5)
         XCTAssertFalse(lens.isLifted)
@@ -82,7 +82,13 @@ final class SegmentedControlLensTests: XCTestCase {
         control.semanticContentAttribute = .forceRightToLeft
         control.layoutIfNeeded()
         let lens = try XCTUnwrap(descendants(control).compactMap { $0 as? WSegmentedControlLensView }.first)
-        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, 200, accuracy: 0.5)
+        // The tabs are sized by their titles and run from the trailing edge of the capsule to its leading edge.
+        let slots = try XCTUnwrap(control.accessibilityElements as? [UIView]).map { $0.convert($0.bounds, to: lens) }
+        XCTAssertEqual(slots[0].maxX, lens.bounds.width, accuracy: 0.5)
+        XCTAssertEqual(slots[1].maxX, slots[0].minX, accuracy: 0.5)
+        XCTAssertEqual(slots[2].maxX, slots[1].minX, accuracy: 0.5)
+        XCTAssertEqual(slots[2].minX, 0, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, slots[0].minX, accuracy: 0.5)
         let first = try XCTUnwrap(control.hitTest(CGPoint(x: 253, y: 20), with: nil))
         XCTAssertEqual(first.accessibilityLabel, "Wallet")
         XCTAssertTrue(first.accessibilityTraits.contains(.selected))
@@ -90,7 +96,7 @@ final class SegmentedControlLensTests: XCTestCase {
 
         model.setRawProgress(0.5)
         control.applyPendingModelChangesWithoutAnimation()
-        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, 150, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, (slots[0].minX + slots[1].minX) / 2, accuracy: 0.5)
         model.setRawProgress(2)
         control.applyPendingModelChangesWithoutAnimation()
         XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, 0, accuracy: 0.5)
@@ -148,7 +154,7 @@ final class SegmentedControlLensTests: XCTestCase {
         XCTAssertEqual(descendants(control).compactMap { ($0 as? UILabel)?.text }.filter { $0 != "New" }, [])
     }
 
-    func testResizingFromEqualSlotsToOverflowPreservesSelectionAndMenuAnchor() throws {
+    func testResizingFromSpreadTabsToOverflowPreservesSelectionAndMenuAnchor() throws {
         let (control, model) = makeControl()
         let (window, _) = host(control)
         defer { window.isHidden = true }
@@ -156,7 +162,9 @@ final class SegmentedControlLensTests: XCTestCase {
         control.frame = CGRect(x: 20, y: 100, width: 306, height: 40)
         control.applyPendingModelChangesWithoutAnimation()
         let lens = try XCTUnwrap(descendants(control).compactMap { $0 as? WSegmentedControlLensView }.first)
-        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).width, 100, accuracy: 0.5)
+        // The tabs that fit share the room their titles leave, so the last one ends at the capsule's edge.
+        let spread = try XCTUnwrap(lens.selectionFrame)
+        XCTAssertEqual(spread.maxX, lens.bounds.width, accuracy: 0.5)
         control.frame.size.width = 160
         control.layoutIfNeeded()
         let scroll = try XCTUnwrap(descendants(control).compactMap { $0 as? UIScrollView }.first)
@@ -169,7 +177,8 @@ final class SegmentedControlLensTests: XCTestCase {
         control.frame.size.width = 306
         control.layoutIfNeeded()
         XCTAssertFalse(scroll.isScrollEnabled)
-        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).width, 100, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, spread.minX, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).width, spread.width, accuracy: 0.5)
         XCTAssertEqual(model.selection?.effectiveSelectedItemID, "2")
     }
 

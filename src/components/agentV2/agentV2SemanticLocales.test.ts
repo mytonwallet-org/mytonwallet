@@ -16,6 +16,9 @@ const SEMANTIC_KEYS = [
   'Insufficient Balance',
   '$agent_error_update_required',
   '$agent_error_conversation_updated',
+  '$agent_error_recording_too_large',
+  '$agent_error_audio_unreadable',
+  '$agent_error_transcription_unavailable',
 ] as const;
 
 describe('Agent V2 semantic locale catalogs', () => {

@@ -14,6 +14,7 @@ const electronApi: ElectronApi = {
 
   installUpdate: () => ipcRenderer.invoke(ElectronAction.INSTALL_UPDATE),
   handleDoubleClick: () => ipcRenderer.invoke(ElectronAction.HANDLE_DOUBLE_CLICK),
+  requestMicrophoneAccess: () => ipcRenderer.invoke(ElectronAction.REQUEST_MICROPHONE_ACCESS),
 
   toggleDeeplinkHandler: (isEnabled: boolean) => ipcRenderer.invoke(ElectronAction.TOGGLE_DEEPLINK_HANDLER, isEnabled),
 

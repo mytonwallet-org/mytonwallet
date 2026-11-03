@@ -1,19 +1,21 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import android.annotation.SuppressLint
-import android.net.Uri
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
-import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import java.net.URI
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import java.security.SecureRandom
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.moshi.ApiDappUrlTrustStatus
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.TonConnectConnectRequest
 import org.mytonwallet.app_air.walletcore.moshi.TonConnectTransactionPayload
@@ -30,15 +32,54 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 class TonConnectInjectedInterface(
     val webView: WebView,
     val accountId: String,
-    val uri: Uri,
-    val showError: (error: String) -> Unit
+    val showError: (error: String) -> Unit,
+    val openNonWebUrl: (url: String) -> Unit
 ) {
-    val origin = uri.scheme + "://" + uri.host
+    companion object {
+        val isSupported: Boolean
+            get() = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+    }
 
     private var liveAccountId = accountId
 
-    private fun sendInvokeError(invocationId: String, error: String? = "An error occurred!") {
+    // Every frame gets the `_mytonwallet` object; only main-frame messages from http(s) origins
+    // are handled.
+    private val messageListener =
+        WebViewCompat.WebMessageListener { _, message, sourceOrigin, isMainFrame, _ ->
+            val context = resolveDappMessageContext(
+                isMainFrame,
+                sourceOrigin.scheme,
+                sourceOrigin.host,
+                sourceOrigin.port
+            ) ?: return@WebMessageListener
+            if (message.type != WebMessageCompat.TYPE_STRING) return@WebMessageListener
+            handleMessage(message.data ?: return@WebMessageListener, context)
+        }
+
+    // Requires `isSupported`. Takes effect for documents loaded after the call.
+    fun install() {
+        WebViewCompat.addWebMessageListener(
+            webView,
+            TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE,
+            setOf("*"),
+            messageListener
+        )
+    }
+
+    fun uninstall() {
+        WebViewCompat.removeWebMessageListener(
+            webView,
+            TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE
+        )
+    }
+
+    private fun sendInvokeError(
+        context: DappMessageContext,
+        invocationId: String,
+        error: String? = "An error occurred!"
+    ) {
         sendInvokeResponse(
+            context,
             DAppInject.FunctionInvokeInvokeResult(
                 type = "functionResponse",
                 invocationId = invocationId,
@@ -48,8 +89,9 @@ class TonConnectInjectedInterface(
         )
     }
 
-    private fun sendInvokeResult(invocationId: String, result: Any) {
+    private fun sendInvokeResult(context: DappMessageContext, invocationId: String, result: Any) {
         sendInvokeResponse(
+            context,
             DAppInject.FunctionInvokeInvokeResult(
                 type = "functionResponse",
                 invocationId = invocationId,
@@ -59,13 +101,18 @@ class TonConnectInjectedInterface(
         )
     }
 
-    private fun sendInvokeResponse(res: DAppInject.FunctionInvokeInvokeResult) {
+    // Delivered only while the main frame still shows the origin that sent the request.
+    private fun sendInvokeResponse(
+        context: DappMessageContext,
+        res: DAppInject.FunctionInvokeInvokeResult
+    ) {
         val adapter = WalletCore.moshi.adapter(DAppInject.FunctionInvokeInvokeResult::class.java)
         val json = adapter.toJson(res)
         webView.post {
             webView.evaluateJavascript(
                 """
                 (function() {
+                  if (window.location.origin !== ${JSONObject.quote(context.origin)}) return;
                   window.dispatchEvent(new MessageEvent('message', {
                     data: ${JSONObject.quote(json)}
                   }));
@@ -80,41 +127,43 @@ class TonConnectInjectedInterface(
         liveAccountId = accountId
     }
 
-    private fun currentDApp(): ApiMethod.DApp.Inject.DAppArg = ApiMethod.DApp.Inject.DAppArg(
-        url = resolveDappOrigin(origin, webView.url),
-        urlTrustStatus = "verified",
-        accountId = liveAccountId
-    )
+    private fun currentDApp(context: DappMessageContext): ApiMethod.DApp.Inject.DAppArg =
+        ApiMethod.DApp.Inject.DAppArg(
+            url = context.origin,
+            urlTrustStatus = context.urlTrustStatus.rawValue,
+            accountId = liveAccountId
+        )
 
-    @JavascriptInterface
-    fun invokeFunc(json: String) {
+    private fun handleMessage(json: String, context: DappMessageContext) {
         val adapter = WalletCore.moshi.adapter(DAppInject.FunctionInvoke::class.java)
-        try {
+        val invoke = try {
             var parsed = adapter.fromJson(json) ?: return
             if (parsed.args == null) {
                 JSONObject(json).optJSONObject("args")?.let { args ->
                     parsed = parsed.copy(args = JSONArray().put(args))
                 }
             }
-            webView.post { invokeFunc(parsed) }
-        } catch (t: Throwable) {
+            parsed
+        } catch (_: Throwable) {
+            return
         }
+        webView.post { invokeFunc(invoke, context) }
     }
 
-    private fun invokeFunc(invoke: DAppInject.FunctionInvoke) {
+    private fun invokeFunc(invoke: DAppInject.FunctionInvoke, context: DappMessageContext) {
         when (invoke.name) {
             "tonConnect:restoreConnection" -> {
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectReconnect(
-                        currentDApp(),
+                        currentDApp(context),
                         getRequestId()
                     )
                 ) { res, _ ->
                     val protocolData = res?.optJSONObject("session")?.optJSONObject("protocolData")
                     if (protocolData?.optString("event") == "connect") {
-                        sendInvokeResult(invoke.invocationId, protocolData)
+                        sendInvokeResult(context, invoke.invocationId, protocolData)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -151,7 +200,7 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectConnect(
-                        currentDApp(),
+                        currentDApp(context),
                         request,
                         getRequestId()
                     )
@@ -159,11 +208,12 @@ class TonConnectInjectedInterface(
                     webView.unlockTouch()
                     if (res?.optBoolean("success") == true) {
                         sendInvokeResult(
+                            context,
                             invoke.invocationId,
                             res.getJSONObject("session").getJSONObject("protocolData")
                         )
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -175,12 +225,12 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.TonConnectDisconnect(
-                        currentDApp(),
+                        currentDApp(context),
                         request
                     )
                 ) { _, _ ->
                     webView.unlockTouch()
-                    sendInvokeResult(invoke.invocationId, JSONObject())
+                    sendInvokeResult(context, invoke.invocationId, JSONObject())
                 }
             }
 
@@ -197,12 +247,13 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectDisconnect(
-                                currentDApp(),
+                                currentDApp(context),
                                 disconnectRequest
                             )
                         ) { _, _ ->
                             webView.unlockTouch()
                             sendInvokeResult(
+                                context,
                                 invoke.invocationId,
                                 JSONObject().apply {
                                     put("result", JSONObject())
@@ -218,7 +269,7 @@ class TonConnectInjectedInterface(
                             .adapter(TonConnectTransactionPayload::class.java)
                             .fromJson(payloadJson) ?: run {
                             webView.unlockTouch()
-                            sendInvokeError(invoke.invocationId)
+                            sendInvokeError(context, invoke.invocationId)
                             return
                         }
                         val request = ApiDappTransactionRequest(
@@ -228,15 +279,16 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectSendTransaction(
-                                currentDApp(),
+                                currentDApp(context),
                                 request
                             )
                         ) { res, _ ->
                             webView.unlockTouch()
                             if (res?.optBoolean("success") == true) {
-                                sendInvokeResult(invoke.invocationId, res.get("result"))
+                                sendInvokeResult(context, invoke.invocationId, res.get("result"))
                             } else {
                                 sendInvokeError(
+                                    context,
                                     invoke.invocationId,
                                     res?.optJSONObject("error")?.optString("message")
                                 )
@@ -250,7 +302,7 @@ class TonConnectInjectedInterface(
                             .adapter(MSignDataPayload::class.java)
                             .fromJson(payloadJson) ?: run {
                             webView.unlockTouch()
-                            sendInvokeError(invoke.invocationId)
+                            sendInvokeError(context, invoke.invocationId)
                             return
                         }
                         val request = ApiDappSignDataRequest(
@@ -260,15 +312,16 @@ class TonConnectInjectedInterface(
                         )
                         WalletCore.call(
                             ApiMethod.DApp.Inject.TonConnectSignData(
-                                currentDApp(),
+                                currentDApp(context),
                                 request
                             )
                         ) { res, _ ->
                             webView.unlockTouch()
                             if (res?.optBoolean("success") == true) {
-                                sendInvokeResult(invoke.invocationId, res.get("result"))
+                                sendInvokeResult(context, invoke.invocationId, res.get("result"))
                             } else {
                                 sendInvokeError(
+                                    context,
                                     invoke.invocationId,
                                     res?.optJSONObject("error")?.optString("message")
                                 )
@@ -278,7 +331,7 @@ class TonConnectInjectedInterface(
 
                     else -> {
                         webView.unlockTouch()
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -289,16 +342,16 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectConnect(
-                        currentDApp(),
+                        currentDApp(context),
                         request,
                         getRequestId()
                     )
                 ) { res, _ ->
                     webView.unlockTouch()
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -306,14 +359,14 @@ class TonConnectInjectedInterface(
             "walletConnect:reconnect" -> {
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectReconnect(
-                        currentDApp(),
+                        currentDApp(context),
                         getRequestId()
                     )
                 ) { res, _ ->
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -323,14 +376,14 @@ class TonConnectInjectedInterface(
                 val request = args.optJSONObject(0) ?: return
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectDisconnect(
-                        currentDApp(),
+                        currentDApp(context),
                         request
                     )
                 ) { res, _ ->
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -341,15 +394,15 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectSendTransaction(
-                        currentDApp(),
+                        currentDApp(context),
                         request
                     )
                 ) { res, _ ->
                     webView.unlockTouch()
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -360,15 +413,15 @@ class TonConnectInjectedInterface(
                 webView.lockTouch()
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectSignData(
-                        currentDApp(),
+                        currentDApp(context),
                         request
                     )
                 ) { res, _ ->
                     webView.unlockTouch()
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -381,14 +434,14 @@ class TonConnectInjectedInterface(
                 val request = args.optJSONObject(0) ?: return
                 WalletCore.call(
                     ApiMethod.DApp.Inject.WalletConnectProxyEvmRpc(
-                        currentDApp(),
+                        currentDApp(context),
                         request
                     )
                 ) { res, _ ->
                     if (res != null) {
-                        sendInvokeResult(invoke.invocationId, res)
+                        sendInvokeResult(context, invoke.invocationId, res)
                     } else {
-                        sendInvokeError(invoke.invocationId)
+                        sendInvokeError(context, invoke.invocationId)
                     }
                 }
             }
@@ -401,8 +454,10 @@ class TonConnectInjectedInterface(
                     ->
                     WalletContextManager.delegate?.get()?.handleDeeplink(deeplink, source) == true
                 }
-                if (routingDecision == WindowOpenUrlRoutingDecision.LOAD_URL) {
-                    webView.loadUrl(url)
+                when (routingDecision) {
+                    WindowOpenUrlRoutingDecision.LOAD_URL -> webView.loadUrl(url)
+                    WindowOpenUrlRoutingDecision.OPEN_NON_WEB_URL -> openNonWebUrl(url)
+                    WindowOpenUrlRoutingDecision.CONSUME, WindowOpenUrlRoutingDecision.IGNORE -> {}
                 }
             }
 
@@ -413,20 +468,40 @@ class TonConnectInjectedInterface(
     private fun getRequestId() = SecureRandom().nextInt()
 }
 
-internal fun resolveDappOrigin(initialOrigin: String, liveUrl: String?): String {
-    if (liveUrl.isNullOrBlank()) {
-        return initialOrigin
-    }
+internal data class DappMessageContext(
+    val origin: String,
+    val urlTrustStatus: ApiDappUrlTrustStatus
+)
 
-    val liveUri = try {
-        URI(liveUrl)
-    } catch (_: Throwable) {
-        return initialOrigin
-    }
-    val liveScheme = liveUri.scheme ?: return initialOrigin
-    val liveHost = liveUri.host ?: return initialOrigin
-
-    return "$liveScheme://$liveHost"
+// Accepts main-frame messages from http(s) origins only. Takes the `android.net.Uri` scheme,
+// host and port of the message's source origin and returns the origin as `window.location.origin`
+// serializes it: `scheme://host[:port]`, lowercase, without a default port. Only https counts as
+// verified.
+internal fun resolveDappMessageContext(
+    isMainFrame: Boolean,
+    scheme: String?,
+    host: String?,
+    port: Int
+): DappMessageContext? {
+    if (!isMainFrame) return null
+    val originScheme = scheme?.lowercase(Locale.US) ?: return null
+    if (originScheme != "http" && originScheme != "https") return null
+    val originHost = host?.lowercase(Locale.US)?.takeIf { it.isNotEmpty() } ?: return null
+    val isDefaultPort = port == -1 ||
+        (originScheme == "http" && port == 80) ||
+        (originScheme == "https" && port == 443)
+    return DappMessageContext(
+        origin = if (isDefaultPort) {
+            "$originScheme://$originHost"
+        } else {
+            "$originScheme://$originHost:$port"
+        },
+        urlTrustStatus = if (originScheme == "https") {
+            ApiDappUrlTrustStatus.VERIFIED
+        } else {
+            ApiDappUrlTrustStatus.UNKNOWN
+        }
+    )
 }
 
 fun WebView.lockTouch() {

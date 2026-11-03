@@ -3,9 +3,12 @@ import { getActions, getGlobal } from '../global';
 import { SUBPROJECT_URL_MASK } from '../config';
 import { closeAllOverlays } from '../global/helpers/misc';
 import { selectCurrentAccount } from '../global/selectors';
-import { isInIframeWhitelist, isTelegramUrl } from './url';
+import { isInIframeWhitelist, isTelegramUrl, safeParseUrl } from './url';
+import { IS_ELECTRON } from './windowEnvironment';
 
 const [, SUBPROJECT_HOST_ENDING] = SUBPROJECT_URL_MASK.split('*');
+// Desktop shells pass every `window.open` URL to the system, which opens other schemes with local programs
+const ELECTRON_EXTERNAL_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
 export type OpenUrlOptions = {
   isExternal?: boolean;
@@ -35,6 +38,10 @@ export async function openUrl(url: string, options?: OpenUrlOptions) {
       subtitle: options?.subtitle,
     });
   } else {
+    if (IS_ELECTRON && !ELECTRON_EXTERNAL_URL_PROTOCOLS.has(safeParseUrl(url)?.protocol ?? '')) {
+      return;
+    }
+
     window.open(url, '_blank', 'noopener');
   }
 }

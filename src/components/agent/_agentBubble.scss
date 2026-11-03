@@ -1,0 +1,10 @@
+// The widest a bubble grows on a wide screen: a message is as wide as a News post
+$maxWidth: 40rem;
+
+// The tails of the chat's bubbles, 8 × 13.333 px, as in the design
+
+$tailWidth: 0.5rem;
+/* stylelint-disable-next-line plugin/whole-pixel */
+$tailHeight: 0.8333rem;
+$outgoingTailMask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M0 0c0 4.286 2.353 10.238 7.059 11.428 0 0 .941 0 .941.953 0 .952-.941.952-.941.952H0V0z'/%3E%3C/svg%3E");
+$incomingTailMask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M8 0c0 4.286-2.353 10.238-7.059 11.428 0 0-.941 0-.941.953 0 .952.941.952.941.952H8V0z'/%3E%3C/svg%3E");

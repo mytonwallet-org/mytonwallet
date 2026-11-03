@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rename in a chat row's swipe actions: the design's "Icon / Edit / Filled" -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="30dp"
+    android:viewportWidth="30"
+    android:viewportHeight="30">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15.875,9.05509L20.8542,14.0343L11.2766,23.6119C10.7515,24.1376 10.078,24.4742 9.401,24.5498L6.39431,24.8859C5.54976,24.9797 4.92899,24.3617 5.02329,23.5158L5.36035,20.5082C5.43601,19.8317 5.77243,19.1584 6.29725,18.6336L15.875,9.05509ZM16.9356,7.99443L18.6333,6.29673C19.7458,5.18443 21.3881,5.02251 22.3008,5.934L23.9744,7.60852C24.8866,8.52078 24.7249,10.1634 23.6125,11.276L21.9149,12.9736L16.9356,7.99443Z" />
+</vector>

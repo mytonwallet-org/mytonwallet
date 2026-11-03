@@ -67,12 +67,14 @@ struct TokenTradeKeypadTests {
         let fixture = fixture()
         let button = try fixture.button("tokenTrade.delete")
         button.sendActions(for: .touchDown)
-        try await Task.sleep(for: .milliseconds(750))
+        try await waitUntil(timeout: .milliseconds(750)) {
+            fixture.field.amountInput.text.count < 11 && !fixture.field.amountInput.text.isEmpty
+        }
         let heldText = fixture.field.amountInput.text
         #expect(heldText.count < 11 && !heldText.isEmpty)
         button.sendActions(for: .touchUpInside)
         #expect(fixture.field.amountInput.text == heldText)
-        try await Task.sleep(for: .milliseconds(250))
+        try await expectUnchanged(for: .milliseconds(250)) { fixture.field.amountInput.text == heldText }
         #expect(fixture.field.amountInput.text == heldText)
     }
 
@@ -83,7 +85,7 @@ struct TokenTradeKeypadTests {
         window.addSubview(fixture.keypad)
         let button = try fixture.button("tokenTrade.delete")
         button.sendActions(for: .touchDown)
-        try await Task.sleep(for: .milliseconds(650))
+        try await waitUntil(timeout: .milliseconds(650)) { fixture.field.amountInput.text.count < 12 }
         #expect(fixture.field.amountInput.text.count < 12)
         switch interruption {
         case "cancel": button.sendActions(for: .touchCancel)
@@ -92,7 +94,7 @@ struct TokenTradeKeypadTests {
         default: fixture.keypad.removeFromSuperview()
         }
         let stoppedText = fixture.field.amountInput.text
-        try await Task.sleep(for: .milliseconds(250))
+        try await expectUnchanged(for: .milliseconds(250)) { fixture.field.amountInput.text == stoppedText }
         #expect(fixture.field.amountInput.text == stoppedText)
     }
 
@@ -100,13 +102,34 @@ struct TokenTradeKeypadTests {
         let fixture = fixture("12")
         let button = try fixture.button("tokenTrade.delete")
         button.sendActions(for: .touchDown)
-        try await Task.sleep(for: .milliseconds(750))
+        try await waitUntil(timeout: .milliseconds(750)) { fixture.field.amountInput.text.isEmpty }
         #expect(fixture.field.amountInput.text.isEmpty)
         #expect(!button.isEnabled && button.accessibilityElementsHidden)
         fixture.field.insertText("3")
-        try await Task.sleep(for: .milliseconds(250))
+        try await expectUnchanged(for: .milliseconds(250)) { fixture.field.amountInput.text == "3" }
         #expect(fixture.field.amountInput.text == "3")
     }
+
+    private func waitUntil(timeout: Duration, _ condition: () -> Bool) async throws {
+        var remainingSamples = Int((timeout / Self.sampleInterval).rounded(.up))
+        let deadline = ContinuousClock.now + timeout * 10
+        while !condition() {
+            guard remainingSamples > 0, ContinuousClock.now < deadline else { throw KeypadTimeout() }
+            remainingSamples -= 1
+            try await Task.sleep(for: Self.sampleInterval)
+        }
+    }
+
+    private func expectUnchanged(for interval: Duration, _ condition: () -> Bool) async throws {
+        let observationEnd = ContinuousClock.now + interval
+        try await waitUntil(timeout: interval) {
+            #expect(condition())
+            return ContinuousClock.now >= observationEnd
+        }
+    }
+
+    private static let sampleInterval = Duration.milliseconds(16)
+    private struct KeypadTimeout: Error {}
 }
 
 @MainActor private func descendants(_ view: UIView) -> [UIView] {

@@ -207,7 +207,7 @@ private final class EdgeVariableBlurView: UIView {
         self.maxBlurRadius = maxBlurRadius
         super.init(frame: .zero)
 
-        if let effectLayer = createBackdropLayer() {
+        if let effectLayer = PrivateAPI.makeBackdropLayer() {
             self.effectLayer = effectLayer
             self.effect = EdgeVariableBlurEffect(layer: effectLayer, maxBlurRadius: maxBlurRadius)
             effectLayer.delegate = effectLayerDelegate
@@ -262,7 +262,7 @@ private final class EdgeVariableBlurEffect {
             maskSourceView.layer.name = "mask_source"
             self.maskSourceView = maskSourceView
 
-            if let variableBlur = makeVariableBlurFilter() {
+            if let variableBlur = PrivateAPI.makeFilter("variableBlur") {
                 variableBlur.setValue(maxBlurRadius, forKey: "inputRadius")
                 variableBlur.setValue("mask_source", forKey: "inputSourceSublayerName")
                 variableBlur.setValue(true, forKey: "inputNormalizeEdges")
@@ -313,7 +313,7 @@ private final class EdgeVariableBlurEffect {
 
     private func updateLegacyEffect() {
         guard let params, let gradientImage else { return }
-        guard let variableBlur = makeVariableBlurFilter() else { return }
+        guard let variableBlur = PrivateAPI.makeFilter("variableBlur") else { return }
 
         variableBlur.setValue(maxBlurRadius, forKey: "inputRadius")
         variableBlur.setValue(true, forKey: "inputNormalizeEdges")
@@ -370,40 +370,6 @@ private final class NullLayerDelegate: NSObject, CALayerDelegate {
     func action(for layer: CALayer, forKey event: String) -> CAAction? {
         nullAction
     }
-}
-
-@MainActor
-private func createBackdropLayer() -> CALayer? {
-    let className = ("CA" as NSString).appendingFormat("BackdropLayer")
-    guard let layerClass = NSClassFromString(className as String) as AnyObject as? NSObject else {
-        return nil
-    }
-    let allocSelector = NSSelectorFromString("alloc")
-    guard let allocMethod = layerClass.method(for: allocSelector) else {
-        return nil
-    }
-    let alloc = unsafeBitCast(allocMethod, to: (@convention(c) (AnyObject, Selector) -> NSObject?).self)
-    guard let layerObject = alloc(layerClass, allocSelector) else {
-        return nil
-    }
-
-    let initSelector = NSSelectorFromString("init")
-    guard let initMethod = layerObject.method(for: initSelector) else {
-        return nil
-    }
-    let initialize = unsafeBitCast(initMethod, to: (@convention(c) (NSObject, Selector) -> NSObject?).self)
-    return initialize(layerObject, initSelector) as? CALayer
-}
-
-private func makeVariableBlurFilter() -> NSObject? {
-    guard let filterClass = NSClassFromString(String("retliFAC".reversed())) as? NSObject.Type else {
-        return nil
-    }
-    let selector = NSSelectorFromString(String(":epyThtiWretlif".reversed()))
-    guard filterClass.responds(to: selector) else {
-        return nil
-    }
-    return filterClass.perform(selector, with: "variableBlur").takeUnretainedValue() as? NSObject
 }
 
 private func generateImage(size: CGSize, opaque: Bool, drawing: (CGSize, CGContext) -> Void) -> UIImage? {

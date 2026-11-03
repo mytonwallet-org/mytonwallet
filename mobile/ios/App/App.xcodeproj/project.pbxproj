@@ -119,7 +119,7 @@
 		71335BE0CB67B3D704148F53 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
 		74CBF4B1480ADEF6F8B6CE71 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		A2F6C8F58E74FF70AA316904 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 25561833DFEA1EB541CE6CFA /* FirebaseCore */; };
-		A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
+		A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FE6EB98E31626F33B669A2B7 /* GoogleService-Info.plist */; };
 		A95570473A46014B40615A92 /* HomeScreenQuickAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C041B2F7131F50021E2E3 /* HomeScreenQuickAction.swift */; };
 		BBBE0A7A3FE5AE7B3AEF04AE /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
 		C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4105E6D6E2A708EB52003A /* FirebaseCore */; };
@@ -142,6 +142,32 @@
 		};
 		59F127110000000000000002 /* CompactFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F127110000000000000001 /* CompactFonts.swift */; };
 		59F127110000000000000003 /* CompactFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F127110000000000000001 /* CompactFonts.swift */; };
+		D95850000000000000000001 /* TokenSpotlightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95850000000000000000002 /* TokenSpotlightTests.swift */; };
+		D006E685B4A2D34E0E1D6EE6 /* ActionsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2212E83D44600588415 /* ActionsWidget.swift */; };
+		0E6383BD56F9E292F88610EA /* CompactFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F127110000000000000001 /* CompactFonts.swift */; };
+		5DBA241E517CBD32E35666CF /* AirWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582009F32E822DDD0010E2B5 /* AirWidgetBundle.swift */; };
+		4C4F953460BCD3D677D5EB94 /* ChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBA82E858CE100110FDF /* ChartView.swift */; };
+		377D9CD5DF2419A3B590F14C /* TokenWithChartWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBA92E858CE100110FDF /* TokenWithChartWidget.swift */; };
+		0663B13520987E3B0F872EF2 /* TokenWithChartWidgetConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAA2E858CE100110FDF /* TokenWithChartWidgetConfiguration.swift */; };
+		D9DE7AFA43A225F5236B0017 /* ActionsStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72F2E87036900880BB1 /* ActionsStyle.swift */; };
+		E32BF09069DCE5DD7DD4459B /* TokenWithChartWidgetTimelineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAB2E858CE100110FDF /* TokenWithChartWidgetTimelineEntry.swift */; };
+		8977D17253280CE8CEFCC6A1 /* TokenWithChartWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5890CBAC2E858CE100110FDF /* TokenWithChartWidgetTimelineProvider.swift */; };
+		C01B60D173E334D541B61F6B /* ChartStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B1A72D2E87030400880BB1 /* ChartStyle.swift */; };
+		8CDFB20CB73A9C687873D136 /* ActionsWidgetConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2252E83D4EE00588415 /* ActionsWidgetConfiguration.swift */; };
+		B9A7639609227021D5B6D49A /* ActionsWidgetTimelineEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2232E83D48F00588415 /* ActionsWidgetTimelineEntry.swift */; };
+		BF86C0D9FC51CDFB566EEA01 /* ActionsWidgetTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 588AD2272E83D5C800588415 /* ActionsWidgetTimelineProvider.swift */; };
+		929FC24FD1A843149297DCBD /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = E2CB1D8EF8AC503227CB0FD0 /* WalletCoreTypes */; };
+		CFFB9BB473C5A7F2FCE6EDA3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 582009AB2E820A850010E2B5 /* SwiftUI.framework */; };
+		85649A68197842DD6F22D016 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 582009A92E820A840010E2B5 /* WidgetKit.framework */; };
+		593AB85DAF7C85D3BE4A79EB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 582009F42E822DDD0010E2B5 /* Assets.xcassets */; };
+		D8554FF7416579DB60467F56 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59B6E9A12F7B0001001A2B3C /* Localizable.xcstrings */; };
+		A2C61F81EF2320CC4A703B12 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C100062FB1000100BEEF01 /* NotificationService.swift */; };
+		19C373539D424577459ECE17 /* WalletContext in Frameworks */ = {isa = PBXBuildFile; productRef = E648045615F744FD6CFDE311 /* WalletContext */; };
+		0A3D7D70D6B454EB3FCD3925 /* WalletCoreTypes in Frameworks */ = {isa = PBXBuildFile; productRef = 621F5A4244DD3D45AA6CD334 /* WalletCoreTypes */; };
+		4A3AD854E07B90CFE15307D0 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */; };
+		B131FBB1637116E92B263C10 /* AirWidgetExtension_Preview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3A23B953F860A34F51B53A53 /* AirWidgetExtension_Preview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AD0BB56E2A4824C113E0F946 /* MyTonWalletNotificationServiceExtension_Preview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0D4AE6D87BFC4883C67A2CE8 /* MyTonWalletNotificationServiceExtension_Preview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		27CBA9209E4350D4529C3A1C /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = FB3619C41945E4C156541E59 /* FirebaseCrashlytics */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -172,6 +198,21 @@
 			proxyType = 1;
 			remoteGlobalIDString = 59C2000A2FB2000100BEEF01;
 			remoteInfo = MyTonWalletNotificationServiceExtension;
+		};
+		D95850000000000000000007 /* PBXContainerItemProxy */ = {isa = PBXContainerItemProxy; containerPortal = 504EC2FC1FED79650016851F /* Project object */; proxyType = 1; remoteGlobalIDString = 58F631D52EB8CDFA00A90B79; remoteInfo = MyTonWallet_AirOnly; };
+		1AC98BF6E7C704FD1603A0F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B3F13F86E58E7B7A7DE70286;
+			remoteInfo = AirWidgetExtension_Preview;
+		};
+		35B963654903156A3358F799 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8899BD7C441D1AD668D34564;
+			remoteInfo = MyTonWalletNotificationServiceExtension_Preview;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -246,6 +287,18 @@
 			files = (
 				59C000012F81000100ABCD01 /* GramWalletWidgetExtension.appex in Embed Foundation Extensions */,
 				59C100012FB1000100BEEF01 /* GramWalletNotificationServiceExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10721CD0A332726CCF12AEC1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B131FBB1637116E92B263C10 /* AirWidgetExtension_Preview.appex in Embed Foundation Extensions */,
+				AD0BB56E2A4824C113E0F946 /* MyTonWalletNotificationServiceExtension_Preview.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -336,6 +389,13 @@
 			isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeychainTestHost.app; sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		59F127110000000000000001 /* CompactFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CompactFonts.swift; path = ../Air/SubModules/UIComponents/Utils/CompactFonts.swift; sourceTree = SOURCE_ROOT; };
+		D95850000000000000000002 /* TokenSpotlightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenSpotlightTests.swift; sourceTree = "<group>"; };
+		D95850000000000000000003 /* AppIntentsSearchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppIntentsSearchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A23B953F860A34F51B53A53 /* AirWidgetExtension_Preview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AirWidgetExtension_Preview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5663045062B6137CBCEAAD3C /* AirWidgetExtension_Preview.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AirWidgetExtension_Preview.entitlements; sourceTree = "<group>"; };
+		0D4AE6D87BFC4883C67A2CE8 /* MyTonWalletNotificationServiceExtension_Preview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyTonWalletNotificationServiceExtension_Preview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		73C3935DEC3982FF8EA9F6D9 /* MyTonWalletNotificationServiceExtension_Preview.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWalletNotificationServiceExtension_Preview.entitlements; sourceTree = "<group>"; };
+		FE6EB98E31626F33B669A2B7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "App/Resources/MyTonWalletPreview/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -466,12 +526,33 @@
 				59E000092FA0000100BEEF01 /* WalletResources in Frameworks */,
 				59F100242FB0000100C0FF03 /* FirebaseCore in Frameworks */,
 				59F100252FB0000100C0FF03 /* FirebaseMessaging in Frameworks */,
+				27CBA9209E4350D4529C3A1C /* FirebaseCrashlytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9C00000000000000000000A /* PBXFrameworksBuildPhase */ = {
 			isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647;
 			files = (B9C000000000000000000003 /* WalletContext in Frameworks */, B9C000000000000000000004 /* NativeEnclave in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D95850000000000000000006 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		46308AF8DED5604DDAA6F16F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				929FC24FD1A843149297DCBD /* WalletCoreTypes in Frameworks */,
+				CFFB9BB473C5A7F2FCE6EDA3 /* SwiftUI.framework in Frameworks */,
+				85649A68197842DD6F22D016 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80C2739EBE5B1FDC24FD416B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19C373539D424577459ECE17 /* WalletContext in Frameworks */,
+				0A3D7D70D6B454EB3FCD3925 /* WalletCoreTypes in Frameworks */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -529,6 +610,7 @@
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
+				D95850000000000000000004 /* AppIntentsSearchTests */,
 				B9C000000000000000000008 /* KeychainIntegrationTests */,
 				B9C000000000000000000015 /* KeychainTestHost */,
 				504EC3061FED79650016851F /* App */,
@@ -539,12 +621,14 @@
 				58F632322EB8CECA00A90B79 /* Entitlements */,
 				504EC3051FED79650016851F /* Products */,
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
+				FE6EB98E31626F33B669A2B7 /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
 		504EC3051FED79650016851F /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				D95850000000000000000003 /* AppIntentsSearchTests.xctest */,
 				B9C000000000000000000007 /* KeychainIntegrationTests.xctest */,
 				B9C000000000000000000014 /* KeychainTestHost.app */,
 				504EC3041FED79650016851F /* MyTonWallet.app */,
@@ -556,6 +640,8 @@
 				59C200052FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.appex */,
 				47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */,
 				A11AB0000000000000000002 /* MyLab.app */,
+				3A23B953F860A34F51B53A53 /* AirWidgetExtension_Preview.appex */,
+				0D4AE6D87BFC4883C67A2CE8 /* MyTonWalletNotificationServiceExtension_Preview.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -622,6 +708,8 @@
 				59C100082FB1000100BEEF01 /* GramWalletNotificationServiceExtension.entitlements */,
 				59C200082FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension.entitlements */,
 				579622823A5A8EDC7EE38C44 /* MyTonWallet_Preview.entitlements */,
+				5663045062B6137CBCEAAD3C /* AirWidgetExtension_Preview.entitlements */,
+				73C3935DEC3982FF8EA9F6D9 /* MyTonWalletNotificationServiceExtension_Preview.entitlements */,
 			);
 			path = Entitlements;
 			sourceTree = "<group>";
@@ -679,6 +767,7 @@
 		B9C000000000000000000015 /* KeychainTestHost */ = {
 			isa = PBXGroup; children = (B9C000000000000000000013 /* main.swift */,); path = ../Tests/KeychainTestHost; sourceTree = "<group>";
 		};
+		D95850000000000000000004 /* AppIntentsSearchTests */ = {isa = PBXGroup; children = (D95850000000000000000002 /* TokenSpotlightTests.swift */,); path = ../Tests/AppIntentsSearchTests; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -887,10 +976,14 @@
 				DAB051B80AFAD29AE0FE9976 /* Frameworks */,
 				14BCC992DD052C192B99C53D /* Resources */,
 				25E81DF6D17BC7C934A315E4 /* Embed Frameworks */,
+				10721CD0A332726CCF12AEC1 /* Embed Foundation Extensions */,
+				EE185D11D878E2C5D01B774E /* Upload Crashlytics Symbols */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				96AA7DED6703F1A02F0AE213 /* PBXTargetDependency */,
+				504E978BDC039E3BB1F1DED2 /* PBXTargetDependency */,
 			);
 			name = MyTonWallet_Preview;
 			packageProductDependencies = (
@@ -898,6 +991,7 @@
 				59E0000E2FA0000100BEEF01 /* WalletResources */,
 				59F100142FB0000100C0FF03 /* FirebaseCore */,
 				59F100152FB0000100C0FF03 /* FirebaseMessaging */,
+				FB3619C41945E4C156541E59 /* FirebaseCrashlytics */,
 			);
 			productName = MyTonWallet_Preview;
 			productReference = 47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */;
@@ -926,6 +1020,63 @@
 			productReference = B9C000000000000000000014 /* KeychainTestHost.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D95850000000000000000009 /* AppIntentsSearchTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D9585000000000000000000A /* Build configuration list for AppIntentsSearchTests */;
+			buildPhases = (D95850000000000000000005 /* Sources */, D95850000000000000000006 /* Frameworks */,);
+			buildRules = ();
+			dependencies = (D95850000000000000000008 /* PBXTargetDependency */,);
+			name = AppIntentsSearchTests;
+			productName = AppIntentsSearchTests;
+			productReference = D95850000000000000000003 /* AppIntentsSearchTests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		B3F13F86E58E7B7A7DE70286 /* AirWidgetExtension_Preview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8F6914FFA8CE939F11A2C6BF /* Build configuration list for PBXNativeTarget "AirWidgetExtension_Preview" */;
+			buildPhases = (
+				53682FB25E65F03CAEA71468 /* Sources */,
+				46308AF8DED5604DDAA6F16F /* Frameworks */,
+				BDEDDC7ECCB5FD37CB17909E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				588AC1662E82428700588415 /* TokenWidget */,
+				588AC1892E82EC7400588415 /* Models */,
+				588AD21B2E83CE6500588415 /* SharedUI */,
+			);
+			name = AirWidgetExtension_Preview;
+			packageProductDependencies = (
+				E2CB1D8EF8AC503227CB0FD0 /* WalletCoreTypes */,
+			);
+			productName = AirWidgetExtension_Preview;
+			productReference = 3A23B953F860A34F51B53A53 /* AirWidgetExtension_Preview.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		8899BD7C441D1AD668D34564 /* MyTonWalletNotificationServiceExtension_Preview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 108F1EBEA36257A6540839EA /* Build configuration list for PBXNativeTarget "MyTonWalletNotificationServiceExtension_Preview" */;
+			buildPhases = (
+				F8A349812CF167236CBD115A /* Sources */,
+				80C2739EBE5B1FDC24FD416B /* Frameworks */,
+				B8F861CADBEC0F28A7DD0379 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MyTonWalletNotificationServiceExtension_Preview;
+			packageProductDependencies = (
+				621F5A4244DD3D45AA6CD334 /* WalletCoreTypes */,
+				E648045615F744FD6CFDE311 /* WalletContext */,
+			);
+			productName = MyTonWalletNotificationServiceExtension_Preview;
+			productReference = 0D4AE6D87BFC4883C67A2CE8 /* MyTonWalletNotificationServiceExtension_Preview.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -936,6 +1087,7 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					D95850000000000000000009 = { CreatedOnToolsVersion = 27.1; TestTargetID = 58F631D52EB8CDFA00A90B79; };
 					A11AB0000000000000000001 = {
 						CreatedOnToolsVersion = 26.6;
 					};
@@ -988,6 +1140,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				D95850000000000000000009 /* AppIntentsSearchTests */,
 				B9C000000000000000000017 /* KeychainTestHost */,
 				B9C00000000000000000000B /* KeychainIntegrationTests */,
 				504EC3031FED79650016851F /* MyTonWallet */,
@@ -999,6 +1152,8 @@
 				59C2000A2FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension */,
 				7388E62D305CB72073B797EA /* MyTonWallet_Preview */,
 				A11AB0000000000000000001 /* MyLab */,
+				B3F13F86E58E7B7A7DE70286 /* AirWidgetExtension_Preview */,
+				8899BD7C441D1AD668D34564 /* MyTonWalletNotificationServiceExtension_Preview */,
 			);
 		};
 /* End PBXProject section */
@@ -1095,6 +1250,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BDEDDC7ECCB5FD37CB17909E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				593AB85DAF7C85D3BE4A79EB /* Assets.xcassets in Resources */,
+				D8554FF7416579DB60467F56 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B8F861CADBEC0F28A7DD0379 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A3AD854E07B90CFE15307D0 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -1123,6 +1295,30 @@
 			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  echo \"Skipping Crashlytics symbol upload for ${CONFIGURATION} build\"\n  exit 0\nfi\n\n\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
 		};
 		59C000422FD2000100ABCD01 /* Upload Crashlytics Symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+			);
+			name = "Upload Crashlytics Symbols";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  echo \"Skipping Crashlytics symbol upload for ${CONFIGURATION} build\"\n  exit 0\nfi\n\n\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
+		};
+		EE185D11D878E2C5D01B774E /* Upload Crashlytics Symbols */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -1275,6 +1471,35 @@
 		B9C000000000000000000016 /* Sources */ = {
 			isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B9C000000000000000000012 /* main.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0;
 		};
+		D95850000000000000000005 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D95850000000000000000001 /* TokenSpotlightTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		53682FB25E65F03CAEA71468 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D006E685B4A2D34E0E1D6EE6 /* ActionsWidget.swift in Sources */,
+				0E6383BD56F9E292F88610EA /* CompactFonts.swift in Sources */,
+				5DBA241E517CBD32E35666CF /* AirWidgetBundle.swift in Sources */,
+				4C4F953460BCD3D677D5EB94 /* ChartView.swift in Sources */,
+				377D9CD5DF2419A3B590F14C /* TokenWithChartWidget.swift in Sources */,
+				0663B13520987E3B0F872EF2 /* TokenWithChartWidgetConfiguration.swift in Sources */,
+				D9DE7AFA43A225F5236B0017 /* ActionsStyle.swift in Sources */,
+				E32BF09069DCE5DD7DD4459B /* TokenWithChartWidgetTimelineEntry.swift in Sources */,
+				8977D17253280CE8CEFCC6A1 /* TokenWithChartWidgetTimelineProvider.swift in Sources */,
+				C01B60D173E334D541B61F6B /* ChartStyle.swift in Sources */,
+				8CDFB20CB73A9C687873D136 /* ActionsWidgetConfiguration.swift in Sources */,
+				B9A7639609227021D5B6D49A /* ActionsWidgetTimelineEntry.swift in Sources */,
+				BF86C0D9FC51CDFB566EEA01 /* ActionsWidgetTimelineProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F8A349812CF167236CBD115A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2C61F81EF2320CC4A703B12 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1300,6 +1525,17 @@
 		};
 		B9C00000000000000000000D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency; target = B9C000000000000000000017 /* KeychainTestHost */;
+		};
+		D95850000000000000000008 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 58F631D52EB8CDFA00A90B79 /* MyTonWallet_AirOnly */; targetProxy = D95850000000000000000007 /* PBXContainerItemProxy */; };
+		96AA7DED6703F1A02F0AE213 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B3F13F86E58E7B7A7DE70286 /* AirWidgetExtension_Preview */;
+			targetProxy = 1AC98BF6E7C704FD1603A0F1 /* PBXContainerItemProxy */;
+		};
+		504E978BDC039E3BB1F1DED2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8899BD7C441D1AD668D34564 /* MyTonWalletNotificationServiceExtension_Preview */;
+			targetProxy = 35B963654903156A3358F799 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1349,7 +1585,7 @@
 			};
 			name = Release;
 		};
-		194F61494DCC08445F401170 /* Release */ = {
+		194F61494DCC08445F401170 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -1357,24 +1593,28 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 3517;
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
+				INFOPLIST_FILE = App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.9.4;
+				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
 				PRODUCT_NAME = "My Wallet_Preview";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Release;
+			name = Debug;
 		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1557,6 +1797,7 @@
 		582009D92E820AD40010E2B5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api.mytonwallet.org";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -1601,6 +1842,7 @@
 		582009DA2E820AD40010E2B5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api.mytonwallet.org";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -1767,6 +2009,7 @@
 		59C000392F81000100ABCD01 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api.mytonwallet.org";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -1811,6 +2054,7 @@
 		59C0003A2F81000100ABCD01 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api.mytonwallet.org";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
@@ -2006,7 +2250,7 @@
 			};
 			name = Release;
 		};
-		668B2FFA2D78180C90FDD761 /* Debug */ = {
+		668B2FFA2D78180C90FDD761 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -2014,24 +2258,29 @@
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = Y54Z4K69Z9;
-				INFOPLIST_FILE = "App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist";
+				INFOPLIST_FILE = App/Resources/MyTonWallet/MyTonWallet_Preview-Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 4.9.4;
+				MARKETING_VERSION = 4.8.6;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview;
 				PRODUCT_NAME = "My Wallet_Preview";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = Debug;
+			name = Release;
 		};
 		B9C000000000000000000010 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -2104,6 +2353,205 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D9585000000000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.AppIntentsSearchTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MyTonWallet_AirOnly;
+			};
+			name = Debug;
+		};
+		D9585000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.AppIntentsSearchTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MyTonWallet_AirOnly;
+			};
+			name = Release;
+		};
+		90C2156B6CA4D5BD2833899A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api-beta.mytonwallet.org";
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/AirWidgetExtension_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AirWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet β Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview.AirWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F21AA42D6D1158BC50E6E032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				WIDGET_API_BASE_URL = "https://api-beta.mytonwallet.org";
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/AirWidgetExtension_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AirWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet β Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.app.preview.AirWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		579D6A1DEA29513A857CA7D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWalletNotificationServiceExtension_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet β Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app.preview.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C5057D72BCF08F9F9C485A04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWalletNotificationServiceExtension_Preview.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3517;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "My Wallet β Notifications";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 4.8.6;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.mytonwallet.app.preview.notification-service";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -2211,6 +2659,25 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (B9C000000000000000000019 /* Debug */, B9C00000000000000000001A /* Release */,);
 			defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;
+		};
+		D9585000000000000000000A /* Build configuration list for AppIntentsSearchTests */ = {isa = XCConfigurationList; buildConfigurations = (D9585000000000000000000B /* Debug */, D9585000000000000000000C /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		8F6914FFA8CE939F11A2C6BF /* Build configuration list for PBXNativeTarget "AirWidgetExtension_Preview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				90C2156B6CA4D5BD2833899A /* Debug */,
+				F21AA42D6D1158BC50E6E032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		108F1EBEA36257A6540839EA /* Build configuration list for PBXNativeTarget "MyTonWalletNotificationServiceExtension_Preview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				579D6A1DEA29513A857CA7D4 /* Debug */,
+				C5057D72BCF08F9F9C485A04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 
@@ -2350,6 +2817,23 @@
 		};
 		B9C00000000000000000000F /* NativeEnclave */ = {
 			isa = XCSwiftPackageProductDependency; productName = NativeEnclave;
+		};
+		E2CB1D8EF8AC503227CB0FD0 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
+		};
+		621F5A4244DD3D45AA6CD334 /* WalletCoreTypes */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletCoreTypes;
+		};
+		E648045615F744FD6CFDE311 /* WalletContext */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WalletContext;
+		};
+		FB3619C41945E4C156541E59 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

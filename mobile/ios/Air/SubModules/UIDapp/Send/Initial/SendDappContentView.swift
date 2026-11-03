@@ -157,11 +157,7 @@ private struct SendDappContentView: View {
                     .imageScale(.medium)
                     .overlay(alignment: .trailing) {
                         Button {
-                            topWViewController()?.showTip(title: lang("Preview"), wide: false) {
-                                Text(langMd("$preview_not_guaranteed"))
-                                    .textStyle(.body, scaling: .dynamic)
-                                    .multilineTextAlignment(.center)
-                            }
+                            topWViewController()?.showTip(title: lang("Preview"), message: lang("$preview_not_guaranteed"))
                         } label: {
                             Color.clear.contentShape(.rect)
                         }

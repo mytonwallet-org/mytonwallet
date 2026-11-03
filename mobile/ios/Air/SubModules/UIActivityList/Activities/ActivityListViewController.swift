@@ -120,6 +120,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     open var activeTrailingCustomRowIDs: [String] { trailingCustomRows.map(\.id) }
     public var customSectionIDs: [String] { activeCustomSectionIDs }
     open var displaysActivitySections: Bool { true }
+    open var displaysActivityPlaceholders: Bool { true }
     open var usesBackgroundSnapshotDiffing: Bool { true }
     open var activityAccountContext: AccountContext? { activityViewModel?.accountContext }
     open var isActivityDataAvailableForSkeleton: Bool { activityViewModel?.idsByDate != nil }
@@ -523,6 +524,11 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
         if let activityViewModel {
             var snapshot = activityViewModel.snapshot!
+            if !displaysActivityPlaceholders {
+                snapshot.deleteSections(snapshot.sectionIdentifiers.filter {
+                    $0 == .loadingPlaceholder || $0 == .emptyPlaceholder
+                })
+            }
             let currentCustomSections = snapshot.sectionIdentifiers.compactMap { section -> Section? in
                 if case .custom = section.value {
                     return section
@@ -593,8 +599,10 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     }
                 }
             }
-            snapshot.appendSections([.loadingPlaceholder])
-            snapshot.appendItems([.loadingMore])
+            if displaysActivityPlaceholders {
+                snapshot.appendSections([.loadingPlaceholder])
+                snapshot.appendItems([.loadingMore])
+            }
             return snapshot
         }
     }

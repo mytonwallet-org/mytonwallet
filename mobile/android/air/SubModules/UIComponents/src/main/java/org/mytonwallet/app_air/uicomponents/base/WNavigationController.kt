@@ -14,6 +14,7 @@ import androidx.core.graphics.Insets
 import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import java.lang.ref.WeakReference
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -81,10 +82,32 @@ open class WNavigationController(
 
     open val centeredWindowWidth: Int? = null
 
+    // Content height for a centered window of the given width; null keeps the default height.
+    fun centeredWindowHeight(width: Int): Int? {
+        val view = viewControllers.firstOrNull()
+            ?.takeIf { it.wrapsContentInCenteredWindow }
+            ?.view?.takeIf { it.configured }
+            ?: return null
+        view.measure(
+            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        )
+        return view.measuredHeight
+    }
+
+    // A centered window shorter than this falls back to full screen.
+    open val centeredWindowMinHeight: Int? = null
+
     open val isCenteredWindow: Boolean
         get() {
             if (!isWideLayout) return false
             if (isShortWideWindow) return false
+            val minHeight = centeredWindowMinHeight
+            if (minHeight != null && window.windowView.height > 0 &&
+                window.centeredWindowHeight < minHeight
+            ) {
+                return false
+            }
             return presentationConfig.style == PresentationStyle.BottomSheet ||
                 presentationConfig.style == PresentationStyle.PreferredFullScreen
         }
@@ -116,6 +139,7 @@ open class WNavigationController(
     }
 
     var tabBarController: ITabsVC? = null
+    var searchOverlayHost: ISearchOverlayHost? = null
     var additionalRootTopInset: Int = 0
         set(value) {
             if (field == value) return
@@ -183,9 +207,23 @@ open class WNavigationController(
             (window.systemBars?.top ?: 0) +
                 if (viewControllers.size == 1) additionalRootTopInset else 0,
             ((window.systemBars?.right ?: 0) - floatingInset).coerceAtLeast(0),
-            tabBarController?.getBottomNavigationHeight()
-                ?: if (floatingInset > 0) 0 else (window.systemBars?.bottom ?: 0)
+            max(
+                (searchOverlayHost ?: tabBarController)?.getBottomNavigationHeight()
+                    ?: if (floatingInset > 0) 0 else (window.systemBars?.bottom ?: 0),
+                window.minimizedBrowserInset(this)
+            )
         )
+    }
+
+    /**
+     * The system bars [viewController] lays out under. A root that keeps its inset when covered keeps
+     * [additionalRootTopInset] while screens are pushed over it, so it stays still under them.
+     */
+    fun getSystemBars(viewController: WViewController): Insets {
+        val bars = getSystemBars()
+        val isCoveredRoot = viewControllers.size > 1 && viewControllers.first() === viewController
+        if (!isCoveredRoot || !viewController.shouldKeepRootInsetWhenCovered) return bars
+        return Insets.of(bars.left, bars.top + additionalRootTopInset, bars.right, bars.bottom)
     }
 
     internal fun usesRootTopGradient(viewController: WViewController): Boolean =
@@ -198,8 +236,11 @@ open class WNavigationController(
     val bottomInset: Int
         get() {
             if (isCenteredWindow) return 0
-            val baseInset = tabBarController?.getBottomNavigationHeight()
-                ?: if (floatingSheetInset > 0) 0 else (window.systemBars?.bottom ?: 0)
+            val baseInset = max(
+                (searchOverlayHost ?: tabBarController)?.getBottomNavigationHeight()
+                    ?: if (floatingSheetInset > 0) 0 else (window.systemBars?.bottom ?: 0),
+                window.minimizedBrowserInset(this)
+            )
             val gradientInset =
                 if (baseInset > 0 && WGlobalStorage.isGradientNavigationBarActive()) {
                     ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp.roundToInt()
@@ -228,6 +269,7 @@ open class WNavigationController(
                 }
             }
         }
+        updateHalfExpandedRatio()
         handleAboveKeyboardVisibility()
     }
 
@@ -495,11 +537,16 @@ open class WNavigationController(
         }
     }
 
+    private fun stackUpdated() {
+        tabBarController?.navStackUpdated(this)
+        window.navigationStackChanged()
+    }
+
     // Called whenever a view controller in going to be presented on the nav controller
     private fun addViewController(viewController: WViewController) {
         viewControllers.add(viewController)
         setupSwipeGestureOn(viewController)
-        tabBarController?.navStackUpdated(this)
+        stackUpdated()
     }
 
     /**
@@ -586,6 +633,28 @@ open class WNavigationController(
 
     // Setup bottom sheet behaviour
     private var bottomSheetBehaviorHolder: WViewController? = null
+    private fun halfExpandedRatio(viewController: WViewController): Float? {
+        val calcHalfExpandedHeight = viewController.getModalHalfExpandedHeight() ?: return null
+        if (height == 0) return null
+        val contentHeight = calcHalfExpandedHeight.toFloat() + getSystemBars().bottom
+        return min(0.9f, contentHeight / height)
+    }
+
+    // The half-expanded height includes the bottom inset, which changes while the sheet is up.
+    private fun updateHalfExpandedRatio() {
+        if (!isBottomSheet) return
+        val viewController = bottomSheetBehaviorHolder ?: return
+        if (!viewController.isExpandable) return
+        val behavior = (viewController.view.layoutParams as? LayoutParams)?.behavior
+            as? BottomSheetBehavior<*> ?: return
+        val ratio = halfExpandedRatio(viewController) ?: return
+        if (abs(ratio - behavior.halfExpandedRatio) < 0.0001f) return
+        behavior.halfExpandedRatio = ratio
+        if (behavior.state == BottomSheetBehavior.STATE_HALF_EXPANDED) {
+            viewController.view.requestLayout()
+        }
+    }
+
     private fun setupBottomSheetBehaviour(
         viewController: WViewController,
         restoreExpanded: Boolean = false
@@ -601,11 +670,9 @@ open class WNavigationController(
         bottomSheetBehavior.setBottomOverflow(floatingGap)
         val isExpandable = viewController.isExpandable
         if (isExpandable) {
-            viewController.getModalHalfExpandedHeight()?.let { calcHalfExpandedHeight ->
-                if (height == 0) return@let
+            halfExpandedRatio(viewController)?.let { ratio ->
                 bottomSheetBehavior.isFitToContents = false
-                val contentHeight = calcHalfExpandedHeight.toFloat() + getSystemBars().bottom
-                bottomSheetBehavior.halfExpandedRatio = min(0.9f, contentHeight / height)
+                bottomSheetBehavior.halfExpandedRatio = ratio
                 viewController.onModalSlide(0, 0f)
             }
         }
@@ -675,7 +742,7 @@ open class WNavigationController(
                 bringToFront()
                 viewDidAppear()
             }
-            tabBarController?.navStackUpdated(this)
+            stackUpdated()
         }
     }
 
@@ -784,7 +851,7 @@ open class WNavigationController(
             viewControllers[keptFirstViewControllers].swipeTouchListener?.behindView =
                 WeakReference(viewControllers[keptFirstViewControllers - 1].view)
         }
-        tabBarController?.navStackUpdated(this)
+        stackUpdated()
     }
 
     fun removeViewController(removingVC: WViewController) {
@@ -800,7 +867,7 @@ open class WNavigationController(
                     WeakReference(viewControllers[index - 1].view)
             }
             viewControllers.remove(removingVC)
-            tabBarController?.navStackUpdated(this)
+            stackUpdated()
         }
     }
 

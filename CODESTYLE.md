@@ -188,6 +188,14 @@ Good:
 
 ---
 
+## Localization
+
+- Locale files in `src/i18n/` contain only keys and translations, without comments. New keys go to the end of the file, so a section comment ends up above unrelated keys; `npm run i18n:update` rewrites the files and drops comments.
+- Code search shows where a key is used.
+- When the same text needs a different translation in another context, add a separate `$`-prefixed key, such as `$portfolio_other_chains` next to `Other`.
+
+---
+
 ## Dead Code
 
 Do not keep unused code, "just in case" code, or speculative library-style utilities. If an object is not used outside its own module, it must not be exported.

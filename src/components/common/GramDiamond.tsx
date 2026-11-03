@@ -4,8 +4,10 @@ import { withGlobal } from '../../global';
 
 import { ANIMATION_LEVEL_MIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
+import { vibrate } from '../../util/haptics';
 
 import useFlag from '../../hooks/useFlag';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 
@@ -17,6 +19,10 @@ import blueDiamondPreview from '../../assets/lottiePreview/blue_diamond.webp';
 interface OwnProps {
   isOpen?: boolean;
   className?: string;
+  size?: number;
+  hoverSpeed?: number;
+  shouldRotateOnTap?: boolean;
+  maxGrow?: number;
 }
 
 interface StateProps {
@@ -28,14 +34,21 @@ const SIZE = 120;
 
 // The 3D diamond turns on drag and tilts on tap. Without WebGL 2, a usable GPU or animations enabled,
 // the Lottie diamond stands in its place.
-function GramDiamond({ isOpen, className, noAnimation }: OwnProps & StateProps) {
+function GramDiamond({
+  isOpen, className, noAnimation, size = SIZE, hoverSpeed = 1, shouldRotateOnTap = false, maxGrow = 1,
+}: OwnProps & StateProps) {
   const canvasRef = useRef<HTMLCanvasElement>();
-  const [isReady, markReady] = useFlag();
+  const interactionRef = useRef<HTMLDivElement>();
+  const [isReady, markReady, markNotReady] = useFlag();
   const [isFailed, markFailed] = useFlag();
-  const is3d = !noAnimation && !isFailed;
+  const isReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const isStatic = noAnimation || isReducedMotion;
+  const is3d = !isStatic && !isFailed && isOpen !== false;
 
   useEffect(() => {
     if (!is3d) return undefined;
+
+    markNotReady();
 
     let isDestroyed = false;
     let destroy: NoneToVoidFunction | undefined;
@@ -49,7 +62,10 @@ function GramDiamond({ isOpen, className, noAnimation }: OwnProps & StateProps) 
       import('../../lib/blue-diamond/diamond').then(({ mountDiamond }) => {
         if (isDestroyed) return;
 
-        destroy = mountDiamond(canvasRef.current!, { onReady: markReady, onError: markFailed });
+        destroy = mountDiamond(canvasRef.current!, {
+          onReady: markReady, onError: markFailed, hoverSpeed, shouldRotateOnTap, maxGrow,
+          interactionTarget: interactionRef.current, onPress: shouldRotateOnTap ? () => vibrate(true) : undefined,
+        });
       }).catch(markFailed);
     });
 
@@ -57,13 +73,25 @@ function GramDiamond({ isOpen, className, noAnimation }: OwnProps & StateProps) 
       isDestroyed = true;
       destroy?.();
     };
-  }, [is3d]);
+  }, [is3d, hoverSpeed, shouldRotateOnTap, maxGrow]);
+
+  if (isStatic || isOpen === false) {
+    return (
+      <img
+        src={blueDiamondPreview}
+        alt=""
+        draggable={false}
+        className={buildClassName(styles.root, className)}
+        style={`width: ${size}px; height: ${size}px;`}
+      />
+    );
+  }
 
   if (!is3d) {
     return (
       <AnimatedIconWithPreview
         play={isOpen}
-        size={SIZE}
+        size={size}
         className={buildClassName(styles.root, className)}
         nonInteractive
         noLoop={false}
@@ -73,12 +101,16 @@ function GramDiamond({ isOpen, className, noAnimation }: OwnProps & StateProps) 
     );
   }
 
-  const pixelSize = Math.round(SIZE * window.devicePixelRatio);
+  const pixelSize = Math.round(size * window.devicePixelRatio);
 
   // The still stands in until the model has rendered its first frame, then fades out under the canvas
   // fading in. The `capture-scroll` class keeps a vertical drag on the canvas from closing the modal.
   return (
-    <div className={buildClassName(styles.root, className)}>
+    <div
+      ref={interactionRef}
+      className={buildClassName(styles.root, 'capture-scroll', className)}
+      style={`width: ${size}px; height: ${size}px;`}
+    >
       <img
         src={blueDiamondPreview}
         alt=""

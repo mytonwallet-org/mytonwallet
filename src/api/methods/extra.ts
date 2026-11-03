@@ -10,6 +10,16 @@ export * from './legacyAuth';
 export * from './mfa';
 export * from './notifications';
 export * from './portfolio';
+export {
+  initPerps,
+  perpsGetPositions,
+  perpsGetActivities,
+  perpsGetAssets,
+  perpsGetAsset,
+  perpsGetAssetChart,
+} from './perps';
 export * from './staking';
 export * from './swap';
 export * from './walletConnectPay';
+
+export * from './perpsTrading';

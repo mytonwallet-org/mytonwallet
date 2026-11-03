@@ -57,6 +57,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
     private var activityIdAliases: [String: String] = [:]
     private var snapshotProxy: ActivityListSnapshotProxy
     private var currentIdsByDate: OrderedDictionary<Date, [String]>?
+    private var currentSourceIdsCount = 0
     private var currentIsEndReached: Bool?
     private let loadRetryPolicy = LoadRetryPolicy.standard
 
@@ -112,6 +113,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         } else {
             accountState.idsMain
         }
+        currentSourceIdsCount = sourceIds?.count ?? 0
         let ids = ActivityVisibilityFilter.visibleIDs(
             sourceIds,
             activitiesById: activitiesById,
@@ -216,10 +218,11 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
     }
 
     public func requestMoreIfNeeded() {
-        guard loadMoreTask == nil else { return }
+        guard loadMoreTask == nil, currentIsEndReached != true else { return }
         loadRetryTask?.cancel()
         loadRetryTask = nil
         loadMoreTask = Task {
+            let previousSourceIdsCount = currentSourceIdsCount
             let didFail: Bool
             do {
                 if let token {
@@ -237,8 +240,16 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
             }
             await getState(updatedIds: [], replacedIds: [:])
             self.loadMoreTask = nil
+            guard !Task.isCancelled else { return }
             if didFail {
                 scheduleLoadRetryIfNeeded()
+            } else if currentIsEndReached != true, currentIdsByDate?.isEmpty != false {
+                // Filtered pages have no visible row to trigger pagination on zero-balance token screens.
+                if currentSourceIdsCount > previousSourceIdsCount {
+                    requestMoreIfNeeded()
+                } else {
+                    scheduleLoadRetryIfNeeded()
+                }
             }
         }
     }

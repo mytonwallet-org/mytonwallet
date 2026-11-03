@@ -7,6 +7,10 @@ import { TONCOIN, TONSTAKERS_JETTON, TRC20_USDT_MAINNET } from '../../config';
 import * as chainUtils from '../../util/chain';
 import Deferred from '../../util/Deferred';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
+import { logDebugError } from '../../util/logs';
+import {
+  applyPendingBalances, capturePendingTransferBalances, clearPendingBalances, registerPendingTransfer,
+} from '../common/pendingBalances';
 import { buildTokenSlug } from '../common/tokens';
 import { MINUTE } from '../constants';
 
@@ -15,8 +19,13 @@ const mockCallBackendPost = jest.fn();
 const mockForeign = jest.fn();
 const mockStakingCommon = jest.fn();
 const mockAccount = jest.fn();
+const mockAccounts = jest.fn();
+const mockRefreshMfaStateAndNotify = jest.fn();
 const mockOnUpdate = jest.fn<void, Parameters<OnApiUpdate>>();
 const mockSetupActivePolling = jest.fn(
+  (_accountId: string, _account: ApiAccountAny, _onUpdate: OnApiUpdate) => jest.fn(),
+);
+const mockSetupInactivePolling = jest.fn(
   (_accountId: string, _account: ApiAccountAny, _onUpdate: OnApiUpdate) => jest.fn(),
 );
 let mockNoExtraFeatures = true;
@@ -27,12 +36,26 @@ jest.mock('../../config', () => ({
   get NO_EXTRA_FEATURES() { return mockNoExtraFeatures; },
 }));
 
+jest.mock('../../util/logs', () => ({
+  ...jest.requireActual('../../util/logs'), logDebugError: jest.fn(),
+}));
+
 jest.mock('../chains', () => ({
   __esModule: true,
-  default: { ton: {
-    setupActivePolling: mockSetupActivePolling,
-    setupInactivePolling: jest.fn(() => jest.fn()),
-  } },
+  default: {
+    ton: {
+      setupActivePolling: mockSetupActivePolling,
+      setupInactivePolling: mockSetupInactivePolling,
+    },
+    ethereum: {
+      setupActivePolling: mockSetupActivePolling,
+      setupInactivePolling: mockSetupInactivePolling,
+    },
+    arbitrum: {
+      setupActivePolling: mockSetupActivePolling,
+      setupInactivePolling: mockSetupInactivePolling,
+    },
+  },
 }));
 
 jest.mock('./optional', () => ({
@@ -40,18 +63,25 @@ jest.mock('./optional', () => ({
     reconcileAgentV2ProtocolVersion: jest.fn().mockResolvedValue(undefined),
     resolveAgentV2ProtocolVersionForRouting: (version?: string) => version,
   }),
-  requireMfaMethods: () => ({ refreshMfaStateAndNotify: jest.fn().mockResolvedValue(undefined) }),
+  requireMfaMethods: () => ({
+    refreshMfaStateAndNotify: (...args: unknown[]) => mockRefreshMfaStateAndNotify(...args),
+  }),
   requireStakingMethods: () => ({
     fetchStakingForeign: (...args: unknown[]) => mockForeign(...args),
     tryUpdateStakingCommonData: jest.fn().mockResolvedValue(undefined),
   }),
   requireSwapMethods: () => ({ swapGetAssetsText: jest.fn().mockResolvedValue('[]') }),
+  requirePerpsAssets: () => ({
+    setPerpsAssetsUpdater: jest.fn(),
+    loadPerpsAssetsCache: jest.fn().mockResolvedValue(undefined),
+    refreshPerpsAssets: jest.fn().mockResolvedValue({ assetsByChain: {} }),
+  }),
 }));
 
 jest.mock('../common/accounts', () => ({
   fetchStoredAccount: (...args: unknown[]) => mockAccount(...args),
   fetchMaybeStoredAccount: (...args: unknown[]) => mockAccount(...args),
-  fetchStoredAccounts: () => Promise.resolve({}),
+  fetchStoredAccounts: () => mockAccounts(),
   doesAccountHaveChain: (account: ApiAccountAny, chain: keyof ApiAccountAny['byChain']) => (
     Boolean(account.byChain[chain])
   ),
@@ -68,6 +98,8 @@ jest.mock('../common/backend', () => ({
 
 jest.mock('../common/cache', () => ({
   setBackendConfigCache: jest.fn(),
+  getBackendConfigCacheSync: jest.fn().mockReturnValue({}),
+  getStakingCommonCacheSync: jest.fn(),
   getStakingCommonCache: (...args: unknown[]) => mockStakingCommon(...args),
 }));
 
@@ -102,6 +134,8 @@ jest.mock('./preload', () => ({
 describe('backend config polling', () => {
   beforeEach(() => {
     mockNoExtraFeatures = true;
+    mockAccounts.mockReset().mockResolvedValue({});
+    mockRefreshMfaStateAndNotify.mockReset().mockResolvedValue(undefined);
     mockForeign.mockReset().mockResolvedValue([]);
     mockCallBackendPost.mockReset().mockResolvedValue({ cardsInfo: {} });
     mockStakingCommon.mockReset().mockResolvedValue({ liquid: { apy: 5 } });
@@ -142,6 +176,33 @@ describe('backend config polling', () => {
       type: 'updateConfig',
       agentProtocolVersion: 'v2',
     });
+
+    await destroyPolling();
+  });
+
+  it('forwards the swap and on-ramp limit from the backend config update', async () => {
+    mockCallBackendGet.mockImplementation((path: string) => {
+      if (path === '/utils/get-config') {
+        return Promise.resolve({
+          country: 'DE',
+          isLimited: true,
+          isSwapAndOnRampLimited: false,
+          isUpdateRequired: false,
+          now: Date.now(),
+        });
+      }
+
+      if (path === '/currency-rates') return Promise.resolve({ rates: {} });
+      return Promise.resolve({});
+    });
+    const { destroyPolling, initPolling } = await import('./polling');
+    const updatePromise = new Promise<ApiUpdateConfig>((resolve) => {
+      initPolling((update) => {
+        if (update.type === 'updateConfig') resolve(update);
+      });
+    });
+
+    await expect(updatePromise).resolves.toMatchObject({ isLimited: true, isSwapAndOnRampLimited: false });
 
     await destroyPolling();
   });
@@ -201,9 +262,9 @@ describe('backend config polling', () => {
         stakingApy: 5,
       },
       infoBanner: {
-        title: '🔒 %amount% %symbol% locked in another staking',
+        title: '🔒 %amount% %symbol% staked elsewhere',
         textValues: { '%amount%': '12\u202F345.67', '%symbol%': TONCOIN.symbol },
-        description: 'Unstake them to restake with **higher returns**.',
+        description: 'Unlock your %symbol% to access higher-yield staking.',
         actionButton: { title: 'Unstake', onClickAction: 'unstakeForeign', chain: 'ton', providerName: 'tonstakers' },
       },
       linkedBannerId: 'foreign-staking:ton',
@@ -212,7 +273,7 @@ describe('backend config polling', () => {
       id: 'foreign-staking:ton',
       kind: 'infoBanner',
       infoBanner: {
-        title: '💎 More profitable staking available',
+        title: '💎 Higher-yield staking available',
         textValues: { '%symbol%': TONCOIN.symbol },
         description: 'Tap to restake your %symbol% with higher returns.',
         actionButton: { title: 'Restake Now', onClickAction: 'openEarn' },
@@ -355,6 +416,9 @@ describe('backend config polling', () => {
       await setActivePollingAccount('1-mainnet', {});
       await setActivePollingAccount('0-mainnet', {});
       await poll.config();
+      mockSetupActivePolling.mock.lastCall![2]({
+        type: 'updateBalances', accountId: '0-mainnet', chain: 'ton', balances: {},
+      });
     });
     expect(updates.at(-3)).toMatchObject({
       accountId: '0-mainnet',
@@ -365,12 +429,297 @@ describe('backend config polling', () => {
     expect(updates.at(-1)).toMatchObject({ homeBanners: [serverBanner], stakingBanners: [] });
   });
 
+  it('reports banners only after both sources answer', async () => {
+    mockForeign.mockResolvedValue([{ chain: 'ton', providers: [{
+      name: 'tonstakers', amount: 500000000000n, amountNative: 12345678900000n, apy: 3,
+      provider: 'ts', unstake: { builder: 'ts', tokenAddress: TONSTAKERS_JETTON, ownerAddress: 'wallet-address' },
+    }] }]);
+    mockCallBackendPost.mockResolvedValue({ infoBanners: [{
+      id: 'server-banner', kind: 'infoBanner',
+      infoBanner: {
+        title: 'Offer', description: 'Details', actionButton: { title: 'Earn', onClickAction: 'openEarn' },
+      },
+    }] });
+
+    const { updates } = await pollAccount('0-mainnet');
+
+    expect(updates.map(({ homeBanners }) => homeBanners.map(({ id }) => id))).toEqual([
+      ['foreign-staking:ton', 'server-banner'],
+    ]);
+  });
+
+  it('reports no banners while the foreign staking request fails', async () => {
+    mockForeign.mockRejectedValue(new Error('Network error'));
+    mockCallBackendPost.mockResolvedValue({ infoBanners: [{
+      id: 'server-banner', kind: 'infoBanner',
+      infoBanner: {
+        title: 'Offer', description: 'Details', actionButton: { title: 'Earn', onClickAction: 'openEarn' },
+      },
+    }] });
+
+    const { updates } = await pollAccount('0-mainnet');
+
+    expect(updates).toEqual([]);
+  });
+
+  it('reports no banners while the account config request fails', async () => {
+    mockForeign.mockResolvedValue([{ chain: 'ton', providers: [{
+      name: 'tonstakers', amount: 500000000000n, amountNative: 12345678900000n, apy: 3,
+      provider: 'ts', unstake: { builder: 'ts', tokenAddress: TONSTAKERS_JETTON, ownerAddress: 'wallet-address' },
+    }] }]);
+    mockCallBackendPost.mockRejectedValue(new Error('Network error'));
+
+    const { updates } = await pollAccount('0-mainnet');
+
+    expect(updates).toEqual([]);
+  });
+
   it.each([
     ['0-testnet', 'mnemonic'], ['0-mainnet', 'view'],
   ] as const)('does not fetch foreign staking for %s %s accounts', async (accountId, type) => {
     const { banners } = await pollAccount(accountId, type);
     expect(banners.stakingBanners).toEqual([]);
     expect(mockForeign).not.toHaveBeenCalled();
+  });
+
+  describe('pending balance delivery', () => {
+    beforeEach(async () => {
+      jest.useFakeTimers();
+      mockOnUpdate.mockClear();
+      mockSetupActivePolling.mockClear();
+      mockSetupInactivePolling.mockClear();
+      const account: ApiAccountAny = {
+        type: 'bip39',
+        byChain: {
+          ethereum: { address: '0xwallet', index: 0 },
+          arbitrum: { address: '0xwallet', index: 0 },
+        },
+      };
+      const accounts = { '0-mainnet': account, '1-mainnet': account };
+      mockAccount.mockResolvedValue(account);
+      mockAccounts.mockResolvedValue(accounts);
+      const { initPolling, setActivePollingAccount } = await import('./polling');
+      initPolling(mockOnUpdate);
+      await setActivePollingAccount('0-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    afterEach(async () => {
+      const { destroyPolling } = await import('./polling');
+      await destroyPolling();
+      clearPendingBalances('0-mainnet');
+      clearPendingBalances('1-mainnet');
+      clearPendingBalances('0-testnet');
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it.each([
+      { kind: 'active', accountId: '0-mainnet' },
+      { kind: 'inactive', accountId: '1-mainnet' },
+    ])('applies debits to cross-chain balances from $kind polling', ({ kind, accountId }) => {
+      const setup = kind === 'active' ? mockSetupActivePolling : mockSetupInactivePolling;
+      // The first chain poller is Ethereum; it may report Arbitrum assets from a cross-chain fetch.
+      const emit = setup.mock.calls.find(([id]) => id === accountId)![2];
+      const slug = chainUtils.getChainConfig('arbitrum').nativeToken.slug;
+      const stale = { type: 'updateBalances', accountId, chain: 'arbitrum', balances: { [slug]: 1000n } } as const;
+      emit(stale);
+      const balancesBeforeTransfer = capturePendingTransferBalances(accountId, 'arbitrum', slug);
+      registerPendingTransfer(
+        accountId, 'arbitrum', { slug, amount: 200n, fee: 10n }, balancesBeforeTransfer, mockOnUpdate,
+      );
+      mockOnUpdate.mockClear();
+
+      emit(stale);
+      expect(mockOnUpdate).toHaveBeenLastCalledWith({ ...stale, balances: { [slug]: 790n } });
+      expect(stale.balances).toEqual({ [slug]: 1000n });
+
+      emit({ ...stale, balances: { [slug]: 900n } });
+      expect(mockOnUpdate).toHaveBeenLastCalledWith({ ...stale, balances: { [slug]: 900n } });
+    });
+
+    it('preserves pending balances while an account switches to inactive polling and back', async () => {
+      const accountId = '0-mainnet';
+      const slug = chainUtils.getChainConfig('ethereum').nativeToken.slug;
+      const stale = { type: 'updateBalances', accountId, chain: 'ethereum', balances: { [slug]: 1000n } } as const;
+      const emitActive = mockSetupActivePolling.mock.calls.find(([id]) => id === accountId)![2];
+      emitActive(stale);
+      const balancesBeforeTransfer = capturePendingTransferBalances(accountId, 'ethereum', slug);
+      registerPendingTransfer(
+        accountId, 'ethereum', { slug, amount: 200n, fee: 10n }, balancesBeforeTransfer, mockOnUpdate,
+      );
+      const { setActivePollingAccount } = await import('./polling');
+      mockSetupInactivePolling.mockClear();
+      await setActivePollingAccount('1-mainnet', {});
+      mockOnUpdate.mockClear();
+      const emitInactive = mockSetupInactivePolling.mock.calls.find(([id]) => id === accountId)![2];
+      emitInactive(stale);
+      expect(mockOnUpdate).toHaveBeenLastCalledWith({ ...stale, balances: { [slug]: 790n } });
+
+      mockSetupActivePolling.mockClear();
+      await setActivePollingAccount(accountId, {});
+      mockOnUpdate.mockClear();
+      const emitReactivated = mockSetupActivePolling.mock.calls.find(([id]) => id === accountId)![2];
+      emitReactivated(stale);
+      expect(mockOnUpdate).toHaveBeenLastCalledWith({ ...stale, balances: { [slug]: 790n } });
+    });
+
+    it.each(['account', 'network', 'all'] as const)('clears pending balances during %s removal', async (scope) => {
+      const accountId = '1-mainnet';
+      const slug = chainUtils.getChainConfig('ethereum').nativeToken.slug;
+      const emit = mockSetupInactivePolling.mock.calls.find(([id]) => id === accountId)![2];
+      emit({ type: 'updateBalances', accountId, chain: 'ethereum', balances: { [slug]: 1000n } });
+      const balancesBeforeTransfer = capturePendingTransferBalances(accountId, 'ethereum', slug);
+      registerPendingTransfer(
+        accountId, 'ethereum', { slug, amount: 200n, fee: 10n }, balancesBeforeTransfer, mockOnUpdate,
+      );
+      const otherNetworkUpdate = {
+        type: 'updateBalances', accountId: '0-testnet', chain: 'ethereum', balances: { [slug]: 1000n },
+      } as const;
+      applyPendingBalances(otherNetworkUpdate);
+      const otherNetworkBalances = capturePendingTransferBalances('0-testnet', 'ethereum', slug);
+      const {
+        removePollingAccount, removeNetworkPollingAccounts, removeAllPollingAccounts,
+      } = await import('./polling');
+      if (scope === 'account') await removePollingAccount(accountId);
+      else if (scope === 'network') await removeNetworkPollingAccounts('mainnet');
+      else await removeAllPollingAccounts();
+      mockOnUpdate.mockClear();
+
+      await jest.advanceTimersByTimeAsync(15 * MINUTE);
+      registerPendingTransfer(
+        accountId, 'ethereum', { slug, amount: 200n, fee: 10n }, balancesBeforeTransfer, mockOnUpdate,
+      );
+      expect(mockOnUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateBalances' }));
+
+      registerPendingTransfer(
+        '0-testnet', 'ethereum', { slug, amount: 200n, fee: 10n }, otherNetworkBalances, mockOnUpdate,
+      );
+      if (scope === 'all') {
+        expect(mockOnUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateBalances' }));
+      } else {
+        expect(mockOnUpdate).toHaveBeenLastCalledWith({ ...otherNetworkUpdate, balances: { [slug]: 790n } });
+      }
+    });
+  });
+
+  describe('idle account polling', () => {
+    beforeEach(async () => {
+      jest.useFakeTimers();
+      setIsAppFocused(true);
+      mockUseRealPollingLoop = true;
+      mockAccount.mockResolvedValue({ type: 'ton', byChain: { ton: { address: 'wallet-address' } } });
+      mockOnUpdate.mockClear();
+      const { initPolling } = await import('./polling');
+      initPolling(mockOnUpdate);
+      mockNoExtraFeatures = false;
+    });
+
+    afterEach(async () => {
+      const { destroyPolling } = await import('./polling');
+      await destroyPolling();
+      mockUseRealPollingLoop = false;
+      jest.clearAllTimers();
+      setIsAppFocused(true);
+      jest.useRealTimers();
+    });
+
+    it.each([
+      { isFocused: true, period: 5 * MINUTE },
+      { isFocused: false, period: 10 * MINUTE },
+    ])('polls account config every $period ms with focus=$isFocused and stops on destroy', async ({
+      isFocused, period,
+    }) => {
+      setIsAppFocused(isFocused);
+      const { destroyPolling, setActivePollingAccount } = await import('./polling');
+      await setActivePollingAccount('0-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(period - 1);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(2);
+      await jest.advanceTimersByTimeAsync(period);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(3);
+
+      await setActivePollingAccount('1-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(4);
+      await jest.advanceTimersByTimeAsync(period);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(5);
+
+      await destroyPolling();
+      await jest.advanceTimersByTimeAsync(2 * period);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(5);
+    });
+
+    it('keeps account config on failure and recovers at the next five-minute poll', async () => {
+      const { setActivePollingAccount } = await import('./polling');
+      await setActivePollingAccount('0-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockOnUpdate).toHaveBeenCalledWith({
+        type: 'updateAccountConfig', accountId: '0-mainnet', accountConfig: { cardsInfo: {} },
+      });
+      mockOnUpdate.mockClear();
+      const error = new Error('Offline');
+      mockCallBackendPost.mockRejectedValueOnce(error);
+
+      await jest.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(2);
+      expect(logDebugError).toHaveBeenCalledWith('setupBackendAccountPolling', error);
+      expect(mockOnUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateAccountConfig' }));
+      expect(mockOnUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateAccountBanners' }));
+
+      mockCallBackendPost.mockResolvedValue({ cardsInfo: {}, isMfaEnabled: true });
+      await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(2);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(3);
+      expect(mockOnUpdate).toHaveBeenCalledWith({
+        type: 'updateAccountConfig', accountId: '0-mainnet', accountConfig: { cardsInfo: {}, isMfaEnabled: true },
+      });
+    });
+
+    it.each([
+      { type: 'view', isActive: true },
+      { type: 'view', isActive: false },
+      { type: 'ton', isActive: true },
+      { type: 'ton', isActive: false },
+    ] as const)('polls MFA only for signing accounts: type=$type active=$isActive', async ({ type, isActive }) => {
+      const accounts: Record<string, ApiAccountAny> = {
+        '0-mainnet': { type, byChain: { ton: { address: 'wallet-address', index: 0 } } },
+        '1-mainnet': { type: 'view', byChain: { ton: { address: 'other-wallet-address', index: 0 } } },
+      };
+      mockAccount.mockImplementation((accountId: string) => Promise.resolve(accounts[accountId]));
+      mockAccounts.mockResolvedValue(accounts);
+      const { destroyPolling, setActivePollingAccount } = await import('./polling');
+      await setActivePollingAccount(isActive ? '0-mainnet' : '1-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+      const isSigning = type !== 'view';
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 1 : 0);
+
+      await jest.advanceTimersByTimeAsync(MINUTE - 1);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 1 : 0);
+      const error = new Error('Offline');
+      if (isSigning) mockRefreshMfaStateAndNotify.mockRejectedValueOnce(error);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 2 : 0);
+      if (isSigning) expect(logDebugError).toHaveBeenCalledWith('setupMfaPolling', error);
+      await jest.advanceTimersByTimeAsync(MINUTE);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 3 : 0);
+
+      await setActivePollingAccount(isActive ? '1-mainnet' : '0-mainnet', {});
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 4 : 0);
+      await jest.advanceTimersByTimeAsync(MINUTE);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 5 : 0);
+      expect(mockRefreshMfaStateAndNotify.mock.calls.every(([accountId]) => accountId === '0-mainnet')).toBe(true);
+
+      await destroyPolling();
+      await jest.advanceTimersByTimeAsync(10 * MINUTE);
+      expect(mockRefreshMfaStateAndNotify).toHaveBeenCalledTimes(isSigning ? 5 : 0);
+    });
   });
 
   describe('foreign staking balance refresh', () => {
@@ -612,7 +961,7 @@ describe('backend config polling', () => {
       setIsAppFocused(isFocused);
 
       await jest.advanceTimersByTimeAsync(MINUTE - 1);
-      expect(mockCallBackendPost).toHaveBeenCalledTimes(isFocused ? 2 : 1);
+      expect(mockCallBackendPost).toHaveBeenCalledTimes(1);
       expectForeignPolls(1);
 
       await jest.advanceTimersByTimeAsync(14 * MINUTE - 1);

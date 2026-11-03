@@ -1,5 +1,4 @@
 import type {
-  AgentDefaultThreadResponseV2,
   AgentHintsResponseV2,
   AgentThreadSummaryV2,
 } from '../../../api/agentV2/protocol/types';
@@ -30,7 +29,10 @@ export interface AgentV2HydrationControllerDependencies {
     isRetryable: boolean;
   };
   dispatch: (action: AgentV2MessagesStateAction) => void;
-  getDefaultThread: () => Promise<AgentV2MutationResult<AgentDefaultThreadResponseV2> | undefined>;
+  /** The id of the thread this chat shows */
+  resolveThreadId: () => Promise<AgentV2MutationResult<string> | undefined>;
+  /** The server no longer has the thread, for example after it was deleted elsewhere */
+  onThreadNotFound?: NoneToVoidFunction;
   getHints: (langCode: string) => Promise<AgentHintsResponseV2 | undefined>;
   getLangCode: () => AgentHint['langCode'];
   getMessages: (
@@ -69,6 +71,7 @@ export function createAgentV2HydrationController(
   let nextHydrationRequestId = 0;
   let nextHistoryPageRequestId = 0;
   let nextHintsRequestId = 0;
+  let pendingHintsRequest: { requestId: number; langCode: AgentHint['langCode'] } | undefined;
   let activeHistoryPageOperation: AgentV2HistoryPageOperation | undefined;
   let isDisposed = false;
 
@@ -99,30 +102,40 @@ export function createAgentV2HydrationController(
   async function hydrate(shouldPreserveLiveContent = false, isFailureSilent = false) {
     if (isDisposed) return;
     const requestId = ++nextHydrationRequestId;
+    const shouldPreserveOpeningMessages = shouldPreserveLiveContent
+      && requestId === 1 && !dependencies.getState().messages.length;
     nextHintsRequestId += 1;
     resetHistory();
-    dependencies.dispatch({ kind: 'hydrationStarted', shouldClearError: !isFailureSilent });
-    const defaultThread = await dependencies.getDefaultThread();
+    dependencies.dispatch({
+      kind: 'hydrationStarted',
+      shouldClearError: !isFailureSilent,
+      ...(shouldPreserveOpeningMessages && { shouldPreserveOpeningMessages: true }),
+    });
+    const resolvedThreadId = await dependencies.resolveThreadId();
     if (!isHydrationCurrent(requestId)) return;
-    if (!defaultThread?.ok) {
-      finishHydrationFailure(isFailureSilent, dependencies.buildHistoryError(defaultThread?.error).message);
+    if (!resolvedThreadId?.ok) {
+      finishHydrationFailure(isFailureSilent, dependencies.buildHistoryError(resolvedThreadId?.error).message);
       return;
     }
-    const thread = defaultThread.value.thread;
+    const threadId = resolvedThreadId.value;
 
     const langCode = dependencies.getLangCode();
-    const [hydrationResult, hintsResponse] = await Promise.all([
-      dependencies.getMessages(thread.id),
-      dependencies.getHints(langCode).catch(() => undefined),
+    const hintsRequestId = nextHintsRequestId;
+    pendingHintsRequest = { requestId: hintsRequestId, langCode };
+    const hintsResponse = dependencies.getHints(langCode).catch(() => undefined);
+    const [hydrationResult] = await Promise.all([
+      dependencies.getMessages(threadId),
       dependencies.loadAvailability().catch(() => undefined),
       dependencies.loadUserQuota().catch(() => undefined),
     ]);
     if (!isHydrationCurrent(requestId)) return;
     if (!hydrationResult?.ok) {
+      finishHintsRequest(hintsRequestId);
       finishHydrationFailure(
         isFailureSilent,
         dependencies.buildHistoryError(hydrationResult?.error).message,
       );
+      if (hydrationResult?.error.code === 'thread_not_found') dependencies.onThreadNotFound?.();
       return;
     }
 
@@ -132,12 +145,17 @@ export function createAgentV2HydrationController(
     }
     const entries = hydration.messages.map(dependencies.stream.mapPersistedMessageEntry);
     const current = dependencies.getState();
+    // A chat that has not loaded its thread yet holds only the live run its updates replayed, as the reducer allows
     const shouldPreserveCurrentLiveContent = shouldPreserveLiveContent
-      && current.thread?.id === hydration.thread.id;
+      && (!current.thread || current.thread.id === hydration.thread.id);
     const retainedMessageIds = new Set(entries.map(({ message }) => message.id));
     if (shouldPreserveCurrentLiveContent) {
       current.messages.forEach((message) => {
-        if (message.isStreaming || message.isTyping) retainedMessageIds.add(message.id);
+        if (message.isStreaming || message.isTyping
+          || (shouldPreserveOpeningMessages && current.thread?.news
+            && current.thread.revision > hydration.thread.revision)) {
+          retainedMessageIds.add(message.id);
+        }
       });
     }
     dependencies.stream.invalidateActionPresentations();
@@ -150,15 +168,30 @@ export function createAgentV2HydrationController(
       entries,
       nextCursor: hydration.nextCursor,
       shouldPreserveLiveContent: shouldPreserveCurrentLiveContent,
-      shouldClearError: !isFailureSilent,
-      ...(hintsResponse ? {
+    });
+    void hintsResponse.then((response) => {
+      const latest = dependencies.getState();
+      if (
+        !isHydrationCurrent(requestId)
+        || hintsRequestId !== nextHintsRequestId
+        || dependencies.getLangCode() !== langCode
+        || latest.thread?.id !== threadId
+        || latest.thread.news
+      ) return;
+      if (!response) {
+        finishHintsRequest(hintsRequestId);
+        void refreshHints();
+        return;
+      }
+      dependencies.dispatch({
+        kind: 'hintsLoaded',
         hints: {
-          hints: dependencies.mapHints(hintsResponse, langCode),
-          response: hintsResponse,
+          hints: dependencies.mapHints(response, langCode),
+          response,
           langCode,
         },
-      } : {}),
-    });
+      });
+    }).finally(() => finishHintsRequest(hintsRequestId));
     dependencies.stream.loadSendActionPresentations(
       hydration.messages,
       dependencies.stream.getActionPresentationGeneration(),
@@ -197,18 +230,24 @@ export function createAgentV2HydrationController(
     if (
       isDisposed
       || !threadId
+      || current.thread?.news
+      || current.isLoading
       || current.isConsentAccepted !== true
       || current.hintsLangCode === langCode
+      || (pendingHintsRequest?.requestId === nextHintsRequestId
+        && pendingHintsRequest.langCode === langCode)
     ) return;
 
     const requestId = ++nextHintsRequestId;
-    const response = await dependencies.getHints(langCode);
+    pendingHintsRequest = { requestId, langCode };
+    const response = await dependencies.getHints(langCode).finally(() => finishHintsRequest(requestId));
     const latest = dependencies.getState();
     if (
       isDisposed
       || requestId !== nextHintsRequestId
       || dependencies.getLangCode() !== langCode
       || latest.thread?.id !== threadId
+      || latest.thread.news
       || !response
     ) return;
     dependencies.dispatch({
@@ -219,6 +258,10 @@ export function createAgentV2HydrationController(
         langCode,
       },
     });
+  }
+
+  function finishHintsRequest(requestId: number) {
+    if (pendingHintsRequest?.requestId === requestId) pendingHintsRequest = undefined;
   }
 
   function resetHistory() {
@@ -290,7 +333,7 @@ export function createAgentV2HydrationController(
     if (!isSilent) {
       dependencies.dispatch({
         kind: 'errorSet',
-        error: { text: message, timestamp: dependencies.now() },
+        error: { text: message, timestamp: dependencies.now(), isHistoryFailure: true },
       });
       return;
     }

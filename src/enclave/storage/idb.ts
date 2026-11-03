@@ -2,7 +2,8 @@ import * as idb from 'idb-keyval';
 
 import type { SimpleStorage, StorageKey } from '../types';
 
-const INDEXED_DB_NAME = 'enclave';
+import { INDEXED_DB_NAME } from '../config';
+
 const INDEXED_DB_STORE_NAME = 'enclave';
 
 // TODO `idb` → `LocalStorage`

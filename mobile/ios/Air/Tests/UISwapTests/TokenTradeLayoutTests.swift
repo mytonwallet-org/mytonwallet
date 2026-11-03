@@ -24,7 +24,7 @@ struct TokenTradeLayoutTests {
         content.update(.init(title: "The exchange rate is 12% below market value!",
                              message: "We do not recommend to perform an exchange, try to specify a lower amount.",
                              isWarning: true), animated: true)
-        notice.setVisible(true, animated: true)
+        notice.setContentVisible(true, animated: true)
         let height = content.sizeThatFits(CGSize(width: 370, height: CGFloat.greatestFiniteMagnitude)).height
         UIView.animate(withDuration: 0.32) {
             TokenTradeMotion.place(notice, in: CGRect(x: 16, y: 290, width: 370, height: height))
@@ -49,11 +49,11 @@ struct TokenTradeLayoutTests {
         defer { window.isHidden = true }
         TokenTradeMotion.place(presence, in: CGRect(x: 24, y: 470, width: 354, height: 52))
         content.update(configuration: .init(title: .text("Sell GRAM"), isEnabled: false, showLoading: false,
-                                             resetsLoadingAppearance: true), tintColor: .systemRed, diagnostics: nil, animated: false)
+                                             resetsLoadingAppearance: true), tintColor: .systemRed, onRender: nil, animated: false)
         host.view.layoutIfNeeded()
         content.update(configuration: .init(title: .text("Sell GRAM"), isEnabled: false, showLoading: true),
-                       tintColor: .systemRed, diagnostics: nil, animated: true)
-        presence.setVisible(true, animated: true)
+                       tintColor: .systemRed, onRender: nil, animated: true)
+        presence.setContentVisible(true, animated: true)
         UIView.animate(withDuration: 0.32) { host.view.layoutIfNeeded() }
         try await Task.sleep(for: .milliseconds(30))
         let spinner = try #require(content.button.subviews.compactMap { $0 as? WActivityIndicator }.first)
@@ -68,7 +68,7 @@ struct TokenTradeLayoutTests {
         parent.addSubview(notice)
         let destination = CGRect(x: 16, y: 290, width: 370, height: 77)
         UIView.animate(withDuration: 0.32) {
-            notice.setVisible(true, animated: true)
+            notice.setContentVisible(true, animated: true)
             TokenTradeMotion.place(notice, in: destination)
         }
         #expect(notice.frame == destination)

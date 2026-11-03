@@ -14,8 +14,15 @@ jest.mock('../../../util/fetch', () => ({
   ...jest.requireActual('../../../util/fetch'),
   fetchWithRetry: jest.fn(),
 }));
+jest.mock('./util/client', () => ({
+  getEvmProvider: jest.fn(() => ({
+    send: jest.fn((method: string) => Promise.resolve(method === 'eth_blockNumber' ? '0x64' : '0x0')),
+  })),
+}));
 jest.mock('../../common/backend', () => ({
-  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendGet: jest.fn().mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+    ? { catalogVersion: 'empty', prices: {} }
+    : { version: 'empty', assets: [] })),
   callBackendPost: jest.fn().mockResolvedValue([]),
 }));
 jest.mock('../../db', () => ({
@@ -36,6 +43,9 @@ describe('EVM token price invalidation', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'empty', prices: {} }
+      : { version: 'empty', assets: [] }));
     delete getTokensCache().bySlug[TOKEN_SLUG];
     resetLastTokens();
     await loadTokensCache();
@@ -75,7 +85,10 @@ describe('EVM token price invalidation', () => {
 
   it('keeps an explicit backend quote ahead of the provider trash flag', async () => {
     await pollPosition(false, OLD_PRICE);
-    jest.mocked(callBackendGet).mockResolvedValueOnce([{ ...getTokenBySlug(TOKEN_SLUG)!, priceUsd: 2 }]);
+    const { priceUsd, percentChange24h, ...catalogToken } = getTokenBySlug(TOKEN_SLUG)!;
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'backend', prices: { [TOKEN_SLUG]: [2, percentChange24h] } }
+      : { version: 'backend', assets: [catalogToken] }));
     await updateTokensFromBackend(onUpdate);
     await pollPosition(true, OLD_PRICE);
 

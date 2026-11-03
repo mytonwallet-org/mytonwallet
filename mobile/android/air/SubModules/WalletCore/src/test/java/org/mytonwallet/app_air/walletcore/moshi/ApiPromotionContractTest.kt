@@ -13,7 +13,7 @@ class ApiPromotionContractTest {
     fun decodesInfoBannerWithoutCardOverlay() {
         val promotion = checkNotNull(
             adapter.fromJson(
-                """{"id":"restake","kind":"infoBanner","infoBanner":{"title":"More profitable staking available","description":"Tap **Earn** for higher returns.","actionButton":{"title":"Restake Now","onClickAction":"openEarn"}}}"""
+                """{"id":"restake","kind":"infoBanner","infoBanner":{"title":"Higher-yield staking available","description":"Tap **Earn** for higher returns.","actionButton":{"title":"Restake Now","onClickAction":"openEarn"}}}"""
             )
         )
         assertEquals("restake", promotion.id)

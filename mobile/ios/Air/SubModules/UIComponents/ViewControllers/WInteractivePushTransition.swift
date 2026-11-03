@@ -20,8 +20,8 @@ public final class WInteractivePushTransition: UIPercentDrivenInteractiveTransit
     private static func makeAnimator() -> (any UIViewControllerAnimatedTransitioning)? {
         // WebKit uses the same UIKit animator for its back/forward swipe transitions.
         // Keep the private entry points optional so an OS change falls back to paging.
-        let selector = NSSelectorFromString(String(":noitarepOtnerruChtiWtini".reversed()))
-        guard let cls = NSClassFromString(String("noitisnarTxallaraPnoitagivaNIU_".reversed())) as? NSObject.Type,
+        let selector = PrivateAPI.initWithCurrentOperation.selector
+        guard let cls = PrivateAPI.navigationParallaxTransition.objectClass,
               let method = class_getInstanceMethod(cls, selector),
               let allocated = cls.perform(NSSelectorFromString("alloc")) else { return nil }
         typealias Initialize = @convention(c) (UnsafeMutableRawPointer, Selector, Int) -> Unmanaged<AnyObject>?
@@ -33,8 +33,8 @@ public final class WInteractivePushTransition: UIPercentDrivenInteractiveTransit
 
     func allowNativePop(in navigationController: UINavigationController) {
         guard #available(iOS 26.0, *) else { return }
-        let controllerSelector = NSSelectorFromString(String("rellortnoCnoitcaretnInitliub_".reversed()))
-        let animatorSelector = NSSelectorFromString(String(":rellortnoCnoitaminAtes".reversed()))
+        let controllerSelector = PrivateAPI.builtinInteractionController.selector
+        let animatorSelector = PrivateAPI.setAnimationController.selector
         if navigationController.responds(to: controllerSelector),
            let controller = navigationController.perform(controllerSelector)?.takeUnretainedValue() as? NSObject,
            controller.responds(to: animatorSelector) {
@@ -45,7 +45,7 @@ public final class WInteractivePushTransition: UIPercentDrivenInteractiveTransit
         }
         // UIKit treats delegate-provided animators as custom, blocking native back gestures
         // while they settle. Identify its own animator so it can preempt this push with a pop.
-        let selector = NSSelectorFromString(String(":rotaminAnitliuBgnisUtes_".reversed()))
+        let selector = PrivateAPI.setUsingBuiltinAnimator.selector
         guard navigationController.responds(to: selector) else { return }
         typealias SetBuiltinAnimator = @convention(c) (UINavigationController, Selector, Bool) -> Void
         unsafeBitCast(navigationController.method(for: selector), to: SetBuiltinAnimator.self)(

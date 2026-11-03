@@ -474,13 +474,23 @@ describe('estimateSwap', () => {
     ['No swap quote available', SwapErrorType.QuoteUnavailable],
     ['Swap routers are unavailable', SwapErrorType.ServiceUnavailable],
     ['Insufficient liquidity', SwapErrorType.NotEnoughLiquidity],
-    ['Unknown backend error', SwapErrorType.UnexpectedError],
+    ['fromAmount is required for ethereum swaps (only ExactIn is supported)', SwapErrorType.QuoteUnavailable],
+    ['Near Intents quote failed', SwapErrorType.QuoteUnavailable],
+    ['Invalid value', SwapErrorType.QuoteUnavailable],
   ])('preserves the meaning of a failed quote: %s', async (error, errorType) => {
     (callApi as jest.Mock).mockResolvedValue({ error });
 
     const result = await estimateSwap(getGlobal(), () => false);
 
     expect(result).toMatchObject({ errorType });
+  });
+
+  it('calls a quote unexpected only when no answer came back', async () => {
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(result).toMatchObject({ errorType: SwapErrorType.UnexpectedError });
   });
 
   it.each([DOGECOIN, BITCOIN, LITECOIN, BITCOINCASH, TONCOIN, SOLANA, TRX])(

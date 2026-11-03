@@ -12,6 +12,10 @@ import WalletResources
 
 @MainActor
 final class HomeLegacyLayoutTests: XCTestCase {
+    override func invokeTest() {
+        withDependencies { $0.context = .live } operation: { super.invokeTest() }
+    }
+
     func testHomeAllocatesTokenRowsCardSpacingAndCollectibles() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let db = try DatabaseQueue()
@@ -89,7 +93,10 @@ final class HomeLegacyLayoutTests: XCTestCase {
             let assets = try XCTUnwrap(home.children.compactMap { $0 as? WalletAssetsVC }.first)
             XCTAssertGreaterThan(assetsCell.bounds.height, 100)
             XCTAssertEqual(assetsCell.contentView.bounds.height, assetsCell.bounds.height, accuracy: 0.5)
-            XCTAssertEqual(assets.view.bounds.height, assetsCell.bounds.height, accuracy: 0.5)
+            XCTAssertEqual(assets.view.bounds.height, assetsCell.bounds.height - InsetSectionHeader.height, accuracy: 0.5)
+            let collectiblesHeader = try XCTUnwrap(descendants(of: assetsCell).compactMap { $0 as? InsetSectionHeaderCell }.first)
+            XCTAssertEqual(collectiblesHeader.bounds.height, 39, accuracy: 0.5)
+            XCTAssertEqual(assets.view.frame.minY, 39, accuracy: 0.5)
             let nftCollection = try XCTUnwrap(descendants(of: assets.view).compactMap { $0 as? UICollectionView }.last)
             XCTAssertFalse(nftCollection.visibleCells.isEmpty)
             attach(window, name: "Home collectibles layout")
@@ -100,8 +107,8 @@ final class HomeLegacyLayoutTests: XCTestCase {
             for row in home.collectionView.visibleCells.compactMap({ $0 as? WalletTokenCell }) {
                 XCTAssertEqual(row.bounds.height, WalletTokenCell.defaultHeight, accuracy: 0.5, "Token height after collectibles invalidation")
             }
-            XCTAssertEqual(assetsCell.bounds.height, assets.computedHeight() - 16, accuracy: 0.5)
-            XCTAssertEqual(assets.view.bounds.height, assetsCell.bounds.height, accuracy: 0.5)
+            XCTAssertEqual(assetsCell.bounds.height, assets.computedHeight() - 16 + InsetSectionHeader.height, accuracy: 0.5)
+            XCTAssertEqual(assets.view.bounds.height, assetsCell.bounds.height - InsetSectionHeader.height, accuracy: 0.5)
 
             home.expandHeader()
             try await Task.sleep(for: .milliseconds(600))
@@ -112,6 +119,44 @@ final class HomeLegacyLayoutTests: XCTestCase {
             for row in home.collectionView.visibleCells.compactMap({ $0 as? WalletTokenCell }) {
                 XCTAssertEqual(row.bounds.height, WalletTokenCell.defaultHeight, accuracy: 0.5, "Token height after expanding the card")
             }
+
+            // Optional Perps content belongs between tokens/collectibles and after activity.
+            XCTAssertFalse(home.activeCustomSectionIDs.contains("home-perps-positions"))
+            var emptyPositions = PerpsPositionsDisplayData(accountID: account.id, totalValue: .fromDouble(0, .USD),
+                profitLoss: .init("$0"), positions: [])
+            for status: PerpsPositionsDisplayData.Status in [.loading, .ready, .unavailable("Offline")] {
+                emptyPositions.status = status
+                home.updatePerpsSections(data: emptyPositions, onPositionAction: { _ in }, onExplore: { _ in })
+                XCTAssertFalse(home.activeCustomSectionIDs.contains("home-perps-positions"))
+                XCTAssertTrue(home.activeCustomSectionIDs.contains("home-explore"))
+            }
+            let positions = PerpsPositionsDisplayData(accountID: account.id, totalValue: .fromDouble(130, .USD),
+                profitLoss: .init("+$30", tone: .positive), positions: [
+                    .init(id: "position", token: .TONCOIN, directionAndLeverage: "Long 5x", value: "$130", profitLoss: .init("+$30")),
+                ])
+            home.updatePerpsSections(data: positions, onPositionAction: { _ in }, onExplore: { _ in })
+            for _ in 0..<50 where home.firstItemFrame(inCustomSection: "home-perps-positions") == nil {
+                try await Task.sleep(for: .milliseconds(10))
+                window.layoutIfNeeded()
+            }
+            window.layoutIfNeeded()
+            let positionsFrame = try XCTUnwrap(home.firstItemFrame(inCustomSection: "home-perps-positions"))
+            let collectiblesFrame = try XCTUnwrap(home.firstItemFrame(inCustomSection: "assets"))
+            XCTAssertEqual(collectiblesFrame.minY - positionsFrame.maxY, 16, accuracy: 0.5)
+            let ids = home.activeCustomSectionIDs
+            XCTAssertLessThan(try XCTUnwrap(ids.firstIndex(of: "tokens")), try XCTUnwrap(ids.firstIndex(of: "home-perps-positions")))
+            XCTAssertLessThan(try XCTUnwrap(ids.firstIndex(of: "home-perps-positions")), try XCTUnwrap(ids.firstIndex(of: "assets")))
+            XCTAssertLessThan(try XCTUnwrap(ids.firstIndex(of: "activity")), try XCTUnwrap(ids.firstIndex(of: "home-explore")))
+            let otherAccount = PerpsPositionsDisplayData(accountID: "another-wallet", totalValue: .fromDouble(0, .USD), profitLoss: .init("$0"), positions: [])
+            home.updatePerpsSections(data: otherAccount, onPositionAction: { _ in }, onExplore: { _ in })
+            XCTAssertEqual(home.activeCustomSectionIDs, ids, "A late response must not remove or replace this wallet's sections")
+            emptyPositions.status = .ready
+            home.updatePerpsSections(data: emptyPositions, onPositionAction: { _ in }, onExplore: { _ in })
+            XCTAssertFalse(home.activeCustomSectionIDs.contains("home-perps-positions"), "Closing the last position removes its section")
+            XCTAssertTrue(home.activeCustomSectionIDs.contains("home-explore"))
+            home.updatePerpsSections(data: nil, onPositionAction: { _ in }, onExplore: { _ in })
+            XCTAssertFalse(home.activeCustomSectionIDs.contains("home-perps-positions"))
+            XCTAssertFalse(home.activeCustomSectionIDs.contains("home-explore"))
         }
     }
 

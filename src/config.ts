@@ -84,6 +84,14 @@ export const BOT_USERNAME = process.env.BOT_USERNAME || 'MyTonWalletBot';
 
 export const SWAP_FEE_ADDRESS = process.env.SWAP_FEE_ADDRESS || 'UQDUkQbpTVIgt7v66-JTFR-3-eXRFz_4V66F-Ufn6vOg0GOp';
 export const DIESEL_ADDRESS = process.env.DIESEL_ADDRESS || 'UQC9lQOaEHC6YASiJJ2NrKEOlITMMQmc8j0_iZEHy-4sl3tG';
+// A build signs a fee leg only to an address it ships with, so the wallets a fee rotation moves to
+// are listed here ahead of the backend naming them.
+export const SWAP_FEE_ADDRESSES = [
+  SWAP_FEE_ADDRESS,
+  'UQA5N9G17i0-OisuddXGlY-M1VKBN4P59yzx-d_IMo6Aplgu',
+  'UQAvj0tp67WeAUcVg1NM0BYttgO4ilHxX0YvqjxfeDJ7-cdo',
+];
+export const DIESEL_ADDRESSES = [DIESEL_ADDRESS, 'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2'];
 
 export const STRICTERDOM_ENABLED = DEBUG && !IS_PACKAGED_ELECTRON;
 
@@ -240,7 +248,6 @@ export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://por
 export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mywallet.io/api';
 export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mywallet.io/api';
 export const AGENT_OVERRIDE = parseAgentOverride(process.env.AGENT_OVERRIDE);
-export const AGENT_V2_QUOTA_STATUS_ENABLED = process.env.AGENT_V2_QUOTA_STATUS_ENABLED === '1';
 
 export const NFT_MARKETPLACE_URL = 'https://opensea.io/';
 export const NFT_MARKETPLACE_TITLE = NFT_MARKETPLACE_TITLES.opensea;
@@ -270,7 +277,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-374';
+export const LANG_CACHE_NAME = 'mtw-lang-384';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -364,6 +371,8 @@ export const NO_MFA = process.env.NO_MFA === '1';
  * `NO_LEDGER` stays a separate axis: hardware wallet support is orthogonal to the extras.
  */
 export const NO_EXTRA_FEATURES = process.env.NO_EXTRA_FEATURES === '1';
+// Perps ships closed on this release train. Closing the SDK capability closes it for every client.
+export const IS_PERPS_ENABLED: boolean = false;
 export const NO_LEDGER = process.env.NO_LEDGER === '1';
 export const VALIDATION_PERIOD_MS = 65_536_000; // 18.2 h.
 export const ONE_TON = 1_000_000_000n;

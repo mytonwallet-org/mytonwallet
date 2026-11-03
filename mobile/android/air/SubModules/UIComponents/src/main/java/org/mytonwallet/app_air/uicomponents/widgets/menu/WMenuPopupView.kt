@@ -178,6 +178,7 @@ class WMenuPopupView(
                 itemHeight = itemContentHeight + if (item.hasSeparator) 7.dp else 0
 
                 itemView = WMenuPopupViewItem(context, item).apply {
+                    item.testViewId?.let { id = it }
                     alpha = 0f
                     visibility = INVISIBLE
                 }.apply {

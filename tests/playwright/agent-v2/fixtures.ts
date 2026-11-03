@@ -17,6 +17,7 @@ interface AgentV2MockState {
   runBodies: Record<string, any>[];
   cancelBodies: Array<{ runId: string; body: unknown }>;
   clearBodies: Record<string, any>[];
+  deleteBodies: Record<string, any>[];
   runCount: number;
   quotaRequestCount: number;
   revision: number;
@@ -31,6 +32,8 @@ interface AgentV2Fixture {
   open: () => Promise<void>;
   openPage: (page: Page) => Promise<void>;
   acceptConsent: () => Promise<void>;
+  openThread: () => Promise<void>;
+  openThreadFromPage: (page: Page) => Promise<void>;
   send: (text: string) => Promise<void>;
   sendFromPage: (page: Page, text: string) => Promise<void>;
   getState: () => Promise<AgentV2MockState>;
@@ -49,6 +52,8 @@ export const test = base.extend<{ agentV2: AgentV2Fixture }>({
       open: () => openAgent(page),
       openPage: (targetPage) => openAgent(targetPage),
       acceptConsent: () => acceptConsent(page),
+      openThread: () => openThread(page),
+      openThreadFromPage: (targetPage) => openThread(targetPage),
       send: (text) => sendMessage(page, text),
       sendFromPage: (targetPage, text) => sendMessage(targetPage, text),
       getState: () => getMockState(request),
@@ -183,15 +188,33 @@ async function openAgent(page: Page) {
   await agentTab.click();
 }
 
+// The chat list opens in place of the consent screen
 async function acceptConsent(page: Page) {
   await page.getByRole('heading', { name: 'Data shared with Agent' }).waitFor();
   await page.getByRole('button', { name: 'Allow Agent', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Ask anything' }).waitFor();
+  await expect(page.getByRole('button', { name: /^News,/u })).toBeVisible();
 }
 
+// The Agent opens at the chat list; the chat slides in over it
+async function openThread(page: Page) {
+  await page.locator('[data-agent-v2-thread-id]').first().click();
+  await waitForChat(page);
+}
+
+// A question sent from the chat list opens a new chat with it
 async function sendMessage(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Ask anything' }).fill(text);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await waitForChat(page);
+}
+
+async function waitForChat(page: Page) {
+  // A chat started from the list's composer fades in over the list, whose "New Chat" header has a Back button of its
+  // own, so the chat's Back button is the only one once the list has gone
+  await expect(page.getByRole('region', { name: 'Chats' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
+  // The list's own question field leaves the screen with the list
+  await expect(page.getByRole('textbox', { name: 'Ask anything' })).toHaveCount(1);
 }
 
 function isLoopback(url: URL) {

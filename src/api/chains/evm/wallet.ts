@@ -1,3 +1,4 @@
+import type { BlockTag } from 'ethers';
 import { Contract, isError } from 'ethers';
 
 import type { QueryParams } from '../../../util/fetch';
@@ -13,11 +14,12 @@ import type {
 } from './types';
 import { ApiCommonError } from '../../types';
 
-import { throwIfAborted } from '../../../util/abortSignal';
+import { raceWithAbortSignal, throwIfAborted } from '../../../util/abortSignal';
 import { getChainConfig, getChainsByStandard } from '../../../util/chain';
 import { buildRequestUrl, fetchJson, fetchWithRetry, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
+import { withTimeout } from '../../../util/schedulers';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { getEvmProvider } from './util/client';
 import { inactiveWallets } from './util/inactiveWallets';
@@ -30,8 +32,26 @@ import { ApiServerError } from '../../errors';
 import { isValidAddress } from './address';
 import { EVM_RPC_URLS, getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
 
-export async function getWalletBalance(chain: EVMChain, network: ApiNetwork, address: string) {
-  return getEvmProvider(network, chain).getBalance(address);
+export async function getWalletBalance(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  blockTag?: BlockTag,
+) {
+  return getEvmProvider(network, chain).getBalance(address, blockTag);
+}
+
+/** The node takes the value and the whole gas ceiling from the balance before it runs a transaction. */
+export async function canPayEvmTransactions(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  transactions: { value?: bigint }[],
+  maxGasCost: bigint,
+) {
+  const value = transactions.reduce((sum, transaction) => sum + (transaction.value ?? 0n), 0n);
+
+  return await getWalletBalance(chain, network, address) >= value + maxGasCost;
 }
 
 export async function getWalletTransactionCount(chain: EVMChain, network: ApiNetwork, address: string) {
@@ -129,6 +149,8 @@ export async function fetchCrosschainAccountBalances(
 
 /** How far ahead of this device's clock a corrected observation instant may sit and still be trusted. */
 const MAX_SNAPSHOT_CLOCK_SKEW = 5 * 60 * 1000; // 5 min
+/** How long a poll waits for a chain's RPC native balance before taking that chain's Zerion balance instead. */
+const NATIVE_BALANCE_RPC_TIMEOUT = 10_000;
 
 // When several accounts share the same EVM address, their independent poll timers can fire
 // identical positions requests at once. This map coalesces concurrent identical fetches into a
@@ -237,6 +259,15 @@ async function fetchAccountAssetsUncoalesced(
       : zerionChain,
   };
 
+  throwIfAborted(signal);
+  const chainsForNative = (isCrossChain ? getChainsByStandard(chain) : [chain]) as EVMChain[];
+  const nativeBalancesPromise = Promise.all(chainsForNative.map((balanceChain) => withTimeout(
+    fetchNativeBalance(balanceChain, network, address),
+    NATIVE_BALANCE_RPC_TIMEOUT,
+    undefined,
+    () => logDebugError('fetchAccountAssets: native balance RPC timed out', { chain: balanceChain, network }),
+  )));
+
   let response: ZerionPositionsResponse;
   let asOf: number | undefined;
   try {
@@ -258,10 +289,13 @@ async function fetchAccountAssetsUncoalesced(
     throw err;
   }
   throwIfAborted(signal);
+  const rpcNativeBalances = await raceWithAbortSignal(nativeBalancesPromise, signal);
+  throwIfAborted(signal);
 
   const tokenEntities: FetchedToken[] = [];
   const slugPairs: Record<string, bigint> = {};
   const nativeBalances: Record<string, bigint> = {};
+  const blockBySlug: Record<string, number> = {};
 
   const positions = response.data
     .filter((e) =>
@@ -301,9 +335,7 @@ async function fetchAccountAssetsUncoalesced(
     });
   });
 
-  const chainsForNative = (isCrossChain ? getChainsByStandard(chain) : [chain]) as EVMChain[];
-
-  for (const balanceChain of chainsForNative) {
+  for (const [index, balanceChain] of chainsForNative.entries()) {
     const { nativeToken: nativeTokenMetadata } = getChainConfig(balanceChain);
 
     const zerionBalanceChain = getZerionChainByApiChain(balanceChain);
@@ -314,7 +346,17 @@ async function fetchAccountAssetsUncoalesced(
 
     const nativeSlug = getChainConfig(balanceChain).nativeToken.slug;
 
-    nativeBalances[nativeSlug] = BigInt(nativeAsset?.attributes.quantity.int ?? 0);
+    const rpcBalance = rpcNativeBalances[index];
+    if (rpcBalance) {
+      nativeBalances[nativeSlug] = rpcBalance.balance;
+      blockBySlug[nativeSlug] = rpcBalance.block;
+    } else {
+      nativeBalances[nativeSlug] = BigInt(nativeAsset?.attributes.quantity.int ?? 0);
+      const nativeBlock = nativeAsset?.attributes.updated_at_block;
+      if (typeof nativeBlock === 'number' && Number.isFinite(nativeBlock) && nativeBlock > 0) {
+        blockBySlug[nativeSlug] = nativeBlock;
+      }
+    }
 
     tokenEntities.push({
       priceUsd: typeof nativeAsset?.attributes.price === 'number'
@@ -331,10 +373,44 @@ async function fetchAccountAssetsUncoalesced(
     shouldSendUpdate: true,
   });
   positions.forEach(({ e }, i) => {
-    slugPairs[tokens[i].slug] = BigInt(e.attributes.quantity.int ?? 0);
+    const { slug } = tokens[i];
+    slugPairs[slug] = BigInt(e.attributes.quantity.int ?? 0);
+    const block = e.attributes.updated_at_block;
+    if (typeof block === 'number' && Number.isFinite(block) && block > 0) {
+      blockBySlug[slug] = block;
+    } else {
+      delete blockBySlug[slug];
+    }
   });
 
-  return { balances: { ...slugPairs, ...nativeBalances }, asOf };
+  return { balances: { ...slugPairs, ...nativeBalances }, asOf, blockBySlug };
+}
+
+async function fetchNativeBalance(chain: EVMChain, network: ApiNetwork, address: string) {
+  try {
+    const provider = getEvmProvider(network, chain);
+    // `send` bypasses the provider's high-level read cache. The balance is read at the block just returned, not at
+    // `latest`: the two calls may reach different nodes, and a node still behind that block fails the read instead of
+    // answering with an older balance that would be stamped with the newer block.
+    const block = await provider.send('eth_blockNumber', []);
+    if (typeof block !== 'string' || !/^0x[0-9a-f]+$/i.test(block)) {
+      throw new Error('Invalid native balance RPC block number');
+    }
+    const blockNumber = Number(block);
+    if (!Number.isSafeInteger(blockNumber)) {
+      throw new Error('Invalid native balance RPC block number');
+    }
+
+    const balance = await provider.send('eth_getBalance', [address, `0x${blockNumber.toString(16)}`]);
+    if (typeof balance !== 'string' || !/^0x[0-9a-f]+$/i.test(balance)) {
+      throw new Error('Invalid native balance RPC response');
+    }
+
+    return { balance: BigInt(balance), block: blockNumber };
+  } catch (err) {
+    logDebugError('fetchAccountAssets: failed to fetch native balance from RPC', { chain, network, err });
+    return undefined;
+  }
 }
 
 // An untrackable address genuinely has no positions; return the same converged-empty shape a
@@ -364,6 +440,7 @@ export async function getErc20Balance(
   chain: EVMChain,
   ownerAddress: string,
   tokenAddress: string,
+  blockTag?: BlockTag,
 ) {
   try {
     const contract = new Contract(
@@ -372,11 +449,14 @@ export async function getErc20Balance(
       getEvmProvider(network, chain),
     );
 
-    const balance = await contract.balanceOf(ownerAddress);
+    const balance = blockTag === undefined
+      ? await contract.balanceOf(ownerAddress)
+      : await contract.balanceOf(ownerAddress, { blockTag });
 
     return BigInt(balance.toString());
   } catch (err) {
-    if (isError(err, 'BAD_DATA') || isError(err, 'CALL_EXCEPTION')) {
+    if ((blockTag === undefined || blockTag === 'latest')
+      && (isError(err, 'BAD_DATA') || isError(err, 'CALL_EXCEPTION'))) {
       return 0n;
     }
 
@@ -403,39 +483,29 @@ export const getAddressInfo = (
   };
 };
 
-// The two verdicts are remembered in different places because they expire differently.
-// "Active" is monotonic - an address that has held a balance or received a transfer can never
-// stop having done so - so `withCacheAsync`, which keeps only truthy results, holds it for the
-// whole process. "Inactive" is revocable by the next block, so it lives in `inactiveWallets`
-// under a TTL.
+// The two verdicts expire differently. "Active" is monotonic - an address that has held a balance
+// or received a transfer can never stop having done so - so `withCacheAsync`, which keeps only
+// truthy results, holds it for the whole process. "Inactive" is revoked by the next block that
+// reaches the address. On mainnet the gateway's registry learns of that block and a memory of the
+// verdict here would not, so only testnet keeps it, in `inactiveWallets` under a TTL, behind the
+// nonce read that catches an address which spent everything it received.
 //
-// The balance read runs before that TTL is consulted. It is a single cheap RPC, and letting it
-// answer first means an address that receives native funds is recognised on the next check
-// rather than whenever the TTL happens to lapse - which matters because `BalanceStream` runs
-// this precheck once per stream and holds the answer for the stream's lifetime. The registry
-// then covers only the transfer probe, the expensive half, for an address whose balance is
-// still zero.
+// The balance read runs first. It is a single cheap RPC that recognises funds arriving after a
+// negative verdict, which matters because `BalanceStream` runs this precheck once per stream and
+// holds the answer for the stream's lifetime.
 export const getIsWalletActive = withCacheAsync(
   async (network: ApiNetwork, chain: EVMChain, address: string) => {
-    const [balance, transactionCount] = await Promise.all([
-      getWalletBalance(chain, network, address),
-      getWalletTransactionCount(chain, network, address),
-    ]);
+    const isTestnet = network === 'testnet';
+    const balance = await getWalletBalance(chain, network, address);
 
-    // An EOA's native balance only ever decreases through a transaction it signed itself, so a
-    // zero balance beside a zero nonce proves nothing native ever arrived. That closes the case a
-    // balance read alone misses - an address that received funds and spent them all reads as empty
-    // yet carries a non-zero nonce - which matters because the inbound-transfer probe below cannot
-    // see it either: `internal` is not among the categories asked for outside Ethereum. A contract
-    // address reports a nonce of at least 1 under EIP-161 and so errs towards active, the safe
-    // direction. The nonce also arrives before the probe, so an address it settles never pays for
-    // one.
-    if (balance > 0n || transactionCount > 0) {
+    // An address that spent everything it received reads empty too, and only its nonce shows it. The mainnet
+    // gateway answering the probe below reads that nonce itself; testnet RPC goes straight to Alchemy.
+    if (balance > 0n || (isTestnet && await getWalletTransactionCount(chain, network, address) > 0)) {
       inactiveWallets.forget(network, chain, address);
       return true;
     }
 
-    if (inactiveWallets.has(network, chain, address)) {
+    if (isTestnet && inactiveWallets.has(network, chain, address)) {
       return false;
     }
 
@@ -477,7 +547,7 @@ export const getIsWalletActive = withCacheAsync(
 
     if (isActive) {
       inactiveWallets.forget(network, chain, address);
-    } else {
+    } else if (isTestnet) {
       inactiveWallets.mark(network, chain, address);
     }
 

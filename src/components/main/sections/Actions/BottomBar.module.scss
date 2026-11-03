@@ -8,6 +8,11 @@
 
   @include mixins.bottomBarFade();
 
+  // The Agent is black in the dark theme, so the bar fades into black over it
+  :global(html.theme-dark.is-agent-active) & {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.9) calc(66.65% + var(--safe-area-bottom)));
+  }
+
   &.hidden {
     transform: translateY(100%);
   }
@@ -34,8 +39,9 @@
   @include mixins.glass-capsule();
 
   @include mixins.respond-below(xs) {
-    :global(html.with-menu-backdrop.is-agent-active) & {
-      background-color: var(--color-app-background) !important;
+    // The Agent's menu tint covers the bar as it covers the rest of the screen, so the bar adds no tint of its own
+    :global(html.with-menu-backdrop.is-agent-active) &::after {
+      opacity: 0;
     }
   }
 }

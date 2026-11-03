@@ -23,7 +23,7 @@ import {
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
-import { bigintMax } from '../../util/bigint';
+import { bigintMax, bigintMin } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
@@ -66,6 +66,7 @@ interface StateProps {
   isViewMode: boolean;
   apiError?: string;
   initialAmount?: bigint | 'all';
+  restakeAmount?: bigint;
   tokens?: UserToken[];
   tokenBySlug?: Record<string, ApiTokenWithPrice>;
   stakingState?: ApiStakingState;
@@ -81,9 +82,6 @@ interface StateProps {
 
 const enum BottomRightSlide {
   Fee,
-  InsufficientBalance,
-  InsufficientFee,
-  BelowMinimumAmount,
   ApiError,
 }
 
@@ -97,6 +95,7 @@ function StakingInitial({
   isViewMode,
   apiError,
   initialAmount,
+  restakeAmount,
   tokens,
   tokenBySlug,
   stakingState,
@@ -192,6 +191,20 @@ function StakingInitial({
     setIsInitialAmountApplied(true);
   }, [initialAmount, isInitialAmountApplied, maxAmount, token]);
 
+  // The payout of an instant foreign unstake reaches the balance a few seconds after the form opens, so the restake
+  // amount follows the growing max until the user changes the amount
+  const replacedRestakeAmountRef = useRef<bigint>();
+
+  useEffect(() => {
+    if (restakeAmount === undefined || restakeAmount === replacedRestakeAmountRef.current) return;
+    setAmount(bigintMin(restakeAmount, maxAmount) || undefined);
+  }, [restakeAmount, maxAmount]);
+
+  const handleAmountChange = useLastCallback((newAmount?: bigint) => {
+    replacedRestakeAmountRef.current = restakeAmount;
+    setAmount(newAmount);
+  });
+
   const title = getStakingTitle(stakingType);
 
   if (amount !== undefined) {
@@ -232,6 +245,9 @@ function StakingInitial({
     });
   }, [amount, fetchStakingFee]);
 
+  // The fee of a native token stake comes out of the same balance, so the fee shortage means the amount is too big
+  const isAmountTooBig = isInsufficientBalance || (isNativeToken && isInsufficientFee);
+
   const canSubmit = amount
     && maxAmount
     && !isViewMode
@@ -256,47 +272,20 @@ function StakingInitial({
     if (isComplete) setAmount(undefined);
   }, [isComplete]);
 
-  const [error, errorTransitionKey] = useMemo(() => {
-    if (isInsufficientBalance) {
-      return [
-        lang('Insufficient balance'),
-        BottomRightSlide.InsufficientBalance,
-      ];
-    }
-
-    if (isInsufficientFee) {
-      return [
-        lang('$insufficient_fee', { fee: formatCurrency(toDecimal(networkFee), nativeToken?.symbol ?? '') }),
-        BottomRightSlide.InsufficientFee,
-      ];
-    }
-
-    if (isBelowMinimumAmount) {
-      return [
-        lang('$min_value', { value: formatCurrency(toDecimal(minAmount, decimals), symbol ?? '') }),
-        BottomRightSlide.BelowMinimumAmount,
-      ];
-    }
-
-    return apiError
-      ? [lang(apiError), BottomRightSlide.ApiError]
-      : [undefined, BottomRightSlide.Fee];
-  }, [
-    apiError, decimals, isBelowMinimumAmount, isInsufficientBalance, isInsufficientFee, lang, minAmount,
-    nativeToken?.symbol, networkFee, symbol,
-  ]);
-
   // It is necessary to use useCallback instead of useLastCallback here
   const renderBottomRight = useCallback((className?: string) => {
     let content: string | TeactNode[] | React.JSX.Element;
 
-    if (error) {
+    if (apiError) {
       content = (
-        <span className={styles.balanceError}>{error}</span>
+        <span className={styles.balanceError}>{lang(apiError)}</span>
       );
     } else {
+      // The real fee is smaller than the amount the stake must be sent with, so a shortage shows the latter
       content = token ? lang('$fee_value', {
-        fee: <Fee terms={{ native: realFee }} precision="approximate" token={token} />,
+        fee: isInsufficientFee
+          ? <Fee terms={{ native: networkFee }} precision="exact" token={token} />
+          : <Fee terms={{ native: realFee }} precision="approximate" token={token} />,
       }) : '';
     }
 
@@ -304,17 +293,30 @@ function StakingInitial({
       <Transition
         className={buildClassName(
           styles.amountBottomRight,
-          isIncorrectAmount && styles.amountBottomRight_error,
+          isInsufficientFee && styles.amountBottomRight_error,
           className,
         )}
         slideClassName={styles.amountBottomRight_slide}
         name="semiFade"
-        activeKey={errorTransitionKey}
+        activeKey={apiError ? BottomRightSlide.ApiError : BottomRightSlide.Fee}
       >
         {content}
       </Transition>
     );
-  }, [error, errorTransitionKey, isIncorrectAmount, lang, realFee, token]);
+  }, [apiError, isInsufficientFee, lang, networkFee, realFee, token]);
+
+  function renderButtonText() {
+    if (isInsufficientBalance) {
+      return lang('Insufficient Balance');
+    }
+    if (isInsufficientFee) {
+      return lang('Insufficient Fee');
+    }
+    if (isBelowMinimumAmount) {
+      return lang('Minimum amount', { value: formatCurrency(toDecimal(minAmount, decimals), symbol ?? '') });
+    }
+    return lang('$stake_asset', { symbol: token?.symbol });
+  }
 
   function renderJettonDescription() {
     return (
@@ -459,7 +461,7 @@ function StakingInitial({
     amount,
     token,
     baseCurrency,
-    onAmountChange: setAmount,
+    onAmountChange: handleAmountChange,
     onTokenChange: handleChangeStaking,
   });
 
@@ -486,7 +488,8 @@ function StakingInitial({
           maxAmount={maxAmount}
           token={selectedToken}
           allTokens={selectableTokens}
-          hasError={isIncorrectAmount || isInsufficientBalance}
+          hasError={isIncorrectAmount || isBelowMinimumAmount || isAmountTooBig}
+          hasMaxAmountError={isAmountTooBig}
           isMaxAmountLoading={!selectedToken}
           isSensitiveDataHidden={isSensitiveDataHidden}
           renderBottomRight={renderBottomRight}
@@ -520,7 +523,7 @@ function StakingInitial({
               isLoading={isLoading}
               className={styles.submitButton}
             >
-              {lang('$stake_asset', { symbol: token?.symbol })}
+              {renderButtonText()}
             </Button>
           </div>
         </ModalFooter>
@@ -544,6 +547,7 @@ export default memo(
         isLoading,
         error: apiError,
         initialAmount,
+        restakeAmount,
       } = global.currentStaking;
 
       const states = currentAccountId ? selectAccountStakingStates(global, currentAccountId) : undefined;
@@ -557,6 +561,7 @@ export default memo(
         tokenBySlug,
         apiError,
         initialAmount,
+        restakeAmount,
         stakingState,
         states,
         shouldUseNominators: accountState?.staking?.shouldUseNominators,

@@ -17,7 +17,7 @@ export type ApiMarketAsset = {
   tintColor?: string;
 };
 
-export type ApiMarketSection = {
+export type ApiMarketSection<Asset = ApiMarketAsset> = {
   id: string;
   title: string;
   layout: ApiMarketSectionLayout;
@@ -26,7 +26,7 @@ export type ApiMarketSection = {
   desktopLimit?: number;
   mobileLimit?: number;
   hasMore: boolean;
-  assets: ApiMarketAsset[];
+  assets: Asset[];
 };
 
 export type ApiMarketAssetsResponse = {

@@ -1,0 +1,38 @@
+$shimmerWidth: 17.5rem;
+
+@mixin shimmer {
+  --skeleton-shimmer: rgba(255, 255, 255, 0.7);
+
+  background-color: var(--color-activity-gray-background);
+  background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-shimmer) 50%, transparent 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: (-$shimmerWidth) 0;
+  background-size: $shimmerWidth 100%;
+
+  animation: skeleton-bubble-shimmer 1.6s ease-out infinite;
+
+  :global(html.theme-dark) & {
+    --skeleton-shimmer: rgba(255, 255, 255, 0.14);
+  }
+
+  :global(html.animation-level-0) & {
+    background-image: none;
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    background-image: none;
+    animation: none;
+  }
+
+  @keyframes skeleton-bubble-shimmer {
+    0% {
+      background-position: (-$shimmerWidth) 0;
+    }
+
+    100% {
+      background-position: 100vw 0;
+    }
+  }
+}

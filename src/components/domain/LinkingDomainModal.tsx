@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
@@ -92,6 +92,7 @@ function LinkingDomainModal({
   const feeTerms = useMemo(() => (realFee ? { native: realFee } : undefined), [realFee]);
   const modalTitle = currentLinkedWalletAddress ? 'Change Linked Wallet' : 'Link to Wallet';
   const isAddressValid = isValidAddressOrDomain(walletAddress, 'ton');
+  const [hasAddressFormatError, setHasAddressFormatError] = useState(false);
 
   const handleWalletAddressInput = useLastCallback((newToAddress?: string) => {
     // The controlled input drops keystrokes while its re-render waits for a heavy animation to end
@@ -158,23 +159,25 @@ function LinkingDomainModal({
               address={resolvedWalletAddress || walletAddress}
               addressName={walletAddressName}
               onInput={handleWalletAddressInput}
+              onError={setHasAddressFormatError}
               onClose={cancelDomainLinking}
             />
           </div>
 
-          <FeeLine terms={feeTerms} token={TONCOIN} precision="exact" />
+          <FeeLine terms={feeTerms} token={TONCOIN} precision="exact" isError={isInsufficientBalance} />
           <div className={buildClassName(modalStyles.buttons, styles.footer)}>
             <Button
               isPrimary
-              isDestructive={isInsufficientBalance}
               isDisabled={!canSubmit}
               isLoading={!realFee || isLoading}
               className={styles.button}
               onClick={startDomainLinking}
             >
-              {isInsufficientBalance
-                ? lang('Insufficient Balance')
-                : lang('Link')}
+              {hasAddressFormatError
+                ? lang('Invalid Address')
+                : isInsufficientBalance
+                  ? lang('Insufficient Balance')
+                  : lang('Link')}
             </Button>
           </div>
         </div>

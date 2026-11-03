@@ -40,6 +40,8 @@ export function completeForeignUnstake(global: GlobalState, foreignUnstake: Fore
   return draft!.isInstant
     ? updateCurrentStaking(global, {
       state: StakingState.StakeInitial,
+      initialAmount: undefined,
+      restakeAmount: draft!.amountNative,
       foreignUnstake: undefined,
       mfaRequestHash: undefined,
     })

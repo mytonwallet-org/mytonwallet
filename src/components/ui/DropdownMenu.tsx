@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, { type ElementRef, memo, useRef } from '../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../global/types';
@@ -19,6 +20,8 @@ interface OwnProps<T extends string> {
   ref?: ElementRef<HTMLDivElement>;
   selectedValue?: T;
   items: DropdownItem<T>[];
+  /** A line above the items, such as the date of the message the menu is for */
+  header?: TeactNode;
   withPortal?: boolean;
   menuAnchor?: IAnchorPosition;
   menuPositionY?: 'top' | 'bottom';
@@ -45,6 +48,7 @@ function DropdownMenu<T extends string>({
   ref,
   selectedValue,
   items,
+  header,
   withPortal,
   menuAnchor,
   menuPositionX,
@@ -120,6 +124,7 @@ function DropdownMenu<T extends string>({
       onCloseAnimationEnd={onCloseAnimationEnd}
       {...menuPositionOptions}
     >
+      {header !== undefined && <div className={styles.header}>{header}</div>}
       {items.map((item, index) => {
         const fullButtonClassName = buildClassName(
           styles.item,

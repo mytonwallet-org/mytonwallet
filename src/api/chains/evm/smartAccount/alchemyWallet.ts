@@ -1,10 +1,14 @@
-import { getBytes, Signature, Wallet } from 'ethers';
+import {
+  getBytes,
+  hashAuthorization,
+  Signature,
+  Wallet,
+} from 'ethers';
 
-import type { ApiNetwork } from '../../../types';
 import type { EvmMetaTransaction } from './types';
 
 import { fetchJson } from '../../../../util/fetch';
-import { signEip712WithPrivateKey } from '../sign';
+import { hashUserOperationV07, isModularAccountCallData } from './userOperation';
 
 type JsonRpcError = {
   code: number;
@@ -151,21 +155,24 @@ export function estimateMaxCostFromPrepareResult(result: AlchemyPrepareCallsResu
   return totalGas * maxFeePerGas;
 }
 
-function signRawPayload(privateKey: string, payload: string): string {
-  const wallet = new Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
-  const signature = wallet.signingKey.sign(getBytes(payload));
+/** What the prepared calls must execute; every digest the key signs is recomputed from it. */
+export type AlchemyPreparedCallsBinding = {
+  chainId: bigint;
+  sender: string;
+  calls: EvmMetaTransaction[];
+  /** Set only when the prepare request asked for a delegation. */
+  delegate?: string;
+};
 
-  return Signature.from(signature).serialized;
-}
+const GLOBAL_OWNER_VALIDATION_LOCATOR = 1n;
 
-async function signPersonalMessage(privateKey: string, payload: string): Promise<string> {
-  const wallet = new Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
+const AUTHORIZATION_SIGNATURE_TYPES = new Set<AlchemySignatureRequest['type']>([
+  'eip7702Auth',
+  'eth_signAuthorization',
+]);
 
-  return wallet.signMessage(getBytes(payload));
-}
-
-function isRawSignatureType(type: AlchemySignatureRequest['type']): boolean {
-  return type === 'eth_signAuthorization' || type === 'eip7702Auth';
+function createWallet(privateKey: string) {
+  return new Wallet(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
 }
 
 function getPersonalSignPayload(signatureRequest: AlchemySignatureRequest): string | undefined {
@@ -176,58 +183,90 @@ function getPersonalSignPayload(signatureRequest: AlchemySignatureRequest): stri
   return undefined;
 }
 
-function getTypedDataPayload(signatureRequest: AlchemySignatureRequest): AlchemyEip712TypedData | undefined {
-  if (signatureRequest.type !== 'eth_signTypedData_v4') {
-    return undefined;
-  }
-
-  const data = signatureRequest.data;
-  if (!data || typeof data !== 'object' || !('primaryType' in data)) {
-    return undefined;
-  }
-
-  return data;
+/** ModularAccountV2 picks the validation from bits 64-103 of the nonce; 1 is the account's own key, global. */
+function getValidationLocator(nonce: string) {
+  return (BigInt(nonce) >> 64n) & 0xFFFFFFFFFFn;
 }
 
-async function signSignatureRequest(
-  network: ApiNetwork,
-  privateKey: string,
-  signatureRequest: AlchemySignatureRequest,
+function signAuthorization(wallet: Wallet, item: AlchemyPreparedCallItem, binding: AlchemyPreparedCallsBinding) {
+  const { signatureRequest, data: { address, nonce } } = item;
+
+  if (!signatureRequest || !AUTHORIZATION_SIGNATURE_TYPES.has(signatureRequest.type)) {
+    throw new Error('Alchemy authorization has an unexpected signature request');
+  }
+
+  if (!address || !nonce || !binding.delegate || address.toLowerCase() !== binding.delegate.toLowerCase()) {
+    throw new Error('Alchemy authorization delegates to a contract the wallet did not request');
+  }
+
+  const digest = hashAuthorization({ address, nonce: BigInt(nonce), chainId: binding.chainId });
+
+  return Signature.from(wallet.signingKey.sign(digest)).serialized;
+}
+
+function signUserOperation(wallet: Wallet, item: AlchemyPreparedCallItem, binding: AlchemyPreparedCallsBinding) {
+  const { signatureRequest, data } = item;
+
+  if (signatureRequest?.type !== 'personal_sign') {
+    throw new Error('Alchemy user operation has an unexpected signature request');
+  }
+
+  if (!data.sender || data.sender.toLowerCase() !== binding.sender.toLowerCase()) {
+    throw new Error('Alchemy user operation has another sender');
+  }
+
+  if (data.factory || data.factoryData) {
+    throw new Error('Alchemy user operation carries an init call');
+  }
+
+  if (data.paymaster || data.paymasterData) {
+    throw new Error('Alchemy user operation names a paymaster the wallet did not request');
+  }
+
+  if (!data.callData || !isModularAccountCallData(data.callData, binding.calls)) {
+    throw new Error('Alchemy user operation calls differ from the requested calls');
+  }
+
+  if (!data.nonce || getValidationLocator(data.nonce) !== GLOBAL_OWNER_VALIDATION_LOCATOR) {
+    throw new Error('Alchemy user operation selects another validation');
+  }
+
+  const digest = hashUserOperationV07(data, binding.chainId);
+  const requestedDigest = getPersonalSignPayload(signatureRequest);
+
+  if (requestedDigest && requestedDigest.toLowerCase() !== digest.toLowerCase()) {
+    throw new Error('Alchemy signature request does not match the locally computed digest');
+  }
+
+  return wallet.signMessage(getBytes(digest));
+}
+
+/** A second user operation with the same calls would execute the swap twice. */
+function assertSingleOperation(items: AlchemyPreparedCallItem[]) {
+  const countOf = (type: string) => items.filter((item) => item.type === type).length;
+
+  if (countOf('user-operation-v070') !== 1 || countOf('authorization') > 1) {
+    throw new Error('Alchemy prepareCalls response must hold one user operation');
+  }
+}
+
+async function signPreparedCallItem(
+  wallet: Wallet,
+  item: AlchemyPreparedCallItem,
+  binding: AlchemyPreparedCallsBinding,
 ): Promise<string> {
-  if (isRawSignatureType(signatureRequest.type)) {
-    if (!signatureRequest.rawPayload) {
-      throw new Error('Alchemy authorization signature request missing rawPayload');
-    }
-
-    return signRawPayload(privateKey, signatureRequest.rawPayload);
+  if (!item.chainId || BigInt(item.chainId) !== binding.chainId) {
+    throw new Error('Alchemy prepared call targets another chain');
   }
 
-  if (signatureRequest.type === 'personal_sign') {
-    const personalSignPayload = getPersonalSignPayload(signatureRequest);
-    if (personalSignPayload) {
-      // data.raw is the inner digest; signMessage applies the EIP-191 prefix once.
-      return signPersonalMessage(privateKey, personalSignPayload);
-    }
-
-    if (signatureRequest.rawPayload) {
-      // rawPayload is already keccak256("\x19Ethereum Signed Message:\n32" || data.raw).
-      return signRawPayload(privateKey, signatureRequest.rawPayload);
-    }
-
-    throw new Error('Alchemy personal_sign request missing payload');
+  switch (item.type) {
+    case 'authorization':
+      return signAuthorization(wallet, item, binding);
+    case 'user-operation-v070':
+      return signUserOperation(wallet, item, binding);
+    default:
+      throw new Error(`Unsupported Alchemy prepared call type: ${item.type}`);
   }
-
-  if (signatureRequest.type === 'eth_signTypedData_v4') {
-    const typedData = getTypedDataPayload(signatureRequest);
-
-    if (!typedData) {
-      throw new Error('Alchemy eth_signTypedData_v4 request missing typed data');
-    }
-
-    return signEip712WithPrivateKey(network, privateKey, typedData);
-  }
-
-  throw new Error(`Unsupported Alchemy signature request type: ${signatureRequest.type}`);
 }
 
 export async function prepareAlchemyCalls(
@@ -255,23 +294,23 @@ export async function prepareAlchemyCalls(
 export async function signAlchemyPreparedCalls(
   prepareResult: AlchemyPrepareCallsResult,
   privateKey: string,
-  network: ApiNetwork,
+  binding: AlchemyPreparedCallsBinding,
 ): Promise<AlchemySignedPreparedCalls> {
+  const wallet = createWallet(privateKey);
+
   if (prepareResult.type === 'array' && Array.isArray(prepareResult.data)) {
+    assertSingleOperation(prepareResult.data);
+
     const signedData: AlchemyPreparedCallItem[] = [];
 
     for (const item of prepareResult.data) {
-      if (!item.signatureRequest) {
-        throw new Error('Alchemy prepareCalls array item missing signatureRequest');
-      }
-
       signedData.push({
         type: item.type,
         data: item.data,
         chainId: item.chainId,
         signature: {
           type: 'secp256k1',
-          data: await signSignatureRequest(network, privateKey, item.signatureRequest),
+          data: await signPreparedCallItem(wallet, item, binding),
         },
       });
     }
@@ -293,7 +332,7 @@ export async function signAlchemyPreparedCalls(
     chainId: prepareResult.chainId,
     signature: {
       type: 'secp256k1',
-      data: await signSignatureRequest(network, privateKey, prepareResult.signatureRequest),
+      data: await signPreparedCallItem(wallet, { ...prepareResult, data: prepareResult.data }, binding),
     },
   };
 }

@@ -697,7 +697,6 @@ class SettingsVC(context: Context) :
         nav.setRoot(
             InAppBrowserVC(
                 context,
-                null,
                 InAppBrowserConfig(
                     url,
                     injectDappConnect = false,

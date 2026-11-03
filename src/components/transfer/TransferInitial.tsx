@@ -1,12 +1,17 @@
-import type { TeactNode } from '../../lib/teact/teact';
-import React, { memo, useCallback, useEffect, useMemo, useRef } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiFetchEstimateDieselResult, ApiNft } from '../../api/types';
+import type {
+  ApiAnyDisplayError,
+  ApiBaseCurrency,
+  ApiFetchEstimateDieselResult,
+  ApiNft,
+} from '../../api/types';
 import type { SavedAddress, UserToken } from '../../global/types';
 import type { LangFn } from '../../hooks/useLang';
 import type { ExplainedTransferFee } from '../../util/fee/transferFee';
 import type { FeePrecision, FeeTerms } from '../../util/fee/types';
+import type { TransferError } from './helpers/resolveTransferError';
 import { ScamWarningType, TransferState } from '../../global/types';
 
 import { DEFAULT_PRICE_CURRENCY, UNKNOWN_TOKEN } from '../../config';
@@ -32,6 +37,7 @@ import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import { debounce } from '../../util/schedulers';
 import { trimStringByMaxBytes } from '../../util/text';
 import { getChainBySlug, getIsNativeToken, getIsServiceToken, getNativeToken } from '../../util/tokens';
+import { resolveTransferError } from './helpers/resolveTransferError';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useFlag from '../../hooks/useFlag';
@@ -61,6 +67,7 @@ interface StateProps {
   toAddress?: string;
   resolvedAddress?: string;
   toAddressName?: string;
+  toAddressError?: ApiAnyDisplayError;
   amount?: bigint;
   comment?: string;
   shouldEncrypt?: boolean;
@@ -93,6 +100,13 @@ interface StateProps {
 const COMMENT_MAX_SIZE_BYTES = 5000;
 const ACTIVE_STATES = new Set([TransferState.Initial, TransferState.None]);
 const AUTHORIZE_DIESEL_INTERVAL_MS = SECOND;
+const ERROR_BUTTON_TEXTS: Record<TransferError, string> = {
+  multisig: 'Multisig Sending Disabled',
+  invalidAddress: 'Invalid Address',
+  domainNotFound: 'Domain Not Found',
+  insufficientBalance: 'Insufficient Balance',
+  insufficientFee: 'Insufficient Fee',
+};
 
 const runDebounce = debounce((cb) => cb(), 500, false);
 
@@ -101,6 +115,7 @@ function TransferInitial({
   toAddress = '',
   resolvedAddress,
   toAddressName = '',
+  toAddressError,
   amount,
   comment = '',
   shouldEncrypt,
@@ -162,6 +177,7 @@ function TransferInitial({
   const renderedScamWarningType = useCurrentOrPrev(scamWarningType, true);
   const amountInputRef = useRef<HTMLInputElement>();
   const isDisabledDebounce = useRef<boolean>(false);
+  const [hasAddressFormatError, setHasAddressFormatError] = useState(false);
   const isAddressValid = chain ? isValidAddressOrDomain(toAddress, chain) : undefined;
   const doesSupportComment = chain && getChainConfig(chain).isTransferPayloadSupported;
   const doesSupportCommentEncryption = !!chain
@@ -239,8 +255,8 @@ function TransferInitial({
     }
   }, [amount, balance, fullFee]);
 
-  // Note: this effect doesn't watch amount changes mainly because it's tricky to program a fee recalculation avoidance
-  // when the amount changes due to a fee change. And it's not needed because the fee doesn't depend on the amount.
+  // The check covers the amount too: it rejects an invalid amount and checks that the balance pays for the amount
+  // and the fee
   useEffect(() => {
     if (isAmountMissing || !isAddressValid) {
       return;
@@ -351,21 +367,25 @@ function TransferInitial({
     && amount > balance;
   const hasInsufficientFeeError = isEnoughBalance === false && !isAmountGreaterThanBalance
     && diesel?.status !== 'not-authorized' && diesel?.status !== 'pending-previous';
-  // NFT transfers have no amount input to show the error under, so the fee line and the button show it instead
-  const hasInsufficientNftFeeError = isNftTransfer && hasInsufficientFeeError;
-  const hasAmountError = !isNftTransfer && amount !== undefined && (
-    (maxAmount !== undefined && amount > maxAmount)
-    || hasInsufficientFeeError // Ideally, the insufficient fee error message should be displayed somewhere else
-  );
+  // Max is the balance minus the fee if the fee is paid in this token. An amount above Max leaves nothing for the fee,
+  // so it is an error too
+  const hasAmountError = !isNftTransfer && amount !== undefined && maxAmount !== undefined && amount > maxAmount;
   const isCommentRequired = Boolean(toAddress) && isMemoRequired;
   const hasCommentError = isCommentRequired && !comment;
+  const transferError = resolveTransferError({
+    isMultisig,
+    hasAddressFormatError,
+    toAddressError,
+    isAmountGreaterThanBalance,
+    hasInsufficientFeeError,
+  });
 
-  const canSubmit = isDieselNotAuthorized || Boolean(
+  const canSubmit = (isDieselNotAuthorized && isAddressValid && !transferError) || Boolean(
     isAddressValid
     && !isAmountMissing && !hasAmountError
     && isEnoughBalance
     && !hasCommentError
-    && !isMultisig
+    && !transferError
     && (!safeExplainedFee.isGasless || diesel?.status === 'available' || diesel?.status === 'stars-fee')
     && !(isNftTransfer && !nfts?.length),
   );
@@ -373,14 +393,10 @@ function TransferInitial({
   const handleSubmit = useLastCallback((e?: React.FormEvent | React.UIEvent) => {
     if (e) stopEvent(e);
 
-    if (scamWarningType) return;
+    if (scamWarningType || !canSubmit) return;
 
     if (isDieselNotAuthorized) {
       authorizeDiesel();
-      return;
-    }
-
-    if (!canSubmit) {
       return;
     }
 
@@ -416,44 +432,15 @@ function TransferInitial({
     onTokenChange: handleTokenChange,
   });
 
-  // It is necessary to use useCallback instead of useLastCallback here
-  const renderBottomRight = useCallback((className?: string) => {
-    let transitionKey = 0;
-    let content: TeactNode = ' ';
-
-    if (isMultisig) {
-      transitionKey = 1;
-      content = <span className={styles.balanceError}>{lang('Multisig sending disabled')}</span>;
-    } else if (amount) {
-      if (isAmountGreaterThanBalance) {
-        transitionKey = 2;
-        content = <span className={styles.balanceError}>{lang('Insufficient balance')}</span>;
-      } else if (hasInsufficientFeeError) {
-        transitionKey = 3;
-        content = <span className={styles.balanceError}>{lang('Insufficient fee')}</span>;
-      }
-    }
-
-    return (
-      <Transition
-        className={className}
-        name="fade"
-        activeKey={transitionKey}
-      >
-        {content}
-      </Transition>
-    );
-  }, [amount, hasInsufficientFeeError, isAmountGreaterThanBalance, isMultisig, lang]);
-
   function renderButtonText() {
+    if (transferError) {
+      return lang(ERROR_BUTTON_TEXTS[transferError]);
+    }
     if (diesel?.status === 'not-authorized') {
       return lang('$authorize_token_fee_capitalized', { token: symbol! });
     }
     if (diesel?.status === 'pending-previous') {
       return lang('Awaiting Previous Fee');
-    }
-    if (hasInsufficientNftFeeError) {
-      return lang('Insufficient Fee');
     }
     return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || UNKNOWN_TOKEN.symbol);
   }
@@ -474,7 +461,7 @@ function TransferInitial({
         terms={terms}
         token={transferToken}
         precision={precision}
-        isError={hasInsufficientNftFeeError}
+        isError={hasInsufficientFeeError}
         onDetailsClick={openFeeModal}
       />
     );
@@ -537,8 +524,10 @@ function TransferInitial({
             withQrScan
             address={resolvedAddress || toAddress}
             addressName={toAddressName}
+            hasError={Boolean(toAddressError)}
             onInput={handleAddressInput}
             onPaste={handleAddressPaste}
+            onError={setHasAddressFormatError}
             onClose={cancelTransfer}
           />
 
@@ -550,10 +539,10 @@ function TransferInitial({
               token={transferToken}
               allTokens={tokensToSelect}
               hasError={hasAmountError}
+              hasMaxAmountError={hasAmountError}
               withChainIcon
               isMaxAmountLoading={maxAmount === undefined}
               isSensitiveDataHidden={isSensitiveDataHidden}
-              renderBottomRight={renderBottomRight}
               onPressEnter={handleSubmit}
             />
           )}
@@ -650,6 +639,7 @@ export default memo(
         toAddress,
         resolvedAddress,
         toAddressName,
+        toAddressError,
         amount,
         comment,
         shouldEncrypt,
@@ -678,6 +668,7 @@ export default memo(
         toAddress,
         resolvedAddress,
         toAddressName,
+        toAddressError,
         amount,
         comment,
         shouldEncrypt,

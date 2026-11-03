@@ -318,6 +318,7 @@ describe('migrateToEnclave', () => {
     ['session_expired', 'retryable'],
     ['unknown_token', 'retryable'],
     ['auth_not_configured', 'blocked'],
+    ['wrong_passcode', 'blocked'],
     ['master_key_missing', 'blocked'],
     ['secret_missing', 'blocked'],
   ] as const)('answers the %s code as %s', async (code, kind) => {

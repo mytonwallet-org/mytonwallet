@@ -15,6 +15,14 @@
         "identifier": "UIComponentsIntegrationTests",
         "name": "UIComponentsIntegrationTests"
       }
+    },
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../Air",
+        "identifier": "AirSearchIntegrationTests",
+        "name": "AirSearchIntegrationTests"
+      }
     }
   ],
   "version": 1

@@ -19,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder;
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator;
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser;
+import org.mytonwallet.app_air.walletcore.deeplink.LaunchSender;
 
 abstract class PendingTask {
     private PendingTask() {
@@ -149,17 +150,25 @@ public class AirLauncher {
         currentActivity.startActivity(intent);
     }
 
-    public boolean handle(Intent intent) {
-        return handle(null, intent);
+    /**
+     * Whether `handle` may admit the push notification extras of `activity.getIntent()`; see
+     * `LaunchSender.isOwnPackage` for when to call it.
+     */
+    public static boolean isLaunchedByOwnPackage(Activity activity) {
+        return LaunchSender.isOwnPackage(activity);
     }
 
-    public boolean handle(Activity currentActivity, Intent intent) {
+    public boolean handle(Intent intent, boolean allowExtras) {
+        return handle(null, intent, allowExtras);
+    }
+
+    public boolean handle(Activity currentActivity, Intent intent, boolean allowExtras) {
         AttributionDeeplink attribution = intent.getDataString() != null
             ? ReferrerSanitizerKt.splitAttributionDeeplink(intent.getDataString()) : null;
         Intent businessIntent = attribution != null
             ? new Intent(intent).setData(android.net.Uri.parse(attribution.getUrl())) : intent;
         Deeplink deeplink = attribution != null && attribution.isGet()
-            ? null : DeeplinkParser.Companion.parse(businessIntent);
+            ? null : DeeplinkParser.Companion.parse(businessIntent, allowExtras);
         if (attribution != null) {
             Deeplink dataDeeplink = businessIntent.getData() != null
                 ? DeeplinkParser.Companion.parse(businessIntent.getData()) : null;

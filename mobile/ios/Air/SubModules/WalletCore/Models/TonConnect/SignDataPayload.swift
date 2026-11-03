@@ -70,6 +70,8 @@ public struct SignDataPayloadEip712: Equatable, Hashable, Codable, Sendable {
     public var types: [String: [SignDataPayloadEip712TypeField]]
     public var primaryType: String
     public var message: [String: AnyCodable]
+    /// Network whose chain id `domain.chainId` must match; the SDK checks it again when signing
+    public var network: String? = nil
 }
 
 public struct SignDataPayloadEip712TypeField: Equatable, Hashable, Codable, Sendable {

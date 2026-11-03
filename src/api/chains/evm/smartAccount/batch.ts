@@ -5,7 +5,7 @@ import { ApiTransactionError, EvmSmartAccountError } from '../../../types';
 
 import { logDebugError } from '../../../../util/logs';
 import { getEvmDelegationAddress } from '../approvals';
-import { getWalletBalance } from '../wallet';
+import { canPayEvmTransactions } from '../wallet';
 import {
   estimateMaxCostFromPrepareResult,
   prepareAlchemyCalls,
@@ -13,7 +13,7 @@ import {
   signAlchemyPreparedCalls,
   waitForAlchemyCallsConfirmation,
 } from './alchemyWallet';
-import { getAlchemyWalletApiUrl, getEvmChainId } from './constants';
+import { ALCHEMY_7702_REQUESTED_DELEGATE_ADDRESS, getAlchemyWalletApiUrl, getEvmChainId } from './constants';
 import { resolveBatchDelegation, withForeignDelegationResetCall } from './delegation';
 
 async function resolveBatchPreconditions(
@@ -63,9 +63,8 @@ export async function estimateBatchUserOpFee(
     const calls = withForeignDelegationResetCall(address, transactions, foreignDelegation);
     const prepareResult = await prepareAlchemyCalls(apiUrl, address, chainId, calls, shouldDelegate);
     const maxCost = estimateMaxCostFromPrepareResult(prepareResult);
-    const nativeBalance = await getWalletBalance(chain, network, address);
 
-    if (nativeBalance < maxCost) {
+    if (!await canPayEvmTransactions(chain, network, address, calls, maxCost)) {
       return { error: ApiTransactionError.InsufficientBalance };
     }
 
@@ -96,13 +95,17 @@ export async function submitBatchUserOp(
     const calls = withForeignDelegationResetCall(address, transactions, foreignDelegation);
     const prepareResult = await prepareAlchemyCalls(apiUrl, address, chainId, calls, shouldDelegate);
     const maxCost = estimateMaxCostFromPrepareResult(prepareResult);
-    const nativeBalance = await getWalletBalance(chain, network, address);
 
-    if (nativeBalance < maxCost) {
+    if (!await canPayEvmTransactions(chain, network, address, calls, maxCost)) {
       return { error: ApiTransactionError.InsufficientBalance };
     }
 
-    const signedCalls = await signAlchemyPreparedCalls(prepareResult, privateKey, network);
+    const signedCalls = await signAlchemyPreparedCalls(prepareResult, privateKey, {
+      chainId,
+      sender: address,
+      calls,
+      delegate: shouldDelegate ? ALCHEMY_7702_REQUESTED_DELEGATE_ADDRESS : undefined,
+    });
     const sendResult = await sendAlchemyPreparedCalls(apiUrl, signedCalls);
     const confirmation = await waitForAlchemyCallsConfirmation(apiUrl, sendResult.id);
 

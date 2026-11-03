@@ -73,6 +73,8 @@ function SwapBlockchain({
   const isQrScannerSupported = useQrScannerSupport();
 
   const withPasteButton = shouldRenderPasteButton && toAddress === '';
+  // The address is checked on every change, but its error waits until the user leaves the field
+  const shouldShowAddressError = hasToAddressError && !isAddressFocused;
 
   const toAddressShort = toAddress.length > MIN_ADDRESS_LENGTH_TO_SHORTEN
     ? shortenAddress(toAddress, SHORT_ADDRESS_SHIFT) || ''
@@ -178,26 +180,14 @@ function SwapBlockchain({
   });
 
   function renderInfo() {
-    const text = hasToAddressError
-      ? lang('Incorrect address.')
-      : lang('Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.', {
-        blockchain: getChainNetworkName(tokenOut?.chain),
-      });
-
     return (
-      <Transition
-        name="fade"
-        activeKey={hasToAddressError ? 0 : 1}
-        slideClassName={styles.blockchainHintWrapper}
-      >
-        <span className={buildClassName(
-          styles.blockchainHintText,
-          hasToAddressError && styles.blockchainHintTextError,
-        )}
-        >
-          {text}
+      <div className={styles.blockchainHintWrapper}>
+        <span className={styles.blockchainHintText}>
+          {lang('Please provide an address of your wallet in %blockchain% blockchain to receive bought tokens.', {
+            blockchain: getChainNetworkName(tokenOut?.chain),
+          })}
         </span>
-      </Transition>
+      </div>
     );
   }
 
@@ -212,6 +202,7 @@ function SwapBlockchain({
             isRequired
             placeholder={lang('Your address on another blockchain')}
             value={isAddressFocused ? toAddress : toAddressShort}
+            hasValueError={shouldShowAddressError}
             onInput={handleAddressInput}
             onFocus={handleAddressFocus}
             onBlur={handleAddressBlur}
@@ -268,7 +259,13 @@ function SwapBlockchain({
             className={modalStyles.buttonHalfWidth}
             onClick={submitPassword}
           >
-            {lang('Continue')}
+            <Transition
+              name="fade"
+              activeKey={shouldShowAddressError ? 1 : 0}
+              slideClassName={styles.blockchainButtonSlide}
+            >
+              {shouldShowAddressError ? lang('Invalid Address') : lang('Continue')}
+            </Transition>
           </Button>
         </div>
       </div>

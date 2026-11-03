@@ -2,6 +2,7 @@ import type { ApiBackendConfig } from '../api/types';
 
 import { DEFAULT_RETRIES } from '../config';
 import { setBackendConfigCache } from '../api/common/cache';
+import { ApiServerError } from '../api/errors';
 import { pauseWithAbortSignal } from './abortSignal';
 import { CircuitOpenError } from './circuitBreaker';
 import {
@@ -10,6 +11,7 @@ import {
   fetchJson,
   fetchWithRetry,
   fetchWithTimeout,
+  handleFetchErrors,
   isNegativeCacheableStatus,
   resetFetchStateForTests,
 } from './fetch';
@@ -38,6 +40,28 @@ function setNegVerdictCacheFlag(enabled: boolean) {
 
 const BURN_URL = 'https://evmapi.mytonwallet.org/v1/wallets/0xdead/transactions/?page[size]=50';
 const OTHER_URL = 'https://evmapi.mytonwallet.org/v1/wallets/0xbeef/transactions/?page[size]=50';
+
+describe('handleFetchErrors', () => {
+  const failure = (status: number, json: () => Promise<unknown>) => handleFetchErrors(
+    { ok: false, status, json } as unknown as Response,
+  );
+
+  it.each([
+    ['an HTML page', () => Promise.reject(new SyntaxError('Unexpected token <'))],
+    ['a JSON null', () => Promise.resolve(JSON.parse('null'))],
+  ])('reports the status for %s', async (_, json) => {
+    const error = await failure(404, json).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiServerError);
+    expect(error).toMatchObject({ message: 'HTTP Error 404', statusCode: 404 });
+  });
+
+  it.each([
+    [{ error: 'Unknown asset' }, 'Unknown asset'],
+    [{ errors: [{ msg: 'Invalid value' }] }, 'Invalid value'],
+  ])('reports the backend message from %j', async (body, message) => {
+    await expect(failure(400, () => Promise.resolve(body))).rejects.toMatchObject({ message, statusCode: 400 });
+  });
+});
 
 describe('classifyFetchFailure', () => {
   it.each([undefined, 408, 429, 500, 502, 503, 504])('treats %s as retryable', (status) => {

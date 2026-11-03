@@ -9,6 +9,7 @@ jest.mock('../methods/polling', () => ({
 }));
 jest.mock('../methods/accounts', () => ({ deactivateAllAccounts: jest.fn(), activateAccount: jest.fn() }));
 jest.mock('../methods/agentV2Lifecycle', () => ({ resetAgentV2: jest.fn() }));
+jest.mock('../common/nftSync', () => ({ removeNftSyncSnapshots: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../db', () => ({ ...jest.requireActual('../db'), tokenRepository: { clear: jest.fn() } }));
 
 import { tryMigrateStorage } from '../common/helpers';

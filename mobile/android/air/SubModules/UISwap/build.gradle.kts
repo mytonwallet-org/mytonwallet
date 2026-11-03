@@ -4,6 +4,7 @@ plugins {
 
 android {
     namespace = "org.mytonwallet.app_air.uiswap"
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 val airSubModulePath = project.property("airSubModulePath")

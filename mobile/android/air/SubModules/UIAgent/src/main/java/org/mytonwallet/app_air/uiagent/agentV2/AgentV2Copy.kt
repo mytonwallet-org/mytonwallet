@@ -4,6 +4,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
 
 internal data class AgentV2ConsentCopy(
     val subtitle: String,
@@ -54,6 +55,39 @@ internal fun localizedAgentV2Hint(id: String): AgentHint? {
 
 internal fun agentUnavailableText(): String = LocaleController.getString("\$agent_error_generic")
 
+internal fun getAgentAnalyzingRequestText(): String =
+    LocaleController.getString("\$agent_activity_analyzing_request")
+
+internal fun getAgentWritingAnswerText(): String =
+    LocaleController.getString("\$agent_activity_writing")
+
+/** The step a run reports; null for a step this version doesn't know */
+internal fun getAgentV2RunActivityText(event: AgentV2RunActivityEvent): String? {
+    val key = when (event.code) {
+        "request.planning" -> "planning"
+        "web.searching" -> "web_searching"
+        "web.reading_sources" -> "web_reading_sources"
+        "help.searching" -> "help_searching"
+        "data.reading_market" -> "market_data"
+        "analysis.checking_freshness" -> "checking_freshness"
+        "analysis.computing" -> "computing"
+        "answer.writing" -> "writing"
+        else -> return null
+    }
+    if (event.status != "completed") return LocaleController.getString("\$agent_activity_$key")
+    if (event.code != "web.reading_sources") {
+        return LocaleController.getString("\$agent_activity_${key}_completed")
+    }
+    val sourceCount = event.detail?.takeIf { it.kind == "source_count" }?.count
+        ?: return LocaleController.getString(
+            "\$agent_activity_web_reading_sources_completed_generic"
+        )
+    return LocaleController.getStringWithKeyValues(
+        "\$agent_activity_web_reading_sources_completed",
+        listOf("%count%" to sourceCount.toString())
+    )
+}
+
 internal fun agentActionUnavailableText(reason: String?): String {
     val key = when (reason) {
         "viewOnlyWallet" -> "\$action_not_available_view_mode"
@@ -81,7 +115,12 @@ internal fun agentV2ErrorText(code: String?): String = LocaleController.getStrin
 
         "client_update_required" -> "\$agent_error_update_required"
 
-        "network_error" -> "\$agent_connection_interrupted"
+        "network_error" -> "\$agent_connection_lost"
+
+        "user_quota_exhausted" -> "\$agent_daily_limit_reached"
+
+        "rate_limited", "agent_capacity_exhausted", "run_budget_exceeded", "output_limit_reached",
+        "context_too_large_retryable", "device_token_rate_limited" -> "\$agent_error_limit"
 
         "provider_unavailable", "provider_timeout" -> "\$agent_capacity_limit_unknown"
 
@@ -90,6 +129,24 @@ internal fun agentV2ErrorText(code: String?): String = LocaleController.getStrin
 
         "action_unsupported", "tool_unsupported" -> "\$agent_error_tool"
 
+        "recording_too_large" -> "\$agent_error_recording_too_large"
+
+        "audio_unreadable" -> "\$agent_error_audio_unreadable"
+
+        "transcription_unavailable" -> "\$agent_error_transcription_unavailable"
+
         else -> "\$agent_error_generic"
     }
 )
+
+/** What TalkBack announces for a recording that produced no transcript; on screen its circle turns red */
+internal fun getAgentDictationFailureText(failure: AgentDictationFailure): String = when (failure) {
+    AgentDictationFailure.TooShort -> LocaleController.getString("\$agent_dictation_too_short")
+
+    AgentDictationFailure.NoSpeech -> LocaleController.getString("\$agent_dictation_no_speech")
+
+    AgentDictationFailure.MicrophoneDenied ->
+        LocaleController.getString("\$agent_dictation_microphone_denied")
+
+    is AgentDictationFailure.Error -> agentV2ErrorText(failure.code)
+}

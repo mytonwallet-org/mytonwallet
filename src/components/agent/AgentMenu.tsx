@@ -1,7 +1,6 @@
-import React, { memo, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useMemo, useRef, useState } from '../../lib/teact/teact';
 
 import type { IAnchorPosition } from '../../global/types';
-import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import useFlag from '../../hooks/useFlag';
@@ -10,45 +9,52 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
+import AgentReportIcon from './AgentReportIcon';
 
 interface OwnProps {
   className?: string;
+  menuClassName?: string;
+  /** The area the menu hangs in from its end; the button's own box without it */
+  getContainer?: () => HTMLElement | undefined;
+  /** Offered while the server takes problem reports for the chat */
   onReportProblem?: NoneToVoidFunction;
-  onClearChat: NoneToVoidFunction;
+  /** Offered once the chat has a thread with messages */
+  onDelete?: NoneToVoidFunction;
 }
 
-type MenuHandler = 'report' | 'clear';
+type MenuHandler = 'report' | 'delete';
 
-const MENU_ITEMS: DropdownItem<MenuHandler>[] = [
-  { value: 'clear', name: 'Clear Chat', fontIcon: 'menu-trash', isDangerous: true },
-];
+// The menu's end keeps 12 px in from the container's and its top covers the container's last 10 px, as in the design
+const MENU_INSET = 12;
+const MENU_OVERLAP = 10;
 
-const REPORTABLE_MENU_ITEMS: DropdownItem<MenuHandler>[] = [
-  { value: 'report', name: 'Report a Problem', fontIcon: 'exclamation' },
-  ...MENU_ITEMS,
-];
-
-function AgentMenu({ className, onReportProblem, onClearChat }: OwnProps) {
+/** The chat's "…" menu, as on mobile: Report a Problem and Delete Chat */
+function AgentMenu({
+  className, menuClassName, getContainer, onReportProblem, onDelete,
+}: OwnProps) {
   const lang = useLang();
   const [isMenuOpen, openMenu, closeMenu] = useFlag();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>();
   const buttonRef = useRef<HTMLButtonElement>();
   const menuRef = useRef<HTMLDivElement>();
 
-  const getTriggerElement = useLastCallback(() => buttonRef.current);
-  const getRootElement = useLastCallback(() => document.body);
-  const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout = useLastCallback((): Layout => ({
-    withPortal: true,
-    preferredPositionX: 'right',
-  }));
+  const items = useMemo(() => {
+    const result: DropdownItem<MenuHandler>[] = [];
+    if (onReportProblem) result.push({ value: 'report', name: 'Report a Problem', icon: <AgentReportIcon /> });
+    if (onDelete) {
+      result.push({
+        value: 'delete', name: 'Delete Chat', fontIcon: 'menu-trash', isDangerous: true, withDelimiter: true,
+      });
+    }
+    return result;
+  }, [onDelete, onReportProblem]);
 
   const handleOpenMenu = useLastCallback(() => {
-    const btn = buttonRef.current!;
-    const { left, right, bottom: y } = btn.getBoundingClientRect();
-    // RTL: mirror the anchor edge
-    const x = lang.isRtl ? left : right;
-    setMenuAnchor({ x, y });
+    const container = getContainer?.() ?? buttonRef.current!;
+    const { left, right, bottom } = container.getBoundingClientRect();
+    // The menu hangs from the container's end, which is its left one in RTL
+    const x = lang.isRtl ? left + MENU_INSET : right - MENU_INSET;
+    setMenuAnchor({ x, y: bottom - MENU_OVERLAP });
     openMenu();
   });
 
@@ -59,8 +65,8 @@ function AgentMenu({ className, onReportProblem, onClearChat }: OwnProps) {
   const handleMenuSelect = useLastCallback((value: MenuHandler) => {
     if (value === 'report') {
       onReportProblem?.();
-    } else if (value === 'clear') {
-      onClearChat();
+    } else {
+      onDelete?.();
     }
   });
 
@@ -73,6 +79,7 @@ function AgentMenu({ className, onReportProblem, onClearChat }: OwnProps) {
         kind="transparent"
         className={className}
         ariaLabel={lang('Open Menu')}
+        isDisabled={!items.length}
         onClick={handleOpenMenu}
       >
         <i className="icon-menu-dots" aria-hidden />
@@ -84,12 +91,9 @@ function AgentMenu({ className, onReportProblem, onClearChat }: OwnProps) {
           withPortal
           menuAnchor={menuAnchor}
           menuPositionX="right"
-          items={onReportProblem ? REPORTABLE_MENU_ITEMS : MENU_ITEMS}
+          items={items}
+          bubbleClassName={menuClassName}
           shouldTranslateOptions
-          getTriggerElement={getTriggerElement}
-          getRootElement={getRootElement}
-          getMenuElement={getMenuElement}
-          getLayout={getLayout}
           onSelect={handleMenuSelect}
           onClose={closeMenu}
           onCloseAnimationEnd={handleCloseMenuAnimationEnd}

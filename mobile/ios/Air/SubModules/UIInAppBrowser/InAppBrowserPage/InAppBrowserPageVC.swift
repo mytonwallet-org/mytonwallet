@@ -137,10 +137,7 @@ final class InAppBrowserPageVC: WViewController {
         let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 100, height: 100),
                             configuration: webViewConfiguration)
 
-        // while this is preferrable to setting top constraint constant to 60, it caused jittering when dismissing fragment.com - check if support is better in the future
-//        webView.scrollView.contentInset.top = 60
-//        webView.scrollView.verticalScrollIndicatorInsets.top = 60
-//        webView.scrollView.contentInset.bottom = 30
+        // A top content inset caused jittering when dismissing fragment.com; keep the web view below the header instead.
 
         self.webView = webView
         webView.navigationDelegate = self
@@ -157,7 +154,7 @@ final class InAppBrowserPageVC: WViewController {
         webView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.topAnchor, constant: 60), // see comment above
+            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: WNavigationBar.defaultHeight),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -30)
@@ -176,6 +173,8 @@ final class InAppBrowserPageVC: WViewController {
 
         guard config.injectDappConnect else { return }
 
+        // WebKit owns scripted popups, including calls made after an async wallet request.
+        webViewConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = true
         userContentController.add(messageHandler, name: "inAppBrowserHandler")
 
         let bridgeScript = WKUserScript(

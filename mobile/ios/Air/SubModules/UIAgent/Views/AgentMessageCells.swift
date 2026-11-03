@@ -8,15 +8,13 @@ enum AgentContentLayout {
     static let maxContentWidth: CGFloat = 580
 }
 
-private enum AgentMessageCellMetrics {
+enum AgentMessageCellMetrics {
+    /// Bubbles stand as far from the sides as News' cards do
     static let horizontalInset: CGFloat = 16
     static let outgoingOppositeInset: CGFloat = 72
     static let outgoingMaxWidthMultiplier: CGFloat = 0.8
-    static let incomingTrailingInset: CGFloat = 24
-    static let followupHorizontalInset: CGFloat = 20
-    static let followupRevealOffset: CGFloat = 8
-    static let followupRevealDuration: TimeInterval = 0.3
-    static let followupRevealStagger: TimeInterval = 0.06
+    static let incomingTrailingInset: CGFloat = 16
+    static let followupHorizontalInset: CGFloat = horizontalInset
     static let bubbleToButtonSpacing: CGFloat = 3
     static let actionBottomSpacing: CGFloat = 7
     static let minimumBubbleWidth: CGFloat = 44
@@ -34,6 +32,19 @@ private enum AgentMessageCellMetrics {
 }
 
 private final class AgentMessageTextView: UITextView {
+    var onURLTap: ((URL) -> Void)?
+    private var linkMenu: AgentLinkMenu?
+
+    override init(frame: CGRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        linkMenu = AgentLinkMenu(source: self, linkAt: { [weak self] point in
+            self?.linkValue(at: point) as? URL
+        }, open: { [weak self] url in self?.onURLTap?(url) })
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
     override var canBecomeFirstResponder: Bool { false }
 
     override var selectedTextRange: UITextRange? {
@@ -99,6 +110,230 @@ private extension UICollectionViewCell {
     }
 }
 
+final class AgentFollowupView: UIStackView {
+    private enum Metrics {
+        static let horizontalInset = AgentMessageCellMetrics.followupHorizontalInset
+        static let revealOffset: CGFloat = 8
+        static let revealDuration: TimeInterval = 0.3
+        static let revealStagger: TimeInterval = 0.15
+    }
+
+    private weak var contentLayoutGuide: UILayoutGuide?
+    private var buttonsByID: [String: AgentSuggestionButton] = [:]
+    private var onControlTap: ((String) -> Void)?
+    private var loadingViews: [UIView] = []
+    private var loadingRevealCompletedAt: CFTimeInterval?
+
+    func showLoading() {
+        guard loadingViews.isEmpty else { return }
+        reset()
+        isHidden = false
+        accessibilityLabel = lang("Loading...")
+        for width in [CGFloat(230), 270, 200] {
+            let placeholder = AgentMessagesSkeletonView(style: .suggestion)
+            placeholder.translatesAutoresizingMaskIntoConstraints = false
+            placeholder.isAccessibilityElement = false
+            addArrangedSubview(placeholder)
+            let preferred = placeholder.widthAnchor.constraint(equalToConstant: width)
+            preferred.priority = .defaultHigh
+            preferred.isActive = true
+            placeholder.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            if let contentLayoutGuide {
+                placeholder.widthAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
+                                                  constant: -Metrics.horizontalInset * 2).isActive = true
+            }
+            loadingViews.append(placeholder)
+        }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        axis = .vertical
+        alignment = .leading
+        spacing = AgentSuggestionButton.spacing
+        isHidden = true
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    /// The suggestions continue the column of the bubble they hang from: the first stands as far below the bubble as
+    /// the next ones below it
+    func install(
+        in contentView: UIView,
+        below bubbleView: UIView,
+        contentLayoutGuide: UILayoutGuide
+    ) -> [NSLayoutConstraint] {
+        self.contentLayoutGuide = contentLayoutGuide
+        contentView.addSubview(self)
+        return [
+            topAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: AgentSuggestionButton.spacing),
+            leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: Metrics.horizontalInset),
+            trailingAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.trailingAnchor, constant: -Metrics.horizontalInset),
+            bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -8),
+        ]
+    }
+
+    func configure(
+        controls: [AgentMessageControl],
+        isVisible: Bool,
+        animatesAppearance: Bool,
+        onControlTap: ((String) -> Void)?
+    ) {
+        let controls = controls.filter { $0.kind == .followup }
+        let loadingFrames = loadingViews.map(\.frame)
+        let loadingAlreadyRevealed = loadingRevealCompletedAt.map { CACurrentMediaTime() >= $0 } ?? false
+        loadingRevealCompletedAt = nil
+        for view in loadingViews {
+            removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        loadingViews.removeAll()
+        accessibilityLabel = nil
+        let revealsFollowups = animatesAppearance && isVisible && isHidden
+        isHidden = !isVisible
+        self.onControlTap = controls.isEmpty ? nil : onControlTap
+        for button in buttonsByID.values {
+            removeArrangedSubview(button)
+        }
+        let controlIDs = Set(controls.map(\.id))
+        for id in buttonsByID.keys.filter({ !controlIDs.contains($0) }) {
+            buttonsByID.removeValue(forKey: id)?.removeFromSuperview()
+        }
+        for control in controls {
+            let button: AgentSuggestionButton
+            if let existingButton = buttonsByID[control.id] {
+                button = existingButton
+            } else {
+                button = AgentSuggestionButton()
+                button.accessibilityIdentifier = "agent_followup"
+                button.maximumNumberOfLines = 0
+                button.addAction(UIAction { [weak self] _ in
+                    self?.onControlTap?(control.id)
+                }, for: .touchUpInside)
+                buttonsByID[control.id] = button
+                addArrangedSubview(button)
+                if let contentLayoutGuide {
+                    button.widthAnchor.constraint(
+                        lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
+                        constant: -Metrics.horizontalInset * 2
+                    ).isActive = true
+                }
+            }
+            button.configure(title: control.title, showsArrow: true)
+            button.preferredMaxLayoutWidth = maxWidth
+            button.isEnabled = control.isEnabled
+            addArrangedSubview(button)
+        }
+        if !loadingFrames.isEmpty, !UIAccessibility.isReduceMotionEnabled {
+            layoutIfNeeded()
+            for (index, pair) in zip(arrangedSubviews, loadingFrames).enumerated() {
+                let (button, source) = pair
+                guard button.bounds.width > 0, button.bounds.height > 0 else { continue }
+                let target = button.frame
+                let cover = UIView(frame: button.bounds)
+                cover.backgroundColor = .air.agentBubbleFill
+                cover.layer.cornerRadius = 20
+                cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                cover.isUserInteractionEnabled = false
+                button.addSubview(cover)
+                let geometry = CABasicAnimation(keyPath: "transform")
+                geometry.fromValue = CATransform3DConcat(
+                    CATransform3DMakeScale(source.width / target.width, source.height / target.height, 1),
+                    CATransform3DMakeTranslation(source.midX - target.midX, source.midY - target.midY, 0)
+                )
+                geometry.toValue = CATransform3DIdentity
+                geometry.duration = 0.36
+                geometry.timingFunction = AgentComposerMetrics.makeTelegramCurve()
+                button.layer.add(geometry, forKey: "loadingReveal")
+                cover.alpha = 0
+                let fade = CABasicAnimation(keyPath: "opacity")
+                fade.fromValue = 1
+                fade.toValue = 0
+                let revealDelay = loadingAlreadyRevealed ? 0 : Metrics.revealStagger * Double(index)
+                fade.beginTime = cover.layer.convertTime(CACurrentMediaTime(), from: nil) + 0.14 + revealDelay
+                fade.duration = 0.22
+                fade.fillMode = .backwards
+                cover.layer.add(fade, forKey: "loadingReveal")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.36 + revealDelay) { [weak cover] in
+                    cover?.removeFromSuperview()
+                }
+            }
+        } else if revealsFollowups {
+            animateAppearance()
+        }
+    }
+
+    func reset() {
+        loadingRevealCompletedAt = nil
+        for view in loadingViews {
+            removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        loadingViews.removeAll()
+        for button in buttonsByID.values {
+            removeArrangedSubview(button)
+            button.removeFromSuperview()
+        }
+        buttonsByID.removeAll()
+        onControlTap = nil
+        isHidden = true
+    }
+
+    func updateMaxWidth() {
+        let maxWidth = maxWidth
+        for button in buttonsByID.values {
+            button.preferredMaxLayoutWidth = maxWidth
+        }
+    }
+
+    private var maxWidth: CGFloat {
+        (contentLayoutGuide?.layoutFrame.width ?? 0) - Metrics.horizontalInset * 2
+    }
+
+    /// The suggestions fade in and rise into place one after another. The reveal adds to what each suggestion shows
+    /// rather than setting it, so a suggestion enabled or disabled meanwhile ends as it is now, and it plays as well
+    /// inside an update that runs without animation, as the chat's update of its rows.
+    func animateAppearance(delay: TimeInterval = 0) {
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        let now = CACurrentMediaTime() + delay
+        if !loadingViews.isEmpty {
+            loadingRevealCompletedAt = now + Metrics.revealDuration
+                + Metrics.revealStagger * Double(max(0, loadingViews.count - 1))
+        }
+        for (index, view) in arrangedSubviews.enumerated() {
+            let beginTime = view.layer.convertTime(now, from: nil) + Metrics.revealStagger * Double(index)
+            view.layer.add(
+                Self.makeRevealAnimation(keyPath: "opacity", from: -1, beginTime: beginTime),
+                forKey: Self.revealOpacityKey
+            )
+            view.layer.add(
+                Self.makeRevealAnimation(keyPath: "transform.translation.y", from: Metrics.revealOffset, beginTime: beginTime),
+                forKey: Self.revealOffsetKey
+            )
+        }
+    }
+
+    /// From `from` added to the layer's own value back to that value: an opacity of 1 less shows nothing until then
+    private static func makeRevealAnimation(keyPath: String, from: CGFloat, beginTime: CFTimeInterval) -> CABasicAnimation {
+        let animation = CABasicAnimation(keyPath: keyPath)
+        animation.fromValue = from
+        animation.toValue = 0
+        animation.isAdditive = true
+        animation.duration = Metrics.revealDuration
+        animation.beginTime = beginTime
+        animation.fillMode = .backwards
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        return animation
+    }
+
+    private static let revealOpacityKey = "agentFollowupRevealOpacity"
+    private static let revealOffsetKey = "agentFollowupRevealOffset"
+}
+
 final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCell, UITextViewDelegate {
     private struct AssistantConfiguration {
         var message: AgentMessage
@@ -125,7 +360,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     var onStreamingRevealCompleted: (() -> Void)?
     var minimumHeightProvider: (() -> CGFloat)?
     /// Builds the message's menu when a tap or a long press on the bubble opens it, or returns `nil` to keep it closed
-    var contextMenuConfigurationProvider: ((ContextMenuInteractionTriggers) -> ContextMenuConfiguration?)?
+    var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
 
     var isRevealingStreamedText: Bool {
         wasStreamingMessage
@@ -134,6 +369,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private let contentLayoutGuide = UILayoutGuide()
     private let bubbleStackView = UIStackView()
     private let bubbleView = AgentBubbleBackgroundView()
+    var skeletonRevealView: UIView { bubbleView }
     private let contentStackView = UIStackView()
     private let actionBackgroundView = AgentBubbleBackgroundView()
     private let userMessageTextView = AgentMessageTextView()
@@ -142,7 +378,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private let assistantSemanticContentView = AgentV2SemanticContentView(style: .embedded)
     private let assistantSupplementaryErrorLabel = UILabel()
     private let actionStackView = UIStackView()
-    private let followupStackView = UIStackView()
+    private let followupView = AgentFollowupView()
     private var followupConstraints: [NSLayoutConstraint] = []
     private var controlButtonsByID: [String: UIButton] = [:]
     private var configuredMessageID: AgentItemID?
@@ -153,14 +389,15 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private var didShowDeferredSupplementaryError = false
     private var configuredControls: [AgentMessageControl] = []
     private var onControlTap: ((String) -> Void)?
-    private var onURLTap: ((URL) -> Void)?
+    private var onURLTap: ((URL) -> Void)? {
+        didSet { userMessageTextView.onURLTap = onURLTap }
+    }
     private var lastAssistantConfiguration: AssistantConfiguration?
     private var lastAppliedRichContent: AppliedRichContent?
     private var lastAppliedSemanticContent: AppliedSemanticContent?
     private var lastAppliedTextLayoutMaxWidth: CGFloat = 0
     private var suppressesSizeCallbacks = false
-    private lazy var tapMenuInteraction = makeContextMenuInteraction(trigger: .tap)
-    private lazy var longPressMenuInteraction = makeContextMenuInteraction(trigger: .longPress)
+    private lazy var longPressMenuInteraction = makeContextMenuInteraction()
     private lazy var menuAccessibilityAction = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
         guard let self else { return false }
         longPressMenuInteraction.present()
@@ -245,6 +482,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         }
 
         configuredMessageID = message.id
+        // A streaming answer has its own id, so a test can wait for the answer to finish
+        accessibilityIdentifier = isOutgoing
+            ? "agent_message_user"
+            : hasStreaming ? "agent_message_streaming" : "agent_message_assistant"
         self.onControlTap = controls.isEmpty ? nil : onControlTap
         self.onURLTap = message.renderingPolicy.allowsLinks || AgentTextLinks.containsLinks(message.text)
             ? onURLTap
@@ -431,7 +672,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     override func layoutSubviews() {
         super.layoutSubviews()
         offerMenuToAccessibility(in: bubbleStackView)
-        updateFollowupMaxWidth()
+        followupView.updateMaxWidth()
         guard userMessageTextView.isHidden, lastAssistantConfiguration != nil else { return }
         let layoutMaxWidth = currentTextLayoutMaxWidth(isOutgoing: false)
         guard abs(layoutMaxWidth - lastAppliedTextLayoutMaxWidth) > 0.5 else { return }
@@ -494,7 +735,6 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         actionBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         bubbleStackView.addArrangedSubview(actionBackgroundView)
         actionBackgroundView.isHidden = true
-        tapMenuInteraction.attach(to: bubbleStackView)
         longPressMenuInteraction.attach(to: bubbleStackView)
 
         userMessageTextView.translatesAutoresizingMaskIntoConstraints = false
@@ -511,6 +751,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         userMessageTextView.textContainer.lineBreakMode = .byWordWrapping
         userMessageTextView.textDragInteraction?.isEnabled = false
         userMessageTextView.delegate = self
+        userMessageTextView.accessibilityIdentifier = "agent_message_text"
         userMessageTextView.setContentCompressionResistancePriority(.required, for: .vertical)
         userMessageTextView.setContentHuggingPriority(.required, for: .vertical)
 
@@ -534,6 +775,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         assistantSupplementaryErrorLabel.textColor = UIColor.air.error
         assistantSupplementaryErrorLabel.numberOfLines = 0
         assistantSupplementaryErrorLabel.isHidden = true
+        assistantSupplementaryErrorLabel.accessibilityIdentifier = "agent_message_error"
         assistantSupplementaryErrorLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         assistantSupplementaryErrorLabel.setContentHuggingPriority(.required, for: .vertical)
         // The error wraps only at the bubble's maximum width, widening the bubble past a shorter answer.
@@ -564,24 +806,11 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 
         actionBackgroundView.contentView.addSubview(actionStackView)
 
-        followupStackView.translatesAutoresizingMaskIntoConstraints = false
-        followupStackView.axis = .vertical
-        followupStackView.alignment = .leading
-        followupStackView.spacing = AgentSuggestionButton.spacing
-        followupStackView.isHidden = true
-        contentView.addSubview(followupStackView)
-        followupConstraints = [
-            followupStackView.topAnchor.constraint(equalTo: bubbleStackView.bottomAnchor, constant: 24),
-            followupStackView.leadingAnchor.constraint(
-                equalTo: contentLayoutGuide.leadingAnchor,
-                constant: AgentMessageCellMetrics.followupHorizontalInset
-            ),
-            followupStackView.trailingAnchor.constraint(
-                lessThanOrEqualTo: contentLayoutGuide.trailingAnchor,
-                constant: -AgentMessageCellMetrics.followupHorizontalInset
-            ),
-            followupStackView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -8),
-        ]
+        followupConstraints = followupView.install(
+            in: contentView,
+            below: bubbleStackView,
+            contentLayoutGuide: contentLayoutGuide
+        )
 
         leadingConstraint.isActive = true
         incomingTrailingLimitConstraint.isActive = true
@@ -762,7 +991,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         )
         assistantMessageTextView.isAccessibilityElement = !configuration.message.text.isEmpty
         assistantMessageTextView.accessibilityIdentifier = configuration.message.renderingPolicy == .agentV2Safe
-            ? "agent-v2-answer"
+            ? "agent_message_text"
             : nil
         assistantMessageTextView.accessibilityLabel = assistantMessageTextView.displayText
     }
@@ -820,9 +1049,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     ) {
         let showsActionRows = showsAction && controls.contains { $0.kind == .action }
         let showsFollowups = showsAction && controls.contains { $0.kind == .followup }
-        let revealsFollowups = animatesFollowups && showsFollowups && followupStackView.isHidden
         actionBackgroundView.isHidden = !showsActionRows
-        followupStackView.isHidden = !showsFollowups
         bubbleStackViewBottomConstraint.isActive = !showsFollowups
         if showsFollowups {
             NSLayoutConstraint.activate(followupConstraints)
@@ -833,16 +1060,21 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             ? -AgentMessageCellMetrics.actionBottomSpacing
             : 0
         configureActionRows(controls)
-        if revealsFollowups {
-            animateAppearance(of: followupStackView.arrangedSubviews)
-        }
+        followupView.configure(
+            controls: controls,
+            isVisible: showsFollowups,
+            animatesAppearance: animatesFollowups,
+            onControlTap: onControlTap
+        )
 
+        // An answer with suggestions under it has no tail: the suggestions hang from it. The tail comes back as they go.
         bubbleView.configure(
             direction: isOutgoing ? .outgoing : .incoming,
             fillColor: isOutgoing ? .tintColor : UIColor.air.agentBubbleFill,
             usesTintColor: isOutgoing,
-            showsTail: !showsActionRows && (showsTail || showsFollowups),
-            cornerRadii: showsActionRows ? .topActioned : .standAlone
+            showsTail: !showsActionRows && !showsFollowups && showsTail,
+            cornerRadii: showsActionRows ? .topActioned : .standAlone,
+            shouldAnimateTail: animatesFollowups && window != nil
         )
 
         actionBackgroundView.configure(
@@ -854,38 +1086,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         )
     }
 
-    private func animateAppearance(of views: [UIView]) {
-        guard !UIAccessibility.isReduceMotionEnabled else { return }
-        for (index, view) in views.enumerated() {
-            let alpha = view.alpha
-            view.alpha = 0
-            view.transform = CGAffineTransform(translationX: 0, y: AgentMessageCellMetrics.followupRevealOffset)
-            UIView.animate(
-                withDuration: AgentMessageCellMetrics.followupRevealDuration,
-                delay: AgentMessageCellMetrics.followupRevealStagger * Double(index),
-                options: [.curveEaseOut, .allowUserInteraction]
-            ) {
-                view.alpha = alpha
-                view.transform = .identity
-            }
-        }
-    }
-
-    private var followupMaxWidth: CGFloat {
-        contentLayoutGuide.layoutFrame.width - AgentMessageCellMetrics.followupHorizontalInset * 2
-    }
-
-    private func updateFollowupMaxWidth() {
-        let maxWidth = followupMaxWidth
-        for case let button as AgentSuggestionButton in followupStackView.arrangedSubviews {
-            button.preferredMaxLayoutWidth = maxWidth
-        }
-    }
-
     private func configureActionRows(_ controls: [AgentMessageControl]) {
+        let controls = controls.filter { $0.kind == .action }
         for button in controlButtonsByID.values {
             actionStackView.removeArrangedSubview(button)
-            followupStackView.removeArrangedSubview(button)
         }
 
         let controlIDs = Set(controls.map(\.id))
@@ -902,31 +1106,17 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
                 button = makeControlButton(control)
                 controlButtonsByID[control.id] = button
             }
-            if let suggestionButton = button as? AgentSuggestionButton {
-                suggestionButton.configure(title: control.title, showsArrow: true)
-                suggestionButton.preferredMaxLayoutWidth = followupMaxWidth
-                suggestionButton.isEnabled = control.isEnabled
-                followupStackView.addArrangedSubview(button)
-            } else {
-                configureActionButton(button, title: control.title, isEnabled: control.isEnabled)
-                actionStackView.addArrangedSubview(button)
-            }
+            configureActionButton(button, title: control.title, isEnabled: control.isEnabled)
+            actionStackView.addArrangedSubview(button)
         }
     }
 
     private func makeControlButton(_ control: AgentMessageControl) -> UIButton {
-        let button: UIButton = control.kind == .followup ? AgentSuggestionButton() : UIButton(type: .system)
+        let button = UIButton(type: .system)
+        button.accessibilityIdentifier = control.id == "retry-limit" ? "agent_retry" : "agent_action_button"
         button.addAction(UIAction { [weak self] _ in
             self?.onControlTap?(control.id)
         }, for: .touchUpInside)
-        if let suggestionButton = button as? AgentSuggestionButton {
-            suggestionButton.maximumNumberOfLines = 0
-            followupStackView.addArrangedSubview(button)
-            button.widthAnchor.constraint(
-                lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
-                constant: -AgentMessageCellMetrics.followupHorizontalInset * 2
-            ).isActive = true
-        }
         return button
     }
 
@@ -954,10 +1144,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private func removeControlButtons() {
         for button in controlButtonsByID.values {
             actionStackView.removeArrangedSubview(button)
-            followupStackView.removeArrangedSubview(button)
             button.removeFromSuperview()
         }
         controlButtonsByID.removeAll()
+        followupView.reset()
     }
 
     private func setUserMessageText(_ text: String, textColor: UIColor) {
@@ -1032,31 +1222,31 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
     }
 
-    private func makeContextMenuInteraction(trigger: ContextMenuInteractionTriggers) -> ContextMenuInteraction {
+    /// The message's menu opens on a long press only, as a news post's does. As in Telegram, the bubble squeezes in
+    /// as the press builds up to the menu.
+    private func makeContextMenuInteraction() -> ContextMenuInteraction {
         ContextMenuInteraction(
-            triggers: trigger,
+            triggers: .longPress,
             sourcePortal: ContextMenuSourcePortal(
                 mask: .customAttachmentPath { [weak self] attachmentRect in
                     self?.bubblePath(in: attachmentRect) ?? CGPath(rect: attachmentRect, transform: nil)
                 }
             ),
+            pressAnimation: .default(transformMode: .sublayerTransform),
             activationHitTestProvider: { [weak self] sourceView, point in
-                self?.canOpenMenu(at: point, in: sourceView, trigger: trigger) == true
+                self?.canOpenMenu(at: point, in: sourceView) == true
             }
         ) { [weak self] _ in
-            self?.contextMenuConfigurationProvider?(trigger)
+            self?.contextMenuConfigurationProvider?()
         }
     }
 
-    /// A touch on a link keeps the link's own action, and so does a tap on a control in the bubble, while a long press on
-    /// a control opens the menu. Link views take touches on links only.
-    private func canOpenMenu(at point: CGPoint, in sourceView: UIView, trigger: ContextMenuInteractionTriggers) -> Bool {
+    /// A touch on a link keeps the link's own action, while a long press on a control in the bubble opens the menu. Link
+    /// views take touches on links only.
+    private func canOpenMenu(at point: CGPoint, in sourceView: UIView) -> Bool {
         var view = sourceView.hitTest(point, with: nil)
         while let currentView = view, currentView !== sourceView {
             if currentView is UITextView || currentView is AgentStreamingTextView {
-                return false
-            }
-            if currentView is UIControl, trigger == .tap {
                 return false
             }
             view = currentView.superview
@@ -1106,6 +1296,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         in characterRange: NSRange,
         interaction: UITextItemInteraction
     ) -> Bool {
+        guard interaction == .invokeDefaultAction else { return false }
         onURLTap?(url)
         return false
     }
@@ -1116,14 +1307,25 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     }
 }
 
-final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresentingCell {
+final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresentingCell, UITextViewDelegate {
+    /// A failure's caption, as the design's "Network Error" frame shows it under the last message: 12 pt below the row's
+    /// top, on 16 pt lines
+    private enum CaptionMetrics {
+        static let topInset: CGFloat = 12
+        static let lineHeight: CGFloat = 16
+    }
+
     /// Builds the row's menu when a long press opens it
-    var contextMenuConfigurationProvider: ((ContextMenuInteractionTriggers) -> ContextMenuConfiguration?)?
+    var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
 
     private let contentLayoutGuide = UILayoutGuide()
     private let label = UILabel()
+    /// Shows a failure, with its controls as links after the text
+    private let captionTextView = AgentMessageTextView()
     private lazy var bottomConstraint = label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+    private lazy var captionBottomConstraint = captionTextView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private var configuredMessage: AgentMessage?
+    private var onControlTap: ((String) -> Void)?
     private lazy var contextMenuInteraction = ContextMenuInteraction(
         triggers: .longPress,
         sourcePortal: ContextMenuSourcePortal(
@@ -1132,7 +1334,7 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
             }
         )
     ) { [weak self] _ in
-        self?.contextMenuConfigurationProvider?(.longPress)
+        self?.contextMenuConfigurationProvider?()
     }
 
     override init(frame: CGRect) {
@@ -1145,29 +1347,110 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(with message: AgentMessage) {
+    func configure(with message: AgentMessage, onControlTap: ((String) -> Void)? = nil) {
         configuredMessage = message
-        label.attributedText = makeAttributedText(for: message)
+        self.onControlTap = onControlTap
+        let isFailure = message.isFailureCaption
+        label.isHidden = isFailure
+        captionTextView.isHidden = !isFailure
+        if isFailure {
+            bottomConstraint.isActive = false
+            captionBottomConstraint.isActive = true
+        } else {
+            captionBottomConstraint.isActive = false
+            bottomConstraint.isActive = true
+        }
+        applyText(for: message)
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection),
               let configuredMessage else { return }
-        label.attributedText = makeAttributedText(for: configuredMessage)
+        applyText(for: configuredMessage)
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
         configuredMessage = nil
         contextMenuConfigurationProvider = nil
+        onControlTap = nil
         label.attributedText = nil
+        captionTextView.attributedText = nil
+        captionTextView.accessibilityCustomActions = nil
     }
 
     var contextMenuCopyText: String? {
-        let text = label.attributedText?.string ?? label.text ?? ""
+        let text = configuredMessage?.isFailureCaption == true
+            ? configuredMessage?.text ?? ""
+            : label.attributedText?.string ?? label.text ?? ""
         return text.isEmpty ? nil : text
     }
+
+    func textView(
+        _ textView: UITextView,
+        shouldInteractWith url: URL,
+        in characterRange: NSRange,
+        interaction: UITextItemInteraction
+    ) -> Bool {
+        if interaction == .invokeDefaultAction {
+            performControl(linkedBy: url)
+        }
+        return false
+    }
+
+    func textView(_ textView: UITextView, shouldInteractWith url: URL, in characterRange: NSRange) -> Bool {
+        performControl(linkedBy: url)
+        return false
+    }
+
+    /// A tap on a control's link performs the control
+    private func performControl(linkedBy url: URL) {
+        guard url.scheme == Self.controlLinkScheme else { return }
+        onControlTap?(String(url.absoluteString.dropFirst(Self.controlLinkScheme.count + 1)))
+    }
+
+    private func applyText(for message: AgentMessage) {
+        guard message.isFailureCaption else {
+            label.attributedText = makeAttributedText(for: message)
+            label.accessibilityTraits = message.isDateLine ? [.staticText, .header] : .staticText
+            return
+        }
+        captionTextView.attributedText = makeCaptionText(for: message)
+        captionTextView.isSelectable = message.controls.contains { $0.isEnabled }
+        captionTextView.accessibilityLabel = message.text
+        captionTextView.accessibilityCustomActions = message.controls.filter(\.isEnabled).map { control in
+            UIAccessibilityCustomAction(name: control.title) { [weak self] _ in
+                self?.onControlTap?(control.id)
+                return true
+            }
+        }
+    }
+
+    /// The failure's text in the date line's style, centred, and the controls it can perform now as accent links after
+    /// it. A retry that a limit holds back doesn't show until the limit resets.
+    private func makeCaptionText(for message: AgentMessage) -> NSAttributedString {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.minimumLineHeight = CaptionMetrics.lineHeight
+        paragraph.maximumLineHeight = CaptionMetrics.lineHeight
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: WTypography.uiFont(.caption2Emphasized),
+            .foregroundColor: UIColor.air.secondaryLabel.resolvedColor(with: traitCollection),
+            .paragraphStyle: paragraph
+        ]
+        let text = NSMutableAttributedString(string: message.text, attributes: attributes)
+        for control in message.controls where control.isEnabled {
+            guard let url = URL(string: "\(Self.controlLinkScheme):\(control.id)") else { continue }
+            var controlAttributes = attributes
+            controlAttributes[.link] = url
+            text.append(NSAttributedString(string: " ", attributes: attributes))
+            text.append(NSAttributedString(string: control.title, attributes: controlAttributes))
+        }
+        return text
+    }
+
+    private static let controlLinkScheme = "agent-control"
 
     /// The rounded label, in the coordinates of `attachmentRect`, which frames `contentView`
     private func labelPath(in attachmentRect: CGRect) -> CGPath {
@@ -1212,7 +1495,22 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         label.applyTextStyle(.caption2Emphasized)
         label.textAlignment = .center
         label.numberOfLines = 0
+        label.accessibilityIdentifier = "agent_message_system"
         contentView.addSubview(label)
+
+        captionTextView.translatesAutoresizingMaskIntoConstraints = false
+        captionTextView.backgroundColor = .clear
+        captionTextView.isEditable = false
+        captionTextView.isScrollEnabled = false
+        captionTextView.isSelectable = false
+        captionTextView.textContainerInset = .zero
+        captionTextView.textContainer.lineFragmentPadding = 0
+        captionTextView.linkTextAttributes = [.foregroundColor: UIColor.tintColor]
+        captionTextView.textDragInteraction?.isEnabled = false
+        captionTextView.delegate = self
+        captionTextView.isHidden = true
+        captionTextView.accessibilityIdentifier = "agent_message_failure"
+        contentView.addSubview(captionTextView)
         contextMenuInteraction.attach(to: contentView)
         // VoiceOver finds the row's menu as an action on its text, as it did on the system context menu
         label.accessibilityCustomActions = [
@@ -1227,7 +1525,16 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
             label.topAnchor.constraint(equalTo: contentView.topAnchor),
             bottomConstraint,
             label.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: 40),
-            label.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -40)
+            label.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -40),
+            captionTextView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: CaptionMetrics.topInset),
+            captionTextView.leadingAnchor.constraint(
+                equalTo: contentLayoutGuide.leadingAnchor,
+                constant: AgentMessageCellMetrics.horizontalInset
+            ),
+            captionTextView.trailingAnchor.constraint(
+                equalTo: contentLayoutGuide.trailingAnchor,
+                constant: -AgentMessageCellMetrics.horizontalInset
+            )
         ])
     }
 
@@ -1279,16 +1586,24 @@ final class AgentSpacerCell: UICollectionViewCell {
     }
 }
 
+/// The Agent at work: its spinning top beside the current step, in the Agent's blue-to-purple gradient
 final class AgentTypingIndicatorCell: UICollectionViewCell {
-    private let contentLayoutGuide = UILayoutGuide()
-    private let bubbleView = AgentBubbleBackgroundView()
-    private let contentStackView = UIStackView()
-    private let dotsView = AgentTypingDotsView()
-    private let statusLabel = UILabel()
+    private enum Metrics {
+        static let iconSize: CGFloat = 24
+        static let iconLeading: CGFloat = 12
+        static let textLeading: CGFloat = 40
+        static let verticalPadding: CGFloat = 10
+        static let minimumHeight: CGFloat = 40
+    }
 
-    private lazy var leadingConstraint = bubbleView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
-    private lazy var trailingLimitConstraint = bubbleView.trailingAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.trailingAnchor, constant: -AgentMessageCellMetrics.incomingTrailingInset)
-    private lazy var bottomConstraint = bubbleView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
+    private let contentLayoutGuide = UILayoutGuide()
+    private let spinningTopView = AgentSpinningTopView()
+    private let statusLabel = AgentGradientLabel()
+
+    private lazy var leadingConstraint = spinningTopView.leadingAnchor.constraint(
+        equalTo: contentLayoutGuide.leadingAnchor,
+        constant: AgentMessageCellMetrics.horizontalInset + Metrics.iconLeading
+    )
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1302,24 +1617,31 @@ final class AgentTypingIndicatorCell: UICollectionViewCell {
 
     @discardableResult
     func configure(statusText: String? = nil, accessibilityLabel: String? = nil) -> Bool {
-        let normalizedStatusText = statusText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedStatusText = statusText?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            ?? lang("$agent_activity_analyzing_request")
         let textChanged = statusLabel.text != normalizedStatusText
-        bubbleView.configure(direction: .incoming, fillColor: UIColor.air.agentBubbleFill)
-        dotsView.startAnimating()
+        spinningTopView.isActive = true
         if textChanged {
-            statusLabel.text = normalizedStatusText
-            statusLabel.isHidden = normalizedStatusText?.isEmpty != false
+            statusLabel.setText(normalizedStatusText, animated: window != nil)
         }
         isAccessibilityElement = accessibilityLabel != nil
         self.accessibilityLabel = accessibilityLabel
         return textChanged
     }
 
+    /// The status comes up from transparency as it first appears, its text coming into focus out of a blur
+    func revealFromTransparency() {
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        AgentBlurTransition.animateIn(contentView.layer, duration: 0.35, drift: 6, shouldSkipBlur: true)
+        AgentBlurTransition.animateIn(statusLabel.layer, duration: 0.4)
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
-        dotsView.stopAnimating()
-        statusLabel.text = nil
-        statusLabel.isHidden = true
+        AgentBlurTransition.cancel(contentView.layer)
+        contentView.layer.removeAllAnimations()
+        contentView.alpha = 1
+        statusLabel.setText(nil, animated: false)
         isAccessibilityElement = false
         accessibilityLabel = nil
     }
@@ -1347,55 +1669,57 @@ final class AgentTypingIndicatorCell: UICollectionViewCell {
         contentView.clipsToBounds = false
         setupCenteredContentLayoutGuide(contentLayoutGuide)
 
-        bubbleView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(bubbleView)
-
-        contentStackView.translatesAutoresizingMaskIntoConstraints = false
-        contentStackView.axis = .horizontal
-        contentStackView.alignment = .center
-        contentStackView.spacing = AgentMessageCellMetrics.typingIndicatorStatusSpacing
-        bubbleView.contentView.addSubview(contentStackView)
-
-        dotsView.translatesAutoresizingMaskIntoConstraints = false
-        contentStackView.addArrangedSubview(dotsView)
+        spinningTopView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(spinningTopView)
 
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.font = WTypography.uiFont(.footnote)
-        statusLabel.textColor = UIColor.air.secondaryLabel
         statusLabel.numberOfLines = 0
-        statusLabel.isHidden = true
         statusLabel.isAccessibilityElement = false
-        contentStackView.addArrangedSubview(statusLabel)
+        contentView.addSubview(statusLabel)
+        accessibilityIdentifier = "agent_progress"
 
-        leadingConstraint.isActive = true
-        trailingLimitConstraint.isActive = true
-
+        // While the list measures the row again, its height can be briefly less than the status needs. The row's
+        // height gives way then, never the top's square: squeezed for a frame, the top would draw tiny.
+        let height = contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.minimumHeight)
+            .withPriority(UILayoutPriority(999))
         NSLayoutConstraint.activate([
-            bubbleView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            bottomConstraint,
+            height,
+            leadingConstraint,
+            spinningTopView.widthAnchor.constraint(equalToConstant: Metrics.iconSize),
+            spinningTopView.heightAnchor.constraint(equalToConstant: Metrics.iconSize),
+            spinningTopView.centerYAnchor.constraint(equalTo: statusLabel.firstBaselineAnchor, constant: -6),
 
-            contentStackView.topAnchor.constraint(equalTo: bubbleView.contentView.topAnchor, constant: AgentMessageCellMetrics.bodyHorizontalPadding),
-            contentStackView.bottomAnchor.constraint(equalTo: bubbleView.contentView.bottomAnchor, constant: -AgentMessageCellMetrics.bodyHorizontalPadding),
-            contentStackView.leadingAnchor.constraint(equalTo: bubbleView.contentView.leadingAnchor, constant: AgentMessageCellMetrics.bodyHorizontalPadding),
-            contentStackView.trailingAnchor.constraint(equalTo: bubbleView.contentView.trailingAnchor, constant: -AgentMessageCellMetrics.bodyHorizontalPadding),
-
-            dotsView.widthAnchor.constraint(
-                equalToConstant: AgentMessageCellMetrics.typingIndicatorDotsWidth
+            statusLabel.leadingAnchor.constraint(equalTo: spinningTopView.leadingAnchor, constant: Metrics.textLeading - Metrics.iconLeading),
+            statusLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: contentLayoutGuide.trailingAnchor,
+                constant: -AgentMessageCellMetrics.incomingTrailingInset
             ),
-            dotsView.heightAnchor.constraint(
-                equalToConstant: AgentMessageCellMetrics.typingIndicatorDotsHeight
-            )
+            statusLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Metrics.verticalPadding),
+            statusLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -Metrics.verticalPadding)
+                .withPriority(UILayoutPriority(999)),
         ])
     }
 }
 
-final class AgentTypingDotsView: UIView {
-    private let stackView = UIStackView()
-    private let dots = (0..<3).map { _ in UIView() }
+/// A label painted with the Agent's gradient, which slowly sweeps along the text while the Agent works
+final class AgentGradientLabel: UILabel {
+    /// The design's gradient spans one text width (blue, cyan at 39.5%, purple); the tile covers two widths and runs
+    /// back to blue, so the sweep repeats seamlessly
+    private static let colors = ["#0088FF", "#00BEFF", "#B656FF", "#00BEFF", "#0088FF"].map { UIColor(hex: $0).cgColor }
+    private static let gradient = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: colors as CFArray,
+        locations: [0, 0.1977, 0.5, 0.8023, 1]
+    )
+    static let textFont = UIFont.systemFont(ofSize: 17, weight: .medium)
+    private lazy var clock = GlassMotionClock(frameRateRange: nil) { [weak self] _ in self?.advance() }
+    private var phase: CGFloat = 0
+    private var lastFrame: CFTimeInterval?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        setupViews()
+        font = Self.textFont
+        textColor = .black
     }
 
     @available(*, unavailable)
@@ -1403,72 +1727,95 @@ final class AgentTypingDotsView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func startAnimating() {
-        for (index, dot) in dots.enumerated() {
-            dot.backgroundColor = UIColor.air.secondaryLabel.resolvedColor(with: traitCollection)
-            if dot.layer.animation(forKey: "typingScale") != nil {
-                continue
+    func setText(_ text: String?, animated: Bool) {
+        changeText(animated: animated) {
+            self.attributedText = text.map {
+                NSAttributedString(string: $0, attributes: [.font: Self.textFont, .foregroundColor: UIColor.black])
             }
-
-            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-            scale.values = [0.8, 1.0, 0.8]
-            scale.keyTimes = [0, 0.5, 1]
-            scale.duration = 0.9
-            scale.beginTime = CACurrentMediaTime() + 0.15 * Double(index)
-            scale.repeatCount = .infinity
-            scale.isRemovedOnCompletion = false
-            dot.layer.add(scale, forKey: "typingScale")
-
-            let opacity = CAKeyframeAnimation(keyPath: "opacity")
-            opacity.values = [0.35, 1.0, 0.35]
-            opacity.keyTimes = [0, 0.5, 1]
-            opacity.duration = 0.9
-            opacity.beginTime = scale.beginTime
-            opacity.repeatCount = .infinity
-            opacity.isRemovedOnCompletion = false
-            dot.layer.add(opacity, forKey: "typingOpacity")
         }
     }
 
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
-        let color = UIColor.air.secondaryLabel.resolvedColor(with: traitCollection)
-        for dot in dots {
-            dot.backgroundColor = color
+    /// The text a moment ago, leaving while the new one comes in
+    private var outgoingTextView: UIView?
+
+    /// Applies new text with `apply`. Animated, the old text blurs away as it drifts up, while the new one comes into
+    /// focus from below, the two crossing in a blur.
+    func changeText(animated: Bool, apply: () -> Void) {
+        outgoingTextView?.removeFromSuperview()
+        outgoingTextView = nil
+        AgentBlurTransition.cancel(layer)
+        layer.removeAllAnimations()
+        alpha = 1
+        transform = .identity
+        guard animated, window != nil, let superview, !bounds.isEmpty, (attributedText?.length ?? 0) > 0,
+              !UIAccessibility.isReduceMotionEnabled else {
+            apply()
+            return
+        }
+        let outgoing = UIImageView(image: makeLayerImage())
+        outgoing.frame = frame
+        outgoing.isUserInteractionEnabled = false
+        outgoing.isAccessibilityElement = false
+        superview.insertSubview(outgoing, aboveSubview: self)
+        outgoingTextView = outgoing
+        apply()
+
+        let drift: CGFloat = 5
+        AgentBlurTransition.animateOut(outgoing.layer, duration: 0.25, drift: -drift) { [weak self, weak outgoing] in
+            outgoing?.removeFromSuperview()
+            if let self, outgoingTextView === outgoing { outgoingTextView = nil }
+        }
+        AgentBlurTransition.animateIn(layer, duration: 0.35, delay: 0.05, drift: drift)
+    }
+
+    override func drawText(in rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext(), let gradient = Self.gradient else {
+            super.drawText(in: rect)
+            return
+        }
+        // The text is drawn as a shape and the gradient fills only that shape
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+        super.drawText(in: rect)
+        context.setBlendMode(.sourceIn)
+        let width = max(1, bounds.width)
+        let offset = Self.getSweepOffset(
+            phase: phase,
+            width: width,
+            isRightToLeft: effectiveUserInterfaceLayoutDirection == .rightToLeft
+        )
+        for start in [offset, offset + width * 2] {
+            context.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: start, y: 0),
+                end: CGPoint(x: start + width * 2, y: 0),
+                options: []
+            )
+        }
+        context.endTransparencyLayer()
+    }
+
+    /// Where the first of the two gradient tiles starts at `phase`. The sweep runs in the reading direction: rightward
+    /// in left-to-right layouts, leftward in right-to-left ones. Either way the tiles cover the label.
+    static func getSweepOffset(phase: CGFloat, width: CGFloat, isRightToLeft: Bool) -> CGFloat {
+        isRightToLeft ? -phase * width * 2 : (phase - 1) * width * 2
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, !UIAccessibility.isReduceMotionEnabled, !clock.isRunning {
+            clock.start()
+        } else if window == nil, clock.isRunning {
+            clock.stop()
+            lastFrame = nil
         }
     }
 
-    func stopAnimating() {
-        for dot in dots {
-            dot.layer.removeAnimation(forKey: "typingScale")
-            dot.layer.removeAnimation(forKey: "typingOpacity")
-        }
-    }
-
-    private func setupViews() {
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .horizontal
-        stackView.spacing = 6
-        stackView.alignment = .center
-        addSubview(stackView)
-
-        NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
-        for dot in dots {
-            dot.translatesAutoresizingMaskIntoConstraints = false
-            dot.layer.cornerRadius = 4
-            dot.backgroundColor = UIColor.air.secondaryLabel
-            NSLayoutConstraint.activate([
-                dot.widthAnchor.constraint(equalToConstant: 8),
-                dot.heightAnchor.constraint(equalTo: dot.widthAnchor)
-            ])
-            stackView.addArrangedSubview(dot)
-        }
+    private func advance() {
+        let now = CACurrentMediaTime()
+        let dt = lastFrame.map { min(0.05, now - $0) } ?? 0
+        lastFrame = now
+        // One sweep every two seconds, so the text reads as alive without flickering
+        phase = (phase + CGFloat(dt) / 2).truncatingRemainder(dividingBy: 1)
+        setNeedsDisplay()
     }
 }

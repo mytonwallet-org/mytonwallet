@@ -14,6 +14,7 @@ public final class NotificationsSettingsVC: SettingsBaseVC {
         super.viewDidLoad()
 
         navigationItem.title = lang("Notifications & Sounds")
+        view.accessibilityIdentifier = "notifications_screen"
         
         hostingController = addHostingController(makeView(), constraints: .fill)
 

@@ -1,6 +1,9 @@
 @use "../../styles/mixins";
 
 .root {
+  touch-action: none;
+  cursor: var(--custom-cursor, pointer);
+
   position: relative;
 
   flex-shrink: 0;
@@ -28,8 +31,7 @@
 }
 
 .canvas {
-  touch-action: none;
-  cursor: var(--custom-cursor, pointer);
+  pointer-events: none;
 
   display: block;
 

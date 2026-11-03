@@ -171,10 +171,7 @@ public final class MtwCardSeasonalView: UIControl {
             }
         }
         started = CACurrentMediaTime()
-        let target = SeasonalFrameTarget { [weak self] in self?.updateParticles() }
-        let link = CADisplayLink(target: target, selector: #selector(SeasonalFrameTarget.tick))
-        link.add(to: .main, forMode: .common)
-        displayLink = link
+        displayLink = .makeWeak(owner: self) { owner, _ in owner.updateParticles() }
         updateParticles()
     }
 
@@ -289,10 +286,4 @@ public final class MtwCardSeasonalView: UIControl {
     }
 
     deinit { displayLink?.invalidate() }
-}
-
-private final class SeasonalFrameTarget: NSObject {
-    let action: () -> Void
-    init(action: @escaping () -> Void) { self.action = action }
-    @objc func tick() { action() }
 }

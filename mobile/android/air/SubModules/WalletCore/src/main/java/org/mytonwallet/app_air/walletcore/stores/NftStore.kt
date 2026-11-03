@@ -25,6 +25,15 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
+internal fun mergeIncomingNft(current: List<ApiNft>?, nft: ApiNft): MutableList<ApiNft> {
+    val index = current?.indexOfFirst { it.address == nft.address } ?: -1
+    return when {
+        current == null -> mutableListOf(nft)
+        index > -1 -> current.toMutableList().also { it[index] = nft }
+        else -> current.toMutableList().also { it.add(0, nft) }
+    }
+}
+
 object NftStore : IStore {
     private var cacheExecutor = Executors.newSingleThreadExecutor()
     private var collectionsPreloadExecutor = Executors.newSingleThreadExecutor()
@@ -510,16 +519,16 @@ object NftStore : IStore {
                 return@execute
             }
             val current = activeData?.cachedNfts ?: fetchCachedNfts(accountId)
-            val index = current?.indexOfFirst { it.address == nft.address } ?: -1
-            val updated = when {
-                current == null -> mutableListOf(nft)
-                index > -1 -> current.toMutableList().also { it[index] = nft }
-                else -> current.toMutableList().also { it.add(0, nft) }
-            }
+            val isReplacement = current?.any { it.address == nft.address } == true
+            val updated = mergeIncomingNft(current, nft)
             activeData?.cachedNfts = updated
             writeToCache(accountId, updated)
             if (activeData != null && nftData === activeData) {
-                WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
+                // A replaced NFT can change its spam or verification flags, which activity
+                // filters and hidden-NFT counters read, so it notifies every NFT observer.
+                WalletCore.notifyEvent(
+                    if (isReplacement) WalletEvent.NftsUpdated else WalletEvent.ReceivedNewNFT
+                )
             }
         }
     }
@@ -549,6 +558,15 @@ object NftStore : IStore {
         if (WGlobalStorage.getCardBackgroundNft(accountId) != null) return
 
         installMtwCard(accountId, nft)
+    }
+
+    // Replaces the installed card with the NFT's current state when it is the same card.
+    fun applyChangedMtwCard(accountId: String, nft: ApiNft) {
+        if (nft.collectionAddress != MTW_CARDS_COLLECTION) return
+        val installedCard = WGlobalStorage.getCardBackgroundNft(accountId) ?: return
+        if (installedCard.optString("address") != nft.address) return
+        WGlobalStorage.setCardBackgroundNft(accountId, nft.toDictionary())
+        WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
     }
 
     fun applyMintedMtwCard(accountId: String, nft: ApiNft) {

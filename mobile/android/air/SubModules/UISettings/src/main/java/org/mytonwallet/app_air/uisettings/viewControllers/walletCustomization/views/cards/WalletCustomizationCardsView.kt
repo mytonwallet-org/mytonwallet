@@ -28,14 +28,9 @@ open class WalletCustomizationCardsView(
     companion object {
         val ACCOUNT_CELL = WCell.Type(1)
 
-        private const val MAX_HEIGHT_DP = 360
+        private const val MAX_CELL_WIDTH_DP = 274
 
-        fun cellWidthFor(width: Int): Int {
-            val byWidth = (width - 138.dp).coerceAtLeast(0)
-            val byHeight =
-                ((MAX_HEIGHT_DP.dp - 17.dp) * WalletCustomizationCardCell.RATIO).roundToInt()
-            return minOf(byWidth, byHeight)
-        }
+        fun cellWidthFor(width: Int): Int = (width - 138.dp).coerceIn(0, MAX_CELL_WIDTH_DP.dp)
 
         fun heightForWidth(width: Int): Int {
             val cw = cellWidthFor(width)

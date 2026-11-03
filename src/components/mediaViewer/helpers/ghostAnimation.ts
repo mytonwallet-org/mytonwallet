@@ -6,18 +6,32 @@ import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { applyStyles } from '../../../util/animation';
 import { stopEvent } from '../../../util/domEvents';
 import { isElementInViewport } from '../../../util/isElementInViewport';
-import { REM } from '../../../util/windowEnvironment';
+import { IS_TOUCH_ENV, REM } from '../../../util/windowEnvironment';
 import windowSize from '../../../util/windowSize';
+import getAgentHeaderBottom from '../../agent/helpers/getAgentHeaderBottom';
 
 import styles from '../MediaViewer.module.scss';
 
 export const ANIMATION_DURATION = 200;
+// The attribute that ties a picture on the page to its id in the viewer, so the viewer opens from it and closes to it
+const MEDIA_VIEWER_PICTURE_ID_ATTRIBUTE = 'data-media-viewer-picture-id';
 
 // Header height + bottom padding, keep in sync with styles.image max-height
 const OCCUPIED_HEIGHT = 14 * REM;
+// The height a picture leaves to the viewer's header and caption, as Telegram's media viewer does for a photo; keep in
+// sync with `styles.picture` and `styles.picture_withCaption`
+const PICTURE_OCCUPIED_HEIGHT = 8.25 * REM;
+const PICTURE_WITH_CAPTION_OCCUPIED_HEIGHT = 12.5 * REM;
+const PICTURE_WITH_CAPTION_SHORT_OCCUPIED_HEIGHT = 10 * REM;
+const SHORT_WINDOW_HEIGHT = 640;
 
 export function animateOpening(
-  type: MediaType, mediaId: string, mediaUrl?: string, txId?: string, hiddenNfts?: HiddenNftsSection,
+  type: MediaType,
+  mediaId: string,
+  mediaUrl?: string,
+  txId?: string,
+  hiddenNfts?: HiddenNftsSection,
+  hasCaption = false,
 ) {
   const { image: fromImage } = getNode(type, mediaId, txId, hiddenNfts);
   if (!fromImage || !mediaUrl) {
@@ -30,7 +44,10 @@ export function animateOpening(
     const { width: windowWidth, height: windowHeight } = windowSize.get();
     const { width: mediaWidth, height: mediaHeight } = await getImageDimension(mediaUrl);
 
-    const availableHeight = windowHeight - OCCUPIED_HEIGHT;
+    // A picture stands in the middle of the window; an NFT stands under the header, over its description
+    const isPicture = type !== MediaType.Nft;
+    const occupiedHeight = isPicture ? getPictureOccupiedHeight(windowHeight, hasCaption) : OCCUPIED_HEIGHT;
+    const availableHeight = windowHeight - occupiedHeight;
     const offsetTop = (windowWidth <= MOBILE_SCREEN_MAX_WIDTH ? 8 : 7) * REM;
 
     const { width: toWidth, height: toHeight } = calculateDimensions(
@@ -41,7 +58,7 @@ export function animateOpening(
     );
 
     const toLeft = (windowWidth - toWidth) / 2;
-    const toTop = offsetTop + (availableHeight - toHeight) / 2;
+    const toTop = isPicture ? (windowHeight - toHeight) / 2 : offsetTop + (availableHeight - toHeight) / 2;
 
     const {
       top: fromTop, left: fromLeft, width: fromWidth, height: fromHeight,
@@ -51,6 +68,7 @@ export function animateOpening(
     const fromTranslateY = (fromTop + fromHeight / 2) - (toTop + toHeight / 2);
     const fromScaleX = fromWidth / toWidth;
     const fromScaleY = fromHeight / toHeight;
+    const clipTop = isPicture ? getAgentHeaderBottom(fromLeft, fromLeft + fromWidth) : undefined;
 
     requestMutation(() => {
       const ghost = createGhost(fromImage);
@@ -63,7 +81,7 @@ export function animateOpening(
         transform: `translate3d(${fromTranslateX}px, ${fromTranslateY}px, 0) scale(${fromScaleX}, ${fromScaleY})`,
       });
 
-      document.body.appendChild(ghost);
+      appendGhost(ghost, clipTop);
 
       requestMutation(() => {
         ghost.style.transform = '';
@@ -71,9 +89,7 @@ export function animateOpening(
 
         setTimeout(() => {
           requestMutation(() => {
-            if (document.body.contains(ghost)) {
-              document.body.removeChild(ghost);
-            }
+            removeGhost(ghost);
             document.body.classList.remove('ghost-animating');
           });
         }, ANIMATION_DURATION + ANIMATION_END_DELAY);
@@ -108,6 +124,7 @@ export function animateClosing(type: MediaType, mediaId: string, txId?: string, 
   const fromTranslateY = (fromTop + fromHeight / 2) - (toTop + toHeight / 2);
   const fromScaleX = fromWidth / toWidth;
   const fromScaleY = fromHeight / toHeight;
+  const clipTop = type !== MediaType.Nft ? getAgentHeaderBottom(toLeft, toLeft + toWidth) : undefined;
 
   const existingGhost = document.querySelector<HTMLDivElement>(`.${styles.ghost}`);
   const ghost = existingGhost || createGhost(fromImage);
@@ -142,7 +159,11 @@ export function animateClosing(type: MediaType, mediaId: string, txId?: string, 
   requestMutation(() => {
     applyShape(ghost, type);
     applyStyles(ghost, ghostStyles);
-    if (!existingGhost) document.body.appendChild(ghost);
+    if (existingGhost) {
+      clipGhost(existingGhost, clipTop);
+    } else {
+      appendGhost(ghost, clipTop);
+    }
     document.body.classList.add('ghost-animating');
     if (container) {
       container.classList.add('ghost-target');
@@ -157,9 +178,7 @@ export function animateClosing(type: MediaType, mediaId: string, txId?: string, 
 
       setTimeout(() => {
         requestMutation(() => {
-          if (document.body.contains(ghost)) {
-            document.body.removeChild(ghost);
-          }
+          removeGhost(ghost);
           document.body.classList.remove('ghost-animating');
           if (container) {
             container.classList.remove('ghost-target');
@@ -182,6 +201,10 @@ function getNode(type: MediaType, mediaId: string, txId?: string, hiddenNfts?: H
           : `.nft-container[data-nft-address="${mediaId}"]`,
     ) as HTMLElement;
     image = container?.querySelector('img, canvas') as HTMLImageElement | HTMLCanvasElement;
+  } else {
+    // A picture given to the viewer is found by its id, which the picture on the page carries
+    image = document.querySelector<HTMLImageElement>(`img[${MEDIA_VIEWER_PICTURE_ID_ATTRIBUTE}="${mediaId}"]`)
+      ?? undefined;
   }
   return { container, image };
 }
@@ -201,6 +224,31 @@ function createGhost(source: HTMLImageElement | HTMLCanvasElement) {
   ghost.appendChild(img);
 
   return ghost;
+}
+
+// A picture from the Agent flies to and from the viewer under the Agent's header, which stays over the feed and the
+// discussion
+function appendGhost(ghost: HTMLElement, clipTop?: number) {
+  if (!clipTop) {
+    document.body.appendChild(ghost);
+    return;
+  }
+
+  const host = document.createElement('div');
+  host.classList.add(styles.ghostHost);
+  host.appendChild(ghost);
+  document.body.appendChild(host);
+  clipGhost(ghost, clipTop);
+}
+
+function clipGhost(ghost: HTMLElement, clipTop?: number) {
+  const host = ghost.parentElement;
+  if (host?.classList.contains(styles.ghostHost)) host.style.clipPath = clipTop ? `inset(${clipTop}px 0 0 0)` : '';
+}
+
+function removeGhost(ghost: HTMLElement) {
+  const host = ghost.parentElement;
+  (host?.classList.contains(styles.ghostHost) ? host : ghost).remove();
 }
 
 function calculateDimensions(
@@ -245,4 +293,13 @@ async function getImageDimension(url: string) {
     img.onload = resolve;
   });
   return { width: img.width, height: img.height };
+}
+
+// A caption takes room under the picture on a desktop and lies over it on a touch screen
+function getPictureOccupiedHeight(windowHeight: number, hasCaption: boolean) {
+  if (!hasCaption || IS_TOUCH_ENV) return PICTURE_OCCUPIED_HEIGHT;
+
+  return windowHeight <= SHORT_WINDOW_HEIGHT
+    ? PICTURE_WITH_CAPTION_SHORT_OCCUPIED_HEIGHT
+    : PICTURE_WITH_CAPTION_OCCUPIED_HEIGHT;
 }

@@ -250,10 +250,10 @@ Dark: Тёмная
 System: Системная
 $stake_asset: Застейкать %symbol%
 Add Stake: Добавить
-"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% заблокированы в другом стейкинге"
-"Unstake them to restake with **higher returns**.": "Выведите их и вложите в стейкинг с **более высокой доходностью**."
-"💎 More profitable staking available": "💎 Доступен более выгодный стейкинг"
-"Tap to restake your %symbol% with higher returns.": "Переложите стейк, чтобы получать больший доход от %symbol%."
+"🔒 %amount% %symbol% staked elsewhere": "🔒 %amount% %symbol% в другом стейкинге"
+"Unlock your %symbol% to access higher-yield staking.": "Выведите %symbol%, чтобы перейти на стейкинг с более высокой доходностью."
+"💎 Higher-yield staking available": "💎 Доступен более выгодный стейкинг"
+"Tap to restake your %symbol% with higher returns.": "Переложите %symbol%, чтобы получать больше дохода."
 "Restake Now": "Повысить доход"
 Earn from your tokens while holding them: Получайте пассивный доход от хранения %symbol%
 Est. %annual_yield%: Доходность %annual_yield%
@@ -683,6 +683,9 @@ Data Copied: Данные скопированы
 URL Copied: URL Copied
 Private Key Copied: Private Key Copied
 Contract Initialization Data Copied: Contract Initialization Data Copied
+$state_init_deploys_wallet: Создаст по адресу получателя кошелёк %version%, если там ещё ничего нет.
+$state_init_deploys_contract: Создаст по адресу получателя смарт-контракт, если там ещё ничего нет.
+$state_init_not_deployable: Сеть проигнорирует эти данные, ничего создано не будет.
 Open NFT Collection: Открыть коллекцию NFT
 Previous: Предыдущий
 Next: Следующий
@@ -929,6 +932,10 @@ $mint_action: Минтинг
 Burning: Сжигание
 Burned: Сожжено
 $burn_action: Сжигание
+Perps Deposit: Депозит в перпы
+$perps_deposit_action: Депозит в перпы
+Perps Withdrawal: Вывод из перпов
+$perps_withdraw_action: Вывод из перпов
 Updating Address: Обновление адреса
 Updated Address: Обновлён адрес
 $update_address_action: Обновление адреса
@@ -1062,6 +1069,10 @@ $iab_more_tabs_count:
   fewValue: "+ %count% вкладки"
   manyValue: "+ %count% вкладок"
 Close Tab: Закрыть вкладку
+Close All: "Закрыть все"
+$browser_more_tabs:
+  oneValue: "%title% и ещё %count%"
+  otherValue: "%title% и ещё %count%"
 $domains_amount %count%:
   zeroValue: Нет доменов
   oneValue: "%count% домен"
@@ -1187,6 +1198,7 @@ Without it, you won't be able to access your wallet.: Без неё вы не с
 $ledger_connection_broken: Соединение с Ledger прервано. Пожалуйста, переподключитесь и попробуйте снова.
 $ledger_wrong_device: Текущий аккаунт создан из других секретных слов или парольной фразы Ledger, либо хранится на другом устройстве Ledger
 Show More: Показать ещё
+Show Less: Показать меньше
 Search app or enter address: Поиск или адрес
 Search or Ask: Искать или спросить
 Connected Apps: Подключённые приложения
@@ -1339,7 +1351,7 @@ Ask a Question: Задать вопрос
 Agent: Агент
 Learn more: Подробнее
 Data shared with Agent: Данные, передаваемые Агенту
-$agent_consent_allow_button: Разрешить Агенту
+$agent_consent_allow_button: Разрешить
 $agent_consent_subtitle: Попросите Агента помочь с кошельком, информацией о токенах и поддерживаемыми действиями.
 $agent_consent_feature_answers: Получайте ответы о %app_name%, токенах и активности кошелька.
 $agent_consent_feature_actions: "Подготавливайте поддерживаемые действия: отправку, получение и стейкинг."
@@ -1418,6 +1430,21 @@ $agent_error_limit: Запрос не выполнен из-за огранич�
 $agent_error_tool: Операцию кошелька выполнить не удалось. Попробуйте ещё раз.
 $agent_error_conversation_updated: Диалог обновился. Повторите запрос.
 $agent_error_generic: Агент не смог выполнить запрос. Попробуйте ещё раз.
+$agent_error_recording_too_large: "Запись слишком длинная. Диктуйте не больше минуты за раз."
+$agent_error_audio_unreadable: "Не удалось обработать запись. Запишите её ещё раз."
+$agent_error_transcription_unavailable: "Голосовой ввод сейчас недоступен. Попробуйте позже."
+$agent_dictation_start: "Диктовать"
+$agent_dictation_finish: "Завершить диктовку"
+$agent_dictation_recognizing: "Распознаю…"
+$agent_dictation_no_speech: "Не удалось расслышать речь. Говорите ближе к микрофону и попробуйте снова."
+$agent_dictation_time_left: "Осталось %seconds% с"
+$agent_dictation_time_left_short: "%seconds% с"
+$agent_dictation_limit_reached: "Диктовка остановлена через минуту — это максимальная длина записи."
+$agent_dictation_microphone_denied: "Разрешите доступ к микрофону в настройках, чтобы диктовать."
+$agent_dictation_hold_hint: "Удерживайте, чтобы диктовать. Вверх — запись без рук."
+$agent_dictation_too_short: "Слишком коротко — удерживайте, пока говорите."
+$agent_dictation_slide_to_cancel: "Влево — отмена"
+$agent_dictation_deleted: "Запись удалена"
 $agent_error_invalid_response: Не удалось прочитать ответ агента. Попробуйте ещё раз.
 $agent_error_update_required: Обновите приложение, чтобы продолжить.
 $agent_wallet_page_navigation: Страницы данных кошелька
@@ -1464,7 +1491,7 @@ Top 10: Топ-10
 Top 30: Топ-30
 Manage Assets: Управление активами
 Pulse: Пульс
-Ask anything: Задайте любой вопрос
+Ask anything: Задайте вопрос
 Edit Message: Редактировать сообщение
 Toggle Hints: Переключить подсказки
 Scroll To Bottom: Прокрутить вниз
@@ -1607,6 +1634,8 @@ Edit Wallet Name: Редактировать имя кошелька
 Wallet Name: Имя кошелька
 App Icon: Иконка приложения
 Rounded Toolbars: Закруглённые панели инструментов
+Toolbar: Панель инструментов
+Shared Background: Общий фон
 Side Gutters: Боковые отступы
 Gradient Navigation Bar: Градиентная панель навигации
 Tokens on Home Screen: Токены на главном экране
@@ -2009,13 +2038,9 @@ $agent_capacity_limit_title: Агент временно недоступен
 $agent_capacity_limit_known: Новые запросы можно будет отправить через %duration%.
 $agent_capacity_degraded_title: Агент может отвечать нестабильно
 $agent_capacity_limit_unknown: Можно попробовать ещё раз, но ответ может не загрузиться.
-$agent_response_failed_title: Не удалось получить ответ
-$agent_response_interrupted_title: Ответ прерван
 $agent_retry_request: Повторить запрос
 $agent_rate_limit_title: Слишком много запросов к Агенту
 $agent_rate_limit_body: Попробуйте снова через %duration%.
-$agent_user_quota_meter: "Квота Агента: осталось %remaining% из %limit% ед."
-$agent_user_quota_reset: Дневная квота сбросится через %duration%.
 $agent_user_quota_exhausted_title: Недостаточно квоты Агента
 $agent_user_quota_exhausted_body: Для этого запроса недостаточно квоты. Дневной лимит — %limit% ед., сброс через %duration%.
 $agent_time_hours: "%value% ч"
@@ -2095,7 +2120,6 @@ $agent_source_bea_attribution: This product uses the Bureau of Economic Analysis
 Unknown Transfer: Неизвестный перевод
 $dapp_sign_data_for_prefix: для
 
-# Token Buy / Sell
 "Pay %value%": "Оплатить %value%"
 "Receive %value%": "Получить %value%"
 "Buy %token% via %provider%": "Купить %token% через %provider%"
@@ -2112,7 +2136,6 @@ Successfully Signed: Успешно подписано
 Coming soon: Скоро
 $dapp_identity_not_confirmed: Подлинность приложения **не подтверждена**.
 
-# Token trade asset browser and details
 "Choose Asset": "Выберите актив"
 "Asset to Buy": "Актив для покупки"
 "Asset to Sell": "Актив для продажи"
@@ -2127,11 +2150,268 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: О�
 3D Gram Diamond: 3D-бриллиант Gram
 Hold to enlarge. Drag to rotate.: Удерживайте, чтобы увеличить. Перетаскивайте, чтобы вращать.
 "Max": "Макс."
+
+or use web version: или используйте веб-версию
+By continuing, you agree to our %terms% and %privacy%.: "Продолжая, вы принимаете %terms% и %privacy%."
+$auth_privacy_policy: политику конфиденциальности
+$auth_more: Подробнее
+$auth_terms_of_use: "условия\nиспользования"
+
+"Pinned": "Закреплённые"
+"New Chat": "Новый чат"
+"Search chats": "Поиск чатов"
+"Ask a question to start a new chat.": "Задайте вопрос, чтобы начать новый чат."
+"No chats found": "Чаты не найдены"
+"Rename Chat": "Переименовать чат"
+"Delete Chat?": "Удалить чат?"
+"$agent_delete_chat_confirmation": "Сообщения в этом чате будут удалены безвозвратно. Отправленные отчёты о проблемах останутся у нашей команды."
+
+Invalid Address: Некорректный адрес
+Domain Not Found: Домен не найден
+Multisig Sending Disabled: Нельзя с мультисига
+Insufficient Liquidity: Недостаточно ликвидности
+Too Small Amount: Слишком маленькая сумма
+
+News: "Новости"
+Crypto Market News: "Новости крипторынка"
+$agent_news_new: "Новые"
+$agent_news_open_source: "Открыть источник"
+$agent_news_unavailable: "Новости сейчас недоступны"
+$agent_news_read_more: "Подробнее"
+$agent_news_discuss: "Обсудить"
+$agent_news_continue_discussion: "Продолжить обсуждение"
+$agent_news_read_more_accessibility: "Подробнее о новости «%headline%»"
+$agent_news_continue_discussion_accessibility: "Продолжить обсуждение новости «%headline%»"
+$agent_news_ask_placeholder: "Спросите об этой новости"
+$agent_news_quote_accessibility: "Новость MyPulse: %headline%"
+$agent_news_unread_count:
+  oneValue: "%count% непрочитанная новость"
+  fewValue: "%count% непрочитанные новости"
+  manyValue: "%count% непрочитанных новостей"
+  otherValue: "%count% непрочитанных новостей"
 Explorer mode: Режим обозревателя
 Open a link to a wallet, transfer, token or collectible to see its details here.: Откройте ссылку на кошелёк, перевод, токен или NFT, чтобы посмотреть здесь детали.
+
+# Perps
+Long: "Лонг"
+Short: "Шорт"
+Funding Rate: "Ставка финансирования"
+Max Leverage: "Макс. плечо"
+24h Volume: "Объём за 24 ч"
+Open Interest: "Открытый интерес"
+$perps_funding_rate_hint: "Ставка, по которой рассчитываются платежи финансирования между трейдерами с длинными и короткими позициями. При положительной ставке держатели длинных позиций платят держателям коротких. При отрицательной — наоборот."
+$perps_max_leverage_hint: "Максимальное плечо, доступное для этого рынка."
+$perps_volume_24h_hint: "Общая стоимость сделок на этом фьючерсном рынке за последние 24 часа. Включает сделки как на открытие, так и на закрытие позиций."
+$perps_open_interest_hint: "Общая стоимость контрактов, открытых в данный момент на этом фьючерсном рынке. В отличие от объёма за 24 часа, не включает уже закрытые позиции."
+
+# Perps order entry
+"Leverage": "Кредитное плечо"
+"Position Size": "Размер позиции"
+"Liquidation Price": "Цена ликвидации"
+"Trading Fee": "Торговая комиссия"
+"Funding Payments": "Платежи финансирования"
+"Swap Fee": "Комиссия обмена"
+"Review": "Проверить"
+"$perps_order_long": "Лонг %asset%"
+"$perps_order_short": "Шорт %asset%"
+"$perps_swap_fee_hint": "Комиссия за обмен одного токена на другой в рамках этой транзакции."
+"$perps_trading_fee_hint": "Комиссия за открытие этой позиции."
+"$perps_position_size_hint": "Размер позиции — общая стоимость позиции с учётом кредитного плеча."
+"$perps_position_size_details_hint": "Общая стоимость вашей позиции с учётом плеча.\n\nНапример, если вы вкладываете $100 с плечом 5x, размер позиции составляет $500."
+"$perps_position_size_change_hint": "Общая стоимость вашей позиции с учётом плеча.\nЗначения показывают размер позиции до и после изменения."
+"$perps_profit_hint": "Прибыль от закрытия части вашей позиции.\n\nНапример, если вы закрываете половину позиции, здесь показана прибыль от закрытой части."
+"$perps_loss_hint": "Убыток от закрытия части вашей позиции.\n\nНапример, если вы закрываете половину позиции, здесь показан убыток от закрытой части."
+"$perps_closing_value_hint": "Сумма, оставшаяся после ликвидации вашей позиции. В зависимости от результата ликвидации эта сумма может быть меньше вложенной или равна нулю."
+"$perps_fees_hint": "Общая сумма комиссий за эту транзакцию. В зависимости от транзакции сюда могут входить торговая комиссия, комиссия за обмен и сетевая комиссия."
+"$perps_liquidation_price_hint": "Расчётная цена, при которой ваша позиция может быть автоматически закрыта из-за недостатка средств для её поддержания."
+"$perps_high_leverage_warning": "Высокое плечо: небольшое изменение цены приведёт к ликвидации."
+"$perps_leverage_disclaimer": "Высокое плечо увеличивает потенциальную прибыль и убытки. Даже небольшое изменение цены против вашей позиции может привести к её автоматическому закрытию."
+
+# Perps order review
+"Open Position": "Открыть позицию"
+"$perps_asset_price": "Цена %asset%"
+"$perps_leverage_direction": "%leverage%x %direction%"
+"$perps_liquidation_acknowledgment": "Подтверждая, я понимаю, что позиция может быть ликвидирована и я могу потерять вложенные средства."
+
+# Perps position receipt
+"Position Opened": "Позиция открыта"
+"Fees": "Комиссии"
+"Transfer ID": "ID перевода"
+
+# Perps active position
+"Equity": "Стоимость позиции"
+"Profit and Loss": "Прибыль и убыток"
+"Invested": "Вложено"
+"Entry Price": "Цена входа"
+"Edit Position": "Изменить позицию"
+"Close Position": "Закрыть позицию"
+"PerpsEditPositionAction": "Изменить"
+"PerpsClosePositionAction": "Закрыть"
+"$perps_invested_hint": "Сумма ваших собственных средств, вложенных в эту позицию. Например, если вы вкладываете $100 с плечом 5x, вложенная сумма составляет $100, а размер позиции — $500."
+"$perps_entry_price_hint": "Средняя цена открытия этой позиции."
+"$perps_funding_payments_hint": "Периодические платежи между трейдерами с длинными и короткими позициями. В зависимости от ставки финансирования вы можете платить или получать финансирование, пока ваша позиция открыта."
+
+# Perps edit position
+"$perps_edit_long": "Изменить лонг %asset%"
+"$perps_edit_short": "Изменить шорт %asset%"
+"Current:": "Сейчас:"
+"Liquidation": "Ликвидация"
+"You Pay or Receive": "Вы платите или получаете"
+"Reset to Current Amount": "Вернуть текущую сумму"
+"Network Fee": "Комиссия сети"
+"$perps_network_fee_hint": "Комиссия за обработку этой транзакции в блокчейне."
+"$perps_edit_liquidation_hint": "Ликвидация — цена, при которой позиция автоматически закрывается."
+
+# Perps position lifecycle
+"Increase Position": "Увеличить позицию"
+"Reduce Position": "Уменьшить позицию"
+"Current Value": "Текущая стоимость"
+"Closing Value": "Стоимость при закрытии"
+"Entry / Exit Price": "Цена входа / выхода"
+"Entry / Liquidation Price": "Цена входа / ликвидации"
+"You Paid": "Вы заплатили"
+"You Received": "Вы получили"
+"Position Increased": "Позиция увеличена"
+"Position Reduced": "Позиция уменьшена"
+"Position Closed": "Позиция закрыта"
+"Position Liquidated": "Позиция ликвидирована"
+"Profit": "Прибыль"
+"Loss": "Убыток"
+"$perps_current_value_hint": "Текущая стоимость вложенной суммы с учётом прибыли или убытка по позиции."
+"$perps_price_when_opened": "Цена %asset% при открытии"
+"$perps_price_now": "Цена %asset% сейчас"
+"$perps_held": "Время в позиции: %duration%"
+"$perps_liquidated_title": "Позиция закрыта автоматически."
+"$perps_liquidated_message": "Рыночная цена достигла цены ликвидации, что привело к убытку."
+
+# Perps home
+"Open Positions": "Открытые позиции"
+"Show All Positions": "Все позиции"
+"Futures": "Фьючерсы"
+"Futures Market": "Рынок фьючерсов"
+"Liquidation Risk": "Риск ликвидации"
+"Refresh": "Обновить"
+"More Actions": "Другие действия"
+"$perps_no_positions": "Пока нет открытых позиций. Начните с изучения рынка фьючерсов."
+"$perps_explore_market": "Торгуйте криптовалютой и реальными активами"
+"PerpsExploreAgentDescription": "Ваш ИИ-помощник"
+"$perps_explore_futures": "Открывайте короткие и длинные позиции"
+"$perps_explore_apps": "Исследуйте децентрализованный интернет"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "Цены или позиция изменились. Вернитесь и проверьте ордер ещё раз."
+"PerpsReviewChanged": "Ордер изменился. Вернитесь и проверьте его ещё раз."
+"PerpsInsufficientUsdc": "Недостаточно USDC в Arbitrum с учётом комиссии моста."
+"PerpsAmountTooSmall": "Эта сумма ниже минимальной для рынка."
+"PerpsUnchanged": "Введите другую сумму, чтобы изменить позицию."
+"PerpsPositionChanged": "Позиция изменилась. Обновите данные и попробуйте ещё раз."
+"PerpsPositionExists": "У вас уже есть позиция на этом рынке. Измените существующую позицию."
+"PerpsOperationPending": "Операция ещё выполняется. Проверьте её статус перед новой сделкой."
+"PerpsUnsupportedAccount": "Для торговли фьючерсами нужен программный кошелёк с адресом в основной сети Arbitrum."
+"PerpsTradingUnavailable": "Торговля на этом рынке пока недоступна."
+"PerpsInvalidLeverage": "Выберите кредитное плечо, доступное на этом рынке."
+"PerpsInvalidAmount": "Введите корректную сумму."
+"PerpsChangeLeverage": "Изменить плечо"
+"PerpsChangeLeverageSeparately": "Изменяйте кредитное плечо отдельно от суммы позиции."
+"PerpsUnavailable": "Фьючерсы недоступны. Попробуйте позже."
+"PerpsIncompleteData": "Не удалось загрузить некоторые позиции. Обновите данные, чтобы увидеть полный баланс."
+"PerpsFeesAtExecution": "Комиссии будут определены при исполнении"
+"PerpsWithdrawalPending": "Позиция обновлена, но вывод USDC ещё не завершён. Не отправляйте ордер повторно."
+"PerpsOperationStatus": "Статус ордера"
+"PerpsExecutionUnknown": "Результат ещё не подтверждён. Обновите данные и проверьте позицию и перевод перед следующим действием."
+"PerpsProcessing": "Ордер обрабатывается. Перевод через мост и расчёты могут занять несколько минут."
+"PerpsCompleted": "Ордер исполнен"
+"PerpsReconciled": "Данные счёта обновлены. Подробности сделки появятся, когда будет доступна запись об исполнении."
+
+PerpsWithdrawReleased: "Вывести высвобождённые средства"
+PerpsWithdrawDescription: "Перевести доступные USDC с Hyperliquid в этот кошелёк в сети Arbitrum. Комиссия за пересылку — 0,20 USDC."
+PerpsPartialFill: "Ордер исполнен частично. Ниже указана исполненная сумма. Проверьте текущую позицию перед новым ордером."
+
 Receiver %blockchain% Address: Адрес %blockchain% получателя
+
 
 Save to Photos: Сохранить в Фото
 Image Saved: Изображение сохранено
 Allow access to Photos in Settings to save NFT images.: Разрешите доступ к Фото в настройках, чтобы сохранять изображения NFT.
 Could not save the image. Please try again.: Не удалось сохранить изображение. Попробуйте ещё раз.
+
+"$perps_activity_opened": "Открытие %asset%"
+"$perps_activity_increased": "Увеличение %asset%"
+"$perps_activity_reduced": "Уменьшение %asset%"
+"$perps_activity_closed": "Закрытие %asset%"
+"$perps_activity_liquidated": "Ликвидация %asset%"
+
+# Perps
+"PerpsInsufficientGas": "Недостаточно ETH в Arbitrum для комиссии сети. USDC для позиции не покрывают эту комиссию."
+"PerpsFundingMissingTitle": "Нет USDC или ETH в Arbitrum"
+"$perps_funding_missing": "Получите не менее %minUSDC% USDC и %feeETH% ETH для оплаты комиссий."
+"$perps_funding_usdc": "Чтобы открыть позицию, нужно не менее %minUSDC% USDC в Arbitrum."
+"$perps_funding_usdc_increase": "Чтобы увеличить эту позицию, нужно не менее %minUSDC% USDC в Arbitrum."
+"PerpsFundingGasTitle": "Недостаточно ETH для комиссии"
+"$perps_funding_gas": "Комиссии в Arbitrum оплачиваются в ETH. Получите %feeETH% ETH (~%feeFiat%)."
+"PerpsFundingTokenTitle": "Оплачивайте USDC в Arbitrum"
+"PerpsFundingTokenDescription": "Другие токены пока не поддерживаются. Получите USDC, чтобы продолжить."
+"Not Enough Funds": "Недостаточно средств"
+"Unsupported Token": "Токен не поддерживается"
+"PerpsReviewUpdated": "Цены обновились. Проверьте ордер ещё раз перед подтверждением."
+"PerpsOrderTooSmall": "Минимальная стоимость ордера — $10."
+"PerpsOrderNotFilled": "Не удалось исполнить ордер по указанной цене. Обновите данные и попробуйте ещё раз."
+"PerpsInsufficientMargin": "Недостаточно обеспечения для этого ордера. Обновите позицию и измените сумму."
+"PerpsOrderRejected": "Биржа отклонила ордер. Обновите позицию и проверьте ордер ещё раз."
+"Order": "Ордер"
+"Order ID": "ID ордера"
+"Date": "Дата"
+"PerpsAllowNewOrders": "Разрешить новые ордера"
+"PerpsAcknowledgeUnknown": "Исходный ордер ещё может исполниться. Сначала проверьте позиции и переводы. Разрешение новых ордеров не отменяет исходный."
+"$perps_market_title": "Фьючерсы %asset%"
+"Recent Market Activity": "Последние операции на рынке"
+"Trade Size": "Объём сделки"
+"PerpsExchangeFee": "Комиссия биржи"
+"PerpsServiceFee": "Комиссия кошелька"
+"PerpsBridgeFee": "Комиссия моста"
+"PerpsTotalFees": "Всего комиссий в USDC"
+"PerpsFeeEstimateHint": "Комиссии со знаком ≈ приблизительны и могут измениться при исполнении. Комиссия сети Arbitrum оплачивается отдельно в ETH."
+"PerpsUnallocatedCollateral": "Нераспределённое обеспечение"
+"PerpsUnallocatedCollateralHint": "Из-за округления до допустимого размера сделки часть USDC может остаться вне позиции. Эти средства остаются на вашем фьючерсном счёте и не являются комиссией."
+"PerpsOnboardingTitle": "Впервые торгуете фьючерсами?"
+"PerpsOnboardingDescription": "Узнайте, как это работает, менее чем за 1 минуту."
+"PerpsOnboardingOpen": "Открыть обучение"
+"PerpsStoryIntroTitle": "Встречайте\nбессрочные фьючерсы"
+"PerpsStoryIntroBody": "Теперь вы можете открывать позиции как на рост, так и на падение цены актива."
+"PerpsStoryLongTitle": "Ждёте роста? Это Long"
+"PerpsStoryLongBody": "Цена растёт — вы зарабатываете, падает — теряете."
+"PerpsStoryShortTitle": "Ждёте падения? Это Short"
+"PerpsStoryShortBody": "Здесь наоборот: цена падает — вы зарабатываете, растёт — теряете."
+"PerpsStoryLeverageTitle": "Плечо усиливает результат"
+"PerpsStoryLeverageBody": "Маржа — это ваши деньги в позиции. С плечом 5× сумма $10 позволяет открыть позицию на $50 — прибыль и убытки также увеличиваются в 5 раз."
+"PerpsStoryLiquidationTitle": "Позиция может закрыться сама"
+"PerpsStoryLiquidationBody": "Это ликвидация: если из-за убытков маржи становится недостаточно, позицию могут закрыть. Следите за ценой ликвидации."
+"PerpsStoryFundingTitle": "Funding — платёж между трейдерами"
+"PerpsStoryFundingBody": "При положительной ставке финансирования держатели Long платят держателям Short. При отрицательной — держатели Short платят держателям Long."
+"PerpsStoryStart": "Начать"
+
+"Funding Payment": "Платёж финансирования"
+"Withdrawal": "Вывод"
+"Transfer": "Перевод"
+"Spot Balance": "Спотовый баланс"
+"From": "Откуда"
+"To": "Куда"
+
+Delete Chat: Удалить чат
+Unread: Непрочитано
+$agent_connection_lost: Соединение с Агентом прервано.
+$agent_daily_limit_reached: Дневной лимит Агента исчерпан
+$media_viewer_date_at_time: "%date% в %time%"
+Picture: Изображение
+
+Add to Reading List: Добавить в список для чтения
+
+$enclave_data_missing_title: Данные кошелька не найдены
+$enclave_data_missing_message: |
+  Дело не в пароле. На этом устройстве пропали данные, по которым приложение проверяет пароль и открывает ваши кошельки, поэтому здесь не подойдёт ни один пароль.
+
+  Не переустанавливайте приложение и не очищайте его данные в настройках системы. Выгрузите логи кнопкой ниже и отправьте их в %support_link%: по ним мы увидим, что произошло на этом устройстве.
+
+  Если у вас есть секретные слова кошельков, можно выйти из всех кошельков и импортировать их заново.
+
+Install the TON App on your Ledger and try again.: Установите приложение TON на Ledger и попробуйте снова.

@@ -218,6 +218,7 @@ class ReceiveVC private constructor(
 
     val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
+        lbl.id = UIComponentsR.id.receive_title
         lbl.setStyle(22F, WFont.Medium)
         lbl.gravity = Gravity.CENTER
         lbl.text =
@@ -358,6 +359,7 @@ class ReceiveVC private constructor(
     }
     private val invoiceView: WView by lazy {
         val v = WView(context)
+        v.id = UIComponentsR.id.receive_deposit_link
         v.addView(invoiceLabel)
         v.setConstraints {
             toStart(invoiceLabel, 20f)
@@ -385,6 +387,7 @@ class ReceiveVC private constructor(
 
     private val optionsContainerView: WView by lazy {
         val v = WView(context)
+        v.id = UIComponentsR.id.receive_options
         v.addView(buyWithCardView, LayoutParams(MATCH_PARENT, OPTION_ROW_HEIGHT.dp))
         v.addView(buyWithCryptoView, LayoutParams(MATCH_PARENT, OPTION_ROW_HEIGHT.dp))
         v.addView(invoiceView, LayoutParams(MATCH_PARENT, OPTION_ROW_HEIGHT.dp))

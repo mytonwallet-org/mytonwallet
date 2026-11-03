@@ -644,7 +644,7 @@ struct NftDetailsPresentationTests {
     @Test
     func twoFingerSequenceOwnsInteractionBeforePinchThresholdUntilFinalTouchUp() {
         let view = UIView()
-        let guardGesture = NftDetailsPinchTouchGuard()
+        let guardGesture = PinchTouchGuard()
         let pan = UIPanGestureRecognizer()
         let pinch = UIPinchGestureRecognizer()
         view.addGestureRecognizer(guardGesture)

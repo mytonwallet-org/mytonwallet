@@ -67,10 +67,14 @@ struct WAlertControllerTests {
         #expect(buttons.allSatisfy { !$0.isHighlighted })
     }
 
-    @Test(arguments: [CGSize(width: 320, height: 568), CGSize(width: 844, height: 390)])
-    func longContentScrollsWithinTheAvailableHeight(size: CGSize) throws {
-        let alert = WAlertController(actions: [WAlertAction(title: "OK")]) {
-            Text(Array(repeating: "Long tip content must remain readable and its action reachable.", count: 50).joined(separator: "\n"))
+    @Test(arguments: [CGSize(width: 320, height: 568), CGSize(width: 844, height: 390)], [false, true])
+    func longContentScrollsWithinTheAvailableHeight(size: CGSize, usesUIKit: Bool) throws {
+        let message = Array(repeating: "Long tip content must remain readable and its action reachable.", count: 50).joined(separator: "\n")
+        let alert: WAlertController
+        if usesUIKit {
+            alert = WAlertController(title: "Tip", message: message, actions: [WAlertAction(title: "OK")])
+        } else {
+            alert = WAlertController(actions: [WAlertAction(title: "OK")]) { Text(message) }
         }
         alert.loadViewIfNeeded()
         alert.view.frame = CGRect(origin: .zero, size: size)
@@ -83,6 +87,25 @@ struct WAlertControllerTests {
         scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height), animated: false)
         let button = try #require(descendants(of: alert.view, as: WAlertActionButton.self).first)
         #expect(scroll.bounds.contains(button.convert(button.bounds, to: scroll)))
+    }
+
+    @Test
+    func nativeTipPreservesMarkdownAndParagraphs() throws {
+        let tip = TipView(title: "Preview", message: "Result **is not guaranteed**.\n\nRead the [details](https://mywallet.io).", usesMarkdown: true)
+        let alert = WAlertController(actions: [], contentView: tip)
+        alert.loadViewIfNeeded()
+        #expect(alert.children.isEmpty)
+        let message = try #require(descendants(of: tip, as: UITextView.self).first)
+        let text = try #require(message.attributedText)
+        #expect(text.string == "Result is not guaranteed.\n\nRead the details.")
+        let emphasizedRange = (text.string as NSString).range(of: "is not guaranteed")
+        let font = try #require(text.attribute(.font, at: emphasizedRange.location, effectiveRange: nil) as? UIFont)
+        #expect(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        let linkRange = (text.string as NSString).range(of: "details")
+        #expect(text.attribute(.link, at: linkRange.location, effectiveRange: nil) as? URL == URL(string: "https://mywallet.io"))
+        #expect(message.isSelectable)
+        #expect(!message.isEditable)
+        #expect(!message.isScrollEnabled)
     }
 
     private func descendants<T: UIView>(of view: UIView, as type: T.Type) -> [T] {

@@ -7,6 +7,7 @@ import type {
   ApiCurrencyRates,
   ApiForeignStakingPromotion,
   ApiInfoBannerPromotion,
+  ApiMfa,
   ApiNetwork,
   ApiSwapAsset,
   ApiUpdateAccountBanners,
@@ -17,7 +18,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { NO_EXTRA_FEATURES } from '../../config';
+import { IS_PERPS_ENABLED, NO_EXTRA_FEATURES } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { parseAgentProtocolVersion } from '../../util/agent/agentOverride';
 import { areDeepEqual } from '../../util/areDeepEqual';
@@ -39,7 +40,12 @@ import {
 } from '../common/accounts';
 import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
-import { getStakingCommonCache, setBackendConfigCache } from '../common/cache';
+import {
+  getBackendConfigCacheSync,
+  getStakingCommonCache,
+  getStakingCommonCacheSync,
+  setBackendConfigCache,
+} from '../common/cache';
 import {
   forgetAllHeldTokens,
   forgetHeldTokens,
@@ -47,6 +53,12 @@ import {
   forgetOtherNetworksHeldTokens,
   recordHeldTokens,
 } from '../common/heldTokens';
+import {
+  applyPendingBalances,
+  clearAllPendingBalances,
+  clearNetworkPendingBalances,
+  clearPendingBalances,
+} from '../common/pendingBalances';
 import { pollingLoop } from '../common/polling/utils';
 import {
   buildTokenSlug,
@@ -65,18 +77,21 @@ import { canBuildForeignUnstakeTransaction } from './foreignStakingUnstakeBuilde
 import {
   requireAgentV2Lifecycle,
   requireMfaMethods,
+  requirePerpsAssets,
   requireStakingMethods,
   requireSwapMethods,
 } from './optional';
 import { resolveDataPreloadPromise } from './preload';
 
-const BACKEND_INTERVAL = 30 * SEC;
+const CURRENCY_RATES_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
+const CURRENCY_RATES_FALLBACK_DELAY = 5 * SEC;
 const LONG_BACKEND_INTERVAL = MINUTE;
+const RARE_BACKEND_INTERVAL = 5 * MINUTE;
 const SWAP_ASSETS_INTERVAL = { focused: 10 * MINUTE, notFocused: 10 * MINUTE };
 const KNOWN_ADDRESSES_INTERVAL = { focused: 5 * MINUTE, notFocused: 5 * MINUTE };
 const INCORRECT_TIME_DIFF = 30 * SEC;
 
-const ACCOUNT_CONFIG_INTERVAL = { focused: MINUTE, notFocused: 10 * MINUTE };
+const ACCOUNT_CONFIG_INTERVAL = { focused: 5 * MINUTE, notFocused: 10 * MINUTE };
 const FOREIGN_STAKING_INTERVAL = { focused: 15 * MINUTE, notFocused: 30 * MINUTE };
 const MFA_INTERVAL = MINUTE;
 
@@ -85,6 +100,7 @@ const TOKEN_DETAILS_THROTTLE = 3 * SEC;
 
 let onUpdate: OnApiUpdate;
 let stopCommonBackendPolling: NoneToVoidFunction | undefined;
+let activeCurrencyRatesPolling: ReturnType<typeof setupCurrencyRatesPolling> | undefined;
 let stopActiveAccountPolling: NoneToVoidFunction | undefined;
 let activeAccountConfigPolling: ReturnType<typeof setupAccountConfigPolling> | undefined;
 let activeForeignStakingPolling: ReturnType<typeof setupForeignStakingPolling> | undefined;
@@ -106,6 +122,8 @@ export function initPolling(_onUpdate: OnApiUpdate) {
         refreshTokenDetails();
       }
       activeForeignStakingPolling?.onBalanceUpdate(update);
+      _onUpdate(applyPendingBalances(update));
+      return;
     }
 
     _onUpdate(update);
@@ -114,24 +132,37 @@ export function initPolling(_onUpdate: OnApiUpdate) {
   pauseTokenUpdates();
   void loadTokensCache();
 
+  if (!NO_EXTRA_FEATURES) {
+    requirePerpsAssets().setPerpsAssetsUpdater(onUpdate);
+  }
+
+  stopCommonBackendPolling?.();
+  const currencyRatesPolling = setupCurrencyRatesPolling();
+  activeCurrencyRatesPolling = currencyRatesPolling;
+  let currencyRatesPreload: MaybePromise<void>;
+
   void Promise.allSettled([
     tryUpdateKnownAddresses(knownAddressesResponse),
-    tryUpdateTokens(),
-    tryUpdateCurrencyRates(),
+    tryUpdateTokens((rates) => {
+      currencyRatesPreload = currencyRatesPolling.update(rates) ?? currencyRatesPreload;
+    }).then(() => currencyRatesPreload),
     !NO_EXTRA_FEATURES && tryUpdateSwapTokens(swapAssetsResponse),
     !NO_EXTRA_FEATURES && requireStakingMethods().tryUpdateStakingCommonData(),
+    !NO_EXTRA_FEATURES && IS_PERPS_ENABLED && loadAndUpdatePerpsAssets(),
   ]).then(() => resolveDataPreloadPromise());
 
   void tryUpdateConfig();
 
-  stopCommonBackendPolling?.();
-  stopCommonBackendPolling = setupCommonBackendPolling(swapAssetsResponse, knownAddressesResponse);
+  stopCommonBackendPolling = setupCommonBackendPolling(
+    swapAssetsResponse, knownAddressesResponse, currencyRatesPolling,
+  );
 }
 
 export async function destroyPolling() {
   configUpdateGeneration += 1;
   stopCommonBackendPolling?.();
   stopCommonBackendPolling = undefined;
+  activeCurrencyRatesPolling = undefined;
   const didDeactivate = await setActivePollingAccount(undefined, {});
   if (didDeactivate) {
     forgetAllHeldTokens();
@@ -142,6 +173,7 @@ export async function destroyPolling() {
 function setupCommonBackendPolling(
   swapAssetsResponse: { text?: string; isStopped?: boolean; isLoading?: boolean },
   knownAddressesResponse: { text?: string; isStopped?: boolean; isLoading?: boolean },
+  currencyRatesPolling: ReturnType<typeof setupCurrencyRatesPolling>,
 ) {
   const knownAddressesPolling = pollingLoop({
     period: KNOWN_ADDRESSES_INTERVAL,
@@ -155,13 +187,37 @@ function setupCommonBackendPolling(
     skipInitialPoll: true,
     poll: () => tryUpdateSwapTokens(swapAssetsResponse, true),
   }) : undefined;
+  let isConfigLoading = false;
+  let isStakingCommonLoading = false;
+  const configPolling = pollingLoop({
+    period: RARE_BACKEND_INTERVAL,
+    minDelay: LONG_BACKEND_INTERVAL,
+    skipInitialPoll: true,
+    async poll() {
+      isConfigLoading = true;
+      try {
+        await tryUpdateConfig();
+      } finally {
+        isConfigLoading = false;
+      }
+    },
+  });
+  const stakingCommonPolling = !NO_EXTRA_FEATURES ? pollingLoop({
+    period: RARE_BACKEND_INTERVAL,
+    minDelay: LONG_BACKEND_INTERVAL,
+    skipInitialPoll: true,
+    async poll() {
+      isStakingCommonLoading = true;
+      try {
+        await requireStakingMethods().tryUpdateStakingCommonData();
+      } finally {
+        isStakingCommonLoading = false;
+      }
+    },
+  }) : undefined;
 
   const stopFns = [
-    pollingLoop({
-      period: BACKEND_INTERVAL,
-      skipInitialPoll: true,
-      poll: tryUpdateCurrencyRates,
-    }).stop,
+    currencyRatesPolling.stop,
     pollingLoop({
       period: LONG_BACKEND_INTERVAL,
       skipInitialPoll: true,
@@ -172,13 +228,22 @@ function setupCommonBackendPolling(
         if (swapAssetsResponse.text === undefined && !swapAssetsResponse.isLoading) {
           swapAssetsPolling?.poll();
         }
+        if (!getBackendConfigCacheSync() && !isConfigLoading) {
+          configPolling.poll();
+        }
+        if (!NO_EXTRA_FEATURES && !isStakingCommonLoading && (Object.keys(chains) as ApiChain[]).some((chain) => (
+          chains[chain].staking && !getStakingCommonCacheSync(chain)
+        ))) {
+          stakingCommonPolling?.poll();
+        }
         await Promise.all([
-          tryUpdateTokens(),
-          !NO_EXTRA_FEATURES && requireStakingMethods().tryUpdateStakingCommonData(),
-          tryUpdateConfig(),
+          tryUpdateTokens(currencyRatesPolling.update),
+          !NO_EXTRA_FEATURES && IS_PERPS_ENABLED && tryUpdatePerpsAssets(),
         ]);
       },
     }).stop,
+    configPolling.stop,
+    stakingCommonPolling?.stop,
     knownAddressesPolling.stop,
     swapAssetsPolling?.stop,
   ];
@@ -192,13 +257,32 @@ function setupCommonBackendPolling(
   };
 }
 
-async function tryUpdateTokens() {
+async function loadAndUpdatePerpsAssets() {
+  await requirePerpsAssets().loadPerpsAssetsCache();
+  await tryUpdatePerpsAssets();
+}
+
+async function tryUpdatePerpsAssets() {
   try {
     const langCode = await storage.getItem('langCode');
-    await updateTokensFromBackend(onUpdate, { langCode, shouldNarrowToHeldTokens: true });
+    await requirePerpsAssets().refreshPerpsAssets(langCode);
+  } catch (err) {
+    logDebugError('tryUpdatePerpsAssets', err);
+  }
+}
+
+async function tryUpdateTokens(updateCurrencyRates: (rates: ApiCurrencyRates | undefined) => void) {
+  let hasReceivedCurrencyRates = false;
+  try {
+    const langCode = await storage.getItem('langCode');
+    await updateTokensFromBackend(onUpdate, { langCode, shouldNarrowToHeldTokens: true }, (rates) => {
+      hasReceivedCurrencyRates = true;
+      updateCurrencyRates(rates);
+    });
   } catch (err) {
     logDebugError('tryUpdateTokens', err);
   } finally {
+    if (!hasReceivedCurrencyRates) updateCurrencyRates(undefined);
     await tokensPreload.promise;
     resumeTokenUpdates();
   }
@@ -222,16 +306,77 @@ const refreshTokenDetails = throttle(async () => {
   }
 }, TOKEN_DETAILS_THROTTLE, false);
 
-async function tryUpdateCurrencyRates() {
-  try {
-    const currencyRates = await callBackendGet<{ rates: ApiCurrencyRates }>('/currency-rates');
-    onUpdate({
-      type: 'updateCurrencyRates',
-      rates: currencyRates.rates,
-    });
-  } catch (err) {
-    logDebugError('tryUpdateCurrencyRates', err);
+function setupCurrencyRatesPolling() {
+  let polling: ReturnType<typeof pollingLoop> | undefined;
+  let fallbackPreload: Promise<void> | undefined;
+  let lastRates: ApiCurrencyRates | undefined;
+  let hasPriceRates = false;
+  let isStopped = false;
+  let generation = 0;
+  const fallbackTimeout = setTimeout(() => update(undefined), CURRENCY_RATES_FALLBACK_DELAY);
+
+  function sendRates(rates: ApiCurrencyRates) {
+    if (areDeepEqual(rates, lastRates)) return;
+    onUpdate({ type: 'updateCurrencyRates', rates });
+    lastRates = rates;
   }
+
+  async function tryUpdateCurrencyRates() {
+    const requestGeneration = generation;
+    try {
+      const currencyRates = await callBackendGet<{ rates: ApiCurrencyRates }>('/currency-rates');
+      if (!isStopped && requestGeneration === generation && !hasPriceRates && currencyRates?.rates) {
+        sendRates(currencyRates.rates);
+      }
+    } catch (err) {
+      logDebugError('tryUpdateCurrencyRates', err);
+    }
+  }
+
+  function update(rates: ApiCurrencyRates | undefined) {
+    if (isStopped) return undefined;
+    clearTimeout(fallbackTimeout);
+    hasPriceRates = rates !== undefined;
+    if (rates) {
+      generation += 1;
+      polling?.stop();
+      polling = undefined;
+      sendRates(rates);
+    } else if (!polling) {
+      const initialUpdate = tryUpdateCurrencyRates();
+      fallbackPreload = initialUpdate;
+      polling = pollingLoop({
+        period: CURRENCY_RATES_INTERVAL,
+        prepare: () => initialUpdate,
+        skipInitialPoll: true,
+        poll: tryUpdateCurrencyRates,
+      });
+    }
+    return rates ? undefined : fallbackPreload;
+  }
+
+  return {
+    update,
+    resetLastRates() {
+      lastRates = undefined;
+      if (!isStopped && !hasPriceRates && polling) {
+        void tryUpdateCurrencyRates();
+      }
+    },
+    stop() {
+      isStopped = true;
+      clearTimeout(fallbackTimeout);
+      polling?.stop();
+    },
+  };
+}
+
+export function resetLastCurrencyRates() {
+  activeCurrencyRatesPolling?.resetLastRates();
+}
+
+export function updateCurrencyRates(rates: ApiCurrencyRates | undefined) {
+  return activeCurrencyRatesPolling?.update(rates);
 }
 
 async function tryUpdateSwapTokens(
@@ -288,6 +433,7 @@ export async function tryUpdateConfig() {
 
     const {
       isLimited,
+      isSwapAndOnRampLimited,
       isCopyStorageEnabled = false,
       supportAccountsCount = 1,
       now: serverUtc,
@@ -304,6 +450,7 @@ export async function tryUpdateConfig() {
     const updateConfig: ApiUpdateConfig = {
       type: 'updateConfig',
       isLimited,
+      isSwapAndOnRampLimited,
       isCopyStorageEnabled,
       supportAccountsCount,
       countryCode,
@@ -401,9 +548,13 @@ function setupActivePolling(
   let serverInfoBanners: ApiInfoBannerPromotion[] = [];
   let foreignPromotion = foreignPromotionsByAccount.get(accountId);
   let lastBanners: Omit<ApiUpdateAccountBanners, 'type' | 'accountId'> | undefined;
+  // Wait for both sources, since a partial set drops banners already shown
+  let isServerInfoBannersKnown = false;
+  let isForeignPromotionKnown = Boolean(foreignPromotion)
+    || !accountChains.some((chain) => getChainConfig(chain).foreignStakingTokenAddresses?.length);
 
   function updateBanners() {
-    if (isStopped) return;
+    if (isStopped || !isServerInfoBannersKnown || !isForeignPromotionKnown) return;
     const homeBanners = [
       ...(foreignPromotion ? [buildForeignStakingHomeBanner(foreignPromotion)] : []),
       ...serverInfoBanners,
@@ -431,6 +582,8 @@ function setupActivePolling(
 
   activeAccountConfigPolling = canPollAccountConfig(account)
     ? setupAccountConfigPolling(accountId, account, (infoBanners) => {
+      if (!infoBanners) return;
+      isServerInfoBannersKnown = true;
       serverInfoBanners = infoBanners;
       updateBanners();
     })
@@ -438,17 +591,21 @@ function setupActivePolling(
   activeForeignStakingPolling = !NO_EXTRA_FEATURES
     ? setupForeignStakingPolling(accountId, account, (promotion) => {
       if (isStopped) return;
+      isForeignPromotionKnown = true;
       foreignPromotion = promotion;
       if (promotion) foreignPromotionsByAccount.set(accountId, promotion);
       else foreignPromotionsByAccount.delete(accountId);
       updateBanners();
     })
     : undefined;
+  isServerInfoBannersKnown ||= !activeAccountConfigPolling;
+  isForeignPromotionKnown ||= !activeForeignStakingPolling;
 
   const stopPollingFns = [
     activeAccountConfigPolling?.stop,
     activeForeignStakingPolling?.stop,
-    !NO_EXTRA_FEATURES && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+    !NO_EXTRA_FEATURES && account.type !== 'view' && doesAccountHaveChain(account, 'ton')
+      ? setupMfaPolling(accountId).stop : undefined,
 
     ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
       if (doesAccountHaveChain(account, chain)) {
@@ -480,6 +637,7 @@ export function addPollingAccount(accountId: string, account: ApiAccountAny) {
 /** Call it every time an account is removed (except for cases in the other remove...account functions) */
 export async function removePollingAccount(accountId: string) {
   await inactiveAccountPolling.removeAccount(accountId);
+  clearPendingBalances(accountId);
   foreignPromotionsByAccount.delete(accountId);
   forgetHeldTokens(accountId);
 }
@@ -487,6 +645,7 @@ export async function removePollingAccount(accountId: string) {
 /** Call it every time all accounts of a network are removed */
 export async function removeNetworkPollingAccounts(network: ApiNetwork) {
   await inactiveAccountPolling.removeNetworkAccounts(network);
+  clearNetworkPendingBalances(network);
   for (const accountId of foreignPromotionsByAccount.keys()) {
     if (parseAccountId(accountId).network === network) foreignPromotionsByAccount.delete(accountId);
   }
@@ -496,6 +655,7 @@ export async function removeNetworkPollingAccounts(network: ApiNetwork) {
 /** Call it every time all accounts are removed */
 export async function removeAllPollingAccounts() {
   await inactiveAccountPolling.removeAllAccounts();
+  clearAllPendingBalances();
   foreignPromotionsByAccount.clear();
   forgetAllHeldTokens();
 }
@@ -548,9 +708,9 @@ async function fetchForeignStakingPromotion(accountId: string): Promise<ApiForei
           stakingApy: common.liquid.apy,
         },
         infoBanner: {
-          title: '🔒 %amount% %symbol% locked in another staking',
+          title: '🔒 %amount% %symbol% staked elsewhere',
           textValues: { '%amount%': amount, '%symbol%': nativeToken.symbol },
-          description: 'Unstake them to restake with **higher returns**.',
+          description: 'Unlock your %symbol% to access higher-yield staking.',
           actionButton: {
             title: 'Unstake',
             onClickAction: 'unstakeForeign',
@@ -571,7 +731,7 @@ function buildForeignStakingHomeBanner(promotion: ApiForeignStakingPromotion): A
     id: promotion.linkedBannerId,
     kind: 'infoBanner',
     infoBanner: {
-      title: '💎 More profitable staking available',
+      title: '💎 Higher-yield staking available',
       textValues: { '%symbol%': promotion.foreignStaking.symbol },
       description: 'Tap to restake your %symbol% with higher returns.',
       actionButton: { title: 'Restake Now', onClickAction: 'openEarn' },
@@ -630,7 +790,7 @@ function setupForeignStakingPolling(
 function setupAccountConfigPolling(
   accountId: string,
   account: ApiAccountAny,
-  onInfoBanners: (infoBanners: ApiInfoBannerPromotion[]) => void,
+  onInfoBanners: (infoBanners: ApiInfoBannerPromotion[] | undefined) => void,
 ) {
   let lastResult: ApiUpdateAccountConfig['accountConfig'] | undefined;
 
@@ -672,17 +832,20 @@ function setupAccountConfigPolling(
         onInfoBanners(serverInfoBanners);
       } catch (err) {
         logDebugError('setupBackendAccountPolling', err);
+        onInfoBanners(undefined);
       }
     },
   });
 }
 
 function setupMfaPolling(accountId: string) {
+  let reportedMfa: ApiMfa | false | undefined;
+
   return pollingLoop({
     period: MFA_INTERVAL,
     async poll() {
       try {
-        await requireMfaMethods().refreshMfaStateAndNotify(accountId);
+        reportedMfa = await requireMfaMethods().refreshMfaStateAndNotify(accountId, reportedMfa);
       } catch (err) {
         logDebugError('setupMfaPolling', err);
       }
@@ -795,7 +958,8 @@ function createInactiveAccountsPollingManager() {
     if (stopByAccount[accountId]) return;
 
     const stopFns = [
-      !NO_EXTRA_FEATURES && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+      !NO_EXTRA_FEATURES && account.type !== 'view' && doesAccountHaveChain(account, 'ton')
+        ? setupMfaPolling(accountId).stop : undefined,
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
         if (doesAccountHaveChain(account, chain)) {
           return chains[chain].setupInactivePolling(accountId, account, onUpdate);

@@ -65,7 +65,7 @@ struct MintCardTests {
                 #expect(view.discountNotice.isHidden)
                 #expect(view.scrollView.frame == scrollFrame)
                 #expect(view.scrollView.contentOffset.y == 20)
-                #expect(view.benefits.frame.origin == benefitsFrame.origin)
+                #expect(isStationary(view.benefits.frame.origin, benefitsFrame.origin))
             }
             view.select(offset: 1, animated: false)
             #expect(!view.discountNotice.isHidden)
@@ -205,7 +205,7 @@ struct MintCardTests {
                 view.layoutIfNeeded()
                 #expect(view.benefits === benefits)
                 #expect(view.upgradeButton === button)
-                #expect(benefits.frame.origin == benefitsFrame.origin)
+                #expect(isStationary(benefits.frame.origin, benefitsFrame.origin))
                 #expect(button.frame == buttonFrame)
                 #expect(benefits.transform == .identity)
                 #expect(view.scrollView.contentOffset == CGPoint(x: 0, y: 20))
@@ -456,4 +456,10 @@ struct MintCardTests {
         #expect(view.accessibilityScroll(.right))
         #expect(view.selectedPage == 1)
     }
+}
+
+/// Layout recomputes the origin through different floating-point steps (418 can come back as 417.99999999999994), so
+/// a stationary view is one that moved by far less than a pixel.
+private func isStationary(_ origin: CGPoint, _ reference: CGPoint) -> Bool {
+    abs(origin.x - reference.x) < 0.001 && abs(origin.y - reference.y) < 0.001
 }

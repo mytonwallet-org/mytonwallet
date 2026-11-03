@@ -7,6 +7,7 @@
 
 import UIKit
 import SwiftUI
+import UIComponents
 
 // https://github.com/brycebostwick/RecreatingiMessageConfetti
 
@@ -160,29 +161,17 @@ class ConfettiView: UIView {
 
     // Step 4: _Wave_ Hello to CAEmitterBehavior
 
-    /*
-     Returns a new CAEmitterBehavior with the given name.
-     
-     For Swift Playgrounds, it's easier to use runtime methods
-     than to add a CAEmitterBehavior header to the project.
-     Originally from https://bryce.co/caemitterbehavior/
-     */
-    func createBehavior(type: String) -> NSObject {
-        let behaviorClass = NSClassFromString("CAEmitterBehavior") as! NSObject.Type
-        let behaviorWithType = behaviorClass.method(for: NSSelectorFromString("behaviorWithType:"))!
-        let castedBehaviorWithType = unsafeBitCast(behaviorWithType, to:(@convention(c)(Any?, Selector, Any?) -> NSObject).self)
-        return castedBehaviorWithType(behaviorClass, NSSelectorFromString("behaviorWithType:"), type)
-    }
+    // Originally from https://bryce.co/caemitterbehavior/
 
-    func horizontalWaveBehavior() -> Any {
-        let behavior = createBehavior(type: "wave")
+    func horizontalWaveBehavior() -> Any? {
+        guard let behavior = PrivateAPI.makeEmitterBehavior("wave") else { return nil }
         behavior.setValue([100, 0, 0], forKeyPath: "force")
         behavior.setValue(0.5, forKeyPath: "frequency")
         return behavior
     }
 
-    func verticalWaveBehavior() -> Any {
-        let behavior = createBehavior(type: "wave")
+    func verticalWaveBehavior() -> Any? {
+        guard let behavior = PrivateAPI.makeEmitterBehavior("wave") else { return nil }
         behavior.setValue([0, 500, 0], forKeyPath: "force")
         behavior.setValue(3, forKeyPath: "frequency")
         return behavior
@@ -190,8 +179,8 @@ class ConfettiView: UIView {
 
     // Step 5: More _Attractive_ Confetti
 
-    func attractorBehavior(for emitterLayer: CAEmitterLayer) -> Any {
-        let behavior = createBehavior(type: "attractor")
+    func attractorBehavior(for emitterLayer: CAEmitterLayer) -> Any? {
+        guard let behavior = PrivateAPI.makeEmitterBehavior("attractor") else { return nil }
         behavior.setValue("attractor", forKeyPath: "name")
 
         // Attractiveness
@@ -213,7 +202,7 @@ class ConfettiView: UIView {
             horizontalWaveBehavior(),
             verticalWaveBehavior(),
             attractorBehavior(for: layer)
-        ], forKey: "emitterBehaviors")
+        ].compactMap { $0 }, forKey: "emitterBehaviors")
     }
 
     // Step 6: Animations & Explosions
@@ -245,8 +234,8 @@ class ConfettiView: UIView {
 
     // Step 7: Air Resistance & Gravity
 
-    func dragBehavior() -> Any {
-        let behavior = createBehavior(type: "drag")
+    func dragBehavior() -> Any? {
+        guard let behavior = PrivateAPI.makeEmitterBehavior("drag") else { return nil }
         behavior.setValue("drag", forKey: "name")
         behavior.setValue(2, forKey: "drag")
 

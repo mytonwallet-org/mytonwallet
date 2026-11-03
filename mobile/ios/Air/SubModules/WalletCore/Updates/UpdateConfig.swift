@@ -17,6 +17,7 @@ extension ApiUpdate {
 
         public var type = "updateConfig"
         public var isLimited: Bool?
+        public var isSwapAndOnRampLimited: Bool?
         public var isCopyStorageEnabled: Bool?
         public var supportAccountsCount: Int?
         public var countryCode: String?
@@ -27,6 +28,7 @@ extension ApiUpdate {
         private enum CodingKeys: String, CodingKey {
             case type
             case isLimited
+            case isSwapAndOnRampLimited
             case isCopyStorageEnabled
             case supportAccountsCount
             case countryCode
@@ -39,6 +41,7 @@ extension ApiUpdate {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             type = try container.decodeIfPresent(String.self, forKey: .type) ?? "updateConfig"
             isLimited = try container.decodeIfPresent(Bool.self, forKey: .isLimited)
+            isSwapAndOnRampLimited = try? container.decodeIfPresent(Bool.self, forKey: .isSwapAndOnRampLimited)
             isCopyStorageEnabled = try container.decodeIfPresent(Bool.self, forKey: .isCopyStorageEnabled)
             supportAccountsCount = try container.decodeIfPresent(Int.self, forKey: .supportAccountsCount)
             countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)

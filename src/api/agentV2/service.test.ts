@@ -3,10 +3,13 @@ import type { AgentV2RuntimeDependencies } from './runtime';
 import type { AgentV2WalletToolDispatcherDependencies } from './walletTools';
 
 import { AgentV2CompatibilityError, AgentV2ContractError } from './protocol/wireReader';
+import { AgentV2HttpError } from './identity';
 import { clearAgentV2PersistentState } from './persistentState';
 import {
+  createAgentV2Thread,
   destroyAgentV2,
   getAgentV2DefaultThread,
+  getAgentV2NewsFeed,
   getAgentV2Runtime,
   initAgentV2,
   updateAgentV2HostContext,
@@ -14,7 +17,8 @@ import {
 
 type MockRuntime = jest.Mocked<Pick<
   import('./runtime').AgentV2Runtime,
-  'getDefaultThread' | 'destroy' | 'getConsent' | 'getRunLifecycleGeneration' | 'setToolExecutor' | 'updateHostContext'
+    'createThread' | 'getDefaultThread' | 'getNewsFeed' | 'destroy' | 'getConsent' | 'getRunLifecycleGeneration'
+    | 'setToolExecutor' | 'updateHostContext'
 >> & {
   dependencies: AgentV2RuntimeDependencies;
 };
@@ -27,7 +31,9 @@ jest.mock('./runtime', () => ({
   AgentV2Runtime: jest.fn().mockImplementation((dependencies: AgentV2RuntimeDependencies) => {
     const instance: MockRuntime = {
       dependencies,
+      createThread: jest.fn(),
       getDefaultThread: jest.fn(),
+      getNewsFeed: jest.fn(),
       destroy: jest.fn(() => Promise.resolve()),
       getConsent: jest.fn(() => Promise.resolve(true)),
       getRunLifecycleGeneration: jest.fn(() => 0),
@@ -81,6 +87,56 @@ describe('Agent V2 service lifecycle', () => {
     await initAgentV2(jest.fn());
     mockRuntimeInstances[0].getDefaultThread.mockRejectedValue(error);
     await expect(getAgentV2DefaultThread()).resolves.toMatchObject({ ok: false, error: { code } });
+  });
+
+  it('returns the news feed through the worker result envelope and forwards app language and cursor', async () => {
+    await initAgentV2(jest.fn());
+    const page = { locale: 'ru' as const, items: [], nextCursor: 'next-page' };
+    mockRuntimeInstances[0].getNewsFeed.mockResolvedValue(page);
+
+    await expect(getAgentV2NewsFeed({ lang: 'ru-RU', cursor: 'current-page' })).resolves.toEqual({
+      ok: true,
+      value: page,
+    });
+    expect(mockRuntimeInstances[0].getNewsFeed).toHaveBeenCalledWith({ lang: 'ru-RU', cursor: 'current-page' });
+  });
+
+  it('passes news binding and default parameters to thread creation', async () => {
+    await initAgentV2(jest.fn());
+    const result = {
+      protocolVersion: 3 as const,
+      thread: {
+        id: '11111111-1111-4111-8111-111111111111',
+        revision: 1,
+        createdAt: '2026-10-19T00:00:00.000Z',
+        updatedAt: '2026-10-19T00:00:00.000Z',
+        lastActivityAt: '2026-10-19T00:00:00.000Z',
+        messageCount: 0,
+        news: { eventId: 42, headline: 'Thread headline', publishedAt: '2026-10-19T00:00:00.000Z' },
+      },
+      created: true,
+    };
+    mockRuntimeInstances[0].createThread.mockResolvedValue(result);
+    const news = { eventId: 42, locale: 'ru' as const };
+
+    await expect(createAgentV2Thread({ news })).resolves.toEqual({ ok: true, value: result });
+    await expect(createAgentV2Thread()).resolves.toEqual({ ok: true, value: result });
+    expect(mockRuntimeInstances[0].createThread).toHaveBeenNthCalledWith(1, { news });
+    expect(mockRuntimeInstances[0].createThread).toHaveBeenNthCalledWith(2, {});
+  });
+
+  it('preserves retryable news failures across the worker boundary', async () => {
+    await initAgentV2(jest.fn());
+    const failure = new AgentV2HttpError(503, 'news_unavailable', 'Private server details', true, 2_000);
+    mockRuntimeInstances[0].getNewsFeed.mockRejectedValue(failure);
+    mockRuntimeInstances[0].createThread.mockRejectedValue(failure);
+    const expected = {
+      ok: false,
+      error: { code: 'news_unavailable', retryable: true, retryAfterMs: 2_000 },
+    };
+
+    await expect(getAgentV2NewsFeed({ lang: 'ru-RU', cursor: 'next-page' })).resolves.toEqual(expected);
+    await expect(createAgentV2Thread({ news: { eventId: 42, locale: 'ru' } })).resolves.toEqual(expected);
   });
 
   it('tears down the current runtime before activating its replacement', async () => {

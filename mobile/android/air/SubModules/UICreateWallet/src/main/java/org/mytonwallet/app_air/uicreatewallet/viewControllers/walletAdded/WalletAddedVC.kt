@@ -53,7 +53,8 @@ class WalletAddedVC(context: Context, isNew: Boolean, importedAccountsCount: Int
                 ).toProcessedSpannableStringBuilder(),
             onStarted = {
                 animationStarted()
-            }
+            },
+            titleViewId = R.id.wallet_added_title
         )
         v.alpha = 0f
         v

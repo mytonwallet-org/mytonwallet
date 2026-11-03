@@ -1,11 +1,13 @@
-import { Wallet } from 'ethers';
+import { Interface, Wallet } from 'ethers';
 
+import type { EvmSwapOrder } from './swapBinding';
 import { ApiTransactionError } from '../../types';
 
 import { fetchEvmWallet } from './util/account';
 import { getEvmProvider } from './util/client';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { patchSwapItem } from '../../common/swap';
+import { getTokenByAddress } from '../../common/tokens';
 import { callHook } from '../../hooks';
 import { submitBatchUserOp, validateEvmSwapCalls } from './smartAccount/batch';
 import { isAlchemy7702Delegated } from './smartAccount/delegation';
@@ -15,6 +17,7 @@ import { getPermit2SignatureStrategy } from './permit2';
 import {
   buildEvmSwapBatchCalls,
   buildLifiPermit2TypedData,
+  buildOnchainSwapTransfer,
   buildPermit2PermitCall,
   buildSignedLifiPermit2Transaction,
   buildUniswapBatchCalls,
@@ -24,6 +27,7 @@ import {
   hasUniswapPermitData,
   parseEvmSwapTransactionPayload,
   parseUniswapTransactionPayload,
+  rememberEvmSwapIntent,
   resolveSwapGasLimit,
   resolveSwapNeedsBatch,
   shouldBatchUniswapSwap,
@@ -32,6 +36,7 @@ import {
   submitLifiPermit2Swap,
   submitOnchainSwapTransfer,
 } from './swap';
+import { buildEvmSwapIntent } from './swapBinding';
 
 jest.mock('./util/client', () => ({ getEvmProvider: jest.fn() }));
 jest.mock('./util/account', () => ({ fetchEvmWallet: jest.fn() }));
@@ -41,6 +46,7 @@ jest.mock('../../common/accounts', () => ({
   fetchStoredWallet: jest.fn(),
 }));
 jest.mock('../../common/swap', () => ({ patchSwapItem: jest.fn() }));
+jest.mock('../../common/tokens', () => ({ getTokenByAddress: jest.fn() }));
 jest.mock('../../hooks', () => ({ callHook: jest.fn() }));
 jest.mock('./permit2', () => ({
   ...jest.requireActual('./permit2'),
@@ -53,6 +59,8 @@ jest.mock('./smartAccount/batch', () => ({
 }));
 jest.mock('./smartAccount/delegation', () => ({ isAlchemy7702Delegated: jest.fn() }));
 
+const USDC_ETHEREUM = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+
 const SAMPLE_PAYLOAD = {
   routing: 'CLASSIC',
   requiresPermitSignature: false,
@@ -61,14 +69,14 @@ const SAMPLE_PAYLOAD = {
     from: '0xWallet',
     data: '0xapprove',
     value: '0',
-    chainId: 11155111,
+    chainId: 1,
   },
   swap: {
     to: '0xRouter',
     from: '0xWallet',
     data: '0xswap',
     value: '0',
-    chainId: 11155111,
+    chainId: 1,
   },
 };
 
@@ -213,6 +221,8 @@ const NEXT_NONCE_RESULT = `0x${'0'.repeat(63)}7`;
 const provider = {
   call: jest.fn(),
   estimateGas: jest.fn(),
+  getBalance: jest.fn(),
+  getFeeData: jest.fn(),
 };
 const signer = {
   signTypedData: jest.fn(),
@@ -230,6 +240,7 @@ beforeEach(() => {
   jest.mocked(fetchStoredChainAccount).mockResolvedValue({ type: 'mnemonic' } as never);
   jest.mocked(fetchPrivateKeyString).mockResolvedValue(PERMIT_WALLET.privateKey);
   jest.mocked(patchSwapItem).mockResolvedValue(undefined as never);
+  jest.mocked(getTokenByAddress).mockReturnValue({ decimals: 6 } as never);
   jest.mocked(callHook).mockReturnValue(undefined as never);
   jest.mocked(getSignerFromPrivateKey).mockReturnValue(signer as never);
   jest.mocked(getPermit2SignatureStrategy).mockResolvedValue('raw');
@@ -250,12 +261,28 @@ describe('buildUniswapBatchCalls', () => {
     ]);
   });
 
-  it('inserts Permit2.approve fallback when permitData is absent', () => {
-    const calls = buildUniswapBatchCalls(PERMIT2_APPROVAL_PAYLOAD);
+  it('inserts the bound Permit2.approve when permitData is absent', () => {
+    const calls = buildUniswapBatchCalls({
+      ...PERMIT2_APPROVAL_PAYLOAD,
+      permit2Allowance: {
+        token: PERMIT2_APPROVAL_PAYLOAD.approval.to,
+        spender: PERMIT2_APPROVAL_PAYLOAD.swap.to,
+        amount: '100000',
+        expiration: '1700001800',
+      },
+    });
 
     expect(calls).toHaveLength(3);
     expect(calls[1].to).toBe(UNISWAP_PERMIT2_ADDRESS);
-    expect(calls[1].data).toMatch(/^0x87517c45/);
+    expect(calls[1].data).toBe(new Interface([
+      'function approve(address token, address spender, uint160 amount, uint48 expiration)',
+    ]).encodeFunctionData('approve', [
+      PERMIT2_APPROVAL_PAYLOAD.approval.to, PERMIT2_APPROVAL_PAYLOAD.swap.to, 100000n, 1700001800n,
+    ]));
+  });
+
+  it('grants no Permit2 allowance the binding did not bound', () => {
+    expect(buildUniswapBatchCalls(PERMIT2_APPROVAL_PAYLOAD).map(({ to }) => to)).not.toContain(UNISWAP_PERMIT2_ADDRESS);
   });
 
   it('uses a signed Permit2.permit call for backend permitData batches', async () => {
@@ -548,7 +575,89 @@ describe('LI.FI Permit2 wrapping', () => {
   });
 });
 
+describe('buildOnchainSwapTransfer', () => {
+  it('refuses a payload the binding rejects before the key signs anything', async () => {
+    const result = await buildOnchainSwapTransfer('ethereum', {
+      accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth', swapId: 'hostile-backend',
+      request: { from: USDC_ETHEREUM, to: 'eth', fromAmount: '0.1' },
+      transaction: JSON.stringify({ ...PERMIT2_PERMIT_PAYLOAD, swap: { ...PERMIT2_PERMIT_PAYLOAD.swap, to: OWNER } }),
+    } as never);
+
+    expect(result).toEqual({ error: ApiTransactionError.UnsuccesfulTransfer });
+    expect(patchSwapItem).toHaveBeenCalledWith(expect.objectContaining({
+      swapId: 'hostile-backend', error: 'Unbound swap payload: Swap target is not a Universal Router',
+    }));
+    expect(fetchPrivateKeyString).not.toHaveBeenCalled();
+  });
+
+  describe('a native LI.FI sale', () => {
+    // A BNB sale of the whole balance with LI.FI's gas limit, at the BNB Chain gas price.
+    const value = 4_754_771_200_000_000n;
+    const gasCeiling = 1_015_055n * 50_000_000n;
+    const build = () => buildOnchainSwapTransfer('bnb', {
+      accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth', swapId: 'native-sale',
+      request: { from: 'bnb', to: USDC_ETHEREUM, fromAmount: '0.0047547712' },
+      transactionRequest: {
+        from: OWNER,
+        to: '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE',
+        data: '0xa6010a66',
+        value: value.toString(),
+        gasLimit: '1015055',
+        chainId: 56,
+      },
+    } as never);
+
+    beforeEach(() => {
+      provider.getFeeData.mockResolvedValue({ gasPrice: 50_000_000n, maxFeePerGas: undefined });
+    });
+
+    it('is refused when the balance covers the value but not the gas it signs for', async () => {
+      provider.getBalance.mockResolvedValue(value + gasCeiling - 1n);
+
+      expect(await build()).toEqual({ error: ApiTransactionError.InsufficientBalance });
+      expect(patchSwapItem).toHaveBeenCalledWith(expect.objectContaining({
+        swapId: 'native-sale', error: ApiTransactionError.InsufficientBalance,
+      }));
+    });
+
+    it('is built when the balance covers the value and the gas', async () => {
+      provider.getBalance.mockResolvedValue(value + gasCeiling);
+
+      expect(await build()).toEqual(expect.objectContaining({
+        id: 'native-sale',
+        transactionRequest: expect.objectContaining({ value: value.toString(), gasLimit: '1015055' }),
+      }));
+    });
+  });
+});
+
 describe('submitOnchainSwapTransfer', () => {
+  function rememberBuiltIntent(chain: 'base' | 'ethereum', swapId: string, order: EvmSwapOrder) {
+    rememberEvmSwapIntent('0-mainnet', swapId, buildEvmSwapIntent(chain, chain === 'base' ? 8453 : 1, OWNER, order));
+  }
+
+  it('refuses a swap that was not built in this session', async () => {
+    const localSwap = {
+      id: 'unbuilt-local', kind: 'swap', timestamp: 1_700_000_000,
+      status: 'pendingTrusted', hashes: [], transactionIds: {},
+    };
+
+    const result = await submitOnchainSwapTransfer('ethereum', {
+      accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth',
+      localSwap,
+      swapId: 'unbuilt-backend',
+      transaction: JSON.stringify(PERMIT2_PERMIT_PAYLOAD),
+      needsBatch: true,
+    } as never, jest.fn());
+
+    expect(result).toEqual({ error: ApiTransactionError.UnsuccesfulTransfer });
+    expect(patchSwapItem).toHaveBeenCalledWith(expect.objectContaining({
+      swapId: 'unbuilt-backend', error: 'Unbound swap payload: Swap was not built in this session',
+    }));
+    expect(submitBatchUserOp).not.toHaveBeenCalled();
+    expect(connectedSigner.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it('sends a native-source LI.FI transaction request without Uniswap batching', async () => {
     const localSwap = {
       id: 'native-local',
@@ -566,12 +675,13 @@ describe('submitOnchainSwapTransfer', () => {
       chainId: 8453,
     };
 
+    rememberBuiltIntent('base', 'native-backend', { from: 'base', to: USDC_ETHEREUM, fromAmount: '0.00003' });
+
     const result = await submitOnchainSwapTransfer('base', {
       accountId: '0-mainnet',
       enclaveToken: 'enclave',
       authToken: 'auth',
       localSwap,
-      historyItem: localSwap,
       swapId: 'native-backend',
       transactionRequest,
       needsBatch: true,
@@ -602,12 +712,13 @@ describe('submitOnchainSwapTransfer', () => {
     };
     const payload = { ...LIFI_PERMIT2_PAYLOAD, approval: undefined };
 
+    rememberBuiltIntent('ethereum', 'lifi-backend', { from: USDC_ETHEREUM, to: 'eth', fromAmount: '1' });
+
     const result = await submitOnchainSwapTransfer('ethereum', {
       accountId: '0-mainnet',
       enclaveToken: 'enclave',
       authToken: 'auth',
       localSwap,
-      historyItem: localSwap,
       swapId: 'lifi-backend',
       transaction: JSON.stringify(payload),
       needsBatch: false,
@@ -634,9 +745,14 @@ describe('submitOnchainSwapTransfer', () => {
       id: 'bridge-local', kind: 'swap', timestamp: 1_700_000_000,
       status: 'pendingTrusted', hashes: [], transactionIds: {},
     };
+    rememberBuiltIntent('ethereum', 'bridge-backend', {
+      from: USDC_ETHEREUM, to: 'eth', fromAmount: '1', networkFee: '0.0003',
+    });
+
     const result = await submitOnchainSwapTransfer('ethereum', {
       accountId: '0-mainnet', enclaveToken: 'enclave', authToken: 'auth',
-      localSwap, historyItem: localSwap, swapId: 'bridge-backend',
+      localSwap,
+      swapId: 'bridge-backend',
       transaction: JSON.stringify({ ...LIFI_WITNESS_PAYLOAD, approval: undefined }),
       needsBatch: false,
     } as never, jest.fn());
@@ -668,12 +784,13 @@ describe('submitOnchainSwapTransfer', () => {
       transactionIds: {},
     };
 
+    rememberBuiltIntent('ethereum', 'swap-backend', { from: USDC_ETHEREUM, to: 'eth', fromAmount: '0.1' });
+
     const result = await submitOnchainSwapTransfer('ethereum', {
       accountId: '0-mainnet',
       enclaveToken: 'enclave',
       authToken: 'auth',
       localSwap,
-      historyItem: localSwap,
       swapId: 'swap-backend',
       transaction: JSON.stringify(PERMIT2_PERMIT_PAYLOAD),
       needsBatch: true,
@@ -744,8 +861,17 @@ describe('shouldIncludePermit2AllowanceCall', () => {
     expect(shouldIncludePermit2AllowanceCall(PERMIT2_PERMIT_PAYLOAD)).toBe(false);
   });
 
-  it('returns true when ERC20 approve targets Permit2 without permitData', () => {
-    expect(shouldIncludePermit2AllowanceCall(PERMIT2_APPROVAL_PAYLOAD)).toBe(true);
+  it('returns true for an allowance the binding set without permitData', () => {
+    expect(shouldIncludePermit2AllowanceCall({
+      ...PERMIT2_APPROVAL_PAYLOAD,
+      permit2Allowance: {
+        token: USDC_ETHEREUM, spender: PERMIT2_APPROVAL_PAYLOAD.swap.to, amount: '1', expiration: '1',
+      },
+    })).toBe(true);
+  });
+
+  it('returns false for a payload the binding did not bound', () => {
+    expect(shouldIncludePermit2AllowanceCall(PERMIT2_APPROVAL_PAYLOAD)).toBe(false);
   });
 });
 

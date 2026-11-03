@@ -4,6 +4,7 @@ plugins {
 
 android {
     namespace = "org.mytonwallet.app_air.uiagent"
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 val airSubModulePath = project.property("airSubModulePath")
@@ -14,6 +15,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.fresco)
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UISend"))
     implementation(project("$airSubModulePath:UIComponents"))

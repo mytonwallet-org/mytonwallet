@@ -285,6 +285,7 @@ fun View.scaleOut(
 fun View.scaleIn(
     duration: Long = AnimationConstants.QUICK_ANIMATION,
     targetScale: Float = 1f,
+    interpolator: TimeInterpolator = WInterpolator.emphasized,
     onCompletion: (() -> Unit)? = null
 ) {
     isVisible = true
@@ -298,7 +299,7 @@ fun View.scaleIn(
         .scaleX(targetScale)
         .scaleY(targetScale)
         .setDuration(duration)
-        .setInterpolator(WInterpolator.emphasized)
+        .setInterpolator(interpolator)
         .withEndAction {
             onCompletion?.invoke()
         }

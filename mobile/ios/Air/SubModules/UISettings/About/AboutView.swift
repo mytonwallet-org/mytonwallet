@@ -14,10 +14,13 @@ import WalletCore
 struct AboutView: View {
     
     var showLegalSection: Bool
+    @State private var isTouchingLogo = false
+    @State private var isHoveringLogo = false
     
     var body: some View {
         InsetList(topPadding: 0) {
             header
+                .zIndex(1)
             longDescription
             resources
                 .padding(.bottom, showLegalSection ? 0 : 32)
@@ -26,6 +29,10 @@ struct AboutView: View {
             }
         }
         .backportScrollBounceBehaviorBasedOnSize()
+        .onDisappear {
+            isTouchingLogo = false
+            isHoveringLogo = false
+        }
     }
     
     @ViewBuilder
@@ -49,13 +56,25 @@ struct AboutView: View {
         if IS_GRAM_WALLET {
             WUISpeedingDiamondWithParticles(
                 diamondSize: 96,
-                particleSize: CGSize(width: 258, height: 170)
+                particleSize: CGSize(width: 386, height: 268),
+                isWelcome: true
             )
                 .frame(width: 96, height: 96)
         } else {
             Image.mainBundle("IntroLogo")
                 .resizable()
                 .frame(width: 96, height: 96)
+                .highlightScale(isTouchingLogo, scale: 0.96, isEnabled: true)
+                .touchGesture($isTouchingLogo)
+                .backportSensoryFeedback(value: isTouchingLogo)
+                .background {
+                    SparkleParticleBackground(isWelcome: true, welcomeColor: .tintColor,
+                                              isHovered: isHoveringLogo, isPressed: isTouchingLogo)
+                        .frame(width: 386, height: 268)
+                        .offset(y: -10)
+                        .allowsHitTesting(false)
+                }
+                .onHover { isHoveringLogo = $0 }
         }
     }
     

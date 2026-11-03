@@ -31,7 +31,7 @@ interface StateProps {
   accountId?: string;
   accountTitle?: string;
 
-  mfa: {
+  mfa?: {
     user?: {
       name: string;
       username?: string;
@@ -50,7 +50,7 @@ function ConfirmMfa({
   onClose,
 }: OwnProps & StateProps) {
   const lang = useLang();
-  const telegramAccountName = mfa.user?.name ?? lang('My Telegram Account');
+  const telegramAccountName = mfa?.user?.name ?? lang('My Telegram Account');
 
   const handleSubmit = useLastCallback(() => {
     const url = new URL(MFA_BOT_URL);
@@ -71,7 +71,7 @@ function ConfirmMfa({
           title={accountTitle}
           className={styles.avatar}
         />
-        {mfa.user?.avatarUrl ? (
+        {mfa?.user?.avatarUrl ? (
           <img
             src={mfa.user.avatarUrl}
             alt="Avatar"

@@ -5,6 +5,7 @@ import androidx.core.view.isGone
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells.TokenCell
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntry
+import org.mytonwallet.app_air.uibrowser.search.SearchBrowseAccessory
 import org.mytonwallet.app_air.uibrowser.search.SearchRelevanceBand
 import org.mytonwallet.app_air.uibrowser.search.SearchResultRanker
 import org.mytonwallet.app_air.uibrowser.search.SearchTarget
@@ -13,6 +14,11 @@ import org.mytonwallet.app_air.uibrowser.search.SearchWebIntent
 import org.mytonwallet.app_air.uibrowser.search.SearchWebsite
 import org.mytonwallet.app_air.uibrowser.search.UniversalSearchHit
 import org.mytonwallet.app_air.uibrowser.search.UniversalSearchQuery
+import org.mytonwallet.app_air.uibrowser.search.chatsAccessory
+import org.mytonwallet.app_air.uibrowser.search.recentOrTrendingAccessory
+import org.mytonwallet.app_air.uibrowser.search.selectVisibleAgentThreads
+import org.mytonwallet.app_air.uibrowser.search.selectsSuggestions
+import org.mytonwallet.app_air.uibrowser.search.selectsTrending
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.CLEAR_ALL_BUTTON_TAG
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.GAP_CELL
@@ -127,8 +133,10 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         return true
     }
 
+    // Survive typing and clearing a query
     private var emptyTokenMode = SearchSelectorHeaderCell.Mode.RECENT
     private var emptyDappMode = SearchSelectorHeaderCell.Mode.RECENT
+    private var prefersSuggestedChats: Boolean? = null
 
     private var isSearchQueryDeeplink = false
 
@@ -275,15 +283,15 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
     private val hasRecentTokenSuggestions: Boolean
         get() = !searchResult?.recentTokens.isNullOrEmpty()
 
+    private val hasTrendingTokenSuggestions: Boolean
+        get() = !searchResult?.trendingTokens.isNullOrEmpty()
+
     private val selectedEmptyTokenMode: SearchSelectorHeaderCell.Mode
-        get() = if (
-            emptyTokenMode == SearchSelectorHeaderCell.Mode.RECENT &&
-            !hasRecentTokenSuggestions
-        ) {
-            SearchSelectorHeaderCell.Mode.TRENDING
-        } else {
-            emptyTokenMode
-        }
+        get() = recentOrTrendingMode(
+            emptyTokenMode,
+            hasRecentTokenSuggestions,
+            hasTrendingTokenSuggestions
+        )
 
     private val visibleTokenMatches: List<MTokenBalance>
         get() {
@@ -304,14 +312,46 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         get() = !searchResult?.trendingDapps.isNullOrEmpty()
 
     private val selectedEmptyDappMode: SearchSelectorHeaderCell.Mode
-        get() = if (
-            emptyDappMode == SearchSelectorHeaderCell.Mode.RECENT &&
-            !hasRecentDappSuggestions
-        ) {
+        get() = recentOrTrendingMode(
+            emptyDappMode,
+            hasRecentDappSuggestions,
+            hasTrendingDappSuggestions
+        )
+
+    private fun recentOrTrendingMode(
+        preferred: SearchSelectorHeaderCell.Mode,
+        hasRecent: Boolean,
+        hasTrending: Boolean
+    ): SearchSelectorHeaderCell.Mode {
+        val prefersTrending = preferred == SearchSelectorHeaderCell.Mode.TRENDING
+        return if (selectsTrending(prefersTrending, hasRecent, hasTrending)) {
             SearchSelectorHeaderCell.Mode.TRENDING
         } else {
-            emptyDappMode
+            SearchSelectorHeaderCell.Mode.RECENT
         }
+    }
+
+    private fun accessoryText(
+        accessory: SearchBrowseAccessory,
+        alternativeMode: SearchSelectorHeaderCell.Mode
+    ): String? = when (accessory) {
+        SearchBrowseAccessory.RECENT_TEXT ->
+            LocaleController.getString(SearchSelectorHeaderCell.Mode.RECENT.titleKey)
+
+        SearchBrowseAccessory.ALTERNATIVE_TEXT ->
+            LocaleController.getString(alternativeMode.titleKey)
+
+        SearchBrowseAccessory.TOGGLE, SearchBrowseAccessory.NONE -> null
+    }
+
+    private fun selectEmptyMode(
+        mode: SearchSelectorHeaderCell.Mode,
+        selectedMode: () -> SearchSelectorHeaderCell.Mode,
+        select: () -> Unit
+    ) {
+        if (searchQuery.isNotEmpty() || mode == selectedMode()) return
+        searchVC.switchSectionMode(select)
+    }
 
     private val visibleDappMatches: List<IDapp>
         get() {
@@ -325,17 +365,34 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         }
 
     private val visibleRecentChats
-        get() = if (searchQuery.isEmpty()) {
-            searchResult?.recentChats.orEmpty().take(1)
-        } else {
-            emptyList()
-        }
+        get() = selectVisibleAgentThreads(
+            searchResult?.keyword,
+            searchQuery,
+            searchResult?.recentChats.orEmpty()
+        )
 
     private val visibleSuggestedChats
         get() = if (searchQuery.isEmpty()) {
             searchResult?.suggestedChats.orEmpty()
         } else {
             emptyList()
+        }
+
+    private val isBrowsingChats: Boolean
+        get() = searchQuery.isEmpty() && searchResult?.keyword == searchQuery
+
+    private val isShowingSuggestedChats: Boolean
+        get() = isBrowsingChats && selectsSuggestions(
+            prefersSuggestedChats,
+            hasChats = visibleRecentChats.isNotEmpty(),
+            hasSuggestions = visibleSuggestedChats.isNotEmpty()
+        )
+
+    private val selectedChatsMode: SearchSelectorHeaderCell.Mode
+        get() = if (isShowingSuggestedChats) {
+            SearchSelectorHeaderCell.Mode.SUGGEST
+        } else {
+            SearchSelectorHeaderCell.Mode.RECENT
         }
 
     fun openBestMatch(): BestMatchResult {
@@ -470,10 +527,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
         SECTION_CHATS -> {
-            // Header + one row per non-empty list (recent conversation, suggestion chips) + gap.
-            val contentRows = (if (visibleRecentChats.isEmpty()) 0 else 1) +
-                (if (visibleSuggestedChats.isEmpty()) 0 else 1)
-            if (contentRows == 0) 0 else contentRows + 2
+            if (isBrowsingChats || visibleRecentChats.isNotEmpty()) 3 else 0
         }
 
         SECTION_MY_WALLETS -> {
@@ -557,6 +611,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                     RECENT_SEARCH_TITLE_CELL
                 }
 
+                SECTION_CHATS,
                 SECTION_TOKENS -> {
                     SEARCH_SELECTOR_TITLE_CELL
                 }
@@ -622,32 +677,37 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
             SECTION_CHATS -> {
                 val recentChats = visibleRecentChats
                 val suggestedChats = visibleSuggestedChats
+                val isBrowsing = isBrowsingChats
+                val showsSuggestions = isShowingSuggestedChats
+                val selectedMode = selectedChatsMode
+                val animated = searchVC.isSwitchingSectionMode
                 if (indexPath.row == 0) {
-                    configureSectionHeader(
-                        cellHolder,
-                        indexPath,
-                        LocaleController.getString("Chats")
-                    )
-                } else if (indexPath.row == 1 && recentChats.isNotEmpty()) {
-                    (cellHolder.cell as SearchSectionCell).configure(
-                        recentChats.size,
-                        60.dp,
-                        SEARCH_RECENT_CHAT_CELL,
-                        contentIdentity = recentChats.map { it.id },
-                        bottomRadius = if (suggestedChats.isEmpty()) {
-                            ViewConstants.BLOCK_RADIUS.dp
-                        } else {
-                            0f
-                        },
-                        createCell = { searchVC.createCell(SEARCH_RECENT_CHAT_CELL) },
-                        configureCell = { cell, itemIndex, isLastItem ->
-                            (cell as SearchRecentChatCell).configure(
-                                recentChats[itemIndex],
-                                isLastItem && suggestedChats.isEmpty()
-                            )
+                    val accessory = if (isBrowsing) {
+                        chatsAccessory(recentChats.isNotEmpty(), suggestedChats.isNotEmpty())
+                    } else {
+                        SearchBrowseAccessory.NONE
+                    }
+                    (cellHolder.cell as SearchSelectorHeaderCell).configure(
+                        title = LocaleController.getString(
+                            if (isBrowsing) "Chats" else "Recent Chats"
+                        ),
+                        showsSelector = accessory == SearchBrowseAccessory.TOGGLE,
+                        selectedMode = selectedMode,
+                        alternativeMode = SearchSelectorHeaderCell.Mode.SUGGEST,
+                        topRounding = topRounding(indexPath),
+                        accessoryText = accessoryText(
+                            accessory,
+                            SearchSelectorHeaderCell.Mode.SUGGEST
+                        ),
+                        animated = animated,
+                        onModeSelected = { mode ->
+                            val prefersSuggestions = mode == SearchSelectorHeaderCell.Mode.SUGGEST
+                            selectEmptyMode(mode, { selectedChatsMode }) {
+                                prefersSuggestedChats = prefersSuggestions
+                            }
                         }
                     )
-                } else {
+                } else if (showsSuggestions) {
                     (cellHolder.cell as SearchSectionCell).configure(
                         suggestedChats.size,
                         44.dp,
@@ -660,9 +720,38 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                         rowSpacing = 12.dp,
                         verticalPadding = 12.dp,
                         horizontalEndSpacing = SearchChatHintCell.SECTION_END_SPACING.dp,
+                        fitColumnsToWidth = rv.width - rv.paddingStart - rv.paddingEnd,
+                        animated = animated,
                         createCell = { searchVC.createCell(SEARCH_CHAT_HINT_CELL) },
                         configureCell = { cell, itemIndex, _ ->
                             (cell as SearchChatHintCell).configure(suggestedChats[itemIndex])
+                        }
+                    )
+                } else if (recentChats.isEmpty()) {
+                    (cellHolder.cell as SearchSectionCell).configure(
+                        1,
+                        60.dp,
+                        SEARCH_RECENT_CHAT_CELL,
+                        contentIdentity = START_CHAT_ROW,
+                        animated = animated,
+                        createCell = { searchVC.createCell(SEARCH_RECENT_CHAT_CELL) },
+                        configureCell = { cell, _, isLastItem ->
+                            (cell as SearchRecentChatCell).configureStart(isLastItem)
+                        }
+                    )
+                } else {
+                    (cellHolder.cell as SearchSectionCell).configure(
+                        recentChats.size,
+                        60.dp,
+                        SEARCH_RECENT_CHAT_CELL,
+                        contentIdentity = recentChats.map { it.thread.id },
+                        animated = animated,
+                        createCell = { searchVC.createCell(SEARCH_RECENT_CHAT_CELL) },
+                        configureCell = { cell, itemIndex, isLastItem ->
+                            (cell as SearchRecentChatCell).configure(
+                                recentChats[itemIndex],
+                                isLastItem
+                            )
                         }
                     )
                 }
@@ -883,27 +972,28 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
 
             SECTION_DAPPS -> {
                 if (indexPath.row == 0) {
+                    val accessory = if (searchQuery.isEmpty()) {
+                        recentOrTrendingAccessory(
+                            hasRecentDappSuggestions,
+                            hasTrendingDappSuggestions
+                        )
+                    } else {
+                        SearchBrowseAccessory.NONE
+                    }
                     (cellHolder.cell as SearchSelectorHeaderCell).configure(
                         title = LocaleController.getString("Apps"),
-                        showsSelector = searchQuery.isEmpty() &&
-                            hasRecentDappSuggestions &&
-                            hasTrendingDappSuggestions,
+                        showsSelector = accessory == SearchBrowseAccessory.TOGGLE,
                         selectedMode = selectedEmptyDappMode,
                         alternativeMode = SearchSelectorHeaderCell.Mode.TRENDING,
                         topRounding = topRounding(indexPath),
+                        accessoryText = accessoryText(
+                            accessory,
+                            SearchSelectorHeaderCell.Mode.TRENDING
+                        ),
+                        animated = searchVC.isSwitchingSectionMode,
                         onModeSelected = { mode ->
-                            val canSelect = when (mode) {
-                                SearchSelectorHeaderCell.Mode.RECENT ->
-                                    hasRecentDappSuggestions
-
-                                SearchSelectorHeaderCell.Mode.TRENDING ->
-                                    hasTrendingDappSuggestions
-
-                                SearchSelectorHeaderCell.Mode.SUGGEST -> false
-                            }
-                            if (canSelect && emptyDappMode != mode) {
+                            selectEmptyMode(mode, { selectedEmptyDappMode }) {
                                 emptyDappMode = mode
-                                rvAdapter.reloadData()
                             }
                         }
                     )
@@ -914,6 +1004,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                         60.dp,
                         SEARCH_DAPP_CELL,
                         contentIdentity = dapps.map { it.url ?: it.name.orEmpty() },
+                        animated = searchVC.isSwitchingSectionMode,
                         createCell = { searchVC.createCell(SEARCH_DAPP_CELL) },
                         configureCell = { cell, itemIndex, isLastItem ->
                             (cell as SearchDappCell).configure(
@@ -928,19 +1019,28 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
 
             SECTION_TOKENS -> {
                 if (indexPath.row == 0) {
+                    val accessory = if (searchQuery.isEmpty()) {
+                        recentOrTrendingAccessory(
+                            hasRecentTokenSuggestions,
+                            hasTrendingTokenSuggestions
+                        )
+                    } else {
+                        SearchBrowseAccessory.NONE
+                    }
                     (cellHolder.cell as SearchSelectorHeaderCell).configure(
                         title = LocaleController.getString("Tokens and Stocks"),
-                        showsSelector = searchQuery.isEmpty() &&
-                            hasRecentTokenSuggestions,
+                        showsSelector = accessory == SearchBrowseAccessory.TOGGLE,
                         selectedMode = selectedEmptyTokenMode,
                         alternativeMode = SearchSelectorHeaderCell.Mode.TRENDING,
                         topRounding = topRounding(indexPath),
+                        accessoryText = accessoryText(
+                            accessory,
+                            SearchSelectorHeaderCell.Mode.TRENDING
+                        ),
+                        animated = searchVC.isSwitchingSectionMode,
                         onModeSelected = { mode ->
-                            val canSelect = mode != SearchSelectorHeaderCell.Mode.RECENT ||
-                                hasRecentTokenSuggestions
-                            if (canSelect && emptyTokenMode != mode) {
+                            selectEmptyMode(mode, { selectedEmptyTokenMode }) {
                                 emptyTokenMode = mode
-                                rvAdapter.reloadData()
                             }
                         }
                     )
@@ -952,6 +1052,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                         60.dp,
                         SEARCH_TOKEN_CELL,
                         contentIdentity = tokens.map { it.token },
+                        animated = searchVC.isSwitchingSectionMode,
                         createCell = { searchVC.createCell(SEARCH_TOKEN_CELL) },
                         configureCell = { cell, itemIndex, isLastItem ->
                             (cell as TokenCell).configure(
@@ -1118,5 +1219,9 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
             titleColor = WColor.Tint,
             topRounding = topRounding(indexPath)
         )
+    }
+
+    private companion object {
+        const val START_CHAT_ROW = "start-chat"
     }
 }

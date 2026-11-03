@@ -2,6 +2,7 @@ import type { ApiCheckTransactionDraftResult } from '../../api/types';
 import type { GlobalState } from '../types';
 
 import { pick } from '../../util/iteratees';
+import { isToAddressError } from '../helpers/errors';
 import { replaceActivityId } from '../helpers/misc';
 import { INITIAL_STATE } from '../initialState';
 import {
@@ -13,6 +14,7 @@ import {
 export function updateCurrentTransferByCheckResult(global: GlobalState, result: ApiCheckTransactionDraftResult) {
   const nextGlobal = updateCurrentTransfer(global, {
     toAddressName: result.addressName,
+    toAddressError: isToAddressError(result.error) ? result.error : undefined,
     ...pick(result, [
       'isScam',
       'isMemoRequired',
@@ -73,7 +75,7 @@ export function updateCurrentTransferLoading(global: GlobalState, isLoading: boo
 }
 
 export function setCurrentTransferAddress(global: GlobalState, toAddress: string | undefined) {
-  global = updateCurrentTransfer(global, { toAddress });
+  global = updateCurrentTransfer(global, { toAddress, toAddressError: undefined });
 
   // Unless the user has filled the amount, the token should change to match the "to" address
   if (!global.currentTransfer.amount) {

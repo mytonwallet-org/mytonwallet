@@ -11,8 +11,6 @@ public final class WBlurredContentView: UIView {
     }
 
 
-    private static let filterClassName = "retliFAC"
-    private static let filterSelectorName = ":epyThtiWretlif"
     private static let blurRadiusKeyPath = "filters.gaussianBlur.inputRadius"
     private static let blurRadiusAnimationKey = "WBlurredContentView.blurRadius"
 
@@ -45,14 +43,16 @@ public final class WBlurredContentView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
 
-        if let filterClass = NSClassFromString(String(Self.filterClassName.reversed())) as? NSObject.Type,
-           let gaussianBlur = filterClass.perform(
-               NSSelectorFromString(String(Self.filterSelectorName.reversed())),
-               with: "gaussianBlur"
-           ).takeUnretainedValue() as? NSObject {
-            gaussianBlur.setValue(0.0, forKey: "inputRadius")
+        if let gaussianBlur = Self.makeGaussianBlurFilter() {
             layer.filters = [gaussianBlur]
         }
+    }
+
+    /// A Gaussian blur for a layer's `filters`, at radius 0. Its radius lives at `filters.gaussianBlur.inputRadius`.
+    public static func makeGaussianBlurFilter() -> NSObject? {
+        guard let gaussianBlur = PrivateAPI.makeFilter("gaussianBlur") else { return nil }
+        gaussianBlur.setValue(0.0, forKey: "inputRadius")
+        return gaussianBlur
     }
 
     required init?(coder: NSCoder) {

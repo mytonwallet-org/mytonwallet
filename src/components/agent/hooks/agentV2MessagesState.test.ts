@@ -34,7 +34,6 @@ describe('Agent V2 messages state', () => {
       entries: [entry('persisted-response', message('Persisted response'))],
       nextCursor: 'older-page',
       shouldPreserveLiveContent: true,
-      shouldClearError: true,
     });
 
     expect(hydrated).toMatchObject({
@@ -45,6 +44,24 @@ describe('Agent V2 messages state', () => {
       messages: [{ text: 'Persisted response', semanticContent }],
       sourceIdByMessageId: { 1: 'persisted-response' },
     });
+  });
+
+  it('clears a history failure after silent authoritative hydration', () => {
+    const current = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      error: { text: 'Failed to load chat', timestamp: 10, isHistoryFailure: true },
+    };
+
+    const loading = reduce(current, { kind: 'hydrationStarted', shouldClearError: false });
+    const hydrated = reduce(loading, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(2),
+      entries: [entry('persisted-response', message('Persisted response'))],
+      shouldPreserveLiveContent: true,
+    });
+
+    expect(loading.error).toBe(current.error);
+    expect(hydrated.error).toBeUndefined();
   });
 
   it('preserves a recovery error through silent authoritative hydration', () => {
@@ -62,7 +79,6 @@ describe('Agent V2 messages state', () => {
       thread: threadSummary(2),
       entries: [entry('live-response', message('Authoritative response'))],
       shouldPreserveLiveContent: true,
-      shouldClearError: false,
     });
 
     expect(hydrated).toMatchObject({
@@ -88,7 +104,6 @@ describe('Agent V2 messages state', () => {
       thread: threadSummary(2),
       entries: [entry('persisted-source', message('Authoritative response', 1))],
       shouldPreserveLiveContent: true,
-      shouldClearError: false,
     });
 
     expect(hydrated.messages.map(({ text }) => text)).toEqual([
@@ -98,6 +113,24 @@ describe('Agent V2 messages state', () => {
       1: 'persisted-source',
       2: 'live-source',
     });
+  });
+
+  it('keeps an answer the stream is still writing when history already holds its text', () => {
+    const current: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      messages: [{ ...message('', 2), isStreaming: true }],
+      sourceIdByMessageId: { 2: 'live-source' },
+    };
+
+    const hydrated = reduce(current, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(2),
+      entries: [entry('live-source', { ...message('Complete answer', 2), timestamp: 20, isComplete: true })],
+      shouldPreserveLiveContent: true,
+    });
+    const streamed = reduce(hydrated, { kind: 'textDeltasFlushed', deltas: [[2, 'Complete answer']] });
+
+    expect(streamed.messages).toMatchObject([{ text: 'Complete answer', timestamp: 20, isStreaming: true }]);
   });
 
   it('does not preserve live messages or source bindings across replacement-thread hydration', () => {
@@ -116,7 +149,6 @@ describe('Agent V2 messages state', () => {
       entries: [entry('replacement-source', message('Replacement response', 2))],
       nextCursor: 'replacement-cursor',
       shouldPreserveLiveContent: true,
-      shouldClearError: false,
     });
 
     expect(hydrated.messages.map(({ text }) => text)).toEqual(['Replacement response']);
@@ -440,6 +472,53 @@ describe('Agent V2 messages state', () => {
 
     expect(afterStaleSettlement).toBe(current);
     expect(afterStaleSettlement.run).toMatchObject({ phase: 'admitting', operationId: 2 });
+  });
+
+  it.each(['messageStarted', 'runActivityChanged'] as const)(
+    'settles an interrupted run adopted through %s without a local operation',
+    (kind) => {
+      const streaming = reduce(INITIAL_AGENT_V2_MESSAGES_STATE, kind === 'messageStarted' ? {
+        kind,
+        clientRunId: CLIENT_RUN_ID,
+        message: { ...message('Partial response'), isStreaming: true },
+      } : {
+        kind,
+        clientRunId: CLIENT_RUN_ID,
+        event: runActivityEvent('web.searching', 'active'),
+      });
+      const interrupted = reduce(streaming, {
+        kind: 'messageCompleted',
+        clientRunId: CLIENT_RUN_ID,
+        messageId: 1,
+        finishReason: 'run_interrupted',
+      });
+
+      expect(streaming.run).toMatchObject({ phase: 'streaming', clientRunId: CLIENT_RUN_ID });
+      expect(interrupted.run).toEqual({ phase: 'idle' });
+      expect(selectIsAgentV2InputDisabled(interrupted, false)).toBe(false);
+    },
+  );
+
+  it('keeps an interrupted local operation active until its matching settlement', () => {
+    const requested = reduce(INITIAL_AGENT_V2_MESSAGES_STATE, {
+      kind: 'runRequested', operationId: 1, operationKind: 'command',
+    });
+    const streaming = reduce(requested, {
+      kind: 'messageStarted',
+      clientRunId: CLIENT_RUN_ID,
+      message: { ...message('Partial response'), isStreaming: true },
+    });
+    const interrupted = reduce(streaming, {
+      kind: 'messageCompleted',
+      clientRunId: CLIENT_RUN_ID,
+      messageId: 1,
+      finishReason: 'run_interrupted',
+    });
+
+    expect(interrupted.run).toBe(streaming.run);
+    expect(interrupted.messages[0].isStreaming).toBeUndefined();
+    expect(selectIsAgentV2InputDisabled(interrupted, false)).toBe(true);
+    expect(reduce(interrupted, { kind: 'runSettled', operationId: 1 }).run).toEqual({ phase: 'idle' });
   });
 
   it('normalizes terminal failures, limits and cancellation', () => {

@@ -31,6 +31,10 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     public private(set) var selectedIndex: Int
     public var onSelectionChanged: ((Int) -> Void)?
     public var onProgressChanged: ((Progress) -> Void)?
+    /// The page bars should show while paging, which change only as the finger lifts, as Telegram's do: the page a drag
+    /// started on while the finger is down, the page it lands on once released, the page a tap goes to
+    public private(set) var committedIndex: Int
+    public var onCommittedIndexChanged: ((Int) -> Void)?
     public var isPagingEnabled = true {
         didSet {
             guard oldValue != isPagingEnabled, isViewLoaded else { return }
@@ -88,6 +92,7 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         self.preloadsPages = preloadsPages
         self.selectedIndex = selectedIndex
         self.appearanceIndex = selectedIndex
+        committedIndex = selectedIndex
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -466,8 +471,15 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         }
         isUpdatingLayout = false
         setNeedsStatusBarAppearanceUpdate()
+        commit(index)
         if notify { onSelectionChanged?(index) }
         schedulePreparation()
+    }
+
+    private func commit(_ index: Int) {
+        guard committedIndex != index else { return }
+        committedIndex = index
+        onCommittedIndexChanged?(index)
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -483,6 +495,16 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
               scrollView.bounds.size == layoutSize,
               layoutDirection == view.effectiveUserInterfaceLayoutDirection else { return }
         updateViewport()
+    }
+
+    public func scrollViewWillEndDragging(
+        _ scrollView: UIScrollView,
+        withVelocity velocity: CGPoint,
+        targetContentOffset: UnsafeMutablePointer<CGPoint>
+    ) {
+        guard case .dragging = motion, !slots.isEmpty, scrollView.bounds.width > 0 else { return }
+        let slot = Int((targetContentOffset.pointee.x / scrollView.bounds.width).rounded())
+        commit(slots[min(slots.count - 1, max(0, slot))])
     }
 
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -507,6 +529,7 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
             return
         }
         motion = .animating(target: index)
+        commit(index)
         animation.start(duration: 0.3) { [weak self] progress in
             self?.scrollView.contentOffset.x = start + (end - start) * progress
         } completion: { [weak self] in

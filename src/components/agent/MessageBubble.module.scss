@@ -1,11 +1,26 @@
 @use "../../styles/mixins";
 
+@use "agentBubble";
+
+@use "agentMenu";
+
+// An answer keeps 27 px and a question 56 px clear of the list's side across from them, as in the design, and neither
+// grows wider than a News post
+$incomingBubbleMaxWidth: min(calc(100% - 2.1875rem), agentBubble.$maxWidth);
+// The tail column comes on top of it
+$incomingWrapperMaxWidth: min(calc(100% - 1.6875rem), agentBubble.$maxWidth + agentBubble.$tailWidth);
+$outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
+
 .message {
   display: flex;
   margin-top: 0.625rem;
 }
 
-.messageEmpty { margin-top: 0; }
+// A failure with no answer over it is its caption alone, which starts 6 px under the message before, as in the design
+.messageEmpty,
+.messageFailureOnly {
+  margin-top: 0;
+}
 
 .messageOutgoing {
   justify-content: flex-end;
@@ -17,7 +32,7 @@
 
 .wrapper {
   position: relative;
-  max-width: 85%;
+  max-width: $incomingWrapperMaxWidth;
 }
 
 .wrapperRich {
@@ -26,15 +41,19 @@
 
   .incoming {
     width: fit-content;
-    max-width: 85%;
+    max-width: $incomingBubbleMaxWidth;
   }
 }
 
+// The action buttons hang from the bubble as wide as it is, or the bubble widens to the widest button
 .wrapperRichActions {
   width: fit-content;
-  max-width: 85%;
+  max-width: $incomingWrapperMaxWidth;
 
-  .incoming { max-width: 100%; }
+  .incoming {
+    max-width: 100%;
+    border-end-end-radius: 0.5rem;
+  }
 }
 
 .bubble {
@@ -46,13 +65,20 @@
 
   unicode-bidi: plaintext;
 
-  padding: 0.4375rem 0.625rem;
+  // A bubble whose content pads itself, as a news item, sets `--agent-bubble-padding` to 0
+  padding: var(--agent-bubble-padding, 0.5rem 0.75rem);
   border-radius: var(--border-radius-content);
 
+  // The wallet's text is a size smaller off a phone; on a phone it is the design's Medium 17/22
   font-size: 0.9375rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.25rem;
   overflow-wrap: break-word;
+
+  @include mixins.is-mobile() {
+    font-size: 1.0625rem;
+    line-height: 1.375rem;
+  }
 
   &::after {
     content: "";
@@ -60,13 +86,10 @@
     position: absolute;
     bottom: 0;
 
-    width: 0.5rem;
-    /* stylelint-disable-next-line plugin/whole-pixel */
-    height: 0.8333rem;
+    width: agentBubble.$tailWidth;
+    height: agentBubble.$tailHeight;
 
     mask-size: 100% 100%;
-
-    @include mixins.rtl-mirror();
   }
 
   * {
@@ -75,7 +98,7 @@
 }
 
 .outgoing {
-  max-width: 75%;
+  max-width: $outgoingBubbleMaxWidth;
   margin-inline-end: 0.5rem;
   border-end-end-radius: 0;
 
@@ -87,8 +110,13 @@
     inset-inline-end: -0.5rem;
     background-color: var(--color-accent);
 
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M0 0c0 4.286 2.353 10.238 7.059 11.428 0 0 .941 0 .941.953 0 .952-.941.952-.941.952H0V0z'/%3E%3C/svg%3E");
+    mask-image: agentBubble.$outgoingTailMask;
     mask-repeat: no-repeat;
+
+    // A tail on the other side is the other bubble's tail
+    :global(html[dir="rtl"]) & {
+      mask-image: agentBubble.$incomingTailMask;
+    }
   }
 }
 
@@ -98,18 +126,39 @@
   --agent-table-border: rgba(0, 0, 0, 0.1);
   // The answer takes the place of the activity indicator, so it fades in where it stands instead of sliding up
   --message-appear-offset: 0;
+  // Paragraphs stand a blank line apart, while the answer streams as well as once it is complete
+  --agent-paragraph-gap: 1.375rem;
 
+  // One line high from the start, as the activity line it replaces, and hidden until its first words show
+  min-height: 2.375rem;
   margin-inline-start: 0.5rem;
   border-end-start-radius: 0;
+
   color: var(--color-black);
+
   background-color: var(--color-activity-gray-background);
 
+  &:has([data-agent-streaming-text]:empty) {
+    visibility: hidden;
+  }
+
+  // The tail grows back out of the corner once the suggestions under the bubble go, as on mobile
   &::after {
     inset-inline-start: -0.5rem;
+    transform-origin: 100% 100%;
+
     background-color: var(--color-activity-gray-background);
 
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M8 0c0 4.286-2.353 10.238-7.059 11.428 0 0-.941 0-.941.953 0 .952.941.952.941.952H8V0z'/%3E%3C/svg%3E");
+    mask-image: agentBubble.$incomingTailMask;
     mask-repeat: no-repeat;
+
+    @include mixins.transition("scale 400ms cubic-bezier(0.34, 1.4, 0.64, 1) 50ms, opacity 200ms ease 50ms");
+
+    :global(html[dir="rtl"]) & {
+      transform-origin: 0 100%;
+
+      mask-image: agentBubble.$outgoingTailMask;
+    }
   }
 
   :global(pre) {
@@ -153,7 +202,7 @@
   }
 
   :global(p) {
-    margin: 1rem 0;
+    margin: var(--agent-paragraph-gap) 0;
 
     &:first-child {
       margin-top: 0;
@@ -210,6 +259,16 @@
   }
 }
 
+// Suggestions under the bubble take the place of its tail
+.incoming.tailless {
+  border-end-start-radius: var(--border-radius-content);
+
+  &::after {
+    scale: 0.4;
+    opacity: 0;
+  }
+}
+
 .appearing {
   animation: message-appear 200ms ease-out;
 }
@@ -231,35 +290,58 @@
   }
 }
 
-.failure {
-  margin-top: 0.375rem;
-  margin-inline-start: 0.5rem;
+// A failure under an answer, or in its place, is a line centered in the chat
+.wrapperWithFailure {
+  flex-grow: 1;
+  max-width: 100%;
+
+  .incoming {
+    width: fit-content;
+    max-width: $incomingBubbleMaxWidth;
+  }
 }
 
+// A failure's row follows the gap after the last message, as the limit's row does
+.failure {
+  margin-top: 0.625rem;
+}
+
+// The buttons hang from the bubble 3 px apart, the last one rounder at the bottom
+// A button that sets `--agent-action-text` and `--agent-action-background` takes those colors instead
 .actionButton {
+  --agent-action-info-text: #2582D8;
+
   cursor: pointer;
 
   overflow: hidden;
   display: block;
 
   width: 100%;
-  padding: 0.75rem 0.75rem;
+  padding: 0.6875rem 0.75rem;
   border: none;
-  border-radius: 0.625rem;
+  border-radius: 0.5rem;
 
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.25rem;
-  color: var(--color-accent);
+  color: var(--agent-action-text, var(--agent-action-info-text));
   text-align: center;
   text-decoration: none !important;
   word-break: break-all;
 
-  background: var(--color-accent-10o);
+  @include mixins.is-mobile() {
+    font-size: 1rem;
+  }
 
-  &:last-child {
-    border-end-start-radius: var(--border-radius-medium);
-    border-end-end-radius: var(--border-radius-medium);
+  background: var(--agent-action-background, var(--color-activity-blue-background));
+
+  :global(html.theme-dark) & {
+    --agent-action-info-text: var(--color-activity-blue);
+  }
+
+  &:last-of-type {
+    border-end-start-radius: 1rem;
+    border-end-end-radius: 1rem;
   }
 
   &:hover {
@@ -273,4 +355,24 @@
   @include mixins.transition(opacity 200ms);
 
   @include mixins.active-transition-optimization();
+}
+
+// The menu lines up with the bubble's side rather than overhanging it
+// A message's menu has 8 px over its date line and 4 px under its last item, so the date stands 12 px in from the
+// menu's top and start, as in the design
+.menu {
+  --offset-x-value: 0;
+
+  @include agentMenu.contextMenu;
+
+  padding-block: 0.5rem 0.25rem !important;
+}
+
+// The suggestions under an answer lifted over the menu's tint stay as dim as the rest of the chat
+.wrapperMenuOpen [data-agent-followup-id] {
+  filter: brightness(0.84);
+
+  :global(html.theme-dark) & {
+    filter: brightness(0.68);
+  }
 }

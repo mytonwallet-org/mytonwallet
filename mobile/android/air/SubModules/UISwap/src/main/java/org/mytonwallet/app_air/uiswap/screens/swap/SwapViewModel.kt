@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapInputState
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapUiInputState
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapWalletState
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSwap
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
@@ -112,7 +113,8 @@ internal fun resolveNativeFeeGate(
 
 class SwapViewModel :
     ViewModel(),
-    WalletCore.EventObserver {
+    WalletCore.EventObserver,
+    TokenTradeSwap {
 
     /** Wallet State **/
 
@@ -250,7 +252,7 @@ class SwapViewModel :
         buildUiInputStateFlow(wallet, input, applied, quotedCex(input, estimate))
     }.filterNotNull()
 
-    val currentUiInputState: SwapUiInputState?
+    override val currentUiInputState: SwapUiInputState?
         get() = buildUiInputStateFlow(
             _walletStateFlow.value,
             _inputStateFlow.value,
@@ -426,7 +428,7 @@ class SwapViewModel :
             return _inputStateFlow.value.tokenToSendMaxAmount
         }
 
-    val tokenToSendMaxBalance: BigInteger
+    override val tokenToSendMaxBalance: BigInteger
         get() = calcSwapMaxBalance(fallbackToMax = true)
 
     val tokenToReceive: IApiToken?
@@ -443,7 +445,7 @@ class SwapViewModel :
     val sellingAmountInput: Double?
         get() = _inputStateFlow.value.takeIf { !it.reverse }?.amount?.toDoubleOrNull()
 
-    fun tokenToSendSetMaxAmount() {
+    override fun tokenToSendSetMaxAmount() {
         cancelScheduledSelectorOpen()
 
         val token = _inputStateFlow.value.tokenToSend ?: return
@@ -462,7 +464,7 @@ class SwapViewModel :
         )
     }
 
-    fun onTokenToSendAmountInput(amount: CharSequence?) {
+    override fun onTokenToSendAmountInput(amount: CharSequence?) {
         cancelScheduledSelectorOpen()
 
         val state = _inputStateFlow.value
@@ -473,7 +475,7 @@ class SwapViewModel :
         )
     }
 
-    fun onTokenToReceiveAmountInput(amount: CharSequence?) {
+    override fun onTokenToReceiveAmountInput(amount: CharSequence?) {
         cancelScheduledSelectorOpen()
 
         val state = _inputStateFlow.value
@@ -484,7 +486,7 @@ class SwapViewModel :
         )
     }
 
-    fun setTokenToSend(asset: IApiToken) {
+    override fun setTokenToSend(asset: IApiToken) {
         cancelScheduledSelectorOpen()
 
         val state = _inputStateFlow.value
@@ -534,7 +536,7 @@ class SwapViewModel :
         }
     }
 
-    fun setTokenToReceive(asset: IApiToken?) {
+    override fun setTokenToReceive(asset: IApiToken?) {
         cancelScheduledSelectorOpen()
 
         _inputStateFlow.value = _inputStateFlow.value.copy(tokenToReceive = asset)
@@ -1028,15 +1030,30 @@ class SwapViewModel :
                 )
 
                 MBridgeError.Type.TOO_SMALL_AMOUNT,
+                MBridgeError.Type.INSUFFICIENT_LIQUIDITY,
+                MBridgeError.Type.SWAP_QUOTE_UNAVAILABLE,
+                MBridgeError.Type.SWAP_ROUTERS_UNAVAILABLE,
                 MBridgeError.Type.SLIPPAGE_ERROR -> return ButtonState(
                     ButtonStatus.Error,
                     it.toShortLocalized ?: ""
                 )
 
-                else -> return ButtonState(
-                    ButtonStatus.Error,
-                    LocaleController.getString("Unexpected Error")
-                )
+                // An unexpected error says nothing about the swap, so a shortage of the typed amount is shown instead
+                else -> return if (
+                    !estimated.request.reverse &&
+                    estimated.request.amount > calcSwapMaxBalance() &&
+                    state.tokenToSendIsSupported
+                ) {
+                    ButtonState(
+                        ButtonStatus.NotEnoughToken,
+                        LocaleController.getString("Insufficient Balance")
+                    )
+                } else {
+                    ButtonState(
+                        ButtonStatus.Error,
+                        LocaleController.getString("Unexpected Error")
+                    )
+                }
             }
         }
 
@@ -1282,15 +1299,17 @@ class SwapViewModel :
                 lastLoggedEstimateError = apiError.message
                 Logger.e(Logger.LogTag.SWAP, "Estimate failed: ${apiError.message}")
             }
+            val errorBody = MApiSwapEstimateErrorResponse.fromRaw(apiError.raw)
             return SwapEstimateResponse(
                 request = request,
                 dex = null,
                 cex = null,
                 fee = null,
                 realFee = null,
-                error = apiError.parsed,
-                hint = MApiSwapEstimateErrorResponse.hintFrom(apiError.raw),
-                debugSummary = MApiSwapEstimateErrorResponse.debugSummaryFrom(apiError.raw)
+                error = errorBody?.error?.let(MApiSwapEstimateErrorResponse::refusalOf)
+                    ?: apiError.parsed,
+                hint = errorBody?.hint,
+                debugSummary = errorBody?.debug?.summary
             )
         }
     }

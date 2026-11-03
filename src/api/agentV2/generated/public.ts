@@ -132,6 +132,10 @@ export type AgentApiChainList1 = AgentApiChain[];
  * via the `definition` "AgentThreadTitleV2".
  */
 export type AgentThreadTitleV2 = string;
+export type Sources = {
+  name?: string;
+  url: string;
+}[];
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "UuidInput".
@@ -164,6 +168,10 @@ export type AgentEntryPoint =
   | {
       kind: 'globalSearch';
       query: string;
+    }
+  | {
+      kind: 'pulseNews';
+      eventId: number;
     }
   | {
       kind: 'emptyState';
@@ -205,7 +213,11 @@ export type AgentErrorCodeV2 =
   | 'tool_timeout'
   | 'tool_failed'
   | 'tool_result_too_large'
+  | 'recording_too_large'
+  | 'audio_unreadable'
+  | 'transcription_unavailable'
   | 'market_data_unavailable'
+  | 'news_unavailable'
   | 'message_not_editable'
   | 'regenerate_target_invalid'
   | 'followup_reference_invalid'
@@ -567,6 +579,16 @@ export type AgentMessageErrorV2 = AgentErrorRetryabilityBinding & {
 export type AgentResponseLanguageV1 = string;
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedCursorV2".
+ */
+export type AgentNewsFeedCursorV2 = string;
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedLocaleV2".
+ */
+export type AgentNewsFeedLocaleV2 = 'ru' | 'en';
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentSendAmountRejectionCodeV1".
  */
 export type AgentSendAmountRejectionCodeV1 =
@@ -760,6 +782,7 @@ export type AgentPersistedMessageV2 = {
   responseLanguage?: AgentResponseLanguageV1;
   createdAt: UtcTimestampMs;
   runId?: Uuid;
+  newsPost?: true;
   error?: AgentMessageErrorV2;
   /**
    * @maxItems 8
@@ -1361,6 +1384,20 @@ export type AgentWalletDataTransactionRowV3 = {
 export type AgentToolScope = 'wallet.data.read' | 'wallet.directory.read';
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentTranscriptionResponseV2".
+ */
+export type AgentTranscriptionResponseV2 =
+  | {
+      protocolVersion: 3;
+      outcome: 'transcribed';
+      text: string;
+    }
+  | {
+      protocolVersion: 3;
+      outcome: 'no_speech';
+    };
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentWalletSemanticOperationV2".
  */
 export type AgentWalletSemanticOperationV2 =
@@ -1683,8 +1720,24 @@ export interface AgentThreadSummaryV2 {
   clearedAt?: UtcTimestampMs;
   messageCount: number;
   title?: AgentThreadTitleV2;
+  icon?: string;
   hasCustomTitle?: true;
   isPinned?: true;
+  news?: AgentThreadNewsCardV2;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentThreadNewsCardV2".
+ */
+export interface AgentThreadNewsCardV2 {
+  eventId: number;
+  headline: string;
+  excerpt?: string;
+  body?: string;
+  sources?: Sources;
+  imageUrl?: string;
+  publishedAt: UtcTimestampMs;
+  source?: string;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1693,6 +1746,12 @@ export interface AgentThreadSummaryV2 {
 export interface AgentDeviceTokenIssueRequestV2 {
   protocolVersion: 3;
   deviceId: UuidInput;
+  context?: {
+    platform?: 'classic' | 'ios' | 'android';
+    client?: 'web' | 'electron' | 'extension' | 'tma' | 'native' | 'capacitor';
+    appName?: AgentAppName;
+    appVersion?: string;
+  };
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1864,6 +1923,43 @@ export interface AgentMessageStartEvent {
   contentKind: 'markdown' | 'semantic';
   responseLanguage?: AgentResponseLanguageV1;
   createdAt?: UtcTimestampMs;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedItemV2".
+ */
+export interface AgentNewsFeedItemV2 {
+  eventId: number;
+  deliveredAt: UtcTimestampMs;
+  headline: string;
+  body: string;
+  imageUrl?: string;
+  sources: Sources;
+  discussion?: {
+    threadId: Uuid;
+    icon?: string;
+  };
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedPageV2".
+ */
+export interface AgentNewsFeedPageV2 {
+  protocolVersion: 3;
+  locale: AgentNewsFeedLocaleV2;
+  /**
+   * @maxItems 30
+   */
+  items: AgentNewsFeedItemV2[];
+  nextCursor?: AgentNewsFeedCursorV2;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedRequestV2".
+ */
+export interface AgentNewsFeedRequestV2 {
+  locale: AgentNewsFeedLocaleV2;
+  cursor?: AgentNewsFeedCursorV2;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2515,6 +2611,10 @@ export interface AgentThreadClearResponseV2 {
  */
 export interface AgentThreadCreateRequestV2 {
   protocolVersion: 3;
+  news?: {
+    eventId: number;
+    locale: 'ru' | 'en';
+  };
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2544,6 +2644,14 @@ export interface AgentThreadDeleteResponseV2 {
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentThreadListItemV2".
+ */
+export interface AgentThreadListItemV2 {
+  thread: AgentThreadSummaryV2;
+  preview?: string;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentThreadListRequestV2".
  */
 export interface AgentThreadListRequestV2 {
@@ -2560,7 +2668,7 @@ export interface AgentThreadListResponseV2 {
   /**
    * @maxItems 50
    */
-  threads: AgentThreadSummaryV2[];
+  threads: AgentThreadListItemV2[];
   nextCursor?: AgentThreadListCursorV2;
 }
 /**
@@ -3079,6 +3187,16 @@ export interface AgentWalletScopeResolutionRequiredResult {
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentTranscriptionRequestV2".
+ */
+export interface AgentTranscriptionRequestV2 {
+  protocolVersion: 3;
+  audio: string;
+  format: 'webm' | 'm4a' | 'ogg_opus';
+  lang?: string;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentUserQuotaResponseV2".
  */
 export interface AgentUserQuotaResponseV2 {
@@ -3275,6 +3393,11 @@ export interface AgentV2PublicContractTypes {
   AgentMessageEndEvent: AgentMessageEndEvent;
   AgentMessageErrorV2: AgentMessageErrorV2;
   AgentMessageStartEvent: AgentMessageStartEvent;
+  AgentNewsFeedCursorV2: AgentNewsFeedCursorV2;
+  AgentNewsFeedItemV2: AgentNewsFeedItemV2;
+  AgentNewsFeedLocaleV2: AgentNewsFeedLocaleV2;
+  AgentNewsFeedPageV2: AgentNewsFeedPageV2;
+  AgentNewsFeedRequestV2: AgentNewsFeedRequestV2;
   AgentNoticeArgumentsV1: AgentNoticeArgumentsV1;
   AgentNoticeCodeV1: AgentNoticeCodeV1;
   AgentNoticeContentV1: AgentNoticeContentV1;
@@ -3345,10 +3468,12 @@ export interface AgentV2PublicContractTypes {
   AgentThreadDeleteResponseV2: AgentThreadDeleteResponseV2;
   AgentThreadEvent: AgentThreadEvent;
   AgentThreadListCursorV2: AgentThreadListCursorV2;
+  AgentThreadListItemV2: AgentThreadListItemV2;
   AgentThreadListRequestV2: AgentThreadListRequestV2;
   AgentThreadListResponseV2: AgentThreadListResponseV2;
   AgentThreadMessagesPageV2: AgentThreadMessagesPageV2;
   AgentThreadMessagesRequestV2: AgentThreadMessagesRequestV2;
+  AgentThreadNewsCardV2: AgentThreadNewsCardV2;
   AgentThreadSummaryV2: AgentThreadSummaryV2;
   AgentThreadTitleV2: AgentThreadTitleV2;
   AgentThreadUpdateRequestV2: AgentThreadUpdateRequestV2;
@@ -3369,6 +3494,8 @@ export interface AgentV2PublicContractTypes {
   AgentToolWalletContextSessionInputV2: AgentToolWalletContextSessionInputV2;
   AgentToolWalletContextSessionV2: AgentToolWalletContextSessionV2;
   AgentToolWarning: AgentToolWarning;
+  AgentTranscriptionRequestV2: AgentTranscriptionRequestV2;
+  AgentTranscriptionResponseV2: AgentTranscriptionResponseV2;
   AgentUnsupportedToolResultRequestV1: AgentUnsupportedToolResultRequestV1;
   AgentUserQuotaResponseV2: AgentUserQuotaResponseV2;
   AgentUserQuotaV2: AgentUserQuotaV2;

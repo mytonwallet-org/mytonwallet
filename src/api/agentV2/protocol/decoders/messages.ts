@@ -9,8 +9,12 @@ import type {
   AgentProblemReportResponseV2,
   AgentStarterHintV2,
   AgentThreadClearResponseV2,
+  AgentThreadCreateResponseV2,
+  AgentThreadDeleteResponseV2,
+  AgentThreadListResponseV2,
   AgentThreadMessagesPageV2,
   AgentThreadSummaryV2,
+  AgentThreadUpdateResponseV2,
 } from '../types';
 import type {
   JsonObject,
@@ -37,6 +41,7 @@ import {
 } from './actions';
 import { decodeMessageLinks } from './answerLinks';
 import { decodeMessageTables } from './answerTables';
+import { threadNewsCard } from './newsFeed';
 import {
   ERROR_CODES,
   followupUuid,
@@ -82,6 +87,14 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
     ? undefined
     : timestamp(result.clearedAt, `${path}.clearedAt`);
   const messageCount = integer(result.messageCount, `${path}.messageCount`);
+  const title = result.title === undefined ? undefined : boundedString(result.title, `${path}.title`, 1, 80);
+  if (title !== undefined && (!title.trim() || title.includes('\u0000'))) fail(`${path}.title`);
+  const icon = result.icon === undefined ? undefined : boundedString(result.icon, `${path}.icon`, 1, 16);
+  const hasCustomTitle = result.hasCustomTitle === undefined
+    ? undefined
+    : literal(result.hasCustomTitle, true, `${path}.hasCustomTitle`);
+  const isPinned = result.isPinned === undefined ? undefined : literal(result.isPinned, true, `${path}.isPinned`);
+  const news = result.news === undefined ? undefined : threadNewsCard(result.news, `${path}.news`);
 
   return {
     id,
@@ -91,6 +104,11 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
     lastActivityAt,
     ...(clearedAt !== undefined && { clearedAt }),
     messageCount,
+    ...(title !== undefined && { title }),
+    ...(icon !== undefined && { icon }),
+    ...(hasCustomTitle !== undefined && { hasCustomTitle }),
+    ...(isPinned !== undefined && { isPinned }),
+    ...(news !== undefined && { news }),
   };
 }
 
@@ -171,6 +189,7 @@ function validatePersistedMessage(
   }
   timestamp(result.createdAt, `${path}.createdAt`);
   if (result.runId !== undefined) uuid(result.runId, `${path}.runId`);
+  if (result.newsPost !== undefined) literal(result.newsPost, true, `${path}.newsPost`);
   if (result.responseLanguage !== undefined) {
     const language = decodeResponseLanguage(result.responseLanguage);
     if (language) result.responseLanguage = language;
@@ -280,6 +299,40 @@ export function decodeAgentV2DefaultThread(value: unknown): AgentDefaultThreadRe
     protocolVersion: 3,
     thread: threadSummary(result.thread, '$.thread'),
     created: boolean(result.created, '$.created'),
+  };
+}
+
+export function decodeAgentV2ThreadList(value: unknown): AgentThreadListResponseV2 {
+  const result = object(value, '$');
+  protocol(result, '$');
+  const threads = array(result.threads, '$.threads', 50).map((item, index) => {
+    const path = `$.threads[${index}]`;
+    const entry = object(item, path);
+    const thread = threadSummary(entry.thread, `${path}.thread`);
+    const preview = entry.preview === undefined ? undefined : boundedString(entry.preview, `${path}.preview`, 0, 200);
+    return { thread, ...(preview !== undefined && { preview }) };
+  });
+  const nextCursor = result.nextCursor === undefined ? undefined : cursor(result.nextCursor, '$.nextCursor');
+  return { protocolVersion: 3, threads, ...(nextCursor !== undefined && { nextCursor }) };
+}
+
+export function decodeAgentV2ThreadCreate(value: unknown): AgentThreadCreateResponseV2 {
+  return decodeAgentV2DefaultThread(value);
+}
+
+export function decodeAgentV2ThreadUpdate(value: unknown): AgentThreadUpdateResponseV2 {
+  const result = object(value, '$');
+  protocol(result, '$');
+  return { protocolVersion: 3, thread: threadSummary(result.thread, '$.thread') };
+}
+
+export function decodeAgentV2ThreadDelete(value: unknown): AgentThreadDeleteResponseV2 {
+  const result = object(value, '$');
+  protocol(result, '$');
+  return {
+    protocolVersion: 3,
+    threadId: uuid(result.threadId, '$.threadId'),
+    duplicate: boolean(result.duplicate, '$.duplicate'),
   };
 }
 

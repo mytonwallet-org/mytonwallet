@@ -1,0 +1,66 @@
+{
+  "amountUsdc": "50.2",
+  "feeUsdc": "0.2",
+  "creditedAmountUsdc": "50",
+  "burnCall": {
+    "amount": "50200000",
+    "destinationDomain": 19,
+    "mintRecipient": "0x000000000000000000000000b21d281dedb17ae5b501f6aa8256fe38c4e45757",
+    "destinationCaller": "0x000000000000000000000000b21d281dedb17ae5b501f6aa8256fe38c4e45757",
+    "maxFee": "200000",
+    "minFinalityThreshold": 1000,
+    "hookData": "0x636374702d666f72776172640000000000000000000000000000000000000018111111111111111111111111111111111111111100000000"
+  },
+  "requiresPermitSignature": true,
+  "permitData": {
+    "domain": {
+      "name": "USD Coin",
+      "version": "2",
+      "chainId": 42161,
+      "verifyingContract": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+    },
+    "types": {
+      "ReceiveWithAuthorization": [
+        {
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "name": "validAfter",
+          "type": "uint256"
+        },
+        {
+          "name": "validBefore",
+          "type": "uint256"
+        },
+        {
+          "name": "nonce",
+          "type": "bytes32"
+        }
+      ]
+    },
+    "values": {
+      "from": "0x1111111111111111111111111111111111111111",
+      "to": "0xA95d9c1F655341597C94393fDdc30cf3c08E4fcE",
+      "value": "50200000",
+      "validAfter": "1700000000",
+      "validBefore": "2000000000",
+      "nonce": "0xabababababababababababababababababababababababababababababababab"
+    }
+  },
+  "swap": {
+    "from": "0x1111111111111111111111111111111111111111",
+    "to": "0xA95d9c1F655341597C94393fDdc30cf3c08E4fcE",
+    "chainId": 42161,
+    "value": "0",
+    "data": "0x"
+  }
+}

@@ -21,6 +21,7 @@ import { fetchEvmWallet } from './util/account';
 import { inactiveWallets } from './util/inactiveWallets';
 import { NftStream } from './util/nftStream';
 import { getAlchemySocket } from './util/socket';
+import { balanceRefreshRequests } from '../../common/polling/balanceRefresh';
 import {
   activeNftTiming,
   activeWalletTiming,
@@ -54,6 +55,7 @@ export function setupActivePolling<C extends EVMChain>(
 ): NoneToVoidFunction {
   const { address } = account.byChain[chain];
   let markWalletActiveForBalancePolling: NoneToVoidFunction = () => {};
+  let markWalletActiveForNftPolling: NoneToVoidFunction = () => {};
 
   const {
     scheduleCrossApiActivityCatchUp,
@@ -61,7 +63,10 @@ export function setupActivePolling<C extends EVMChain>(
   } = setupActivityPolling(
     chain, accountId, newestActivityTimestamps, onUpdate,
     onUpdatingStatusChange.bind(undefined, 'activities'),
-    () => markWalletActiveForBalancePolling(),
+    () => {
+      markWalletActiveForBalancePolling();
+      markWalletActiveForNftPolling();
+    },
   );
 
   const nftPolling = getChainConfig(chain).isNftSupported
@@ -73,6 +78,7 @@ export function setupActivePolling<C extends EVMChain>(
       },
     )
     : undefined;
+  markWalletActiveForNftPolling = () => nftPolling?.activate();
 
   const balancePolling = setupBalancePolling(
     chain,
@@ -243,6 +249,9 @@ function setupNftPolling(
     stop() {
       nftStream.destroy();
     },
+    activate() {
+      nftStream.activate();
+    },
   };
 }
 
@@ -313,9 +322,15 @@ function setupBalancePolling(
     balanceStream.onLoadingChange(onUpdatingStatusChange);
   }
   balanceStream.start();
+  const stopRefreshRequests = balanceRefreshRequests.addCallback((requestedAccount, requestedChain) => {
+    if (requestedAccount !== accountId || requestedChain !== chain) return;
+    inactiveWallets.forget(network, chain, address);
+    balanceStream.markWalletActiveAndForcePoll();
+  });
 
   return {
     stop() {
+      stopRefreshRequests();
       cancelCrossApiActivityCatchUp();
       balanceStream.destroy();
     },

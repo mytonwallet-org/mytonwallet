@@ -70,6 +70,7 @@ class EarnHeaderCell: UICollectionViewCell {
     private lazy var addStakeButton = {
         let btn = WButton(style: .primary)
         btn.setTitle(lang("Add Stake"), for: .normal)
+        btn.accessibilityIdentifier = "earn_add_stake"
         btn.addTarget(self, action: #selector(addStakePressed), for: .touchUpInside)
         btn.isEnabled = false
         return btn
@@ -78,6 +79,7 @@ class EarnHeaderCell: UICollectionViewCell {
     private lazy var unstakeButton = {
         let btn = WButton(style: .secondary)
         btn.setTitle(lang("Unstake"), for: .normal)
+        btn.accessibilityIdentifier = "earn_unstake"
         btn.addTarget(self, action: #selector(unstakePressed), for: .touchUpInside)
         btn.isEnabled = false
         return btn

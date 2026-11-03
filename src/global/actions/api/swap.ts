@@ -917,21 +917,17 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
 
   global = getGlobal();
 
-  if (!estimate || 'error' in estimate || 'errors' in estimate) {
-    if (estimate && 'error' in estimate && estimate.error.includes('requests limit')) {
+  if (!estimate || 'error' in estimate) {
+    if (estimate?.error.includes('requests limit')) {
       return 'rateLimited';
     }
 
-    const errorText = estimate === undefined
-      ? undefined
-      : 'error' in estimate
-        ? estimate.error
-        : 'errors' in estimate
-          ? (estimate.errors as { msg: string }[]).map(({ msg }) => msg).join(', ')
-          : undefined;
-
-    const errorType = SERVER_ERRORS_MAP[errorText as keyof typeof SERVER_ERRORS_MAP]
-      ?? SwapErrorType.UnexpectedError;
+    const errorText = estimate?.error;
+    // A refusal worded in a way the map does not know still means the backend has no quote; only a failed call is
+    // unexpected.
+    const errorType = errorText === undefined
+      ? SwapErrorType.UnexpectedError
+      : SERVER_ERRORS_MAP[errorText as keyof typeof SERVER_ERRORS_MAP] ?? SwapErrorType.QuoteUnavailable;
 
     logDebugError('estimateSwap', errorText, estimate);
 

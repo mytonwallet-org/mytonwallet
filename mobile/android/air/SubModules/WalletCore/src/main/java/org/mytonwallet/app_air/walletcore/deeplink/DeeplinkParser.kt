@@ -2,7 +2,7 @@ package org.mytonwallet.app_air.walletcore.deeplink
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
+import android.os.Build
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.APP_TC_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
@@ -150,7 +150,24 @@ class DeeplinkParser {
         private val STAKE_AMOUNT_PATTERN = Regex("[0-9]+(?:\\.[0-9]+)?")
         private const val STAKE_PARAMETER_MAX_LENGTH = 128
 
-        fun parse(intent: Intent): Deeplink? = parse(intent.data) ?: parse(intent.extras)
+        /**
+         * Parses `intent.data`, then the push notification payload in the extras. Any app can send
+         * extras to the exported launcher activity, so [allowExtras] is true only for launches the
+         * system reports as started by this app's own package.
+         */
+        fun parse(intent: Intent, allowExtras: Boolean): Deeplink? = parseLaunch(
+            parse(intent.data),
+            allowExtras,
+            Build.VERSION.SDK_INT,
+            intent::getStringExtra
+        )
+
+        internal fun parseLaunch(
+            dataDeeplink: Deeplink?,
+            allowExtras: Boolean,
+            sdkInt: Int,
+            getExtra: (String) -> String?
+        ): Deeplink? = dataDeeplink ?: if (allowExtras) parseExtras(sdkInt, getExtra) else null
 
         fun parse(uri: Uri?): Deeplink? {
             if (uri == null) return null
@@ -173,30 +190,29 @@ class DeeplinkParser {
             }
         }
 
-        private fun parse(bundle: Bundle?): Deeplink? {
-            if (bundle == null) return null
-            val address = bundle.getString("address")
-            val action = bundle.getString("action")
+        private fun parseExtras(sdkInt: Int, getExtra: (String) -> String?): Deeplink? {
+            val address = getExtra("address")
+            val action = getExtra("action")
             if (address == null && action != "openUrl") return null
             return when (action) {
                 "openUrl" -> {
-                    val url = bundle.getString("url") ?: return null
+                    val url = getExtra("url") ?: return null
                     Deeplink.NotificationUrl(
                         address,
                         InAppBrowserConfig(
                             url = url,
-                            title = bundle.getString("title"),
-                            injectDappConnect = true
+                            title = getExtra("title"),
+                            injectDappConnect = sdkInt >= Build.VERSION_CODES.R
                         ),
                         isExternal =
-                            bundle.getString("isExternal")?.equals("true", ignoreCase = true)
+                            getExtra("isExternal")?.equals("true", ignoreCase = true)
                                 ?: false
                     )
                 }
 
                 "nativeTx", "swap", "jettonTx" -> {
-                    val txId = bundle.getString("txId") ?: return null
-                    val chain = bundle.getString("chain") ?: MBlockchain.ton.name
+                    val txId = getExtra("txId") ?: return null
+                    val chain = getExtra("chain") ?: MBlockchain.ton.name
                     return Deeplink.Transaction(
                         accountAddress = address,
                         chain = chain,
@@ -211,7 +227,7 @@ class DeeplinkParser {
                 }
 
                 "expiringDns" -> {
-                    val domainAddress = bundle.getString("domainAddress") ?: return null
+                    val domainAddress = getExtra("domainAddress") ?: return null
                     return Deeplink.ExpiringDns(
                         accountAddress = address,
                         domainAddress = domainAddress

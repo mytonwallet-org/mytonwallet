@@ -28,8 +28,6 @@ public struct InfoButton: View {
     }
 
     private func showInfo() {
-        topWViewController()?.showTip(title: title) {
-            Text(langMd(message))
-        }
+        topWViewController()?.showTip(title: title, message: message)
     }
 }

@@ -57,6 +57,7 @@ import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiParsedPayload
+import org.mytonwallet.app_air.walletcore.moshi.ApiParsedStateInit
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -242,14 +243,35 @@ private fun warningItem(key: String?): Item.Alert? = key?.let {
     Item.Alert(LocaleController.getString(it).toProcessedSpannableStringBuilder())
 }
 
+internal fun stateInitSummary(parsed: ApiParsedStateInit): String {
+    val walletName = parsed.walletName
+    return when {
+        !parsed.isDeployable -> LocaleController.getString("\$state_init_not_deployable")
+
+        walletName == null -> LocaleController.getString("\$state_init_deploys_contract")
+
+        else -> LocaleController.getStringWithKeyValues(
+            "\$state_init_deploys_wallet",
+            listOf(Pair("%version%", walletName))
+        )
+    }
+}
+
 internal fun stateInitUiItems(transaction: ApiDappTransfer): List<BaseListItem> {
     val stateInit = transaction.stateInit?.takeIf { it.isNotEmpty() } ?: return emptyList()
-    return listOf(
+    return listOfNotNull(
         Item.Gap(),
         Item.ListTitle(
             LocaleController.getString("Contract Initialization Data"),
             topRounding = HeaderCell.TopRounding.NORMAL
         ),
+        transaction.parsedStateInit?.let { parsed ->
+            Item.CopyableText(
+                stateInitSummary(parsed),
+                "Contract Initialization Data",
+                LocaleController.getString("Data Copied")
+            )
+        },
         Item.ExpandableText(stateInit)
     )
 }

@@ -21,7 +21,10 @@ struct OtherAppearanceSettingsSection: View {
     @State private var landscapeModeEnabled: Bool = AppStorageHelper.isLandscapeModeEnabled
     
     var body: some View {
-        InsetSection {
+        InsetSection(
+            dividersInset: IOS_26_MODE_ENABLED ? 4 : 0,
+            dividersTrailingInset: IOS_26_MODE_ENABLED ? 20 : 0
+        ) {
             InsetCell(verticalPadding: 0) {
                 HStack {
                     Text(lang("Enable Animations"))

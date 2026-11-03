@@ -271,6 +271,7 @@ class GlassRoot private constructor(root: ViewGroup) :
         val host = root as? GlassCaptureHost
         val drawingTime = root.drawingTime
         GlassCapture.capturing = true
+        GlassCapture.root = root
         try {
             canvas.drawColor(colorSource.color)
             root.background?.draw(canvas)
@@ -292,9 +293,11 @@ class GlassRoot private constructor(root: ViewGroup) :
                     canvas.restore()
                 }
             }
+            host?.glassDrawForeground(canvas)
             canvas.restore()
         } finally {
             GlassCapture.capturing = false
+            GlassCapture.root = null
         }
     }
 
@@ -314,6 +317,7 @@ class GlassRoot private constructor(root: ViewGroup) :
         builder.add(ThemeManager.isDark)
         builder.add(root.scrollX.toLong())
         builder.add(root.scrollY.toLong())
+        (root as? GlassCaptureHost)?.let { builder.add(it.glassDrawnStateHash()) }
         for (i in 0 until root.childCount) {
             val child = root.getChildAt(i)
             if (!isCaptured(root, child, position)) continue

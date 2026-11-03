@@ -1,3 +1,6 @@
+import CoreSpotlight
+import Foundation
+
 public enum AirSendTokenRecipientKind: String, Sendable, Codable, Hashable {
     case account
     case savedAddress
@@ -20,7 +23,14 @@ public struct AirSendTokenRecipient: Sendable, Codable, Hashable {
 
 public enum AirSystemAction: Sendable {
     case scanQR
+    case search(query: String)
     case openReceive(accountId: String?, chain: String?)
     case openToken(accountId: String?, tokenSlug: String)
     case sendToken(accountId: String?, recipient: AirSendTokenRecipient?, tokenSlug: String?, amount: Double?, comment: String?)
+
+    public init?(searchContinuation userActivity: NSUserActivity) {
+        guard userActivity.activityType == CSQueryContinuationActionType,
+              let query = userActivity.userInfo?[CSSearchQueryString] as? String else { return nil }
+        self = .search(query: query)
+    }
 }

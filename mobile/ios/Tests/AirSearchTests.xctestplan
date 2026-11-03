@@ -1,0 +1,37 @@
+{
+  "configurations": [
+    {
+      "id": "B8974B23-D887-4640-9957-265702BAED8A",
+      "name": "Configuration 1",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../Air",
+        "identifier": "WalletCoreTests",
+        "name": "WalletCoreTests"
+      }
+    },
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../Air",
+        "identifier": "UniversalSearchWalletCoreTests",
+        "name": "UniversalSearchWalletCoreTests"
+      }
+    },
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../Air",
+        "identifier": "AirAsFrameworkTests",
+        "name": "AirAsFrameworkTests"
+      }
+    }
+  ],
+  "version": 1
+}

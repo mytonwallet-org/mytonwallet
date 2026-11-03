@@ -243,9 +243,9 @@ Dark: تیره
 System: سیستم
 $stake_asset: استیک %symbol%
 Add Stake: افزودن استیک
-"🔒 %amount% %symbol% locked in another staking": "\u200F🔒 \u200E%amount% %symbol%\u200F در استیکینگ دیگری قفل شده است"
-"Unstake them to restake with **higher returns**.": "آن‌ها را برداشت کنید تا با **بازده بالاتر** دوباره استیک کنید."
-"💎 More profitable staking available": "💎 استیک با بازده بالاتر در دسترس است"
+"🔒 %amount% %symbol% staked elsewhere": "\u200F🔒 \u200E%amount% %symbol%\u200F در استیکینگ دیگر"
+"Unlock your %symbol% to access higher-yield staking.": "برای دسترسی به استیکینگ با بازده بالاتر، %symbol% خود را آزاد کنید."
+"💎 Higher-yield staking available": "💎 استیک با بازده بالاتر در دسترس است"
 "Tap to restake your %symbol% with higher returns.": "بزنید تا %symbol% خود را با بازده بالاتر دوباره استیک کنید."
 "Restake Now": "استیک مجدد"
 Earn from your tokens while holding them: از نگهداری %symbol% درآمد کسب کنید
@@ -674,6 +674,9 @@ Data Copied: داده کپی شد
 URL Copied: آدرس کپی شد
 Private Key Copied: کلید خصوصی کپی شد
 Contract Initialization Data Copied: داده مقداردهی اولیه قرارداد کپی شد
+$state_init_deploys_wallet: اگر هنوز چیزی در آدرس گیرنده نباشد، کیف پول %version% در آن ساخته می‌شود.
+$state_init_deploys_contract: اگر هنوز چیزی در آدرس گیرنده نباشد، یک قرارداد هوشمند در آن ساخته می‌شود.
+$state_init_not_deployable: شبکه این داده‌ها را نادیده می‌گیرد و چیزی ساخته نمی‌شود.
 Open NFT Collection: باز کردن مجموعه NFT
 Previous: قبلی
 Next: بعدی
@@ -914,6 +917,10 @@ $mint_action: ضرب
 Burning: در حال سوزاندن
 Burned: سوزانده‌شده
 $burn_action: سوزاندن
+Perps Deposit: واریز به پرپس
+$perps_deposit_action: واریز به پرپس
+Perps Withdrawal: برداشت از پرپس
+$perps_withdraw_action: برداشت از پرپس
 Updating Address: در حال به‌روزرسانی آدرس
 Updated Address: آدرس به‌روزرسانی‌شده
 $update_address_action: به‌روزرسانی آدرس
@@ -1042,6 +1049,10 @@ $iab_more_tabs_count:
   oneValue: "+ %count% تب"
   otherValue: "+ %count% تب"
 Close Tab: بستن زبانه
+Close All: "بستن همه"
+$browser_more_tabs:
+  oneValue: "%title% و %count% مورد دیگر"
+  otherValue: "%title% و %count% مورد دیگر"
 $domains_amount %count%:
   zeroValue: بدون دامنه
   oneValue: "%count% دامنه"
@@ -1165,6 +1176,7 @@ Without it, you won't be able to access your wallet.: بدون آن، قادر �
 $ledger_connection_broken: اتصال لجر قطع شده است. لطفاً دوباره متصل شوید و تلاش کنید.
 $ledger_wrong_device: حساب فعلی با کلمات محرمانه یا عبارت عبور متفاوت لجر راه‌اندازی شده، یا روی دستگاه لجر دیگری ذخیره شده است
 Show More: نمایش بیشتر
+Show Less: نمایش کمتر
 Search app or enter address: جستجوی اپلیکیشن یا وارد کردن آدرس
 Search or Ask: جستجو کنید یا بپرسید
 Connected Apps: اپلیکیشن‌های متصل
@@ -1386,6 +1398,21 @@ $agent_error_limit: درخواست قابل تکمیل نیست، زیرا سق�
 $agent_error_tool: یک عملیات کیف پول نمی‌تواند تکمیل شود. لطفاً دوباره تلاش کنید.
 $agent_error_conversation_updated: گفتگو به‌روز شد. لطفاً دوباره درخواست را امتحان کنید.
 $agent_error_generic: عامل نتوانست درخواست را تکمیل کند. لطفاً دوباره تلاش کنید.
+$agent_error_recording_too_large: "ضبط خیلی طولانی است. هر بار حداکثر یک دقیقه دیکته کنید."
+$agent_error_audio_unreadable: "پردازش ضبط ممکن نشد. لطفاً دوباره ضبط کنید."
+$agent_error_transcription_unavailable: "ورودی صوتی در حال حاضر در دسترس نیست. لطفاً بعداً دوباره تلاش کنید."
+$agent_dictation_start: "دیکته"
+$agent_dictation_finish: "پایان دیکته"
+$agent_dictation_recognizing: "در حال تشخیص…"
+$agent_dictation_no_speech: "صدایی شنیده نشد. نزدیک‌تر به میکروفون صحبت کنید و دوباره تلاش کنید."
+$agent_dictation_time_left: "%seconds% ثانیه باقی مانده"
+$agent_dictation_time_left_short: "%seconds% ثانیه"
+$agent_dictation_limit_reached: "دیکته پس از یک دقیقه متوقف شد؛ این حداکثر مدت ضبط است."
+$agent_dictation_microphone_denied: "برای دیکته، اجازه دسترسی به میکروفون را بدهید."
+$agent_dictation_hold_hint: "برای دیکته، دکمه را نگه دارید. برای ضبط بدون نگه داشتن دکمه، به بالا بکشید."
+$agent_dictation_too_short: "خیلی کوتاه بود. هنگام صحبت کردن، دکمه را نگه دارید."
+$agent_dictation_slide_to_cancel: "برای لغو به راست بکشید"
+$agent_dictation_deleted: "صدای ضبط‌شده حذف شد"
 $agent_error_invalid_response: پاسخ عامل خوانده نشد. لطفاً دوباره تلاش کنید.
 $agent_error_update_required: برای ادامه برنامه را به‌روزرسانی کنید.
 $agent_wallet_page_navigation: صفحات داده کیف پول
@@ -1561,6 +1588,8 @@ Edit Wallet Name: ویرایش نام کیف پول
 Wallet Name: نام کیف پول
 App Icon: آیکون اپلیکیشن
 Rounded Toolbars: نوارابزارهای گرد
+Toolbar: نوار ابزار
+Shared Background: پس‌زمینه مشترک
 Side Gutters: حاشیه‌های کناری
 Gradient Navigation Bar: نوار پیمایش گرادیانی
 Tokens on Home Screen: توکن‌ها در صفحه اصلی
@@ -1779,12 +1808,12 @@ $web_permission_location: موقعیت مکانی
 $web_permission_device_features: قابلیت‌های دستگاه
 $web_permission_this_site: این سایت
 push_title_wallet: "%wallet_title%"
-push_activity_token_sent: ارسال %amount% %symbol%
-push_activity_token_received: دریافت %amount% %symbol%
+push_activity_token_sent: "ارسال \u2066%amount% %symbol%\u2069"
+push_activity_token_received: "دریافت \u2066%amount% %symbol%\u2069"
 push_activity_contract_called: قرارداد هوشمند فراخوانی شد
 push_activity_contract_deployed: قرارداد هوشمند مستقر شد
-push_activity_token_minted: ضرب %amount% %symbol%
-push_activity_token_burned: سوزاندن %amount% %symbol%
+push_activity_token_minted: "ضرب \u2066%amount% %symbol%\u2069"
+push_activity_token_burned: "سوزاندن \u2066%amount% %symbol%\u2069"
 push_activity_nft_sent: "\u200FNFT ارسال شد"
 push_activity_nft_sent_named: "\u200FNFT ارسال شد: %name%"
 push_activity_nft_received: "\u200FNFT دریافت شد"
@@ -1793,22 +1822,22 @@ push_activity_nft_minted: "\u200FNFT ضرب شد"
 push_activity_nft_minted_named: "\u200FNFT ضرب شد: %name%"
 push_activity_liquidity_deposited: نقدینگی تأمین شد
 push_activity_liquidity_withdrawn: نقدینگی برداشت شد
-push_activity_stake_deposit: استیک %amount% %symbol%
-push_activity_stake_withdrawal: برداشت استیک %amount% %symbol%
+push_activity_stake_deposit: "استیک \u2066%amount% %symbol%\u2069"
+push_activity_stake_withdrawal: "برداشت استیک \u2066%amount% %symbol%\u2069"
 push_activity_stake_withdrawal_request: درخواست برداشت استیکینگ ثبت شد
-push_activity_auction_bid: ثبت پیشنهاد حراج %amount% %symbol%
+push_activity_auction_bid: "ثبت پیشنهاد حراج \u2066%amount% %symbol%\u2069"
 push_activity_dns_changed: رکورد DNS به‌روزرسانی شد
 push_activity_dns_deleted: رکورد DNS حذف شد
 push_activity_dns_renewed: "\u200FDNS تمدید شد"
 push_activity_subscription_started: اشتراک آغاز شد
-push_activity_subscription_payment_received: دریافت پرداخت اشتراک %amount% %symbol%
+push_activity_subscription_payment_received: "دریافت پرداخت اشتراک \u2066%amount% %symbol%\u2069"
 push_activity_subscription_canceled: اشتراک لغو شد
-push_activity_swap_completed: مبادله %from_symbol% → %to_symbol%
-push_activity_swap_failed: مبادله %from_symbol% → %to_symbol% ناموفق بود
-push_activity_swap_expired: مبادله %from_symbol% → %to_symbol% منقضی شد
-push_activity_swap_pending: مبادله %from_symbol% → %to_symbol% %status%
-push_activity_staking_profit: سود استیکینگ %amount% GRAM
-push_activity_staking_loyalty_profit: سود وفاداری استیکینگ %amount% GRAM
+push_activity_swap_completed: "مبادله \u2066%from_symbol% → %to_symbol%\u2069"
+push_activity_swap_failed: "مبادله \u2066%from_symbol% → %to_symbol%\u2069 ناموفق بود"
+push_activity_swap_expired: "مبادله \u2066%from_symbol% → %to_symbol%\u2069 منقضی شد"
+push_activity_swap_pending: "مبادله \u2066%from_symbol% → %to_symbol%\u2069 %status%"
+push_activity_staking_profit: "سود استیکینگ \u2066%amount% GRAM\u2069"
+push_activity_staking_loyalty_profit: "سود وفاداری استیکینگ \u2066%amount% GRAM\u2069"
 push_domain_title_renew: دامنه خود را تمدید کنید
 push_domain_expired_yesterday: دامنه %domain% شما دیروز منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید
 push_domain_expired_days_ago: دامنه %domain% شما %days% روز پیش منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید
@@ -1960,13 +1989,9 @@ $agent_capacity_limit_title: عامل موقتاً در دسترس نیست
 $agent_capacity_limit_known: درخواست‌های جدید را می‌توان پس از %duration% ارسال کرد.
 $agent_capacity_degraded_title: ممکن است پاسخ‌های عامل ناپایدار باشند
 $agent_capacity_limit_unknown: می‌توانید دوباره تلاش کنید، اما ممکن است پاسخ بارگیری نشود.
-$agent_response_failed_title: دریافت پاسخ ممکن نشد
-$agent_response_interrupted_title: پاسخ قطع شد
 $agent_retry_request: تلاش دوباره برای درخواست
 $agent_rate_limit_title: درخواست‌های بسیار زیاد برای عامل
 $agent_rate_limit_body: "%duration% دیگر دوباره تلاش کنید."
-$agent_user_quota_meter: "سهمیهٔ عامل: %remaining% از %limit% واحد باقی مانده"
-$agent_user_quota_reset: سهمیهٔ روزانه تا %duration% دیگر بازنشانی می‌شود.
 $agent_user_quota_exhausted_title: سهمیهٔ عامل کافی نیست
 $agent_user_quota_exhausted_body: سهمیهٔ موجود برای این درخواست کافی نیست. سهمیهٔ روزانه %limit% واحد است و تا %duration% دیگر بازنشانی می‌شود.
 $agent_time_hours: "%value% ساعت"
@@ -2044,7 +2069,6 @@ Search token or stock: جستجوی توکن یا سهام
 Unknown Transfer: انتقال ناشناخته
 $dapp_sign_data_for_prefix: برای
 
-# Token Buy / Sell
 "Pay %value%": "پرداخت %value%"
 "Receive %value%": "دریافت %value%"
 "Buy %token% via %provider%": "خرید %token% از طریق %provider%"
@@ -2061,7 +2085,6 @@ Successfully Signed: با موفقیت امضا شد
 Coming soon: به‌زودی
 $dapp_identity_not_confirmed: هویت برنامه **تأیید نشده است**.
 
-# Token trade asset browser and details
 "Choose Asset": "انتخاب دارایی"
 "Asset to Buy": "دارایی برای خرید"
 "Asset to Sell": "دارایی برای فروش"
@@ -2076,11 +2099,266 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: ا�
 3D Gram Diamond: الماس سه‌بعدی Gram
 Hold to enlarge. Drag to rotate.: برای بزرگ‌نمایی نگه دارید. برای چرخاندن بکشید.
 "Max": "حداکثر"
+
+or use web version: "یا از نسخه وب استفاده کنید"
+By continuing, you agree to our %terms% and %privacy%.: "با ادامه، با\n%terms% و %privacy% ما موافقت می‌کنید."
+$auth_privacy_policy: "سیاست حفظ حریم خصوصی"
+$auth_more: "بیشتر"
+$auth_terms_of_use: "شرایط استفاده"
+
+"Pinned": "سنجاق‌شده"
+"New Chat": "گفت‌وگوی جدید"
+"Search chats": "جست‌وجوی گفت‌وگوها"
+"Ask a question to start a new chat.": "برای شروع گفت‌وگوی جدید سؤالی بپرسید."
+"No chats found": "گفت‌وگویی پیدا نشد"
+"Rename Chat": "تغییر نام گفت‌وگو"
+"Delete Chat?": "گفت‌وگو حذف شود؟"
+"$agent_delete_chat_confirmation": "پیام‌های این گفت‌وگو برای همیشه حذف خواهند شد. گزارش‌های مشکلات ارسال‌شده نزد تیم ما باقی خواهند ماند."
+
+Invalid Address: آدرس نامعتبر
+Domain Not Found: دامنه یافت نشد
+Multisig Sending Disabled: ارسال چندامضایی غیرفعال است
+Insufficient Liquidity: نقدینگی ناکافی
+Too Small Amount: مبلغ بیش از حد کوچک
+
+News: "اخبار"
+Crypto Market News: "اخبار بازار رمزارزها"
+$agent_news_new: "جدید"
+$agent_news_open_source: "باز کردن منبع"
+$agent_news_unavailable: "اخبار در حال حاضر در دسترس نیست"
+$agent_news_read_more: "بیشتر بخوانید"
+$agent_news_discuss: "گفتگو"
+$agent_news_continue_discussion: "ادامهٔ گفتگو"
+$agent_news_read_more_accessibility: "دربارهٔ %headline% بیشتر بخوانید"
+$agent_news_continue_discussion_accessibility: "ادامهٔ گفتگو دربارهٔ %headline%"
+$agent_news_ask_placeholder: "دربارهٔ این خبر بپرسید"
+$agent_news_quote_accessibility: "خبر MyPulse: %headline%"
+$agent_news_unread_count:
+  oneValue: "%count% خبر خوانده‌نشده"
+  otherValue: "%count% خبر خوانده‌نشده"
 Explorer mode: حالت اکسپلورر
 Open a link to a wallet, transfer, token or collectible to see its details here.: یک لینک به کیف پول، انتقال، توکن یا کالکتیبل را باز کنید تا جزئیات آن را اینجا ببینید.
+
+# Perps
+Long: "لانگ"
+Short: "شورت"
+Funding Rate: "نرخ تأمین مالی"
+Max Leverage: "حداکثر اهرم"
+24h Volume: "حجم ۲۴ ساعته"
+Open Interest: "ارزش موقعیت‌های باز"
+$perps_funding_rate_hint: "نرخی که برای محاسبه پرداخت‌های تأمین مالی بین معامله‌گران دارای موقعیت‌های لانگ و شورت استفاده می‌شود. وقتی نرخ مثبت است، دارندگان موقعیت لانگ به دارندگان موقعیت شورت پرداخت می‌کنند. وقتی نرخ منفی است، دارندگان موقعیت شورت به دارندگان موقعیت لانگ پرداخت می‌کنند."
+$perps_max_leverage_hint: "بالاترین اهرم در دسترس برای این بازار."
+$perps_volume_24h_hint: "ارزش کل معاملات این بازار آتی در 24 ساعت گذشته. این مقدار شامل معاملات باز کردن و بستن موقعیت‌ها می‌شود."
+$perps_open_interest_hint: "ارزش کل قراردادهایی که در حال حاضر در این بازار آتی باز هستند. برخلاف حجم 24 ساعته، شامل موقعیت‌هایی که قبلاً بسته شده‌اند نمی‌شود."
+
+# Perps order entry
+"Leverage": "اهرم"
+"Position Size": "اندازه موقعیت"
+"Liquidation Price": "قیمت لیکویید شدن"
+"Trading Fee": "کارمزد معامله"
+"Funding Payments": "پرداخت‌های تأمین مالی"
+"Swap Fee": "کارمزد تبدیل"
+"Review": "بررسی"
+"$perps_order_long": "لانگ %asset%"
+"$perps_order_short": "شورت %asset%"
+"$perps_swap_fee_hint": "کارمزد تبدیل یک توکن به توکن دیگر در چارچوب این تراکنش."
+"$perps_trading_fee_hint": "کارمزد باز کردن این موقعیت."
+"$perps_position_size_hint": "اندازه موقعیت — ارزش کل موقعیت شما با احتساب اهرم."
+"$perps_position_size_details_hint": "ارزش کل موقعیت شما با احتساب اهرم.\n\nبرای مثال، اگر $100 با اهرم 5x سرمایه‌گذاری کنید، اندازه موقعیت شما $500 خواهد بود."
+"$perps_position_size_change_hint": "ارزش کل موقعیت شما با احتساب اهرم.\nمقادیر، اندازه موقعیت شما را قبل و بعد از تغییر نشان می‌دهند."
+"$perps_profit_hint": "سود حاصل از بستن بخشی از موقعیت شما.\n\nبرای مثال، اگر نیمی از موقعیت خود را ببندید، سود بخش بسته‌شده در اینجا نمایش داده می‌شود."
+"$perps_loss_hint": "زیان حاصل از بستن بخشی از موقعیت شما.\n\nبرای مثال، اگر نیمی از موقعیت خود را ببندید، زیان بخش بسته‌شده در اینجا نمایش داده می‌شود."
+"$perps_closing_value_hint": "مبلغ باقی‌مانده پس از لیکویید شدن موقعیت شما. بسته به نتیجه لیکویید شدن، این مبلغ ممکن است کمتر از مبلغ سرمایه‌گذاری‌شده شما یا صفر باشد."
+"$perps_fees_hint": "مجموع کارمزدهای دریافت‌شده برای این تراکنش. بسته به تراکنش، ممکن است شامل کارمزد معامله، تبدیل و شبکه باشد."
+"$perps_liquidation_price_hint": "قیمت تخمینی که در آن ممکن است موقعیت شما به دلیل نبود موجودی کافی برای باز نگه داشتن آن، به‌طور خودکار بسته شود."
+"$perps_high_leverage_warning": "اهرم بالا: یک تغییر کوچک در قیمت باعث لیکویید شدن می‌شود."
+"$perps_leverage_disclaimer": "اهرم بالاتر سود و زیان احتمالی را افزایش می‌دهد. حتی تغییر کوچکی در قیمت برخلاف جهت موقعیت شما می‌تواند باعث بسته شدن خودکار آن شود."
+
+# Perps order review
+"Open Position": "باز کردن موقعیت"
+"$perps_asset_price": "قیمت %asset%"
+"$perps_leverage_direction": "%direction% با اهرم %leverage%×"
+"$perps_liquidation_acknowledgment": "با تأیید، می‌پذیرم که این موقعیت ممکن است لیکویید شود و ممکن است پولی را که سرمایه‌گذاری کرده‌ام از دست بدهم."
+
+# Perps position receipt
+"Position Opened": "موقعیت باز شد"
+"Fees": "کارمزدها"
+"Transfer ID": "شناسه انتقال"
+
+# Perps active position
+"Equity": "ارزش موقعیت"
+"Profit and Loss": "سود و زیان"
+"Invested": "سرمایه‌گذاری‌شده"
+"Entry Price": "قیمت ورود"
+"Edit Position": "ویرایش موقعیت"
+"Close Position": "بستن موقعیت"
+"PerpsEditPositionAction": "ویرایش موقعیت"
+"PerpsClosePositionAction": "بستن موقعیت"
+"$perps_invested_hint": "مقدار پول خودتان که برای این موقعیت استفاده شده است. برای مثال، اگر $100 با اهرم 5x سرمایه‌گذاری کنید، مبلغ سرمایه‌گذاری‌شده شما $100 و اندازه موقعیت شما $500 خواهد بود."
+"$perps_entry_price_hint": "میانگین قیمتی که این موقعیت در آن باز شده است."
+"$perps_funding_payments_hint": "پرداخت‌های دوره‌ای بین معامله‌گران دارای موقعیت‌های لانگ و شورت. بسته به نرخ تأمین مالی، تا زمانی که موقعیت شما باز است ممکن است مبلغ تأمین مالی را پرداخت یا دریافت کنید."
+
+# Perps edit position
+"$perps_edit_long": "ویرایش لانگ %asset%"
+"$perps_edit_short": "ویرایش شورت %asset%"
+"Current:": "فعلی:"
+"Liquidation": "لیکویید شدن"
+"You Pay or Receive": "پرداخت یا دریافت شما"
+"Reset to Current Amount": "بازنشانی به مبلغ فعلی"
+"Network Fee": "کارمزد شبکه"
+"$perps_network_fee_hint": "کارمزد پردازش این تراکنش در بلاکچین."
+"$perps_edit_liquidation_hint": "لیکویید شدن — قیمتی که در آن موقعیت شما خودکار بسته می‌شود."
+
+# Perps position lifecycle
+"Increase Position": "افزایش موقعیت"
+"Reduce Position": "کاهش موقعیت"
+"Current Value": "ارزش فعلی"
+"Closing Value": "ارزش هنگام بستن"
+"Entry / Exit Price": "قیمت ورود / خروج"
+"Entry / Liquidation Price": "قیمت ورود / لیکویید شدن"
+"You Paid": "پرداخت کردید"
+"You Received": "دریافت کردید"
+"Position Increased": "موقعیت افزایش یافت"
+"Position Reduced": "موقعیت کاهش یافت"
+"Position Closed": "موقعیت بسته شد"
+"Position Liquidated": "موقعیت لیکویید شد"
+"Profit": "سود"
+"Loss": "زیان"
+"$perps_current_value_hint": "ارزش فعلی مبلغ سرمایه‌گذاری‌شده شما، با احتساب سود یا زیان موقعیت."
+"$perps_price_when_opened": "قیمت %asset% هنگام باز کردن"
+"$perps_price_now": "قیمت فعلی %asset%"
+"$perps_held": "مدت نگهداری: %duration%"
+"$perps_liquidated_title": "موقعیت به‌صورت خودکار بسته شد."
+"$perps_liquidated_message": "قیمت بازار به قیمت لیکویید شدن رسید و باعث زیان شد."
+
+# Perps home
+"Open Positions": "موقعیت‌های باز"
+"Show All Positions": "نمایش همه موقعیت‌ها"
+"Futures": "فیوچرز"
+"Futures Market": "بازار فیوچرز"
+"Liquidation Risk": "خطر لیکویید شدن"
+"Refresh": "تازه‌سازی"
+"More Actions": "اقدامات بیشتر"
+"$perps_no_positions": "هنوز موقعیت بازی ندارید. برای شروع، بازار فیوچرز را بررسی کنید."
+"$perps_explore_market": "رمزارزها و دارایی‌های دنیای واقعی را معامله کنید"
+"PerpsExploreAgentDescription": "دستیار هوش مصنوعی شما"
+"$perps_explore_futures": "موقعیت‌های شورت و لانگ باز کنید"
+"$perps_explore_apps": "اینترنت غیرمتمرکز را کاوش کنید"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "قیمت‌ها یا موقعیت شما تغییر کرده‌اند. برگردید و سفارش را دوباره بررسی کنید."
+"PerpsReviewChanged": "سفارش تغییر کرده است. برگردید و دوباره آن را بررسی کنید."
+"PerpsInsufficientUsdc": "موجودی USDC در Arbitrum با احتساب کارمزد پل کافی نیست."
+"PerpsAmountTooSmall": "این مبلغ کمتر از حداقل مجاز بازار است."
+"PerpsUnchanged": "برای تغییر موقعیت، مبلغ دیگری وارد کنید."
+"PerpsPositionChanged": "این موقعیت تغییر کرده است. تازه‌سازی کنید و دوباره تلاش کنید."
+"PerpsPositionExists": "در این بازار از قبل موقعیت دارید. همان موقعیت را ویرایش کنید."
+"PerpsOperationPending": "یک عملیات هنوز در انتظار است. پیش از معامله دوباره، وضعیت آن را بررسی کنید."
+"PerpsUnsupportedAccount": "معاملات فیوچرز به کیف پول نرم‌افزاری با آدرس شبکه اصلی Arbitrum نیاز دارد."
+"PerpsTradingUnavailable": "معامله در این بازار هنوز در دسترس نیست."
+"PerpsInvalidLeverage": "اهرمی را انتخاب کنید که این بازار پشتیبانی می‌کند."
+"PerpsInvalidAmount": "مبلغ معتبری وارد کنید."
+"PerpsChangeLeverage": "تغییر اهرم"
+"PerpsChangeLeverageSeparately": "اهرم را جدا از مبلغ موقعیت تغییر دهید."
+"PerpsUnavailable": "فیوچرز در دسترس نیست. لطفاً بعداً دوباره تلاش کنید."
+"PerpsIncompleteData": "برخی موقعیت‌ها بارگیری نشدند. برای دریافت موجودی کامل، تازه‌سازی کنید."
+"PerpsFeesAtExecution": "کارمزدها هنگام اجرا نهایی می‌شوند"
+"PerpsWithdrawalPending": "موقعیت به‌روز شد، اما برداشت USDC هنوز کامل نشده است. سفارش را دوباره ارسال نکنید."
+"PerpsOperationStatus": "وضعیت سفارش"
+"PerpsExecutionUnknown": "نتیجه هنوز تأیید نشده است. پیش از اقدام بعدی، تازه‌سازی کنید و موقعیت و انتقال را بررسی کنید."
+"PerpsProcessing": "سفارش شما در حال پردازش است. انتقال از طریق پل و تسویه ممکن است چند دقیقه طول بکشد."
+"PerpsCompleted": "سفارش تکمیل شد"
+"PerpsReconciled": "حساب شما تازه‌سازی شد. جزئیات معامله پس از آماده شدن سابقه اجرا نمایش داده می‌شود."
+
+PerpsWithdrawReleased: "برداشت وجه آزادشده"
+PerpsWithdrawDescription: "USDC موجود را از Hyperliquid به این کیف پول در Arbitrum منتقل کنید. کارمزد ارسال ۰٫۲۰ USDC است."
+PerpsPartialFill: "سفارش به‌صورت جزئی اجرا شد. مبلغ اجراشده در زیر آمده است؛ پیش از ثبت سفارش دیگر، موقعیت فعلی را بررسی کنید."
+
 Receiver %blockchain% Address: آدرس %blockchain% گیرنده
+
 
 Save to Photos: ذخیره در عکس‌ها
 Image Saved: تصویر ذخیره شد
 Allow access to Photos in Settings to save NFT images.: برای ذخیرهٔ تصاویر NFT، در تنظیمات اجازهٔ دسترسی به عکس‌ها را بدهید.
 Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن نشد. لطفاً دوباره تلاش کنید.
+
+"$perps_activity_opened": "باز کردن %asset%"
+"$perps_activity_increased": "افزایش %asset%"
+"$perps_activity_reduced": "کاهش %asset%"
+"$perps_activity_closed": "بستن %asset%"
+"$perps_activity_liquidated": "لیکویید شدن %asset%"
+
+# Perps
+"PerpsInsufficientGas": "موجودی ETH در Arbitrum برای کارمزد شبکه کافی نیست. USDC مربوط به موقعیت جدا از این کارمزد است."
+"PerpsFundingMissingTitle": "USDC یا ETH در Arbitrum ندارید"
+"$perps_funding_missing": "حداقل %minUSDC% USDC و %feeETH% ETH برای کارمزدها دریافت کنید."
+"$perps_funding_usdc": "برای باز کردن موقعیت، حداقل به %minUSDC% USDC در Arbitrum نیاز دارید."
+"$perps_funding_usdc_increase": "برای افزایش این موقعیت، حداقل به %minUSDC% USDC در Arbitrum نیاز دارید."
+"PerpsFundingGasTitle": "ETH برای کارمزد کافی نیست"
+"$perps_funding_gas": "کارمزدها در Arbitrum با ETH پرداخت می‌شوند. %feeETH% ETH (~%feeFiat%) دریافت کنید."
+"PerpsFundingTokenTitle": "با USDC در Arbitrum پرداخت کنید"
+"PerpsFundingTokenDescription": "سایر توکن‌ها هنوز پشتیبانی نمی‌شوند. برای ادامه USDC دریافت کنید."
+"Not Enough Funds": "موجودی کافی نیست"
+"Unsupported Token": "توکن پشتیبانی نمی‌شود"
+"PerpsReviewUpdated": "قیمت‌ها به‌روز شده‌اند. پیش از تأیید، سفارش را دوباره بررسی کنید."
+"PerpsOrderTooSmall": "حداقل ارزش سفارش ۱۰ دلار است."
+"PerpsOrderNotFilled": "سفارش با قیمت بررسی‌شده اجرا نشد. تازه‌سازی کنید و دوباره تلاش کنید."
+"PerpsInsufficientMargin": "وجه تضمین کافی برای این سفارش وجود ندارد. موقعیت را تازه‌سازی و مبلغ را تنظیم کنید."
+"PerpsOrderRejected": "صرافی این سفارش را رد کرد. موقعیت را تازه‌سازی و سفارش را دوباره بررسی کنید."
+"Order": "سفارش"
+"Order ID": "شناسه سفارش"
+"Date": "تاریخ"
+"PerpsAllowNewOrders": "اجازه سفارش‌های جدید"
+"PerpsAcknowledgeUnknown": "سفارش اولیه هنوز ممکن است اجرا شود. ابتدا موقعیت‌ها و انتقال‌ها را بررسی کنید. اجازه سفارش‌های جدید، سفارش اولیه را لغو نمی‌کند."
+"$perps_market_title": "فیوچرز %asset%"
+"Recent Market Activity": "فعالیت‌های اخیر بازار"
+"Trade Size": "اندازه معامله"
+"PerpsExchangeFee": "کارمزد صرافی"
+"PerpsServiceFee": "کارمزد کیف پول"
+"PerpsBridgeFee": "کارمزد پل"
+"PerpsTotalFees": "مجموع کارمزدهای USDC"
+"PerpsFeeEstimateHint": "کارمزدهای دارای علامت ≈ تخمینی هستند و ممکن است هنگام اجرا تغییر کنند. کارمزد شبکه Arbitrum جداگانه با ETH پرداخت می‌شود."
+"PerpsUnallocatedCollateral": "وثیقه تخصیص‌نیافته"
+"PerpsUnallocatedCollateralHint": "گرد کردن به اندازه مجاز معامله ممکن است مقداری USDC را خارج از موقعیت باقی بگذارد. این وجه در حساب فیوچرز شما می‌ماند و کارمزد نیست."
+"PerpsOnboardingTitle": "تازه با معاملات آتی آشنا شده‌اید؟"
+"PerpsOnboardingDescription": "در کمتر از ۱ دقیقه با نحوهٔ کار آن آشنا شوید."
+"PerpsOnboardingOpen": "باز کردن راهنما"
+"PerpsStoryIntroTitle": "با قراردادهای آتی بدون سررسید آشنا شوید"
+"PerpsStoryIntroBody": "برای افزایش و کاهش قیمت دارایی‌ها موقعیت باز کنید."
+"PerpsStoryLongTitle": "انتظار افزایش قیمت دارید؟ لانگ بگیرید"
+"PerpsStoryLongBody": "با افزایش قیمت سود می‌کنید و با کاهش آن زیان می‌کنید."
+"PerpsStoryShortTitle": "انتظار کاهش قیمت دارید؟ شورت بگیرید"
+"PerpsStoryShortBody": "با کاهش قیمت سود می‌کنید و با افزایش آن زیان می‌کنید."
+"PerpsStoryLeverageTitle": "اهرم نتیجه را چند برابر می‌کند"
+"PerpsStoryLeverageBody": "مارجین، پول خودتان در موقعیت است. با اهرم 5×، مبلغ $10 موقعیتی به ارزش $50 را کنترل می‌کند — سود و زیان نیز ۵ برابر می‌شوند."
+"PerpsStoryLiquidationTitle": "موقعیت شما ممکن است خودکار بسته شود"
+"PerpsStoryLiquidationBody": "این همان لیکویید شدن است: اگر به‌دلیل زیان، مارجین کافی باقی نماند، ممکن است موقعیت شما بسته شود. قیمت لیکویید شدن را زیر نظر داشته باشید."
+"PerpsStoryFundingTitle": "فاندینگ، پرداختی بین معامله‌گران است"
+"PerpsStoryFundingBody": "وقتی نرخ فاندینگ مثبت است، دارندگان موقعیت لانگ به دارندگان موقعیت شورت پرداخت می‌کنند. وقتی منفی است، دارندگان موقعیت شورت به دارندگان موقعیت لانگ پرداخت می‌کنند."
+"PerpsStoryStart": "شروع"
+
+"Funding Payment": "پرداخت تأمین مالی"
+"Withdrawal": "برداشت"
+"Transfer": "انتقال"
+"Spot Balance": "موجودی اسپات"
+"From": "از"
+"To": "به"
+
+Delete Chat: حذف گفت‌وگو
+Unread: خوانده‌نشده
+$agent_connection_lost: اتصال عامل قطع شد.
+$agent_daily_limit_reached: سقف روزانهٔ عامل پر شده است
+$media_viewer_date_at_time: "%date% ساعت %time%"
+Picture: تصویر
+
+Add to Reading List: افزودن به فهرست مطالعه
+
+$enclave_data_missing_title: داده‌های کیف پول پیدا نشد
+$enclave_data_missing_message: |
+  این مشکل رمز عبور نیست. داده‌هایی که برنامه روی این دستگاه برای بررسی رمز عبور و باز کردن کیف پول‌های شما نگه می‌دارد از بین رفته است، بنابراین هیچ رمز عبوری در اینجا آن‌ها را باز نمی‌کند.
+
+  برنامه را دوباره نصب نکنید و داده‌های آن را از تنظیمات سیستم پاک نکنید. با دکمه زیر گزارش‌ها را خروجی بگیرید و برای %support_link% بفرستید: از روی آن‌ها می‌بینیم در این دستگاه چه اتفاقی افتاده است.
+
+  اگر کلمات محرمانه کیف پول‌های خود را دارید، می‌توانید از همه کیف پول‌ها خارج شوید و آن‌ها را دوباره وارد کنید.
+
+Install the TON App on your Ledger and try again.: اپلیکیشن TON را روی لجر خود نصب کنید و دوباره تلاش کنید.

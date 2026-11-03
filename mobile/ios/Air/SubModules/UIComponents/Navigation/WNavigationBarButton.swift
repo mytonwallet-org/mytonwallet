@@ -47,7 +47,9 @@ public final class WNavigationBarButton {
         btn.setTitle(text, for: .normal)
         btn.titleLabel?.applyTextStyle(.bodyStrong)
         if IOS_26_MODE_ENABLED {
-            btn.tintColor = tintColor ?? .label
+            btn.customTintColor = tintColor ?? .air.homeNavigationForeground
+            btn.configuration?.baseForegroundColor = tintColor ?? .air.homeNavigationForeground
+            btn.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 19, weight: .medium)
         } else if let tintColor {
             btn.tintColor = tintColor
         }

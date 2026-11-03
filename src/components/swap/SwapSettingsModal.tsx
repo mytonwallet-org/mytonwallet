@@ -35,7 +35,8 @@ import styles from './Swap.module.scss';
 
 interface OwnProps {
   isOpen: boolean;
-  showFullNetworkFee?: boolean;
+  /** The balance can't cover the network fee, so the full fee is shown and painted red */
+  isFeeInsufficient?: boolean;
   onClose: () => void;
   onNetworkFeeClick?: () => void;
 }
@@ -75,7 +76,7 @@ function SwapSettingsContent({
   dieselStatus,
   dieselFee,
   nativeTokenInBalance,
-  showFullNetworkFee,
+  isFeeInsufficient,
   onNetworkFeeClick,
 }: Omit<OwnProps, 'isOpen'> & StateProps) {
   const { setSlippage } = getActions();
@@ -172,7 +173,7 @@ function SwapSettingsContent({
   }
 
   function renderNetworkFee() {
-    const actualFee = showFullNetworkFee ? explainedFee.fullFee : explainedFee.realFee;
+    const actualFee = isFeeInsufficient ? explainedFee.fullFee : explainedFee.realFee;
     let feeElement = actualFee && tokenIn && (
       <Fee
         terms={actualFee.networkTerms}
@@ -186,7 +187,7 @@ function SwapSettingsContent({
         <span
           role="button"
           tabIndex={0}
-          className={styles.advancedLink}
+          className={buildClassName(styles.advancedLink, isFeeInsufficient && styles.advancedLinkError)}
           onClick={() => onNetworkFeeClick()}
         >
           <span className={styles.feeElement}>{feeElement}</span>
@@ -197,10 +198,10 @@ function SwapSettingsContent({
 
     return (
       <div className={styles.advancedRow}>
-        <span className={styles.advancedDescription}>
+        <span className={buildClassName(styles.advancedDescription, isFeeInsufficient && styles.advancedError)}>
           {lang('Blockchain Fee')}
         </span>
-        <span className={styles.advancedValue}>
+        <span className={buildClassName(styles.advancedValue, isFeeInsufficient && styles.advancedError)}>
           {feeElement || <ValuePlaceholder />}
         </span>
       </div>

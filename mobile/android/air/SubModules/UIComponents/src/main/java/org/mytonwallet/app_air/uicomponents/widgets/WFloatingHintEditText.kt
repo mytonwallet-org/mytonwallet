@@ -17,6 +17,7 @@ import android.view.Gravity
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.core.graphics.withTranslation
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -51,6 +52,15 @@ open class WFloatingHintEditText @JvmOverloads constructor(
     private val cursorDrawable: Drawable? = textCursorDrawableCompat?.mutate()?.apply {
         alpha = (viewPropertiesStateSet.current.cursorAlpha * 255).roundToInt()
     }
+
+    /** Keeps the hint on one line, running past the field's end however narrow the field gets, instead of wrapping */
+    var isHintSingleLine = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidateHintLayout()
+            invalidate()
+        }
 
     init {
         textCursorDrawableCompat = cursorDrawable
@@ -283,7 +293,9 @@ open class WFloatingHintEditText @JvmOverloads constructor(
         val layout = createHintLayout(textForHint, contentWidth)
 
         val layoutWidth = layout.width
-        val x = when (horizontalGravity) {
+        // A single line wider than the field starts where the text does and runs past the end
+        val overflowGravity = if (isRtl) Gravity.RIGHT else Gravity.LEFT
+        val x = when (if (layoutWidth > contentWidth) overflowGravity else horizontalGravity) {
             Gravity.CENTER_HORIZONTAL -> contentLeft + (contentWidth - layoutWidth) / 2
             Gravity.RIGHT, Gravity.END -> contentRight - layoutWidth
             else -> contentLeft
@@ -326,8 +338,14 @@ open class WFloatingHintEditText @JvmOverloads constructor(
             TextDirectionHeuristics.LTR
         }
 
+        val width = if (isHintSingleLine) {
+            max(availableWidth, ceil(Layout.getDesiredWidth(hintText, hintPaint)).toInt())
+        } else {
+            availableWidth
+        }
         val layout = StaticLayout.Builder
-            .obtain(hintText, 0, hintText.length, hintPaint, availableWidth)
+            .obtain(hintText, 0, hintText.length, hintPaint, width)
+            .setMaxLines(if (isHintSingleLine) 1 else Int.MAX_VALUE)
             .setAlignment(alignment)
             .setIncludePad(includePad)
             .setLineSpacing(spacingAdd, spacingMultiplier)

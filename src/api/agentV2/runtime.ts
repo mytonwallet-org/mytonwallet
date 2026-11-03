@@ -2,8 +2,11 @@ import type { Storage } from '../storages/types';
 import type {
   AgentAnswerFeedbackV2,
   AgentMessageEndEvent,
+  AgentNewsFeedLocaleV2,
   AgentRunCancelResponseV2,
   AgentRunRequestWireV2,
+  AgentThreadCreateRequestV2,
+  AgentThreadListRequestV2,
   AgentToolCall,
   AgentToolResultRequestV2,
   AgentV2FinishReason,
@@ -19,6 +22,8 @@ import type {
   AgentV2RunCommand,
   AgentV2RunResult,
   AgentV2ThreadHydration,
+  AgentV2ThreadUpdate,
+  AgentV2Transcription,
 } from './types';
 
 import { APP_ENV } from '../../config';
@@ -31,9 +36,15 @@ import {
   decodeAgentV2AnswerFeedback,
   decodeAgentV2DefaultThread,
   decodeAgentV2Messages,
+  decodeAgentV2NewsFeed,
   decodeAgentV2ProblemReport,
   decodeAgentV2RunCancel,
   decodeAgentV2ThreadClear,
+  decodeAgentV2ThreadCreate,
+  decodeAgentV2ThreadDelete,
+  decodeAgentV2ThreadList,
+  decodeAgentV2ThreadUpdate,
+  decodeAgentV2Transcription,
 } from './protocol/transportContracts';
 import { AgentV2ActionResolver } from './actionResolver';
 import {
@@ -74,6 +85,8 @@ const RECONNECT_BACKOFF_EXPONENT_CAP = 3;
 const PRE_ADMISSION_MAX_ATTEMPTS = 3;
 const STREAM_PROTOCOL_NO_PROGRESS_MAX_ATTEMPTS = 3;
 const REMOTE_CANCEL_TIMEOUT_MS = 3_000;
+// The server allows a transcription up to 100 s, but a minute of waiting for one phrase is already too long
+const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const UTC_DAY_MS = 24 * 60 * 60_000;
 const FAILED_RUN_RETRY_GRACE_MS = 5 * 60_000;
 const FAILED_RUN_RETRY_MAX_TTL_MS = UTC_DAY_MS;
@@ -102,6 +115,7 @@ interface FailedRunRequest {
   expiresAt: number;
   request: AgentRunRequestWireV2;
   userMessageId?: string;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 export interface AgentV2RuntimeDependencies {
@@ -128,7 +142,8 @@ export class AgentV2Runtime {
   private readonly walletSession: AgentV2WalletSession;
   private readonly randomUuid: () => string;
   /** The last report that got no answer, so sending it again reuses its operation id */
-  private unansweredProblemReport?: { key: string; clientOperationId: string };
+  private readonly unansweredProblemReportByThreadId = new Map<string, { key: string; clientOperationId: string }>();
+  private readonly unansweredThreadDeletionByThreadId = new Map<string, string>();
   private readonly wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   private readonly requestTimeoutMs: number;
   private readonly lifecycleController = new AbortController();
@@ -136,18 +151,17 @@ export class AgentV2Runtime {
   private readonly actions: AgentV2ActionResolver;
   private readonly backgroundTasks = new Set<Promise<void>>();
   private readonly clearGenerationByThreadId = new Map<string, number>();
+  private readonly threadGenerationByThreadId = new Map<string, number>();
+  private readonly failedRunRequestByThreadId = new Map<string | undefined, FailedRunRequest>();
   // The latest rating request of each answer; the next one waits for it, so the server keeps the last rating made
   private readonly feedbackRequestByMessageId = new Map<string, Promise<unknown>>();
 
   private authorityGeneration = 0;
   private runGeneration = 0;
   private walletContextGeneration = 0;
-  private threadGeneration = 0;
   private consentPromise?: Promise<boolean>;
-  private failedRunRequestTimer?: ReturnType<typeof setTimeout>;
   private toolExecutor: AgentV2ToolExecutor;
   private consentWritePromise?: Promise<boolean>;
-  private failedRunRequest?: FailedRunRequest;
 
   constructor(private readonly dependencies: AgentV2RuntimeDependencies) {
     this.timingSink
@@ -313,12 +327,99 @@ export class AgentV2Runtime {
     return this.getJson(`${this.dependencies.baseUrl}/threads/default`, decodeAgentV2DefaultThread);
   }
 
+  async listThreads({ cursor, limit, query }: AgentThreadListRequestV2 = {}) {
+    this.assertActive();
+    await this.requireConsent();
+    const params = new URLSearchParams();
+    if (cursor) params.set('cursor', cursor);
+    if (limit !== undefined) params.set('limit', String(limit));
+    const trimmedQuery = query?.trim();
+    if (trimmedQuery) params.set('query', trimmedQuery);
+    const search = params.toString();
+    return this.getJson(`${this.dependencies.baseUrl}/threads${search ? `?${search}` : ''}`, decodeAgentV2ThreadList);
+  }
+
+  async getNewsFeed({ lang, cursor }: { lang: string; cursor?: string }) {
+    this.assertActive();
+    await this.requireConsent();
+    const params = new URLSearchParams({ locale: getNewsFeedLocale(lang) });
+    if (cursor) params.set('cursor', cursor);
+    const { locale, items, nextCursor } = await this.getJson(
+      `${this.dependencies.baseUrl}/news-feed?${params}`,
+      decodeAgentV2NewsFeed,
+    );
+    return { locale, items, ...(nextCursor !== undefined && { nextCursor }) };
+  }
+
+  async createThread({ news }: Omit<AgentThreadCreateRequestV2, 'protocolVersion'> = {}) {
+    this.assertActive();
+    await this.requireConsent();
+    return this.getJson(`${this.dependencies.baseUrl}/threads`, decodeAgentV2ThreadCreate, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolVersion: 3, ...(news !== undefined && { news }) }),
+    });
+  }
+
+  async updateThread(threadId: string, { title, isPinned }: AgentV2ThreadUpdate) {
+    this.assertActive();
+    await this.requireConsent();
+    const threadGeneration = this.getThreadGeneration(threadId);
+    const result = await this.getJson(
+      `${this.dependencies.baseUrl}/threads/${encodeURIComponent(threadId)}/update`,
+      decodeAgentV2ThreadUpdate,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ protocolVersion: 3, title, isPinned }),
+      },
+    );
+    this.assertThreadBinding(threadId, result.thread.id);
+    if (threadGeneration === this.getThreadGeneration(threadId)) {
+      this.emitUpdate({ kind: 'threadChanged', threadId, thread: result.thread });
+    }
+    return result;
+  }
+
+  async deleteThread(threadId: string) {
+    this.assertActive();
+    await this.requireConsent();
+    const clientOperationId = this.unansweredThreadDeletionByThreadId.get(threadId) ?? this.randomUuid();
+    this.unansweredThreadDeletionByThreadId.set(threadId, clientOperationId);
+    const result = await this.getJson(
+      `${this.dependencies.baseUrl}/threads/${encodeURIComponent(threadId)}/delete`,
+      decodeAgentV2ThreadDelete,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ protocolVersion: 3, clientOperationId }),
+      },
+    ).catch((error: unknown) => {
+      const hasReceivedResponse = (error instanceof AgentV2HttpError && error.status > 0)
+        || error instanceof AgentV2ContractError
+        || error instanceof AgentV2CompatibilityError
+        || error instanceof SyntaxError;
+      if (hasReceivedResponse && this.unansweredThreadDeletionByThreadId.get(threadId) === clientOperationId) {
+        this.unansweredThreadDeletionByThreadId.delete(threadId);
+      }
+      throw error;
+    });
+    if (this.unansweredThreadDeletionByThreadId.get(threadId) === clientOperationId) {
+      this.unansweredThreadDeletionByThreadId.delete(threadId);
+    }
+    this.assertThreadBinding(threadId, result.threadId);
+    this.cancelThreadRuns(threadId);
+    this.unansweredProblemReportByThreadId.delete(threadId);
+    this.invalidateThread(threadId);
+    return result;
+  }
+
   async getMessages(threadId: string, cursorValue?: string, limit = 100): Promise<AgentV2ThreadHydration> {
     this.assertActive();
     await this.requireConsent();
     const authorityGeneration = this.authorityGeneration;
     const walletContextGeneration = this.walletContextGeneration;
-    const threadGeneration = this.threadGeneration;
+    const threadGeneration = this.getThreadGeneration(threadId);
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursorValue) params.set('cursor', cursorValue);
     const page = await this.getJson(
@@ -330,7 +431,7 @@ export class AgentV2Runtime {
     this.assertThreadBinding(threadId, page.thread.id);
     page.messages.forEach((message) => this.assertThreadBinding(threadId, message.threadId));
     const persistedMessages = page.messages;
-    if (threadGeneration !== this.threadGeneration) throw invalidStreamEvent();
+    if (threadGeneration !== this.getThreadGeneration(threadId)) throw invalidStreamEvent();
     this.assertAuthorityGeneration(authorityGeneration);
     this.assertWalletContextGeneration(walletContextGeneration);
     for (const message of persistedMessages) {
@@ -427,11 +528,12 @@ export class AgentV2Runtime {
     this.assertActive();
     await this.requireConsent();
     const authorityGeneration = this.authorityGeneration;
-    const failed = this.failedRunRequest?.request.clientRunId === clientRunId
-      ? this.failedRunRequest
-      : undefined;
+    const failed = [...this.failedRunRequestByThreadId.values()]
+      .find(({ request }) => request.clientRunId === clientRunId);
     if (!failed) return undefined;
-    this.clearFailedRunRequests();
+    const threadId = failed.request.threadId;
+    const clearGeneration = this.getClearGeneration(threadId);
+    this.clearFailedRunRequest(threadId);
     if (failed.expiresAt <= this.now()) return undefined;
     const trace = this.timingSink ? new AgentClientTrace(newClientTraceId(), this.timingSink) : undefined;
     const end = trace?.start('client_request');
@@ -440,6 +542,11 @@ export class AgentV2Runtime {
       this.assertAuthorityGeneration(authorityGeneration);
       await this.requireConsent();
       this.assertAuthorityGeneration(authorityGeneration);
+      if (clearGeneration !== this.getClearGeneration(threadId)) {
+        end?.('cancelled');
+        const inputMessageId = getRunInputMessageId(failed.request);
+        return { clientRunId, ...(inputMessageId ? { inputMessageId } : {}), state: 'cancelled' };
+      }
       const result = await this.executeRun(failed.request, authorityGeneration, trace, failed.userMessageId);
       end?.(result.state === 'completed' ? 'success' : result.state === 'cancelled' ? 'cancelled' : 'error');
       return result;
@@ -590,9 +697,9 @@ export class AgentV2Runtime {
     const trimmedComment = comment !== undefined ? hideSecretPhrases(comment.trim()) : undefined;
     // The server may have stored a report whose answer was lost, so sending the same report again must not repeat it
     const key = [threadId, messageId ?? '', trimmedComment ?? ''].join('\n');
-    const previous = this.unansweredProblemReport;
+    const previous = this.unansweredProblemReportByThreadId.get(threadId);
     const clientOperationId = previous?.key === key ? previous.clientOperationId : this.randomUuid();
-    this.unansweredProblemReport = { key, clientOperationId };
+    this.unansweredProblemReportByThreadId.set(threadId, { key, clientOperationId });
     const result = await this.getJson(
       `${this.dependencies.baseUrl}/threads/${encodeURIComponent(threadId)}/reports`,
       decodeAgentV2ProblemReport,
@@ -612,10 +719,26 @@ export class AgentV2Runtime {
       throw err;
     });
     // A report sent after this one may own the record by now
-    if (this.unansweredProblemReport?.clientOperationId === clientOperationId) {
-      this.unansweredProblemReport = undefined;
+    if (this.unansweredProblemReportByThreadId.get(threadId)?.clientOperationId === clientOperationId) {
+      this.unansweredProblemReportByThreadId.delete(threadId);
     }
     return result;
+  }
+
+  /** Turns one dictated recording into composer text; nothing is stored or sent as a message */
+  async transcribe({ audio, format, lang }: AgentV2Transcription) {
+    this.assertActive();
+    await this.requireConsent();
+    return this.getJson(
+      `${this.dependencies.baseUrl}/transcriptions`,
+      decodeAgentV2Transcription,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ protocolVersion: 3, audio, format, ...(lang && { lang }) }),
+      },
+      { timeoutMs: TRANSCRIPTION_TIMEOUT_MS },
+    );
   }
 
   /**
@@ -669,6 +792,10 @@ export class AgentV2Runtime {
     this.runs.forEach(({ controller }) => controller.abort());
     this.runs.clear();
     this.clearFailedRunRequests();
+    this.unansweredProblemReportByThreadId.clear();
+    this.unansweredThreadDeletionByThreadId.clear();
+    this.threadGenerationByThreadId.clear();
+    this.clearGenerationByThreadId.clear();
     this.actions.clear();
     this.toolExecutor.clear?.();
     this.probes.destroy();
@@ -969,11 +1096,11 @@ export class AgentV2Runtime {
       });
     }
     // A run kept across a wallet selection change publishes its actions, which open for the current wallet
-    const threadGeneration = this.threadGeneration;
+    const threadGeneration = this.getThreadGeneration(threadId);
     for (const action of pending.actions) {
       if (!this.isRunCurrent(state)
         || state.controller.signal.aborted
-        || threadGeneration !== this.threadGeneration
+        || threadGeneration !== this.getThreadGeneration(threadId)
       ) { return; }
       this.actions.registerAction(threadId, messageId, action);
       this.emitUpdate({
@@ -1184,19 +1311,30 @@ export class AgentV2Runtime {
     expiresAt: number,
     userMessageId: string | undefined,
   ) {
-    this.clearFailedRunRequests();
-    const failedRunRequest = { request, expiresAt, ...(userMessageId ? { userMessageId } : {}) };
-    this.failedRunRequest = failedRunRequest;
-    this.failedRunRequestTimer = setTimeout(() => {
-      this.failedRunRequestTimer = undefined;
-      if (this.failedRunRequest === failedRunRequest) this.failedRunRequest = undefined;
-    }, Math.max(0, expiresAt - this.now()));
+    const threadId = request.threadId;
+    this.clearFailedRunRequest(threadId);
+    const failedRunRequest: FailedRunRequest = {
+      request,
+      expiresAt,
+      ...(userMessageId ? { userMessageId } : {}),
+      timer: setTimeout(() => {
+        if (this.failedRunRequestByThreadId.get(threadId) === failedRunRequest) {
+          this.failedRunRequestByThreadId.delete(threadId);
+        }
+      }, Math.max(0, expiresAt - this.now())),
+    };
+    this.failedRunRequestByThreadId.set(threadId, failedRunRequest);
+  }
+
+  private clearFailedRunRequest(threadId: string | undefined) {
+    const failed = this.failedRunRequestByThreadId.get(threadId);
+    if (failed) clearTimeout(failed.timer);
+    this.failedRunRequestByThreadId.delete(threadId);
   }
 
   private clearFailedRunRequests() {
-    if (this.failedRunRequestTimer !== undefined) clearTimeout(this.failedRunRequestTimer);
-    this.failedRunRequestTimer = undefined;
-    this.failedRunRequest = undefined;
+    this.failedRunRequestByThreadId.forEach(({ timer }) => clearTimeout(timer));
+    this.failedRunRequestByThreadId.clear();
   }
 
   private now() {
@@ -1333,12 +1471,15 @@ export class AgentV2Runtime {
   }
 
   private invalidateThread(threadId: string) {
-    this.threadGeneration += 1;
-    const failedRunRequest = this.failedRunRequest;
-    if (failedRunRequest?.request.threadId === threadId) this.clearFailedRunRequests();
+    this.threadGenerationByThreadId.set(threadId, this.getThreadGeneration(threadId) + 1);
+    this.clearFailedRunRequest(threadId);
     this.actions.clear(threadId);
     this.toolExecutor.clear?.(threadId);
     this.emitUpdate({ kind: 'walletAuthorityChanged', threadId });
+  }
+
+  private getThreadGeneration(threadId: string) {
+    return this.threadGenerationByThreadId.get(threadId) ?? 0;
   }
 
   private assertThreadBinding(expectedThreadId: string, actualThreadId: string) {
@@ -1420,6 +1561,10 @@ class UnsupportedToolExecutor implements AgentV2ToolExecutor {
 // A recovery phrase never leaves the device, whichever app sent the text
 function hideSecretPhrases(text: string) {
   return removeSecretPhrases(text, getSecretPhraseWordList(), DEFAULT_SECRET_PHRASE_PLACEHOLDER);
+}
+
+function getNewsFeedLocale(lang: string): AgentNewsFeedLocaleV2 {
+  return lang.startsWith('ru') ? 'ru' : 'en';
 }
 
 function toolResultSessionBinding(call: AgentToolCall) {

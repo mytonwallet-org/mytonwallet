@@ -50,6 +50,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func reportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?)
     static func saveTemporaryViewAccount(accountId: String)
     static func scanAndHandleQR(accountContext: AccountContext)
+    static func scanAndHandleQR(accountContext: AccountContext, sourceViewProvider: @escaping () -> UIView?)
     static func scanQR() async -> ScanResult?
     static func setSensitiveDataIsHidden(_ newValue: Bool)
     static func shareUrl(_ url: URL)
@@ -77,6 +78,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showHome(popToRoot: Bool)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
+    static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool)
     static func showMarket()
     static func showMintCard(accountContext: AccountContext)
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool)
@@ -91,11 +93,12 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
-    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool, onDismiss: (() -> Void)?) async
     static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
     static func showToast(_ config: ToastConfig)
+    static func showSearch(query: String)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
@@ -108,6 +111,17 @@ public enum AssetListInitialPosition: Hashable, Sendable {
 @MainActor public var AppActions: any AppActionsProtocol.Type = DummyAppActionProtocolImpl.self
 
 public extension AppActionsProtocol {
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async {
+        await showTokenTrade(accountContext: accountContext, token: token, isBuying: isBuying, onDismiss: nil)
+    }
+
+    static func showPerps(accountId: String, positionId: String? = nil) {
+        showPerps(accountId: accountId, positionId: positionId, showsAllPositions: false)
+    }
+
+    static func showPerps(accountId: String, showsAllPositions: Bool) {
+        showPerps(accountId: accountId, positionId: nil, showsAllPositions: showsAllPositions)
+    }
     static func preloadUpgradeCard() { }
 
     static func showAddWallet(network: ApiNetwork) {
@@ -198,6 +212,9 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func repeatActivity(accountContext: AccountContext, _ activity: ApiActivity) { }
     static func reportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) { onConfirmed?() }
     static func scanAndHandleQR(accountContext: AccountContext) { }
+    static func scanAndHandleQR(accountContext: AccountContext, sourceViewProvider: @escaping () -> UIView?) {
+        scanAndHandleQR(accountContext: accountContext)
+    }
     static func scanQR() async -> ScanResult? { nil }
     static func saveTemporaryViewAccount(accountId: String) { }
     static func setSensitiveDataIsHidden(_ newValue: Bool) { }
@@ -226,6 +243,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHome(popToRoot: Bool) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
+    static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool) { }
     static func showMarket() { }
     static func showMintCard(accountContext: AccountContext) { }
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) { }
@@ -240,11 +258,12 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
-    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async { }
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool, onDismiss: (() -> Void)?) async { }
     static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async { }
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
     static func showToast(_ config: ToastConfig) { }
+    static func showSearch(query: String) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }

@@ -57,6 +57,8 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
 
     override val shouldDisplayTopBar = false
 
+    override val wrapsContentInCenteredWindow = true
+
     private var realFee = BigInteger.ZERO
 
     private val nftTagView = ActivitySingleTagView(context).apply {

@@ -44,7 +44,8 @@ public final class WAlertController: UIViewController {
     }
 
     private let configuration: Configuration
-    private let contentController: UIHostingController<AnyView>
+    private let contentView: UIView
+    private var contentController: UIViewController?
     private var actions: [WAlertAction]
     private var isPerformingAction = false
     fileprivate let dimView = UIControl()
@@ -58,21 +59,14 @@ public final class WAlertController: UIViewController {
     private var highlightedAction: Int?
     private let selectionFeedback = UISelectionFeedbackGenerator()
 
-    /// Hosts rich SwiftUI content, including attributed text, links, images and interactive controls.
-
-    public init<Content: View>(
+    public init(
         configuration: Configuration = .init(),
         actions: [WAlertAction],
-        @ViewBuilder content: () -> Content
+        contentView: UIView
     ) {
         self.configuration = configuration
         self.actions = actions
-        self.contentController = UIHostingController(rootView: AnyView(
-            content().textStyle(.body, scaling: .dynamic)
-                .foregroundStyle(Color.air.primaryLabel)
-                .tint(Color(uiColor: AirTintColor))
-                .fixedSize(horizontal: false, vertical: true)
-        ))
+        self.contentView = contentView
         if #available(iOS 26.0, *) {
             let effect = UIGlassContainerEffect()
             effect.spacing = 7
@@ -85,23 +79,38 @@ public final class WAlertController: UIViewController {
         transitioningDelegate = self
     }
 
+    /// Hosts rich SwiftUI content, including charts, images and interactive controls
+    public convenience init<Content: View>(
+        title: String? = nil,
+        kind: TipView.Kind = .info,
+        configuration: Configuration = .init(),
+        actions: [WAlertAction],
+        @ViewBuilder content: () -> Content
+    ) {
+        let controller = UIHostingController(rootView: AnyView(
+            content().textStyle(.body, scaling: .dynamic)
+                .foregroundStyle(Color.air.primaryLabel)
+                .tint(Color(uiColor: AirTintColor))
+                .multilineTextAlignment(.leading)
+                .lineSpacing(TipView.lineSpacing)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        ))
+        controller.view.backgroundColor = .clear
+        controller.sizingOptions = .intrinsicContentSize
+        controller.disableSafeArea()
+        let contentView = title.map { TipView(title: $0, kind: kind, contentView: controller.view) } ?? controller.view!
+        self.init(configuration: configuration, actions: actions, contentView: contentView)
+        contentController = controller
+    }
+
     public convenience init(
         title: String,
         message: String?,
         configuration: Configuration = .init(),
         actions: [WAlertAction]
     ) {
-        self.init(configuration: configuration, actions: actions) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(title)
-                    .textStyle(.bodyStrong, scaling: .dynamic)
-                    .accessibilityAddTraits(.isHeader)
-                if let message, !message.isEmpty {
-                    Text(message)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        self.init(configuration: configuration, actions: actions, contentView: TipView(title: title, message: message))
     }
 
     @available(*, unavailable)
@@ -135,14 +144,11 @@ public final class WAlertController: UIViewController {
         stack.axis = .vertical
         scrollView.addSubview(stack)
 
-        addChild(contentController)
-        contentController.view.backgroundColor = .clear
-        contentController.sizingOptions = .intrinsicContentSize
-        contentController.disableSafeArea()
+        if let contentController { addChild(contentController) }
         let contentContainer = UIView()
-        contentContainer.addSubview(contentController.view)
+        contentContainer.addSubview(contentView)
         stack.addArrangedSubview(contentContainer)
-        contentController.didMove(toParent: self)
+        contentController?.didMove(toParent: self)
         actionStack.axis = .vertical
         actionStack.spacing = 8
         actionStack.isLayoutMarginsRelativeArrangement = true
@@ -152,7 +158,7 @@ public final class WAlertController: UIViewController {
 
         let available = UILayoutGuide()
         view.addLayoutGuide(available)
-        for subview in [dimView, glassContainer, panel, panelBackground, scrollView, stack, contentController.view!] {
+        for subview in [dimView, glassContainer, panel, panelBackground, scrollView, stack, contentView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
         }
         let width = panel.widthAnchor.constraint(equalToConstant: configuration.wide ? 560 : 300)
@@ -191,10 +197,10 @@ public final class WAlertController: UIViewController {
             stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-            contentController.view.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 22),
-            contentController.view.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -22),
-            contentController.view.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: 22),
-            contentController.view.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -24),
+            contentView.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 22),
+            contentView.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -22),
+            contentView.topAnchor.constraint(equalTo: contentContainer.topAnchor, constant: 22),
+            contentView.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: -24),
         ])
         NotificationCenter.default.addObserver(self, selector: #selector(updateSurface), name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
     }

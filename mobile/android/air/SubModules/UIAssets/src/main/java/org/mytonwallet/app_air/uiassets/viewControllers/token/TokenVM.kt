@@ -1,9 +1,8 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.token
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import java.lang.ref.WeakReference
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +45,7 @@ class TokenVM(
     }
 
     companion object {
-        const val CHART_UPDATE_INTERVAL = 5 * 60 * 1000L
+        const val CHART_UPDATE_INTERVAL = 15_000L
         const val TOKEN_INFO_RETRY_INTERVAL = 5_000L
     }
 
@@ -152,40 +151,28 @@ class TokenVM(
         delegate.get()?.tokenInfoUpdated()
     }
 
-    private var lastChartUpdate: Long = 0
+    private var chartRefreshJob: Job? = null
     private fun loadPriceHistoryChart(period: MHistoryTimePeriod, useCache: Boolean = true) {
         // LP tokens have no chart
         if (token.isLpToken) return
         TokenStore.loadPriceHistory(
-            token.slug,
+            token,
             period
         ) { res, isFromCache, err ->
             if (period != selectedPeriod) return@loadPriceHistory
             if (!useCache && isFromCache) return@loadPriceHistory
-            if (res == null || err != null) {
-                if (!isFromCache) {
-                    // An error occurred, retry after few seconds
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (period != selectedPeriod) return@postDelayed
-                        loadPriceHistoryChart(period)
-                    }, 5000)
-                }
-                return@loadPriceHistory
-            }
-            if (!isFromCache) {
-                // Schedule reloading the chart after some time
-                lastChartUpdate = System.currentTimeMillis()
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (selectedPeriod != period ||
-                        lastChartUpdate > System.currentTimeMillis() - CHART_UPDATE_INTERVAL
-                    ) {
-                        return@postDelayed
-                    }
-                    loadPriceHistoryChart(period, useCache = false)
-                }, CHART_UPDATE_INTERVAL)
-            }
+            if (!isFromCache) scheduleChartRefresh(period)
+            if (res == null || err != null) return@loadPriceHistory
             historyData = res
             delegate.get()?.priceDataUpdated()
+        }
+    }
+
+    private fun scheduleChartRefresh(period: MHistoryTimePeriod) {
+        chartRefreshJob?.cancel()
+        chartRefreshJob = scope.launch(Dispatchers.Main) {
+            delay(CHART_UPDATE_INTERVAL.milliseconds)
+            if (period == selectedPeriod) loadPriceHistoryChart(period, useCache = false)
         }
     }
 

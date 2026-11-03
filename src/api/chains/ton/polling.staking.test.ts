@@ -175,6 +175,7 @@ describe('TON staking polling', () => {
 
   it.each([STAKED_TON_SLUG, TON_TSUSDE.slug])('polls immediately when %s arrives', async (slug) => {
     await start();
+    balanceUpdates.runCallbacks({}, 'poll');
     await jest.advanceTimersByTimeAsync(1_000);
     mockGetStakingStates.mockResolvedValue([ACTIVE_STATES[0]]);
     balances = { [slug]: 1n };
@@ -185,6 +186,37 @@ describe('TON staking polling', () => {
     balanceUpdates.runCallbacks(balances, 'poll');
     await jest.advanceTimersByTimeAsync(30_000);
     expect(mockGetBackendStakingState).toHaveBeenCalledTimes(3);
+  });
+
+  it('polls immediately when a staking token balance decreases and ignores unchanged staking balances', async () => {
+    await start();
+    balances = { [STAKED_TON_SLUG]: 5n };
+    balanceUpdates.runCallbacks(balances, 'poll');
+    await jest.advanceTimersByTimeAsync(0);
+    mockGetBackendStakingState.mockClear();
+
+    balances = { [STAKED_TON_SLUG]: 2n };
+    balanceUpdates.runCallbacks(balances, 'socket');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockGetBackendStakingState).toHaveBeenCalledTimes(1);
+
+    balanceUpdates.runCallbacks(balances, 'poll');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockGetBackendStakingState).toHaveBeenCalledTimes(1);
+
+    balances = { ...balances, toncoin: 1n };
+    balanceUpdates.runCallbacks(balances, 'socket');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockGetBackendStakingState).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not repeat the initial poll for the first nonzero staking token balance update', async () => {
+    balances = { [STAKED_TON_SLUG]: 5n };
+    await start();
+
+    balanceUpdates.runCallbacks(balances, 'poll');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockGetBackendStakingState).toHaveBeenCalledTimes(1);
   });
 
   it('slows down after the last position is cleared', async () => {

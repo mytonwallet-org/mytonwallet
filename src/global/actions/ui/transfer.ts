@@ -17,6 +17,7 @@ addActionHandler('startTransfer', (global, actions, payload) => {
   setGlobal(updateCurrentTransfer(global, {
     state: TransferState.Initial,
     error: undefined,
+    toAddressError: undefined,
     ...(shouldClearFee ? { explainedFee: undefined, diesel: undefined } : {}),
     ...rest,
     isOfframp,
@@ -55,6 +56,7 @@ addActionHandler('changeTransferToken', (global, actions, { tokenSlug, withReset
     tokenSlug,
     explainedFee: undefined,
     diesel: undefined,
+    toAddressError: undefined,
     nfts: undefined,
   }));
 });

@@ -122,6 +122,7 @@ public class WButton: WBaseButton {
         heightConstraint.isActive = true
 
         titleLabel?.font = resolvedTitleFont
+        titleLabel?.textAlignment = .center
         updateTheme()
     }
 
@@ -202,6 +203,7 @@ public class WButton: WBaseButton {
     }
 
     private func applyTitleAppearance(to config: inout UIButton.Configuration) {
+        config.titleAlignment = .center
         let font = resolvedTitleFont
         let foregroundColor = configuredTitleForegroundColor
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
@@ -447,8 +449,12 @@ public class WButton: WBaseButton {
     private var loadingIndicatorColor: UIColor {
         switch style {
         case .primary:
-            (usesGlassButtonStyling ? tintColor.resolvedColor(with: traitCollection) : accentColor)
-                .foregroundForTintedBackground
+            if usesGlassButtonStyling && !isEnabled {
+                .air.secondaryLabel
+            } else {
+                (usesGlassButtonStyling ? tintColor.resolvedColor(with: traitCollection) : accentColor)
+                    .foregroundForTintedBackground
+            }
         case .secondary, .thickCapsule:
             .tintColor
         case .compactCapsule:

@@ -54,6 +54,7 @@ import {
   getMnemonic,
   validateBip39Mnemonic,
 } from '../common/mnemonic';
+import { removeNftSyncSnapshots } from '../common/nftSync';
 import { sendUpdateTokens } from '../common/tokens';
 import { bytesToHex, hexToBytes } from '../common/utils';
 import { tokenRepository } from '../db';
@@ -568,9 +569,14 @@ export async function removeNetworkAccounts(network: ApiNetwork) {
 
   await Promise.all([
     shouldDeactivate ? deactivateAllAccounts() : undefined,
-    removeNetworkAccountsValue(network, 'accounts').then(() => removeNetworkPollingAccounts(network)),
+    removeNetworkAccountsValue(network, 'accounts').then(async () => {
+      await removeNetworkPollingAccounts(network);
+      await removeNftSyncSnapshots(undefined, network);
+    }),
     getEnvironment().isDappSupported && removeNetworkDapps(network),
   ]);
+
+  await clearDnsCaches();
 }
 
 export async function resetAccounts() {
@@ -583,11 +589,16 @@ export async function resetAccounts() {
 
   await Promise.all([
     deactivateAllAccounts(),
-    storage.removeItem('accounts').then(() => removeAllPollingAccounts()),
+    storage.removeItem('accounts').then(async () => {
+      await removeAllPollingAccounts();
+      await removeNftSyncSnapshots();
+    }),
     getEnvironment().isDappSupported && removeAllDapps(),
     tokenRepository.clear(),
     agentV2Reset,
   ]);
+
+  await clearDnsCaches();
 }
 
 export async function removeAccount(
@@ -598,12 +609,35 @@ export async function removeAccount(
   if (IS_EXTENSION && IS_GRAM_WALLET) await retireLegacyCoreMigration(accountId);
 
   await Promise.all([
-    removeAccountValue(accountId, 'accounts').then(() => removePollingAccount(accountId)),
+    removeAccountValue(accountId, 'accounts').then(async () => {
+      await removePollingAccount(accountId);
+      await removeNftSyncSnapshots(accountId);
+    }),
     getEnvironment().isDappSupported && removeAccountDapps(accountId),
   ]);
 
+  try {
+    const { network } = parseAccountId(accountId);
+    const accounts = await fetchStoredAccounts();
+    if (!Object.keys(accounts).some((id) => parseAccountId(id).network === network)) {
+      await clearDnsCaches();
+    }
+  } catch (err) {
+    logDebugError('removeAccount: check remaining accounts', err);
+  }
+
   if (nextAccountId !== undefined) {
     await activateAccount(nextAccountId, newestActivityTimestamps);
+  }
+}
+
+async function clearDnsCaches() {
+  for (const chain of Object.values(chains)) {
+    try {
+      if (chain.dns) await chain.dns.clearCache();
+    } catch (err) {
+      logDebugError('clearDnsCaches', err);
+    }
   }
 }
 
@@ -1309,9 +1343,21 @@ export async function addAllFoundSubwallets(
 export async function clearStorageForExplorerMode() {
   const currentAccountId = await storage.getItem('currentAccountId');
   const accounts = await storage.getItem('accounts') as Record<string, ApiAccountAny> | undefined;
+  for (const chain of Object.values(chains)) {
+    if (chain.dns) await chain.dns.clearCache();
+  }
   await storage.clear();
 
   if (currentAccountId && accounts?.[currentAccountId]) {
     await storage.setItem('accounts', { [currentAccountId]: accounts[currentAccountId] });
+    await Promise.all(Object.keys(accounts)
+      .filter((accountId) => accountId !== currentAccountId)
+      .map(async (accountId) => {
+        await removePollingAccount(accountId);
+        await removeNftSyncSnapshots(accountId);
+      }));
+  } else {
+    await removeAllPollingAccounts();
+    await removeNftSyncSnapshots();
   }
 }

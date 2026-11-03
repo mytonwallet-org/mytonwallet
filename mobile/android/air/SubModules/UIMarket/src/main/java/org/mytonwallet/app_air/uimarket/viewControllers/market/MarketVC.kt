@@ -249,8 +249,11 @@ class MarketVC(context: Context) :
         searchView.bringToFront()
     }
 
+    // Tab roots use the container's search.
     private val shouldShowLocalSearch: Boolean
-        get() = !isRootTopGradientEnabled
+        get() = navigationController?.let {
+            it.tabBarController == null || it.viewControllers.firstOrNull() !== this
+        } != false
 
     private fun updateLocalSearchVisibility() {
         val shouldShow = shouldShowLocalSearch

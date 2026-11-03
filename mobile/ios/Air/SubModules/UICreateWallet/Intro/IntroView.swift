@@ -12,53 +12,69 @@ import UIComponents
 struct IntroView: View {
     
     let introModel: IntroModel
-    @State private var didAgreeToTerms = false
-    
     @State private var isTouching = false
-    @State private var burstTrigger = 0
+    @State private var isHovered = false
     
     var body: some View {
-        VStack {
-            VStack(spacing: 32) {
-                iconAndEffect
-                VStack(spacing: 20) {
-                    title
-                    shortDescription
-                        .gesture(TapGesture(count: 5).onEnded {
-                            introModel.onDone(successKind: .imported, hadExistingAccounts: false, accountIds: [])
-                        })
+        GeometryReader { geometry in
+            let isCompact = geometry.size.height < 657
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    VStack(spacing: isCompact ? 20 : 32) {
+                        iconAndEffect
+                            .zIndex(1)
+                        VStack(spacing: isCompact ? 12 : 20) {
+                            title
+                            shortDescription
+                                .gesture(TapGesture(count: 5).onEnded {
+                                    introModel.onDone(successKind: .imported, hadExistingAccounts: false, accountIds: [])
+                                })
+                        }
+                        moreAbout
+                    }
+                    .padding(.top, isCompact ? 40 : 80)
+                    .frame(maxWidth: .infinity)
+                    .zIndex(1)
+                    Spacer(minLength: 24)
+                    VStack(spacing: 16) {
+                        createNewWallet
+                            .padding(.horizontal, 18)
+                        importWallet
+                            .padding(.horizontal, 18)
+                        legalNotice
+                            .padding(.top, 8)
+                    }
                 }
-                moreAbout
+                .frame(minHeight: max(0, geometry.size.height - 8))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
-            .frame(maxHeight: .infinity, alignment: .center)
-            VStack(spacing: 12) {
-                useResposibly
-                createNewWallet
-                importWallet
-            }
+            .backportScrollBounceBehaviorBasedOnSize()
         }
-        .padding(.horizontal, 32)
-        .padding(.bottom, 32)
+        .onDisappear {
+            isTouching = false
+            isHovered = false
+        }
     }
     
     @ViewBuilder
     var iconAndEffect: some View {
         if IS_GRAM_WALLET {
-            WUISpeedingDiamondWithParticles()
-                .offset(y: -32)
+            WUISpeedingDiamondWithParticles(diamondSize: 124, isWelcome: true)
         } else {
             Image.mainBundle("IntroLogo")
-                .highlightScale(isTouching, scale: 0.9, isEnabled: true)
+                .resizable()
+                .frame(width: 124, height: 124)
+                .highlightScale(isTouching, scale: 0.96, isEnabled: true)
                 .touchGesture($isTouching)
                 .frame(width: 124, height: 124)
                 .background {
-                    ParticleBackground(burstTrigger: $burstTrigger)
+                    SparkleParticleBackground(isWelcome: true, welcomeColor: .tintColor,
+                                              isHovered: isHovered, isPressed: isTouching)
+                        .frame(width: 386, height: 268)
+                        .offset(y: -10)
                 }
-                .onChange(of: isTouching) { isTouching in
-                    if isTouching {
-                        burstTrigger += 1
-                    }
-                }
+                .onHover { isHovered = $0 }
                 .backportSensoryFeedback(value: isTouching)
                 .accessibilityHidden(true)
         }
@@ -67,6 +83,8 @@ struct IntroView: View {
     var title: some View {
         Text(APP_NAME)
             .font(IS_GRAM_WALLET ? .system(size: 32, weight: .semibold) : .calSans(size: 32))
+            .tracking(IS_GRAM_WALLET ? 0.4 : 0.096)
+            .frame(minHeight: 40)
             .accessibilityAddTraits(.isHeader)
     }
     
@@ -74,6 +92,8 @@ struct IntroView: View {
         Text(langMd("$auth_intro"))
             .textStyle(.body)
             .multilineTextAlignment(.center)
+            .frame(maxWidth: 338)
+            .fixedSize(horizontal: false, vertical: true)
     }
     
     var moreAbout: some View {
@@ -83,45 +103,25 @@ struct IntroView: View {
                 .foregroundStyle(Color.air.secondaryLabel)
                 .textStyle(.body)
         }
-        .padding(16)
+        .frame(height: 50)
+        .padding(.horizontal, 16)
         .contentShape(.capsule)
         .buttonStyle(.borderless)
-        .padding(-16)
     }
     
-    @ViewBuilder
-    var useResposibly: some View {
-        let link = "[\(lang("use the wallet responsibly"))](responsibly://s)"
-        let accessibilityLinkText = lang("use the wallet responsibly")
-        let accessibilityText = LocalizedStringKey(L10n.iAgreeToTerm(term: accessibilityLinkText))
-        let text = LocalizedStringKey(L10n.iAgreeToTerm(term: link))
-        
-        HStack(spacing: 10) {
-            Checkmark(isOn: didAgreeToTerms)
-                .accessibilityHidden(true)
-            Text(text)
-                .foregroundStyle(Color.air.secondaryLabel)
-                .textStyle(.supportingEmphasized)
-                .padding(.vertical, 16)
-                .contentShape(.rect(cornerRadius: 12))
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .onTapGesture(perform: onAgreeToTerms)
-        .environment(\.openURL, OpenURLAction { _ in
-            onUseResponsibly()
-            return .handled
-        })
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(accessibilityText))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAddTraits(didAgreeToTerms ? .isSelected : [])
-        .accessibilityIdentifier("intro_terms")
-        .accessibilityAction {
-            onAgreeToTerms()
-        }
-        .accessibilityAction(named: Text(lang("Use Responsibly"))) {
-            onUseResponsibly()
-        }
+    var legalNotice: some View {
+        let text = L10n.byContinuingYouAgreeToOurTermsAndPrivacy(
+            terms: "[\(lang("$auth_terms_of_use"))](\(APP_TERMS_OF_USE_URL))",
+            privacy: "[\(lang("$auth_privacy_policy"))](\(APP_PRIVACY_POLICY_URL))"
+        )
+        return Text(LocalizedStringKey(text))
+            .font(.system(size: 13))
+            .foregroundStyle(Color.air.secondaryLabel)
+            .tint(Color.air.tint)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 370)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("intro_terms")
     }
     
     var createNewWallet: some View {
@@ -130,8 +130,6 @@ struct IntroView: View {
         }
         .buttonStyle(.airPrimary)
         .accessibilityIdentifier("intro_create_wallet")
-        .disabled(!didAgreeToTerms)
-        .animation(.smooth(duration: 0.4), value: didAgreeToTerms)
     }
     
     var importWallet: some View {
@@ -140,8 +138,6 @@ struct IntroView: View {
         }
         .buttonStyle(.airClearBackground)
         .accessibilityIdentifier("intro_import_wallet")
-        .disabled(!didAgreeToTerms)
-        .animation(.smooth(duration: 0.4), value: didAgreeToTerms)
     }
     
     // MARK: Actions
@@ -150,16 +146,6 @@ struct IntroView: View {
         introModel.onAbout()
     }
     
-    func onAgreeToTerms() {
-        withAnimation(.spring(duration: 0.3)) {
-            didAgreeToTerms.toggle()
-        }
-    }
-    
-    func onUseResponsibly() {
-        introModel.onUseResponsibly()
-    }
-
     func onCreateNewWallet() {
         introModel.onCreateWallet()
     }

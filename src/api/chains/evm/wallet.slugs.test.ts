@@ -11,8 +11,15 @@ jest.mock('../../../util/fetch', () => ({
   fetchWithRetry: jest.fn(),
   fetchJson: jest.fn(),
 }));
+jest.mock('./util/client', () => ({
+  getEvmProvider: jest.fn(() => ({
+    send: jest.fn((method: string) => Promise.resolve(method === 'eth_blockNumber' ? '0x64' : '0x0')),
+  })),
+}));
 jest.mock('../../common/backend', () => ({
-  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendGet: jest.fn().mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+    ? { catalogVersion: 'empty', prices: {} }
+    : { version: 'empty', assets: [] })),
   callBackendPost: jest.fn().mockResolvedValue([]),
 }));
 jest.mock('../../db', () => ({
@@ -35,6 +42,7 @@ const AUSD: ApiTokenWithPrice = {
   percentChange24h: 0,
   isFromBackend: true,
 };
+const { priceUsd, percentChange24h, isFromBackend, ...AUSD_CATALOG } = AUSD;
 const SPAM_ADDRESS = '0x00000000f9fd50c832d79facfe6f4e8ce90a5efb';
 const SPAM_SLUG = `ethereum-${SPAM_ADDRESS}`;
 const OTHER_SPAM_ADDRESS = '0x0000000000c39a0f674c12a5e63eb8031b550b6f';
@@ -59,7 +67,9 @@ describe('EVM token slugs', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(assetsPromise.isSettled()).toBe(false);
 
-    jest.mocked(callBackendGet).mockResolvedValueOnce([AUSD]);
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'ausd', prices: { [AUSD.slug]: [priceUsd, percentChange24h] } }
+      : { version: 'ausd', assets: [AUSD_CATALOG] }));
     await tokens.updateTokensFromBackend(jest.fn());
     tokens.resumeTokenUpdates();
     const { balances } = await assetsPromise.promise;
@@ -78,27 +88,36 @@ describe('EVM token slugs', () => {
     const { callBackendGet } = await import('../../common/backend');
     const tokens = await import('../../common/tokens');
     const { fetchAccountAssets } = await import('./wallet');
-    const catalogResolvers: ((assets: ApiTokenWithPrice[]) => void)[] = [];
-    jest.mocked(callBackendGet).mockImplementation(() => new Promise((resolve) => {
-      catalogResolvers.push(resolve as (assets: ApiTokenWithPrice[]) => void);
-    }));
+    const catalog = new Deferred<{ version: string; assets: (typeof AUSD_CATALOG)[] }>();
+    const closedPrices = new Deferred<never>();
+    let pricesCount = 0;
+    jest.mocked(callBackendGet).mockImplementation((path: string) => {
+      if (path === '/assets/catalog') return catalog.promise;
+      pricesCount += 1;
+      return pricesCount === 1 ? closedPrices.promise : Promise.resolve({
+        catalogVersion: 'current', prices: { [AUSD.slug]: [priceUsd, percentChange24h] },
+      });
+    });
 
     void tokens.loadTokensCache();
     tokens.pauseTokenUpdates();
     const closedRequest = tokens.updateTokensFromBackend(jest.fn());
+    const closedResult = expect(closedRequest).rejects.toThrow('Offline');
     tokens.pauseTokenUpdates();
     const request = tokens.updateTokensFromBackend(jest.fn());
     mockPositions(fetchWithRetry);
     const assetsPromise = trackSettlement(fetchAccountAssets('ethereum', 'mainnet', WALLET_ADDRESS, jest.fn()));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     // Each request is followed by `resumeTokenUpdates`, as in `tryUpdateTokens`
-    catalogResolvers[0]([]);
-    await closedRequest;
+    closedPrices.reject(new Error('Offline'));
+    await closedResult;
     tokens.resumeTokenUpdates();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(assetsPromise.isSettled()).toBe(false);
+    expect(jest.mocked(callBackendGet).mock.calls.filter(([path]) => path === '/assets/catalog')).toHaveLength(1);
 
-    catalogResolvers[1]([AUSD]);
+    catalog.resolve({ version: 'current', assets: [AUSD_CATALOG] });
     await request;
     tokens.resumeTokenUpdates();
     const { balances } = await assetsPromise.promise;
@@ -120,7 +139,9 @@ describe('EVM token slugs', () => {
 
     await tokens.loadTokensCache();
     tokens.pauseTokenUpdates();
-    jest.mocked(callBackendGet).mockResolvedValueOnce([AUSD]);
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'ausd', prices: { [AUSD.slug]: [priceUsd, percentChange24h] } }
+      : { version: 'ausd', assets: [AUSD_CATALOG] }));
     void tokens.updateTokensFromBackend(jest.fn());
     mockPositions(fetchWithRetry);
 
@@ -139,9 +160,11 @@ describe('EVM token slugs', () => {
       const tokens = await import('../../common/tokens');
       const { onTokenSlugsMove } = await import('../../common/tokenSlugMoves');
       const { fetchAccountAssets } = await import('./wallet');
-      const catalog = new Deferred<ApiTokenWithPrice[]>();
+      const catalog = new Deferred<{ version: string; assets: (typeof AUSD_CATALOG)[] }>();
       const onMove = jest.fn();
-      jest.mocked(callBackendGet).mockReturnValueOnce(catalog.promise);
+      jest.mocked(callBackendGet).mockImplementation((path: string) => (path === '/assets/catalog'
+        ? catalog.promise
+        : Promise.resolve({ catalogVersion: 'ausd', prices: { [AUSD.slug]: [priceUsd, percentChange24h] } })));
       onTokenSlugsMove(onMove);
 
       await tokens.loadTokensCache();
@@ -162,7 +185,7 @@ describe('EVM token slugs', () => {
         [SPAM_SLUG]: 400000000000000000000000000n,
       }));
 
-      catalog.resolve([AUSD]);
+      catalog.resolve({ version: 'ausd', assets: [AUSD_CATALOG] });
       await request;
 
       expect(onMove).toHaveBeenCalledWith([AUSD.slug]);
@@ -181,7 +204,9 @@ describe('EVM token slugs', () => {
     const { fetchAccountAssets } = await import('./wallet');
     const cachedTokens = new Deferred<ApiTokenWithPrice[]>();
     jest.mocked(tokenRepository.all).mockReturnValueOnce(cachedTokens.promise);
-    jest.mocked(callBackendGet).mockRejectedValueOnce(new Error('Offline'));
+    jest.mocked(callBackendGet).mockImplementation((path: string) => (path === '/assets/catalog'
+      ? Promise.reject(new Error('Offline'))
+      : Promise.resolve({ catalogVersion: 'ausd', prices: { [AUSD.slug]: [priceUsd, percentChange24h] } })));
 
     void tokens.loadTokensCache();
     tokens.pauseTokenUpdates();
@@ -209,9 +234,11 @@ describe('EVM token slugs', () => {
       const tokens = await import('../../common/tokens');
       const { fetchAccountAssets } = await import('./wallet');
       const cachedTokens = new Deferred<ApiTokenWithPrice[]>();
-      const catalog = new Deferred<ApiTokenWithPrice[]>();
+      const catalog = new Deferred<{ version: string; assets: (typeof AUSD_CATALOG)[] }>();
       jest.mocked(tokenRepository.all).mockReturnValueOnce(cachedTokens.promise);
-      jest.mocked(callBackendGet).mockReturnValueOnce(catalog.promise);
+      jest.mocked(callBackendGet).mockImplementation((path: string) => (path === '/assets/catalog'
+        ? catalog.promise
+        : Promise.resolve({ catalogVersion: 'ausd', prices: { [AUSD.slug]: [priceUsd, percentChange24h] } })));
 
       void tokens.loadTokensCache();
       tokens.pauseTokenUpdates();
@@ -224,7 +251,7 @@ describe('EVM token slugs', () => {
       await jest.advanceTimersByTimeAsync(SECOND);
       expect(assetsPromise.isSettled()).toBe(false);
 
-      catalog.resolve([AUSD]);
+      catalog.resolve({ version: 'ausd', assets: [AUSD_CATALOG] });
       await request;
       const { balances } = await assetsPromise.promise;
 

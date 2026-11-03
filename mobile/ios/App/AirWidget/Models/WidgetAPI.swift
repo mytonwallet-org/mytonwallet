@@ -2,7 +2,10 @@ import Foundation
 import WalletCoreTypes
 
 enum WidgetAPI {
-    private static let baseURL = URL(string: "https://api.mytonwallet.org")!
+    private static let baseURL = URL(string:
+        Bundle.main.object(forInfoDictionaryKey: "MyWalletAPIBaseURL") as? String
+            ?? "https://api.mytonwallet.org"
+    )!
 
     struct TokenPrice: Sendable {
         let priceUsd: Double

@@ -80,6 +80,7 @@ final class NftSendReviewViewController: WViewController {
     }
 
     private func setupConfirmButton() {
+        confirmButton.accessibilityIdentifier = "nft_send_confirm"
         confirmButton.translatesAutoresizingMaskIntoConstraints = false
         confirmButton.addTarget(
             self,

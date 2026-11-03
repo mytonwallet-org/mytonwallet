@@ -16,6 +16,8 @@ import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
 import kotlin.math.abs
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.setMessageMenuTapListener
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -68,7 +70,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
 
     init {
         orientation = VERTICAL
-        setPaddingDpLocalized(20, 10, 14, 10)
+        setPaddingDpLocalized(22, 10, 14, 10)
     }
 
     fun configure(
@@ -77,7 +79,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
-        onLongClickListener: OnLongClickListener
+        onLongClickListener: OnLongClickListener,
+        onClickListener: OnClickListener
     ) {
         this.maximumContentWidth = maximumContentWidth
         removeAllViews()
@@ -90,7 +93,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                     codeColor,
                     onUrlClick,
                     detectsUrls,
-                    onLongClickListener
+                    onLongClickListener,
+                    onClickListener
                 )
 
                 is MarkdownParser.Block.Table -> AgentTableBlockView(context).apply {
@@ -100,7 +104,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                         codeColor,
                         onUrlClick,
                         detectsUrls,
-                        onLongClickListener
+                        onLongClickListener,
+                        onClickListener
                     )
                 }
             }
@@ -119,7 +124,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
-        onLongClickListener: OnLongClickListener
+        onLongClickListener: OnLongClickListener,
+        onClickListener: OnClickListener
     ) = WLabel(context).apply {
         setStyle(adaptiveFontSize())
         setTextColor(WColor.PrimaryText.color)
@@ -139,6 +145,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                 textSize = textSize
             )
         setOnLongClickListener(onLongClickListener)
+        setMessageMenuTapListener(onClickListener)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -172,7 +179,8 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
-        onLongClickListener: OnLongClickListener
+        onLongClickListener: OnLongClickListener,
+        onClickListener: OnClickListener
     ) {
         removeAllViews()
         table.title?.takeIf { it.isNotBlank() }?.let { title ->
@@ -195,6 +203,7 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
                             textSize = textSize
                         )
                     setOnLongClickListener(onLongClickListener)
+                    setMessageMenuTapListener(onClickListener)
                     ViewCompat.setAccessibilityHeading(this, true)
                 },
                 LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -210,7 +219,8 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
                     codeColor,
                     onUrlClick,
                     detectsUrls,
-                    onLongClickListener
+                    onLongClickListener,
+                    onClickListener
                 )
             },
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -244,11 +254,20 @@ private class AgentTableView(context: Context) : HorizontalScrollView(context) {
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
-        onLongClickListener: OnLongClickListener
+        onLongClickListener: OnLongClickListener,
+        onClickListener: OnClickListener
     ) {
         this.maximumWidth = maximumWidth
-        tableLayout.configure(table, codeColor, onUrlClick, detectsUrls, onLongClickListener)
+        tableLayout.configure(
+            table,
+            codeColor,
+            onUrlClick,
+            detectsUrls,
+            onLongClickListener,
+            onClickListener
+        )
         setOnLongClickListener(onLongClickListener)
+        setMessageMenuTapListener(onClickListener)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -295,7 +314,7 @@ private class AgentTableView(context: Context) : HorizontalScrollView(context) {
         super.onMeasure(constrainedWidthSpec, heightMeasureSpec)
     }
 
-    override fun getSolidColor(): Int = WColor.SecondaryBackground.color
+    override fun getSolidColor(): Int = agentIncomingBubbleColor
 }
 
 private class AgentTableLayout(context: Context) : GridLayout(context) {
@@ -330,7 +349,8 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
-        onLongClickListener: OnLongClickListener
+        onLongClickListener: OnLongClickListener,
+        onClickListener: OnClickListener
     ) {
         removeAllViews()
         cellViews.clear()
@@ -376,6 +396,7 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
                         )
                     }
                 setOnLongClickListener(onLongClickListener)
+                setMessageMenuTapListener(onClickListener)
                 ViewCompat.setAccessibilityHeading(this, cell.header)
             }
             val layoutParams = LayoutParams(

@@ -18,11 +18,13 @@ private let sidebarTopGradientSolidInset = S.homeInsetSectionCornerRadius
 @MainActor
 final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable {
     private enum Section: Hashable {
+        case banners
         case tabs
         case accounts
     }
     
     private enum Item: Hashable {
+        case banners(String)
         case tab(AppTabId)
         case account(String)
         case walletSettings
@@ -49,6 +51,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var bannersAccountId: String?
 
     private var activateAccountTask: Task<Void, Never>?
     private var setUpdatingAfterDelayTask: Task<Void, Never>?
@@ -68,6 +71,14 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         setupViews()
         WalletCoreData.add(eventObserver: self)
         applySnapshot(animated: false)
+        observe { [weak self] in
+            guard let self else { return }
+            let accountId = updateStatusAccountContext.accountId
+            let bannersAccountId = updateStatusAccountContext.config.banners.home.isEmpty ? nil : accountId
+            guard self.bannersAccountId != bannersAccountId else { return }
+            self.bannersAccountId = bannersAccountId
+            applySnapshot(animated: true)
+        }
         updateStatusViewState(animated: false)
         updateTheme()
     }
@@ -190,8 +201,16 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         accountsConfiguration.separatorConfiguration.color = .air.separator
         accountsConfiguration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         
-        let layout = UICollectionViewCompositionalLayout { sectionIndex, layoutEnvironment in
-            let sectionType: Section = sectionIndex == 0 ? .tabs : .accounts
+        let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
+            guard let sectionType = self?.dataSource.sectionIdentifier(for: sectionIndex) else { return nil }
+            if sectionType == .banners {
+                let size = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(120))
+                let item = NSCollectionLayoutItem(layoutSize: size)
+                let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [item])
+                let section = NSCollectionLayoutSection(group: group)
+                section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16)
+                return section
+            }
             let listConfiguration = sectionType == .tabs ? tabsConfiguration : accountsConfiguration
             let section = NSCollectionLayoutSection.list(using: listConfiguration, layoutEnvironment: layoutEnvironment)
             if sectionType == .accounts {
@@ -212,6 +231,14 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         collectionView.contentInset.top = sidebarTopContentInset
         collectionView.verticalScrollIndicatorInsets.top = sidebarTopContentInset
         collectionView.delegate = self
+
+        let bannersRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, accountId in
+            cell.contentConfiguration = UIHostingConfiguration {
+                HomeAccountBannersView(accountContext: AccountContext(accountId: accountId))
+            }
+            .background { Color.clear }
+            .margins(.all, 0)
+        }
         
         let registry = AppTabManager.shared
         let tabRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, AppTabId> { cell, _, tab in
@@ -278,6 +305,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             switch item {
+            case .banners(let accountId):
+                return collectionView.dequeueConfiguredReusableCell(using: bannersRegistration, for: indexPath, item: accountId)
             case .tab(let tab):
                 return collectionView.dequeueConfiguredReusableCell(using: tabRegistration, for: indexPath, item: tab)
             case .account(let accountId):
@@ -290,6 +319,10 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        if let bannersAccountId {
+            snapshot.appendSections([.banners])
+            snapshot.appendItems([.banners(bannersAccountId)], toSection: .banners)
+        }
         snapshot.appendSections([.tabs])
         snapshot.appendItems(AppTabManager.shared.orderedTabIds.filter { !hiddenTabIds.contains($0) }.map(Item.tab), toSection: .tabs)
         
@@ -394,6 +427,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return false }
         switch item {
+        case .banners:
+            break
         case .tab(let tabId):
             viewModel.onTabTap(tabId)
         case .account(let accountId):
@@ -414,7 +449,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return true }
         return switch item {
         case .tab: false
-        case .account, .addAccount, .walletSettings: true
+        case .banners, .account, .addAccount, .walletSettings: true
         }
     }
 }

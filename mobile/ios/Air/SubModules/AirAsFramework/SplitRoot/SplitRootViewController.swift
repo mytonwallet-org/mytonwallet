@@ -132,6 +132,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         // after loadViewIfNeeded(), so nav controllers are not needed here.
 
         view.backgroundColor = .black
+        AgentHeaderPlatterTransition.installBetweenChats()
 
         observe { [weak self] in
             guard let self else { return }
@@ -173,9 +174,11 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     @objc private func updateNavigationPlacement() {
         guard #available(iOS 27.1, *) else { return }
+        let tabIds = AppTabManager.shared.toolbarTabIds
         usesSideToolbar = DuoNavigationSettings.usesToolbar && traitCollection.verticalBarEdge != .unspecified
         sidebarViewController.hiddenTabIds = usesSideToolbar
-            ? Set(SplitRootToolbarView.tabIds + [.settings]) : []
+            ? Set(tabIds + [.settings]) : []
+        updateAgentBottomBar()
         guard usesSideToolbar else {
             (sideToolbar as? SplitRootToolbarView)?.tabBar.cancelInteraction()
             sideToolbar?.removeFromSuperview()
@@ -185,15 +188,18 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
         guard let nc = navControllersByTabId[selectedTab], let root = nc.viewControllers.first else { return }
         let toolbar: SplitRootToolbarView
-        if let existing = sideToolbar as? SplitRootToolbarView {
+        if let existing = sideToolbar as? SplitRootToolbarView, existing.tabIds == tabIds {
             toolbar = existing
         } else {
-            toolbar = SplitRootToolbarView()
+            (sideToolbar as? SplitRootToolbarView)?.tabBar.cancelInteraction()
+            sideToolbar?.removeFromSuperview()
+            toolbar = SplitRootToolbarView(tabIds: tabIds)
             toolbar.accountButton.addAction(UIAction { [weak self] _ in
                 self?.showSettings(path: [])
             }, for: .touchUpInside)
             toolbar.tabBar.onSelect = { [weak self] index, repeated in
-                self?.select(tab: SplitRootToolbarView.tabIds[index], popToRoot: repeated)
+                guard tabIds.indices.contains(index) else { return }
+                self?.select(tab: tabIds[index], popToRoot: repeated)
             }
             toolbar.onLayout = { [weak self] in self?.updateSidebarNavigationActions() }
             sideToolbar = toolbar
@@ -206,8 +212,8 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
         toolbar.navigationContainer = nc.view
         toolbar.accountButton.configure(account: AccountStore.account)
-        toolbar.tabBar.showsSelection = SplitRootToolbarView.tabIds.contains(selectedTab)
-        if let index = SplitRootToolbarView.tabIds.firstIndex(of: selectedTab) {
+        toolbar.tabBar.showsSelection = toolbar.tabIds.contains(selectedTab)
+        if let index = toolbar.tabIds.firstIndex(of: selectedTab) {
             toolbar.tabBar.select(index, animated: false)
         }
         let isEditing = (root as? SplitHomeVC)?.editingNavigator?.state.editingState != nil
@@ -311,8 +317,77 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
             }
         }
         searchController.attach(to: self)
+        updateAgentBottomBar()
         updateNavigationPlacement()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// The Agent list's question field rides the bottom toolbar beside the search circle, as on the iPhone, so it
+    /// carries into a chat's composer and back, and a question sent while composing continues in its chat on the same
+    /// screen. Beside a vertical bar the list lays out its own field.
+    private func updateAgentBottomBar() {
+        guard let list = navControllersByTabId[.agent]?.viewControllers.first as? AgentThreadListVC else {
+            searchController.agentBar.isAvailable = true
+            searchController.isAgentConsentVisible = false
+            searchController.agentBar.setMorphProgress(0)
+            return
+        }
+        list.onConsentChanged = { [weak self, weak list] in
+            guard let self, let list else { return }
+            self.searchController.applyChromeInsets(to: list)
+            self.updateAgentBottomBar()
+        }
+        searchController.agentBar.isAvailable = !list.isConsentRequired
+        searchController.isAgentConsentVisible = selectedTab == .agent && list.isConsentRequired
+        var isBarHostedInToolbar = true
+        if #available(iOS 27.1, *), traitCollection.verticalBarEdge != .unspecified {
+            isBarHostedInToolbar = false
+        }
+        list.setBottomBarHostedExternally(isBarHostedInToolbar)
+        if isBarHostedInToolbar {
+            list.presentComposedChat = { [weak self] chat in self?.presentComposedChat(chat) ?? false }
+            searchController.agentBar.install(list.bottomBar)
+        } else {
+            list.presentComposedChat = nil
+        }
+        // The bar grows out of the toolbar's trailing button on its spring, and folds back into it, once the selected
+        // tab's screen, which the toolbar moves into, has joined the window
+        guard list.bottomBar.window == nil else {
+            searchController.agentBar.setMorphProgress(isBarHostedInToolbar && selectedTab == .agent ? 1 : 0)
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            searchController.agentBar.setMorphProgress(isBarHostedInToolbar && selectedTab == .agent ? 1 : 0)
+        }
+    }
+
+    /// A question sent while the list composes one continues in its chat on the same screen: the chat takes the
+    /// list's place in a crossfade as the field lands on its composer. Returns false when the chat should be pushed.
+    private func presentComposedChat(_ chat: UIViewController) -> Bool {
+        guard selectedTab == .agent, let navigationController = navControllersByTabId[.agent],
+              navigationController.viewControllers.count == 1, navigationController.transitionCoordinator == nil,
+              let window = view.window, chat is any AgentChatNavigationHandoff else { return false }
+        // The field gives up the keyboard first, and the chat comes on the next turn of the run loop, once nothing on
+        // the list is editing: a field still editing when the chat covers it would take the keyboard back as it closes
+        searchController.agentBar.beginComposedChatHandoff()
+        window.endEditing(true)
+        DispatchQueue.main.async { [weak navigationController] in
+            guard let navigationController else { return }
+            guard navigationController.transitionCoordinator == nil, !UIAccessibility.isReduceMotionEnabled else {
+                navigationController.pushViewController(chat, animated: !UIAccessibility.isReduceMotionEnabled)
+                return
+            }
+            UIView.transition(
+                with: navigationController.view,
+                duration: 0.25,
+                options: [.transitionCrossDissolve, .allowUserInteraction]
+            ) {
+                navigationController.pushViewController(chat, animated: false)
+            }
+            navigationController.view.layoutIfNeeded()
+        }
+        return true
     }
 
     @discardableResult
@@ -330,8 +405,17 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         return true
     }
 
-    func showAgent() {
-        currentNavigationController.pushViewController(AgentEntryPoint.makeRootViewController(), animated: true)
+    func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
+        if AppTabManager.shared.contains(.agent) {
+            searchController.discardSearch()
+            select(tab: .agent)
+            currentNavigationController.popToRootViewController(animated: false)
+        }
+        // A navigation controller not in the window yet, as that of a tab just selected, drops an animated push
+        currentNavigationController.pushViewController(
+            AgentEntryPoint.makeNewChatViewController(query: query, entryPoint: entryPoint),
+            animated: currentNavigationController.viewIfLoaded?.window != nil
+        )
     }
 
     func showExplore() {
@@ -529,7 +613,7 @@ extension SplitRootViewController: RootSearchToolbarHost {
     }
 
     var searchNavigationController: WNavigationController? { navControllersByTabId[selectedTab] }
-    var showsRootSearchToolbar: Bool { [.wallet, .market, .explore].contains(selectedTab) }
+    var showsRootSearchToolbar: Bool { [.wallet, .market, .agent, .explore].contains(selectedTab) }
     var searchRootContentControllers: [UIViewController] {
         guard showsRootSearchToolbar, let root = searchNavigationController?.viewControllers.first else { return [] }
         return [root]

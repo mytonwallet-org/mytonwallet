@@ -76,6 +76,7 @@ export interface AgentV2MessagesState {
     text: string;
     timestamp: number;
     cause?: AgentV2MessageError;
+    isHistoryFailure?: boolean;
   };
   admissionFailure?: {
     error: AgentV2MessageError;
@@ -93,6 +94,8 @@ export interface AgentV2MessagesState {
   };
   userRateLimit?: AgentV2RateLimitState & { optimisticMessageId?: number };
   isLoading: boolean;
+  isOpeningHistory: boolean;
+  hasHydratedHistory: boolean;
   nextCursor?: string;
   isLoadingOlderMessages: boolean;
   historyPageRequest?: AgentV2HistoryPageRequest;
@@ -111,14 +114,13 @@ export type AgentV2MessagesStateAction =
   | { kind: 'consentLoadingStarted' }
   | { kind: 'consentResolved'; isAccepted: boolean }
   | { kind: 'consentAccepted' }
-  | { kind: 'hydrationStarted'; shouldClearError: boolean }
+  | { kind: 'hydrationStarted'; shouldClearError: boolean; shouldPreserveOpeningMessages?: boolean }
   | {
     kind: 'hydrationSucceeded';
     thread: AgentThreadSummaryV2;
     entries: AgentV2NormalizedMessageEntry[];
     nextCursor?: string;
     shouldPreserveLiveContent: boolean;
-    shouldClearError: boolean;
     hints?: HydrationHints;
   }
   | { kind: 'hydrationFailed' }
@@ -231,11 +233,13 @@ export type AgentV2MessagesStateAction =
     }
     | { kind: 'messageFeedbackChanged'; messageId: number; feedback?: AgentAnswerFeedbackV2 };
 
-const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
+export const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
 
 export const INITIAL_AGENT_V2_MESSAGES_STATE: AgentV2MessagesState = {
   messages: [],
   isLoading: false,
+  isOpeningHistory: false,
+  hasHydratedHistory: false,
   isLoadingOlderMessages: false,
   sourceIdByMessageId: {},
   run: { phase: 'idle' },
@@ -267,6 +271,7 @@ export function reduceAgentV2MessagesState(
       return {
         ...state,
         isLoading: true,
+        isOpeningHistory: Boolean(action.shouldPreserveOpeningMessages && (!state.thread || state.thread.news)),
         isLoadingOlderMessages: false,
         historyPageRequest: undefined,
         ...(action.shouldClearError ? { error: undefined } : {}),
@@ -276,12 +281,19 @@ export function reduceAgentV2MessagesState(
       const messages = entries.map(({ message }) => message);
       const shouldPreserveLiveContent = action.shouldPreserveLiveContent
         && (!state.thread || state.thread.id === action.thread.id);
+      const shouldPreserveOpeningMessages = shouldPreserveLiveContent
+        && Boolean(state.isOpeningHistory && state.thread?.news);
+      const hasNewerContent = shouldPreserveOpeningMessages
+        && (state.thread?.revision ?? 0) > action.thread.revision;
       const hydratedMessages = shouldPreserveLiveContent
-        ? reconcileHydratedMessages(state.messages, messages)
+        ? reconcileHydratedMessages(
+          state.messages, messages,
+          shouldPreserveOpeningMessages ? state.sourceIdByMessageId : undefined, hasNewerContent,
+        )
         : messages;
       return {
         ...state,
-        thread: action.thread,
+        thread: hasNewerContent ? state.thread : action.thread,
         messages: hydratedMessages,
         sourceIdByMessageId: buildSourceIdIndex(
           entries,
@@ -295,8 +307,10 @@ export function reduceAgentV2MessagesState(
         hints: action.hints?.hints ?? state.hints,
         hintsResponse: action.hints?.response ?? state.hintsResponse,
         hintsLangCode: action.hints?.langCode ?? state.hintsLangCode,
-        ...(action.shouldClearError ? { error: undefined } : {}),
         isLoading: false,
+        isOpeningHistory: false,
+        hasHydratedHistory: true,
+        error: state.error?.isHistoryFailure ? undefined : state.error,
         threadMutation: reconcileThreadMutation(state.threadMutation, action.thread, true),
       };
     }
@@ -304,6 +318,7 @@ export function reduceAgentV2MessagesState(
       return {
         ...state,
         isLoading: false,
+        isOpeningHistory: false,
       };
     case 'hintsLoaded':
       return {
@@ -406,6 +421,7 @@ export function reduceAgentV2MessagesState(
         ...state,
         error: action.error,
         isLoading: false,
+        isOpeningHistory: false,
         run: { phase: 'idle' },
       };
     case 'runConnectionFailed':
@@ -509,7 +525,9 @@ export function reduceAgentV2MessagesState(
       return {
         ...state,
         thread: action.thread,
+        isOpeningHistory: state.isOpeningHistory && Boolean(action.thread.news),
         ...(isReplacement ? {
+          hasHydratedHistory: false,
           nextCursor: undefined,
           isLoadingOlderMessages: false,
           historyPageRequest: undefined,
@@ -594,7 +612,9 @@ function selectIsAgentV2RunOperationCurrent(state: AgentV2MessagesState, operati
 }
 
 export function selectIsAgentV2InputDisabled(state: AgentV2MessagesState, isLimitBlocking: boolean) {
-  return state.isLoading
+  return (state.isLoading && !state.isOpeningHistory)
+    || Boolean(state.thread?.news && !state.hasHydratedHistory
+      && !(state.isLoading && state.isOpeningHistory))
     || selectIsAgentV2RunActive(state)
     || state.threadMutation.phase === 'clearing'
     || isLimitBlocking;
@@ -660,13 +680,23 @@ function selectHistoryPageRequest(request: AgentV2HistoryPageRequest): AgentV2Hi
 }
 
 function bindMessageSource(state: AgentV2MessagesState, messageId: number, sourceId: string) {
+  const duplicate = state.messages.find(({ id }) => (
+    id !== messageId && state.sourceIdByMessageId[id] === sourceId
+  ));
   const sourceIdByMessageId = Object.fromEntries(
     Object.entries(state.sourceIdByMessageId).filter(([currentMessageId, currentSourceId]) => (
       Number(currentMessageId) !== messageId && currentSourceId !== sourceId
     )),
   );
   sourceIdByMessageId[messageId] = sourceId;
-  return { ...state, sourceIdByMessageId };
+  return {
+    ...state,
+    messages: duplicate
+      ? state.messages.filter(({ id }) => id !== messageId)
+        .map((message) => message.id === duplicate.id ? { ...message, id: messageId } : message)
+      : state.messages,
+    sourceIdByMessageId,
+  };
 }
 
 function prependHistoryPage(
@@ -784,8 +814,10 @@ function completeMessage(
     // An answer the agent finished without a client tool is still stored as complete
     ...(action.finishReason === 'complete' || action.finishReason === 'tool_unavailable' ? { isComplete: true } : {}),
   }));
-  if (!isRunUpdateCurrent(state.run, action.clientRunId)) return updated;
   const operationBinding = getRunOperationBinding(state.run);
+  // An interrupted local operation keeps its indicator until the controller reports the run's outcome
+  if (!isRunUpdateCurrent(state.run, action.clientRunId)
+    || (action.finishReason === 'run_interrupted' && operationBinding.operationId !== undefined)) return updated;
   return {
     ...updated,
     run: operationBinding.operationId === undefined
@@ -986,11 +1018,17 @@ function updateMessage(
 function reconcileHydratedMessages(
   currentMessages: AgentMessage[],
   hydratedMessages: AgentMessage[],
+  sourceIdByMessageId: AgentV2MessagesState['sourceIdByMessageId'] | undefined,
+  hasNewerContent: boolean,
 ) {
   const currentById = new Map(currentMessages.map((message) => [message.id, message]));
   const hydratedMessageIds = new Set(hydratedMessages.map(({ id }) => id));
   const reconciledMessages = hydratedMessages.map((message) => {
     const current = currentById.get(message.id);
+    if (hasNewerContent && current) return current;
+    // An answer still streaming takes the rest of its text from the stream, which the stored copy may already hold.
+    // The stored copy keeps its time.
+    if (current?.isStreaming) return { ...current, timestamp: message.timestamp };
     const semanticContent = message.semanticContent ?? current?.semanticContent;
     const actions = current?.actions ?? message.actions;
     const actionPresentations = current?.actionPresentations ?? message.actionPresentations;
@@ -1003,7 +1041,8 @@ function reconcileHydratedMessages(
     };
   });
   const liveOnlyMessages = currentMessages.filter((message) => (
-    !hydratedMessageIds.has(message.id) && (message.isStreaming || message.isTyping)
+    !hydratedMessageIds.has(message.id) && (hasNewerContent || message.isStreaming || message.isTyping
+      || (sourceIdByMessageId && message.isOutgoing && !sourceIdByMessageId[message.id]))
   ));
   return [...reconciledMessages, ...liveOnlyMessages];
 }

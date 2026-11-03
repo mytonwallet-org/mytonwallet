@@ -3,8 +3,13 @@ import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
 const DIST_DIR = join(process.cwd(), 'dist');
+const PORT = Number(process.env.AGENT_E2E_PORT ?? 1235);
 const FIXED_TIME = '2026-08-11T09:00:00.000Z';
 const THREAD_ID = '44444444-4444-4444-8444-444444444444';
+const NEWS_EVENT_ID = 5;
+const NEWS_HEADLINE = 'Deterministic MyPulse headline';
+const NEWS_BODY = `The full **MyPulse** news body. ${'Market context. '.repeat(20)}`;
+const NEWS_SOURCES = [{ name: 'MyPulse Source', url: 'https://example.com/mypulse' }];
 const WALLET_SESSION_ID = '77777777-7777-4777-8777-777777777777';
 const CONTENT_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -56,8 +61,8 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(1235, '127.0.0.1', () => {
-  process.stdout.write('Agent V2 E2E server listening at http://127.0.0.1:1235\n');
+server.listen(PORT, '127.0.0.1', () => {
+  process.stdout.write(`Agent V2 E2E server listening at http://127.0.0.1:${PORT}\n`);
 });
 
 process.on('SIGINT', closeServer);
@@ -70,6 +75,7 @@ function createState(scenario = 'conversation') {
     runBodies: [],
     cancelBodies: [],
     clearBodies: [],
+    deleteBodies: [],
     runCount: 0,
     quotaRequestCount: 0,
     wasQuotaDenied: false,
@@ -157,6 +163,53 @@ function handleAgentRequest(request, response, url, body) {
     return;
   }
 
+  if (state.scenario === 'news-post' && request.method === 'GET' && url.pathname === '/api/v2/news-feed') {
+    writeJson(response, 200, {
+      protocolVersion: 3,
+      locale: 'en',
+      items: [{
+        eventId: NEWS_EVENT_ID,
+        deliveredAt: FIXED_TIME,
+        headline: NEWS_HEADLINE,
+        body: NEWS_BODY,
+        sources: NEWS_SOURCES,
+      }],
+    });
+    return;
+  }
+
+  if (state.scenario === 'news-post' && request.method === 'POST' && url.pathname === '/api/v2/threads') {
+    state.news = {
+      eventId: NEWS_EVENT_ID,
+      headline: NEWS_HEADLINE,
+      body: NEWS_BODY,
+      publishedAt: FIXED_TIME,
+      sources: NEWS_SOURCES,
+    };
+    state.messages = [{
+      ...persistedMessage(1, 'assistant', `**${NEWS_HEADLINE}**\n\n${NEWS_BODY}`),
+      newsPost: true,
+    }];
+    writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), created: true });
+    return;
+  }
+
+  // A question sent from the chat list opens a new chat, which is the scenario's one thread
+  if (request.method === 'POST' && url.pathname === '/api/v2/threads') {
+    writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), created: true });
+    return;
+  }
+
+  // The chat list leaves out empty chats, as the server does. Without a preview the row does not repeat the
+  // conversation's text, which the scenarios look up on the page.
+  if (request.method === 'GET' && url.pathname === '/api/v2/threads') {
+    writeJson(response, 200, {
+      protocolVersion: 3,
+      threads: state.messages.length ? [{ thread: threadSummary() }] : [],
+    });
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/v2/threads/default') {
     writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), created: false });
     return;
@@ -180,6 +233,15 @@ function handleAgentRequest(request, response, url, body) {
     state.olderMessages = [];
     state.revision += 1;
     writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), duplicate: false });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === `/api/v2/threads/${THREAD_ID}/delete`) {
+    state.deleteBodies.push(body);
+    state.messages = [];
+    state.olderMessages = [];
+    state.revision += 1;
+    writeJson(response, 200, { protocolVersion: 3, threadId: THREAD_ID, duplicate: false });
     return;
   }
 
@@ -253,6 +315,24 @@ function handleRun(response, body) {
   const runId = uuid(100 + state.runCount);
   const messageId = uuid(200 + state.runCount);
   const userMessage = body.input?.message;
+
+  // The run is interrupted before its answer has any text, and the server keeps it as failed
+  if (state.scenario === 'run-interrupted' && state.runCount === 1) {
+    persistFailedRun(userMessage, messageId, runId, '', { code: 'network_error', retryable: true });
+    state.revision += 1;
+    writeNdjsonSlowly(response, [
+      event(runId, {
+        type: 'run_start',
+        sequence: 1,
+        clientRunId: body.clientRunId,
+        threadId: THREAD_ID,
+        threadRevision: state.revision,
+      }),
+      event(runId, { type: 'message_start', sequence: 2, messageId, role: 'assistant', contentKind: 'markdown' }),
+      event(runId, { type: 'message_end', sequence: 3, messageId, finishReason: 'run_interrupted' }),
+    ], 150);
+    return;
+  }
   const answerParts = getAnswerParts(userMessage?.text);
   const answerText = answerParts.filter((part) => typeof part === 'string').join('');
   const answerLinks = answerParts.filter((part) => typeof part !== 'string' && !part.messageId).map(({ link }) => link);
@@ -557,6 +637,7 @@ function threadSummary(messageIncrement = 0) {
     updatedAt: FIXED_TIME,
     lastActivityAt: FIXED_TIME,
     messageCount: state.messages.length + messageIncrement,
+    ...(state.news && { news: state.news }),
   };
 }
 
@@ -600,6 +681,7 @@ function publicState() {
     runBodies: state.runBodies,
     cancelBodies: state.cancelBodies,
     clearBodies: state.clearBodies,
+    deleteBodies: state.deleteBodies,
     runCount: state.runCount,
     quotaRequestCount: state.quotaRequestCount,
     messageHydrations: state.messageHydrations,

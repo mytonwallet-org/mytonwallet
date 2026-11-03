@@ -1,0 +1,63 @@
+// Removed messages leave over the list, under the header and the composer, as Telegram Web A's snap effect
+.layer {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.ghost {
+  position: absolute;
+  overflow: visible;
+}
+
+// The dust drifts out of the message as it grows from the bottom
+.dust {
+  transform-origin: bottom;
+  animation: snap-grow 1s ease-in forwards;
+}
+
+.copyContainer {
+  overflow: visible;
+}
+
+.shrinking {
+  transform-origin: bottom;
+  animation: snap-shrink 200ms ease-in forwards;
+}
+
+.fading {
+  animation: snap-fade 200ms ease forwards;
+}
+
+// The copy keeps the look the message had settled into, without replaying its entrance
+.copy,
+.copy * {
+  transition: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+}
+
+@keyframes snap-grow {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.2);
+  }
+}
+
+@keyframes snap-shrink {
+  to {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes snap-fade {
+  to {
+    opacity: 0;
+  }
+}

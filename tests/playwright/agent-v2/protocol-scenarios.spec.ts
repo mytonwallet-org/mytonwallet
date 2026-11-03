@@ -9,12 +9,16 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.acceptConsent();
 
     await agentV2.send('Research the latest TON update');
-    await expect(page.getByRole('status')).toHaveText('Searching the web…');
-    await expect(page.getByRole('status')).toHaveText('Reviewing sources…');
-    await expect(page.getByRole('status')).toHaveText('Checking market data…');
+    // A step comes every 650 ms and blurs away as the next one comes in, so each step is awaited as it comes in
+    // rather than polled for
+    const activityStep = page.getByRole('status').locator('[data-agent-activity-step]');
+    for (const step of ['Searching the web…', 'Reviewing sources…', 'Checking market data…']) {
+      await activityStep.filter({ hasText: step }).waitFor();
+    }
     await expect(page.getByRole('status')).toHaveCount(1);
     const activityLayout = await page.getByRole('status').evaluate((status) => {
-      const composer = document.querySelector('textarea')!;
+      // The chat's own field; the chat list under it has another
+      const composer = status.closest('.custom-scroll')!.parentElement!.querySelector('textarea')!;
       const statusRect = status.getBoundingClientRect();
       const composerRect = composer.getBoundingClientRect();
 
@@ -34,7 +38,8 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.getByText('Relevant sources found', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Sources reviewed', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Calculations complete', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Research the latest TON update', { exact: true })).toBeVisible();
+    await expect(getAgentV2Conversation(page).getByText('Research the latest TON update', { exact: true }))
+      .toBeVisible();
     await expect(page.getByText(
       'Deterministic response: Research the latest TON update', { exact: true },
     )).toBeVisible();
@@ -76,7 +81,9 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
       }
     };
     const readLayout = () => conversation.evaluate((element) => {
-      const composerInput = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
+      const composerInput = element.parentElement!.querySelector<HTMLTextAreaElement>(
+        'textarea[placeholder="Ask anything"]',
+      );
       if (!composerInput) throw new Error('Agent composer was not found');
 
       let composerWrapper: HTMLElement | null = composerInput.parentElement;
@@ -122,26 +129,8 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     expect(multiline.gap).toBeGreaterThanOrEqual(-1);
     expect(multiline.distanceToBottom).toBeLessThanOrEqual(1);
 
-    const quotaButton = page.getByRole('button', { name: /^Agent quota:/u });
-    await quotaButton.click();
-    await expect(page.getByText(/Daily quota resets in/u)).toBeVisible();
-    await expect.poll(async () => {
-      const layout = await readLayout();
-      return layout.wrapperHeight > multiline.wrapperHeight
-        && layout.paddingBottom > multiline.paddingBottom
-        && layout.gap >= -1
-        && layout.distanceToBottom <= 1;
-    }).toBe(true);
-    const withQuota = await readLayout();
-
-    expect(withQuota.paddingBottom).toBeGreaterThan(multiline.paddingBottom);
-    expect(withQuota.gap).toBeGreaterThanOrEqual(-1);
-    expect(withQuota.distanceToBottom).toBeLessThanOrEqual(1);
-
     await input.fill('');
     await expect(input).toHaveValue('');
-    await quotaButton.click();
-    await expect(page.getByText(/Daily quota resets in/u)).toHaveCount(0);
     await expect.poll(readLayout).toMatchObject({
       inputHeight: singleLine.inputHeight,
       wrapperHeight: singleLine.wrapperHeight,
@@ -174,7 +163,9 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.acceptConsent();
 
     await agentV2.send('First quota request');
-    await expect(page.getByText('Not enough Agent quota', { exact: true })).toBeVisible();
+    // The quota the denial carries has reset already, so the question offers Retry as a failed request does
+    await expect(getAgentV2Conversation(page).getByText('Daily Agent limit reached', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Daily Agent limit reached' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Retry request', exact: true }).click();
     await expect(page.getByText('Quota request completed: First quota request', { exact: true })).toBeVisible();
 
@@ -199,15 +190,16 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.acceptConsent();
 
     await agentV2.send('Retry after provider recovery');
-    await expect(page.getByText('Couldn’t get a response', { exact: true })).toBeVisible();
     await expect(page.getByText('You can try again, but the response may not load.', { exact: true }))
       .toBeVisible();
     await expect(page.locator('[data-agent-v2-message-role="assistant"]')).toHaveCount(1);
-    await expect(page.getByRole('status').filter({ hasText: 'Couldn’t get a response' })).toHaveCount(0);
-    await expect(page.getByText('Retry after provider recovery', { exact: true })).toHaveCount(1);
+    await expect(page.getByRole('status').filter({ hasText: 'You can try again, but the response may not load.' }))
+      .toHaveCount(0);
+    await expect(getAgentV2Conversation(page).getByText('Retry after provider recovery', { exact: true }))
+      .toHaveCount(1);
 
     const layout = await getAgentV2Conversation(page).evaluate((messages) => {
-      const input = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
+      const input = messages.parentElement!.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
       const failure = messages.querySelector<HTMLElement>('[data-agent-v2-message-role="assistant"]');
       if (!input || !failure) throw new Error('Agent admission failure layout was not found');
       let composerWrapper: HTMLElement | null = input.parentElement;
@@ -238,7 +230,6 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
 
     await agentV2.send('Trigger terminal error');
     await expect(page.getByText('This response will fail.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
     await expect(page.getByText('Agent could not complete the request. Please try again.', { exact: true }))
       .toBeVisible();
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeVisible();
@@ -247,23 +238,24 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
 
     await page.getByRole('button', { name: 'Retry request', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeEnabled();
-    await expect(page.getByText('Response interrupted', { exact: true })).toHaveCount(1);
+    await expect(page.getByText('Agent could not complete the request. Please try again.', { exact: true }))
+      .toHaveCount(1);
     await expect(page.locator('[data-agent-v2-message-role="assistant"]')).toHaveCount(1);
-    await expect(page.getByRole('status').filter({ hasText: 'Couldn’t get a response' })).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Agent could not complete the request.' }))
+      .toHaveCount(0);
 
     await agentV2.open();
+    await agentV2.openThread();
     await expect(page.getByText('This response will fail.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
     await expect(page.getByText('Agent could not complete the request. Please try again.', { exact: true }))
-      .toBeVisible();
+      .toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Open Menu', exact: true }).click();
-    await page.getByText('Clear Chat', { exact: true }).last().click();
-    await page.locator('#agent-clear-chat-confirm:visible').click();
-    await expect.poll(async () => (await agentV2.getState()).clearBodies.length).toBe(1);
-    const state = await agentV2.getState();
-    expect(state.clearBodies[0].expectedThreadRevision).toBe(1);
+    await page.getByText('Delete Chat', { exact: true }).last().click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect.poll(async () => (await agentV2.getState()).deleteBodies.length).toBe(1);
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0);
   });
 
   test('keeps a failed response and current capacity status distinct across reload', async ({ agentV2, page }) => {
@@ -275,9 +267,13 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
 
     await agentV2.send('Trigger capacity failure');
     await expect(page.getByText('A partial response was started.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
-    await expect(page.getByText('Agent is temporarily unavailable', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeVisible();
+    // The capacity status ends the chat in place of the answer's own caption, without Retry while the limit holds
+    await expect(page.getByText(
+      'The request cannot be completed because an Agent limit was reached.', { exact: true },
+    )).toHaveCount(0);
+    await expect(getAgentV2Conversation(page).getByText('Agent is temporarily unavailable', { exact: true }))
+      .toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toHaveCount(0);
     const input = page.getByRole('textbox', { name: 'Ask anything' });
     const sendButton = page.getByRole('button', { name: 'Send', exact: true });
     const draft = 'Next question';
@@ -292,7 +288,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await assertDraftCannotSend();
 
     const readLayout = () => getAgentV2Conversation(page).evaluate((messages) => {
-      const input = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
+      const input = messages.parentElement!.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
       const lastMessage = Array.from(
         messages.querySelectorAll<HTMLElement>('[data-agent-v2-message-role="assistant"]'),
       ).at(-1);
@@ -311,10 +307,38 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect.poll(async () => (await readLayout()).distanceToBottom).toBeLessThanOrEqual(1);
 
     await agentV2.open();
+    await agentV2.openThread();
     await expect(page.getByText('A partial response was started.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
-    await expect(page.getByText('Agent is temporarily unavailable', { exact: true })).toBeVisible();
+    // The capacity status ends the chat in place of the answer's own caption, without Retry while the limit holds
+    await expect(page.getByText(
+      'The request cannot be completed because an Agent limit was reached.', { exact: true },
+    )).toHaveCount(0);
+    await expect(getAgentV2Conversation(page).getByText('Agent is temporarily unavailable', { exact: true }))
+      .toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toHaveCount(0);
     await assertDraftCannotSend();
+  });
+
+  test('tells an interrupted request once, live and after the chat opens again', async ({ agentV2, page }) => {
+    await agentV2.reset('run-interrupted');
+    await agentV2.seedWallet();
+    await agentV2.open();
+    await agentV2.acceptConsent();
+
+    await agentV2.send('Interrupt this request');
+    const failure = page.getByText('Connection to the Agent was interrupted.', { exact: true });
+    const retry = page.getByRole('button', { name: 'Retry request', exact: true });
+    // The history read after the interruption holds the failed run, which offers Retry; the connection's own
+    // failure does not show beside it
+    await expect(retry).toBeVisible();
+    await expect(failure).toHaveCount(1);
+    await expect(page.locator('[data-agent-v2-message-status="error"]')).toHaveCount(1);
+
+    await agentV2.open();
+    await agentV2.openThread();
+    await expect(retry).toBeVisible();
+    await expect(failure).toHaveCount(1);
+    await expect(page.locator('[data-agent-v2-message-status="error"]')).toHaveCount(1);
   });
 
   test('keeps the response active while switching wallets and drafting the next question', async ({

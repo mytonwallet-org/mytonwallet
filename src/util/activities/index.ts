@@ -30,6 +30,8 @@ const TRANSACTION_TYPE_TITLES: Partial<Record<ApiTransactionType & keyof any, Tr
   bounced: ['Bounced', 'Bouncing', '$bounce_action'],
   mint: ['Minted', 'Minting', '$mint_action'],
   burn: ['Burned', 'Burning', '$burn_action'],
+  perps_deposit: ['Perps Deposit', 'Perps Deposit', '$perps_deposit_action'],
+  perps_withdraw: ['Perps Withdrawal', 'Perps Withdrawal', '$perps_withdraw_action'],
   auctionBid: ['NFT Auction Bid', 'Bidding at NFT Auction', 'NFT Auction Bid '],
   nftAuctionStart: ['Started Auction', 'Starting Auction', '$start_nft_auction_action'],
   nftAuctionCancel: ['Cancelled Auction', 'Cancelling Auction', '$cancel_nft_auction_action'],

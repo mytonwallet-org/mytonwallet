@@ -1,0 +1,110 @@
+@use "../../styles/mixins";
+
+@use "agentBubble";
+
+@use "agentSkeleton";
+
+// Placeholders keep the same 16 px gap above the composer as loaded messages. Their background stands for the
+// messages' own, which they leave clear while it is there.
+.root {
+  --skeleton-background: var(--agent-background);
+
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 0;
+  top: calc(var(--header-padding-top) + var(--header-title-height));
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.625rem;
+
+  // Until the composer is measured, its height is taken as that of an empty field
+  padding: 0 0.5rem calc(var(--agent-input-bar-height, 3.5rem) + 1rem);
+
+  background-color: var(--skeleton-background);
+
+  :global(html.with-bottombar) & {
+    padding-bottom: calc(var(--agent-input-bar-height, calc(3.5rem + var(--bottombar-height))) + 1rem);
+  }
+}
+
+// The cards stand 14 px apart, up from 16 px above the tab bar, on the feed's own background
+.rootNewsFeed {
+  gap: 0.875rem;
+  padding-bottom: 1rem;
+  background-color: transparent;
+
+  :global(html.with-bottombar) & {
+    padding-bottom: calc(1rem + var(--bottombar-height));
+  }
+}
+
+// The band runs across every bubble at once, left to right
+.bubble {
+  position: relative;
+  flex-shrink: 0;
+  width: calc(min(100%, 25.125rem) * var(--skeleton-bubble-width-share));
+  border-radius: var(--border-radius-content);
+
+  @include agentSkeleton.shimmer;
+
+  @include mixins.transition(opacity 100ms ease-out);
+
+  &::after {
+    content: "";
+
+    position: absolute;
+    bottom: 0;
+
+    width: agentBubble.$tailWidth;
+    height: agentBubble.$tailHeight;
+
+    background: inherit;
+
+    animation: inherit;
+
+    mask-repeat: no-repeat;
+    mask-size: 100% 100%;
+
+    @include mixins.rtl-mirror();
+  }
+
+  // Placeholders left without a message fade out while the loaded messages grow out of the others
+  .root:global(.closing) & {
+    opacity: 0;
+  }
+}
+
+// A news card is as wide as the feed's, which keeps 16 px from both sides and grows no wider than a News post
+.newsCard {
+  width: min(calc(100% - 2 * #{agentBubble.$tailWidth}), agentBubble.$maxWidth);
+}
+
+.incoming {
+  align-self: flex-start;
+  margin-inline-start: agentBubble.$tailWidth;
+  border-end-start-radius: 0;
+
+  &::after {
+    inset-inline-start: -(agentBubble.$tailWidth);
+
+    mask-image: agentBubble.$incomingTailMask;
+  }
+}
+
+.outgoing {
+  align-self: flex-end;
+  margin-inline-end: agentBubble.$tailWidth;
+  border-end-end-radius: 0;
+
+  &::after {
+    inset-inline-end: -(agentBubble.$tailWidth);
+
+    mask-image: agentBubble.$outgoingTailMask;
+  }
+}

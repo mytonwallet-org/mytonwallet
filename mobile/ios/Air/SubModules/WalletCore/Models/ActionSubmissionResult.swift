@@ -216,6 +216,9 @@ public func actionSubmissionErrorDisposition(
         return .indeterminate
     }
     switch sdkError {
+    case .message(.unsuccesfulTransfer), .apiReturnedError(_, .unsuccesfulTransfer?, _):
+        // The SDK can return this error after a broadcast transport failure
+        return .indeterminate
     case .message, .apiReturnedError:
         return .notCommitted
     case .sdkNotReady, .javaScriptException, .decoding, .invalidResponse, .unexpected:

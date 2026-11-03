@@ -110,6 +110,10 @@
   &_password {
     padding-inline-end: 2.5rem;
   }
+
+  &_valueError {
+    color: var(--color-red);
+  }
 }
 
 .rich {
@@ -163,6 +167,12 @@
     &:focus {
       box-shadow: none;
     }
+  }
+
+  &__value_error,
+  &__value_error .fractional,
+  &__value_error .prefix {
+    color: var(--color-red);
   }
 
   &__placeholder {
@@ -222,11 +232,6 @@ textarea.input {
 
   @include mixins.transition(box-shadow 150ms);
 
-  &.error,
-  &_hasFocus.error {
-    box-shadow: inset 0 0 0 0.125rem var(--color-red);
-  }
-
   &_hasFocus {
     box-shadow: inset 0 0 0 0.125rem var(--color-accent);
   }
@@ -239,12 +244,6 @@ textarea.input {
   padding-block: 0;
   padding-inline: 1rem 0.625rem;
   border-radius: 1.75rem;
-
-  &.error,
-  &.input__wrapper_hasFocus.error {
-    /* stylelint-disable-next-line plugin/whole-pixel */
-    box-shadow: inset 0 0 0 0.09375rem var(--color-red);
-  }
 
   &.input__wrapper_hasFocus {
     /* stylelint-disable-next-line plugin/whole-pixel */
@@ -353,24 +352,11 @@ textarea.input {
     /* stylelint-disable-next-line plugin/whole-pixel */
     box-shadow: 0 0 0 0.09375rem var(--color-accent) !important;
   }
-
-  &_error {
-    &::before {
-      /* stylelint-disable-next-line plugin/whole-pixel */
-      box-shadow: 0 0 0 0.09375rem var(--color-red) !important;
-    }
-  }
 }
 
 .inputContainer {
   position: relative;
   width: 100%;
-}
-
-.input_withValueOverlay {
-  &::placeholder {
-    opacity: 0;
-  }
 }
 
 .valueOverlay {

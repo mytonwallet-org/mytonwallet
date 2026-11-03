@@ -9,12 +9,14 @@ public struct SwapOverviewView: View {
     var fromAmount: TokenAmount
     var toAmount: TokenAmount
     var toAmountIsEstimated: Bool
+    var hideToAmount: Bool
     var onTokenTapped: ((ApiToken) -> Void)?
     
-    public init(fromAmount: TokenAmount, toAmount: TokenAmount, toAmountIsEstimated: Bool = false, onTokenTapped: ((ApiToken) -> Void)? = nil) {
+    public init(fromAmount: TokenAmount, toAmount: TokenAmount, toAmountIsEstimated: Bool = false, hideToAmount: Bool = false, onTokenTapped: ((ApiToken) -> Void)? = nil) {
         self.fromAmount = fromAmount
         self.toAmount = toAmount
         self.toAmountIsEstimated = toAmountIsEstimated
+        self.hideToAmount = hideToAmount
         self.onTokenTapped = onTokenTapped
     }
     
@@ -26,8 +28,10 @@ public struct SwapOverviewView: View {
             minusView
                 .padding(.bottom, 4)
                 .padding(.top, 1)
-            plusView
-                .padding(.top, 1)
+            if !hideToAmount {
+                plusView
+                    .padding(.top, 1)
+            }
         }
         .multilineTextAlignment(.center)
         .padding(.leading, 2)

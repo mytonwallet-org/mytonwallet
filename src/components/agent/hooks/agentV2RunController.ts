@@ -11,7 +11,7 @@ import type {
   AgentV2RunCommandInput,
   AgentV2RunResult,
 } from '../../../api/agentV2/types';
-import type { AgentHint } from '../../../global/types';
+import type { AgentHint, AgentMessage } from '../../../global/types';
 import type {
   AgentV2MessagesState,
   AgentV2MessagesStateAction,
@@ -77,8 +77,11 @@ export interface AgentV2RunController {
   retryMessage: (messageId: number) => void;
   sendFollowup: (messageId: number, followup: AgentPublicFollowUpV2) => void;
   sendHint: (hint: AgentHint) => void;
-  sendMessage: (text: string, editMessageId?: number) => void;
+  /** `shownMessage` is the question already on screen, which the sent message takes the place of */
+  sendMessage: (text: string, editMessageId?: number, shownMessage?: AgentV2ShownMessage) => boolean;
 }
+
+type AgentV2ShownMessage = Pick<AgentMessage, 'id' | 'timestamp'>;
 
 export function createAgentV2RunController(
   dependencies: AgentV2RunControllerDependencies,
@@ -111,28 +114,29 @@ export function createAgentV2RunController(
     cancelledRunOperationIds.clear();
   }
 
-  function sendMessage(text: string, editMessageId?: number) {
+  function sendMessage(text: string, editMessageId?: number, shownMessage?: AgentV2ShownMessage) {
     const trimmed = text.trim();
     const thread = dependencies.getState().thread;
-    if (!trimmed || !thread || isInputBlocked()) return;
+    if (!trimmed || !thread || isInputBlocked()) return false;
     const message = dependencies.hideSecretPhrases(trimmed);
 
     const targetMessageId = editMessageId ? dependencies.stream.getSourceId(editMessageId) : undefined;
-    if (editMessageId && !targetMessageId) return;
+    if (editMessageId && !targetMessageId) return false;
 
     if (targetMessageId) {
       void run(
         { input: { kind: 'edit', targetUserMessageId: targetMessageId, text: message } },
         { kind: 'edit', targetMessageId: editMessageId!, text: message },
       );
-      return;
+      return true;
     }
 
-    const outgoingMessageId = addOptimisticMessage(message);
-    void run({
-      input: { kind: 'append', text: message },
-      entryPoint: { kind: 'agentTab' },
+    const outgoingMessageId = addOptimisticMessage(message, shownMessage);
+    const input = { kind: 'append', text: message } as const;
+    void run(thread.news ? { input } : {
+      input, entryPoint: { kind: 'agentTab' },
     }, { kind: 'append', messageId: outgoingMessageId });
+    return true;
   }
 
   function sendHint(hint: AgentHint) {
@@ -207,6 +211,7 @@ export function createAgentV2RunController(
       isDisposed
       || !thread
       || current.isLoading
+      || (thread.news && !current.hasHydratedHistory)
       || current.threadMutation.phase === 'clearing'
     ) return;
 
@@ -234,9 +239,9 @@ export function createAgentV2RunController(
       || (runOperationId !== undefined && cancelledRunOperationIds.has(runOperationId));
   }
 
-  function addOptimisticMessage(text: string) {
-    const timestamp = dependencies.now();
-    const messageId = dependencies.stream.createLocalMessageId();
+  function addOptimisticMessage(text: string, shownMessage?: AgentV2ShownMessage) {
+    const messageId = shownMessage?.id ?? dependencies.stream.createLocalMessageId();
+    const timestamp = shownMessage?.timestamp ?? dependencies.now();
     dependencies.dispatch({
       kind: 'optimisticMessageAdded',
       message: {
@@ -319,8 +324,10 @@ export function createAgentV2RunController(
         break;
       case 'interrupted':
         retainedAdmissions.delete(result.clientRunId);
-        setRunConnectionError(operationId);
+        // The history holds the run the connection lost as a failure that offers Retry. The run goes on until the
+        // history is in, so that its caption comes once, with Retry; the connection's own caption shows without it.
         await dependencies.hydrate(true, true);
+        setRunConnectionError(operationId);
         break;
       default:
         assertUnreachable(result.state);

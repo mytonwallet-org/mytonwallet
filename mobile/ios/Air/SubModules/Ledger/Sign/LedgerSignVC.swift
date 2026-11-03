@@ -23,6 +23,8 @@ public enum LedgerSignEvent<Payload: Sendable> {
 
 @MainActor
 public final class LedgerSignVC<HeaderView: View, Payload: Sendable>: WViewController {
+    public override var shouldPreserveSheetSizeOnPush: Bool { true }
+
     public var onEvent: ((LedgerSignVC<HeaderView, Payload>, LedgerSignEvent<Payload>) -> Void)?
 
     private let headerView: HeaderView

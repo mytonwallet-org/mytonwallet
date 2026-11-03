@@ -21,6 +21,7 @@ interface OwnProps {
   /** If true, the label will say "All" instead of "Max" and all the amount digits will be shown (made for unstaking) */
   isAllMode?: boolean;
   isDisabled?: boolean;
+  hasError?: boolean;
   onAmountClick(maxAmount?: bigint): void;
 }
 
@@ -35,6 +36,7 @@ function AmountInputMaxButton({
   isSensitiveDataHidden,
   isAllMode,
   isDisabled,
+  hasError,
   onAmountClick,
 }: OwnProps) {
   const lang = useLang();
@@ -59,7 +61,7 @@ function AmountInputMaxButton({
       className={styles.container}
     >
       {content && (
-        <span className={styles.content}>
+        <span className={buildClassName(styles.content, hasError && styles.contentError)}>
           {lang(isAllMode ? '$all_balance' : '$max_balance', {
             balance: isDisabled ? <div className={styles.amount}>{content}</div>
               : (
@@ -67,7 +69,7 @@ function AmountInputMaxButton({
                   role="button"
                   tabIndex={0}
                   onClick={() => onAmountClick(maxAmount)}
-                  className={buildClassName(styles.amount, styles.link)}
+                  className={buildClassName(styles.amount, styles.link, hasError && styles.amountError)}
                 >
                   {content}
                 </div>

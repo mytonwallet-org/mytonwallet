@@ -7,7 +7,9 @@ import { createCallbackManager } from '../../../../util/callbacks';
 import { logDebug } from '../../../../util/logs';
 import { normalizeNftAddress } from '../../../../util/nft';
 import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollingScheduler';
+import { inactiveNftTiming, periodToMs } from '../../../common/polling/utils';
 import { fetchNftByAddress, streamAllAccountNfts } from '../nfts';
+import { inactiveWallets } from './inactiveWallets';
 import { getAlchemySocket } from './socket';
 
 export type OnNftUpdate = (params:
@@ -17,6 +19,9 @@ export type OnNftUpdate = (params:
 ) => void;
 
 export type OnLoadingChange = (isLoading: boolean) => void;
+
+// The slowest pace at which the app already polls an inactive NFT wallet
+const [, INACTIVE_RECHECK_MS] = periodToMs(inactiveNftTiming.forcedPollingPeriod);
 
 /**
  * Streams NFT-related updates and exposes ready-to-use structures.
@@ -40,6 +45,9 @@ export class NftStream {
   #isDestroyed = false;
   #ignoreNextPollPreCheck = false;
   #walletStatus: 'active' | 'inactive' | undefined = undefined;
+  #inactiveCheckedAt = 0;
+  #inactiveConnectCount = 0;
+  #connectCount = 0;
 
   constructor(
     chain: EVMChain,
@@ -84,7 +92,19 @@ export class NftStream {
     this.#fallbackPollingScheduler.destroy();
   }
 
+  /** Loads the NFTs of a wallet the precheck has not found active yet, once activity proves it is */
+  public activate() {
+    // An active stream polls on its own schedule, so a repeated activity signal must not add full loads
+    if (this.#isDestroyed || this.#walletStatus === 'active') return;
+
+    this.#markWalletActive();
+    this.#fallbackPollingScheduler.forceImmediatePoll();
+  }
+
   #handleSocketConnect = () => {
+    // The socket can miss the event that wakes an empty wallet before or between subscriptions,
+    // so an empty verdict read before this connect no longer holds
+    this.#connectCount++;
     this.#fallbackPollingScheduler.onSocketConnect();
   };
 
@@ -133,6 +153,19 @@ export class NftStream {
   };
 
   #poll = async () => {
+    // An empty wallet is woken by a socket transfer or `activate`; the schedule rechecks it only after a
+    // connect or at the pace of an inactive NFT stream, in case that event was lost
+    if (this.#walletStatus === 'inactive') {
+      const isVerdictFresh = this.#inactiveConnectCount === this.#connectCount
+        && Date.now() - this.#inactiveCheckedAt < INACTIVE_RECHECK_MS;
+      if (isVerdictFresh) return;
+      // A read that started before the connect may have cached the verdict after it
+      inactiveWallets.forget(this.#network, this.#chain, this.#address);
+    }
+
+    const startedAt = Date.now();
+    const connectCount = this.#connectCount;
+
     const streamedAddresses = new Set<string>();
     const ignorePreCheck = this.#ignoreNextPollPreCheck || this.#walletStatus === 'active';
     this.#ignoreNextPollPreCheck = false;
@@ -147,7 +180,7 @@ export class NftStream {
       await streamAllAccountNfts(this.#chain, this.#accountId, {
         signal: this.#abortController.signal,
         ignorePreCheck,
-        onPreCheckResult: this.#handlePreCheckResult,
+        onPreCheckResult: (isActive) => this.#handlePreCheckResult(isActive, startedAt, connectCount),
         onBatch: (batchNfts) => {
           const hasNewNfts = batchNfts.some((nft) => !this.#persistedNftAddresses.has(nft.address));
 
@@ -190,10 +223,15 @@ export class NftStream {
     }
   };
 
-  #handlePreCheckResult = (isActive: boolean) => {
+  #handlePreCheckResult = (isActive: boolean, startedAt: number, connectCount: number) => {
     if (!isActive && this.#walletStatus === 'active') return;
 
     this.#walletStatus = isActive ? 'active' : 'inactive';
+    if (isActive) return;
+
+    // Tied to the connect the read began under, so a connect while it was in flight leaves the recheck due
+    this.#inactiveCheckedAt = startedAt;
+    this.#inactiveConnectCount = connectCount;
   };
 
   #markWalletActive() {

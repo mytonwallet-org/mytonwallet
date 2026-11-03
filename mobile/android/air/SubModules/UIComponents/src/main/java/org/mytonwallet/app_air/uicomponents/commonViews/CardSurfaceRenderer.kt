@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.SystemClock
-import android.view.animation.PathInterpolator
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -25,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.mix
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.quintic
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.smooth
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.unit
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
 @androidx.annotation.RequiresApi(33)
 internal class CardSurfaceRenderer(
@@ -44,7 +44,6 @@ internal class CardSurfaceRenderer(
     private var resume: Resume? = null
     private var frameCommitOwner: Any? = null
     private var appearanceStartedAt: Long? = null
-    private val appearanceCurve = PathInterpolator(.42f, 0f, .58f, 1f)
     var onTextureReady: (() -> Unit)? = null
     private val backdropCache = if (profile.gram) {
         CardSurfaceBackdropCache(::createShader, ::applyFrame) { onTextureReady?.invoke() }
@@ -223,7 +222,7 @@ internal class CardSurfaceRenderer(
         applyFrame(shader, frame)
         paint.alpha = appearanceStartedAt?.let {
             (
-                255 * appearanceCurve.getInterpolation(
+                255 * WInterpolator.easeInOut.getInterpolation(
                     ((now - it) / 300f).coerceIn(0f, 1f)
                 )
                 ).roundToInt()

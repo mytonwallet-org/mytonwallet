@@ -16,6 +16,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
@@ -144,7 +145,7 @@ class QRCodeVC(
     }
 
     private val addressLabel = CopyTextView(context).apply {
-        id = View.generateViewId()
+        id = UIComponentsR.id.receive_address
 
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 22f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())

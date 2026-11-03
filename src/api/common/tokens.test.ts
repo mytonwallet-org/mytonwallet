@@ -1,6 +1,9 @@
-import type { ApiTokenWithPrice } from '../types';
+import type { ApiCurrencyRates, ApiTokenWithMaybePrice, ApiTokenWithPrice } from '../types';
 
+import { DEFAULT_RETRIES } from '../../config';
 import { getChainConfig, getSupportedChains } from '../../util/chain';
+import { HOUR } from '../../util/dateFormat';
+import Deferred from '../../util/Deferred';
 import { tokenRepository } from '../db';
 import { callBackendGet } from './backend';
 import {
@@ -26,9 +29,24 @@ jest.mock('../db', () => ({
 }));
 
 jest.mock('./backend', () => ({
-  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendGet: jest.fn().mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+    ? { catalogVersion: 'empty', prices: {} }
+    : { version: 'empty', assets: [] })),
   callBackendPost: jest.fn().mockResolvedValue([]),
 }));
+
+const mockFetch = jest.fn();
+jest.mock('../../util/ThrottledFetcher', () => ({
+  fetchWithThrottledProvider: (...args: unknown[]) => mockFetch(...args),
+  getProviderFetchRetryPolicy: () => undefined,
+  getRetryAfterMs: () => undefined,
+}));
+jest.mock('../../util/abortSignal', () => ({
+  ...jest.requireActual('../../util/abortSignal'),
+  pauseWithAbortSignal: () => Promise.resolve(),
+}));
+jest.mock('../environment', () => ({ getEnvironment: () => ({ apiHeaders: {} }) }));
+jest.mock('./other', () => ({ getClientId: () => 'token-catalog-test' }));
 
 // The catalog lists AUSD under `ethereum-0x00000000`, the backend slug of every address that starts with eight zeros
 const AUSD_SLUG = 'ethereum-0x00000000';
@@ -37,6 +55,7 @@ const SPAM_ADDRESS = '0x00000000f9fd50c832d79facfe6f4e8ce90a5efb';
 const SPAM_SLUG = `ethereum-${SPAM_ADDRESS}`;
 const OTHER_SPAM_ADDRESS = '0x0000000000c39a0f674c12a5e63eb8031b550b6f';
 const OTHER_SPAM_SLUG = `ethereum-${OTHER_SPAM_ADDRESS}`;
+const CURRENCY_RATES: ApiCurrencyRates = { USD: '1', EUR: '0.9', RUB: '90', CNY: '7', BTC: '0.00001', TON: '0.3' };
 
 function makeToken(
   slug: string,
@@ -487,15 +506,18 @@ describe('token updates across a UI reconnect', () => {
   const closedOnUpdate = jest.fn();
   const onUpdate = jest.fn();
   const respond = (index: number, priceUsd: number) => {
-    resolvers[index]([makeToken(slug, 'ton', 'reconnect-token', { priceUsd })]);
+    resolvers[index]({ catalogVersion: 'reconnect', prices: { [slug]: [priceUsd, 0] } });
   };
-  let resolvers: ((tokens: ApiTokenWithPrice[]) => void)[];
+  let resolvers: ((prices: { catalogVersion: string; prices: Record<string, [number, number]> }) => void)[];
   let closedRequest: Promise<void>;
   let request: Promise<void>;
 
   beforeEach(() => {
     resolvers = [];
-    (callBackendGet as jest.Mock).mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    (callBackendGet as jest.Mock).mockImplementation((path: string) => {
+      if (path === '/assets/prices') return new Promise((resolve) => resolvers.push(resolve));
+      return Promise.resolve({ version: 'reconnect', assets: [makeToken(slug, 'ton', 'reconnect-token')] });
+    });
     tokensPreload.resolve();
     pauseTokenUpdates();
     closedRequest = updateTokensFromBackend(closedOnUpdate);
@@ -504,7 +526,9 @@ describe('token updates across a UI reconnect', () => {
   });
 
   afterEach(() => {
-    (callBackendGet as jest.Mock).mockResolvedValue([]);
+    (callBackendGet as jest.Mock).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'empty', prices: {} }
+      : { version: 'empty', assets: [] }));
     closedOnUpdate.mockClear();
     onUpdate.mockClear();
     if (previousToken) {
@@ -542,4 +566,329 @@ describe('token updates across a UI reconnect', () => {
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate.mock.calls[0][0].tokens[slug].priceUsd).toBe(2);
   });
+});
+
+describe('backend token catalog and prices', () => {
+  let sdk: typeof import('./tokens');
+  let backend: typeof import('./backend');
+  type Reply = { body: unknown; status?: number; error?: Error; pending?: Promise<void> };
+  let replies: Record<string, Reply>;
+  const token = makeToken('catalog-token', 'ton', 'catalog-address', { priceUsd: 2, percentChange24h: 3 });
+  const { priceUsd, percentChange24h, ...catalogToken } = token;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockFetch.mockReset();
+    jest.isolateModules(() => {
+      sdk = jest.requireActual('./tokens');
+      backend = jest.requireActual('./backend');
+      jest.requireMock('./backend').callBackendGet.mockImplementation(backend.callBackendGet);
+    });
+    sdk.tokensPreload.resolve();
+    replies = {
+      '/assets/prices': { body: { catalogVersion: 'v1', prices: { [token.slug]: [priceUsd, percentChange24h] } } },
+      '/assets/catalog': { body: { version: 'v1', assets: [catalogToken] } },
+      '/assets': { body: [token] },
+    };
+    mockFetch.mockImplementation(async (url: string | URL) => {
+      const reply = replies[new URL(url).pathname];
+      if (!reply) throw new Error(`Unexpected backend URL: ${url}`);
+      if (reply.error) throw reply.error;
+      await reply.pending;
+      const status = reply.status ?? 200;
+      return {
+        status,
+        ok: status >= 200 && status < 300,
+        json: () => Promise.resolve(JSON.parse(JSON.stringify(reply.body))),
+        headers: { get: () => undefined },
+      };
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('requests prices on every update and the unchanged catalog only once', async () => {
+    replies['/assets/prices'].body = { ...replies['/assets/prices'].body as object, rates: CURRENCY_RATES };
+    const onCurrencyRates = jest.fn();
+    for (let i = 0; i < 4; i++) {
+      await sdk.updateTokensFromBackend(jest.fn(), { langCode: 'en' }, onCurrencyRates);
+    }
+
+    expect(requestCount('/assets/prices')).toBe(4);
+    expect(onCurrencyRates.mock.calls).toEqual(Array.from({ length: 4 }, () => [CURRENCY_RATES]));
+    expect(requestCount('/assets/catalog')).toBe(1);
+    expect(requestCount('/assets')).toBe(0);
+    const urls = mockFetch.mock.calls.map(([url]) => new URL(url));
+    expect(urls.filter((url) => url.pathname === '/assets/prices').every((url) => !url.search)).toBe(true);
+    expect(urls.find((url) => url.pathname === '/assets/catalog')?.searchParams.get('langCode')).toBe('en');
+  });
+
+  it.each([
+    undefined,
+    'invalid',
+    { USD: '1' },
+    { ...CURRENCY_RATES, EUR: 0.9 },
+  ])('reports unavailable currency rates for a missing or malformed prices field: %p', async (rates) => {
+    replies['/assets/prices'].body = { ...replies['/assets/prices'].body as object, rates };
+    const onCurrencyRates = jest.fn();
+
+    await sdk.updateTokensFromBackend(jest.fn(), {}, onCurrencyRates);
+
+    expect(onCurrencyRates.mock.calls).toEqual([[undefined]]);
+  });
+
+  it('rejects an undefined prices response without reporting valid rates', async () => {
+    jest.requireMock('./backend').callBackendGet.mockResolvedValueOnce(undefined);
+    const onCurrencyRates = jest.fn();
+
+    await expect(sdk.updateTokensFromBackend(jest.fn(), {}, onCurrencyRates)).rejects.toThrow(TypeError);
+
+    expect(onCurrencyRates).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the catalog once for a new version and once for a new language', async () => {
+    await sdk.fetchBackendTokens('en');
+    replies['/assets/prices'].body = { catalogVersion: 'v2', prices: {} };
+    replies['/assets/catalog'].body = { version: 'v2', assets: [catalogToken] };
+    await sdk.fetchBackendTokens('en');
+    await sdk.fetchBackendTokens('en');
+    expect(requestCount('/assets/catalog')).toBe(2);
+
+    replies['/assets/catalog'].body = { version: 'v2', assets: [{ ...catalogToken, localizedName: 'Localized' }] };
+    expect((await sdk.fetchBackendTokens('ru'))[0].localizedName).toBe('Localized');
+    await sdk.fetchBackendTokens('ru');
+    expect(requestCount('/assets/catalog')).toBe(3);
+    expect(mockFetch.mock.calls.map(([url]) => new URL(url))
+      .filter((url) => url.pathname === '/assets/catalog').map((url) => url.searchParams.get('langCode')))
+      .toEqual(['en', 'en', 'ru']);
+    expect(requestCount('/assets')).toBe(0);
+  });
+
+  it('joins the legacy token fields and preserves UI handling of absent prices and null changes', async () => {
+    const assets = [catalogToken, { ...catalogToken, slug: 'null-change' }, { ...catalogToken, slug: 'unpriced' }];
+    const legacyTokens: ApiTokenWithMaybePrice[] = [
+      token,
+      { ...assets[1], priceUsd: 4, percentChange24h: undefined },
+      { ...assets[2], priceUsd: undefined, percentChange24h: undefined },
+    ];
+    replies['/assets/catalog'].body = { version: 'v1', assets };
+    replies['/assets/prices'].body = {
+      catalogVersion: 'v1',
+      // eslint-disable-next-line no-null/no-null
+      prices: { [token.slug]: [2, 3], 'null-change': [4, null], 'unknown-slug': [99, 1] },
+    };
+    // JSON null from the legacy endpoint follows the same nullish merge path as an absent change
+    replies['/assets'].body = legacyTokens.map((item) => (
+      // eslint-disable-next-line no-null/no-null
+      item.slug === 'null-change' ? { ...item, percentChange24h: null } : item
+    ));
+
+    const joined = await sdk.fetchBackendTokens();
+    expect(joined).toStrictEqual(legacyTokens);
+    const legacy = await backend.callBackendGet<ApiTokenWithPrice[]>('/assets');
+    for (const item of legacy) {
+      item.isFromBackend = true;
+      item.isPriceFromBackend = item.priceUsd !== undefined;
+    }
+    await sdk.updateTokens([makeToken('null-change', 'ton', 'catalog-address', { percentChange24h: 7 })]);
+    await sdk.updateTokens(legacy);
+    const expected = legacy.map(({ slug }) => sdk.getTokensCache().bySlug[slug]);
+    await sdk.updateTokensFromBackend(jest.fn());
+    expect(legacy.map(({ slug }) => sdk.getTokensCache().bySlug[slug])).toEqual(expected);
+    expect(sdk.getTokensCache().bySlug['null-change'].percentChange24h).toBe(7);
+    expect(sdk.getTokensCache().bySlug.unpriced.isPriceFromBackend).toBe(false);
+    expect(sdk.getTokensCache().bySlug['unknown-slug']).toBeUndefined();
+  });
+
+  it.each(['/assets/prices', '/assets/catalog'])('uses legacy data for one hour after a 404 from %s', async (
+    path,
+  ) => {
+    replies[path] = { body: { error: 'Not found' }, status: 404 };
+    expect(await sdk.fetchBackendTokens('ru')).toEqual([token]);
+    expect(requestCount(path)).toBe(1);
+    const pricesCount = requestCount('/assets/prices');
+    const catalogCount = requestCount('/assets/catalog');
+    await jest.advanceTimersByTimeAsync(HOUR - 1);
+    const onCurrencyRates = jest.fn();
+    expect(await sdk.fetchBackendTokens('ru', onCurrencyRates)).toEqual([token]);
+    expect(onCurrencyRates.mock.calls).toEqual([[undefined]]);
+    expect(requestCount('/assets/prices')).toBe(pricesCount);
+    expect(requestCount('/assets/catalog')).toBe(catalogCount);
+    expect(requestCount('/assets')).toBe(2);
+
+    replies['/assets/prices'] = { body: { catalogVersion: 'v2', prices: {} } };
+    replies['/assets/catalog'] = { body: { version: 'v2', assets: [catalogToken] } };
+    await jest.advanceTimersByTimeAsync(1);
+    await sdk.fetchBackendTokens('ru');
+    expect(requestCount('/assets/prices')).toBe(pricesCount + 1);
+    expect(requestCount('/assets/catalog')).toBe(catalogCount + 1);
+    expect(requestCount('/assets')).toBe(2);
+  });
+
+  it.each(['network', '500'])('keeps the cold catalog after a prices %s failure and settles preload', async (
+    failure,
+  ) => {
+    replies['/assets/prices'] = failure === 'network'
+      ? { body: {}, error: new Error('Offline') }
+      : { body: { error: 'Server unavailable' }, status: 500 };
+    sdk.pauseTokenUpdates();
+    const resolver = sdk.waitForTokenSlugResolver();
+    const onUpdate = jest.fn();
+    const onCurrencyRates = jest.fn();
+    await expect(sdk.updateTokensFromBackend(onUpdate, {}, onCurrencyRates)).rejects.toMatchObject({
+      statusCode: failure === 'network' ? undefined : 500,
+    });
+    await expect(resolver).resolves.toEqual(expect.any(Function));
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(onCurrencyRates).not.toHaveBeenCalled();
+    expect(requestCount('/assets/prices')).toBe(DEFAULT_RETRIES);
+    expect(requestCount('/assets/catalog')).toBe(1);
+    expect(requestCount('/assets')).toBe(0);
+
+    replies['/assets/prices'] = { body: { catalogVersion: 'v1', prices: {} } };
+    await sdk.updateTokensFromBackend(onUpdate);
+    expect(requestCount('/assets/prices')).toBe(DEFAULT_RETRIES + 1);
+    expect(requestCount('/assets/catalog')).toBe(1);
+  });
+
+  it('shares an in-flight catalog between parallel updates', async () => {
+    const pending = new Deferred();
+    const requested = new Deferred();
+    replies['/assets/catalog'].pending = pending.promise;
+    replies['/assets/prices'].body = { ...replies['/assets/prices'].body as object, rates: CURRENCY_RATES };
+    const onCurrencyRates = jest.fn();
+    const fetch = mockFetch.getMockImplementation()!;
+    mockFetch.mockImplementation((url: string | URL, ...args: unknown[]) => {
+      if (new URL(url).pathname === '/assets/catalog') requested.resolve();
+      return fetch(url, ...args);
+    });
+    const first = sdk.updateTokensFromBackend(jest.fn(), { langCode: 'en' }, onCurrencyRates);
+    const second = sdk.updateTokensFromBackend(jest.fn(), { langCode: 'en' }, onCurrencyRates);
+    await requested.promise;
+    await jest.advanceTimersByTimeAsync(0);
+    expect(requestCount('/assets/prices')).toBe(2);
+    expect(requestCount('/assets/catalog')).toBe(1);
+    expect(onCurrencyRates.mock.calls).toEqual([[CURRENCY_RATES], [CURRENCY_RATES]]);
+    pending.resolve();
+    await Promise.all([first, second]);
+    expect(requestCount('/assets/catalog')).toBe(1);
+  });
+
+  it('starts a cold catalog request before the pending prices respond', async () => {
+    const pending = new Deferred();
+    replies['/assets/prices'].pending = pending.promise;
+    const request = sdk.fetchBackendTokens('en');
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(requestCount('/assets/prices')).toBe(1);
+    expect(requestCount('/assets/catalog')).toBe(1);
+
+    pending.resolve();
+    expect(await request).toEqual([token]);
+  });
+
+  it('uses legacy after prices return 404 even when the parallel catalog rejects later', async () => {
+    const pending = new Deferred();
+    const onUnhandledRejection = jest.fn();
+    process.on('unhandledRejection', onUnhandledRejection);
+    replies['/assets/prices'] = { body: { error: 'Not found' }, status: 404 };
+    replies['/assets/catalog'].pending = pending.promise;
+
+    try {
+      const request = sdk.fetchBackendTokens('en');
+      const result = expect(request).resolves.toEqual([token]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(requestCount('/assets/prices')).toBe(1);
+      expect(requestCount('/assets/catalog')).toBe(1);
+      pending.reject(new Error('Offline'));
+      await result;
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(onUnhandledRejection).not.toHaveBeenCalled();
+      expect(requestCount('/assets/catalog')).toBe(DEFAULT_RETRIES);
+      expect(requestCount('/assets')).toBe(1);
+      await sdk.fetchBackendTokens('en');
+      expect(requestCount('/assets/prices')).toBe(1);
+      expect(requestCount('/assets/catalog')).toBe(DEFAULT_RETRIES);
+      expect(requestCount('/assets')).toBe(2);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+  });
+
+  it('accepts a different catalog version and checks it again on the next call', async () => {
+    replies['/assets/catalog'].body = { version: 'other-pod', assets: [catalogToken] };
+    expect(await sdk.fetchBackendTokens()).toStrictEqual([{
+      ...catalogToken, priceUsd: undefined, percentChange24h: undefined,
+    }]);
+    replies['/assets/catalog'].body = { version: 'v1', assets: [catalogToken] };
+    await sdk.fetchBackendTokens();
+    await sdk.fetchBackendTokens();
+    expect(requestCount('/assets/catalog')).toBe(2);
+  });
+
+  it('uses a same-language catalog after a refresh failure and retries its version on the next call', async () => {
+    await sdk.fetchBackendTokens('en');
+    replies['/assets/prices'].body = { catalogVersion: 'v2', prices: { [token.slug]: [5, 6] } };
+    replies['/assets/catalog'].error = new Error('Offline');
+    expect(await sdk.fetchBackendTokens('en')).toStrictEqual([{
+      ...catalogToken, priceUsd: undefined, percentChange24h: undefined,
+    }]);
+    expect(requestCount('/assets/catalog')).toBe(1 + DEFAULT_RETRIES);
+    delete replies['/assets/catalog'].error;
+    replies['/assets/catalog'].body = { version: 'v2', assets: [catalogToken] };
+    await sdk.fetchBackendTokens('en');
+    expect(requestCount('/assets/catalog')).toBe(2 + DEFAULT_RETRIES);
+    expect(requestCount('/assets')).toBe(0);
+  });
+
+  it.each(['failed refresh', 'different pod'])('keeps the old quote across a slug reassignment after %s', async (
+    failure,
+  ) => {
+    const { priceUsd: oldPrice, percentChange24h: oldChange, ...oldOwner } = makeToken(
+      AUSD_SLUG, 'ethereum', AUSD_ADDRESS, { priceUsd: 2, percentChange24h: 3 },
+    );
+    const newOwner = { ...oldOwner, tokenAddress: SPAM_ADDRESS, name: 'New owner' };
+    replies['/assets/catalog'].body = { version: 'v1', assets: [oldOwner] };
+    replies['/assets/prices'].body = { catalogVersion: 'v1', prices: { [AUSD_SLUG]: [oldPrice, oldChange] } };
+    const onUpdate = jest.fn();
+    await sdk.updateTokensFromBackend(onUpdate, { langCode: 'en' });
+    expect(sdk.getTokenBySlug(AUSD_SLUG)).toMatchObject({
+      tokenAddress: AUSD_ADDRESS, priceUsd: 2, percentChange24h: 3, isPriceFromBackend: true,
+    });
+
+    replies['/assets/prices'].body = { catalogVersion: 'v2', prices: { [AUSD_SLUG]: [9, 10] } };
+    if (failure === 'failed refresh') replies['/assets/catalog'].error = new Error('Offline');
+    await sdk.updateTokensFromBackend(onUpdate, { langCode: 'en' });
+    expect(sdk.getTokenBySlug(AUSD_SLUG)).toMatchObject({
+      tokenAddress: AUSD_ADDRESS, priceUsd: 2, percentChange24h: 3, isPriceFromBackend: false,
+    });
+
+    delete replies['/assets/catalog'].error;
+    replies['/assets/catalog'].body = { version: 'v2', assets: [newOwner] };
+    await sdk.updateTokensFromBackend(onUpdate, { langCode: 'en' });
+    expect(sdk.getTokenBySlug(AUSD_SLUG)).toMatchObject({
+      tokenAddress: SPAM_ADDRESS, priceUsd: 9, percentChange24h: 10, isPriceFromBackend: true,
+    });
+    expect(sdk.getTokenBySlug(`ethereum-${AUSD_ADDRESS}`)).toMatchObject({
+      tokenAddress: AUSD_ADDRESS, priceUsd: 2, percentChange24h: 3, isPriceFromBackend: false,
+    });
+  });
+
+  it.each([undefined, 'en'])('rejects a catalog failure without a cached ru catalog (cached language: %s)', async (
+    langCode,
+  ) => {
+    if (langCode) await sdk.fetchBackendTokens(langCode);
+    replies['/assets/catalog'].error = new Error('Offline');
+    const onUpdate = jest.fn();
+    await expect(sdk.updateTokensFromBackend(onUpdate, { langCode: 'ru' })).rejects.toThrow('Offline');
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(requestCount('/assets')).toBe(0);
+  });
+
+  function requestCount(path: string) {
+    return mockFetch.mock.calls.filter(([url]) => new URL(url).pathname === path).length;
+  }
 });

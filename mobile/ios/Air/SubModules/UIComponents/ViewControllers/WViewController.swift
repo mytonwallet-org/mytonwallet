@@ -26,6 +26,10 @@ open class WViewController: UIViewController {
         true
     }
 
+    open var shouldPreserveSheetSizeOnPush: Bool {
+        false
+    }
+
     open var maxContentWidth: CGFloat? {
         nil
     }
@@ -36,6 +40,9 @@ open class WViewController: UIViewController {
     }
 
     private var appliedSafeAreaInsetsForMaxContentWidth: UIEdgeInsets = .zero
+
+    /// The backgrounds `addCustomNavigationBarBackground` made, which `setCustomNavigationBarBackgroundTint` paints
+    private var customNavigationBarBackgrounds: [WeakNavigationBarBackground] = []
 
     // set a view with background as UIViewController view, to do the rest, programmatically, inside the subclasses.
     open override func loadView() {
@@ -170,26 +177,38 @@ open class WViewController: UIViewController {
             maxEdgeSize: maxEdgeSize ?? defaultMaxEdgeSize
         )
         customBackground.translatesAutoresizingMaskIntoConstraints = false
+        customNavigationBarBackgrounds.removeAll { $0.view == nil }
+        customNavigationBarBackgrounds.append(WeakNavigationBarBackground(view: customBackground))
+        let bottomConstraint: NSLayoutConstraint
         if let scrollView {
             scrollView.addSubview(customBackground)
+            bottomConstraint = customBackground.bottomAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.topAnchor, constant: bottomExtension)
             NSLayoutConstraint.activate([
                 customBackground.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor),
                 customBackground.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor),
                 customBackground.topAnchor.constraint(equalTo: scrollView.frameLayoutGuide.topAnchor, constant: -topOverscan),
-                customBackground.bottomAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.topAnchor, constant: bottomExtension),
+                bottomConstraint,
             ])
         } else {
             view.addSubview(customBackground)
+            bottomConstraint = customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: bottomExtension)
             NSLayoutConstraint.activate([
                 customBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 customBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 customBackground.topAnchor.constraint(equalTo: view.topAnchor, constant: -topOverscan),
-                customBackground.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: bottomExtension),
+                bottomConstraint,
             ])
         }
+        customBackground.bottomConstraint = bottomConstraint
+        customBackground.bottomExtension = bottomExtension
         return customBackground
     }
     
+    /// A live copy of the header backdrop for transitions drawn above the screen's content.
+    public static func makeCustomNavigationBarBackgroundCopy(of background: UIView) -> UIView? {
+        (background as? NavigationBarEdgeEffectBackgroundView)?.makeCopy()
+    }
+
     // MARK: - Hosting controller
     
     public func addHostingController<V: View>(_ rootView: V, constraints: ((UIView) -> ())? = nil) -> UIHostingController<V> {
@@ -312,14 +331,41 @@ open class WViewController: UIViewController {
     
     // MARK: - Tip
     
-    public func showTip<Content: View>(title: String, kind: TipView<Content>.Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+    public func showTip<Content: View>(title: String, kind: TipView.Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
         guard presentedViewController == nil, !isBeingDismissed else { return }
         view.endEditing(true)
-        let vc = WAlertController(configuration: .init(wide: wide), actions: [WAlertAction(title: lang("OK"))]) {
-            TipView(title: title, kind: kind, content: content)
-        }
+        let vc = WAlertController(title: title, kind: kind, configuration: .init(wide: wide), actions: [WAlertAction(title: lang("OK"))], content: content)
         present(vc, animated: true)
     }
+}
+
+extension WViewController {
+    /// Changes the color of a background made by `addCustomNavigationBarBackground`
+    public func updateCustomNavigationBarBackground(_ background: UIView, color: UIColor) {
+        (background as? NavigationBarEdgeEffectBackgroundView)?.updateColor(color)
+    }
+
+    /// Reaches a background made by `addCustomNavigationBarBackground` `extra` points further down, such as under a
+    /// section header pinned below the bar
+    public func setCustomNavigationBarBackgroundExtension(_ background: UIView, _ extra: CGFloat) {
+        guard let background = background as? NavigationBarEdgeEffectBackgroundView,
+              let constraint = background.bottomConstraint else { return }
+        let constant = background.bottomExtension + extra
+        if constraint.constant != constant { constraint.constant = constant }
+    }
+
+    /// Paints the backgrounds made by `addCustomNavigationBarBackground` in `color`, such as while paging carries a
+    /// neighbouring tab's background over, so the band under the bar changes with the rest of the screen. Nil gives
+    /// them their own colors back.
+    public func setCustomNavigationBarBackgroundTint(_ color: UIColor?) {
+        for entry in customNavigationBarBackgrounds {
+            entry.view?.setTint(color)
+        }
+    }
+}
+
+private struct WeakNavigationBarBackground {
+    weak var view: NavigationBarEdgeEffectBackgroundView?
 }
 
 private final class NavigationBarEdgeEffectBackgroundView: UIView {
@@ -331,6 +377,7 @@ private final class NavigationBarEdgeEffectBackgroundView: UIView {
 
     init(content: UIColor, alpha: CGFloat, topOverscan: CGFloat, maxEdgeSize: CGFloat) {
         self.content = content
+        ownColor = content
         self.contentAlpha = alpha
         self.topOverscan = topOverscan
         self.maxEdgeSize = maxEdgeSize
@@ -342,6 +389,35 @@ private final class NavigationBarEdgeEffectBackgroundView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// Pins the background's bottom below the safe area's top, `bottomExtension` points down at rest
+    var bottomConstraint: NSLayoutConstraint?
+    var bottomExtension: CGFloat = 0
+
+    /// The color the screen gave the background, which a tint covers for a while
+    private var ownColor: UIColor
+    private var tint: UIColor?
+
+    func updateColor(_ color: UIColor) {
+        ownColor = color
+        guard tint == nil else { return }
+        content = color
+        edgeEffectView.updateColor(color)
+    }
+
+    func makeCopy() -> UIView {
+        NavigationBarEdgeEffectBackgroundView(
+            content: content, alpha: contentAlpha, topOverscan: topOverscan, maxEdgeSize: maxEdgeSize
+        )
+    }
+
+    func setTint(_ color: UIColor?) {
+        guard color != tint else { return }
+        tint = color
+        let shown = color ?? ownColor
+        content = shown
+        edgeEffectView.updateColor(shown)
     }
 
     override func layoutSubviews() {

@@ -841,6 +841,14 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         log.error("failed to decode nftReceived: \(error, .public)")
                     }
 
+                case "nftChanged":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.NftChanged.self, from: data)
+                        WalletCoreData.notify(event: .nftChanged(update))
+                    } catch {
+                        log.error("failed to decode nftChanged: \(error, .public)")
+                    }
+
                 case "nftSent":
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.NftSent.self, from: data)
@@ -1079,6 +1087,27 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     }
 
                 case "tonConnectOnline":
+                    break
+
+                case "updatePerpsAssets":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdatePerpsAssets.self, from: data)
+                        WalletCoreData.notify(event: .updatePerpsAssets(update))
+                    } catch {
+                        log.error("updatePerpsAssets: \(error, .public)")
+                    }
+
+                case "perpsOperationUpdated":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.PerpsOperationUpdated.self, from: data)
+                        WalletCoreData.notify(event: .perpsOperationUpdated(update))
+                    } catch {
+                        log.error("perpsOperationUpdated: \(error, .public)")
+                    }
+
+                case "perpsPositionBuildComplete", "perpsDepositSubmitted", "perpsExecuteComplete", "perpsExecuteFailed":
+                    // Shared with the web flow. Native orders track their operation ID
+                    // through PerpsStore; these legacy events have no operation ID.
                     break
                     
                 case "incorrectTime":

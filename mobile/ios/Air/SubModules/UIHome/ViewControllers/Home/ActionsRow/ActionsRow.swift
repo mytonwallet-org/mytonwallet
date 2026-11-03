@@ -159,7 +159,6 @@ final class ActionsView: ButtonsToolbar {
         addButton = WScalableButton(
             title: lang("Fund"),
             image: .airBundle("DepositIconLarge"),
-            imageSize: CGSize(width: 26, height: 26),
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
                 AppActions.showReceive(accountContext: accountContext, chain: nil)

@@ -68,7 +68,9 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
     private val imageView = WImageView(context, 12.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
-    private val artworkView = CardBackgroundArtworkView(context)
+    private val artworkView = CardBackgroundArtworkView(context).apply {
+        surfaceRadius = 12f.dp
+    }
     private val radialGradientView = RadialGradientView(context).apply {
         cornerRadius = 12f.dp
     }

@@ -12,18 +12,18 @@ describe('buildMessageTurnIds', () => {
       [5, false],
       [6, false],
     ]);
-    const ids = ['date:1', '1', '2', '3', 'date:2', '4', '5', 'date:3', '6'];
+    const ids = ['date:1', '1', '2', '3', 'date:4', '4', '5', 'date:6', '6'];
 
     expect(buildMessageTurnIds(ids, messagesById)).toEqual({
-      'date:1': 'date:1',
-      1: 'date:1',
+      'date:1': '1',
+      1: '1',
       2: '2',
       3: '2',
-      'date:2': 'date:2',
-      4: 'date:2',
-      5: 'date:2',
-      'date:3': 'date:2',
-      6: 'date:2',
+      'date:4': '4',
+      4: '4',
+      5: '4',
+      'date:6': '4',
+      6: '4',
     });
   });
 
@@ -38,10 +38,57 @@ describe('buildMessageTurnIds', () => {
     const ids = ['date:1', '1', '2', '3', '4'];
 
     expect(buildMessageTurnIds(ids, messagesById)).toEqual(
-      expect.objectContaining({ 2: 'date:1', 4: '3' }),
+      expect.objectContaining({ 2: '1', 4: '3' }),
     );
     expect(buildMessageTurnIds([...ids, '5'], messagesById)).toEqual(
-      expect.objectContaining({ 2: 'date:1', 4: '3', 5: '5' }),
+      expect.objectContaining({ 2: '1', 4: '3', 5: '5' }),
+    );
+  });
+
+  it('keeps a turn named when older history takes the date line that opened it', () => {
+    const messagesById = buildMessagesById([
+      [1, true],
+      [2, false],
+      [3, true],
+      [4, false],
+    ]);
+
+    expect(buildMessageTurnIds(['date:3', '3', '4'], messagesById)).toEqual({ 'date:3': '3', 3: '3', 4: '3' });
+    expect(buildMessageTurnIds(['date:1', '1', '2', '3', '4'], messagesById)).toEqual(
+      expect.objectContaining({ 3: '3', 4: '3' }),
+    );
+  });
+
+  it('makes each answer that no question comes before a turn of its own, as a news item', () => {
+    const messagesById = buildMessagesById([
+      [1, false],
+      [2, false],
+      [3, false],
+    ]);
+
+    expect(buildMessageTurnIds(['date:1', '1', '2', 'date:3', 'unread:3', '3'], messagesById)).toEqual({
+      'date:1': '1',
+      1: '1',
+      2: '2',
+      'date:3': '3',
+      'unread:3': '3',
+      3: '3',
+    });
+  });
+
+  it('keeps the "New" line with the message after it, inside or at the start of a turn', () => {
+    const messagesById = buildMessagesById([
+      [1, true],
+      [2, false],
+      [3, true],
+      [4, false],
+    ]);
+
+    expect(buildMessageTurnIds(['date:1', '1', 'unread:2', '2', '3', '4'], messagesById)).toEqual(
+      expect.objectContaining({ 'unread:2': '1', 2: '1' }),
+    );
+    expect(buildMessageTurnIds(['date:1', '1', '2', 'unread:3', '3', '4'], messagesById)).toEqual(
+      expect.objectContaining({ 'unread:3': '3', 3: '3' }),
     );
   });
 });

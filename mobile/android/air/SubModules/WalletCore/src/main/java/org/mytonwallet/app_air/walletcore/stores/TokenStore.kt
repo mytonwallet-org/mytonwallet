@@ -427,15 +427,15 @@ object TokenStore : IStore {
 
     // Load price history from cache and update the price history instantly
     fun loadPriceHistory(
-        slug: String,
+        token: MToken,
         period: MHistoryTimePeriod,
         callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit
     ) {
-        val cachedData = WGlobalStorage.getPriceHistory(slug, period.value)
+        val cachedData = WGlobalStorage.getPriceHistory(token.slug, period.value)
         if (cachedData != null && isPriceHistoryFresh(cachedData, period)) {
             callback(cachedData, true, null)
         }
-        updatePriceHistory(slug, period, callback)
+        updatePriceHistory(token, period, callback)
     }
 
     private fun isPriceHistoryFresh(
@@ -455,24 +455,21 @@ object TokenStore : IStore {
 
     // Update price history data for a specific token and time period
     private fun updatePriceHistory(
-        slug: String,
+        token: MToken,
         period: MHistoryTimePeriod,
-        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit,
-        retriesLeft: Int = 3
+        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit
     ) {
+        val baseCurrency = WalletCore.baseCurrency
         WalletCore.call(
-            ApiMethod.Tokens.FetchPriceHistory(slug, period, WalletCore.baseCurrency.currencyCode)
+            ApiMethod.Tokens.FetchPriceHistory(token, period, baseCurrency.currencyCode)
         ) { res, err ->
+            if (WalletCore.baseCurrency != baseCurrency) return@call
             if (res == null || err != null) {
-                if (retriesLeft > 0) {
-                    updatePriceHistory(slug, period, callback, retriesLeft - 1)
-                } else {
-                    callback(null, false, err?.parsed)
-                }
+                callback(null, false, err?.parsed)
                 return@call
             }
             val data = res.map { it.toTypedArray() }.toTypedArray()
-            WGlobalStorage.setPriceHistory(slug, period.value, data)
+            WGlobalStorage.setPriceHistory(token.slug, period.value, data)
             callback(data, false, null)
         }
     }

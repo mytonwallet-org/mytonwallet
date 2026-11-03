@@ -21,6 +21,7 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     var foreignUnstakeLoadingId: String?
     var onForeignUnstake: ((ApiPromotion) -> Void)?
     private var dismissedForeignBannerIds: [String: Set<String>] = [:]
+    private var restakeAmount: (accountId: String, amount: BigInt)?
 
     var foreignStakingBanners: [ApiPromotion] {
         guard account.supportsEarn else { return [] }
@@ -108,6 +109,16 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
         let baseTokenBalance = $account.balances[tokenSlug] ?? 0
         self.nativeBalance = nativeBalance
         self.baseTokenBalance = baseTokenBalance
+
+        if let restakeAmount {
+            if restakeAmount.accountId == account.id {
+                let value = min(restakeAmount.amount, maxAmount)
+                amount = value > 0 ? value : nil
+                updateBaseCurrencyAmount(amount)
+                return
+            }
+            self.restakeAmount = nil
+        }
         
         if let amountInBaseCurrency, switchedToBaseCurrencyInput && amount != maxAmount {
             updateAmountFromBaseCurrency(amountInBaseCurrency)
@@ -231,21 +242,41 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
         
     func onUseAll() {
         topViewController()?.view.endEditing(true)
+        restakeAmount = nil
         self.amount = maxAmount
         self.amountInBaseCurrency = convertAmount(maxAmount, price: baseToken.price ?? 0, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
         onAmountChanged?(amount)
     }
     
     // MARK: - Updates
+
+    func prefillRestakeAmount(_ amount: BigInt) {
+        restakeAmount = (account.id, amount)
+        updateAccountBalances()
+    }
+
+    func updateAmount(_ amount: BigInt?) {
+        restakeAmount = nil
+        self.amount = amount
+        updateBaseCurrencyAmount(amount)
+    }
     
     func updateBaseCurrencyAmount(_ amount: BigInt?) {
-        guard let amount else { return }
         let price = config.baseToken.price ?? 0
-        self.amountInBaseCurrency = convertAmount(amount, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        self.amountInBaseCurrency = amount.map {
+            convertAmount($0, price: price, tokenDecimals: baseToken.decimals, baseCurrencyDecimals: baseCurrency.decimalsCount)
+        }
         onAmountChanged?(amount)
     }
     
-    func updateAmountFromBaseCurrency(_ baseCurrency: BigInt) {
+    func updateAmountFromBaseCurrency(_ baseCurrency: BigInt?) {
+        restakeAmount = nil
+        amountInBaseCurrency = baseCurrency
+        guard let baseCurrency else {
+            amount = nil
+            onAmountChanged?(amount)
+            return
+        }
         let price = config.baseToken.price ?? 0
         let baseCurrencyDecimals = self.baseCurrency.decimalsCount
         if price > 0 {

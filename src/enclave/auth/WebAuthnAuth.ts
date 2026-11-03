@@ -1,5 +1,6 @@
 import type { CredentialParams } from './webAuthn';
 
+import { EnclaveError } from '../errors';
 import * as webAuthn from './webAuthn';
 
 import BaseAuth from './BaseAuth';
@@ -24,9 +25,6 @@ export default class WebAuthnAuth extends BaseAuth {
 
   async authorize(isLong?: boolean, _passcode?: string, usageCount?: number) {
     const credentialParams = await this.#loadCredentialParams();
-    if (!credentialParams) {
-      throw new Error('WebAuthnAuth: Missing or corrupted credential params');
-    }
     const keyMaterial = await webAuthn.authorize(credentialParams);
 
     return this.setupSession(keyMaterial, isLong, usageCount);
@@ -42,14 +40,16 @@ export default class WebAuthnAuth extends BaseAuth {
     return this.storage.setItem(STORAGE_KEY, credentialParamsJson);
   }
 
-  async #loadCredentialParams(): Promise<CredentialParams | undefined> {
+  async #loadCredentialParams(): Promise<CredentialParams> {
     const credentialParamsJson = await this.storage.getItem(STORAGE_KEY);
-    if (!credentialParamsJson) return undefined;
+    if (!credentialParamsJson) {
+      throw new EnclaveError('auth_not_configured', 'WebAuthnAuth: Missing credential params');
+    }
 
     try {
       return JSON.parse(credentialParamsJson) as CredentialParams;
     } catch {
-      return undefined;
+      throw new Error('WebAuthnAuth: Corrupted credential params');
     }
   }
 }

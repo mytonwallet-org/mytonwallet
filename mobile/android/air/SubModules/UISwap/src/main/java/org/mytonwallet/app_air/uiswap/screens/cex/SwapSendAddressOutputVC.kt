@@ -208,7 +208,7 @@ class SwapSendAddressOutputVC(
                                     supportUrl?.let {
                                         SpanHelpers.buildSpannable(
                                             supportLabel,
-                                            InAppBrowserUrlSpan(it, null)
+                                            InAppBrowserUrlSpan(it)
                                         )
                                     } ?: supportLabel
                                 )

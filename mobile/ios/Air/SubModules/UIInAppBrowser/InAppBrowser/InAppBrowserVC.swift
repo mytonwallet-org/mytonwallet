@@ -63,6 +63,12 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         navigationBar.subtitleLabel.applyTextStyle(.footnote, content: .technical)
         navigationBar.titleLabel.alpha = 0
         navigationBar.titleLabel.transform = .identity.scaledBy(x: 0.4, y: 0.4)
+        navigationBar.titleLabel.accessibilityIdentifier = "browser_title"
+        navigationBar.subtitleLabel.accessibilityIdentifier = "browser_url"
+        navigationBar.backButton.accessibilityIdentifier = "browser_back"
+        navigationBar.leadingButton.view.accessibilityIdentifier = "browser_close"
+        tabSwitcherButton.view.accessibilityIdentifier = "browser_tabs_button"
+        moreButton.view.accessibilityIdentifier = "browser_more_button"
 
         updateNavigationBar()
 
@@ -298,6 +304,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 navigationBar.backButton.isHidden = true
                 navigationBar.leadingButton.setImage(UIImage(systemName: canGoBack ? "chevron.backward" : "xmark"))
+                navigationBar.leadingButton.view.accessibilityIdentifier = canGoBack ? "browser_back" : "browser_close"
                 navigationBar.leadingButton.onPress = canGoBack ? { [weak self] in
                     self?.goBack()
                 } : { [weak self] in

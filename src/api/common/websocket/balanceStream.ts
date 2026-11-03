@@ -21,7 +21,7 @@ export type BalanceStreamUpdateSource = 'poll' | 'socket';
 export type OnBalancesUpdate = (balances: ApiBalanceBySlug, updateSource: BalanceStreamUpdateSource) => void;
 export type OnLoadingChange = (isLoading: boolean) => void;
 
-type OnSocketBalancesUpdate = (balances: BalanceByTokenAddress) => void;
+type OnSocketBalancesUpdate = (balances: BalanceByTokenAddress, blockByTokenAddress: Record<string, number>) => void;
 type BalanceByTokenAddress = Record<string, bigint>;
 
 export type BalanceUpdateCallback = (update: BalanceUpdate) => void;
@@ -30,8 +30,11 @@ export type BalanceUpdateCallback = (update: BalanceUpdate) => void;
 const VIRTUAL_ADDRESS = '@VIRTUAL';
 
 const SOCKET_THROTTLE_DELAY = 100;
+const MISSING_POSITION_BLOCK_TIMEOUT = 10 * 60_000;
+const OLDER_POSITION_BLOCK_TIMEOUT = 30 * 60_000;
 
-const crosschainAssetsByChain = new Map<ApiChain, ApiBalanceBySlug>();
+const crosschainAssetsByChain = new Map<string, ApiBalanceBySlug>();
+const crosschainBlocksByChain = new Map<string, Record<string, { block: number; observedAt: number }>>();
 
 type BalanceStreamOptions = {
   chain: ApiChain;
@@ -95,6 +98,12 @@ export class BalanceStream {
    * states no instant (an older gateway) leaves the slug unstamped and keeps the clock ordering.
    */
   #balanceAsOfBySlug = new Map<string, number>();
+
+  /**
+   * Blocks at which the stored balances were observed, with their source and observation instant. Socket stamps
+   * keep their observation instant when a snapshot replaces the value (see `#carryBlockStamp`).
+   */
+  #balanceBlockBySlug = new Map<string, { block: number; observedAt: number; source: 'socket' | 'snapshot' }>();
 
   #walletWatcher: WalletWatcher;
   #fallbackPollingOptions: FallbackPollingOptions;
@@ -197,7 +206,8 @@ export class BalanceStream {
     let chainBalances = this.#balances;
 
     if (config.chainStandard && config.chainStandard !== this.#chain) {
-      chainBalances = crosschainAssetsByChain.get(this.#chain) || {};
+      const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
+      chainBalances = crosschainAssetsByChain.get(crosschainKey) || {};
     }
 
     return chainBalances;
@@ -262,7 +272,8 @@ export class BalanceStream {
    * other chains fetches them all again.
    */
   #handleTokenSlugsMove = (slugs: string[]) => {
-    const crosschainBalances = crosschainAssetsByChain.get(this.#chain);
+    const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
+    const crosschainBalances = crosschainAssetsByChain.get(crosschainKey);
     const affectedSlugs = slugs.filter((slug) => {
       const chain = getChainBySlug(slug);
       if (this.#pollChains?.includes(chain)) return true;
@@ -280,7 +291,7 @@ export class BalanceStream {
     this.#fallbackPollingScheduler?.forceImmediatePoll();
   };
 
-  #handleSocketBalanceUpdate: OnSocketBalancesUpdate = async (newBalances) => {
+  #handleSocketBalanceUpdate: OnSocketBalancesUpdate = async (newBalances, blockByTokenAddress) => {
     if (this.#isDestroyed) return;
     if (!this.#fallbackPollingScheduler) return;
 
@@ -306,7 +317,16 @@ export class BalanceStream {
     // has completed its own poll, its `#balances` are authoritative, and the map may legitimately
     // be empty (the standard-chain stream is inactive for wallets with no activity there).
     if (!chainBalances && config.chainStandard && config.chainStandard !== this.#chain) {
-      chainBalances = crosschainAssetsByChain.get(this.#chain);
+      const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
+      chainBalances = crosschainAssetsByChain.get(crosschainKey);
+      if (chainBalances) {
+        this.#balances = { ...chainBalances };
+        for (const [slug, stamp] of Object.entries(crosschainBlocksByChain.get(crosschainKey) ?? {})) {
+          if (!this.#balanceBlockBySlug.has(slug)) {
+            this.#balanceBlockBySlug.set(slug, { ...stamp, source: 'snapshot' });
+          }
+        }
+      }
     }
 
     // Normally `this.#balances` must contain all balances before applying partial socket deltas.
@@ -315,13 +335,13 @@ export class BalanceStream {
 
     const tokenAddresses = await splitKnownAndUnknownTokens(newBalances);
 
-    this.#setBalancesPartially(pick(newBalances, tokenAddresses.known));
+    this.#setBalancesPartially(pick(newBalances, tokenAddresses.known), blockByTokenAddress);
 
     await this.#importUnknownTokens?.(this.#network, tokenAddresses.unknown, this.#sendUpdateTokens);
 
     if (this.#isDestroyed) return;
 
-    this.#setBalancesPartially(pick(newBalances, tokenAddresses.unknown));
+    this.#setBalancesPartially(pick(newBalances, tokenAddresses.unknown), blockByTokenAddress);
   };
 
   /** Fetches all balances when the socket is not connected or has just connected */
@@ -368,8 +388,9 @@ export class BalanceStream {
             = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
 
           if (crosschainResult) {
-            const { balances: crosschainBalances, asOf: crosschainAsOf } = crosschainResult;
+            const { balances: crosschainBalances, asOf: crosschainAsOf, blockBySlug } = crosschainResult;
             const knownChains = getSupportedChains();
+            const observedAt = Date.now();
 
             for (const [slug, balance] of Object.entries(crosschainBalances)) {
               const assetChain = getChainBySlug(slug);
@@ -378,13 +399,22 @@ export class BalanceStream {
                 continue;
               }
 
-              crosschainAssetsByChain.set(assetChain, {
-                ...crosschainAssetsByChain.get(assetChain),
+              const crosschainKey = `${this.#network}:${assetChain}:${this.#address.toLowerCase()}`;
+              crosschainAssetsByChain.set(crosschainKey, {
+                ...crosschainAssetsByChain.get(crosschainKey),
                 [slug]: balance,
               });
+              const blocks = { ...crosschainBlocksByChain.get(crosschainKey) };
+              const block = blockBySlug?.[slug];
+              if (block === undefined) {
+                delete blocks[slug];
+              } else {
+                blocks[slug] = { block, observedAt };
+              }
+              crosschainBlocksByChain.set(crosschainKey, blocks);
             }
 
-            this.#setAllBalances(crosschainBalances, pollVersion, crosschainAsOf);
+            this.#setAllBalances(crosschainBalances, pollVersion, crosschainAsOf, blockBySlug);
             this.#balancesDeferred.resolve();
           }
 
@@ -400,8 +430,8 @@ export class BalanceStream {
       const result = await throttledFetchBalances(this.#network, this.#address, this.#sendUpdateTokens);
       if (this.#isDestroyed) return;
 
-      const { balances: newBalances, asOf } = result;
-      this.#setAllBalances(newBalances, pollVersion, asOf);
+      const { balances: newBalances, asOf, blockBySlug } = result;
+      this.#setAllBalances(newBalances, pollVersion, asOf, blockBySlug);
       this.#balancesDeferred.resolve();
     } finally {
       this.#pollChains = undefined;
@@ -411,13 +441,6 @@ export class BalanceStream {
     }
   };
 
-  /**
-   * Applies an HTTP poll snapshot as a version-gated merge rather than a blind full replace. A slug
-   * is updated or removed only when the poll's `pollVersion` is at least as fresh as the version
-   * already stored for that slug, so a slow poll that started before a socket delta cannot clobber
-   * (or drop) the slug that delta refreshed. With no interleaving (every stored version is at most
-   * `pollVersion`) this is equivalent to the previous full-replace behaviour.
-   */
   /**
    * True when the value stored for `slug` was observed after this snapshot was, so the snapshot
    * must not touch it however late it arrives. Only a snapshot that states its own instant can be
@@ -429,25 +452,78 @@ export class BalanceStream {
     return storedAsOf !== undefined && storedAsOf > snapshotAsOf;
   }
 
-  #setAllBalances(newBalances: ApiBalanceBySlug, pollVersion: number, snapshotAsOf?: number) {
+  #isOutrankedByBlockStamp(slug: string, snapshotBlocks?: Record<string, number>) {
+    if (snapshotBlocks === undefined) return false;
+    const stamp = this.#balanceBlockBySlug.get(slug);
+    if (!stamp) return false;
+
+    const snapshotBlock = snapshotBlocks[slug];
+    return snapshotBlock === undefined
+      ? stamp.source === 'socket' && Date.now() - stamp.observedAt < MISSING_POSITION_BLOCK_TIMEOUT
+      : snapshotBlock < stamp.block && Date.now() - stamp.observedAt < OLDER_POSITION_BLOCK_TIMEOUT;
+  }
+
+  #isOutrankedBySnapshot(
+    slug: string,
+    pollVersion: number,
+    snapshotAsOf?: number,
+    snapshotBlocks?: Record<string, number>,
+  ) {
+    if (this.#balanceBlockBySlug.has(slug) && snapshotBlocks?.[slug] !== undefined) {
+      return this.#isOutrankedByBlockStamp(slug, snapshotBlocks);
+    }
+
+    return this.#isOutrankedBySlugStamp(slug, snapshotAsOf)
+      || this.#isOutrankedByBlockStamp(slug, snapshotBlocks)
+      || pollVersion < (this.#balanceVersionBySlug.get(slug) ?? -1);
+  }
+
+  /**
+   * Records the block of an accepted snapshot. A socket stamp rises to the snapshot's block and keeps the socket's
+   * observation instant, so it expires on the socket's schedule. Snapshot stamps use the accepted block and current
+   * instant. A snapshot without a block removes either stamp.
+   */
+  #carryBlockStamp(slug: string, snapshotBlock: number | undefined) {
+    const stamp = this.#balanceBlockBySlug.get(slug);
+
+    if (snapshotBlock === undefined) {
+      this.#balanceBlockBySlug.delete(slug);
+    } else if (stamp?.source === 'socket') {
+      this.#balanceBlockBySlug.set(slug, { ...stamp, block: Math.max(stamp.block, snapshotBlock) });
+    } else {
+      this.#balanceBlockBySlug.set(slug, { block: snapshotBlock, observedAt: Date.now(), source: 'snapshot' });
+    }
+  }
+
+  #setAllBalances(
+    newBalances: ApiBalanceBySlug,
+    pollVersion: number,
+    snapshotAsOf?: number,
+    snapshotBlocks?: Record<string, number>,
+  ) {
     let hasOutrankedSlug = false;
-    if (snapshotAsOf !== undefined) {
-      for (const storedAsOf of this.#balanceAsOfBySlug.values()) {
-        if (storedAsOf > snapshotAsOf) {
-          hasOutrankedSlug = true;
-          break;
-        }
+    for (const slug of Object.keys(this.#balances ?? {})) {
+      if (this.#isOutrankedBySnapshot(slug, pollVersion, snapshotAsOf, snapshotBlocks)) {
+        hasOutrankedSlug = true;
+        break;
       }
     }
 
     // Fast path: nothing advanced the clock since this poll captured its version and no stored
-    // value was observed after the snapshot, so the snapshot is a straight full replace. Clearing
+    // value outranks the snapshot, so the snapshot is a straight full replace. Clearing
     // the maps keeps them bounded; empty reads as "oldest", the safe default for the next write.
+    // Block stamps go to the replacing values, or leave with the slugs the snapshot drops.
     if (this.#clock === pollVersion && !hasOutrankedSlug) {
       this.#balanceVersionBySlug.clear();
       this.#balanceAsOfBySlug.clear();
-      if (snapshotAsOf !== undefined) {
-        for (const slug of Object.keys(newBalances)) {
+      for (const slug of this.#balanceBlockBySlug.keys()) {
+        if (!(slug in newBalances)) {
+          this.#balanceBlockBySlug.delete(slug);
+        }
+      }
+      for (const slug of Object.keys(newBalances)) {
+        this.#carryBlockStamp(slug, snapshotBlocks?.[slug]);
+        if (snapshotAsOf !== undefined) {
           this.#balanceAsOfBySlug.set(slug, snapshotAsOf);
         }
       }
@@ -464,18 +540,17 @@ export class BalanceStream {
     // Keep slugs that a newer source updated and that this snapshot does not refresh.
     for (const slug of Object.keys(this.#balances ?? {})) {
       if (!(slug in newBalances)
-        && (this.#isOutrankedBySlugStamp(slug, snapshotAsOf)
-          || pollVersion < (this.#balanceVersionBySlug.get(slug) ?? -1))) {
+        && this.#isOutrankedBySnapshot(slug, pollVersion, snapshotAsOf, snapshotBlocks)) {
         merged[slug] = this.#balances![slug];
       }
     }
 
     // Apply this snapshot's slugs unless a newer source already wrote a fresher value.
     for (const [slug, balance] of Object.entries(newBalances)) {
-      if (!this.#isOutrankedBySlugStamp(slug, snapshotAsOf)
-        && pollVersion >= (this.#balanceVersionBySlug.get(slug) ?? -1)) {
+      if (!this.#isOutrankedBySnapshot(slug, pollVersion, snapshotAsOf, snapshotBlocks)) {
         merged[slug] = balance;
         this.#balanceVersionBySlug.set(slug, pollVersion);
+        this.#carryBlockStamp(slug, snapshotBlocks?.[slug]);
         if (snapshotAsOf === undefined) {
           // A stamp describes the value it was stored with. This source states no instant, so the
           // slug's provenance is unknown again and `#clock` alone ranks it, as it does everywhere
@@ -502,6 +577,11 @@ export class BalanceStream {
         this.#balanceAsOfBySlug.delete(slug);
       }
     }
+    for (const slug of this.#balanceBlockBySlug.keys()) {
+      if (!(slug in merged)) {
+        this.#balanceBlockBySlug.delete(slug);
+      }
+    }
 
     if (!areDeepEqual(this.#balances, merged)) {
       this.#balances = merged;
@@ -509,16 +589,32 @@ export class BalanceStream {
     }
   }
 
-  #setBalancesPartially(newBalances: BalanceByTokenAddress) {
+  #setBalancesPartially(newBalances: BalanceByTokenAddress, blockByTokenAddress: Record<string, number>) {
     const newBySlug = balanceByTokenAddressToBySlug(this.#chain, newBalances);
+    const blockBySlug = balanceByTokenAddressToBySlug(this.#chain, blockByTokenAddress);
 
     // Keep only the slugs whose value actually changes. A no-op re-emit (the same value pushed
     // again at a later finality) must not advance `#clock` or any slug version, otherwise it would
     // out-version and block a genuinely fresher in-flight poll in `#setAllBalances`.
     const changedBySlug: ApiBalanceBySlug = {};
+    const observedAt = Date.now();
     for (const [slug, balance] of Object.entries(newBySlug)) {
+      const block = blockBySlug[slug];
+      const stamp = this.#balanceBlockBySlug.get(slug);
+      if (block !== undefined && stamp && block < stamp.block
+        && observedAt - stamp.observedAt < OLDER_POSITION_BLOCK_TIMEOUT) {
+        continue;
+      }
+      if (block !== undefined) {
+        this.#balanceBlockBySlug.set(slug, {
+          block: Math.max(stamp?.block ?? block, block), observedAt, source: 'socket',
+        });
+      }
       if (!this.#balances || this.#balances[slug] !== balance) {
         changedBySlug[slug] = balance;
+        if (block === undefined) {
+          this.#balanceBlockBySlug.delete(slug);
+        }
       }
     }
 
@@ -530,7 +626,6 @@ export class BalanceStream {
     // A genuine socket delta is the newest data at apply time, so its changed slugs are stamped now,
     // both on the client clock and with the observation instant a later snapshot is ranked against.
     const version = ++this.#clock;
-    const observedAt = Date.now();
     for (const slug of changedSlugs) {
       this.#balanceVersionBySlug.set(slug, version);
       this.#balanceAsOfBySlug.set(slug, observedAt);
@@ -549,6 +644,7 @@ export class BalanceStream {
     for (const slug of slugs) {
       this.#balanceVersionBySlug.set(slug, version);
       this.#balanceAsOfBySlug.delete(slug);
+      this.#balanceBlockBySlug.delete(slug);
     }
 
     if (!this.#balances || !slugs.some((slug) => slug in this.#balances!)) return;
@@ -568,15 +664,27 @@ export class BalanceStream {
  */
 function throttleSocketBalanceUpdates(onUpdate: OnSocketBalancesUpdate): BalanceUpdateCallback {
   let pendingUpdates: BalanceByTokenAddress = {};
+  let pendingBlocks: Record<string, number> = {};
 
   const notifyThrottled = throttle(() => {
     const updates = pendingUpdates;
+    const blocks = pendingBlocks;
     pendingUpdates = {};
-    onUpdate(updates);
+    pendingBlocks = {};
+    onUpdate(updates, blocks);
   }, SOCKET_THROTTLE_DELAY, false);
 
-  return ({ tokenAddress, balance }) => {
-    pendingUpdates[tokenAddress ?? VIRTUAL_ADDRESS] = balance;
+  return ({ tokenAddress, balance, blockNumber }) => {
+    const address = tokenAddress ?? VIRTUAL_ADDRESS;
+    const pendingBlock = pendingBlocks[address];
+    if (blockNumber !== undefined && pendingBlock !== undefined && blockNumber < pendingBlock) return;
+
+    pendingUpdates[address] = balance;
+    if (blockNumber === undefined) {
+      delete pendingBlocks[address];
+    } else {
+      pendingBlocks[address] = blockNumber;
+    }
     notifyThrottled();
   };
 }
@@ -598,8 +706,8 @@ async function splitKnownAndUnknownTokens(balances: BalanceByTokenAddress) {
   return { known, unknown };
 }
 
-function balanceByTokenAddressToBySlug(chain: ApiChain, byAddress: BalanceByTokenAddress) {
-  const bySlug: ApiBalanceBySlug = {};
+function balanceByTokenAddressToBySlug<T>(chain: ApiChain, byAddress: Record<string, T>) {
+  const bySlug: Record<string, T> = {};
 
   for (const [tokenAddress, balance] of Object.entries(byAddress)) {
     const slug = tokenAddress === VIRTUAL_ADDRESS

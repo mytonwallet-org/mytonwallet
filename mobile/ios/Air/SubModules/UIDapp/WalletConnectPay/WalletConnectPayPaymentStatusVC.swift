@@ -183,7 +183,7 @@ final class WalletConnectPayPaymentStatusVC: WViewController, UISheetPresentatio
 
     private func updateSheetHeight(animated: Bool, selectContentHeight: Bool) {
         guard contentHeight > 0 else { return }
-        preferredContentSize = CGSize(width: 580, height: max(360, contentHeight))
+        (navigationController ?? self).preferredContentSize = CGSize(width: 580, height: max(360, contentHeight))
         guard let sheet = currentSheetPresentationController else { return }
 
         let contentHeight = self.contentHeight

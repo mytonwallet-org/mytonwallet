@@ -158,7 +158,9 @@ export function selectToken(global: GlobalState, slug: string) {
 }
 
 export function selectTokenDetails(global: GlobalState, slug: string) {
-  return global.tokenDetails.bySlug[slug];
+  const details = global.tokenDetails.bySlug[slug];
+  // The description comes localized, so the details in another language stay hidden until they load in the current one
+  return details?.langCode === global.settings.langCode ? details : undefined;
 }
 
 export const selectUserTokenMemoized = memoize((global: GlobalState, slug: string): UserToken | undefined => {

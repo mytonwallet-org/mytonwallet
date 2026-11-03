@@ -63,7 +63,7 @@ import WalletContext
     ) -> WSegmentedPagerItem {
         WSegmentedPagerItem(
             id: tab.segmentedControlItemId,
-            title: tab.segmentedControlTitle,
+            title: tab == .nfts ? lang("All") : tab.segmentedControlTitle,
             contextMenuProvider: tabContextMenuProviders.provider(for: tab),
             hidesMenuIcon: true,
             isDeletable: tab.isDeletableSegment,

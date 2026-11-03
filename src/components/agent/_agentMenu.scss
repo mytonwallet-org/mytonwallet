@@ -1,0 +1,19 @@
+// The look of the Agent's menus, as in the design: a softer shadow than the app's menus, and a lighter gap between
+// the groups of items
+
+@mixin look {
+  --default-shadow: 0 0 1.25rem #0000001F;
+  --dropdown-delimiter-color: rgba(44, 51, 62, 0.084);
+
+  :global(html.theme-dark) & {
+    --dropdown-delimiter-color: rgba(246, 247, 248, 0.084);
+  }
+}
+
+// A menu opened on a row, a message or a card is at least 176 px wide, as in the design, and wider for longer labels
+
+@mixin contextMenu {
+  @include look;
+
+  min-width: 11rem !important;
+}

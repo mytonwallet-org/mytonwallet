@@ -40,6 +40,7 @@ function ManageTransferPage({ isActive, onBack, onSubmit, onDelete, editingTrans
   const [comment, setComment] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokenError, setTokenError] = useState<string | undefined>();
+  const [hasAddressFormatError, setHasAddressFormatError] = useState(false);
 
   useHistoryBack({
     isActive,
@@ -146,6 +147,7 @@ function ManageTransferPage({ isActive, onBack, onSubmit, onDelete, editingTrans
             address={toAddress}
             addressName=""
             onInput={handleAddressInput}
+            onError={setHasAddressFormatError}
             onClose={onBack}
           />
         </div>
@@ -196,13 +198,19 @@ function ManageTransferPage({ isActive, onBack, onSubmit, onDelete, editingTrans
               className={styles.button}
               onClick={shouldShowDelete ? handleDelete : undefined}
             >
-              <Transition name="fade" activeKey={shouldShowDelete ? 1 : 0} slideClassName={styles.transitionSlide}>
+              <Transition
+                name="fade"
+                activeKey={shouldShowDelete ? 1 : hasAddressFormatError ? 2 : 0}
+                slideClassName={styles.transitionSlide}
+              >
                 {
                   shouldShowDelete
                     ? lang('Delete')
-                    : isEditing
-                      ? lang('Save')
-                      : lang('Add')
+                    : hasAddressFormatError
+                      ? lang('Invalid Address')
+                      : isEditing
+                        ? lang('Save')
+                        : lang('Add')
                 }
               </Transition>
             </Button>

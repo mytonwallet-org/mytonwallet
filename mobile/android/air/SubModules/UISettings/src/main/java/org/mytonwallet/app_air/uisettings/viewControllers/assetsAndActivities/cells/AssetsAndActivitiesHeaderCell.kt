@@ -7,6 +7,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
@@ -377,6 +378,7 @@ class AssetsAndActivitiesHeaderCell(
             titleColor = WColor.Tint,
             topRounding = HeaderCell.TopRounding.NORMAL
         )
+        this.titleLabel.id = UIComponentsR.id.assets_tokens_on_home_title
     }
 
     private val addIcon: WImageView by lazy {

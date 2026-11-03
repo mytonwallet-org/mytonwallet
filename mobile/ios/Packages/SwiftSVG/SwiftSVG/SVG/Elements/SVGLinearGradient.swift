@@ -4,7 +4,11 @@
     import AppKit
 #endif
 
-final class SVGLinearGradient: SVGContainerElement {
+protocol SVGGradientContainer: SVGContainerElement {
+    func addStop(_ stop: SVGGradientStop)
+}
+
+final class SVGLinearGradient: SVGGradientContainer {
     internal static let elementName = "linearGradient"
 
     internal var delayedAttributes = [String: String]()
@@ -36,6 +40,10 @@ final class SVGLinearGradient: SVGContainerElement {
 
     internal func parseY2(_ value: String) {
         definition.y2 = value
+    }
+
+    internal func parseUnits(_ value: String) {
+        definition.usesUserSpace = value == "userSpaceOnUse"
     }
 
     internal func addStop(_ stop: SVGGradientStop) {

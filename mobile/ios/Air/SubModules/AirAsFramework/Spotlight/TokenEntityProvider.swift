@@ -6,35 +6,49 @@ import WalletCoreTypes
 @MainActor
 @available(iOS 18.4, *)
 enum TokenEntityProvider {
-    static func suggestedEntities(limitPerAccount: Int = 50) -> [TokenEntity] {
-        candidateTokenSlugs(limitPerAccount: limitPerAccount)
-            .map(resolve(tokenSlug:))
-    }
-
-    private static func resolve(tokenSlug: String) -> TokenEntity {
-        if let token = TokenStore.getToken(slug: tokenSlug) ?? TokenEntity.nativeToken(slug: tokenSlug) {
-            return TokenEntity(token: token)
+    static func entries(recent: [TokenEntity], limitPerAccount: Int = 50) -> [TokenSpotlightEntry] {
+        var tokens = TokenStore.tokens
+        for token in TokenStore.swapAssets ?? [] where tokens[token.slug] == nil {
+            tokens[token.slug] = token
         }
-        return TokenEntity.resolve(tokenSlug: tokenSlug)
-    }
-
-    private static func candidateTokenSlugs(limitPerAccount: Int) -> [String] {
-        var tokenSlugs: [String] = []
-        var seenTokenSlugs = Set<String>()
-
-        func append(_ tokenSlug: String) {
-            let tokenSlug = tokenSlug.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !tokenSlug.isEmpty, seenTokenSlugs.insert(tokenSlug).inserted else { return }
-            tokenSlugs.append(tokenSlug)
-        }
-
+        var held = Set<String>()
+        var tracked = Set<String>()
         for account in AccountStore.orderedAccounts {
-            topHoldingTokenSlugs(account: account, limit: limitPerAccount).forEach(append)
-            ApiToken.defaultSlugs(forNetwork: account.network, account: account).forEach(append)
+            held.formUnion(topHoldingTokenSlugs(account: account, limit: limitPerAccount))
+            tracked.formUnion(AssetsAndActivityDataStore.data(accountId: account.id)?.importedSlugs ?? [])
         }
+        return entries(tokens: tokens, held: held, tracked: tracked, recent: recent)
+    }
 
-        ApiChain.allCases.map { $0.nativeToken.slug }.forEach(append)
-        return tokenSlugs
+    static func entries(
+        tokens: [String: ApiToken], held: Set<String>, tracked: Set<String>, recent: [TokenEntity]
+    ) -> [TokenSpotlightEntry] {
+        var candidates: [String: TokenSpotlightEntry] = [:]
+        func append(_ entity: TokenEntity, priority: Int) {
+            guard priority > (candidates[entity.id]?.priority ?? -1) else { return }
+            candidates[entity.id] = TokenSpotlightEntry(entity: entity, priority: priority)
+        }
+        // Bound discovery content; held and explicitly tracked tokens remain eligible
+        // even when there is no market price.
+        for token in tokens.values.filter({ $0.isPopular == true }).sorted(by: { $0.slug < $1.slug }).prefix(100) {
+            append(TokenEntity(token: token), priority: 1)
+        }
+        for token in ApiToken.defaultTokens.values {
+            append(TokenEntity(token: tokens[token.slug] ?? token), priority: 2)
+        }
+        for chain in ApiChain.allCases {
+            append(TokenEntity(token: tokens[chain.nativeToken.slug] ?? chain.nativeToken), priority: 2)
+        }
+        for entity in recent.prefix(20) {
+            append(tokens[entity.id].map(TokenEntity.init(token:)) ?? entity, priority: 6)
+        }
+        for (slugs, priority) in [(tracked, 8), (held, 10)] {
+            for slug in slugs {
+                guard let token = tokens[slug] ?? ApiToken.defaultTokens[slug] ?? TokenEntity.nativeToken(slug: slug) else { continue }
+                append(TokenEntity(token: token), priority: priority)
+            }
+        }
+        return candidates.values.sorted { $0.entity.id < $1.entity.id }
     }
 
     private static func topHoldingTokenSlugs(

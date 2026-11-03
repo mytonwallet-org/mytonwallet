@@ -78,6 +78,46 @@
           "sequence": 1
         },
         {
+          "type": "thread",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 6,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 3,
+            "createdAt": "2026-08-13T12:00:00.000Z",
+            "updatedAt": "2026-08-13T12:00:02.000Z",
+            "lastActivityAt": "2026-08-13T12:00:02.000Z",
+            "messageCount": 2,
+            "icon": "🌱",
+            "title": "Staking rewards"
+          }
+        },
+        {
+          "type": "thread",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 6,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 3,
+            "createdAt": "2026-08-13T12:00:00.000Z",
+            "updatedAt": "2026-08-13T12:00:02.000Z",
+            "lastActivityAt": "2026-08-13T12:00:02.000Z",
+            "messageCount": 2,
+            "icon": "🌱",
+            "title": "Staking rewards",
+            "news": {
+              "eventId": 42,
+              "headline": "TON network update",
+              "excerpt": "The update improves network performance.",
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+              "publishedAt": "2026-10-19T09:00:00.000Z",
+              "source": "MyPulse News"
+            }
+          }
+        },
+        {
           "type": "tool_call",
           "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
@@ -3305,6 +3345,55 @@
               "includePublicAddressReason": "chain_lookup"
             }
           }
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 2,
+            "createdAt": "2026-10-19T09:00:00.000Z",
+            "updatedAt": "2026-10-19T09:00:00.000Z",
+            "lastActivityAt": "2026-10-19T09:00:00.000Z",
+            "messageCount": 1,
+            "title": "TON network update",
+            "news": {
+              "eventId": 42,
+              "headline": "TON network update",
+              "excerpt": "The update improves network performance.",
+              "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+              "sources": [
+                {
+                  "name": "TON Blog",
+                  "url": "https://blog.ton.org/network-update"
+                },
+                {
+                  "url": "https://mytonwallet.io/news/network-update"
+                }
+              ],
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+              "publishedAt": "2026-10-19T09:00:00.000Z",
+              "source": "MyPulse News"
+            }
+          },
+          "messages": [
+            {
+              "id": "38383838-3838-4838-8838-383838383838",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "**TON network update**\n\nThe latest **network update** is available.\n\nRead the release notes for details."
+              },
+              "createdAt": "2026-10-19T09:00:00.000Z",
+              "newsPost": true
+            }
+          ]
         }
       ]
     }

@@ -43,7 +43,7 @@ public struct ApiMarketAsset: Codable, Sendable, Hashable {
     public var slug: String
 }
 
-public struct ApiMarketSectionResponse: Codable, Sendable, Hashable {
+public struct ApiMarketSection<Asset: Codable & Sendable & Equatable>: Codable, Sendable, Equatable {
     public var id: String
     public var title: String
     public var layout: ApiMarketSectionLayout
@@ -51,8 +51,11 @@ public struct ApiMarketSectionResponse: Codable, Sendable, Hashable {
     public var desktopLimit: Int?
     public var mobileLimit: Int?
     public var hasMore: Bool
-    public var assets: [ApiMarketAsset]
+    public var assets: [Asset]
 }
+
+extension ApiMarketSection: Hashable where Asset: Hashable {}
+public typealias ApiMarketSectionResponse = ApiMarketSection<ApiMarketAsset>
 
 public struct ApiMarketAssetsResponse: Codable, Sendable, Hashable {
     public var sections: [ApiMarketSectionResponse]

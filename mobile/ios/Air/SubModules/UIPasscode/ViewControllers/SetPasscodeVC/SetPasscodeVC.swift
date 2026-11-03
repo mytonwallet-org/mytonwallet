@@ -76,6 +76,8 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             topView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
 
+        headerView.lblTitle.accessibilityIdentifier = "passcode_set_title"
+        headerView.lblDescription.accessibilityIdentifier = "passcode_set_subtitle"
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
@@ -106,6 +108,8 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 //        passcodeScreenView.enterPasscodeLabel.label.text = "aa"
+        // passcode_title marks the lock screen; this screen is told apart by passcode_set_*
+        passcodeScreenView.enterPasscodeLabel.label.accessibilityIdentifier = nil
     }
 
     public override func viewDidAppear(_ animated: Bool) {

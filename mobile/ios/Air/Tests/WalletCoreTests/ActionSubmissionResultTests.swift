@@ -89,6 +89,16 @@ struct ActionSubmissionResultTests {
         #expect(actionSubmissionErrorDisposition(for: TestError.failed) == .indeterminate)
     }
 
+    @Test(arguments: [
+        SdkError.message(.unsuccesfulTransfer),
+        .apiReturnedError(error: "UnsuccesfulTransfer", data: nil),
+        .apiReturnedError(error: "UnsuccessfulTransfer", data: nil),
+    ])
+    func `broadcast failure is indeterminate unless explicitly known not submitted`(error: SdkError) {
+        #expect(actionSubmissionErrorDisposition(for: error) == .indeterminate)
+        #expect(actionSubmissionErrorDisposition(for: NotSubmittedError(error)) == .notCommitted)
+    }
+
     @Test
     func `retry failure cannot erase a partial commit`() {
         var accumulator = ActionSubmissionStateAccumulator<Int>()

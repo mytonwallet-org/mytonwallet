@@ -62,6 +62,7 @@ struct ImportSuccessView: View {
             .textStyle(.screenTitle)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("wallet_added_title")
     }
     
     @ViewBuilder

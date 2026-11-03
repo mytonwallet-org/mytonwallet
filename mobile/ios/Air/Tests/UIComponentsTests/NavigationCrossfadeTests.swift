@@ -30,7 +30,7 @@ struct NavigationCrossfadeTests {
         window.rootViewController = navigation
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
-        try await Task.sleep(for: .milliseconds(100))
+        try await waitUntilSettled(navigation, on: source)
 
         let search = SearchScreen(hidesBar: hidesBar)
         navigation.withCrossfade(duration: 0.12) {
@@ -38,7 +38,7 @@ struct NavigationCrossfadeTests {
         }
         let coordinator = try #require(navigation.transitionCoordinator)
         #expect(abs(coordinator.transitionDuration - 0.12) < 0.001)
-        try await Task.sleep(for: .milliseconds(350))
+        try await waitUntilSettled(navigation, on: search)
         #expect(navigation.isNavigationBarHidden == hidesBar)
         #expect(navigation.delegate === navigation)
         #expect(navigation.topViewController === search)
@@ -54,21 +54,18 @@ struct NavigationCrossfadeTests {
         result.navigationItem.title = "Result"
         navigation.pushViewController(result, animated: true)
         #expect(navigation.delegate === navigation)
-        try await Task.sleep(for: .seconds(1))
+        try await waitUntilSettled(navigation, on: result)
         #expect(!navigation.isNavigationBarHidden)
-        #expect(navigation.topViewController === result)
 
         _ = navigation.popViewController(animated: true)
-        try await Task.sleep(for: .seconds(1))
-        #expect(navigation.topViewController === search)
+        try await waitUntilSettled(navigation, on: search)
         #expect(navigation.isNavigationBarHidden == hidesBar)
 
         navigation.withCrossfade(duration: 0.18) {
             _ = navigation.popViewController(animated: true)
         }
         #expect(abs(try #require(navigation.transitionCoordinator).transitionDuration - 0.18) < 0.001)
-        try await Task.sleep(for: .milliseconds(400))
-        #expect(navigation.topViewController === source)
+        try await waitUntilSettled(navigation, on: source)
         #expect(!navigation.isNavigationBarHidden)
         #expect(navigation.navigationBar.topItem === source.navigationItem)
         #expect(navigation.delegate === navigation)
@@ -86,5 +83,27 @@ struct NavigationCrossfadeTests {
         navigation.withCrossfade(duration: 0.12) {}
         #expect(navigation.delegate === navigation)
         #expect(navigation.view.subviews == originalSubviews)
+    }
+
+    /// Waits until `navigation` shows `top` with no transition running and its own delegate back. The timeout counts
+    /// 16 ms samples rather than wall time: a busy runner can hold the main thread between two samples, and that time
+    /// is not the transition's to spend. Ten times the timeout in wall time still ends a wait whose samples keep stalling.
+    private func waitUntilSettled(
+        _ navigation: UINavigationController,
+        on top: UIViewController,
+        timeout: Duration = .seconds(2)
+    ) async throws {
+        let sampleInterval = Duration.milliseconds(16)
+        var remainingSamples = Int((timeout / sampleInterval).rounded(.up))
+        let deadline = ContinuousClock.now + timeout * 10
+        while navigation.topViewController !== top || navigation.transitionCoordinator != nil
+            || navigation.delegate !== navigation || top.viewIfLoaded?.window == nil {
+            guard remainingSamples > 0, ContinuousClock.now < deadline else {
+                Issue.record("The navigation did not settle on \(top)")
+                return
+            }
+            remainingSamples -= 1
+            try await Task.sleep(for: sampleInterval)
+        }
     }
 }

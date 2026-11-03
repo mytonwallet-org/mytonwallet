@@ -45,10 +45,7 @@ public final class ScrollActivityMonitor: NSObject {
             onActivityChanged(true)
         }
         if displayLink == nil {
-            let target = ScrollDisplayLinkTarget { [weak self] in self?.tick() }
-            let link = CADisplayLink(target: target, selector: #selector(ScrollDisplayLinkTarget.tick))
-            link.add(to: .main, forMode: .common)
-            displayLink = link
+            displayLink = .makeWeak(owner: self) { monitor, _ in monitor.tick() }
         }
     }
 
@@ -79,10 +76,4 @@ public final class ScrollActivityMonitor: NSObject {
     }
 
     deinit { displayLink?.invalidate() }
-}
-
-private final class ScrollDisplayLinkTarget: NSObject {
-    let action: () -> Void
-    init(action: @escaping () -> Void) { self.action = action }
-    @objc func tick() { action() }
 }

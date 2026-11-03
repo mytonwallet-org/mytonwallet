@@ -124,7 +124,6 @@ function SwapInitial({
     currentTokenOutSlug,
     tokenIn,
     tokenOut,
-    nativeUserTokenIn,
     balanceIn,
     explainedFee,
     maxAmount,
@@ -132,8 +131,11 @@ function SwapInitial({
     isDieselNotAuthorized,
     canSubmit,
     hasAmountInError,
+    hasMaxAmountError,
     amountOutValue,
+    isAmountGreaterThanBalance,
     hasInsufficientFeeError,
+    hasFeeError,
     isPriceImpactError,
     isCrosschain,
   } = useSwapFormState(currentSwap, tokens, swapType);
@@ -241,6 +243,7 @@ function SwapInitial({
         maxAmount={maxAmount ?? balanceIn}
         token={tokenIn}
         isSensitiveDataHidden={isSensitiveDataHidden}
+        hasError={hasMaxAmountError}
         onAmountClick={handleMaxAmountClick}
       />
     );
@@ -254,7 +257,7 @@ function SwapInitial({
     let precision: FeePrecision = 'exact';
 
     if (shouldShow) {
-      const actualFee = hasInsufficientFeeError ? explainedFee.fullFee : undefined;
+      const actualFee = hasFeeError ? explainedFee.fullFee : undefined;
       if (actualFee) {
         ({ terms, precision } = actualFee);
       }
@@ -265,6 +268,7 @@ function SwapInitial({
         terms={terms}
         token={tokenIn}
         precision={precision}
+        isError={hasFeeError}
         keepDetailsButtonWithoutFee
         onDetailsClick={openSettingsModal}
         className={styles.feeLine}
@@ -411,7 +415,8 @@ function SwapInitial({
             swapType={swapType}
             isEstimating={isEstimating}
             isNotEnoughNative={!isEnoughNative}
-            nativeToken={nativeUserTokenIn}
+            isAmountGreaterThanBalance={isAmountGreaterThanBalance}
+            hasInsufficientFeeError={hasInsufficientFeeError}
             dieselStatus={dieselStatus}
             isSending={isLoading}
             isPriceImpactError={isPriceImpactError}
@@ -424,8 +429,8 @@ function SwapInitial({
       <SwapSettingsModal
         isOpen={currentSubModal === 'settings'}
         onClose={closeSubModal}
+        isFeeInsufficient={hasFeeError}
         onNetworkFeeClick={openFeeModal}
-        showFullNetworkFee={hasInsufficientFeeError}
       />
       <FeeDetailsModal
         isOpen={currentSubModal === 'feeDetails'}

@@ -10,6 +10,17 @@ import WalletCore
 import WalletContext
 
 public extension UIViewController {
+
+    func showTip(title: String, message: String, kind: TipView.Kind = .info, wide: Bool = false) {
+        guard !(self is WAlertController), !(self is UIAlertController), presentedViewController == nil, !isBeingDismissed else { return }
+        view.endEditing(true)
+        let vc = WAlertController(
+            configuration: .init(wide: wide),
+            actions: [WAlertAction(title: lang("OK"))],
+            contentView: TipView(title: title, message: message, kind: kind, usesMarkdown: true)
+        )
+        present(vc, animated: true)
+    }
     
     func alert(title: String?, text: String,
                            button: String, buttonStyle: UIAlertAction.Style, buttonPressed: (() -> ())? = nil,

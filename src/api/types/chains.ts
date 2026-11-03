@@ -69,6 +69,7 @@ export interface ChainStakingSupport {
  * by the rest. Method types mirror the TON implementation contract.
  */
 export interface ChainDnsSupport {
+  clearCache: typeof tonDomains.clearDnsCache;
   checkDnsRenewalDraft: typeof tonDomains.checkDnsRenewalDraft;
   submitDnsRenewal: typeof tonDomains.submitDnsRenewal;
   checkDnsChangeWalletDraft: typeof tonDomains.checkDnsChangeWalletDraft;

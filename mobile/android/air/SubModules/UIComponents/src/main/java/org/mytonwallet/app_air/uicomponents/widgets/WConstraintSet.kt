@@ -238,7 +238,7 @@ class WConstraintSet(private val constraintView: ConstraintLayout) : ConstraintS
         )
     }
 
-    private fun endToEndPx(v1: View, v2: View, margin: Int = 0) {
+    fun endToEndPx(v1: View, v2: View, margin: Int = 0) {
         connect(
             v1.id,
             END,

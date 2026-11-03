@@ -147,7 +147,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/mytonwallet-org/hw-transport-ios-ble",
-            revision: "dbfb781e0c883e533acc06c54ca395adb9fbd862"
+            revision: "ddc4496302c6aaa7dfdffb7045539ac3cf9ca833"
         ),
         .package(
             url: "https://github.com/mytonwallet-org/swift-bigint",
@@ -247,6 +247,7 @@ let package = Package(
             name: "WalletCoreTypes",
             dependencies: [
                 "WalletContext",
+                "UniversalSearchCore",
             ],
             path: "SubModules/WalletCoreTypes",
             swiftSettings: sharedSwiftSettings
@@ -277,7 +278,13 @@ let package = Package(
             resources: [
                 .process("Resources"),
                 .process("TelegramDiamond/GramDiamond.metal"),
+                .process("AgentSpinningTop/AgentSpinningTop.metal"),
+                .process("AgentEdgeGlow/AgentEdgeGlow.metal"),
                 .process("TelegramAmount/TelegramAmount.metal"),
+                .process("DustEffect/DustEffectShaders.metal"),
+                .process("DustEffect/DustFluidShaders.metal"),
+                .process("DustEffect/loki.metal"),
+                .process("DustEffect/loki_header.metal"),
             ]
         ),
         airTarget(
@@ -485,6 +492,8 @@ let package = Package(
         airTarget(
             "UIToken",
             dependencies: [
+                "ProtectedAction",
+                contextMenuKitDependency,
                 "UIComponents",
                 "UIActivityList",
                 "WalletContext",
@@ -547,6 +556,7 @@ let package = Package(
             "UISettings",
             dependencies: [
                 "UIComponents",
+                "UIUniversalSearch",
                 "UIAssets",
                 "WalletCore",
                 "WalletContext",
@@ -596,6 +606,7 @@ let package = Package(
         airTarget(
             "AirUILab",
             dependencies: [
+                "UIBrowser",
                 .product(name: "Kingfisher", package: "kingfisher"),
                 "ProtectedAction",
                 "UIActivityList",
@@ -664,8 +675,24 @@ let package = Package(
                 .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "AirAsFramework",
                 "UIComponents",
+                "UIToken",
                 "UIBrowser",
+                "UIInAppBrowser",
+                "UIAgent",
                 "WalletCore",
+                "WalletContext",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "AirSearchIntegrationTests",
+            dependencies: [
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                "AirAsFramework",
+                "UIComponents",
+                "UIAssets",
+                "UIUniversalSearch",
+                "WalletCoreTypes",
                 "WalletContext",
                 "WalletResources",
             ]
@@ -694,7 +721,9 @@ let package = Package(
                 "UniversalSearchCore",
                 "UniversalSearchFeature",
                 "UniversalSearchWalletCore",
+                "WalletContext",
                 "WalletCoreTypes",
+                "WalletCore",
                 "WalletResources",
             ]
         ),
@@ -741,6 +770,7 @@ let package = Package(
         airTestTarget(
             "UIComponentsTests",
             dependencies: [
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "UIComponents",
                 "WalletResources",
             ]
@@ -764,6 +794,14 @@ let package = Package(
         airTestTarget(
             "UICreateWalletTests",
             dependencies: ["UICreateWallet", "UIPasscode", "UIComponents", "UISettings", "Ledger", "WalletResources"]
+        ),
+        airTestTarget(
+            "LedgerTests",
+            dependencies: [
+                "Ledger",
+                "WalletContext",
+                .product(name: "BleTransport", package: "hw-transport-ios-ble"),
+            ]
         ),
         airTestTarget(
             "UIHomeTests",
@@ -806,8 +844,11 @@ let package = Package(
             "UIProtectedActionTests",
             dependencies: [
                 "ProtectedAction",
+                "UIComponents",
+                "UIPasscode",
                 "UIProtectedAction",
                 "WalletCore",
+                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -817,6 +858,8 @@ let package = Package(
                 "ProtectedAction",
                 "UIActivityList",
                 "UIAssets",
+                "UIPasscode",
+                "UIProtectedAction",
                 "WalletCore",
                 "WalletResources",
             ]

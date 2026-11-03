@@ -142,7 +142,7 @@ struct TokenTradeAmountInputTests {
         #expect(field.amountCaretRect(for: field.endOfDocument).height > 48 * fractionFont.pointSize / 56)
     }
 
-    @MainActor @Test func `rapid animated edits keep exact text and native selection`() throws {
+    @MainActor @Test func `rapid animated edits keep exact text and native selection`() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let field = TokenTradeTextField()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
@@ -169,6 +169,9 @@ struct TokenTradeAmountInputTests {
         #expect(!field.amountPresentation.isAnimating)
         #expect(!field.amountPresentation.isPresentingText)
         #expect(field.subviews.last === field.amountPresentation || field.subviews.suffix(2).contains(field.amountPresentation))
+        // The canvas skips a frame, and the edit shows without its animation, while two earlier frames are still on
+        // the GPU. A busy machine's simulated GPU can still hold the frames of the first edits here.
+        try await waitUntilCanvasIdle(field.amountPresentation)
         field.insertText("9")
         #expect(field.amountInput.text == "19.4")
         #expect(field.amountPresentation.isAnimating)
@@ -244,4 +247,27 @@ struct TokenTradeAmountInputTests {
         }
     }
 
+}
+
+/// Waits until the amount canvas has no frames in flight, counting 16 ms samples rather than wall time and stopping
+/// after ten times the timeout in wall time. The canvas keeps its in-flight frames private, so this reads its
+/// semaphore through reflection.
+@MainActor
+private func waitUntilCanvasIdle(_ presentation: UIView, timeout: Duration = .seconds(2)) async throws {
+    let canvas = try #require(Mirror(reflecting: presentation).children.first { $0.label == "canvas" }?.value)
+    let inFlight = try #require(Mirror(reflecting: canvas).children.first { $0.label == "inFlight" }?.value as? DispatchSemaphore)
+    func isIdle() -> Bool {
+        var acquired = 0
+        while acquired < 2, inFlight.wait(timeout: .now()) == .success { acquired += 1 }
+        for _ in 0..<acquired { inFlight.signal() }
+        return acquired == 2
+    }
+    let sampleInterval = Duration.milliseconds(16)
+    var remainingSamples = Int((timeout / sampleInterval).rounded(.up))
+    let deadline = ContinuousClock.now + timeout * 10
+    while !isIdle() {
+        try #require(remainingSamples > 0 && ContinuousClock.now < deadline, "Timed out waiting for the amount canvas frames")
+        remainingSamples -= 1
+        try await Task.sleep(for: sampleInterval)
+    }
 }

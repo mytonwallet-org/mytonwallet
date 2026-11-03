@@ -10,6 +10,8 @@ import WalletContext
 
 public final class WNavigationBar: WTouchPassView {
 
+    public static var defaultHeight: CGFloat { IOS_26_MODE_ENABLED ? 70 : 60 }
+
     public let titleLabel = UILabel()
     public let subtitleLabel = UILabel()
     public let leadingButton: WNavigationBarButton
@@ -75,6 +77,7 @@ public final class WNavigationBar: WTouchPassView {
         separatorView.translatesAutoresizingMaskIntoConstraints = false
         separatorView.backgroundColor = .air.separator
         separatorView.alpha = 1
+        separatorView.isHidden = IOS_26_MODE_ENABLED
         addSubview(separatorView)
         NSLayoutConstraint.activate([
             separatorView.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -89,9 +92,9 @@ public final class WNavigationBar: WTouchPassView {
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: bottomAnchor).withPriority(.init(999)),
-            contentView.heightAnchor.constraint(equalToConstant: 60)
+            contentView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: IOS_26_MODE_ENABLED ? 16 : 0),
+            contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: IOS_26_MODE_ENABLED ? -10 : 0).withPriority(.init(999)),
+            contentView.heightAnchor.constraint(equalToConstant: IOS_26_MODE_ENABLED ? 44 : Self.defaultHeight)
         ])
 
         titleStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -99,7 +102,7 @@ public final class WNavigationBar: WTouchPassView {
         titleStackView.alignment = .center
         titleStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleStackView.isUserInteractionEnabled = false
-        titleStackView.spacing = 2
+        titleStackView.spacing = IOS_26_MODE_ENABLED ? 0 : 2
 
         titleLabel.applyTextStyle(.bodyStrong)
         titleStackView.addArrangedSubview(titleLabel)
@@ -107,6 +110,13 @@ public final class WNavigationBar: WTouchPassView {
         subtitleLabel.textColor = .air.secondaryLabel
         subtitleLabel.applyTextStyle(.footnote)
         titleStackView.addArrangedSubview(subtitleLabel)
+
+        if IOS_26_MODE_ENABLED {
+            NSLayoutConstraint.activate([
+                titleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 22).withPriority(.init(999)),
+                subtitleLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 18).withPriority(.init(999)),
+            ])
+        }
 
         titleButton.translatesAutoresizingMaskIntoConstraints = false
         titleButton.backgroundColor = .clear
@@ -117,7 +127,7 @@ public final class WNavigationBar: WTouchPassView {
 
         NSLayoutConstraint.activate([
             titleButton.centerXAnchor.constraint(equalTo: contentView.layoutMarginsGuide.centerXAnchor),
-            titleButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            titleButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: IOS_26_MODE_ENABLED ? 2 : 0),
             titleStackView.leadingAnchor.constraint(equalTo: titleButton.leadingAnchor),
             titleStackView.trailingAnchor.constraint(equalTo: titleButton.trailingAnchor),
             titleStackView.topAnchor.constraint(equalTo: titleButton.topAnchor),
@@ -126,7 +136,7 @@ public final class WNavigationBar: WTouchPassView {
 
         contentView.addSubview(leadingButton.view)
         NSLayoutConstraint.activate([
-            leadingButton.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IOS_26_MODE_ENABLED ? 12 : 16),
+            leadingButton.view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             leadingButton.view.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             leadingButton.view.widthAnchor.constraint(greaterThanOrEqualTo: leadingButton.view.heightAnchor),
         ])
@@ -190,7 +200,7 @@ public final class WNavigationBar: WTouchPassView {
             trailingButton.view.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
         NSLayoutConstraint.activate([
-            trailingButtonsStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -12 : -8),
+            trailingButtonsStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: IOS_26_MODE_ENABLED ? -16 : -8),
             trailingButtonsStackView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             trailingButtonsStackView.leadingAnchor.constraint(greaterThanOrEqualTo: titleStackView.trailingAnchor, constant: 4),
         ])

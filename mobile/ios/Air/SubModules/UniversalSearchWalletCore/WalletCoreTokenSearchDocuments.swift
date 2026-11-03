@@ -69,24 +69,10 @@ public enum WalletCoreTokenSearchDocuments {
         token: ApiToken,
         signals: SearchSignals = .init()
     ) -> SearchDocument {
-        var fieldCandidates: [(String?, SearchFieldKind, SearchFieldMatchPolicy)] = [
-            (token.displayName(strippingLabelWhenShown: true), .title, .text),
-            (token.name, .alias, .text),
-            (token.localizedName, .alias, .text),
-            (token.symbol, .symbol, .text),
-            (token.slug, .identifier, .exact),
-            (token.tokenAddress, .address, .exact),
-            (token.label, .alias, .text),
-            (token.chain.title, .keyword, .text),
-            (token.chain.rawValue, .keyword, .text),
-        ]
-        fieldCandidates.append(contentsOf: (token.keywords ?? []).map {
-            (Optional($0), .keyword, .text)
-        })
         return SearchDocument(
             id: entityID(tokenSlug: token.slug),
             kind: token.isRwaStock ? .stock : .token,
-            fields: makeSearchFields(fieldCandidates),
+            fields: TokenSearchMetadata.fields(for: token, displayName: token.displayName(strippingLabelWhenShown: true)),
             attributes: makeSearchAttributes([
                 (WalletCoreSearchAttributeKey.tokenSlug, token.slug),
                 (WalletCoreSearchAttributeKey.iconURL, token.image),

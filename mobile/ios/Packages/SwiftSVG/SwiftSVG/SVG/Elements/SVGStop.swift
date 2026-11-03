@@ -34,7 +34,7 @@ final class SVGStop: SVGElement, Stylable {
     }
 
     internal func didProcessElement(in container: SVGContainerElement?) {
-        guard let gradient = container as? SVGLinearGradient else {
+        guard let gradient = container as? SVGGradientContainer else {
             return
         }
 

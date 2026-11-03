@@ -66,6 +66,21 @@ val TESTNET_SLUGS = setOf(TON_USDT_TESTNET_SLUG, TRON_USDT_TESTNET_SLUG)
 
 const val TON_CHAIN = "ton"
 
+// Mirrors ALL_STAKING_POOLS in src/config.ts
+val ALL_STAKING_POOLS = setOf(
+    "EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o",
+    "Ef8dgIOIRyCLU0NEvF8TD6Me3wrbrkS1z3Gpjk3ppd8m8-s_",
+    "Ef-WMmizoLk4CvqTKs-mDrGJwW4fiH5zVd4SaHih7PObxP_0",
+    "Ef9KkdMtAom9qYE64A_3ZA5sOP3OduRYPdavxGO3DH12fF5g",
+    "Ef9-8keOeXR4Sn-ywrlFgxma4ubJvEFRW3jgP0ib16A-HCiG",
+    "Ef84o4VJRnlp1wsqSHov1QttqSTQda2Z1vGK-b7EaPQoeJMx",
+    "Ef_CbvHoa5imR1x_ESkUT_6NJQoONbSGp8MkrAu1xtM6NOxE",
+    "Ef-j7wmnLdy54kZC0gtbVbCrdPA4cFLr3rxLOoDcpzR_SyBX",
+    "EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5",
+    "EQChGuD1u0e7KUWHH5FaYh_ygcLXhsdG2nSHPXHW8qqnpZXW",
+    "EQDQ5UUyPHrLcQJlPAczd_fjxn8SLrlNQwolBznxCdSlfQwr"
+)
+
 const val MFA_BOT_URL = "https://t.me/tgmfabot/auth"
 
 fun buildMfaStartParam(id: String): String {
@@ -961,6 +976,18 @@ object WalletCore {
                         return@ensureMainThread
                     }
                     NftStore.add(update.accountId, nft)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateNftChanged -> {
+                ensureMainThread {
+                    NftStore.checkCardNftOwnership(update.accountId)
+                    NftStore.applyChangedMtwCard(update.accountId, update.nft)
+                    NftStore.applyIncomingMtwCard(update.accountId, update.nft)
+                    if (AccountStore.activeAccountId != update.accountId) {
+                        return@ensureMainThread
+                    }
+                    NftStore.add(update.accountId, update.nft)
                 }
             }
 

@@ -13,6 +13,7 @@ import { openUrl } from '../../util/openUrl';
 import { shareUrl } from '../../util/share';
 import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
 import { getExplorerTokenUrl, getViewTokenUrl, isValidUrl } from '../../util/url';
+import { IS_IOS, IS_TOUCH_ENV } from '../../util/windowEnvironment';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -39,7 +40,10 @@ interface StateProps {
   areTokenNamesLocalized?: boolean;
 }
 
-const SHARE_ITEM: DropdownItem<string> = { name: 'Share', fontIcon: 'share', value: 'share' };
+// `shareUrl` opens the OS share sheet on touch devices and copies the link elsewhere
+const SHARE_ITEM: DropdownItem<string> = IS_TOUCH_ENV
+  ? { name: 'Share', fontIcon: IS_IOS ? 'share-ios' : 'share-android', value: 'share' }
+  : { name: 'Copy Link', fontIcon: 'menu-copy', value: 'share' };
 
 function Header({
   token,

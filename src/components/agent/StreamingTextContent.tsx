@@ -6,7 +6,7 @@ import type { TextRevealPhase } from '../../util/agent/TextRevealController';
 import type { AnswerTableProps } from './AnswerMessageContent';
 
 import { markAnswerLinks } from '../../util/agent/answerLinkMarkers';
-import { segmentStreamingMarkdown } from '../../util/agent/streamingMarkdown';
+import { closeStreamingInlineMarkdown, segmentStreamingMarkdown } from '../../util/agent/streamingMarkdown';
 import renderMarkdown from '../../util/renderMarkdown';
 
 import AnswerMessageContent from './AnswerMessageContent';
@@ -66,7 +66,7 @@ function StreamingTextContent({
       ))}
       {!tables?.length && markdownSegments.tail && (
         <MarkdownSegment
-          text={markdownSegments.tail}
+          text={closeStreamingInlineMarkdown(markdownSegments.tail)}
           areLinksEnabled={areLinksEnabled}
         />
       )}

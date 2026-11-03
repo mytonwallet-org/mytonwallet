@@ -28,6 +28,15 @@ describe('Agent V2 worker mutation results', () => {
     });
   });
 
+  it('keeps the delay the server stated before a retry', async () => {
+    const failure = new AgentV2HttpError(503, 'transcription_unavailable', 'private message', true, 2_000);
+
+    await expect(runSafeAgentV2Operation(() => Promise.reject(failure))).resolves.toEqual({
+      ok: false,
+      error: { code: 'transcription_unavailable', retryable: true, retryAfterMs: 2_000 },
+    });
+  });
+
   it.each([
     [new AgentV2ContractError('private-path'), 'invalid_event', false],
     [new SyntaxError('private JSON body'), 'invalid_event', false],

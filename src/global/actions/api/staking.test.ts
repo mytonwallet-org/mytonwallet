@@ -144,6 +144,16 @@ describe('startStaking action', () => {
     expect(result.currentStaking.initialAmount).toBe('all');
   });
 
+  it('does not offer the restake amount to a stake form opened again', () => {
+    const global = makeGlobal('ton-1');
+    global.currentStaking = { state: StakingState.StakeComplete, restakeAmount: 99_000_000n };
+
+    const result = run(global);
+
+    expect(result.currentStaking.state).toBe(StakingState.StakeInitial);
+    expect(result.currentStaking.restakeAmount).toBeUndefined();
+  });
+
   it('rejects a mismatched product and asset pair', () => {
     const result = run(makeGlobal('ton-1'), {
       stakingId: 'ton-1',
@@ -183,7 +193,7 @@ describe('foreign unstake actions', () => {
     return global;
   }
 
-  function makeSigningGlobal() {
+  function makeSigningGlobal(draft = UNSTAKE_DRAFT) {
     return makeForeignGlobal({
       state: StakingState.ForeignUnstakePassword,
       foreignUnstake: {
@@ -191,7 +201,7 @@ describe('foreign unstake actions', () => {
         bannerId: FOREIGN_BANNER.id,
         chain: 'ton',
         providerName: 'tonstakers',
-        draft: UNSTAKE_DRAFT,
+        draft,
       },
     });
   }
@@ -285,6 +295,19 @@ describe('foreign unstake actions', () => {
     expect(callApi).toHaveBeenCalledWith('submitForeignUnstake', 'acc', 'ton', 'tonstakers', UNSTAKE_DRAFT, 'token');
     expect(store.byAccountId.acc.submittedForeignStakingIds).toEqual([FOREIGN_BANNER.id]);
     expect(store.currentStaking.state).toBe(StakingState.None);
+  });
+
+  it('offers to restake the withdrawn amount after an instant unstake', async () => {
+    (callApi as jest.Mock).mockResolvedValue({ activityIds: ['tx'] });
+    store = makeSigningGlobal({ ...UNSTAKE_DRAFT, isInstant: true });
+
+    await getHandler('submitForeignUnstake')(store, actions, { enclaveToken: 'token' });
+
+    expect(store.byAccountId.acc.submittedForeignStakingIds).toEqual([FOREIGN_BANNER.id]);
+    expect(store.currentStaking).toMatchObject({
+      state: StakingState.StakeInitial,
+      restakeAmount: UNSTAKE_DRAFT.amountNative,
+    });
   });
 
   it('waits for the MFA confirmation before hiding the banner', async () => {

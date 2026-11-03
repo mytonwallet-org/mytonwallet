@@ -117,7 +117,8 @@ export interface ApiNftSuperCollection {
 export type ApiActivityTimestamps = Record<string, number | undefined>;
 export type ApiTransactionType = 'stake' | 'unstake' | 'unstakeRequest'
   | 'callContract' | 'approval' | 'excess' | 'contractDeploy' | 'bounced'
-  | 'mint' | 'burn' | 'auctionBid' | 'nftAuctionStart' | 'nftAuctionCancel' | 'nftTrade'
+  | 'mint' | 'burn' | 'perps_deposit' | 'perps_withdraw' | 'auctionBid'
+  | 'nftAuctionStart' | 'nftAuctionCancel' | 'nftTrade'
   | 'dnsChangeAddress' | 'dnsChangeSite' | 'dnsChangeSubdomains' | 'dnsChangeStorage' | 'dnsDelete' | 'dnsRenew'
   | 'liquidityDeposit' | 'liquidityWithdraw'
   | undefined;
@@ -422,7 +423,15 @@ export interface ApiTransferToSign {
   stateInit?: string;
 }
 
+export interface ApiParsedStateInit {
+  /** The name users know the wallet by, when the StateInit carries the code of a known one */
+  walletName?: string;
+  /** Whether the network deploys the StateInit at the message recipient, provided no contract is there yet */
+  isDeployable: boolean;
+}
+
 export interface ApiDappTransfer extends ApiTransferToSign {
+  parsedStateInit?: ApiParsedStateInit;
   isScam?: boolean;
   /** Whether the transfer should be treated with cautiousness, because its payload is unclear */
   isDangerous: boolean;
@@ -479,6 +488,8 @@ export type ApiBalanceBySlug = Record<string, bigint>;
 export interface StampedBalances {
   balances: ApiBalanceBySlug;
   asOf?: number;
+  /** The block where the source last observed a balance change, when it reports blocks */
+  blockBySlug?: Record<string, number>;
 }
 
 export type ApiWalletInfo = {

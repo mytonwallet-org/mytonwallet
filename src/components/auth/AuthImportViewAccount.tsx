@@ -128,7 +128,7 @@ function AuthImportViewAccount({
             isLoading={isLoading}
             isDisabled={isInvalidAddress}
           >
-            {isInvalidAddress ? lang('Invalid address') : lang('Continue')}
+            {isInvalidAddress ? lang('Invalid Address') : lang('Continue')}
           </Button>
         </div>
       </form>

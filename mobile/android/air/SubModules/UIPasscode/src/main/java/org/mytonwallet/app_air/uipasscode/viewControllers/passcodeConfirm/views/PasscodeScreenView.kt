@@ -25,6 +25,7 @@ import kotlinx.coroutines.Runnable
 import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
@@ -107,6 +108,7 @@ class PasscodeScreenView(
     private val topImageView = WImageView(context)
 
     private val titleTextView = AppCompatTextView(context).apply {
+        id = UIComponentsR.id.passcode_title
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 32f)
         typeface = WFont.Medium.typeface
@@ -114,6 +116,7 @@ class PasscodeScreenView(
     }
 
     private val subTitleTextView = WLabel(context).apply {
+        id = UIComponentsR.id.passcode_subtitle
         setStyle(adaptiveFontSize())
         text = subtitle
         gravity = Gravity.CENTER
@@ -138,6 +141,7 @@ class PasscodeScreenView(
         margins = 8,
         showKeyboardOnFocus = false
     ).apply {
+        id = UIComponentsR.id.passcode_input
         passLength = passcodeLength
     }
     private val gapView1: WBaseView by lazy {
@@ -216,6 +220,7 @@ class PasscodeScreenView(
     }
     private val confirmButton: WButton by lazy {
         WButton(context).apply {
+            id = UIComponentsR.id.passcode_confirm
             text = LocaleController.getString("Confirm")
             setOnClickListener { delegate?.onAutoConfirm() }
         }

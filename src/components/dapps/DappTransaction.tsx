@@ -1,6 +1,7 @@
-import React, { memo, useMemo } from '../../lib/teact/teact';
+import React, { memo, useEffect, useMemo, useRef } from '../../lib/teact/teact';
 
-import type { ApiDappTransfer, ApiToken } from '../../api/types';
+import type { ApiDappTransfer, ApiParsedStateInit, ApiToken } from '../../api/types';
+import type { LangFn } from '../../hooks/useLang';
 
 import { TONCOIN } from '../../config';
 import renderText from '../../global/helpers/renderText';
@@ -13,6 +14,7 @@ import {
   isTokenTransferPayload,
 } from '../../util/ton/transfer';
 
+import useFlag from '../../hooks/useFlag';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 
@@ -126,15 +128,57 @@ function DappTransactionContent({
       <DappAmountField label={lang('Fee')} amountsBySlug={feeBySlug} />
       <DappTransactionPayload transaction={transaction} tokensBySlug={tokensBySlug} />
       {transaction.stateInit && (
-        <>
-          <p className={styles.label}>{lang('Contract Initialization Data')}</p>
-          <InteractiveTextField
-            text={transaction.stateInit}
-            copyNotification={lang('Contract Initialization Data Copied')}
-            className={styles.dataField}
-          />
-        </>
+        <DappTransactionStateInit stateInit={transaction.stateInit} parsedStateInit={transaction.parsedStateInit} />
       )}
     </>
   );
+}
+
+function DappTransactionStateInit({ stateInit, parsedStateInit }: {
+  stateInit: string;
+  parsedStateInit?: ApiParsedStateInit;
+}) {
+  const lang = useLang();
+  const stateInitRef = useRef<HTMLDivElement>();
+  const [isExpanded, expand] = useFlag(false);
+
+  useEffect(() => {
+    const stateInitElement = stateInitRef.current;
+    if (stateInitElement && stateInitElement.scrollWidth <= stateInitElement.clientWidth) {
+      expand();
+    }
+  }, [expand]);
+
+  return (
+    <>
+      <p className={styles.label}>{lang('Contract Initialization Data')}</p>
+      {parsedStateInit && (
+        <div className={buildClassName(styles.payloadField, styles.payloadField_text, styles.stateInitSummary)}>
+          {getStateInitSummary(lang, parsedStateInit)}
+        </div>
+      )}
+      {isExpanded ? (
+        <InteractiveTextField
+          text={stateInit}
+          copyNotification={lang('Contract Initialization Data Copied')}
+          className={styles.dataField}
+        />
+      ) : (
+        <div ref={stateInitRef} className={styles.payloadField}>
+          {stateInit}
+          <button type="button" className={styles.payloadFieldExpand} onClick={expand}>
+            {lang('View')}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function getStateInitSummary(lang: LangFn, { walletName, isDeployable }: ApiParsedStateInit) {
+  if (!isDeployable) return lang('$state_init_not_deployable');
+
+  return walletName
+    ? lang('$state_init_deploys_wallet', { version: walletName })
+    : lang('$state_init_deploys_contract');
 }

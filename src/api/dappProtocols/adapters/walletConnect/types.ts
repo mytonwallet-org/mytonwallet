@@ -86,6 +86,8 @@ export interface WalletConnectSignRequest {
   eip712?: WalletConnectEip712Params;
   isEthSign?: boolean;
   isSessionAuthenticate?: boolean;
+  /** Network of the relay session's chain; requests without `topic` use the account's network */
+  network?: ApiNetwork;
 }
 
 // =============================================================================
@@ -135,9 +137,11 @@ export type EvmEip712SignDataPayload = {
   types: Record<string, Array<{ name: string; type: string }>>;
   primaryType: string;
   message: Record<string, unknown>;
+  /** Network whose chain id `domain.chainId` must match; the account's network when absent */
+  network?: ApiNetwork;
 };
 
-export type WalletConnectEip712Params = Omit<EvmEip712SignDataPayload, 'type'>;
+export type WalletConnectEip712Params = Omit<EvmEip712SignDataPayload, 'type' | 'network'>;
 
 /**
  * Typed data sign parameters (eth_signTypedData_v4).

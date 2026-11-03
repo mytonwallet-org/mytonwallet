@@ -93,7 +93,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
     // IconView owns its asynchronous image lifecycle. The signature tracks values whose
     // changes require the collection view to reconfigure an existing cell.
     private enum ItemVisualSignature: Equatable {
-        case chat(id: String, title: String, subtitle: String)
+        case chat(id: String, title: String, subtitle: String, icon: String?)
         case token(
             id: String,
             title: String,
@@ -124,7 +124,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
         @MainActor init(_ item: UniversalSearchItem) {
             switch item.content {
             case .chat(let result):
-                self = .chat(id: item.id, title: result.title, subtitle: result.subtitle)
+                self = .chat(id: item.id, title: result.title, subtitle: result.subtitle, icon: result.icon)
             case .token(let result):
                 self = .token(
                     id: item.id,
@@ -374,8 +374,15 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             switch item.content {
             case .chat(let result):
                 cell.configure(
-                    icon: UniversalSearchIcon(UniversalSearchIconConfiguration(
-                        systemName: "sparkles.2",
+                    icon: UniversalSearchIcon(result.icon?.nilIfEmpty.map {
+                        UniversalSearchIconConfiguration(
+                            initials: $0,
+                            backgroundColor: .clear,
+                            initialsFont: .systemFont(ofSize: 18)
+                        )
+                    } ?? UniversalSearchIconConfiguration(
+                        image: UIImage.airBundle("AgentSearchGlyph"),
+                        shape: .square,
                         foregroundColor: .label
                     )),
                     title: result.title,

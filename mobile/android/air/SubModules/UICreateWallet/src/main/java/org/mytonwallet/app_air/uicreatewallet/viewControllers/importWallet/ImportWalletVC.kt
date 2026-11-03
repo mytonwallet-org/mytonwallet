@@ -109,6 +109,7 @@ class ImportWalletVC(
     }
     private val titleLabel: WLabel by lazy {
         WLabel(context).apply {
+            id = UIComponentsR.id.import_title
             text = LocaleController.getString("Enter Secret Words")
             setStyle(28f, WFont.Medium)
             gravity = Gravity.CENTER

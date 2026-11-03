@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
+import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiAddAllFoundSubwalletsResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiAddSubWalletResult
@@ -74,11 +75,22 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HostContextUpdate
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ProblemReportResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappConnectionRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappDisconnectRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
@@ -414,7 +426,7 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class FetchPriceHistory(slug: String, period: MHistoryTimePeriod, baseCurrency: String) :
+        class FetchPriceHistory(token: MToken, period: MHistoryTimePeriod, baseCurrency: String) :
             ApiMethod<List<List<Double>>>() {
             override val name: String = "fetchPriceHistory"
             override val type: Type = Types.newParameterizedType(
@@ -422,9 +434,16 @@ sealed class ApiMethod<T> {
                 Types.newParameterizedType(List::class.java, Double::class.javaObjectType)
             )
             override val arguments: String = ArgumentsBuilder()
-                .string(slug)
+                .string(token.slug)
                 .string(period.value)
                 .string(baseCurrency)
+                .jsonObject(
+                    JSONObject().apply {
+                        put("chain", token.chain)
+                        put("tokenAddress", token.tokenAddress)
+                        put("symbol", token.symbol)
+                    }
+                )
                 .build()
         }
     }
@@ -1512,10 +1531,133 @@ sealed class ApiMethod<T> {
             override val arguments = ArgumentsBuilder().build()
         }
 
-        class GetDefaultThread : ApiMethod<AgentV2MutationResult<AgentV2ThreadResponse>>() {
-            override val name = "getAgentV2DefaultThread"
-            override val type: Type = mutationType(AgentV2ThreadResponse::class.java)
+        /** Delivers the Agent's capacity as an `availabilityChanged` update */
+        class GetAvailability : ApiMethod<Unit>() {
+            override val name = "getAgentV2Availability"
+            override val type: Type = Unit::class.java
             override val arguments = ArgumentsBuilder().build()
+        }
+
+        /** Delivers the user's quota as a `userQuotaChanged` update */
+        class GetUserQuota : ApiMethod<Unit>() {
+            override val name = "getAgentV2UserQuota"
+            override val type: Type = Unit::class.java
+            override val arguments = ArgumentsBuilder().build()
+        }
+
+        class ListThreads private constructor(
+            cursor: String?,
+            limit: Int?,
+            query: String?,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2ThreadListResponse>>() {
+            constructor(cursor: String? = null, limit: Int? = null, query: String? = null) :
+                this(cursor, limit, query, ArgumentsBuilder())
+
+            internal constructor(cursor: String?, limit: Int?, query: String?, moshi: Moshi) :
+                this(cursor, limit, query, ArgumentsBuilder(moshi))
+
+            override val name = "listAgentV2Threads"
+            override val type: Type = mutationType(AgentV2ThreadListResponse::class.java)
+            override val arguments by lazy {
+                argumentsBuilder
+                    .jsObject(
+                        AgentV2ThreadListRequest(cursor, limit, query),
+                        AgentV2ThreadListRequest::class.java
+                    )
+                    .build()
+            }
+        }
+
+        class GetNewsFeed private constructor(
+            lang: String,
+            cursor: String?,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2NewsFeedPage>>() {
+            constructor(lang: String, cursor: String? = null) :
+                this(lang, cursor, ArgumentsBuilder())
+
+            internal constructor(lang: String, cursor: String?, moshi: Moshi) :
+                this(lang, cursor, ArgumentsBuilder(moshi))
+
+            override val name = "getAgentV2NewsFeed"
+            override val type: Type = mutationType(AgentV2NewsFeedPage::class.java)
+            override val arguments by lazy {
+                argumentsBuilder
+                    .jsObject(
+                        AgentV2NewsFeedRequest(lang, cursor),
+                        AgentV2NewsFeedRequest::class.java
+                    )
+                    .build()
+            }
+        }
+
+        class CreateThread private constructor(
+            news: AgentV2ThreadNewsRequest?,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2ThreadCreateResponse>>() {
+            constructor(news: AgentV2ThreadNewsRequest? = null) : this(news, ArgumentsBuilder())
+
+            internal constructor(news: AgentV2ThreadNewsRequest?, moshi: Moshi) :
+                this(news, ArgumentsBuilder(moshi))
+
+            override val name = "createAgentV2Thread"
+            override val type: Type = mutationType(AgentV2ThreadCreateResponse::class.java)
+            override val arguments by lazy {
+                if (news != null) {
+                    argumentsBuilder.jsObject(
+                        AgentV2ThreadCreateRequest(news),
+                        AgentV2ThreadCreateRequest::class.java
+                    )
+                }
+                argumentsBuilder.build()
+            }
+        }
+
+        class UpdateThread private constructor(
+            threadId: String,
+            update: AgentV2ThreadUpdate,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2ThreadResponse>>() {
+            constructor(threadId: String, update: AgentV2ThreadUpdate) :
+                this(threadId, update, ArgumentsBuilder())
+
+            internal constructor(threadId: String, update: AgentV2ThreadUpdate, moshi: Moshi) :
+                this(threadId, update, ArgumentsBuilder(moshi))
+
+            override val name = "updateAgentV2Thread"
+            override val type: Type = mutationType(AgentV2ThreadResponse::class.java)
+            override val arguments by lazy {
+                val changes = mutableMapOf<String, Any?>()
+                if (update.hasTitle) changes["title"] = update.title
+                update.isPinned?.let { changes["isPinned"] = it }
+                argumentsBuilder
+                    .string(threadId)
+                    .jsObject(
+                        changes,
+                        Types.newParameterizedType(
+                            Map::class.java,
+                            String::class.java,
+                            Any::class.java
+                        ),
+                        shouldSerializeNulls = true
+                    )
+                    .build()
+            }
+        }
+
+        class DeleteThread private constructor(
+            threadId: String,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2ThreadDeleteResponse>>() {
+            constructor(threadId: String) : this(threadId, ArgumentsBuilder())
+
+            internal constructor(threadId: String, moshi: Moshi) :
+                this(threadId, ArgumentsBuilder(moshi))
+
+            override val name = "deleteAgentV2Thread"
+            override val type: Type = mutationType(AgentV2ThreadDeleteResponse::class.java)
+            override val arguments by lazy { argumentsBuilder.string(threadId).build() }
         }
 
         class GetMessages(threadId: String, cursor: String?, limit: Int?) :
@@ -1595,6 +1737,13 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
+        /** Sends again a run that failed before it started; null when the SDK no longer holds it */
+        class RetryRun(clientRunId: String) : ApiMethod<AgentV2RunResult?>() {
+            override val name = "retryAgentV2Run"
+            override val type: Type = AgentV2RunResult::class.java
+            override val arguments = ArgumentsBuilder().string(clientRunId).build()
+        }
+
         class CancelRun(runId: String) : ApiMethod<AgentV2ThreadResponse>() {
             override val name = "cancelAgentV2Run"
             override val type: Type = AgentV2ThreadResponse::class.java
@@ -1619,6 +1768,24 @@ sealed class ApiMethod<T> {
                 .string(threadId)
                 .jsonObject(JSONObject().put("messageId", messageId).put("comment", comment))
                 .build()
+        }
+
+        class Transcribe private constructor(
+            request: AgentV2TranscriptionRequest,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2MutationResult<AgentV2TranscriptionResponse>>() {
+            constructor(request: AgentV2TranscriptionRequest) : this(request, ArgumentsBuilder())
+
+            internal constructor(request: AgentV2TranscriptionRequest, moshi: Moshi) :
+                this(request, ArgumentsBuilder(moshi))
+
+            override val name = "transcribeAgentV2Audio"
+            override val type: Type = mutationType(AgentV2TranscriptionResponse::class.java)
+            override val arguments by lazy {
+                argumentsBuilder
+                    .jsObject(request, AgentV2TranscriptionRequest::class.java)
+                    .build()
+            }
         }
 
         /** Sets the rating of a complete answer, or withdraws it when [feedback] is null */
@@ -1666,6 +1833,7 @@ sealed class ApiMethod<T> {
             .put("surface", entryPoint.surface)
             .put("hintId", entryPoint.hintId)
             .put("catalogVersion", entryPoint.catalogVersion)
+            .put("eventId", entryPoint.eventId)
 
         private fun mutationType(valueType: Type): Type =
             Types.newParameterizedType(AgentV2MutationResult::class.java, valueType)

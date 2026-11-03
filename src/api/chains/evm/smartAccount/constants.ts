@@ -11,6 +11,11 @@ export const ALCHEMY_7702_DELEGATEE_ADDRESSES = new Set([
   '0x77021100bd87b7008e5e1989d0eb38555d0d0000',
 ]);
 
+/** ModularAccountV2 v1.1.0, the delegate `prepareAlchemyCalls` requests. */
+export const ALCHEMY_7702_REQUESTED_DELEGATE_ADDRESS = '0x77021100bd87b7008e5e1989d0eb38555d0d0000';
+
+export const ENTRY_POINT_V07_ADDRESS = '0x0000000071727De22E5E9d8BAf0edAc6f37da032';
+
 export function getEvmChainId(network: ApiNetwork, chain: EVMChain): bigint | undefined {
   const chainId = EVM_CHAIN_IDS[network]?.[chain];
 

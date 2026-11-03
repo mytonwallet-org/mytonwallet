@@ -79,6 +79,7 @@ public class AddStakeVC: WViewController {
     private func setupViews() {
 
         title = lang("Add Stake")
+        view.accessibilityIdentifier = "stake_screen"
         addCloseNavigationItemIfNeeded()
 
         let hostingController = addHostingController(
@@ -139,7 +140,10 @@ public class AddStakeVC: WViewController {
                 let outcome = await ProtectedActionExecutor.execute(action, on: self)
                 guard case .completed = outcome else { return }
                 banners.didSubmitUnstake(id: promotion.id)
-                if !draft.isInstant, self.account.id == account.id, viewIfLoaded?.window != nil {
+                guard self.account.id == account.id else { return }
+                if draft.isInstant {
+                    model.prefillRestakeAmount(draft.amountNative)
+                } else if viewIfLoaded?.window != nil {
                     navigationController?.dismiss(animated: true)
                 }
             } catch is CancellationError {

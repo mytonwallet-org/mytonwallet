@@ -8,6 +8,7 @@ import org.junit.Test
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
+import org.mytonwallet.app_air.walletcore.moshi.ApiParsedStateInit
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
@@ -20,10 +21,15 @@ class TonConnectRequestSendViewModelTest {
         connectedAt = null
     )
 
-    private fun transfer(stateInit: String? = null, isDangerous: Boolean = false) = ApiDappTransfer(
+    private fun transfer(
+        stateInit: String? = null,
+        isDangerous: Boolean = false,
+        parsedStateInit: ApiParsedStateInit? = null
+    ) = ApiDappTransfer(
         toAddress = "message-address",
         amount = BigInteger.ONE,
         stateInit = stateInit,
+        parsedStateInit = parsedStateInit,
         isDangerous = isDangerous,
         normalizedAddress = "message-address",
         displayedToAddress = "message-address",
@@ -73,6 +79,28 @@ class TonConnectRequestSendViewModelTest {
             messageWarningKey(transfer(stateInit = "te6cckEBAQEAAgAAAEysuc0=", isDangerous = true))
         )
         assertNull(messageWarningKey(transfer(stateInit = "")))
+    }
+
+    @Test
+    fun `message details describe the state init above its raw data`() {
+        fun summary(parsed: ApiParsedStateInit) = stateInitUiItems(
+            transfer(stateInit = "te6cckEBAQEAAgAAAEysuc0=", parsedStateInit = parsed)
+        )
+            .filterIsInstance<Item.CopyableText>().single().address
+
+        assertEquals("\$state_init_deploys_wallet", summary(ApiParsedStateInit("W5", true)))
+        assertEquals(
+            "\$state_init_deploys_contract",
+            summary(ApiParsedStateInit(isDeployable = true))
+        )
+        assertEquals(
+            "\$state_init_not_deployable",
+            summary(ApiParsedStateInit("W5", false))
+        )
+        assertTrue(
+            stateInitUiItems(transfer(stateInit = "te6cckEBAQEAAgAAAEysuc0="))
+                .filterIsInstance<Item.CopyableText>().isEmpty()
+        )
     }
 
     @Test

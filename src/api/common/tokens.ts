@@ -1,5 +1,6 @@
 import {
   type ApiChain,
+  type ApiCurrencyRates,
   type ApiTokenPriceDetails,
   type ApiTokenUpdateKind,
   type ApiTokenWithMaybePrice,
@@ -7,24 +8,42 @@ import {
   type OnApiUpdate,
 } from '../types';
 
+import { CURRENCIES } from '../../config';
 import { raceWithAbortSignal } from '../../util/abortSignal';
 import { areDeepEqual } from '../../util/areDeepEqual';
 import { getChainConfig, getSupportedChains, getTokenInfo } from '../../util/chain';
-import { SECOND } from '../../util/dateFormat';
+import { isUsableRate } from '../../util/currencyRates';
+import { HOUR, SECOND } from '../../util/dateFormat';
 import Deferred from '../../util/Deferred';
 import isEmptyObject from '../../util/isEmptyObject';
-import { buildCollectionByKey, omitUndefined } from '../../util/iteratees';
+import { buildCollectionByKey, isLiteralObject, omitUndefined } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
 import { tokenRepository } from '../db';
+import { ApiServerError } from '../errors';
 import { callBackendGet, callBackendPost } from './backend';
 import { getHeldSlugs } from './heldTokens';
 import { notifyTokenSlugsMove } from './tokenSlugMoves';
 
 /** A backstop for the token details payload, which is normally bounded by the number of the tokens on the device */
 const MAX_POST_TOKENS = 1500;
-/** Bounds the time the first balances wait for the token catalog, so that a slow `GET /assets` does not hold them */
+/** Bounds the time the first balances wait for the token catalog */
 const CATALOG_WAIT_TIMEOUT = 5 * SECOND;
+const LEGACY_ASSETS_RETRY_DELAY = HOUR;
+
+type BackendTokenCatalog = {
+  version: string;
+  assets: Omit<ApiTokenWithPrice, 'priceUsd' | 'percentChange24h'>[];
+};
+type BackendTokenPrices = {
+  catalogVersion: string;
+  prices: Record<string, [number, number | null]>;
+  rates?: ApiCurrencyRates;
+};
+
+let backendTokenCatalog: (BackendTokenCatalog & { langCode?: string }) | undefined;
+const backendCatalogRequests = new Map<string, Promise<BackendTokenCatalog>>();
+let legacyAssetsUntil = 0;
 
 export type TokenDetailsOptions = {
   langCode?: string;
@@ -38,7 +57,7 @@ export type FetchedToken = Omit<ApiTokenWithMaybePrice, 'slug'> & Partial<Pick<A
 
 export const tokensPreload = new Deferred();
 /**
- * Settles when a `GET /assets` request of the current UI has applied the token catalog to the cache or failed. The
+ * Settles when a backend request of the current UI has applied the token catalog to the cache or failed. The
  * database write that follows is not awaited. `isCatalogRequested` tells whether the worker requests the catalog, so
  * that runtimes without it never wait.
  */
@@ -49,7 +68,7 @@ let isCatalogRequested = false;
  * timeout or a failed request may take the backend slug of a catalog token, which the catalog moves once it arrives.
  */
 let catalogWait: Promise<unknown> | undefined;
-/** Slugs of the last `GET /assets` response, reused when the details are requested outside `updateTokensFromBackend` */
+/** Slugs of the last backend catalog, reused when the details are requested outside `updateTokensFromBackend` */
 let backendTokenSlugs = new Set<string>();
 let isTokenUpdatePaused = false;
 let arePricesFresh = false;
@@ -103,11 +122,11 @@ export function fetchBackendTokenDetails(assets: string[], langCode?: string): P
 }
 
 /**
- * Picks the tokens to ask `POST /assets` about. `GET /assets` covers the enabled tokens, so the request is
+ * Picks the tokens to ask `POST /assets` about. The catalog covers the enabled tokens, so the request is
  * for the rest: the rug pulled, the disabled and whatever the backend does not publish.
  */
 export function pickTokensForDetails(tokens: ApiTokenWithPrice[], options: {
-  /** Slugs returned by `GET /assets` */
+  /** Slugs returned by the backend catalog */
   backendSlugs: Set<string>;
   /** When given, the payload is limited to the tokens the polled wallets hold */
   heldSlugs?: Set<string>;
@@ -118,9 +137,7 @@ export function pickTokensForDetails(tokens: ApiTokenWithPrice[], options: {
 
   for (const token of tokens) {
     if (!token.tokenAddress || backendSlugs.has(token.slug)) continue;
-    // The details come back under the backend slug of the address, which another token holds for a token with a full slug
-    if (token.slug !== buildBackendTokenSlug(token.chain, token.tokenAddress)
-      && token.slug === buildFullTokenSlug(token.chain, token.tokenAddress)) continue;
+    if (getHasFullTokenSlug(token)) continue;
     // `type` arrives from this very endpoint, so an unclassified LP token is still requested once. Afterwards it is
     // dropped: an LP token has no price of its own and the UI treats it as a service token.
     if (token.type === 'lp_token') continue;
@@ -134,13 +151,19 @@ export function pickTokensForDetails(tokens: ApiTokenWithPrice[], options: {
   return result;
 }
 
-/** Loads `GET /assets`, tops it up with the details of the tokens it doesn't cover, and applies both to the cache */
-export async function updateTokensFromBackend(onUpdate: OnApiUpdate, options: TokenDetailsOptions = {}) {
+/** Loads backend tokens, tops them up with the details of the tokens the catalog doesn't cover, and caches both */
+export async function updateTokensFromBackend(
+  onUpdate: OnApiUpdate,
+  options: TokenDetailsOptions = {},
+  onCurrencyRates?: (rates: ApiCurrencyRates | undefined) => void,
+) {
   const { langCode } = options;
   const generation = uiGeneration;
 
   try {
-    const tokens = await callBackendGet<ApiTokenWithPrice[]>('/assets', { langCode });
+    const tokens = await fetchBackendTokens(langCode, (rates) => {
+      if (generation === uiGeneration) onCurrencyRates?.(rates);
+    });
 
     for (const token of tokens) {
       token.isFromBackend = true;
@@ -151,7 +174,7 @@ export async function updateTokensFromBackend(onUpdate: OnApiUpdate, options: To
 
     backendTokenSlugs = new Set(tokens.map((token) => token.slug));
 
-    // A failed top-up must not discard the `GET /assets` response, which is the part the UI waits for
+    // A failed top-up must not discard the catalog, which is the part the UI waits for
     const nonBackendTokenDetails = await fetchNonBackendTokenDetails(options).catch((err) => {
       logDebugError('fetchNonBackendTokenDetails', err);
       return undefined;
@@ -172,6 +195,85 @@ export async function updateTokensFromBackend(onUpdate: OnApiUpdate, options: To
   } finally {
     // The response for a closed UI is dropped above, so only the current one ends the wait
     if (generation === uiGeneration) catalogPreload.resolve();
+  }
+}
+
+export async function fetchBackendTokens(
+  langCode?: string,
+  onCurrencyRates?: (rates: ApiCurrencyRates | undefined) => void,
+): Promise<ApiTokenWithMaybePrice[]> {
+  if (Date.now() < legacyAssetsUntil) {
+    onCurrencyRates?.(undefined);
+    return callBackendGet<ApiTokenWithPrice[]>('/assets', { langCode });
+  }
+
+  try {
+    let catalog = backendTokenCatalog?.langCode === langCode ? backendTokenCatalog : undefined;
+    const pricesRequest = callBackendGet<BackendTokenPrices>('/assets/prices');
+    const catalogRequest = !catalog ? fetchBackendTokenCatalog(langCode).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    ) : undefined;
+
+    const { catalogVersion, prices, rates } = await pricesRequest;
+    onCurrencyRates?.(isCurrencyRates(rates) ? rates : undefined);
+    if (Date.now() < legacyAssetsUntil) {
+      onCurrencyRates?.(undefined);
+      return callBackendGet<ApiTokenWithPrice[]>('/assets', { langCode });
+    }
+    const catalogResult = catalogRequest ? await catalogRequest : { value: catalog! };
+    if ('error' in catalogResult) throw catalogResult.error;
+    catalog = catalogResult.value;
+
+    if (!catalogRequest && catalog.version !== catalogVersion) {
+      try {
+        catalog = { ...await fetchBackendTokenCatalog(langCode, catalogVersion), langCode };
+      } catch (err) {
+        if (err instanceof ApiServerError && err.statusCode === 404) throw err;
+        logDebugError('fetchBackendTokenCatalog', err);
+      }
+    }
+
+    const hasMatchingVersion = catalog.version === catalogVersion;
+    return catalog.assets.map((token) => ({
+      ...token,
+      priceUsd: hasMatchingVersion ? prices[token.slug]?.[0] : undefined,
+      // A missing change keeps the cached value, or becomes zero for a newly discovered token
+      percentChange24h: hasMatchingVersion ? prices[token.slug]?.[1] ?? undefined : undefined,
+    }));
+  } catch (err) {
+    if (err instanceof ApiServerError && err.statusCode === 404) {
+      legacyAssetsUntil = Date.now() + LEGACY_ASSETS_RETRY_DELAY;
+    }
+    if (Date.now() >= legacyAssetsUntil) throw err;
+    onCurrencyRates?.(undefined);
+    return callBackendGet<ApiTokenWithPrice[]>('/assets', { langCode });
+  }
+}
+
+function isCurrencyRates(rates: unknown): rates is ApiCurrencyRates {
+  return isLiteralObject(rates) && Object.keys(CURRENCIES).every((currency) => isUsableRate(rates[currency]));
+}
+
+async function fetchBackendTokenCatalog(langCode: string | undefined, version?: string): Promise<BackendTokenCatalog> {
+  const key = JSON.stringify([langCode, version]);
+  const pending = backendCatalogRequests.get(key);
+  if (pending) return pending;
+
+  const request = callBackendGet<BackendTokenCatalog>('/assets/catalog', { langCode }).then((catalog) => {
+    backendTokenCatalog = { ...catalog, langCode };
+    return catalog;
+  });
+  backendCatalogRequests.set(key, request);
+  try {
+    return await request;
+  } catch (err) {
+    if (err instanceof ApiServerError && err.statusCode === 404) {
+      legacyAssetsUntil = Date.now() + LEGACY_ASSETS_RETRY_DELAY;
+    }
+    throw err;
+  } finally {
+    backendCatalogRequests.delete(key);
   }
 }
 
@@ -504,6 +606,19 @@ export function buildTokenSlug(chain: ApiChain, address: string) {
   const holderAddress = tokensCache.bySlug[slug]?.tokenAddress;
 
   return holderAddress && !getIsSameTokenAddress(holderAddress, address) ? buildFullTokenSlug(chain, address) : slug;
+}
+
+/**
+ * A token gets the full slug of its address when another token holds the backend slug of that address. `POST /assets`
+ * still returns its details under the backend slug, so a request with both tokens gets two answers under one slug and
+ * can't tell them apart.
+ */
+export function getHasFullTokenSlug(
+  { slug, chain, tokenAddress }: Pick<ApiTokenWithPrice, 'slug' | 'chain' | 'tokenAddress'>,
+) {
+  if (!tokenAddress) return false;
+
+  return slug !== buildBackendTokenSlug(chain, tokenAddress) && slug === buildFullTokenSlug(chain, tokenAddress);
 }
 
 /**

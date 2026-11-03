@@ -28,7 +28,7 @@ final class TokenExpandableChartView: UIView {
         let trailing: CGFloat
     }
 
-    static let collapsedHeight = CGFloat(60)
+    static let collapsedHeight = CGFloat(64)
     private static let expandedChartMaxHeight = CGFloat(200)
     private static let expandedChartTrailingOffset = CGFloat(-12)
     private static let analyzeButtonSpacing = CGFloat(20)
@@ -40,18 +40,20 @@ final class TokenExpandableChartView: UIView {
         onAnalyze == nil ? 0 : Self.analyzeButtonSpacing + AgentSuggestionButton.height
     }
     private var expandedHeight: CGFloat {
-        30 + 16 + 76 + Self.expandedChartHeight + analyzeButtonInset
+        60 + 12 + Self.expandedChartHeight + 12 + 36 + 16 + analyzeButtonInset
     }
     private var expandedLoadingIndicatorOffset: CGFloat {
-        // Center between the price header and the period switcher, including the hidden range chart.
-        (Self.collapsedHeight - 16 - 28 - analyzeButtonInset) / 2
+        // Center in the plot area, excluding the time axis and controls below it.
+        60 + Self.expandedChartHeight / 2 - expandedHeight / 2
     }
 
     private let parentProcessorQueue = DispatchQueue(label: "TokenExpandableChartView")
     private let locker = DispatchSemaphore(value: 1)
     private let onHeightChange: () -> Void
+    private let usesStoredPresentation: Bool
 
-    public init(onHeightChange: @escaping () -> Void) {
+    public init(usesStoredPresentation: Bool = true, onHeightChange: @escaping () -> Void) {
+        self.usesStoredPresentation = usesStoredPresentation
         self.onHeightChange = onHeightChange
         super.init(frame: .zero)
         setupViews()
@@ -62,14 +64,26 @@ final class TokenExpandableChartView: UIView {
     }
 
     private var token: ApiToken? = nil
+    private var price: Double?
+    private var percentChange24h: Double?
+    private var baseCurrency: MBaseCurrency = .USD
     private var displayedPeriod: ApiPriceHistoryPeriod? = nil
     private var historyData: [[Double]]? = nil
+    private var isHistoryRestored = false
+    private var historyLoadingState: TokenHistoryLoadingState = .loading
     private struct Configuration: Equatable {
+        var tokenSlug: String
         var price: Double?
         var percentChange24h: Double?
         var baseCurrency: MBaseCurrency
         var historyData: [[Double]]?
+        var isHistoryRestored: Bool
+        var historyLoadingState: TokenHistoryLoadingState
+        var isHistoryStale: Bool
+        var isValueStale: Bool
         var showsAnalyze: Bool
+        var showsTokenIcon: Bool
+        var priceTitle: String?
     }
     private var configuration: Configuration?
     private let graph = CompactLineChart()
@@ -77,6 +91,7 @@ final class TokenExpandableChartView: UIView {
     private var onAnalyze: (() -> Void)?
 
     private var selectedRange: ClosedRange<CGFloat> = 0...1
+    private var chartExpansionProgress: CGFloat = 0
     private weak var toggleChartRecognizer: UITapGestureRecognizer?
 
     override func tintColorDidChange() {
@@ -86,28 +101,110 @@ final class TokenExpandableChartView: UIView {
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.layoutDirection != previousTraitCollection?.layoutDirection {
+            setNeedsUpdateConstraints()
+        }
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
             refreshChartTint()
         }
     }
 
+    override var semanticContentAttribute: UISemanticContentAttribute {
+        didSet { setNeedsUpdateConstraints() }
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        setNeedsUpdateConstraints()
+    }
+
+    override func updateConstraints() {
+        let direction = effectiveUserInterfaceLayoutDirection
+        if loadingIndicatorLayoutDirection != direction {
+            loadingIndicatorCenterBoundary?.isActive = false
+            // Keep the indicator in the trailing half in both layout directions.
+            loadingIndicatorCenterBoundary = direction == .rightToLeft
+                ? loadingIndicator.centerXAnchor.constraint(lessThanOrEqualTo: centerXAnchor)
+                : loadingIndicator.centerXAnchor.constraint(greaterThanOrEqualTo: centerXAnchor)
+            loadingIndicatorCenterBoundary?.isActive = true
+            loadingIndicatorLayoutDirection = direction
+        }
+        super.updateConstraints()
+    }
+
     func configure(token: ApiToken,
+                   showsTokenIcon: Bool = false,
                    historyData: [[Double]]?,
+                   isHistoryRestored: Bool,
+                   historyLoadingState: TokenHistoryLoadingState? = nil,
                    onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
                    onAnalyze: (() -> Void)?) {
+        configure(token: token, price: token.price, percentChange24h: token.percentChange24h,
+                  baseCurrency: TokenStore.baseCurrency, showsTokenIcon: showsTokenIcon,
+                  historyData: historyData, isHistoryRestored: isHistoryRestored,
+                  historyLoadingState: historyLoadingState,
+                  onPeriodChange: onPeriodChange, onAnalyze: onAnalyze)
+    }
+
+    func configure(token: ApiToken,
+                   price: Double?,
+                   percentChange24h: Double?,
+                   baseCurrency: MBaseCurrency,
+                   period: ApiPriceHistoryPeriod? = nil,
+                   showsTokenIcon: Bool = true,
+                   priceTitle: String? = nil,
+                   historyData: [[Double]]?,
+                   isHistoryRestored: Bool = false,
+                   historyLoadingState: TokenHistoryLoadingState? = nil,
+                   isHistoryStale: Bool = false,
+                   isValueStale: Bool = false,
+                   onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
+                   onAnalyze: (() -> Void)? = nil) {
         self.onPeriodChange = onPeriodChange
         self.onAnalyze = onAnalyze
+        if let period, let index = timePeriods.firstIndex(of: period),
+           timeFrameSwitcherView.selectedSegmentIndex != index {
+            timeFrameSwitcherView.selectedSegmentIndex = index
+            selectedRange = 0...1
+            lastSelection = nil
+            self.configuration = nil
+        }
         let configuration = Configuration(
-            price: token.price,
-            percentChange24h: token.percentChange24h,
-            baseCurrency: TokenStore.baseCurrency,
+            tokenSlug: token.slug,
+            price: price,
+            percentChange24h: percentChange24h,
+            baseCurrency: baseCurrency,
             historyData: historyData,
-            showsAnalyze: onAnalyze != nil
+            isHistoryRestored: isHistoryRestored,
+            historyLoadingState: historyLoadingState ?? (historyData == nil ? .loading : .loaded),
+            isHistoryStale: isHistoryStale,
+            isValueStale: isValueStale,
+            showsAnalyze: onAnalyze != nil,
+            showsTokenIcon: showsTokenIcon,
+            priceTitle: priceTitle
         )
         guard configuration != self.configuration else { return }
+        let isFirstConfiguration = self.configuration == nil && self.token == nil
         self.configuration = configuration
         self.token = token
+        self.price = price
+        self.percentChange24h = percentChange24h
+        self.baseCurrency = baseCurrency
         self.historyData = historyData
+        self.isHistoryRestored = isHistoryRestored
+        self.historyLoadingState = configuration.historyLoadingState
+        [collapsedChartShine, expandedChartShine, chartAnimationShine].forEach {
+            $0.setActive(isHistoryStale && historyData?.isEmpty == false, animated: !isFirstConfiguration)
+        }
+        priceShine.setActive(isValueStale && price != nil, animated: !isFirstConfiguration)
+        tokenIconView.config(with: token, isStaking: false, isWalletView: false, shouldShowChain: false)
+        tokenIconView.alpha = showsTokenIcon ? 1 : 0
+        priceTitleLabel.text = priceTitle ?? lang("Price")
+        priceLeadingConstraint.constant = showsTokenIcon ? 66 : 16
+        if isHistoryRestored {
+            lastSelection = nil
+        }
+        expandedChart.isUserInteractionEnabled = isExpanded && !isHistoryRestored
         analyzeButton.configure(title: lang("Analyze it"), showsArrow: true)
         analyzeButton.isHidden = onAnalyze == nil
         analyzeButton.isUserInteractionEnabled = isExpanded && onAnalyze != nil
@@ -120,6 +217,9 @@ final class TokenExpandableChartView: UIView {
         fillLabels()
 
         drawChart(period: nil, historyData: historyData, range: selectedRange)
+        if isFirstConfiguration, showsTokenIcon, !isExpanded, !isTogglingChart {
+            toggleChart(instant: true)
+        }
     }
 
     func rangeChanged(_ range: ClosedRange<CGFloat>) {
@@ -129,9 +229,12 @@ final class TokenExpandableChartView: UIView {
     }
 
     private var heightConstraint: NSLayoutConstraint!
+    private var priceLeadingConstraint: NSLayoutConstraint!
     private var timeFrameBottomConstraint: NSLayoutConstraint!
     private var arrowTrailingConstraint: NSLayoutConstraint!
     private var loadingIndicatorCenterYConstraint: NSLayoutConstraint!
+    private var loadingIndicatorCenterBoundary: NSLayoutConstraint?
+    private var loadingIndicatorLayoutDirection: UIUserInterfaceLayoutDirection?
 
     private var chartAnimationViewTopAnchor: NSLayoutConstraint!
     private var chartAnimationViewTrailingAnchor: NSLayoutConstraint!
@@ -147,6 +250,8 @@ final class TokenExpandableChartView: UIView {
     private var isTogglingChart = false
     // MARK: - Views
 
+    private let tokenIconView = IconView(size: 40)
+
     private let priceTitleLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
@@ -158,12 +263,14 @@ final class TokenExpandableChartView: UIView {
     private let priceValueLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.accessibilityIdentifier = "token_price_value"
         return lbl
     }()
 
     private let priceChangeLabel: UILabel = {
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.accessibilityIdentifier = "token_price_change"
         return lbl
     }()
 
@@ -218,7 +325,7 @@ final class TokenExpandableChartView: UIView {
 
     private lazy var loadingIndicator = {
         let indicator = WActivityIndicator()
-        indicator.presentationDelay = 1
+        indicator.accessibilityIdentifier = "Token.Chart.Loading"
         return indicator
     }()
 
@@ -230,6 +337,19 @@ final class TokenExpandableChartView: UIView {
         label.applyTextStyle(.footnote)
         label.isHidden = true
         return label
+    }()
+
+    private lazy var retryButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("\(lang("Error"))\n\(lang("Retry"))", for: .normal)
+        button.titleLabel?.font = WTypography.uiFont(.footnote)
+        button.titleLabel?.numberOfLines = 2
+        button.titleLabel?.textAlignment = .center
+        button.accessibilityIdentifier = "Token.Chart.Retry"
+        button.isHidden = true
+        button.addTarget(self, action: #selector(handlePeriodChange), for: .touchUpInside)
+        return button
     }()
 
     private let arrowImageView: UIImageView = {
@@ -249,6 +369,22 @@ final class TokenExpandableChartView: UIView {
         v.translatesAutoresizingMaskIntoConstraints = false
         v.alpha = 0
         return v
+    }()
+
+    private let timeAxisLabels: [UILabel] = (0..<4).map { index in
+        let label = UILabel()
+        label.applyTextStyle(.footnote, content: .technical)
+        label.textColor = .air.secondaryLabel
+        label.textAlignment = index == 0 ? .left : index == 3 ? .right : .center
+        return label
+    }
+
+    private lazy var timeAxisView: UIStackView = {
+        let view = UIStackView(arrangedSubviews: timeAxisLabels)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.distribution = .equalSpacing
+        view.alpha = 0
+        return view
     }()
 
     private let timePeriods: [ApiPriceHistoryPeriod] = ApiPriceHistoryPeriod.allCases.reversed()
@@ -279,31 +415,50 @@ final class TokenExpandableChartView: UIView {
         return v
     }()
 
+    private let priceContainer = UIView()
+    private lazy var priceShine = makeShine(content: priceContainer, identifier: "Token.Chart.QuoteShine")
+    private lazy var collapsedChartShine = makeShine(content: collapsedChart, identifier: "Token.Chart.PreviewShine")
+    private lazy var expandedChartShine = makeShine(content: expandedChart, identifier: "Token.Chart.PlotShine")
+    private lazy var chartAnimationShine = makeShine(content: lineChartAnimationView, identifier: "Token.Chart.AnimationShine")
+
+    private func makeShine(content: UIView, identifier: String) -> TradeShineView {
+        let shine = TradeShineView(content: content, usesAutoLayout: true)
+        shine.translatesAutoresizingMaskIntoConstraints = false
+        shine.isUserInteractionEnabled = content.isUserInteractionEnabled
+        shine.accessibilityIdentifier = identifier
+        return shine
+    }
+
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerRadius = S.homeInsetSectionCornerRadius
         layer.masksToBounds = true
-        addSubview(collapsedChart)
-        addSubview(expandedChart)
+        addSubview(collapsedChartShine)
+        addSubview(expandedChartShine)
         addSubview(rangeChart)
-        addSubview(lineChartAnimationView)
+        rangeChart.isHidden = true
+        rangeChart.isUserInteractionEnabled = false
+        rangeChart.horizontalInteractionBlockingGestureRecognizer.isEnabled = false
+        addSubview(timeAxisView)
+        addSubview(chartAnimationShine)
         addSubview(arrowImageView)
         addSubview(timeFrameSwitcherView)
         addSubview(analyzeButton)
         addSubview(topBarView)
         addSubview(loadingIndicator)
         addSubview(noPriceDataLabel)
+        addSubview(retryButton)
         timeFrameSwitcherView.addTarget(self, action: #selector(handlePeriodChange), for: .valueChanged)
         timeFrameSwitcherView.selectedSegmentIndex = timePeriods.firstIndex(where: { it in
-            it.rawValue == AppStorageHelper.selectedCurrentTokenPeriod()
+            it.rawValue == (usesStoredPresentation ? AppStorageHelper.selectedCurrentTokenPeriod() : ApiPriceHistoryPeriod.day.rawValue)
         }) ?? 0
-        heightConstraint = heightAnchor.constraint(equalToConstant: AppStorageHelper.isTokenChartExpanded ? expandedHeight : Self.collapsedHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: (!usesStoredPresentation || AppStorageHelper.isTokenChartExpanded) ? expandedHeight : Self.collapsedHeight)
         timeFrameBottomConstraint = timeFrameSwitcherView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16 - analyzeButtonInset)
         arrowTrailingConstraint = arrowImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18)
-        chartAnimationViewTrailingAnchor = lineChartAnimationView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33)
-        chartAnimationViewTopAnchor = lineChartAnimationView.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
-        chartAnimationViewWidthAnchor = lineChartAnimationView.widthAnchor.constraint(equalToConstant: 82)
-        chartAnimationViewHeightAnchor = lineChartAnimationView.heightAnchor.constraint(equalToConstant: 40)
+        chartAnimationViewTrailingAnchor = chartAnimationShine.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33)
+        chartAnimationViewTopAnchor = chartAnimationShine.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
+        chartAnimationViewWidthAnchor = chartAnimationShine.widthAnchor.constraint(equalToConstant: 82)
+        chartAnimationViewHeightAnchor = chartAnimationShine.heightAnchor.constraint(equalToConstant: 40)
         loadingIndicatorCenterYConstraint = loadingIndicator.centerYAnchor.constraint(equalTo: centerYAnchor)
 
         let loadingIndicatorXConstraint = loadingIndicator.centerXAnchor.constraint(equalTo: lineChartAnimationView.centerXAnchor)
@@ -320,36 +475,42 @@ final class TokenExpandableChartView: UIView {
             self?.fillLabels()
         }
         
-        let priceContainer = UIView()
         do {
             priceContainer.addSubview(priceTitleLabel)
             priceContainer.addSubview(priceValueLabel)
             priceContainer.addSubview(priceChangeLabel)
+            priceContainer.addSubview(tokenIconView)
+            tokenIconView.translatesAutoresizingMaskIntoConstraints = false
+            tokenIconView.alpha = 0
 
             let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
             priceContainer.addGestureRecognizer(longPress)
 
-            let priceTap = UITapGestureRecognizer(target: self, action: #selector(toggleChart))
+            let priceTap = UITapGestureRecognizer(target: self, action: #selector(handleToggleTap))
             priceContainer.addGestureRecognizer(priceTap)
             priceTap.require(toFail: longPress)
         }
         
-        priceContainer.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(priceContainer)
+        addSubview(priceShine)
+        priceLeadingConstraint = priceTitleLabel.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16)
 
         NSLayoutConstraint.activate([
             topBarView.leadingAnchor.constraint(equalTo: leadingAnchor),
             topBarView.trailingAnchor.constraint(equalTo: trailingAnchor),
             topBarView.topAnchor.constraint(equalTo: topAnchor),
-            topBarView.heightAnchor.constraint(equalToConstant: 60),
+            topBarView.heightAnchor.constraint(equalToConstant: Self.collapsedHeight),
             
-            priceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
-            priceContainer.topAnchor.constraint(equalTo: topAnchor),
+            priceShine.leadingAnchor.constraint(equalTo: leadingAnchor),
+            priceShine.topAnchor.constraint(equalTo: topAnchor),
 
-            priceTitleLabel.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16),
+            tokenIconView.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16),
+            tokenIconView.topAnchor.constraint(equalTo: priceContainer.topAnchor, constant: 12),
+            tokenIconView.widthAnchor.constraint(equalToConstant: 40),
+            tokenIconView.heightAnchor.constraint(equalToConstant: 40),
+            priceLeadingConstraint,
             priceTitleLabel.topAnchor.constraint(equalTo: priceContainer.topAnchor, constant: 10),
 
-            priceValueLabel.leadingAnchor.constraint(equalTo: priceContainer.leadingAnchor, constant: 16),
+            priceValueLabel.leadingAnchor.constraint(equalTo: priceTitleLabel.leadingAnchor),
             priceValueLabel.topAnchor.constraint(equalTo: priceTitleLabel.bottomAnchor, constant: 1),
             priceValueLabel.bottomAnchor.constraint(equalTo: priceContainer.bottomAnchor, constant: -10),
 
@@ -361,23 +522,32 @@ final class TokenExpandableChartView: UIView {
             priceContainer.trailingAnchor.constraint(equalTo: priceTitleLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
             priceContainer.trailingAnchor.constraint(equalTo: priceChangeLabel.trailingAnchor, constant: 16).withPriority(.defaultHigh),
 
-            collapsedChart.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33),
-            collapsedChart.topAnchor.constraint(equalTo: topAnchor, constant: 11.33),
-            collapsedChart.widthAnchor.constraint(equalToConstant: 82),
-            collapsedChart.heightAnchor.constraint(equalToConstant: 40),
+            collapsedChartShine.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33),
+            collapsedChartShine.topAnchor.constraint(equalTo: topAnchor, constant: 11.33),
+            collapsedChartShine.widthAnchor.constraint(equalToConstant: 82),
+            collapsedChartShine.heightAnchor.constraint(equalToConstant: 40),
 
-            expandedChart.leadingAnchor.constraint(equalTo: leadingAnchor),
-            expandedChart.trailingAnchor.constraint(equalTo: trailingAnchor, constant: Self.expandedChartTrailingOffset),
-            expandedChart.topAnchor.constraint(equalTo: topAnchor, constant: 35),
-            expandedChart.heightAnchor.constraint(equalToConstant: TokenExpandableChartView.expandedChartHeight),
+            expandedChartShine.leadingAnchor.constraint(equalTo: leadingAnchor),
+            expandedChartShine.trailingAnchor.constraint(equalTo: trailingAnchor, constant: Self.expandedChartTrailingOffset),
+            expandedChartShine.topAnchor.constraint(equalTo: topAnchor, constant: 60),
+            expandedChartShine.heightAnchor.constraint(equalToConstant: TokenExpandableChartView.expandedChartHeight),
+
+            timeAxisView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            timeAxisView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            timeAxisView.bottomAnchor.constraint(equalTo: timeFrameSwitcherView.topAnchor, constant: -6),
+            timeAxisView.heightAnchor.constraint(equalToConstant: 18),
 
             loadingIndicatorXConstraint,
-            loadingIndicator.centerXAnchor.constraint(greaterThanOrEqualTo: centerXAnchor),
             loadingIndicatorCenterYConstraint,
 
             noPriceDataLabelXConstraint,
             noPriceDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -46),
             noPriceDataLabel.centerYAnchor.constraint(equalTo: loadingIndicator.centerYAnchor),
+
+            retryButton.centerXAnchor.constraint(equalTo: noPriceDataLabel.centerXAnchor),
+            retryButton.centerYAnchor.constraint(equalTo: loadingIndicator.centerYAnchor),
+            retryButton.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -46),
+            retryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
 
             chartAnimationViewTrailingAnchor,
             chartAnimationViewTopAnchor,
@@ -395,7 +565,7 @@ final class TokenExpandableChartView: UIView {
             timeFrameBottomConstraint,
             timeFrameSwitcherView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             timeFrameSwitcherView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            timeFrameSwitcherView.heightAnchor.constraint(equalToConstant: 28),
+            timeFrameSwitcherView.heightAnchor.constraint(equalToConstant: 36),
 
             analyzeButton.centerXAnchor.constraint(equalTo: centerXAnchor),
             analyzeButton.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -32),
@@ -405,17 +575,19 @@ final class TokenExpandableChartView: UIView {
             heightConstraint
         ])
 
-        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleChart))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleToggleTap))
         toggleChartRecognizer = tap
         topBarView.addGestureRecognizer(tap)
         
         updateTheme()
 
-        loadingIndicator.startAnimating(animated: true)
+        loadingIndicator.startAnimating(animated: false)
 
-        if AppStorageHelper.isTokenChartExpanded {
+        if !usesStoredPresentation || AppStorageHelper.isTokenChartExpanded {
             DispatchQueue.main.async {
-                self.toggleChart(instant: true)
+                if !self.isExpanded && !self.isTogglingChart {
+                    self.toggleChart(instant: true)
+                }
             }
         }
     }
@@ -440,13 +612,14 @@ final class TokenExpandableChartView: UIView {
     // MARK: - Data mehods
 
     private func fillLabels() {
-        guard let token, let tokenPrice = token.price else {
+        guard let tokenPrice = price else {
             // TODO: No price available message
             priceValueLabel.text = nil
+            priceChangeLabel.attributedText = nil
             return
         }
-        if let lastSelection {
-            let priceAmount = BaseCurrencyAmount.fromDouble(lastSelection.point.value, TokenStore.baseCurrency)
+        if let lastSelection, !isHistoryRestored {
+            let priceAmount = BaseCurrencyAmount.fromDouble(lastSelection.point.value, baseCurrency)
             let priceString = priceAmount.formatted(.baseCurrencyHighPrecision, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
@@ -464,18 +637,18 @@ final class TokenExpandableChartView: UIView {
 
         } else {
             let lastPrice = latestTokenChartPrice(
-                historyData: historyData,
+                historyData: isHistoryRestored ? nil : historyData,
                 range: selectedRange,
                 fallbackPrice: tokenPrice
             )
             let percentChange = tokenChartPercentChange(
-                historyData: historyData,
+                historyData: isHistoryRestored ? nil : historyData,
                 range: selectedRange,
-                tokenPercentChange24h: token.percentChange24h,
+                tokenPercentChange24h: percentChange24h,
                 shouldUseTokenPercentChange: timePeriods[timeFrameSwitcherView.selectedSegmentIndex] == .day,
                 fallbackPrice: tokenPrice
             )
-            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
+            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
                 .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
@@ -505,24 +678,26 @@ final class TokenExpandableChartView: UIView {
                            completion: (@MainActor () -> Void)? = nil) {
         let historyData = reduceNumberOfPoints(data, to: 200)
         let expandedHistoryData = data
+        updateTimeAxis(data)
 
         if let period, period != self.displayedPeriod {
             lastSelection = nil
             self.displayedPeriod = period
         }
 
-        // Pending history (nil) and an empty response are distinct presentation states.
-        let isLoading = data == nil
         let hasData = data?.isEmpty == false
-        noPriceDataLabel.isHidden = data?.isEmpty != true
+        let isLoading = historyLoadingState == .loading && !hasData
+        noPriceDataLabel.isHidden = hasData || historyLoadingState != .loaded
+        retryButton.isHidden = hasData || historyLoadingState != .failed
         if isLoading {
-            loadingIndicator.startAnimating(animated: true)
+            loadingIndicator.startAnimating(animated: false)
         } else {
             loadingIndicator.stopAnimating(animated: false)
         }
         UIView.animate(withDuration: 0.2) { [self] in
-            collapsedChart.alpha = hasData ? 1 : 0
-            expandedChart.alpha = hasData ? 1 : 0
+            let chartAlpha: CGFloat = hasData ? (configuration?.isHistoryStale == true ? 0.55 : 1) : 0
+            collapsedChart.alpha = chartAlpha
+            expandedChart.alpha = chartAlpha
             rangeChart.alpha = isExpanded && hasData ? 1 : 0
         }
         let dateFormat: String
@@ -558,6 +733,7 @@ final class TokenExpandableChartView: UIView {
         let period = timePeriods[timeFrameSwitcherView.selectedSegmentIndex]
         configuration = nil
         historyData = nil
+        historyLoadingState = .loading
         lastSelection = nil
         selectedRange = 0...1
         drawChart(period: period, historyData: nil, range: selectedRange)
@@ -565,13 +741,19 @@ final class TokenExpandableChartView: UIView {
         onPeriodChange?(period)
     }
 
-    @objc private func toggleChart(instant: Bool) {
+    /// A tap toggles with the animation, which also saves the owned token preference. A gesture recognizer's action
+    /// receives the recognizer, so it must not target `toggleChart(instant:)` directly.
+    @objc private func handleToggleTap() {
+        toggleChart(instant: false)
+    }
+
+    private func toggleChart(instant: Bool) {
         if isTogglingChart {
             return
         }
         isTogglingChart = true
         isExpanded = !isExpanded
-        expandedChart.isUserInteractionEnabled = isExpanded
+        expandedChart.isUserInteractionEnabled = isExpanded && !isHistoryRestored
         analyzeButton.isUserInteractionEnabled = isExpanded && onAnalyze != nil
 
         parentProcessorQueue.async {
@@ -606,7 +788,7 @@ final class TokenExpandableChartView: UIView {
         let expandedGeometry = ChartAnimationGeometry(
             width: max(1, expandedSnapshotFrame.width),
             height: max(1, expandedSnapshotFrame.height),
-            top: 35 + expandedSnapshotFrame.minY,
+            top: 60 + expandedSnapshotFrame.minY,
             trailing: Self.expandedChartTrailingOffset + expandedSnapshotFrame.maxX - expandedChart.bounds.width
         )
 
@@ -615,6 +797,7 @@ final class TokenExpandableChartView: UIView {
 
         let updateBlock: (CGFloat, CGFloat) -> () = { [self] progress, value in
             heightConstraint.constant = value
+            chartExpansionProgress = isExpanded ? progress : 1 - progress
             loadingIndicatorCenterYConstraint.constant = expandedLoadingIndicatorOffset * (isExpanded ? progress : 1 - progress)
 
             // Animate line charts
@@ -640,6 +823,7 @@ final class TokenExpandableChartView: UIView {
                 timeFrameSwitcherView.alpha = max(0, 1 - 2 * progress)
             }
             analyzeButton.alpha = timeFrameSwitcherView.alpha
+            updateTimeAxisVisibility()
 
             layoutIfNeeded()
             onHeightChange()
@@ -681,7 +865,9 @@ final class TokenExpandableChartView: UIView {
             heightAnimator.addCompletionBlock { [weak self] in
                 guard let self else { return }
                 onHeightChange()
-                AppStorageHelper.isTokenChartExpanded = isExpanded
+                if usesStoredPresentation {
+                    AppStorageHelper.isTokenChartExpanded = isExpanded
+                }
                 drawChart(period: displayedPeriod, historyData: historyData, range: selectedRange) { [weak self] in
                     guard let self else { return }
                     expandedChart.isHidden = isExpanded ? false : true
@@ -703,6 +889,28 @@ final class TokenExpandableChartView: UIView {
                 loadingIndicator.transform = isExpanded ? .identity.scaledBy(x: 1.2, y: 1.2) : .identity
             }
         }
+    }
+
+    private func updateTimeAxis(_ data: [[Double]]?) {
+        let timestamps = data?.compactMap { $0.first }.filter(\.isFinite) ?? []
+        guard let first = timestamps.min(), let last = timestamps.max() else {
+            timeAxisView.alpha = 0
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.locale = LocalizationSupport.shared.locale
+        let period = timePeriods[timeFrameSwitcherView.selectedSegmentIndex]
+        formatter.setLocalizedDateFormatFromTemplate(period == .day ? "jmm" : period == .all ? "MMMyyyy" : "MMMd")
+        for (index, label) in timeAxisLabels.enumerated() {
+            let timestamp = first + (last - first) * Double(index) / Double(timeAxisLabels.count - 1)
+            label.text = formatter.string(from: Date(timeIntervalSince1970: timestamp))
+        }
+        updateTimeAxisVisibility()
+    }
+
+    private func updateTimeAxisVisibility() {
+        let alpha = min(1, max(0, (chartExpansionProgress - 0.85) / 0.15))
+        timeAxisView.alpha = historyData?.isEmpty == false ? alpha : 0
     }
 }
 

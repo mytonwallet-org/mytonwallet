@@ -8,6 +8,7 @@
  * unreachable in such a build, and the throw makes it obvious if one ever is not.
  */
 
+import * as perpsAssets from '../common/perpsAssets';
 import * as agentV2Lifecycle from './agentV2Lifecycle';
 import * as mfaMethods from './mfa';
 import * as stakingMethods from './staking';
@@ -35,6 +36,14 @@ export function requireStakingMethods() {
   }
 
   throw new Error('Staking is not supported in this build');
+}
+
+export function requirePerpsAssets() {
+  if (process.env.NO_EXTRA_FEATURES !== '1') {
+    return perpsAssets;
+  }
+
+  throw new Error('Perps is not supported in this build');
 }
 
 export function requireAgentV2Lifecycle() {

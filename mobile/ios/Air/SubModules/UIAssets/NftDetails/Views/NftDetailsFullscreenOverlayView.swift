@@ -39,32 +39,12 @@ extension NftDetailsFullScreenOverlayContent {
 
 
 class NftDetailsFullScreenOverlay: UIView {
-    
-    private let doubleTapZoomScale: CGFloat = 3.0
-
-    private let scrollView: UIScrollView = {
-        let sv = UIScrollView()
-        sv.minimumZoomScale = 1.0
-        sv.maximumZoomScale = 4.0
-        sv.showsVerticalScrollIndicator = false
-        sv.showsHorizontalScrollIndicator = false
-        sv.bouncesZoom = true
-        sv.bounces = false
-        sv.alwaysBounceVertical = false
-        sv.contentInsetAdjustmentBehavior = .never
-        sv.clipsToBounds = false
-        if #available(iOS 26.0, *) {
-            sv.topEdgeEffect.isHidden = true
-        }
-        return sv
-    }()
-    
-    private let contentContainerView = UIView()
-    private var contentContainerWidthConstraint: NSLayoutConstraint!
-    private var contentContainerHeightConstraint: NSLayoutConstraint!
+    /// Content is always square (matches NFT image aspect ratio expectations)
+    private let scrollView = MediaZoomView(frame: .zero)
+    private var contentContainerView: UIView { scrollView.contentContainerView }
     private weak var content: NftDetailsFullScreenOverlayContent?
     private var dismissPanGesture: UIPanGestureRecognizer?
-    private let pinchTouchGuard = NftDetailsPinchTouchGuard()
+    private let pinchTouchGuard = PinchTouchGuard()
     private var onDismiss: ((DismissWay) -> Void)?
 
     private enum State {
@@ -95,13 +75,7 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     private func updateContainerSize() {
-        guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else { return }
-                                                
-        // Content is always square (matches NFT image aspect ratio expectations)
-        let fittedSize = scrollView.bounds.width
-        guard contentContainerWidthConstraint.constant != fittedSize else { return }
-        contentContainerWidthConstraint.constant = fittedSize
-        contentContainerHeightConstraint.constant = fittedSize
+        scrollView.updateContentSize()
     }
     
     private func updateBackground() {
@@ -116,12 +90,7 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     private func centerContent() {
-        let scrollSize = scrollView.bounds.size
-        let contentSize = scrollView.contentSize
-
-        let hInset = max((scrollSize.width - contentSize.width) / 2, 0)
-        let vInset = max((scrollSize.height - contentSize.height) / 2, 0)
-        scrollView.contentInset = UIEdgeInsets(top: vInset, left: hInset, bottom: vInset, right: hInset)
+        scrollView.centerContent()
     }
 
     private func setup() {
@@ -131,26 +100,23 @@ class NftDetailsFullScreenOverlay: UIView {
         scrollView.semanticContentAttribute = .forceLeftToRight
         contentContainerView.semanticContentAttribute = .forceLeftToRight
 
-        scrollView.delegate = self
+        scrollView.onZoom = { [weak self] in
+            guard let self, self.state == .normal else { return }
+            self.backgroundColor = .black
+        }
+        scrollView.onScroll = { [weak self] in
+            guard let self, self.state == .normal,
+                  self.dismissPanGesture?.state != .changed, self.dismissPanGesture?.state != .began else { return }
+            self.updateBackground()
+        }
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
 
-        contentContainerView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(contentContainerView)
-
-        contentContainerWidthConstraint = contentContainerView.widthAnchor.constraint(equalToConstant: bounds.width)
-        contentContainerHeightConstraint = contentContainerView.heightAnchor.constraint(equalToConstant: bounds.width)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            contentContainerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            contentContainerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            contentContainerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-            contentContainerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            contentContainerWidthConstraint,
-            contentContainerHeightConstraint,
         ])
 
         // Double-tap on content toggles zoom: resets to 1× if zoomed, zooms in if at 1
@@ -219,9 +185,9 @@ class NftDetailsFullScreenOverlay: UIView {
             tx: startFrame.midX - endFrame.midX, ty: startFrame.midY - endFrame.midY
         )
         Haptics.play(.transition)
-        UIView.animate(withDuration: NftDetailsMediaMotion.duration * 0.75, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) { self.backgroundColor = .black }
-        UIView.animate(withDuration: NftDetailsMediaMotion.duration, delay: 0,
-                       usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+        UIView.animate(withDuration: MediaViewerMotion.duration * 0.75, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) { self.backgroundColor = .black }
+        UIView.animate(withDuration: MediaViewerMotion.duration, delay: 0,
+                       usingSpringWithDamping: MediaViewerMotion.damping, initialSpringVelocity: 0,
                        options: [.beginFromCurrentState, .allowUserInteraction]) {
             content.transform = .identity
         } completion: { _ in
@@ -238,40 +204,24 @@ class NftDetailsFullScreenOverlay: UIView {
 
     @objc private func handleDoubleTap(_ gr: UITapGestureRecognizer) {
         guard !pinchTouchGuard.isClaimed else { return }
-        if scrollView.zoomScale > scrollView.minimumZoomScale {
-            scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
-        } else {
-            let point = gr.location(in: contentContainerView)
-            let zoomRect = zoomRect(for: doubleTapZoomScale, centeredAt: point)
-            scrollView.zoom(to: zoomRect, animated: true)
-        }
-    }
-
-    private func zoomRect(for scale: CGFloat, centeredAt point: CGPoint) -> CGRect {
-        let w = scrollView.bounds.width / scale
-        let h = scrollView.bounds.height / scale
-        return CGRect(x: point.x - w / 2, y: point.y - h / 2, width: w, height: h)
+        scrollView.toggleZoom(at: gr.location(in: contentContainerView))
     }
 
     @objc private func handleDismissPan(_ gr: UIPanGestureRecognizer) {
-        guard !pinchTouchGuard.isClaimed, state == .normal,
-              scrollView.zoomScale <= scrollView.minimumZoomScale + 0.001 else { return }
+        guard !pinchTouchGuard.isClaimed, state == .normal, scrollView.isAtMinimumZoom else { return }
         let translation = gr.translation(in: self)
         switch gr.state {
         case .began, .changed:
             // Follow the finger directly, without UIScrollView's overscroll resistance.
-            let progress = min(1, abs(translation.y) / max(1, bounds.height * 0.5))
-            let scale = UIAccessibility.isReduceMotionEnabled ? 1 : 1 - progress * 0.08
-            scrollView.transform = CGAffineTransform(translationX: translation.x * 0.25, y: translation.y).scaledBy(x: scale, y: scale)
-            backgroundColor = UIColor.black.withAlphaComponent(max(0, 1 - abs(translation.y) / 200))
+            scrollView.transform = MediaViewerMotion.getDismissTransform(for: translation, in: bounds)
+            backgroundColor = UIColor.black.withAlphaComponent(MediaViewerMotion.getBackdropAlpha(for: translation))
         case .ended, .cancelled:
             let velocity = gr.velocity(in: self)
-            if gr.state == .ended,
-               abs(translation.y) > bounds.height * 0.2 || (abs(velocity.y) > 800 && abs(translation.y) > 12) {
+            if gr.state == .ended, MediaViewerMotion.shouldDismiss(translation: translation, velocity: velocity, in: bounds) {
                 dismiss(velocity.y < 0 ? .throwUp : .throwDown)
             } else {
-                UIView.animate(withDuration: NftDetailsMediaMotion.duration, delay: 0,
-                               usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+                UIView.animate(withDuration: MediaViewerMotion.duration, delay: 0,
+                               usingSpringWithDamping: MediaViewerMotion.damping, initialSpringVelocity: 0,
                                options: [.beginFromCurrentState, .allowUserInteraction]) {
                     self.scrollView.transform = .identity
                     self.backgroundColor = .black
@@ -309,7 +259,7 @@ extension NftDetailsFullScreenOverlay: UIGestureRecognizerDelegate {
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === dismissPanGesture, let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
         let velocity = pan.velocity(in: self)
-        return !pinchTouchGuard.isClaimed && state == .normal && scrollView.zoomScale <= scrollView.minimumZoomScale + 0.001
+        return !pinchTouchGuard.isClaimed && state == .normal && scrollView.isAtMinimumZoom
             && abs(velocity.y) > abs(velocity.x)
     }
 
@@ -317,22 +267,5 @@ extension NftDetailsFullScreenOverlay: UIGestureRecognizerDelegate {
         gestureRecognizer === dismissPanGesture
             && (otherGestureRecognizer === scrollView.panGestureRecognizer
                 || otherGestureRecognizer === scrollView.pinchGestureRecognizer)
-    }
-}
-
-extension NftDetailsFullScreenOverlay: UIScrollViewDelegate {
-    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        contentContainerView
-    }
-
-    func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        centerContent()
-        if state == .normal { backgroundColor = .black }
-    }
-    
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if state == .normal, dismissPanGesture?.state != .changed, dismissPanGesture?.state != .began {
-            updateBackground()
-        }
     }
 }

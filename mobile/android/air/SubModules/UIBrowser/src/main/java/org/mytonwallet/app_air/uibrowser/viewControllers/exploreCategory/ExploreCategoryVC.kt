@@ -9,7 +9,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.cells.ExploreCategorySiteCell
-import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -133,20 +132,17 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
             }
             return
         }
-        val inAppBrowserVC = InAppBrowserVC(
-            context,
-            navigationController?.tabBarController,
+        InAppBrowserVC.open(
+            window,
             InAppBrowserConfig(
                 url = url,
                 title = app.name,
                 thumbnail = app.iconUrl,
                 injectDappConnect = true,
                 saveInVisitedHistory = true
-            )
+            ),
+            isKnownDapp = true
         )
-        val nav = WNavigationController(window)
-        nav.setRoot(inAppBrowserVC)
-        window.present(nav)
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1

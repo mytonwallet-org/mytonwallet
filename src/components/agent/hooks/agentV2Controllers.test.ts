@@ -155,11 +155,7 @@ describe('Agent V2 controllers', () => {
     const controller = createAgentV2HydrationController({
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
-      getDefaultThread: () => Promise.resolve({ ok: true, value: {
-        protocolVersion: 3,
-        thread: threadSummary(1),
-        created: false,
-      } }),
+      resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
       getHints: () => Promise.resolve(undefined),
       getLangCode: () => 'en',
       getMessages,
@@ -218,11 +214,7 @@ describe('Agent V2 controllers', () => {
     const controller = createAgentV2HydrationController({
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
-      getDefaultThread: () => Promise.resolve({ ok: true, value: {
-        protocolVersion: 3,
-        thread: threadSummary(1),
-        created: false,
-      } }),
+      resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
       getHints: () => Promise.resolve(undefined),
       getLangCode: () => 'en',
       getMessages: () => Promise.resolve(hydration),
@@ -245,6 +237,38 @@ describe('Agent V2 controllers', () => {
       THREAD_ID,
       [incompatibleMessage(0)],
     );
+  });
+
+  it('reports a thread the server no longer has instead of showing another one', async () => {
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      isConsentAccepted: true,
+    });
+    const stream = createStreamHarness(state);
+    const onThreadNotFound = jest.fn();
+    const controller = createAgentV2HydrationController({
+      buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
+      dispatch: state.dispatch,
+      resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
+      onThreadNotFound,
+      getHints: () => Promise.resolve(undefined),
+      getLangCode: () => 'en',
+      getMessages: () => Promise.resolve({ ok: false, error: { code: 'thread_not_found', retryable: false } }),
+      getState: state.getState,
+      isConsentAccepted: () => true,
+      loadAvailability: () => Promise.resolve(undefined),
+      loadUserQuota: () => Promise.resolve(undefined),
+      mapHints: () => [],
+      now: () => 100,
+      releaseStaleThreadClearOperation: jest.fn(),
+      stream: stream.controller,
+    });
+
+    await controller.hydrate();
+
+    expect(onThreadNotFound).toHaveBeenCalledTimes(1);
+    expect(state.getState().thread).toBeUndefined();
+    expect(state.getState()).toMatchObject({ error: { text: 'History unavailable' } });
   });
 
   it('owns run admission and terminal settlement without authoritative hydration', async () => {

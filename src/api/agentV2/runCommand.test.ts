@@ -12,6 +12,9 @@ describe('Agent V2 run command', () => {
     ['with an entry point', appendCommand({
       entryPoint: { kind: 'agentTab' },
     }), { entryPoint: { kind: 'agentTab' } }],
+    ['with a news entry point', appendCommand({
+      entryPoint: { kind: 'pulseNews', eventId: 307 },
+    }), { entryPoint: { kind: 'pulseNews', eventId: 307 } }],
     ['with a follow-up', appendCommand({
       followupOf: { messageId: MESSAGE_ID, followupId: 'followup-1' },
     }), { followupOf: { messageId: MESSAGE_ID, followupId: 'followup-1' } }],

@@ -8,8 +8,8 @@ struct ApiPromotionTests {
         {"type":"updateAccountBanners","accountId":"0-mainnet","homeBanners":[],"stakingBanners":[{
           "id":"foreign-staking:ton:tonstakers","kind":"foreignStaking","linkedBannerId":"foreign-staking:ton",
           "foreignStaking":{"chain":"ton","providerName":"tonstakers","amount":"12","symbol":"TON","apy":3,"stakingApy":5},
-          "infoBanner":{"title":"🔒 %amount% %symbol% locked in another staking","textValues":{"%amount%":"12","%symbol%":"TON"},
-          "description":"Unstake them to restake with **higher returns**.","actionButton":{"title":"Unstake","onClickAction":"unstakeForeign","chain":"ton","providerName":"tonstakers"}}
+          "infoBanner":{"title":"🔒 %amount% %symbol% staked elsewhere","textValues":{"%amount%":"12","%symbol%":"TON"},
+          "description":"Unlock your %symbol% to access higher-yield staking.","actionButton":{"title":"Unstake","onClickAction":"unstakeForeign","chain":"ton","providerName":"tonstakers"}}
         }]}
         """#
         let update = try JSONDecoder().decode(ApiUpdate.UpdateAccountBanners.self, from: Data(json.utf8))

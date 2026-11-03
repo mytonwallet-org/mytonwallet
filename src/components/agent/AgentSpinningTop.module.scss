@@ -1,0 +1,26 @@
+.root {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+// The canvas reaches a tenth of the side past each edge, so the leaning top is never clipped
+.canvas {
+  pointer-events: none;
+
+  position: absolute;
+  inset: -10%;
+
+  width: 120%;
+  height: 120%;
+}
+
+// A scroll can start on the top; a hold or a sideways move takes the finger
+.interactive {
+  touch-action: pan-y;
+  cursor: var(--custom-cursor, pointer);
+  user-select: none;
+
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}

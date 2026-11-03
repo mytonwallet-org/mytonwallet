@@ -7,12 +7,12 @@ import React, {
 import type { CardController } from '../../../../util/card/types';
 
 import { forceMutation, suppressStrict } from '../../../../lib/fasterdom/fasterdom';
+import { getIsInBackground } from '../../../../util/backgroundMode';
 import buildClassName from '../../../../util/buildClassName';
 import { createPrivacyField } from '../../../../util/card/privacy';
 import { EARLY_FRAME_MARGIN_MS } from '../../../../util/card/surfaceLight';
 import { captureProductionText, localPosition } from '../../../../util/card/textSnapshot';
 
-import { getIsInBackground } from '../../../../hooks/useBackgroundMode';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
 import styles from './CardPrivacy.module.scss';

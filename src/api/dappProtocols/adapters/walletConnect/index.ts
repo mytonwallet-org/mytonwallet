@@ -90,6 +90,7 @@ import {
 } from '../../../../util/walletConnectPay';
 import { callWindow } from '../../../../util/windowProvider/connector';
 import chains from '../../../chains';
+import { isTypedDataDomainOnChain } from '../../../chains/evm/typedDataChainId';
 import { getEvmProvider } from '../../../chains/evm/util/client';
 import {
   fetchStoredAccounts,
@@ -149,6 +150,7 @@ import { READONLY_EVM_RPC_METHODS } from './readonlyMethods';
 
 const EVM_TX_FINALIZATION_POLL_MS = 2000;
 const EVM_TX_FINALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
+const TYPED_DATA_CHAIN_MISMATCH_MESSAGE = 'Typed data domain chainId does not match the requested chain';
 
 type PendingReturnRequest = {
   key: string;
@@ -390,7 +392,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         identifier: String(id),
       };
 
-      const result = await this.connect(request, connectionRequest, id);
+      const result = await this.connectRelay(request, connectionRequest, id);
 
       if (!result.success) {
         return;
@@ -479,7 +481,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       iss,
     });
 
-    const signResult = await this.signData(
+    const signResult = await this.processSignDataRequest(
       { url: dappUrl, accountId },
       {
         id: String(requestId),
@@ -541,7 +543,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         identifier: String(id),
       };
 
-      const result = await this.connect(request, connectionRequest, 1);
+      const result = await this.connectRelay(request, connectionRequest, 1);
 
       if (!result.success) {
         return;
@@ -601,7 +603,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       },
     };
 
-    const response = await this.sendTransaction({ url }, message);
+    const response = await this.processTransactionRequest({ url }, message);
 
     return response;
   }
@@ -692,7 +694,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             },
           };
 
-          const response = await this.sendTransaction({ url: byTopic.dapp.url }, message);
+          const response = await this.processTransactionRequest({ url: byTopic.dapp.url }, message);
 
           if (response?.success) {
             await this.walletKit.respondSessionRequest({
@@ -740,7 +742,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           },
         };
 
-        const response = await this.sendTransaction({ url: byTopic.dapp.url }, message);
+        const response = await this.processTransactionRequest({ url: byTopic.dapp.url }, message);
 
         if (!response?.success) {
           return;
@@ -814,7 +816,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           },
         };
 
-        await this.signData({ url: byTopic.dapp.url }, message);
+        await this.processSignDataRequest({ url: byTopic.dapp.url }, message);
         break;
       }
 
@@ -849,7 +851,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           },
         };
 
-        await this.signData({ url: byTopic.dapp.url }, message);
+        await this.processSignDataRequest({ url: byTopic.dapp.url }, message);
         break;
       }
 
@@ -899,10 +901,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             topic,
             eip712,
             isEthSign: true,
+            network: namespace.network,
           },
         };
 
-        await this.signData({ url: byTopic.dapp.url }, message);
+        await this.processSignDataRequest({ url: byTopic.dapp.url }, message);
         break;
       }
 
@@ -915,7 +918,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             data: request.params.message,
           },
         };
-        await this.signData({ url: byTopic.dapp.url }, message);
+        await this.processSignDataRequest({ url: byTopic.dapp.url }, message);
         break;
       }
 
@@ -971,11 +974,27 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // DappProtocolAdapter: Connection Handling
   // ---------------------------------------------------------------------------
 
+  /**
+   * Entry point for injected and bridged dApps, whose identity is the transport origin in `request.url`.
+   * Relay connections start only from WalletKit events, through `connectRelay`.
+   */
   async connect(
     request: ApiDappRequest,
     message: DappConnectionRequest<typeof this.protocolType>,
     requestId: number,
   ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    if (message.transport !== 'extension' && message.transport !== 'inAppBrowser') {
+      logDebugError('walletConnect:connect', 'Unsupported transport');
+
+      return {
+        success: false,
+        error: {
+          code: 0,
+          message: 'Unsupported transport',
+        },
+      };
+    }
+
     const dappUrl = resolveWalletConnectDappUrl({
       requestUrl: request.url,
       metadataUrl: message.protocolData.params.proposer.metadata.url,
@@ -987,11 +1006,30 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       transport: message.transport,
     });
 
-    if (message.transport === 'extension' || message.transport === 'inAppBrowser') {
-      return this.connectInjectedTransport(request, message, requestId, dappUrl);
-    }
+    return this.connectInjectedTransport(request, message, requestId, dappUrl);
+  }
 
-    return this.connectWithApprovalModal(request, message, requestId, dappUrl);
+  /**
+   * Connects a session proposal or session authenticate request received over the WalletConnect relay.
+   * The dApp URL comes from the proposer metadata and the trust status from the Verify API context.
+   */
+  private connectRelay(
+    request: ApiDappRequest,
+    message: DappConnectionRequest<typeof this.protocolType>,
+    requestId: number,
+  ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    const dappUrl = resolveWalletConnectDappUrl({
+      requestUrl: request.url,
+      metadataUrl: message.protocolData.params.proposer.metadata.url,
+      transport: 'relay',
+    });
+
+    logDebug('walletConnect:connect:enter', {
+      host: safeHost(dappUrl),
+      transport: 'relay',
+    });
+
+    return this.connectWithApprovalModal(request, message, requestId, dappUrl, true);
   }
 
   private buildInjectedConnectKey(dappUrl: string, uniqueId: string): string {
@@ -1135,7 +1173,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       }
     }
 
-    const promise = this.connectWithApprovalModal(request, message, requestId, dappUrl);
+    const promise = this.connectWithApprovalModal(request, message, requestId, dappUrl, false);
     this.inFlightConnects.set(connectKey, promise);
 
     try {
@@ -1150,7 +1188,12 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     message: DappConnectionRequest<typeof this.protocolType>,
     requestId: number,
     dappUrl: string,
+    isRelay: boolean,
   ): Promise<DappConnectionResult<typeof this.protocolType>> {
+    // Only relay proposals carry a pairing topic and a return URL; other transports get them from the page.
+    const pairingTopic = isRelay ? message.protocolData.params.pairingTopic : undefined;
+    const returnUrl = isRelay ? message.protocolData.params.proposer.metadata.redirect?.native : undefined;
+
     try {
       // Note: For WalletConnect, connections are initiated via handleSessionProposal
       // This method would be called if we want to programmatically initiate a connection
@@ -1170,7 +1213,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       let chains: StoredSessionChain[] = [];
 
       const urlTrustStatus = request.urlTrustStatus
-        ?? (message.transport === 'relay'
+        ?? (isRelay
           ? urlTrustStatusStatusFromWalletConnectVerify(message.protocolData.verifyContext)
           : 'verified');
 
@@ -1198,16 +1241,12 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             chains: [],
             url: dappUrl,
             connectedAt: Date.now(),
-            wcPairingTopic: message.protocolData.params.pairingTopic,
+            wcPairingTopic: pairingTopic,
             urlTrustStatus,
           };
 
-          if (message.protocolData.params.pairingTopic) {
-            this.bindReturnRequest(
-              `pairing:${message.protocolData.params.pairingTopic}`,
-              promiseId,
-              message.protocolData.params.proposer.metadata.redirect?.native,
-            );
+          if (pairingTopic) {
+            this.bindReturnRequest(`pairing:${pairingTopic}`, promiseId, returnUrl);
           }
           this.onUpdate({
             type: 'dappConnect',
@@ -1235,18 +1274,14 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         chains,
         url: dappUrl,
         connectedAt: Date.now(),
-        wcPairingTopic: message.protocolData.params.pairingTopic,
+        wcPairingTopic: pairingTopic,
         urlTrustStatus,
       };
 
       const uniqueId = getDappConnectionUniqueId(dapp);
 
-      if (message.protocolData.params.pairingTopic) {
-        this.bindReturnRequest(
-          `pairing:${message.protocolData.params.pairingTopic}`,
-          promiseId,
-          message.protocolData.params.proposer.metadata.redirect?.native,
-        );
+      if (pairingTopic) {
+        this.bindReturnRequest(`pairing:${pairingTopic}`, promiseId, returnUrl);
       }
       this.onUpdate({
         type: 'dappConnect',
@@ -1317,11 +1352,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       };
     } catch (err) {
       logDebugError('walletConnect:connect', err);
-      if (message.protocolData.params.pairingTopic) {
-        this.markReturnRequestFailed(`pairing:${message.protocolData.params.pairingTopic}`, err);
+      if (pairingTopic) {
+        this.markReturnRequestFailed(`pairing:${pairingTopic}`, err);
       }
 
-      if (message.transport === 'relay') {
+      if (isRelay) {
         try {
           if (message.protocolData.isSessionAuthenticate) {
             await this.walletKit.rejectSessionAuthenticate({
@@ -1490,7 +1525,28 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   // DappProtocolAdapter: Request Handling
   // ---------------------------------------------------------------------------
 
+  /**
+   * Entry point for injected and bridged dApps, whose identity is the transport origin in `request.url`.
+   * Requests on relay sessions carry a topic and come only from WalletKit events, through
+   * `processTransactionRequest`.
+   */
   async sendTransaction(
+    request: ApiDappRequest,
+    message: DappTransactionRequest<typeof this.protocolType>,
+  ): Promise<DappMethodResult<typeof this.protocolType>> {
+    if (message.payload.topic || message.payload.isSessionAuthenticate) {
+      logDebugError('walletConnect:sendTransaction', 'Relay session requests are accepted only from WalletKit events');
+
+      return {
+        success: false,
+        error: { code: 0, message: 'Unsupported request' },
+      };
+    }
+
+    return this.processTransactionRequest(request, message);
+  }
+
+  private async processTransactionRequest(
     request: ApiDappRequest,
     message: DappTransactionRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
@@ -1514,11 +1570,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const uniqueId = getDappConnectionUniqueId(request);
         const dappUrl = resolveWalletConnectMethodDappUrl(request.url);
 
-        accountId = request.accountId
-          ?? await getAccountIdByAddress(
-            chains[message.chain].normalizeAddress(accountAddress),
-            message.chain,
-          );
+        accountId = await this.resolveInjectedAccountId(request, message.chain, accountAddress, dappUrl, uniqueId);
 
         dapp = await getDapp(accountId, dappUrl, uniqueId);
       }
@@ -1542,6 +1594,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       const isBatchSign = Array.isArray(message.payload.data);
 
       const txBatch = isBatchSign ? message.payload.data as string[] : undefined;
+
+      if (txBatch && message.payload.isSignOnly !== true) {
+        throw new Error('Invalid params: batch sending is not supported');
+      }
 
       let serializedTxForPreview: string;
 
@@ -1590,6 +1646,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       if (txBatch) {
         transfers = [];
+        const emulations: ApiEmulationResult[] = [];
 
         for (const rawTx of txBatch) {
           const parsed = await this.chainDappSupports[message.chain]!.parseTransactionForPreview!(
@@ -1598,10 +1655,36 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             network,
           );
 
-          transfers.push(...parsed.transfers);
+          const [transfer] = parsed.transfers;
 
-          if (!emulation && parsed.emulation) {
-            emulation = parsed.emulation;
+          if (!transfer) {
+            throw new Error('No transfers found in batch transaction preview');
+          }
+
+          transfers.push({
+            ...transfer,
+            isDangerous: !parsed.emulation || parsed.transfers.some((parsedTransfer) => parsedTransfer.isDangerous),
+          });
+
+          if (parsed.emulation) {
+            emulations.push(parsed.emulation);
+          }
+        }
+
+        if (emulations.length === txBatch.length) {
+          emulation = emulations[0];
+
+          if (emulations.length > 1) {
+            emulation = {
+              activities: emulations.flatMap((result, txIndex) => result.activities.map((activity) => ({
+                ...activity,
+                id: `${txIndex}-${activity.id}`,
+              }))),
+              networkFee: emulations.reduce((sum, result) => sum + result.networkFee, 0n),
+              realFee: emulations.reduce((sum, result) => sum + result.realFee, 0n),
+              received: emulations.reduce((sum, result) => sum + result.received, 0n),
+              traceOutputs: emulations.flatMap((result) => result.traceOutputs),
+            };
           }
         }
       } else {
@@ -1663,6 +1746,10 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         };
       }
 
+      if (txBatch && signedTransactions.length !== txBatch.length) {
+        throw new Error('Signed transaction count does not match the requested batch');
+      }
+
       this.onUpdate({
         type: 'dappTransferComplete',
         promiseId,
@@ -1714,13 +1801,32 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     }
   }
 
+  /**
+   * Entry point for injected and bridged dApps, whose identity is the transport origin in `request.url`.
+   * Requests on relay sessions and session authenticate signatures carry a topic and come only from
+   * WalletKit events, through `processSignDataRequest`.
+   */
   async signData(
     request: ApiDappRequest,
     message: DappSignDataRequest<typeof this.protocolType>,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
-    try {
-      await this.openExtensionPopup(true);
+    if (message.payload.topic || message.payload.isSessionAuthenticate) {
+      logDebugError('walletConnect:signData', 'Relay session requests are accepted only from WalletKit events');
 
+      return {
+        success: false,
+        error: { code: 0, message: 'Unsupported request' },
+      };
+    }
+
+    return this.processSignDataRequest(request, message);
+  }
+
+  private async processSignDataRequest(
+    request: ApiDappRequest,
+    message: DappSignDataRequest<typeof this.protocolType>,
+  ): Promise<DappMethodResult<typeof this.protocolType>> {
+    try {
       let dapp: StoredDappConnection | undefined = undefined;
       let accountId: string | undefined = undefined;
 
@@ -1740,26 +1846,20 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const uniqueId = getDappConnectionUniqueId(request);
         const dappUrl = resolveWalletConnectMethodDappUrl(request.url);
 
-        // For inApp browser flow, accountId comes from the request (the wallet active in the browser session).
-        // Falling back to getAccountIdByAddress would return the first wallet that owns the address, which
-        // for users with multiple wallets sharing the same EVM key would resolve to the wrong account and
-        // break the dapp lookup below.
-        accountId = request.accountId
-          ?? await getAccountIdByAddress(
-            chains[message.chain].normalizeAddress(message.payload.address!),
-            message.chain,
-          );
+        accountId = await this.resolveInjectedAccountId(
+          request,
+          message.chain,
+          message.payload.address!,
+          dappUrl,
+          uniqueId,
+        );
 
         dapp = await getDapp(accountId, dappUrl, uniqueId);
 
         if (!dapp) {
-          dapp = {
-            protocolType: this.protocolType,
-            url: dappUrl,
-            name: safeHost(dappUrl),
-            iconUrl: '',
-            connectedAt: Date.now(),
-            chains: [],
+          return {
+            success: false,
+            error: { code: 0, message: 'Please reconnect your wallet from the dapp.' },
           };
         }
       }
@@ -1767,6 +1867,22 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       if (!dapp || !accountId) {
         throw new Error('walletConnect:signData: no dapp/accountId resolved');
       }
+
+      const { network } = parseAccountId(accountId);
+      // Only relay requests, which the adapter builds from the session request, carry a network
+      const typedDataNetwork = (message.payload.topic && message.payload.network) || network;
+
+      if (
+        message.payload.eip712
+        && (
+          (network === 'testnet' && typedDataNetwork === 'mainnet')
+          || !isTypedDataDomainOnChain(message.payload.eip712.domain, typedDataNetwork, message.chain as EVMChain)
+        )
+      ) {
+        return await this.rejectTypedDataForAnotherChain(message);
+      }
+
+      await this.openExtensionPopup(true);
 
       logDebug('walletConnect:signData:enter', {
         host: safeHost(dapp.url),
@@ -1801,6 +1917,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           types: message.payload.eip712.types,
           primaryType: message.payload.eip712.primaryType,
           message: message.payload.eip712.message,
+          network: typedDataNetwork,
         }
         : simplePaloadToSign!;
 
@@ -1887,6 +2004,63 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       }
       return formatConnectError(Number(message.id), err);
     }
+  }
+
+  /**
+   * The account behind an injected request. For the in-app browser it is the request's account (the wallet active in
+   * the browser session). Otherwise it is the latest account holding `address` with a connection to this dApp, since
+   * one key can back several wallets, also on different networks; the first account holding `address` when none is
+   * connected.
+   */
+  private async resolveInjectedAccountId(
+    request: ApiDappRequest,
+    chain: ApiChain,
+    address: string,
+    dappUrl: string,
+    uniqueId: string,
+  ): Promise<string> {
+    if (request.accountId) return request.accountId;
+
+    const normalizedAddress = chains[chain].normalizeAddress(address);
+    let connected: { accountId: string; connectedAt: number } | undefined;
+
+    for (const [accountId, account] of Object.entries(await fetchStoredAccounts())) {
+      if (account.type === 'view' || account.byChain[chain]?.address !== normalizedAddress) continue;
+
+      const connection = await getDapp(accountId, dappUrl, uniqueId);
+      if (connection && (!connected || connection.connectedAt > connected.connectedAt)) {
+        connected = { accountId, connectedAt: connection.connectedAt };
+      }
+    }
+
+    return connected?.accountId ?? getAccountIdByAddress(normalizedAddress, chain);
+  }
+
+  private async rejectTypedDataForAnotherChain(
+    message: DappSignDataRequest<typeof this.protocolType>,
+  ): Promise<DappMethodResult<typeof this.protocolType>> {
+    logDebug('walletConnect:signData:chainMismatch', { chain: message.chain, msgId: message.id });
+
+    const error = { code: -32602, message: TYPED_DATA_CHAIN_MISMATCH_MESSAGE };
+
+    if (message.payload.topic && !message.payload.isSessionAuthenticate) {
+      this.markSessionRequestFailed(
+        message.payload.topic,
+        message.id,
+        new ApiBaseError(TYPED_DATA_CHAIN_MISMATCH_MESSAGE, ApiCommonError.Unexpected),
+      );
+
+      try {
+        await this.walletKit.respondSessionRequest({
+          topic: message.payload.topic,
+          response: { id: Number(message.id), jsonrpc: '2.0', error },
+        });
+      } catch (respondErr) {
+        logDebugError('walletConnect:signData:respondSessionRequest', respondErr);
+      }
+    }
+
+    return { success: false, error };
   }
 
   async proxyEvmRpc(
@@ -2162,6 +2336,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         optionId: selectedOption.id,
       });
 
+      actions.forEach((action) => this.resolvePayChainEntry(action.walletRpc.chainId));
+
       const containsApprove = actions.some((action) =>
         action.walletRpc.method === 'eth_sendTransaction' && actions.length > 1,
       );
@@ -2257,20 +2433,31 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     }
   }
 
-  private async signPayAction(action: WalletRpcAction) {
-    const { chainId, method, params } = action;
+  /** Pay signs and sends with the account on its own network, so every action must target that network */
+  private resolvePayChainEntry(chainId: string) {
     const chainEntry = CHAIN_IDS[chainId];
 
     if (!chainEntry) {
       throw new Error(`Unsupported Pay chain: ${chainId}`);
     }
 
+    if (chainEntry.network !== parseAccountId(this.activePayContext!.accountId).network) {
+      throw new Error(`Pay chain ${chainId} is not on the account's network`);
+    }
+
+    return chainEntry;
+  }
+
+  private async signPayAction(action: WalletRpcAction) {
+    const { chainId, method, params } = action;
+    const chainEntry = this.resolvePayChainEntry(chainId);
+
     const parsedParams = JSON.parse(params) as unknown;
     const namespace = chainId.split(':')[0];
 
     switch (namespace) {
       case 'eip155':
-        return this.signPayEvmAction(chainEntry.chain, method, parsedParams);
+        return this.signPayEvmAction(chainEntry.chain, chainEntry.network, method, parsedParams);
       case 'solana':
         return this.signPaySolanaAction(method, parsedParams);
       default:
@@ -2289,18 +2476,15 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       throw new Error('Invalid approve payment actions');
     }
 
-    const signDataChainEntry = CHAIN_IDS[signDataAction.walletRpc.chainId];
-    const approveChainEntry = CHAIN_IDS[approveAction.walletRpc.chainId];
-
-    if (!signDataChainEntry || !approveChainEntry) {
-      throw new Error('Unsupported Pay chain');
-    }
+    const signDataChainEntry = this.resolvePayChainEntry(signDataAction.walletRpc.chainId);
+    const approveChainEntry = this.resolvePayChainEntry(approveAction.walletRpc.chainId);
 
     const signDataParams = JSON.parse(signDataAction.walletRpc.params) as unknown;
     const approveParams = JSON.parse(approveAction.walletRpc.params) as EvmTransactionParams[];
 
     const { signDataSignature, approveTxHash } = await this.processPaySignDataWithApprove(
       signDataChainEntry.chain,
+      signDataChainEntry.network,
       signDataParams,
       approveChainEntry.chain,
       approveParams[0],
@@ -2321,6 +2505,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
   private async signPayEvmAction(
     chain: ApiChain,
+    network: ApiNetwork,
     method: string,
     parsedParams: unknown,
   ) {
@@ -2328,7 +2513,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       case 'personal_sign':
       case 'eth_sign':
       case 'eth_signTypedData_v4':
-        return this.processPaySignData(chain, parsedParams, method);
+        return this.processPaySignData(chain, network, parsedParams, method);
       case 'eth_signTransaction': {
         const txParams = parsedParams as EvmTransactionParams[];
 
@@ -2377,6 +2562,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
   private async processPaySignDataWithApprove(
     signDataChain: ApiChain,
+    signDataNetwork: ApiNetwork,
     signDataParams: unknown,
     approveChain: ApiChain,
     approveTxParams: EvmTransactionParams,
@@ -2398,6 +2584,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       signDataParams,
       walletAddress,
       'eth_signTypedData_v4',
+      signDataChain,
+      signDataNetwork,
     );
 
     const approveAccount = await fetchStoredChainAccount(accountId, approveChain);
@@ -2498,6 +2686,8 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     params: unknown,
     walletAddress: string,
     method: string,
+    chain: ApiChain,
+    network: ApiNetwork,
   ): UnifiedSignDataPayload {
     switch (method) {
       case 'eth_signTypedData_v4': {
@@ -2513,12 +2703,17 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
           throw new Error('Invalid typed data');
         }
 
+        if (!isTypedDataDomainOnChain(eip712.domain, network, chain as EVMChain)) {
+          throw new Error(TYPED_DATA_CHAIN_MISMATCH_MESSAGE);
+        }
+
         return {
           type: 'eip712',
           domain: eip712.domain,
           types: eip712.types,
           primaryType: eip712.primaryType,
           message: eip712.message,
+          network,
         };
       }
 
@@ -2576,6 +2771,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
   private async processPaySignData(
     chain: ApiChain,
+    network: ApiNetwork,
     params: unknown,
     method: string,
   ): Promise<string> {
@@ -2588,7 +2784,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     const { accountId, merchant } = ctx;
     const account = await fetchStoredChainAccount(accountId, chain);
     const walletAddress = account.byChain[chain].address;
-    const payloadToSign = this.buildPaySignDataPayload(params, walletAddress, method);
+    const payloadToSign = this.buildPaySignDataPayload(params, walletAddress, method, chain, network);
 
     try {
       await this.openExtensionPopup(true);

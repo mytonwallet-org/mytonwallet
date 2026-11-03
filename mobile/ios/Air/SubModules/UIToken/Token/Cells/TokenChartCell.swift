@@ -48,11 +48,17 @@ final class TokenChartCell: FirstRowCell {
     }
 
     func configure(token: ApiToken,
+                   showsTokenIcon: Bool = false,
                    historyData: [[Double]]?,
+                   isHistoryRestored: Bool,
+                   historyLoadingState: TokenHistoryLoadingState,
                    onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
                    onAnalyze: (() -> Void)?) {
         chartContainerView?.configure(token: token,
+                                      showsTokenIcon: showsTokenIcon,
                                       historyData: historyData,
+                                      isHistoryRestored: isHistoryRestored,
+                                      historyLoadingState: historyLoadingState,
                                       onPeriodChange: onPeriodChange,
                                       onAnalyze: onAnalyze)
     }

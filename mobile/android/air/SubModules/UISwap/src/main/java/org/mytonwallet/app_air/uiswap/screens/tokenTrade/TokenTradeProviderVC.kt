@@ -25,6 +25,8 @@ class TokenTradeProviderVC(context: Context, private val estimate: MApiSwapCexEs
 
     override val shouldDisplayTopBar = false
 
+    override val wrapsContentInCenteredWindow = true
+
     private val infoView = SwapCexProviderInfoView(context).apply {
         id = View.generateViewId()
     }

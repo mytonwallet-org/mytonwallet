@@ -15,7 +15,6 @@ final class WSegmentedControlLensView: UIView {
     private let nativeLens: UIView?
     private weak var liftedContainer: UIView?
     private var displayLink: CADisplayLink?
-    private let displayLinkTarget = DisplayLinkTarget()
     private var isApplyingNativeState = false
     private var pendingNativeState: (State, Bool)?
     private var appliedNativeState: State?
@@ -29,9 +28,20 @@ final class WSegmentedControlLensView: UIView {
         var isLifted: Bool
     }
 
+    private var renderedAppearance: UIUserInterfaceStyle?
+
     private(set) var selectionFrame: CGRect?
     private(set) var isLifted = false
     var usesNativeLens: Bool { nativeLens != nil }
+
+    /// The tint the system lens rests its selection on, for a copy of the tabs: the same color matrix over what lies
+    /// behind it, the glass and the selected items alike, in the appearance of the window it shows in
+    static func makeRestingBackgroundCopy() -> UIView {
+        let view = RestingBackgroundView()
+        view.isUserInteractionEnabled = false
+        view.followsWindowAppearance = true
+        return view
+    }
 
     init(useNativeLens: Bool = true) {
         nativeLens = useNativeLens ? Native.makeLens() : nil
@@ -62,7 +72,6 @@ final class WSegmentedControlLensView: UIView {
             contentView.layer.mask = normalMask
             selectedContentView.layer.mask = selectedMask
         }
-        displayLinkTarget.owner = self
     }
 
     @available(*, unavailable)
@@ -115,6 +124,10 @@ final class WSegmentedControlLensView: UIView {
         let frame = selectionFrame ?? .zero
         if nativeLens != nil {
             restingBackgroundView.frame = CGRect(origin: .zero, size: bounds.size)
+            // Rounded as the tabs' capsule, so a selection scrolled partly out of view doesn't show square corners
+            // past the capsule's ends
+            restingBackgroundView.layer.cornerRadius = bounds.height / 2
+            restingBackgroundView.layer.cornerCurve = .continuous
             restingBackgroundView.update(isDark: traitCollection.userInterfaceStyle == .dark)
             let restingAlpha: CGFloat = self.isLifted ? 0 : 1
             if restingBackgroundView.alpha != restingAlpha {
@@ -135,6 +148,23 @@ final class WSegmentedControlLensView: UIView {
             }
         }
         updateDisplayLink()
+    }
+
+    /// Makes the selection redraw for the current light or dark appearance. The system lens keeps drawing the selected
+    /// content and its resting background as it last rendered them until its state changes, as a touch changes it, so
+    /// after a change of appearance it would keep the old colors.
+    func refreshAppearance() {
+        let style = traitCollection.userInterfaceStyle
+        guard renderedAppearance != style else { return }
+        renderedAppearance = style
+        guard let nativeLens else { return }
+        restingBackgroundView.invalidateAppearance()
+        restingBackgroundView.update(isDark: style == .dark)
+        Native.setObject(nativeLens, Native.restingColor, UIColor(white: 0, alpha: 0.1))
+        Native.setObject(nativeLens, Native.liftedContent, selectedContentView)
+        guard !isApplyingNativeState, let state = appliedNativeState else { return }
+        appliedNativeState = nil
+        applyNativeState(state, animated: false)
     }
 
     func cancelAnimations() {
@@ -262,10 +292,10 @@ final class WSegmentedControlLensView: UIView {
     private func updateDisplayLink() {
         if (isLifted || liftTransition != nil) && window != nil {
             if displayLink == nil {
-                let link = CADisplayLink(target: displayLinkTarget, selector: #selector(DisplayLinkTarget.tick))
-                link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
-                link.add(to: .main, forMode: .common)
-                displayLink = link
+                displayLink = .makeWeak(
+                    owner: self,
+                    frameRateRange: CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
+                ) { owner, _ in owner.advanceNativeLens() }
             }
         } else {
             displayLink?.invalidate()
@@ -273,26 +303,25 @@ final class WSegmentedControlLensView: UIView {
         }
     }
 
-    @MainActor private final class DisplayLinkTarget: NSObject {
-        weak var owner: WSegmentedControlLensView?
-        @objc func tick() {
-            guard let owner, !owner.isApplyingNativeState, let state = owner.appliedNativeState else { return }
-            owner.advanceLiftTransition()
-            UIView.performWithoutAnimation {
-                owner.nativeLens?.bounds = owner.nativeBounds(for: state)
-            }
-            // UIKit only advances the lifted bounce while its position is being updated.
-            owner.nativeLens?.center = CGPoint(x: state.frame.midX, y: state.frame.midY)
-            owner.updateDisplayLink()
+    private func advanceNativeLens() {
+        guard !isApplyingNativeState, let state = appliedNativeState else { return }
+        advanceLiftTransition()
+        UIView.performWithoutAnimation {
+            nativeLens?.bounds = nativeBounds(for: state)
         }
+        // UIKit only advances the lifted bounce while its position is being updated.
+        nativeLens?.center = CGPoint(x: state.frame.midX, y: state.frame.midY)
+        updateDisplayLink()
     }
 
     @MainActor private final class RestingBackgroundView: UIVisualEffectView {
         private var isDark: Bool?
+        /// Takes the appearance of each window it moves into, for a copy that no lens updates
+        var followsWindowAppearance = false
 
         init() {
             super.init(effect: UIBlurEffect(style: .light))
-            for subview in subviews where subview.description.contains(String("weivbuStceffElausiV".reversed())) {
+            for subview in subviews where subview.description.contains(PrivateAPI.visualEffectSubview.string) {
                 subview.isHidden = true
             }
             clipsToBounds = true
@@ -301,43 +330,47 @@ final class WSegmentedControlLensView: UIView {
         @available(*, unavailable)
         required init?(coder: NSCoder) { fatalError() }
 
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard followsWindowAppearance, window != nil else { return }
+            invalidateAppearance()
+            update(isDark: traitCollection.userInterfaceStyle == .dark)
+        }
+
+        func invalidateAppearance() {
+            isDark = nil
+        }
+
         func update(isDark: Bool) {
             guard self.isDark != isDark else { return }
             self.isDark = isDark
             guard let sublayer = layer.sublayers?.first, sublayer.filters != nil else { return }
             sublayer.backgroundColor = nil
             sublayer.isOpaque = false
-            let makeFilter = Native.selector(":emaNhtiWretlif")
-            guard let cls = NSClassFromString(String("retliFAC".reversed())) as? NSObject.Type,
-                  cls.responds(to: makeFilter),
-                  let filter = cls.perform(makeFilter, with: String("xirtaMroloc".reversed()))?.takeUnretainedValue() as? NSObject else { return }
+            guard let filter = PrivateAPI.makeFilter(PrivateAPI.colorMatrixFilterType.string) else { return }
             var matrix: [Float32] = isDark
                 ? [1.082, -0.113, -0.011, 0, 0.135, -0.034, 1.003, -0.011, 0, 0.135, -0.034, -0.113, 1.105, 0, 0.135, 0, 0, 0, 1, 0]
                 : [1.185, -0.05, -0.005, 0, -0.2, -0.015, 1.15, -0.005, 0, -0.2, -0.015, -0.05, 1.195, 0, -0.2, 0, 0, 0, 1, 0]
-            filter.setValue(NSValue(bytes: &matrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}"), forKey: String("xirtaMroloCtupni".reversed()))
+            filter.setValue(NSValue(bytes: &matrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}"), forKey: PrivateAPI.inputColorMatrix.string)
             sublayer.filters = [filter]
-            sublayer.setValue(1.0, forKey: String("elacs".reversed()))
+            sublayer.setValue(1.0, forKey: "scale")
         }
     }
 
     @MainActor private enum Native {
-        static let liftedContainer = selector(":weiVreniatnoCdetfiLtes")
-        static let liftedContent = selector(":weiVtnetnoCdetfiLtes")
-        static let punchout = selector(":weiVtuohcnuPedirrevOtes")
-        static let lift = selector(":noitelpmoc:snoitaminAedisgnola:detamina:detfiLtes")
-        static let mode = selector(":edoMtnetnoCdetfiLtes")
-        static let style = selector(":elytStes")
-        static let warp = selector(":woleBtnetnoCspraWtes")
-        static let restingColor = selector(":roloCdnuorgkcaBgnitseRtes")
-
-        static func selector(_ reversed: String) -> Selector {
-            NSSelectorFromString(String(reversed.reversed()))
-        }
+        static let liftedContainer = PrivateAPI.liquidLensSetLiftedContainerView.selector
+        static let liftedContent = PrivateAPI.liquidLensSetLiftedContentView.selector
+        static let punchout = PrivateAPI.liquidLensSetOverridePunchoutView.selector
+        static let lift = PrivateAPI.liquidLensSetLifted.selector
+        static let mode = PrivateAPI.liquidLensSetLiftedContentMode.selector
+        static let style = PrivateAPI.liquidLensSetStyle.selector
+        static let warp = PrivateAPI.liquidLensSetWarpsContentBelow.selector
+        static let restingColor = PrivateAPI.liquidLensSetRestingBackgroundColor.selector
 
         static func makeLens() -> UIView? {
             guard #available(iOS 26, *) else { return nil }
-            let initialize = selector(":dnuorgkcaBgnitseRhtiWtini")
-            guard let cls = NSClassFromString(String("weiVsneLdiuqiLIU_".reversed())) as? NSObject.Type,
+            let initialize = PrivateAPI.liquidLensInitWithRestingBackground.selector
+            guard let cls = PrivateAPI.liquidLensView.objectClass,
                   let method = class_getInstanceMethod(cls, initialize),
                   [liftedContainer, liftedContent, punchout, lift, mode, style, warp, restingColor]
                     .allSatisfy({ class_getInstanceMethod(cls, $0) != nil }),

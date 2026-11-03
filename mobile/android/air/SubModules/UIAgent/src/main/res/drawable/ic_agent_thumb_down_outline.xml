@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dislike in the rating bar: the design's rounded outline thumb, 2.5 stroke in a 40 box -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M13.3808,24.0781L13.598,9.1289M7.45117,10.9281V21.6585C7.45117,23.073 8.6151,24.2369 10.0296,24.2369H13.0244C13.8192,24.2369 14.57,24.6041 15.058,25.2317C16.868,27.5605 17.9804,29.0209 18.3964,29.6129C20.5672,32.7057 20.8584,34.1337 23.3032,34.1337C24.1816,34.1337 25.386,33.4885 25.386,31.9869C25.386,30.3649 24.8964,27.8921 23.9176,24.5689C23.869,24.4054 23.995,24.2367 24.1656,24.2369H28.7848C31.2448,24.2366 33.0729,21.8247 32.4084,19.4561L30.3472,12.1133C29.7244,9.89472 27.6867,8.35015 25.3824,8.3501H10.0296C8.6151,8.3501 7.45117,9.51363 7.45117,10.9281Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FF1C1D21"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

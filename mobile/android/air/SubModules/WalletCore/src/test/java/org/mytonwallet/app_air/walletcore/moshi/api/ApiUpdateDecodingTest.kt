@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
 import com.squareup.moshi.JsonDataException
+import com.squareup.moshi.Types
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -126,6 +127,55 @@ class ApiUpdateDecodingTest {
     }
 
     @Test
+    fun nftChangedDecodesThroughPolymorphicAdapter() {
+        val update = decode<ApiUpdate>(
+            """
+            {
+                "type": "nftChanged",
+                "accountId": "0-mainnet",
+                "chain": "ton",
+                "nft": {
+                    "chain": "ton",
+                    "address": "EQ1",
+                    "name": "Updated NFT",
+                    "thumbnail": "https://example.com/thumbnail.png",
+                    "image": "https://example.com/image.png",
+                    "description": "Updated description",
+                    "isOnSale": true,
+                    "metadata": {"fragmentUrl": "", "imageUrl": "https://example.com/metadata.png"}
+                }
+            }
+            """.trimIndent()
+        ) as ApiUpdate.ApiUpdateNftChanged
+
+        assertEquals("0-mainnet", update.accountId)
+        assertEquals(MBlockchain.ton, update.chain)
+        assertEquals(MBlockchain.ton, update.nft.chain)
+        assertEquals("EQ1", update.nft.address)
+        assertEquals("Updated NFT", update.nft.name)
+        assertEquals("Updated description", update.nft.description)
+        assertEquals(true, update.nft.isOnSale)
+        assertEquals("https://example.com/metadata.png", update.nft.metadata?.imageUrl)
+    }
+
+    @Test
+    fun unknownUpdatesDoNotInterruptKnownUpdates() {
+        val type = Types.newParameterizedType(List::class.java, ApiUpdate::class.java)
+        val updates = moshi.adapter<List<ApiUpdate?>>(type).fromJson(
+            """
+            [
+                {"type": "futureUpdate", "payload": {"nested": [1, 2]}},
+                {"type": "nftSent", "accountId": "0-mainnet", "nftAddress": "EQ1"}
+            ]
+            """.trimIndent()
+        )!!
+
+        assertEquals(2, updates.size)
+        assertNull(updates[0])
+        assertEquals("EQ1", (updates[1] as ApiUpdate.ApiUpdateNftSent).nftAddress)
+    }
+
+    @Test
     fun balancesDecodeBridgeBigintEncoding() {
         val update = decode<ApiUpdate.ApiUpdateBalances>(
             """{"accountId":"0-ton","chain":"ton","balances":{"toncoin":"bigint:123456789012345678901234567890","usdt":"bigint:0"}}"""
@@ -146,7 +196,7 @@ class ApiUpdateDecodingTest {
     @Test
     fun accountBannersDecodeThroughBridgeAdapter() {
         val update = decode<ApiUpdate>(
-            """{"type":"updateAccountBanners","accountId":"0-mainnet","homeBanners":[{"id":"foreign-staking:ton","kind":"infoBanner","infoBanner":{"title":"More profitable staking available","textValues":{"%symbol%":"GRAM"},"description":"Tap **Earn** to restake your %symbol% with **higher returns**.","actionButton":{"title":"Restake Now","onClickAction":"openEarn"}}}],"stakingBanners":[{"id":"foreign-staking:ton:tonstakers","kind":"foreignStaking","foreignStaking":{"chain":"ton","providerName":"tonstakers","amount":"1","symbol":"GRAM","apy":3,"stakingApy":5},"infoBanner":{"title":"%amount% %symbol% locked in another staking","textValues":{"%amount%":"1","%symbol%":"GRAM"},"description":"Unstake them to restake with **higher returns**.","actionButton":{"title":"Unstake","onClickAction":"unstakeForeign","chain":"ton","providerName":"tonstakers"}},"linkedBannerId":"foreign-staking:ton"}]}"""
+            """{"type":"updateAccountBanners","accountId":"0-mainnet","homeBanners":[{"id":"foreign-staking:ton","kind":"infoBanner","infoBanner":{"title":"Higher-yield staking available","textValues":{"%symbol%":"GRAM"},"description":"Tap **Earn** to restake your %symbol% with **higher returns**.","actionButton":{"title":"Restake Now","onClickAction":"openEarn"}}}],"stakingBanners":[{"id":"foreign-staking:ton:tonstakers","kind":"foreignStaking","foreignStaking":{"chain":"ton","providerName":"tonstakers","amount":"1","symbol":"GRAM","apy":3,"stakingApy":5},"infoBanner":{"title":"%amount% %symbol% staked elsewhere","textValues":{"%amount%":"1","%symbol%":"GRAM"},"description":"Unlock your %symbol% to access higher-yield staking.","actionButton":{"title":"Unstake","onClickAction":"unstakeForeign","chain":"ton","providerName":"tonstakers"}},"linkedBannerId":"foreign-staking:ton"}]}"""
         ) as ApiUpdate.ApiUpdateAccountBanners
 
         assertEquals("0-mainnet", update.accountId)

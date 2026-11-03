@@ -42,6 +42,7 @@ import me.vkryl.android.util.ClickHelper
 import me.vkryl.core.fromTo
 import me.vkryl.core.fromToArgb
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.addCircleRect
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -102,6 +103,7 @@ class QrScannerView @JvmOverloads constructor(
     }
 
     private val titleTextView = AppCompatTextView(context).apply {
+        id = UIComponentsR.id.qr_scan_title
         setLineHeight(TypedValue.COMPLEX_UNIT_DIP, 24f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, adaptiveFontSize())
         setTextColor(Color.WHITE)

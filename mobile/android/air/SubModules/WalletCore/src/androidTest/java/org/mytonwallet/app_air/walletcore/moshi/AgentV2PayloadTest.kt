@@ -28,6 +28,8 @@ class AgentV2PayloadTest {
                 """{"kind":"tokenScreen","asset":{"slug":"ton","chain":"ton"}}""",
             AgentV2EntryPoint(kind = "globalSearch", query = "a\"b") to
                 """{"kind":"globalSearch","query":"a\"b"}""",
+            AgentV2EntryPoint(kind = "pulseNews", eventId = 42) to
+                """{"kind":"pulseNews","eventId":42}""",
             AgentV2EntryPoint(
                 kind = "emptyState",
                 surface = "agentTab",

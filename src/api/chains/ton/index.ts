@@ -20,6 +20,7 @@ import { signConnectionProof, signDappData, signDappTransfers } from './dapp';
 import {
   checkDnsChangeWalletDraft,
   checkDnsRenewalDraft,
+  clearDnsCache,
   submitDnsChangeWallet,
   submitDnsRenewal,
 } from './domains';
@@ -100,6 +101,7 @@ const tonSdk: ChainSdk<'ton'> = {
   fetchWalletPlugins,
   fetchNftByAddress,
   dns: {
+    clearCache: clearDnsCache,
     checkDnsRenewalDraft,
     submitDnsRenewal,
     checkDnsChangeWalletDraft,

@@ -55,6 +55,7 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
     var id: String
     let threadId: String
     let role: ApiAgentV2MessageRole
+    let newsPost: Bool
     private(set) var content: AgentV2NativeMessageContent
     let createdAt: Date
     private(set) var status: AgentV2NativeMessageStatus
@@ -85,6 +86,7 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         id = message.id
         threadId = message.threadId
         role = message.role
+        newsPost = message.newsPost == true
         switch message.content {
         case .markdown(let markdown):
             content = .markdown(markdown)
@@ -123,13 +125,15 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         text: String,
         contentKind: ApiAgentV2ContentKind = .markdown,
         responseLanguage: String? = nil,
-        status: AgentV2NativeMessageStatus = .complete
+        status: AgentV2NativeMessageStatus = .complete,
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.threadId = threadId
         self.role = role
+        newsPost = false
         content = contentKind == .markdown ? .markdown(text) : .semanticPending
-        createdAt = Date()
+        self.createdAt = createdAt
         self.status = status
         self.responseLanguage = responseLanguage
         error = nil
@@ -210,11 +214,12 @@ struct AgentV2ConversationState {
     mutating func ensureAssistantMessage(
         threadId: String,
         messageId: String,
+        inputMessageId: String?,
         contentKind: ApiAgentV2ContentKind,
         responseLanguage: String? = nil
     ) {
         guard !messages.contains(where: { $0.id == messageId }) else { return }
-        appendMessage(AgentV2NativeMessage(
+        let message = AgentV2NativeMessage(
             id: messageId,
             threadId: threadId,
             role: .assistant,
@@ -222,7 +227,14 @@ struct AgentV2ConversationState {
             contentKind: contentKind,
             responseLanguage: responseLanguage,
             status: .streaming
-        ))
+        )
+        if let inputMessageId,
+           let inputIndex = messages.firstIndex(where: { $0.id == inputMessageId }) {
+            let insertionIndex = messages[(inputIndex + 1)...].firstIndex(where: { $0.role == .user }) ?? messages.endIndex
+            messages.insert(message, at: insertionIndex)
+        } else {
+            messages.append(message)
+        }
     }
 
     mutating func appendMarkdown(messageId: String, delta: String) {

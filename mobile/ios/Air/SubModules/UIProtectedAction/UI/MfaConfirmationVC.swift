@@ -58,6 +58,8 @@ struct MfaConfirmationPresentationState {
 
 @MainActor
 public final class MfaConfirmationVC: WViewController {
+    public override var shouldPreserveSheetSizeOnPush: Bool { true }
+
     private let account: MAccount
     private let model: MfaConfirmationModel
     private let titleText: String

@@ -42,8 +42,10 @@ final class ContextMenuPressAnimationGestureRecognizer: UIGestureRecognizer {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         super.touchesBegan(touches, with: event)
 
-        guard touches.count == 1, let touch = touches.first, let view else {
-            self.state = .failed
+        // A second finger, as of a pinch, ends the press, as it ends UIKit's long press
+        guard touches.count == 1, self.initialLocation == nil, let touch = touches.first, let view else {
+            self.endPressAppearance()
+            self.state = self.hasActivated ? .cancelled : .failed
             return
         }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
  */
 internal class AgentV2ChatActivity(
     private val scope: CoroutineScope,
+    private val group: AgentV2ChatActivityGroup = AgentV2ChatActivityGroup(),
     private val setChatActive: suspend (Boolean) -> Unit
 ) {
     private var isVisible = false
@@ -18,7 +19,6 @@ internal class AgentV2ChatActivity(
     private var isInBackground = false
     private var isActive = false
     private var isStopped = false
-    private var lastCall: Job? = null
 
     fun setVisible(visible: Boolean) {
         isVisible = visible
@@ -52,12 +52,31 @@ internal class AgentV2ChatActivity(
         val active = isVisible && hasConsent && !isInBackground
         if (active == isActive && !(resending && active)) return
         isActive = active
+        group.update(this, active, resending, scope, setChatActive)
+    }
+}
+
+internal class AgentV2ChatActivityGroup {
+    private val activeChats = mutableSetOf<AgentV2ChatActivity>()
+    private var lastCall: Job? = null
+
+    fun update(
+        chat: AgentV2ChatActivity,
+        isActive: Boolean,
+        shouldResend: Boolean,
+        scope: CoroutineScope,
+        setChatActive: suspend (Boolean) -> Unit
+    ) {
+        val wasActive = activeChats.isNotEmpty()
+        if (isActive) activeChats.add(chat) else activeChats.remove(chat)
+        val isAnyChatActive = activeChats.isNotEmpty()
+        if (wasActive == isAnyChatActive && !(shouldResend && isAnyChatActive)) return
         val previous = lastCall
-        // Calls stay in order, so the SDK ends with the latest state.
+        // Calls from all thread sessions stay in order, so the SDK ends with the latest state
         lastCall = scope.launch {
             previous?.join()
             try {
-                setChatActive(active)
+                setChatActive(isAnyChatActive)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Throwable) {

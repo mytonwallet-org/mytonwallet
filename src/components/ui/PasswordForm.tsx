@@ -2,13 +2,14 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
 import { getActions, getGlobal, getPromiseActions, withGlobal } from '../../global';
 
-import type { MigrationErrorPresentation } from '../../global/types';
+import type { AuthType, EnclaveSession, MigrationErrorPresentation } from '../../global/types';
 
 import {
   PIN_LENGTH,
   SUPPORT_USERNAME,
   WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION,
 } from '../../config';
+import { presentAuthorizeFailure } from '../../global/helpers/authorizeFailure';
 import {
   selectHasLegacyBiometrics,
   selectIsBiometricAuthEnabled,
@@ -21,9 +22,10 @@ import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { stopEvent } from '../../util/domEvents';
 import { getTranslation } from '../../util/langProvider';
-import { pause } from '../../util/schedulers';
+import { pause, withTimeout } from '../../util/schedulers';
 import { createSignal } from '../../util/signals';
 import { enclave, type LegacyAuthConfig } from '../../enclave';
+import { getEnclaveErrorCode } from '../../enclave/errors';
 import { ANIMATED_STICKERS_PATHS } from './helpers/animatedAssets';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -105,6 +107,7 @@ interface StateProps {
 
 const STICKER_SIZE = 180;
 const APPEAR_ANIMATION_DURATION_MS = 300;
+const OTHER_AUTH_CHECK_TIMEOUT = 3000;
 
 const [getHandleBiometricsSignal, setHandleBiometricsSignal] = createSignal(Date.now());
 
@@ -131,6 +134,8 @@ function useMigrationFailureDialog(operationType?: OperationType) {
       }),
       noBackdropClose: true,
       isInAppLock: operationType === 'unlock',
+      // The logs are what tells support what happened on the device
+      buttons: { confirm: { action: 'exportLogs' }, cancel: { title: 'Close' } },
     });
   });
 }
@@ -207,7 +212,10 @@ function PasswordForm({
   // The biometric screen offers its retry only while something failed, and the dialog paths clear the
   // inline error the retry used to be keyed on, which would leave that screen without a single control
   const [hasMigrationFailed, markMigrationFailed, clearMigrationFailure] = useFlag(false);
-  const shouldSuggestLogout = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
+  // Once the storage is known to have lost the data, no number of attempts gets past it
+  const [isAuthDataMissing, markAuthDataMissing, clearAuthDataMissing] = useFlag(false);
+  const shouldSuggestLogout = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION)
+    || isAuthDataMissing;
   const showMigrationFailureDialog = useMigrationFailureDialog(operationType);
   const isAuthorizingRef = useRef(false);
   // Set while the password or biometrics is being checked. The Back and close buttons wait for the check to end:
@@ -215,11 +223,11 @@ function PasswordForm({
   const [isVerifying, markVerifying, unmarkVerifying] = useFlag(false);
 
   /**
-   * Both migration entry points report through here, so a diagnosis that needs the dialog cannot end
+   * Every authorization path reports through here, so a diagnosis that needs the dialog cannot end
    * up in the inline error slot on one path while getting the dialog on the other. The inline slot is
    * a single line under the input, which would leave the "do not reinstall" part of the answer unsaid.
    */
-  const handleMigrationError = useLastCallback((presentation: MigrationErrorPresentation) => {
+  const handleAuthError = useLastCallback((presentation: MigrationErrorPresentation) => {
     isAuthorizingRef.current = false;
 
     if (presentation.kind === 'inline') {
@@ -243,6 +251,18 @@ function PasswordForm({
     // reads as a frozen screen
     setInputValue('');
     showMigrationFailureDialog(presentation.titleKey, presentation.messageKey, presentation.errorCode);
+  });
+
+  const handleAuthorizeFailure = useLastCallback((
+    err: unknown, authType: AuthType, mayOtherAuthUnlock: boolean,
+  ) => {
+    const presentation = presentAuthorizeFailure(err, authType, getGlobal().authTypes, mayOtherAuthUnlock);
+    // An authorization answers with a dialog only when the storage has lost the data it checks against
+    if (presentation.kind === 'dialog') {
+      markAuthDataMissing();
+    }
+
+    handleAuthError(presentation);
   });
 
   // One usage for the operation itself plus the extra usages it asked for
@@ -295,6 +315,7 @@ function PasswordForm({
       setLocalError('');
       setInputValue('');
       clearMigrationFailure();
+      clearAuthDataMissing();
       isAuthorizingRef.current = false;
       unmarkVerifying();
     }
@@ -340,7 +361,7 @@ function PasswordForm({
         onError: (presentation) => {
           if (!endCheck()) return;
 
-          handleMigrationError(presentation);
+          handleAuthError(presentation);
         },
       });
       return;
@@ -349,32 +370,24 @@ function PasswordForm({
     // Normal authorization
     const endCheck = startCheck();
 
+    let enclaveSession: EnclaveSession;
     try {
-      const enclaveSession = await enclave.authorize('passcode', isLongSession, password, usageCount);
-
-      if (!endCheck()) {
-        if (enclaveSession) releaseEnclaveSession({ enclaveToken: enclaveSession.token });
-        return;
-      }
-
-      if (!enclaveSession) {
-        isAuthorizingRef.current = false;
-        const errorMessage = 'Wrong password, please try again.';
-        setLocalError(errorMessage);
-        onError?.(errorMessage);
-        return;
-      }
-
-      setEnclaveSession(enclaveSession);
-      handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
-    } catch (err: any) {
+      enclaveSession = await enclave.authorizeOrThrow('passcode', isLongSession, password, usageCount);
+    } catch (err) {
+      const mayOtherAuthUnlock = await checkMayOtherAuthUnlock(err, 'passcode');
       if (!endCheck()) return;
 
-      isAuthorizingRef.current = false;
-      const errorMessage = err.message || lang('Something went wrong.');
-      setLocalError(errorMessage);
-      onError?.(errorMessage);
+      handleAuthorizeFailure(err, 'passcode', mayOtherAuthUnlock);
+      return;
     }
+
+    if (!endCheck()) {
+      releaseEnclaveSession({ enclaveToken: enclaveSession.token });
+      return;
+    }
+
+    setEnclaveSession(enclaveSession);
+    handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
   });
 
   const handleBiometrics = useLastCallback(async () => {
@@ -382,36 +395,27 @@ function PasswordForm({
     if (isAuthorizingRef.current || isLoading) return;
     isAuthorizingRef.current = true;
 
+    setLocalError('');
     const endCheck = startCheck();
 
+    let enclaveSession: EnclaveSession;
     try {
-      setLocalError('');
-
-      const enclaveSession = await enclave.authorize('biometric', isLongSession, undefined, usageCount);
-
-      if (!endCheck()) {
-        if (enclaveSession) releaseEnclaveSession({ enclaveToken: enclaveSession.token });
-        return;
-      }
-
-      if (!enclaveSession) {
-        isAuthorizingRef.current = false;
-        const errorMessage = 'Biometric confirmation failed';
-        setLocalError(errorMessage);
-        onError?.(errorMessage);
-        return;
-      }
-
-      setEnclaveSession(enclaveSession);
-      handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
-    } catch (err: any) {
+      enclaveSession = await enclave.authorizeOrThrow('biometric', isLongSession, undefined, usageCount);
+    } catch (err) {
+      const mayOtherAuthUnlock = await checkMayOtherAuthUnlock(err, 'biometric');
       if (!endCheck()) return;
 
-      isAuthorizingRef.current = false;
-      const errorMessage = err.message || lang('Something went wrong.');
-      setLocalError(errorMessage);
-      onError?.(errorMessage);
+      handleAuthorizeFailure(err, 'biometric', mayOtherAuthUnlock);
+      return;
     }
+
+    if (!endCheck()) {
+      releaseEnclaveSession({ enclaveToken: enclaveSession.token });
+      return;
+    }
+
+    setEnclaveSession(enclaveSession);
+    handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
   });
 
   // Handle legacy biometrics migration
@@ -444,7 +448,7 @@ function PasswordForm({
       onError: (presentation) => {
         if (!endCheck()) return;
 
-        handleMigrationError(presentation);
+        handleAuthError(presentation);
       },
     });
   });
@@ -650,6 +654,7 @@ function PasswordForm({
             className={pinPadClassName}
             onBiometricsClick={isBiometricAuthEnabled ? handleBiometricsRequest : undefined}
             onLogOutClick={operationType === 'unlock' ? openLogOutModal : undefined}
+            isLogOutSuggested={isAuthDataMissing}
             onChange={setInputValue}
             onClearError={handleClearError}
             onSubmit={handleSubmit}
@@ -750,6 +755,16 @@ function PasswordForm({
       )}
     </div>
   );
+}
+
+// The recorded auth types are saved seconds after the enclave swaps a method, so a crash in between leaves them
+// naming a method the enclave dropped while the key is still there under the other one
+async function checkMayOtherAuthUnlock(err: unknown, authType: AuthType) {
+  if (getEnclaveErrorCode(err) !== 'auth_not_configured') return false;
+
+  // A check that fails or hangs has not shown the key gone, and calling the data lost sends the user to log out
+  const otherAuthType = authType === 'passcode' ? 'biometric' : 'passcode';
+  return withTimeout(enclave.isAuthProvisioned(otherAuthType), OTHER_AUTH_CHECK_TIMEOUT, true);
 }
 
 function useCanAutoConfirm(enclaveSessionValidUntil?: number, isDisabled?: boolean) {

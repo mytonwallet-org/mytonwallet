@@ -1,0 +1,40 @@
+@use "../../styles/mixins";
+
+@mixin variables {
+  // The Agent's surface: white, and in the dark theme the window color in the wide layout, as Market's and Explore's
+  // panels, and black on a phone, as Explore. The blurred one is that of a header over the scrolled content, and the
+  // content fades out into the faded one under the field and the tab bar.
+  --agent-background: var(--color-background-first);
+  --agent-background-blur: var(--color-background-first-blur);
+  // Where `color-mix()` is missing, the content fades into the opaque background
+  --agent-background-fade: var(--agent-background);
+
+  @supports (color: color-mix(in srgb, red 90%, transparent)) {
+    --agent-background-fade: color-mix(in srgb, var(--agent-background) 90%, transparent);
+  }
+
+  :global(html.theme-dark) & {
+    --agent-background: var(--color-background-window);
+
+    @supports (color: color-mix(in srgb, red 90%, transparent)) {
+      --agent-background-blur: color-mix(in srgb, var(--agent-background) 90%, transparent);
+    }
+
+    @include mixins.respond-below(xs) {
+      --agent-background: var(--color-background-second);
+    }
+  }
+}
+
+@mixin card-corners {
+  @include mixins.respond-above(xs) {
+    // A card of the wide layout rounds its corners by clipping everything in it at once: its background, what
+    // scrolls in it and the header over that. Rounded edges of its own on any of them would each smooth the corner
+    // apart, letting what lies under the top one show along the arc. What draws along the edges, as the thinking
+    // glow does, follows the corners by the same radius.
+    --agent-card-radius: var(--border-radius-default);
+
+    border-radius: var(--agent-card-radius);
+    clip-path: inset(0 round var(--agent-card-radius));
+  }
+}

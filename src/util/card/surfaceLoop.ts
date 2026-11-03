@@ -3,6 +3,7 @@ import type { CardArtworkLayers } from './svgLayers';
 import type { CardController } from './types';
 
 import { forceMutation } from '../../lib/fasterdom/fasterdom';
+import { getIsInBackground } from '../backgroundMode';
 import { logDebugError } from '../logs';
 import {
   CARD_LIGHT_INTERACTIVE_TAIL,
@@ -15,8 +16,6 @@ import {
 import { createCardMotionClock, createLightActivity, createSurfaceLight, getGramLightRotation } from './surfaceMotion';
 import { surfaceRenderer } from './surfaceRenderer';
 import { getCardTouchGlowExtent } from './touchGlowTexture';
-
-import { getIsInBackground } from '../../hooks/useBackgroundMode';
 
 const FRAME_MS = 1000 / 60;
 

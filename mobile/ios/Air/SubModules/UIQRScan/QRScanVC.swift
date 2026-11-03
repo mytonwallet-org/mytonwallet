@@ -23,7 +23,9 @@ public final class QRScanVC: WViewController {
     }()
 
     private lazy var noAccessView: NoCameraAccessView = {
-        NoCameraAccessView()
+        let noAccessView = NoCameraAccessView()
+        noAccessView.accessibilityIdentifier = "qr_scan_no_access"
+        return noAccessView
     }()
 
     public init(callback: @escaping @MainActor (_ result: ScanResult?) -> Void) {
@@ -47,6 +49,7 @@ public final class QRScanVC: WViewController {
         navigationItem.compactAppearance = appearance
         navigationItem.compactScrollEdgeAppearance = appearance
         view.backgroundColor = .black
+        view.accessibilityIdentifier = "qr_scan_screen"
         Task { [weak self] in
             guard let self else {
                 return

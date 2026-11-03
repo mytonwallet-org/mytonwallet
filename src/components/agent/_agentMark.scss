@@ -1,0 +1,8 @@
+// The Agent's colors, which its mark, its avatars and its status text are painted with
+
+$blue: #0088FF;
+$cyan: #00BEFF;
+$purple: #B656FF;
+
+// Cyan at the upper left fading into purple, as on the round marks of mobile
+$radialGradient: radial-gradient(80% 80% at 30% 30%, $cyan 0%, $purple 100%);

@@ -83,6 +83,10 @@ struct AgentMessage {
 
     enum SystemStyle {
         case dateTime(date: String, time: String)
+        /// A date line naming the day alone, as the News feed's, whose posts show their own times
+        case day
+        /// A failure the chat shows as a caption, with its controls as links after the text
+        case failure
     }
 
     let id: AgentItemID
@@ -100,6 +104,7 @@ struct AgentMessage {
     /// The answer is stored as complete, so the user can rate it
     var canRate = false
     var feedback: ApiAgentV2AnswerFeedback? = nil
+    var newsPost = false
 
     init(
         id: AgentItemID = UUID(),
@@ -109,6 +114,7 @@ struct AgentMessage {
         responseLanguage: String? = nil,
         semanticContent: ApiAgentV2SemanticContent? = nil,
         controls: [AgentMessageControl] = [],
+        newsPost: Bool = false,
         renderingPolicy: AgentMessageRenderingPolicy = .classic,
         supplementaryErrorText: String? = nil,
         systemStyle: SystemStyle? = nil,
@@ -125,10 +131,28 @@ struct AgentMessage {
         self.renderingPolicy = renderingPolicy
         self.supplementaryErrorText = supplementaryErrorText
         self.systemStyle = systemStyle
+        self.newsPost = newsPost
     }
 
     var isDateTimeSystemMessage: Bool {
         if case .dateTime? = systemStyle {
+            return true
+        }
+        return false
+    }
+
+    /// A line that heads the rows of a date, which VoiceOver finds as a heading
+    var isDateLine: Bool {
+        switch systemStyle {
+        case .dateTime?, .day?:
+            true
+        case .failure?, nil:
+            false
+        }
+    }
+
+    var isFailureCaption: Bool {
+        if case .failure? = systemStyle {
             return true
         }
         return false

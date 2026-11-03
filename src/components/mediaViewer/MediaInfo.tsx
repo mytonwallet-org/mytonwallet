@@ -30,17 +30,19 @@ function MediaInfo({ title, description, descriptionUrl }: OwnProps & StateProps
   return (
     <div className={styles.mediaInfo}>
       <span className={styles.mediaInfoTitle}>{title}</span>
-      <a
-        href={descriptionUrl}
-        target="_blank"
-        aria-label={lang('Open NFT Collection')}
-        className={styles.mediaInfoDescription}
-        rel="noreferrer"
-        onClick={handleUrlClick}
-      >
-        <span className={styles.descriptionText}>{description}</span>
-        <i className={buildClassName('icon-tooltip', styles.tooltip)} aria-hidden />
-      </a>
+      {descriptionUrl && (
+        <a
+          href={descriptionUrl}
+          target="_blank"
+          aria-label={lang('Open NFT Collection')}
+          className={styles.mediaInfoDescription}
+          rel="noreferrer"
+          onClick={handleUrlClick}
+        >
+          <span className={styles.descriptionText}>{description}</span>
+          <i className={buildClassName('icon-tooltip', styles.tooltip)} aria-hidden />
+        </a>
+      )}
     </div>
   );
 }
@@ -48,6 +50,7 @@ function MediaInfo({ title, description, descriptionUrl }: OwnProps & StateProps
 export default memo(withGlobal<OwnProps>((global, { mediaId }): StateProps => {
   const { mediaType = MediaType.Nft } = global.mediaViewer || {};
 
+  // A picture always has news, which `PictureInfo` shows in place of this header
   if (!mediaId || mediaType !== MediaType.Nft) return {};
 
   const isTestnet = global.settings.isTestnet;

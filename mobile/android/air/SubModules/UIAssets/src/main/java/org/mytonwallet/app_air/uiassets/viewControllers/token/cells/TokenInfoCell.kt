@@ -20,7 +20,9 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.helper.widget.Flow
 import androidx.core.view.doOnLayout
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -44,6 +46,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WBottomFadingFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -69,7 +72,9 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
 class TokenInfoCell(
     recyclerView: WRecyclerView,
     private val onHeightChange: (isExpanding: Boolean, height: Int) -> Unit,
-    private val onShowInfo: (title: String, text: String) -> Unit
+    private val onShowInfo: (title: String, text: String) -> Unit,
+    // Stable resource id for UI automation, set before containerView is anchored to the cell's id
+    viewId: Int? = null
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
@@ -79,6 +84,7 @@ class TokenInfoCell(
             get() = COLLAPSED_HEIGHT_DP.dp + ViewConstants.GAP.dp
 
         private const val CREATED_AT_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        private const val MARKET_DESCRIPTION_MAX_LINES = 3
     }
 
     private val titleLabel = WLabel(context).apply {
@@ -94,6 +100,16 @@ class TokenInfoCell(
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
 
+    private val previewDescriptionLabel = WLabel(context).apply {
+        id = generateViewId()
+        setStyle(16f)
+        setLineHeight(24f)
+        maxLines = MARKET_DESCRIPTION_MAX_LINES
+        ellipsize = TextUtils.TruncateAt.END
+        visibility = GONE
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
     private val collapsedDescriptionLabel = WLabel(context).apply {
         id = generateViewId()
         setStyle(16f)
@@ -102,7 +118,7 @@ class TokenInfoCell(
         ellipsize = TextUtils.TruncateAt.END
     }
 
-    private val descriptionContainer = WFrameLayout(context).apply {
+    private val descriptionContainer = WBottomFadingFrameLayout(context).apply {
         addView(expandedDescriptionLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(
             collapsedDescriptionLabel,
@@ -110,6 +126,21 @@ class TokenInfoCell(
                 marginEnd = 32.dp
             }
         )
+        addView(previewDescriptionLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+
+    private val showMoreLabel = WLabel(context).apply {
+        setStyle(16f)
+        setLineHeight(24f)
+        visibility = GONE
+        setOnClickListener { toggleFullDescription() }
+    }
+
+    private val descriptionColumn = LinearLayout(context).apply {
+        id = generateViewId()
+        orientation = LinearLayout.VERTICAL
+        addView(descriptionContainer, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(showMoreLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
     }
 
     private val arrowIcon = AppCompatImageView(context).apply {
@@ -127,7 +158,7 @@ class TokenInfoCell(
     private val headerView = WView(context).apply {
         minimumHeight = COLLAPSED_HEIGHT_DP.dp
         addView(titleLabel, LayoutParams(0, 18.dp))
-        addView(descriptionContainer, LayoutParams(0, WRAP_CONTENT))
+        addView(descriptionColumn, LayoutParams(0, WRAP_CONTENT))
         addView(skeletonIndicator, LayoutParams(0, 24.dp))
         addView(arrowIcon, LayoutParams(24.dp, 24.dp))
         addView(skeletonView, LayoutParams(0, 0))
@@ -135,10 +166,10 @@ class TokenInfoCell(
             toTop(titleLabel, 10f)
             toStart(titleLabel, 20f)
             toEnd(titleLabel, 52f)
-            topToBottom(descriptionContainer, titleLabel, 3f)
-            toStart(descriptionContainer, 20f)
-            toEnd(descriptionContainer, 20f)
-            toBottom(descriptionContainer, 9f)
+            topToBottom(descriptionColumn, titleLabel, 3f)
+            toStart(descriptionColumn, 20f)
+            toEnd(descriptionColumn, 20f)
+            toBottom(descriptionColumn, 9f)
             topToBottom(skeletonIndicator, titleLabel, 3f)
             toStart(skeletonIndicator, 20f)
             toEnd(skeletonIndicator, 52f)
@@ -166,6 +197,9 @@ class TokenInfoCell(
 
     private var state: TokenVM.TokenInfoState? = null
     private var isExpanded = false
+    private var hasBalance = true
+    private var expansionProgress = 0f
+    private var fullDescriptionProgress = 1f
     private var expandedHeight = COLLAPSED_HEIGHT_DP.dp
     private var heightAnimator: SpringAnimation? = null
     private var descriptionToggleAnimator: ValueAnimator? = null
@@ -177,6 +211,7 @@ class TokenInfoCell(
     private var isExpandedHeightUpdatePending = false
 
     init {
+        viewId?.let { id = it }
         addView(containerView, LayoutParams(MATCH_PARENT, COLLAPSED_HEIGHT_DP.dp))
         setConstraints {
             toTop(containerView)
@@ -184,10 +219,29 @@ class TokenInfoCell(
             toBottom(containerView, ViewConstants.GAP.toFloat())
         }
         headerView.setOnClickListener {
-            if (state is TokenVM.TokenInfoState.Details) {
-                setExpanded(!isExpanded, animated = true)
+            if (state is TokenVM.TokenInfoState.Details && hasBalance) {
+                val expanded = !isExpanded
+                if (setExpanded(expanded, animated = true)) {
+                    WGlobalStorage.setIsTokenInfoExpanded(expanded)
+                }
             }
         }
+    }
+
+    fun setHasBalance(hasBalance: Boolean, animated: Boolean) {
+        if (this.hasBalance == hasBalance) return
+        this.hasBalance = hasBalance
+        if (state !is TokenVM.TokenInfoState.Details) {
+            applyDescriptionMode()
+            updateHeaderAccessibility()
+            return
+        }
+        heightAnimator?.cancel()
+        descriptionToggleAnimator?.cancel()
+        descriptionToggleAnimator = null
+        collapsedDescriptionLabel.animate().cancel()
+        arrowIcon.animate().cancel()
+        transitionLayout(!hasBalance || WGlobalStorage.getIsTokenInfoExpanded(), animated)
     }
 
     fun configure(newState: TokenVM.TokenInfoState) {
@@ -207,7 +261,7 @@ class TokenInfoCell(
         collapsedDescriptionLabel.animate().cancel()
         arrowIcon.animate().cancel()
         val shouldExpand = state is TokenVM.TokenInfoState.Details &&
-            WGlobalStorage.getIsTokenInfoExpanded()
+            (!hasBalance || WGlobalStorage.getIsTokenInfoExpanded())
         val wasExpanded = isExpanded
         val shouldShowExpandedImmediately = shouldExpand && when (previousState) {
             null -> true
@@ -216,6 +270,8 @@ class TokenInfoCell(
         }
         isExpanded = shouldShowExpandedImmediately
         isShowingOriginalDescription = false
+        applyDescriptionMode()
+        showMoreLabel.alpha = 1f
         setExpansionProgress(if (isExpanded) 1f else 0f)
         detailsContainer.importantForAccessibility =
             if (isExpanded) {
@@ -241,16 +297,16 @@ class TokenInfoCell(
                 val description = displayDescription(state.info)
                 expandedDescriptionLabel.text = description
                 expandedDescriptionLabel.contentDescription = description
-                expandedDescriptionLabel.visibility = VISIBLE
                 collapsedDescriptionLabel.text = description
+                previewDescriptionLabel.text = description
                 collapsedDescriptionLabel.visibility = VISIBLE
                 updateDescriptionDirection(state.info)
                 if (shouldFadeIn) {
                     collapsedDescriptionLabel.alpha = 0f
                     collapsedDescriptionLabel.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
                 }
-                arrowIcon.visibility = VISIBLE
-                if (shouldFadeIn) {
+                arrowIcon.visibility = if (hasBalance) VISIBLE else GONE
+                if (shouldFadeIn && hasBalance) {
                     arrowIcon.alpha = 0f
                     arrowIcon.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
                 } else {
@@ -286,7 +342,9 @@ class TokenInfoCell(
             pendingStateRenderRunnable = null
             if (this.state != state) return@Runnable
             updateExpandedHeight()
-            if (shouldExpand && !isExpanded) setExpanded(true, animated = true)
+            if ((!hasBalance || WGlobalStorage.getIsTokenInfoExpanded()) && !isExpanded) {
+                setExpanded(true, animated = true)
+            }
         }.also {
             pendingStateRenderRunnable = it
             post(it)
@@ -324,17 +382,47 @@ class TokenInfoCell(
         return true
     }
 
-    private fun setExpanded(expanded: Boolean, animated: Boolean) {
+    private fun setExpanded(expanded: Boolean, animated: Boolean): Boolean {
         if (state !is TokenVM.TokenInfoState.Details ||
+            heightAnimator != null ||
+            descriptionToggleAnimator != null
+        ) {
+            return false
+        }
+        collapsedDescriptionLabel.animate().cancel()
+        transitionLayout(expanded, animated)
+        return true
+    }
+
+    private fun toggleFullDescription() {
+        if (hasBalance ||
+            state !is TokenVM.TokenInfoState.Details ||
             heightAnimator != null ||
             descriptionToggleAnimator != null
         ) {
             return
         }
-        collapsedDescriptionLabel.animate().cancel()
-        updateExpandedHeight()
+        WGlobalStorage.setIsTokenInfoExpanded(!WGlobalStorage.getIsTokenInfoExpanded())
+        transitionLayout(expanded = true, animated = true)
+    }
+
+    private fun transitionLayout(expanded: Boolean, animated: Boolean) {
+        val startHeight = containerView.height.coerceAtLeast(COLLAPSED_HEIGHT_DP.dp)
+        val startContentHeight = contentView.height
+        val startDescriptionHeight = descriptionContainer.height
+        val startProgress = expansionProgress
+        val startArrowAlpha = if (arrowIcon.isVisible) arrowIcon.alpha else 0f
+        val startExpandedAlpha =
+            if (expandedDescriptionLabel.isVisible) expandedDescriptionLabel.alpha else 0f
+        val startPreviewAlpha =
+            if (previewDescriptionLabel.isVisible) previewDescriptionLabel.alpha else 0f
+        val startCollapsedAlpha = collapsedDescriptionLabel.alpha
+        val isShowMoreInitiallyVisible = showMoreLabel.isVisible
+        val startShowMoreAlpha = if (isShowMoreInitiallyVisible) showMoreLabel.alpha else 0f
+        val startShowMoreHeight = if (isShowMoreInitiallyVisible) showMoreLabel.height else 0
+        val startShowMoreText = showMoreLabel.text
+
         isExpanded = expanded
-        WGlobalStorage.setIsTokenInfoExpanded(isExpanded)
         detailsContainer.importantForAccessibility =
             if (expanded) {
                 IMPORTANT_FOR_ACCESSIBILITY_AUTO
@@ -342,47 +430,185 @@ class TokenInfoCell(
                 IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             }
         updateHeaderAccessibility()
+        applyDescriptionMode()
 
-        val startHeight = containerView.height.coerceAtLeast(COLLAPSED_HEIGHT_DP.dp)
-        val targetHeight = if (expanded) expandedHeight else COLLAPSED_HEIGHT_DP.dp
-        if (!animated || !WGlobalStorage.getAreAnimationsActive() || startHeight == targetHeight) {
-            setExpansionProgress(if (expanded) 1f else 0f)
-            setContainerHeight(targetHeight, notify = true, isExpanding = expanded)
+        val targetProgress = if (expanded) 1f else 0f
+        val targetArrowAlpha = if (hasBalance) 1f else 0f
+        val targetContentHeight = measureExpandedHeight()
+        if (targetContentHeight == null ||
+            !animated ||
+            !WGlobalStorage.getAreAnimationsActive()
+        ) {
+            arrowIcon.alpha = 1f
+            arrowIcon.isVisible = hasBalance
+            showMoreLabel.alpha = 1f
+            setExpansionProgress(targetProgress)
+            updateExpandedHeight()
+            if (!expanded) {
+                setContainerHeight(COLLAPSED_HEIGHT_DP.dp, notify = true, isExpanding = false)
+            }
             return
         }
 
+        val targetHeight = if (expanded) targetContentHeight else COLLAPSED_HEIGHT_DP.dp
+        val targetDescriptionHeight = descriptionContainer.measuredHeight
+        val isExpandedFinallyVisible = expandedDescriptionLabel.isVisible
+        val isPreviewFinallyVisible = previewDescriptionLabel.isVisible
+        val targetExpandedAlpha = targetProgress * fullDescriptionProgress
+        val targetPreviewAlpha = targetProgress * (1f - fullDescriptionProgress)
+        val targetCollapsedAlpha = 1f - targetProgress
+        val isShowMoreFinallyVisible = showMoreLabel.isVisible
+        val targetShowMoreAlpha = if (isShowMoreFinallyVisible) 1f else 0f
+        val targetShowMoreHeight =
+            if (isShowMoreFinallyVisible) showMoreLabel.measuredHeight else 0
+        measureFullDescription()
+        val fullDescriptionHeight = expandedDescriptionLabel.measuredHeight
+        val animatesDescriptionHeight = startDescriptionHeight != targetDescriptionHeight
+        val targetShowMoreText = showMoreLabel.text
+        val swapsShowMoreText = isShowMoreInitiallyVisible &&
+            isShowMoreFinallyVisible &&
+            startShowMoreText != targetShowMoreText
+        if (swapsShowMoreText) showMoreLabel.text = startShowMoreText
+
+        expandedDescriptionLabel.isVisible = startExpandedAlpha > 0f || targetExpandedAlpha > 0f
+        previewDescriptionLabel.isVisible = startPreviewAlpha > 0f || targetPreviewAlpha > 0f
+        showMoreLabel.isVisible = isShowMoreInitiallyVisible || isShowMoreFinallyVisible
+        arrowIcon.isVisible = startArrowAlpha > 0f || targetArrowAlpha > 0f
+        expandedHeight = targetContentHeight
+        contentView.updateLayoutParams {
+            height = max(startContentHeight, targetContentHeight)
+        }
+        val isExpanding = targetHeight >= startHeight
+
+        fun lerp(start: Float, end: Float, fraction: Float) = start + (end - start) * fraction
+        fun lerp(start: Int, end: Int, fraction: Float) =
+            (start + (end - start) * fraction).roundToInt()
+
+        fun crossfade(start: Float, end: Float, fraction: Float) = if (end >= start) {
+            lerp(start, end, (fraction * 2f).coerceAtMost(1f))
+        } else {
+            lerp(start, end, (fraction * 2f - 1f).coerceAtLeast(0f))
+        }
+
         val animator = SpringAnimation(FloatValueHolder()).apply {
-            setStartValue(startHeight.toFloat())
-            spring = SpringForce(targetHeight.toFloat()).apply {
+            setStartValue(0f)
+            setMinimumVisibleChange(DynamicAnimation.MIN_VISIBLE_CHANGE_SCALE)
+            spring = SpringForce(1f).apply {
                 stiffness = 500f
                 dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
             }
             addUpdateListener { _, value, _ ->
-                val height = value.roundToInt().coerceIn(
-                    minOf(startHeight, targetHeight),
-                    maxOf(startHeight, targetHeight)
+                val fraction = value.coerceIn(0f, 1f)
+                setExpansionProgress(lerp(startProgress, targetProgress, fraction))
+                expandedDescriptionLabel.alpha =
+                    crossfade(startExpandedAlpha, targetExpandedAlpha, fraction)
+                previewDescriptionLabel.alpha =
+                    crossfade(startPreviewAlpha, targetPreviewAlpha, fraction)
+                collapsedDescriptionLabel.alpha =
+                    crossfade(startCollapsedAlpha, targetCollapsedAlpha, fraction)
+                arrowIcon.alpha = lerp(startArrowAlpha, targetArrowAlpha, fraction)
+                showMoreLabel.alpha = lerp(startShowMoreAlpha, targetShowMoreAlpha, fraction)
+                if (swapsShowMoreText) {
+                    if (fraction >= 0.5f) showMoreLabel.text = targetShowMoreText
+                    showMoreLabel.alpha *= abs(1f - fraction * 2f)
+                }
+                if (animatesDescriptionHeight) {
+                    val descriptionHeight =
+                        lerp(startDescriptionHeight, targetDescriptionHeight, fraction)
+                    descriptionContainer.updateLayoutParams { height = descriptionHeight }
+                    descriptionContainer.bottomFadeStrength =
+                        (
+                            (fullDescriptionHeight - descriptionHeight).toFloat() /
+                                descriptionContainer.verticalFadingEdgeLength
+                            ).coerceIn(0f, 1f) * expandedDescriptionLabel.alpha
+                }
+                showMoreLabel.updateLayoutParams {
+                    height = lerp(startShowMoreHeight, targetShowMoreHeight, fraction)
+                }
+                setContainerHeight(
+                    lerp(startHeight, targetHeight, fraction),
+                    notify = true,
+                    isExpanding = isExpanding
                 )
-                val range = max(expandedHeight - COLLAPSED_HEIGHT_DP.dp, 1)
-                val progress =
-                    ((height - COLLAPSED_HEIGHT_DP.dp).toFloat() / range).coerceIn(0f, 1f)
-                setExpansionProgress(progress)
-                setContainerHeight(height, notify = true, isExpanding = expanded)
             }
             addEndListener { animation, canceled, _, _ ->
                 if (heightAnimator !== animation) return@addEndListener
                 heightAnimator = null
-                if (!canceled) {
-                    setExpansionProgress(if (expanded) 1f else 0f)
-                    setContainerHeight(targetHeight, notify = true, isExpanding = expanded)
-                }
+                descriptionContainer.updateLayoutParams { height = WRAP_CONTENT }
+                descriptionContainer.bottomFadeStrength = 0f
+                showMoreLabel.updateLayoutParams { height = WRAP_CONTENT }
+                showMoreLabel.text = targetShowMoreText
+                if (canceled) return@addEndListener
+                expandedDescriptionLabel.isVisible = isExpandedFinallyVisible
+                previewDescriptionLabel.isVisible = isPreviewFinallyVisible
+                showMoreLabel.isVisible = isShowMoreFinallyVisible
+                arrowIcon.isVisible = hasBalance
+                arrowIcon.alpha = 1f
+                showMoreLabel.alpha = 1f
+                setExpansionProgress(targetProgress)
+                contentView.updateLayoutParams { height = targetContentHeight }
+                setContainerHeight(targetHeight, notify = true, isExpanding = isExpanding)
             }
         }
         heightAnimator = animator
         animator.start()
     }
 
+    private fun applyDescriptionMode() {
+        val showsFullDescription = hasBalance || WGlobalStorage.getIsTokenInfoExpanded()
+        fullDescriptionProgress = if (showsFullDescription) 1f else 0f
+        val isDetails = state is TokenVM.TokenInfoState.Details
+        if (isDetails) {
+            expandedDescriptionLabel.isVisible = showsFullDescription
+            previewDescriptionLabel.isVisible = !showsFullDescription
+        } else {
+            previewDescriptionLabel.isVisible = false
+        }
+        val exposesMarketDescription = isDetails && !hasBalance
+        expandedDescriptionLabel.importantForAccessibility =
+            if (exposesMarketDescription && showsFullDescription) {
+                IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            } else {
+                IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+        previewDescriptionLabel.importantForAccessibility =
+            if (exposesMarketDescription && !showsFullDescription) {
+                IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            } else {
+                IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+        collapsedDescriptionLabel.importantForAccessibility =
+            if (exposesMarketDescription) {
+                IMPORTANT_FOR_ACCESSIBILITY_NO
+            } else {
+                IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            }
+        showMoreLabel.text =
+            LocaleController.getString(if (showsFullDescription) "Show Less" else "Show More")
+    }
+
+    private fun updateShowMoreVisibility() {
+        showMoreLabel.isVisible = !hasBalance &&
+            (state as? TokenVM.TokenInfoState.Details)?.info?.displayDescription != null &&
+            fullDescriptionLineCount() > MARKET_DESCRIPTION_MAX_LINES
+    }
+
+    private fun fullDescriptionLineCount(): Int {
+        measureFullDescription()
+        return expandedDescriptionLabel.lineCount
+    }
+
+    private fun measureFullDescription() {
+        expandedDescriptionLabel.measure(
+            View.MeasureSpec.makeMeasureSpec(containerView.width - 40.dp, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+    }
+
     private fun setExpansionProgress(progress: Float) {
-        expandedDescriptionLabel.alpha = progress
+        expansionProgress = progress
+        expandedDescriptionLabel.alpha = progress * fullDescriptionProgress
+        previewDescriptionLabel.alpha = progress * (1f - fullDescriptionProgress)
         collapsedDescriptionLabel.alpha = 1f - progress
         arrowIcon.rotation = 90f + 180f * progress
         arrowIcon.translationY = -13.dp * progress
@@ -424,6 +650,7 @@ class TokenInfoCell(
 
     private fun measureExpandedHeight(): Int? {
         if (containerView.width == 0) return null
+        updateShowMoreVisibility()
         contentView.measure(
             View.MeasureSpec.makeMeasureSpec(containerView.width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -433,7 +660,7 @@ class TokenInfoCell(
 
     private fun updateHeaderAccessibility() {
         val info = LocaleController.getString("Info")
-        headerView.isClickable = state is TokenVM.TokenInfoState.Details
+        headerView.isClickable = state is TokenVM.TokenInfoState.Details && hasBalance
         headerView.isFocusable = headerView.isClickable
         headerView.contentDescription = if (headerView.isClickable) {
             val expandedState = LocaleController.getString(
@@ -470,6 +697,8 @@ class TokenInfoCell(
             }
         expandedDescriptionLabel.setTextColor(descriptionColor)
         collapsedDescriptionLabel.setTextColor(descriptionColor)
+        previewDescriptionLabel.setTextColor(descriptionColor)
+        showMoreLabel.setTextColor(WColor.Tint.color)
         arrowIcon.setColorFilter(WColor.SecondaryText.color, PorterDuff.Mode.SRC_IN)
         skeletonIndicator.setBackgroundColor(WColor.SecondaryBackground.color, 4.dp.toFloat())
         skeletonView.updateTheme()
@@ -486,6 +715,7 @@ class TokenInfoCell(
             expandedDescriptionLabel.text = description
             expandedDescriptionLabel.contentDescription = description
             collapsedDescriptionLabel.text = description
+            previewDescriptionLabel.text = description
             updateDescriptionDirection(details.info)
             buildDetails(details.info)
         }
@@ -633,13 +863,16 @@ class TokenInfoCell(
         expandedDescriptionLabel.text = previousExpandedDescription
         expandedDescriptionLabel.contentDescription = previousExpandedContentDescription
         collapsedDescriptionLabel.text = previousCollapsedDescription
+        previewDescriptionLabel.text = previousCollapsedDescription
         translationAttributionLabel?.text = previousAttribution
         translationAttributionLabel?.contentDescription =
             previousAttributionContentDescription
         expandedDescriptionLabel.textDirection = previousTextDirection
         collapsedDescriptionLabel.textDirection = previousTextDirection
+        previewDescriptionLabel.textDirection = previousTextDirection
         expandedDescriptionLabel.gravity = previousGravity
         collapsedDescriptionLabel.gravity = previousGravity
+        previewDescriptionLabel.gravity = previousGravity
         if (targetHeight == null) {
             applyDescription(info, description, attributionText)
             updateExpandedHeight()
@@ -666,6 +899,7 @@ class TokenInfoCell(
                     else -> 0f
                 }
                 expandedDescriptionLabel.alpha = textAlpha
+                previewDescriptionLabel.alpha = textAlpha
                 translationAttributionLabel?.alpha = textAlpha
                 val headerHeightChange = (targetHeaderHeight - startHeaderHeight).toFloat()
                 detailsContainer.translationY = if (hasSwappedText) {
@@ -688,7 +922,10 @@ class TokenInfoCell(
                     if (descriptionToggleAnimator !== animation) return
                     descriptionToggleAnimator = null
                     if (isCanceled) {
-                        expandedDescriptionLabel.alpha = if (isExpanded) 1f else 0f
+                        if (!hasSwappedText) {
+                            applyDescription(info, description, attributionText)
+                        }
+                        setExpansionProgress(if (isExpanded) 1f else 0f)
                         translationAttributionLabel?.alpha = 1f
                         detailsContainer.translationY = 0f
                         return
@@ -696,7 +933,7 @@ class TokenInfoCell(
                     if (!hasSwappedText) {
                         applyDescription(info, description, attributionText)
                     }
-                    expandedDescriptionLabel.alpha = 1f
+                    setExpansionProgress(1f)
                     translationAttributionLabel?.alpha = 1f
                     detailsContainer.translationY = 0f
                     setContainerHeight(targetHeight, notify = true, isExpanding = isGrowing)
@@ -715,6 +952,7 @@ class TokenInfoCell(
         expandedDescriptionLabel.text = description
         expandedDescriptionLabel.contentDescription = description
         collapsedDescriptionLabel.text = description
+        previewDescriptionLabel.text = description
         translationAttributionLabel?.text = attributionText
         translationAttributionLabel?.contentDescription = attributionText.toString()
         updateDescriptionDirection(info)
@@ -738,8 +976,10 @@ class TokenInfoCell(
         val gravity = if (isRtl) Gravity.RIGHT else Gravity.LEFT
         expandedDescriptionLabel.textDirection = textDirection
         collapsedDescriptionLabel.textDirection = textDirection
+        previewDescriptionLabel.textDirection = textDirection
         expandedDescriptionLabel.gravity = gravity
         collapsedDescriptionLabel.gravity = gravity
+        previewDescriptionLabel.gravity = gravity
     }
 
     private fun createLinksView(links: List<DisplayLink>): WView {

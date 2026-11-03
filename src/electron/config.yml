@@ -67,6 +67,8 @@ mac:
     target: "default"
     arch: ["x64", "arm64"]
   entitlements: "public/electron-entitlements.mac.plist"
+  extendInfo:
+    NSMicrophoneUsageDescription: "The microphone is used to dictate messages to the agent."
   icon: "public/icon-electron-macos.icns"
 
 dmg:

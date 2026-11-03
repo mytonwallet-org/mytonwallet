@@ -18,7 +18,9 @@ sealed class MSignDataPayload {
         val domain: Map<String, Any?>,
         val types: Map<String, List<TypeField>>,
         val primaryType: String,
-        val message: Map<String, Any?>
+        val message: Map<String, Any?>,
+        // Network whose chain id `domain.chainId` must match; the SDK checks it again when signing
+        val network: String? = null
     ) : MSignDataPayload() {
         @JsonClass(generateAdapter = true)
         data class TypeField(val name: String, val type: String)

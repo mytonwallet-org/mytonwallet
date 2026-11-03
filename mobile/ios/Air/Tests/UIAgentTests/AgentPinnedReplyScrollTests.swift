@@ -3,6 +3,7 @@ import UIKit
 @testable import UIAgent
 import UIComponents
 import WalletContext
+import WalletCore
 import WalletResources
 
 @MainActor
@@ -445,33 +446,26 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         XCTAssertEqual(try questionBubbleFrame(in: chat).minY, questionY, accuracy: 1)
     }
 
-    func testNavigationBarBackgroundHasOpaqueStraightEdge() async throws {
+    func testNavigationBarBackgroundFadesMessagesUnderTheHeader() async throws {
         let chat = try await makeChat()
         let view = try XCTUnwrap(chat.controller.view)
         let background = try XCTUnwrap(view.subviews.first { $0.frame.minY < view.bounds.minY })
+        let backgroundIndex = try XCTUnwrap(view.subviews.firstIndex { $0 === background })
+        let collectionIndex = try XCTUnwrap(view.subviews.firstIndex { $0 === chat.collectionView })
+        XCTAssertGreaterThan(backgroundIndex, collectionIndex)
 
         for style: UIUserInterfaceStyle in [.light, .dark] {
             chat.window.overrideUserInterfaceStyle = style
             try await chat.waitForStableLayout()
             let headerBottom = view.safeAreaLayoutGuide.layoutFrame.minY
-            let color = try XCTUnwrap(background.backgroundColor).resolvedColor(with: background.traitCollection)
-            XCTAssertEqual(color, UIColor.air.background.resolvedColor(with: background.traitCollection))
-            XCTAssertEqual(color.cgColor.alpha, 1)
-            XCTAssertEqual(background.alpha, 1)
-            XCTAssertTrue(background.isOpaque)
             XCTAssertFalse(background.isHidden)
+            XCTAssertFalse(background.isUserInteractionEnabled)
             XCTAssertEqual(background.frame.minY, view.bounds.minY - 20, accuracy: 1)
             XCTAssertEqual(background.frame.minX, view.bounds.minX, accuracy: 1)
             XCTAssertEqual(background.frame.maxX, view.bounds.maxX, accuracy: 1)
-            XCTAssertEqual(background.frame.maxY, headerBottom, accuracy: 1)
-            XCTAssertFalse(descendants(of: background).contains { $0 is UIVisualEffectView || $0 is EdgeEffectView })
-            XCTAssertFalse(([background] + descendants(of: background)).contains {
-                $0.layer is CAGradientLayer || $0.layer.mask is CAGradientLayer
-                    || $0.layer.sublayers?.contains { $0 is CAGradientLayer } == true
-            })
-            let edgeEffects = descendants(of: view).compactMap { $0 as? EdgeEffectView }
-            XCTAssertEqual(edgeEffects.count, 0)
-            XCTAssertTrue(edgeEffects.allSatisfy { $0.convert($0.bounds, to: view).minY > headerBottom })
+            // The edge effect reaches a little below the header, so messages fade out instead of being cut off
+            XCTAssertEqual(background.frame.maxY, headerBottom + 18, accuracy: 1)
+            XCTAssertTrue(descendants(of: background).contains { $0 is EdgeEffectView })
             let appearance = try XCTUnwrap(chat.controller.navigationItem.standardAppearance)
             XCTAssertNil(appearance.backgroundEffect)
             XCTAssertEqual(appearance.backgroundColor?.cgColor.alpha ?? 0, 0)
@@ -482,7 +476,30 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         }
     }
 
-    func testMessagesScrollUnderComposerWithoutOpaqueOverlays() async throws {
+    func testRootChatHasNoThreadsButton() async throws {
+        let chat = try await makeChat()
+        XCTAssertNil(chat.controller.navigationItem.leftBarButtonItem)
+        XCTAssertFalse(chat.controller.navigationItem.hidesBackButton)
+    }
+
+    /// With the keyboard hidden, the field rests on the Agent list's field line: just inside the home indicator's
+    /// safe area, or 16 pt above the bottom edge without one. Before iOS 17 the keyboard layout guide ends at the safe
+    /// area, and the field has to rest below it all the same.
+    func testFieldRestsOnTheAgentListFieldLineWithTheKeyboardHidden() async throws {
+        let chat = try await makeChat(historyCount: 2)
+        let navigation = try XCTUnwrap(chat.controller.navigationController)
+        for additionalBottom: CGFloat in [0, 34] {
+            navigation.additionalSafeAreaInsets.bottom = additionalBottom
+            try await chat.waitForStableLayout()
+            let safeAreaBottom = chat.controller.view.safeAreaInsets.bottom
+            XCTAssertGreaterThanOrEqual(safeAreaBottom, additionalBottom)
+            let field = chat.composer.convert(chat.composer.inputBackgroundFrame, to: chat.window)
+            let fieldLine = chat.window.bounds.maxY - AgentComposerMetrics.getFieldBottomInset(safeAreaBottom: safeAreaBottom)
+            XCTAssertEqual(field.maxY, fieldLine, accuracy: 0.5)
+        }
+    }
+
+    func testMessagesScrollUnderComposerIntoTheBottomFade() async throws {
         let chat = try await makeChat(historyCount: 40)
         let view = try XCTUnwrap(chat.controller.view)
         let context = try XCTUnwrap(chat.backend.context)
@@ -509,6 +526,26 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
             XCTAssertGreaterThan(scrolledFrame.maxY, inputFrame.minY)
             XCTAssertTrue(scrolledFrame.intersects(inputFrame))
 
+            // Directly above the messages and below the composer, a blurred fade starts 28 pt above the field
+            let fades = view.subviews.compactMap { $0 as? EdgeEffectView }
+            XCTAssertEqual(fades.count, 1)
+            let fade = try XCTUnwrap(fades.first)
+            let fadeIndex = try XCTUnwrap(view.subviews.firstIndex { $0 === fade })
+            let composerIndex = try XCTUnwrap(view.subviews.firstIndex { $0 === chat.composer })
+            XCTAssertEqual(fadeIndex, collectionIndex + 1)
+            XCTAssertLessThan(fadeIndex, composerIndex)
+            XCTAssertFalse(fade.isUserInteractionEnabled)
+            XCTAssertEqual(fade.frame.minY, inputFrame.minY - 28, accuracy: 1)
+            XCTAssertEqual(fade.frame.maxY, view.bounds.maxY, accuracy: 1)
+            XCTAssertEqual(fade.frame.minX, view.bounds.minX, accuracy: 1)
+            XCTAssertEqual(fade.frame.maxX, view.bounds.maxX, accuracy: 1)
+
+            let scrollToLatest = try XCTUnwrap(view.subviews.compactMap { $0 as? AgentScrollToBottomButton }.first)
+            // As large as the composer's microphone circle
+            let microphoneSize = AgentComposerMetrics.microphoneSize
+            XCTAssertEqual(scrollToLatest.bounds.size, CGSize(width: microphoneSize, height: microphoneSize))
+            XCTAssertEqual(scrollToLatest.center.y + scrollToLatest.bounds.height / 2, inputFrame.minY - 12, accuracy: 1)
+
             let coveredRegion = CGRect(
                 x: view.bounds.minX,
                 y: inputFrame.minY,
@@ -530,7 +567,8 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
                     checkLayer(mask, inheritedOpacity: opacity, isMask: true)
                 }
             }
-            for overlay in view.subviews.dropFirst(collectionIndex + 1) where overlay !== chat.composer {
+            // Apart from the fade, nothing opaque covers the messages under the composer
+            for overlay in view.subviews.dropFirst(collectionIndex + 1) where overlay !== chat.composer && overlay !== fade {
                 for subview in [overlay] + descendants(of: overlay)
                     where subview.convert(subview.bounds, to: view).intersects(coveredRegion) {
                     XCTAssertFalse(subview is EdgeEffectView || subview is UIVisualEffectView)
@@ -1028,32 +1066,121 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
     }
 
     func testQuestionFromEntryPointIsPinnedWhenChatOpens() async throws {
-        let chat = try await makeChat(entryPointQuery: "Receive tokens")
-        try await chat.waitUntil { $0.hasTypingIndicatorItem }
-        try await chat.waitForStableLayout()
-        let pinnedMessageY = chat.collectionView.adjustedContentInset.top + 100
-        XCTAssertEqual(try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 0)), pinnedMessageY, accuracy: 1)
-
-        _ = try await chat.startReply()
-        XCTAssertEqual(try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 1)), pinnedMessageY, accuracy: 1)
+        try await checkQuestionOpeningStaysPinned(inTabBar: false)
     }
 
-    func testQuestionFromEntryPointIsPinnedWhenTabReopens() async throws {
-        let chat = try await makeChat(inTabBar: true)
-        let tabBarController = try XCTUnwrap(chat.window.rootViewController as? UITabBarController)
-        tabBarController.selectedIndex = 0
-        try await Task.sleep(for: .milliseconds(100))
+    func testQuestionFromEntryPointStaysPinnedWhenTabReopens() async throws {
+        try await checkQuestionOpeningStaysPinned(inTabBar: true)
+    }
 
-        AgentEntryPoint.enqueue(query: "Receive tokens", entryPoint: nil)
-        tabBarController.selectedIndex = 1
-        try await chat.waitUntil { $0.hasTypingIndicatorItem }
-        try await chat.waitForStableLayout()
+    private func checkQuestionOpeningStaysPinned(inTabBar: Bool) async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = FakeAgentV2Client(shouldCompleteRun: true, blockedHydrationAttempt: 1)
+        client.blocksThreadCreation = true
+        let preloader = AgentPreloader(client: client)
+        let controller = try XCTUnwrap(AgentEntryPoint.makeNewChatViewController(
+            query: "Receive tokens", preloader: preloader
+        ) as? AgentVC)
+        let model = try XCTUnwrap(Mirror(reflecting: controller).children.first { $0.label == "model" }?.value as? AgentV2Model)
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        if inTabBar {
+            let tabs = UITabBarController()
+            tabs.viewControllers = [UIViewController(), navigation]
+            tabs.selectedIndex = 1
+            window.rootViewController = tabs
+        } else {
+            window.rootViewController = navigation
+        }
+        defer {
+            client.resumeThreadCreation()
+            client.resumeBlockedHydration()
+            window.rootViewController = nil
+            window.isHidden = true
+            preloader.setWalletReady(false)
+        }
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        controller.view.layoutIfNeeded()
+        let collection = try XCTUnwrap(descendants(of: controller.view).compactMap { $0 as? UICollectionView }.first)
+        let questionID = try XCTUnwrap(model.itemIDs.first {
+            guard case .message(let message)? = model.item(for: $0) else { return false }
+            return message.role == .user
+        })
+        func frames() throws -> (date: CGRect, question: CGRect) {
+            let questionIndex = try XCTUnwrap(model.itemIDs.firstIndex(of: questionID))
+            guard questionIndex > 0,
+                  case .message(let date)? = model.item(for: model.itemIDs[questionIndex - 1]) else {
+                XCTFail("Opening question must have a date header")
+                throw PinnedReplyTimeout()
+            }
+            XCTAssertTrue(date.isDateTimeSystemMessage)
+            let dateFrame = try XCTUnwrap(collection.layoutAttributesForItem(at: IndexPath(item: questionIndex - 1, section: 0))).frame
+            let questionFrame = try XCTUnwrap(collection.layoutAttributesForItem(at: IndexPath(item: questionIndex, section: 0))).frame
+            return (
+                dateFrame.offsetBy(dx: 0, dy: -collection.contentOffset.y),
+                questionFrame.offsetBy(dx: 0, dy: -collection.contentOffset.y)
+            )
+        }
+        let initialFrames = try frames()
+        XCTAssertEqual(initialFrames.date.minY, collection.adjustedContentInset.top + 16, accuracy: 1)
+        XCTAssertGreaterThan(initialFrames.question.minY, initialFrames.date.minY)
+        XCTAssertTrue(collection.visibleCells.contains { $0 is AgentMessageCell })
+        let typingCell = try XCTUnwrap(collection.visibleCells.first { $0 is AgentTypingIndicatorCell })
+        XCTAssertTrue(descendants(of: typingCell).compactMap { $0 as? UILabel }.contains {
+            $0.text == lang("$agent_activity_analyzing_request")
+        })
+        XCTAssertEqual(controller.title, "Receive tokens")
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        XCTAssertNil(model.threadId)
+        func checkPosition() throws {
+            let currentFrames = try frames()
+            XCTAssertEqual(currentFrames.date.minY, initialFrames.date.minY, accuracy: 1)
+            XCTAssertEqual(currentFrames.question.minY, initialFrames.question.minY, accuracy: 1)
+            XCTAssertEqual(currentFrames.question.maxY, initialFrames.question.maxY, accuracy: 1)
+            XCTAssertTrue(navigation.topViewController === controller)
+        }
+        for _ in 0..<10 {
+            try await Task.sleep(for: .milliseconds(16))
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            try checkPosition()
+        }
+        XCTAssertEqual(client.requestOrder.filter { $0 == "createThread" }.count, 1)
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        if let tabs = window.rootViewController as? UITabBarController {
+            tabs.selectedIndex = 0
+            try await Task.sleep(for: .milliseconds(100))
+            tabs.selectedIndex = 1
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            try checkPosition()
+        }
 
-        let pinnedMessageY = chat.collectionView.adjustedContentInset.top + 100
-        XCTAssertEqual(try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 0)), pinnedMessageY, accuracy: 1)
-
-        _ = try await chat.startReply()
-        XCTAssertEqual(try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 1)), pinnedMessageY, accuracy: 1)
+        let answerStarted = try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: Data("""
+        {"type":"agentV2","update":{"kind":"messageStarted","threadId":"thread-a","clientRunId":"client-thread-a",
+        "runId":"run-thread-a","messageId":"answer","contentKind":"markdown"}}
+        """.utf8)).update
+        let answerText = try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: Data("""
+        {"type":"agentV2","update":{"kind":"textDelta","threadId":"thread-a","clientRunId":"client-thread-a",
+        "runId":"run-thread-a","messageId":"answer","delta":"Here is the answer."}}
+        """.utf8)).update
+        client.startRunObserver = {
+            WalletCoreData.notify(event: .agentV2(answerStarted))
+            WalletCoreData.notify(event: .agentV2(answerText))
+        }
+        client.resumeThreadCreation()
+        for _ in 0..<40 {
+            try await Task.sleep(for: .milliseconds(16))
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            try checkPosition()
+        }
+        XCTAssertEqual(client.startedCommands.count, 1)
+        XCTAssertTrue(model.itemIDs.contains {
+            guard case .message(let message)? = model.item(for: $0) else { return false }
+            return message.role == .assistant && message.text == "Here is the answer."
+        })
     }
 
     private func checkHeightChangeRequestedDuringRowResizeIsApplied(in chat: PinnedReplyChat) throws {
@@ -1120,9 +1247,7 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         includesUserMessages: Bool = true,
         historyArrivesOnScreen: Bool = false,
         streamingHistory: Bool = false,
-        scrollsToBottom: Bool = true,
-        entryPointQuery: String? = nil,
-        inTabBar: Bool = false
+        scrollsToBottom: Bool = true
     ) async throws -> PinnedReplyChat {
         _ = WalletResourcesBundle.bundle.load()
         let backend = PinnedReplyTestBackend()
@@ -1139,21 +1264,10 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
             backend.context?.replaceTimeline(with: history, animated: false)
         }
 
-        if let entryPointQuery {
-            AgentEntryPoint.enqueue(query: entryPointQuery, entryPoint: nil)
-        }
-        addTeardownBlock { AgentEntryPoint.clearPendingRequest() }
         let controller = AgentVC(model: model)
         let window = UIWindow(frame: CGRect(origin: .zero, size: windowSize))
         let navigationController = UINavigationController(rootViewController: controller)
-        if inTabBar {
-            let tabBarController = UITabBarController()
-            tabBarController.viewControllers = [UIViewController(), navigationController]
-            tabBarController.selectedIndex = 1
-            window.rootViewController = tabBarController
-        } else {
-            window.rootViewController = navigationController
-        }
+        window.rootViewController = navigationController
         window.makeKeyAndVisible()
         if historyArrivesOnScreen {
             backend.context?.replaceTimeline(with: history, animated: false)
@@ -1168,7 +1282,6 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
             composer: try XCTUnwrap(descendants(of: controller.view).compactMap { $0 as? AgentComposerView }.first)
         )
         addTeardownBlock { chat.close() }
-        guard entryPointQuery == nil else { return chat }
         try await chat.waitForStableLayout()
         if scrollsToBottom {
             chat.collectionView.setContentOffset(CGPoint(x: 0, y: chat.maxContentOffsetY), animated: false)
@@ -1298,28 +1411,42 @@ private struct PinnedReplyChat {
         controller.view.layoutIfNeeded()
     }
 
+    /// Waits count their timeout in 16 ms samples rather than wall time. Rendering long tables can hold the main
+    /// thread for seconds between two samples on a loaded machine, and that time is not the condition's to spend.
+    /// Ten times the timeout in wall time still ends a wait whose samples keep stalling.
     func waitUntil(timeout: Duration = .seconds(10), _ condition: (Self) -> Bool) async throws {
-        let deadline = ContinuousClock.now + timeout
+        var remainingSamples = Self.samples(in: timeout)
+        let deadline = ContinuousClock.now + timeout * Self.wallClockFactor
         layout()
         while !condition(self) {
-            guard ContinuousClock.now < deadline else { throw PinnedReplyTimeout() }
-            try await Task.sleep(for: .milliseconds(16))
+            guard remainingSamples > 0, ContinuousClock.now < deadline else { throw PinnedReplyTimeout() }
+            remainingSamples -= 1
+            try await Task.sleep(for: Self.sampleInterval)
             layout()
         }
     }
 
     func waitForStableLayout(timeout: Duration = .seconds(10)) async throws {
-        let deadline = ContinuousClock.now + timeout
+        var remainingSamples = Self.samples(in: timeout)
+        let deadline = ContinuousClock.now + timeout * Self.wallClockFactor
         var state = layoutState
         var stableSamples = 0
         while stableSamples < 20 {
-            guard ContinuousClock.now < deadline else { throw PinnedReplyTimeout() }
-            try await Task.sleep(for: .milliseconds(16))
+            guard remainingSamples > 0, ContinuousClock.now < deadline else { throw PinnedReplyTimeout() }
+            remainingSamples -= 1
+            try await Task.sleep(for: Self.sampleInterval)
             layout()
             let nextState = layoutState
             stableSamples = nextState == state ? stableSamples + 1 : 0
             state = nextState
         }
+    }
+
+    private static let sampleInterval = Duration.milliseconds(16)
+    private static let wallClockFactor = 10
+
+    private static func samples(in timeout: Duration) -> Int {
+        Int((timeout / sampleInterval).rounded(.up))
     }
 
     private var layoutState: [CGFloat] {

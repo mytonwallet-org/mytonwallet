@@ -6,12 +6,12 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import androidx.core.view.doOnPreDraw
@@ -19,19 +19,27 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import me.vkryl.android.AnimatorUtils
+import me.vkryl.android.animatorx.BoolAnimator
+import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
 import org.mytonwallet.app_air.uicomponents.glass.WGlassView
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HomeStatusController
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
-import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -40,19 +48,22 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
 import org.mytonwallet.uihome.tabletTabs.views.TabletSidePanelView
 import org.mytonwallet.uihome.tabs.AppTabsManager
 import org.mytonwallet.uihome.tabs.BaseTabsVC
-import org.mytonwallet.uihome.tabs.views.ExploreSearchBar
+import org.mytonwallet.uihome.tabs.PhoneTabsVC
+import org.mytonwallet.uihome.tabs.views.HomeSearchField
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 
 @SuppressLint("ViewConstructor")
@@ -72,8 +83,13 @@ class TabletTabsVC(context: Context) :
         const val MIN_PANEL_WIDTH = 270
         const val MAX_PANEL_WIDTH = 360
         private const val RESIZE_HANDLE_WIDTH = 24
+        private const val BOTTOM_GRADIENT_ALPHA = 229
 
-        private const val SEARCH_BOTTOM_MARGIN = 16
+        internal const val SEARCH_TOP_MARGIN = 8
+        private const val ACCESSORY_GAP = 8
+        private const val SEARCH_BOTTOM_MARGIN = 1
+        private const val SEARCH_BOTTOM_EXTRA_GAP = 7
+        private const val SEARCH_KEYBOARD_GAP = 12
 
         private fun buildTabDefs() = AppTabsManager.orderedTabs.map {
             TabletSidePanelView.TabDef(it.intId, it.iconRes, it.filledIconRes, it.labelKey)
@@ -93,6 +109,8 @@ class TabletTabsVC(context: Context) :
     }
 
     override fun detachMountedStacks() {
+        // The Agent list's search closes with this container, which the phone layout does not take over
+        finishAgentSearch()
         contentHostVC.detachContent()
         (contentNav.parent as? ViewGroup)?.removeView(contentNav)
     }
@@ -125,28 +143,38 @@ class TabletTabsVC(context: Context) :
     private var pillShadow: WGlassView? = null
     private val headerView: HomeHeaderView get() = sidePanel.headerView
     private val contentPanel = WFrameLayout(context)
+    private val bottomGradientView = View(context).apply { id = View.generateViewId() }
+    private var bottomGradientDrawable: StickyBottomGradientDrawable? = null
+    private var bottomGradientColor = 0
 
-    private val searchBar by lazy {
-        ExploreSearchBar(
+    private var searchGlass: WGlassView? = null
+    private val searchField by lazy {
+        HomeSearchField(
             context,
-            ExploreSearchBar.Config(
-                onSearch = { query, focused ->
-                    cachedExploreVC?.search(query, focused)
-                },
-                onOpenBestMatch = { onResolved ->
-                    cachedExploreVC?.openBestSearchMatch(onResolved) == true
-                },
-                expandedWidthProvider = {
-                    (
-                        contentPanel.width - 2 * ViewConstants.HORIZONTAL_PADDINGS.dp - 40.dp -
-                            additionalTabletPadding -
-                            systemBarEndInset
-                        )
-                        .coerceAtLeast(0)
-                },
-                presentBrowser = { config -> presentSearchBrowser(config) }
-            )
-        )
+            onSearch = { query, focused -> updateSearch(query, focused) },
+            onSubmit = { field -> submitExploreSearch(field) }
+        ).apply {
+            id = View.generateViewId()
+        }
+    }
+
+    private val searchKeyboardLift =
+        FloatAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, 0f) {
+            updateSearchFieldPosition()
+        }
+
+    private val minimizedBrowserDock = BoolAnimator(
+        AnimationConstants.VERY_VERY_QUICK_ANIMATION,
+        AccelerateDecelerateInterpolator()
+    ) { _, _, _, _ ->
+        view.invalidate()
+    }
+
+    private val searchCover = View(context).apply {
+        id = View.generateViewId()
+        alpha = 0f
+        isVisible = false
+        setOnClickListener { closeSearch() }
     }
 
     private var panelWidth =
@@ -264,6 +292,7 @@ class TabletTabsVC(context: Context) :
         HomeStatusController.addListener(statusListener)
 
         view.addView(contentPanel, ViewGroup.LayoutParams(0, MATCH_PARENT))
+        view.addView(bottomGradientView, ViewGroup.LayoutParams(0, 0))
         view.addView(sidePanel, ViewGroup.LayoutParams(panelWidth, 0))
         pillShadow = WGlassView.attachTo(
             sidePanel,
@@ -273,34 +302,46 @@ class TabletTabsVC(context: Context) :
             drawInFront = true
         )
         view.addView(resizeHandle, ViewGroup.LayoutParams(RESIZE_HANDLE_WIDTH.dp, 0))
+        view.addView(searchCover, ViewGroup.LayoutParams(0, 0))
+        view.addView(searchField, ViewGroup.LayoutParams(0, HomeSearchField.HEIGHT.dp))
+        searchGlass = WGlassView.attachTo(
+            searchField,
+            24f.dp,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            root = contentPanel
+        )
         view.setConstraints {
             startToEnd(contentPanel, sidePanel, -ViewConstants.TABLET_PANELS_OVERLAP_WIDTH)
             toEnd(contentPanel)
             toTop(contentPanel)
             toBottom(contentPanel)
+            startToStart(bottomGradientView, contentPanel)
+            endToEnd(bottomGradientView, contentPanel)
+            toBottom(bottomGradientView)
             startToEndPx(resizeHandle, sidePanel, -(RESIZE_HANDLE_WIDTH / 2).dp)
             toTop(resizeHandle)
             toBottom(resizeHandle)
+            toStart(searchCover)
+            endToEnd(searchCover, sidePanel)
+            toTop(searchCover)
+            toBottom(searchCover)
         }
 
         contentPanel.addView(contentNav, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        contentPanel.addView(
-            searchBar,
-            FrameLayout.LayoutParams(
-                searchBar.collapsedWidth,
-                ExploreSearchBar.SEARCH_HEIGHT.dp,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            )
-        )
-        searchBar.attachGlass()
-        cachedExploreVC?.let { searchBar.setupBlurWith(it.view) }
+        contentPanel.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (left == oldLeft && right == oldRight) return@addOnLayoutChangeListener
+            alignBottomBarToContentPanel()
+            if (window?.hasMinimizedBrowser == true) window?.minimizedBrowser?.relayout()
+        }
         mountActiveTab()
         sidePanel.setSelectedTab(currentTabId)
+        updateMinimizedBrowserDock(animated = false)
         updateSearchVisibility()
         adoptPendingSearchText()
         updateTheme()
         applyPanelInsets()
         homeVCInRightPanel()
+        view.viewTreeObserver.addOnPreDrawListener(searchCoverTracker)
         view.doOnPreDraw {
             applyPanelWidth()
             refreshHeader(animated = false)
@@ -308,7 +349,6 @@ class TabletTabsVC(context: Context) :
             sidePanel.onLaidOut()
             contentNav.insetsUpdated()
             activeNavigationController?.insetsUpdated()
-            updateSearchBarPosition()
             adoptPendingPushedOverMain()
         }
         WalletCore.doOnBridgeReady {
@@ -324,7 +364,11 @@ class TabletTabsVC(context: Context) :
         ?.also { it.panelHeaderView = sidePanel.headerView }
 
     override fun navStackUpdated(nav: WNavigationController) {
+        if (!isSelectingTab) updateMinimizedBrowserDock(animated = false)
+        updateSearchVisibility()
+        updateSearchFieldPosition()
         if (nav.parent != contentPanel) return
+        updateBottomGradient()
         syncPanelHeaderAccounts()
     }
 
@@ -380,47 +424,206 @@ class TabletTabsVC(context: Context) :
         }
     }
 
+    private var isSelectingTab = false
+
     private fun selectTab(id: Int) {
         if (id == currentTabId) return
+        finishAgentSearch()
         currentTabId = id
+        updateBottomGradient()
+        closeSearch()
+        isSelectingTab = true
         mountActiveTab()
         contentNav.popToRoot(animated = false)
+        isSelectingTab = false
         sidePanel.setSelectedTab(id)
+        updateMinimizedBrowserDock(animated = true)
         updateSearchVisibility()
+        updateSearchFieldPosition()
     }
 
-    private val isExploreTab: Boolean
-        get() = currentTabId == AppTabsManager.ID_EXPLORE
+    private fun shouldShowTabletSearch(tabId: Int): Boolean =
+        tabId != AppTabsManager.ID_AGENT && tabId != AppTabsManager.ID_SETTINGS
+
+    // The Agent tab shows the search field only while its chats are searched
+    private var agentSearchOnClose: (() -> Unit)? = null
+
+    private fun isTabletSearchShown(tabId: Int): Boolean = shouldShowTabletSearch(tabId) ||
+        (tabId == AppTabsManager.ID_AGENT && agentSearchOnClose != null)
+
+    override val isAgentSearchSupported = true
+
+    override fun openAgentSearch(onClose: () -> Unit): Boolean {
+        if (currentTabId != AppTabsManager.ID_AGENT || isSearchHiddenByTab) return false
+        finishAgentSearch()
+        agentSearchOnClose = onClose
+        updateSearchVisibility()
+        updateSearchFieldPosition()
+        searchField.editText.requestFocus()
+        searchField.editText.showKeyboard()
+        return true
+    }
+
+    private fun finishAgentSearch() {
+        val onClose = agentSearchOnClose ?: return
+        agentSearchOnClose = null
+        updateSearchVisibility()
+        onClose()
+    }
+
+    private val mainStackDepth: Int
+        get() = contentHostVC.navigationController?.viewControllers?.size ?: 1
+
+    private val tabStackDepth: Int
+        get() = activeNavigationController?.viewControllers?.size ?: 1
+
+    private val reservesSearchHeight: Boolean
+        get() = isTabletSearchShown(currentTabId) && mainStackDepth <= 1 && tabStackDepth <= 1
+
+    private var appliedSearchReservation: Boolean? = null
 
     private fun updateSearchVisibility() {
-        val visible = isExploreTab
-        if (visible == (searchBar.isVisible)) return
-        if (!visible && searchBar.editText.hasFocus()) searchBar.editText.clearFocus()
-        searchBar.visibility = if (visible) View.VISIBLE else View.INVISIBLE
-        activeNavigationController?.insetsUpdated()
+        if (contentHostVC.navigationController?.parent !== contentPanel) return
+        if (appliedSearchReservation != reservesSearchHeight) {
+            appliedSearchReservation = reservesSearchHeight
+            updateBottomGradient()
+            activeNavigationController?.insetsUpdated()
+            searchOverlayNav?.insetsUpdated()
+        }
+        val isRootShown = mainStackDepth <= 1 && tabStackDepth <= 1
+        if (isSearchHiddenByTab || !isTabletSearchShown(currentTabId) || !isRootShown) {
+            if (searchField.editText.hasFocus()) {
+                clearSearchFocus()
+            } else if (searchOverlayNav?.viewControllers?.isNotEmpty() == true) {
+                updateSearch(null, focused = false)
+            }
+        }
+        applySearchFieldAlpha()
+    }
+
+    // A screen pushed over the root covers the field like the root's own top bar.
+    private val searchCoverTracker = ViewTreeObserver.OnPreDrawListener {
+        applySearchFieldAlpha()
+        applyMinimizedBrowserDockFraction()
+        applyBottomGradientHeight()
+        true
+    }
+    private val searchCoverLocation = IntArray(2)
+    private val searchFieldLocation = IntArray(2)
+
+    private fun rootScreenCoverage(): Float {
+        val cover = when {
+            mainStackDepth == 1 && tabStackDepth == 1 -> return 0f
+
+            mainStackDepth == 1 && tabStackDepth == 2 ->
+                activeNavigationController?.viewControllers?.getOrNull(1)?.view
+
+            mainStackDepth == 2 && tabStackDepth == 1 ->
+                contentHostVC.navigationController?.viewControllers?.getOrNull(1)?.view
+
+            else -> return 1f
+        } ?: return 0f
+        if (!cover.isVisible || searchField.width == 0) return 0f
+        cover.getLocationInWindow(searchCoverLocation)
+        searchField.getLocationInWindow(searchFieldLocation)
+        val coveredWidth = if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+            searchCoverLocation[0] + cover.width - searchFieldLocation[0]
+        } else {
+            searchFieldLocation[0] + searchField.width - searchCoverLocation[0]
+        }
+        val coveredFraction = (coveredWidth / searchField.width.toFloat()).coerceIn(0f, 1f)
+        return cover.alpha * coveredFraction
+    }
+
+    private fun applySearchFieldAlpha() {
+        if (searchField.parent == null) return
+        val chromeAlpha =
+            if (searchHiddenByTabId == null || isSearchHiddenByTab) searchChromeAlpha else 1f
+        val alpha = chromeAlpha * (1f - rootScreenCoverage())
+        if (searchField.alpha != alpha) {
+            searchField.alpha = alpha
+            searchGlass?.alpha = alpha
+        }
+        val isSearchVisible = isTabletSearchShown(currentTabId) && alpha > 0f
+        if (searchField.isVisible != isSearchVisible) {
+            searchField.isVisible = isSearchVisible
+            searchGlass?.isVisible = isSearchVisible
+        }
     }
 
     override fun onExploreCreated(exploreVC: ExploreVC) {
-        searchBar.setupBlurWith(exploreVC.view)
-        exploreVC.onBestSearchMatchActionChanged = searchBar::setBestMatchAction
+        exploreVC.onBestSearchMatchActionChanged = searchField::setBestMatchAction
     }
 
-    override fun exportSearchText(): String = searchBar.currentText()
+    override fun exportSearchText(): String = searchField.currentText()
 
     override fun restoreSearchText(text: String) {
-        searchBar.restoreText(text)
+        searchField.restoreText(text)
     }
 
-    private fun presentSearchBrowser(config: InAppBrowserConfig) {
-        val window = window ?: return
-        val inAppBrowserVC = InAppBrowserVC(context, this, config)
-        val nav = WNavigationController(window)
-        nav.setRoot(inAppBrowserVC)
-        window.present(nav, onCompletion = {
-            searchBar.editText.setText("")
-        })
-        searchBar.editText.clearFocus()
-        searchBar.hideKeyboard()
+    private fun updateSearch(query: String?, focused: Boolean) {
+        searchExplore(query, focused, searchOverlayNavigationController ?: return)
+    }
+
+    private fun closeSearch() {
+        val nav = searchOverlayNav?.takeIf { it.viewControllers.isNotEmpty() } ?: return
+        if (nav.viewControllers.size > 1) nav.popToRoot(false)
+        searchField.editText.setText("")
+        if (searchField.editText.hasFocus()) {
+            clearSearchFocus()
+        } else {
+            updateSearch(null, focused = false)
+        }
+    }
+
+    private var searchOverlayNav: WNavigationController? = null
+
+    override val searchOverlayNavigationController: WNavigationController?
+        get() {
+            searchOverlayNav?.let { return it }
+            val window = window ?: return null
+            val nav = WNavigationController(window)
+            nav.tabBarController = this
+            nav.searchOverlayHost = this
+            nav.alpha = 0f
+            searchOverlayNav = nav
+            contentPanel.addView(nav, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            nav.insetsUpdated()
+            return nav
+        }
+
+    override fun revealSearchOverlay() {
+        val nav = searchOverlayNav?.takeIf { it.viewControllers.isNotEmpty() } ?: return
+        nav.fadeIn(PhoneTabsVC.SEARCH_OVERLAY_ANIMATION)
+        animateSearchExpansion(1f)
+        searchCover.animate().cancel()
+        searchCover.isVisible = true
+        searchCover.fadeIn(PhoneTabsVC.SEARCH_OVERLAY_ANIMATION)
+    }
+
+    override fun hideSearchOverlay() {
+        finishAgentSearch()
+        val nav = searchOverlayNav ?: return
+        searchOverlayNav = null
+        if (nav.viewControllers.isEmpty()) {
+            contentPanel.removeView(nav)
+            return
+        }
+        // Keep it on screen through the fade, without taking taps.
+        nav.blockTouches()
+        nav.fadeOut(PhoneTabsVC.SEARCH_OVERLAY_ANIMATION) {
+            nav.viewControllers.forEach { it.viewWillDisappear() }
+            // Detached so the outgoing search cannot clear focus of a replacement session.
+            nav.searchOverlayHost = null
+            nav.tabBarController = null
+            nav.onDestroy()
+            contentPanel.removeView(nav)
+        }
+        animateSearchExpansion(0f)
+        searchCover.animate().cancel()
+        searchCover.fadeOut(PhoneTabsVC.SEARCH_OVERLAY_ANIMATION) {
+            searchCover.isVisible = false
+        }
     }
 
     private fun mountActiveTab() {
@@ -485,26 +688,163 @@ class TabletTabsVC(context: Context) :
     override fun updateTheme() {
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
+        bottomGradientDrawable = null
+        updateBottomGradient()
         sidePanel.updateTheme()
         applyPillShadowBottom()
         pillShadow?.updateTheme()
-        searchBar.updateTheme()
+        searchGlass?.updateTheme()
+        searchField.updateTheme()
         contentNav.updateTheme()
+        searchOverlayNav?.updateTheme()
         for (nav in navStacks) {
             if (nav.parent != null && !contentHostVC.isDisappeared) continue
             nav.updateTheme()
         }
     }
 
-    private fun updateSearchBarPosition() {
-        val keyboard = window?.imeInsets?.bottom ?: 0
-        val systemBottom = window?.systemBars?.bottom ?: 0
-        val bottomInset = maxOf(systemBottom, keyboard)
-        searchBar.translationY = -(SEARCH_BOTTOM_MARGIN.dp + bottomInset).toFloat()
-        val leadingGutter = ViewConstants.ADDITIONAL_TABLET_PADDING - systemBarEndInset
-        val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-        searchBar.translationX = (leadingGutter / 2f) * (if (isRtl) -1f else 1f)
-        searchBar.updateWidth()
+    override fun rootTopAccessoryWidthsChanged() {
+        updateSearchFieldPosition()
+    }
+
+    private val topContentNav: WNavigationController?
+        get() = contentHostVC.navigationController?.takeIf { it.viewControllers.size > 1 }
+            ?: activeNavigationController
+
+    private val topContentViewController: WViewController?
+        get() = topContentNav?.viewControllers?.lastOrNull()
+
+    private val belowContentViewController: WViewController?
+        get() {
+            val vcs = topContentNav?.viewControllers ?: return null
+            val below = vcs.getOrNull(vcs.size - 2)
+            return if (below === contentHostVC) {
+                activeNavigationController?.viewControllers?.lastOrNull()
+            } else {
+                below
+            }
+        }
+
+    private fun updateMinimizedBrowserDock(animated: Boolean) {
+        if (contentHostVC.navigationController?.parent !== contentPanel) return
+        val docks = topContentViewController?.docksMinimizedBrowser == true
+        if (minimizedBrowserDock.value == docks) return
+        minimizedBrowserDock.changeValue(
+            docks,
+            animated && WGlobalStorage.getAreAnimationsActive() && searchField.isLaidOut
+        )
+        updateBottomGradient()
+        contentNav.insetsUpdated()
+        if (!isShowingPushedOverMain) activeNavigationController?.insetsUpdated()
+        searchOverlayNav?.insetsUpdated()
+    }
+
+    private fun minimizedBrowserDockFraction(): Float {
+        if (minimizedBrowserDock.state == BoolAnimator.State.INTERMEDIATE) {
+            return minimizedBrowserDock.floatValue
+        }
+        val top = topContentViewController ?: return 0f
+        val topDock = if (top.docksMinimizedBrowser) 1f else 0f
+        val belowDock = belowContentViewController?.let {
+            if (it.docksMinimizedBrowser) 1f else 0f
+        } ?: return topDock
+        if (topDock == belowDock) return topDock
+        return lerp(belowDock, topDock, topContentPresence(top))
+    }
+
+    private fun topContentPresence(top: WViewController): Float {
+        val topView = top.view
+        if (topView.width == 0) return 1f
+        val presence = topView.alpha * (1f - abs(topView.translationX) / topView.width)
+        return presence.coerceIn(0f, 1f)
+    }
+
+    private var minimizedBrowserDockProgress = 0f
+    private var lastDockedSpan: IntRange? = null
+    private var lastDockedBottomInset: Int? = null
+
+    private fun applyMinimizedBrowserDockFraction() {
+        val fraction = minimizedBrowserDockFraction()
+        searchField.translationY = -minimizedBrowserHeight * (1f - fraction)
+        if (fraction == minimizedBrowserDockProgress) return
+        minimizedBrowserDockProgress = fraction
+        if (window?.hasMinimizedBrowser == true) window?.minimizedBrowser?.snapToRest()
+    }
+
+    private val searchMinimizedLift: Int
+        get() = if (minimizedBrowserDock.value) 0 else minimizedBrowserHeight
+
+    private val searchRestBottom: Int
+        get() = searchRestBottom(searchMinimizedLift)
+
+    private fun searchRestBottom(minimizedLift: Int): Int =
+        (window?.systemBars?.bottom ?: 0) + minimizedLift +
+            if (WGlobalStorage.isGradientNavigationBarActive()) {
+                SEARCH_BOTTOM_MARGIN.dp
+            } else {
+                (SEARCH_BOTTOM_MARGIN + SEARCH_BOTTOM_EXTRA_GAP).dp
+            }
+
+    private val searchKeyboardLiftTarget: Float
+        get() {
+            val keyboard = window?.imeInsets?.bottom ?: 0
+            if (keyboard <= 0) return 0f
+            return (keyboard + SEARCH_KEYBOARD_GAP.dp - searchRestBottom)
+                .coerceAtLeast(0)
+                .toFloat()
+        }
+
+    private fun updateSearchFieldPosition() {
+        if (searchField.parent == null) return
+        val horizontalPadding = ViewConstants.HORIZONTAL_PADDINGS.dp
+        val rootVC = activeNavigationController?.viewControllers?.firstOrNull()
+        val leadingWidth = rootVC?.rootTopLeadingWidth ?: 0
+        val trailingWidth = rootVC?.rootTopTrailingWidth ?: 0
+
+        // The search screen covers the root's buttons.
+        fun margin(accessoryWidth: Int): Int {
+            if (accessoryWidth <= 0) return horizontalPadding
+            return lerp(
+                (accessoryWidth + ACCESSORY_GAP.dp).toFloat(),
+                horizontalPadding.toFloat(),
+                searchExpansion
+            ).roundToInt()
+        }
+        view.setConstraints {
+            toBottomPx(
+                searchField,
+                searchRestBottom(0) + searchKeyboardLift.value.coerceAtLeast(0f).roundToInt()
+            )
+            startToStartPx(
+                searchField,
+                contentPanel,
+                ViewConstants.ADDITIONAL_TABLET_PADDING + margin(leadingWidth)
+            )
+            endToEndPx(searchField, contentPanel, systemBarEndInset + margin(trailingWidth))
+        }
+    }
+
+    private var searchExpansion = 0f
+    private var searchExpansionAnimator: ValueAnimator? = null
+
+    private fun animateSearchExpansion(target: Float) {
+        searchExpansionAnimator?.cancel()
+        searchExpansionAnimator = null
+        if (searchExpansion == target) return
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            searchExpansion = target
+            updateSearchFieldPosition()
+            return
+        }
+        searchExpansionAnimator = ValueAnimator.ofFloat(searchExpansion, target).apply {
+            duration = PhoneTabsVC.SEARCH_OVERLAY_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
+            addUpdateListener {
+                searchExpansion = it.animatedValue as Float
+                updateSearchFieldPosition()
+            }
+            start()
+        }
     }
 
     override fun viewWillAppear() {
@@ -542,20 +882,24 @@ class TabletTabsVC(context: Context) :
 
     override fun insetsUpdated() {
         super.insetsUpdated()
+        alignBottomBarToContentPanel()
         applyPanelInsets()
         applyPanelWidth()
         sidePanel.updateInsets()
         applyPillShadowBottom()
+        updateBottomGradient()
         contentNav.insetsUpdated()
         // The per-tab nav inside the host needs its insets too when it's the visible content.
         if (!isShowingPushedOverMain) activeNavigationController?.insetsUpdated()
+        searchOverlayNav?.insetsUpdated()
         if (!isKeyboardOpen &&
-            searchBar.editText.hasFocus() &&
+            searchField.editText.hasFocus() &&
             cachedExploreVC?.shouldKeepSearchActiveOnKeyboardDismiss != true
         ) {
-            searchBar.editText.clearFocus()
+            searchField.editText.clearFocus()
         }
-        updateSearchBarPosition()
+        searchKeyboardLift.animatedValue = searchKeyboardLiftTarget
+        updateSearchFieldPosition()
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -619,6 +963,7 @@ class TabletTabsVC(context: Context) :
             WalletEvent.SideGuttersChanged -> {
                 applyPanelInsets()
                 applyPanelWidth()
+                updateSearchFieldPosition()
             }
 
             WalletEvent.AppTabsChanged -> {
@@ -633,6 +978,15 @@ class TabletTabsVC(context: Context) :
     }
 
     override fun onBackPressed(): Boolean {
+        searchOverlayNav?.takeIf { it.viewControllers.isNotEmpty() }?.let { nav ->
+            if (nav.viewControllers.size > 1) return nav.onBackPressed()
+            if (searchField.editText.hasFocus()) {
+                clearSearchFocus()
+            } else {
+                updateSearch(null, focused = false)
+            }
+            return false
+        }
         // Pop full-screen VCs pushed over the main nav first, then fall back to the active tab stack.
         if ((contentNav.viewControllers.size) > 1) return contentNav.onBackPressed()
         return activeNavigationController?.onBackPressed() ?: true
@@ -655,35 +1009,199 @@ class TabletTabsVC(context: Context) :
     override val activeNavigationController: WNavigationController?
         get() = navForOrNull(currentTabId)
 
-    override fun getBottomNavigationHeight(): Int {
+    override fun getBottomNavigationHeight(): Int =
+        bottomNavigationHeight(reservesSearchHeight, minimizedBrowserDock.value)
+
+    private fun bottomNavigationHeight(reservesSearchHeight: Boolean, docks: Boolean): Int {
+        val minimizedLift = if (docks) 0 else minimizedBrowserHeight
+        if (reservesSearchHeight) {
+            return searchRestBottom(minimizedLift) + searchKeyboardLiftTarget.roundToInt() +
+                (HomeSearchField.HEIGHT + PhoneTabsVC.SEARCH_TOP_MARGIN).dp
+        }
         val systemBottom = window?.systemBars?.bottom ?: 0
         val keyboard = window?.imeInsets?.bottom ?: 0
-        val searchExtra = if (isExploreTab) {
-            (SEARCH_BOTTOM_MARGIN + ExploreSearchBar.SEARCH_HEIGHT).dp
-        } else {
-            0
+        return maxOf(systemBottom + minimizedLift, keyboard)
+    }
+
+    private val minimizedBrowserHeight: Int
+        get() = (window?.minimizedBrowserHeight ?: 0f).roundToInt()
+
+    override val bottomBlurRootView: ViewGroup
+        get() = contentPanel
+
+    // Below the side panel, which draws its own bar.
+    private fun alignBottomBarToContentPanel() {
+        val bar = bottomReversedCornerView ?: return
+        val index = view.indexOfChild(contentPanel) + 1
+        if (view.indexOfChild(bar) != index) {
+            view.removeView(bar)
+            view.addView(bar, index)
         }
-        return maxOf(systemBottom, keyboard) + searchExtra
+        val contentStart =
+            if (LocaleController.isRTL) view.width - contentPanel.right else contentPanel.left
+        bar.setSideInsets(
+            (contentStart + ViewConstants.ADDITIONAL_TABLET_PADDING).toFloat(),
+            systemBarEndInset.toFloat()
+        )
+        applyContentBottomBarPadding()
     }
 
-    override fun minimize(
-        nav: WNavigationController,
-        onProgress: (progress: Float) -> Unit,
-        onMaximizeProgress: (progress: Float) -> Unit
-    ) {
-        // Minimized browser nav not supported on tablet (v1). Keep nav fully presented.
-        onMaximizeProgress(1f)
+    private var contentBottomBarPadding: Pair<Float, Float>? = null
+
+    /** Null restores the default. */
+    fun setContentBottomBarPadding(padding: Pair<Float, Float>?) {
+        if (contentBottomBarPadding == padding) return
+        contentBottomBarPadding = padding
+        applyContentBottomBarPadding()
     }
 
-    override fun maximize() {}
-    override fun dismissMinimized(animated: Boolean) {}
+    private fun applyContentBottomBarPadding() {
+        val bar = bottomReversedCornerView ?: return
+        val default = ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
+        val (start, end) = contentBottomBarPadding ?: (default to default)
+        bar.setHorizontalPadding(start, end)
+    }
+
+    // Outside contentPanel, so the minimized browser glass blurs the content, not this fade.
+    private fun updateBottomGradient() {
+        val topViewController =
+            (if (isShowingPushedOverMain) contentNav else activeNavigationController)
+                ?.viewControllers?.lastOrNull()
+        val visible = WGlobalStorage.isGradientNavigationBarActive() &&
+            topViewController?.let {
+                it.forceBlurBottomView || it.additionalBottomGradientHeight > 0
+            } != true
+        bottomGradientView.isVisible = visible
+        if (!visible) return
+        val color = WColor.SecondaryBackground.color
+        val drawable = bottomGradientDrawable?.takeIf { bottomGradientColor == color }
+            ?: StickyBottomGradientDrawable(
+                intArrayOf(
+                    color.colorWithAlpha(0),
+                    color.colorWithAlpha(BOTTOM_GRADIENT_ALPHA),
+                    color.colorWithAlpha(BOTTOM_GRADIENT_ALPHA)
+                )
+            ).also {
+                bottomGradientDrawable = it
+                bottomGradientColor = color
+                bottomGradientView.background = it
+            }
+        applyBottomGradientHeight()
+    }
+
+    private fun bottomGradientHeight(reservesSearchHeight: Boolean, docks: Boolean): Int =
+        bottomNavigationHeight(reservesSearchHeight, docks) +
+            ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp.roundToInt()
+
+    private val belowReservesSearchHeight: Boolean?
+        get() {
+            val depth = mainStackDepth + tabStackDepth
+            if (depth <= 2) return null
+            return isTabletSearchShown(currentTabId) && depth == 3
+        }
+
+    // Sized for both screens of a transition; stops show the current height.
+    private fun applyBottomGradientHeight() {
+        val drawable = bottomGradientDrawable ?: return
+        if (!bottomGradientView.isVisible) return
+        val height = bottomGradientHeight(reservesSearchHeight, minimizedBrowserDock.value)
+        val belowReserves = belowReservesSearchHeight
+        val belowDocks = belowContentViewController?.docksMinimizedBrowser == true
+        val top = topContentViewController
+        var visibleHeight = height
+        var viewHeight = height
+        if (belowReserves != null && top != null) {
+            val belowHeight = bottomGradientHeight(belowReserves, belowDocks)
+            visibleHeight =
+                lerp(belowHeight.toFloat(), height.toFloat(), topContentPresence(top)).roundToInt()
+            viewHeight = maxOf(height, belowHeight)
+        } else if (minimizedBrowserDock.state == BoolAnimator.State.INTERMEDIATE) {
+            val undocked = bottomGradientHeight(reservesSearchHeight, false)
+            val docked = bottomGradientHeight(reservesSearchHeight, true)
+            visibleHeight =
+                lerp(
+                    undocked.toFloat(),
+                    docked.toFloat(),
+                    minimizedBrowserDockProgress
+                ).roundToInt()
+            viewHeight = maxOf(undocked, docked)
+        }
+        if (bottomGradientView.layoutParams.height != viewHeight) {
+            bottomGradientView.updateLayoutParams { this.height = viewHeight }
+        }
+        val laidOutHeight = bottomGradientView.height.takeIf { it > 0 } ?: viewHeight
+        val solidHeight = maxOf(window?.systemBars?.bottom ?: 0, window?.imeInsets?.bottom ?: 0)
+        val fadeStart = ((laidOutHeight - visibleHeight).toFloat() / laidOutHeight).coerceIn(0f, 1f)
+        val solidStart = ((laidOutHeight - solidHeight).toFloat() / laidOutHeight)
+            .coerceIn(fadeStart, 1f)
+        drawable.setStops(floatArrayOf(fadeStart, solidStart, 1f))
+    }
+
+    override val minimizedBlurRootView: ViewGroup
+        get() = contentPanel
+
+    private val dockingViewController: WViewController?
+        get() = topContentViewController?.takeIf { it.docksMinimizedBrowser }
+            ?: belowContentViewController?.takeIf { it.docksMinimizedBrowser }
+
+    // Kept for when the docked screen is gone.
+    private val dockedSpan: IntRange?
+        get() = dockingViewController?.minimizedBrowserSpan
+            ?.also { lastDockedSpan = it }
+            ?: lastDockedSpan
+
+    private val dockedBottomInset: Int?
+        get() = dockingViewController?.minimizedBrowserBottomInset
+            ?.also { lastDockedBottomInset = it }
+            ?: lastDockedBottomInset
+
+    override val minimizedBrowserBottomInset: Int?
+        get() {
+            val progress = minimizedBrowserDockProgress
+            if (progress <= 0f) return null
+            val docked = dockedBottomInset ?: return null
+            return lerp(
+                (window?.systemBars?.bottom ?: 0).toFloat(),
+                docked.toFloat(),
+                progress
+            ).roundToInt()
+        }
+
+    override val minimizedBrowserSpan: IntRange?
+        get() {
+            val span = panelMinimizedBrowserSpan ?: return null
+            val progress = minimizedBrowserDockProgress
+            if (progress <= 0f) return span
+            val docked = dockedSpan ?: return span
+            val first = lerp(span.first.toFloat(), docked.first.toFloat(), progress)
+            val last = lerp(span.last.toFloat(), docked.last.toFloat(), progress)
+            return first.roundToInt()..last.roundToInt()
+        }
+
+    private val panelMinimizedBrowserSpan: IntRange?
+        get() {
+            if (contentPanel.width == 0) return null
+            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val startPadding = ViewConstants.ADDITIONAL_TABLET_PADDING
+            val left = contentPanel.left + if (isRtl) systemBarEndInset else startPadding
+            val right = contentPanel.right - if (isRtl) startPadding else systemBarEndInset
+            return left until right
+        }
+
     override fun setSearchText(text: String) {
-        selectTab(AppTabsManager.ID_EXPLORE)
-        searchBar.setSearchText(text)
+        if (!shouldShowTabletSearch(currentTabId)) selectTab(AppTabsManager.ID_HOME)
+        contentNav.popToRoot(animated = false)
+        searchField.setSearchText(text)
     }
 
     override fun clearSearchFocus() {
-        searchBar.editText.clearFocus()
+        // Keep the IME up for another screen's focused field.
+        val focusedView = searchField.editText.rootView.findFocus()
+        if (focusedView != null && focusedView !== searchField.editText) {
+            searchField.editText.clearFocus()
+            return
+        }
+        searchField.editText.hideKeyboard()
     }
 
     override fun switchToFirstTab(): Boolean {
@@ -721,17 +1239,14 @@ class TabletTabsVC(context: Context) :
 
     override fun switchToAgent(
         prompt: String?,
-        pinnedMessageId: String?,
-        entryPoint: AgentV2EntryPoint
+        entryPoint: AgentV2EntryPoint,
+        thread: AgentV2ThreadSummary?
     ): Boolean {
         if (!AppTabsManager.contains(AppTabsManager.ID_AGENT)) return false
         selectTab(AppTabsManager.ID_AGENT)
         window?.dismissToRoot()
-        if (!pinnedMessageId.isNullOrBlank()) {
-            showAgentMessage(pinnedMessageId)
-        } else {
-            submitAgentPrompt(prompt, entryPoint)
-        }
+        contentNav.popToRoot(animated = false)
+        openAgentChat(prompt, entryPoint, thread)
         return true
     }
 
@@ -741,16 +1256,63 @@ class TabletTabsVC(context: Context) :
         pushVC?.let { activeNavigationController?.push(it) }
     }
 
-    override fun hideTabBar() {}
-    override fun showTabBar() {}
+    // The tab whose root screen hid the field.
+    private var searchHiddenByTabId: Int? = null
+
+    private val isSearchHiddenByTab: Boolean
+        get() = searchHiddenByTabId == currentTabId
+
+    override fun hideTabBar() {
+        searchHiddenByTabId = currentTabId
+        updateSearchVisibility()
+        animateSearchChromeAlpha(0f)
+    }
+
+    override fun showTabBar() {
+        searchHiddenByTabId = null
+        updateSearchVisibility()
+        animateSearchChromeAlpha(1f)
+    }
+
+    private var searchChromeAlpha = 1f
+    private var searchChromeAnimator: ValueAnimator? = null
+
+    private fun animateSearchChromeAlpha(target: Float) {
+        searchChromeAnimator?.cancel()
+        searchChromeAnimator = null
+        if (!WGlobalStorage.getAreAnimationsActive()) {
+            searchChromeAlpha = target
+            applySearchFieldAlpha()
+            return
+        }
+        searchChromeAnimator = ValueAnimator.ofFloat(searchChromeAlpha, target).apply {
+            duration = AnimationConstants.QUICK_ANIMATION / 2
+            addUpdateListener {
+                searchChromeAlpha = it.animatedValue as Float
+                applySearchFieldAlpha()
+            }
+            start()
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
         panelStartAnimator?.cancel()
         panelStartAnimator = null
+        searchChromeAnimator?.cancel()
+        searchChromeAnimator = null
+        searchExpansionAnimator?.cancel()
+        searchExpansionAnimator = null
+        view.viewTreeObserver.takeIf { it.isAlive }?.removeOnPreDrawListener(searchCoverTracker)
         HomeStatusController.removeListener(statusListener)
         contentHostVC.detachContent()
         contentNav.onDestroy()
         sidePanel.onDestroy()
+        searchOverlayNav?.let { nav ->
+            nav.viewControllers.forEach { it.viewWillDisappear() }
+            contentPanel.removeView(nav)
+            nav.onDestroy()
+        }
+        searchOverlayNav = null
     }
 }

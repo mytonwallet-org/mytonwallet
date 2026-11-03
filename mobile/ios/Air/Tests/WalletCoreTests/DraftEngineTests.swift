@@ -226,7 +226,8 @@ struct DraftEngineTests {
     func `debounce policy delays typed transitions and skips picks`() async throws {
         let harness = Harness(debounce: { from, to in
             guard let from, from / 10 == to / 10 else { return .zero }
-            return .seconds(5)
+            // Long enough that no runner load lets it elapse: the test only checks what happens while it is pending.
+            return .seconds(3_600)
         })
         harness.source.value = 11
         harness.startEngine()
@@ -255,6 +256,42 @@ struct DraftEngineTests {
         await waitUntil { harness.engine.current != nil }
 
         #expect(harness.engine.current?.request == 21)
+    }
+
+    @Test
+    func `cancelled debounce cannot load the next request early`() async throws {
+        let sleeper = ManualSleeper()
+        let harness = Harness(debounce: { from, _ in
+            from == nil ? .zero : .seconds(60)
+        }, sleeper: sleeper)
+        harness.source.value = 1
+        harness.startEngine()
+        await harness.probe.waitUntilRequested(1)
+        try await harness.probe.succeed(request: 1, draft: "one")
+        await waitUntil { harness.engine.current != nil }
+
+        harness.source.value = 2
+        await sleeper.waitUntilPending()
+
+        // The stale sleep returns only after the next debounce is pending
+        sleeper.wake(holdingReturn: true)
+        harness.source.value = 3
+        await sleeper.waitUntilPending()
+        sleeper.releaseHeld()
+        await sleeper.waitUntilReturned()
+        await settle()
+
+        #expect(await harness.probe.requestCount(for: 2) == 0)
+        #expect(await harness.probe.requestCount(for: 3) == 0)
+
+        sleeper.wake()
+        await harness.probe.waitUntilRequested(3)
+        try await harness.probe.succeed(request: 3, draft: "three")
+        await waitUntil { harness.engine.current?.draft == "three" }
+        await settle()
+
+        #expect(await harness.probe.requestCount(for: 3) == 1)
+        #expect(harness.engine.current?.draft == "three")
     }
 
     @Test
@@ -456,23 +493,24 @@ struct DraftEngineTests {
 
     @Test
     func `starting a load cancels the scheduled tick`() async throws {
-        let harness = Harness(refreshInterval: .milliseconds(200))
+        let sleeper = ManualSleeper()
+        let harness = Harness(refreshInterval: .seconds(60), sleeper: sleeper)
         harness.source.value = 1
         harness.startEngine()
         await harness.probe.waitUntilRequested(1)
         try await harness.probe.succeed(request: 1, draft: "first")
-        await waitUntil { harness.engine.current != nil }
+        await sleeper.waitUntilPending()
 
+        sleeper.wake()
         harness.engine.refresh()
+        await sleeper.waitUntilReturned()
         await harness.probe.waitUntilRequested(1, count: 2)
-        // Outlive the tick that was scheduled before the refresh started.
-        try? await Task.sleep(for: .milliseconds(300))
+        harness.engine.refreshInterval = nil
         try await harness.probe.succeed(request: 1, draft: "second")
         await waitUntil { harness.engine.current?.draft == "second" }
-        await settle()
 
-        // The superseded tick must not queue a third load behind the
-        // explicit refresh.
+        #expect(!harness.engine.isRefreshing)
+        await settle()
         #expect(await harness.probe.requestCount(for: 1) == 2)
     }
 
@@ -565,7 +603,8 @@ private final class Harness {
     init(
         debounce: @escaping DraftEngine<Int, String>.DebouncePolicy = { _, _ in .zero },
         refreshInterval: Duration? = nil,
-        sameScope: @escaping DraftEngine<Int, String>.ScopePredicate = { $0 == $1 }
+        sameScope: @escaping DraftEngine<Int, String>.ScopePredicate = { $0 == $1 },
+        sleeper: ManualSleeper? = nil
     ) {
         let probe = DraftLoaderProbe()
         self.probe = probe
@@ -577,11 +616,99 @@ private final class Harness {
                 try await probe.load(request, previous: previous)
             }
         )
+        if let sleeper {
+            engine.sleep = { _ in try await sleeper.sleep() }
+        }
     }
 
     func startEngine() {
         let source = source
         engine.start { source.value }
+    }
+}
+
+@MainActor
+private final class ManualSleeper {
+    private struct SleepWaiter {
+        let count: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
+
+    private var nextId = 0
+    private var pending: [(id: Int, continuation: CheckedContinuation<Void, any Error>)] = []
+    private var sleepWaiters: [SleepWaiter] = []
+    private var returnedCount = 0
+    private var returnWaiters: [SleepWaiter] = []
+    private var heldSleepId: Int?
+    private var heldReturn: CheckedContinuation<Void, Never>?
+
+    func sleep() async throws {
+        let id = nextId
+        nextId += 1
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                pending.append((id, continuation))
+                var remaining: [SleepWaiter] = []
+                for waiter in sleepWaiters {
+                    if pending.count >= waiter.count {
+                        waiter.continuation.resume()
+                    } else {
+                        remaining.append(waiter)
+                    }
+                }
+                sleepWaiters = remaining
+            }
+        } onCancel: {
+            Task { @MainActor in
+                guard let index = self.pending.firstIndex(where: { $0.id == id }) else { return }
+                self.pending.remove(at: index).continuation.resume(throwing: CancellationError())
+            }
+        }
+        if heldSleepId == id {
+            await withCheckedContinuation { heldReturn = $0 }
+        }
+        returnedCount += 1
+        var remaining: [SleepWaiter] = []
+        for waiter in returnWaiters {
+            if returnedCount >= waiter.count {
+                waiter.continuation.resume()
+            } else {
+                remaining.append(waiter)
+            }
+        }
+        returnWaiters = remaining
+    }
+
+    func wake(holdingReturn: Bool = false) {
+        let sleep = pending.removeFirst()
+        if holdingReturn {
+            heldSleepId = sleep.id
+        }
+        sleep.continuation.resume()
+    }
+
+    func releaseHeld() {
+        heldSleepId = nil
+        heldReturn?.resume()
+        heldReturn = nil
+    }
+
+    func waitUntilPending(count: Int = 1) async {
+        guard pending.count < count else { return }
+        await withCheckedContinuation { continuation in
+            sleepWaiters.append(SleepWaiter(count: count, continuation: continuation))
+        }
+    }
+
+    func waitUntilReturned(count: Int = 1) async {
+        guard returnedCount < count else { return }
+        await withCheckedContinuation { continuation in
+            returnWaiters.append(SleepWaiter(count: count, continuation: continuation))
+        }
     }
 }
 

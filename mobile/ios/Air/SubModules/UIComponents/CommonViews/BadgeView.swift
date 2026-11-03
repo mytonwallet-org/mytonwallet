@@ -144,26 +144,28 @@ public final class BadgeView: UIView {
         configureTokenLabel(text: chain.usdtBadgeText, style: .regular)
     }
 
-    public func configureTokenLabel(text: String, style: TokenLabelStyle) {
+    public func configureTokenLabel(text: String, style: TokenLabelStyle, content: WTextContent = .technical) {
         switch style {
         case .regular:
             configure(
                 text: text,
                 foregroundColor: .air.secondaryLabel,
-                backgroundColor: .air.secondaryLabel.withAlphaComponent(0.15)
+                backgroundColor: .air.secondaryLabel.withAlphaComponent(0.15),
+                content: content
             )
         case .stock:
             configure(
                 text: text,
                 foregroundColor: Self.stockLabelColor,
-                backgroundColor: Self.stockLabelColor.withAlphaComponent(0.15)
+                backgroundColor: Self.stockLabelColor.withAlphaComponent(0.15),
+                content: content
             )
         }
     }
 
-    public func configure(text: String, foregroundColor: UIColor, backgroundColor: UIColor) {
+    public func configure(text: String, foregroundColor: UIColor, backgroundColor: UIColor, content: WTextContent = .technical) {
         self.backgroundColor = backgroundColor
-        label.applyTextStyle(style == .regular ? .badge : .largeBadge, content: .technical)
+        label.applyTextStyle(style == .regular ? .badge : .largeBadge, content: content)
         label.textColor = foregroundColor
         label.text = text
 

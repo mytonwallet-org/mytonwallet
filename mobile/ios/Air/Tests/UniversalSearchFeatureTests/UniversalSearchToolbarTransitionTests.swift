@@ -2,11 +2,478 @@ import Testing
 import UIComponents
 import UIKit
 import UIUniversalSearch
+import WalletContext
 import WalletResources
 
 @MainActor
 @Suite("Universal Search toolbar transitions", .serialized)
 struct UniversalSearchToolbarTransitionTests {
+    @Test(arguments: [false, true], [CGFloat(375), CGFloat(700)])
+    func `compact search receives taps with every home button configuration`(isRTL: Bool, panelWidth: CGFloat) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: panelWidth)
+        defer { window.isHidden = true }
+        for shared in [false, true] {
+            for accounts in [false, true] {
+                for scan in [false, true] {
+                    toolbar.setHomeConfiguration(.init(showsAccounts: accounts, showsScan: scan, sharesBackground: shared), animated: false)
+                    for actions in [[], tradeActions] {
+                        toolbar.setCompactActions(actions)
+                        toolbar.layoutIfNeeded()
+                        try expectTapReaches(toolbar.searchButtonPresentationSourceView, in: window)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `compact search and trailing controls restore hit testing after navigation`(shared: Bool, cancelled: Bool) throws {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: shared), animated: false)
+        for target in [UniversalSearchFieldPresentation.search, .homeToolbar] {
+            let transition = try #require(toolbar.preparePresentationTransition(to: target))
+            toolbar.applyPreparedPresentationTransition(transition)
+            toolbar.layoutIfNeeded()
+            try expectTapReaches(toolbar.trailingButtonView, in: window)
+            toolbar.finishPreparedPresentationTransition(transition, isCancelled: cancelled)
+            if !cancelled {
+                try expectTapReaches(toolbar.trailingButtonView, in: window)
+                if target == .homeToolbar {
+                    try expectTapReaches(toolbar.accountsButton, in: window)
+                    try expectTapReaches(try #require(toolbar.scanButtonPresentationSourceView), in: window)
+                }
+                let collapse = try #require(toolbar.preparePresentationTransition(to: .compactToolbar))
+                toolbar.applyPreparedPresentationTransition(collapse)
+                toolbar.finishPreparedPresentationTransition(collapse, isCancelled: false)
+            }
+            toolbar.layoutIfNeeded()
+            try expectTapReaches(toolbar.searchButtonPresentationSourceView, in: window)
+        }
+    }
+
+    private func expectTapReaches(_ control: UIView, in window: UIWindow) throws {
+        let point = control.convert(CGPoint(x: control.bounds.midX, y: control.bounds.midY), to: window)
+        let hit = try #require(window.hitTest(point, with: nil))
+        #expect(hit === control || hit.isDescendant(of: control), "Tap on \(type(of: control)) was intercepted by \(type(of: hit))")
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `vertical toolbar lays out every optional button configuration`(shared: Bool, isRTL: Bool) throws {
+        let (window, toolbar) = makeSideToolbar(isRTL: isRTL)
+        defer { window.isHidden = true }
+        for accounts in [false, true] {
+            for scan in [false, true] {
+                toolbar.setHomeConfiguration(.init(showsAccounts: accounts, showsScan: scan, sharesBackground: shared), animated: false)
+                toolbar.layoutIfNeeded()
+                var controls = [toolbar.searchButtonPresentationSourceView]
+                if accounts { controls.append(toolbar.accountsButton) }
+                if scan { controls.append(try #require(toolbar.scanButtonPresentationSourceView)) }
+                controls.append(toolbar.trailingButtonView)
+                let frames = controls.map { $0.convert($0.bounds, to: toolbar) }
+                #expect(toolbar.bounds.height == toolbar.sideToolbarHeight)
+                #expect(frames.last?.maxY == toolbar.bounds.maxY)
+                #expect(toolbar.accountsButton.isHidden == !accounts)
+                #expect((toolbar.scanButtonPresentationSourceView != nil) == scan)
+                for frame in frames {
+                    #expect(frame.size == CGSize(width: 48, height: 48))
+                    #expect(toolbar.bounds.contains(frame))
+                }
+                for index in 1..<frames.count {
+                    #expect(frames[index].minY >= frames[index - 1].maxY)
+                }
+            }
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `vertical glass merges and splits while the action button stays anchored`(isRTL: Bool) async throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeSideToolbar(isRTL: isRTL)
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        let actionBottom = toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: window).maxY
+        for shared in [true, false] {
+            toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: shared), animated: true)
+            let scan = try #require(toolbar.scanButtonPresentationSourceView)
+            let controls = [toolbar.accountsButton, scan, toolbar.trailingButtonView]
+            let groupFrame = controls.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: toolbar)) }
+            let glass = transitionGlassViews(in: toolbar)
+            #expect(glass.count == 3)
+            for (background, control) in zip(glass, controls) {
+                #expect(background.convert(background.bounds, to: toolbar) == (shared ? groupFrame : control.convert(control.bounds, to: toolbar)))
+                #expect(background.alpha == 1)
+            }
+            #expect(toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: window).maxY == actionBottom)
+            try await Task.sleep(for: .milliseconds(500))
+            #expect(transitionGlassViews(in: toolbar).isEmpty)
+        }
+    }
+
+    private func makeSideToolbar(isRTL: Bool) -> (UIWindow, UniversalSearchFieldView) {
+        _ = WalletResourcesBundle.bundle.load()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 500, height: 900))
+        let root = UIViewController()
+        window.rootViewController = root
+        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+        toolbar.translatesAutoresizingMaskIntoConstraints = true
+        root.view.addSubview(toolbar)
+        forceLayoutDirection(in: toolbar, isRTL: isRTL)
+        let updateFrame = { [weak toolbar] in
+            guard let toolbar else { return }
+            toolbar.frame = CGRect(x: 420, y: 868 - toolbar.sideToolbarHeight, width: 48, height: toolbar.sideToolbarHeight)
+        }
+        toolbar.onHomeConfigurationLayoutChange = updateFrame
+        updateFrame()
+        window.makeKeyAndVisible()
+        toolbar.setPresentation(.sideToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        return (window, toolbar)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `home placeholder follows space reserved by optional buttons`(shared: Bool, isRTL: Bool) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: 375)
+        defer { window.isHidden = true }
+        toolbar.configuration = .init(placeholder: "Искать или спросить", shortPlaceholder: "Поиск", showsMicrophone: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: false, showsScan: false, sharesBackground: shared), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        let field = try #require(searchTextField(in: toolbar))
+        #expect(field.attributedPlaceholder?.string == "Искать или спросить")
+
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: shared), animated: false)
+        toolbar.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Поиск")
+        #expect(toolbar.searchButtonPresentationSourceView.accessibilityLabel == "Поиск")
+
+        toolbar.setHomeConfiguration(.init(showsAccounts: false, showsScan: false, sharesBackground: shared), animated: false)
+        toolbar.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Искать или спросить")
+        #expect(toolbar.configuration.placeholder == "Искать или спросить")
+    }
+
+    @Test(arguments: [false, true])
+    func `placeholder remeasures after resizing and cancelled search`(isRTL: Bool) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: 375)
+        defer { window.isHidden = true }
+        toolbar.configuration = .init(placeholder: "Search or Ask", shortPlaceholder: "Search", showsMicrophone: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        let field = try #require(searchTextField(in: toolbar))
+        #expect(field.attributedPlaceholder?.string == "Search")
+
+        window.frame.size.width = 700
+        window.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Search or Ask")
+        window.frame.size.width = 375
+        window.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Search")
+
+        let transition = try #require(toolbar.preparePresentationTransition(to: .search))
+        toolbar.applyPreparedPresentationTransition(transition)
+        toolbar.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Search or Ask")
+        toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
+        toolbar.layoutIfNeeded()
+        #expect(field.attributedPlaceholder?.string == "Search")
+    }
+
+    @Test
+    func `a fixed placeholder remains unchanged when space is limited`() throws {
+        let (window, toolbar) = makeToolbar(panelWidth: 320)
+        defer { window.isHidden = true }
+        toolbar.configuration = .init(placeholder: "Search", showsMicrophone: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.layoutIfNeeded()
+        #expect(searchTextField(in: toolbar)?.attributedPlaceholder?.string == "Search")
+    }
+
+    @Test(arguments: [UniversalSearchFieldPresentation.compactToolbar, .search], [false, true])
+    func `placeholder crossfade follows interactive navigation in both directions`(
+        source: UniversalSearchFieldPresentation, isRTL: Bool
+    ) async throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: 375)
+        defer { window.isHidden = true }
+        toolbar.configuration = .init(placeholder: "Search or Ask", shortPlaceholder: "Search", showsMicrophone: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        toolbar.setPresentation(source, animated: false)
+        toolbar.layoutIfNeeded()
+        let field = try #require(searchTextField(in: toolbar))
+        let labels = field.subviews.flatMap(\.subviews).compactMap { $0 as? UILabel }
+        let full = try #require(labels.first { $0.attributedText?.string == "Search or Ask" }?.superview)
+        let short = try #require(labels.first { $0.attributedText?.string == "Search" }?.superview)
+        try await Task.sleep(for: .milliseconds(50))
+
+        for cancelled in [true, false] {
+            let transition = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
+            let animator = UIViewPropertyAnimator(duration: 1, curve: .linear)
+            animator.addAnimations {
+                toolbar.applyPreparedPresentationTransition(transition)
+                window.layoutIfNeeded()
+            }
+            animator.addCompletion { _ in
+                toolbar.finishPreparedPresentationTransition(transition, isCancelled: cancelled)
+            }
+            animator.startAnimation()
+            animator.pauseAnimation()
+
+            // Moving backwards must restore the same intermediate appearance;
+            // a separate timed crossfade cannot follow a cancelled swipe.
+            for progress in [CGFloat(0.25), 0.75, 0.25] {
+                animator.fractionComplete = progress
+                try await Task.sleep(for: .milliseconds(50))
+                let fullOpacity = try #require(full.layer.presentation()?.opacity)
+                let shortOpacity = try #require(short.layer.presentation()?.opacity)
+                let fieldOpacity = try #require(field.layer.presentation()?.opacity)
+                #expect(abs(CGFloat(fullOpacity) - (1 - progress)) < 0.06)
+                #expect(abs(CGFloat(shortOpacity) - progress) < 0.06)
+                #expect(abs(CGFloat(fieldOpacity) - (source == .compactToolbar ? progress : 1)) < 0.06)
+            }
+
+            animator.stopAnimation(false)
+            animator.finishAnimation(at: cancelled ? .start : .end)
+            toolbar.layoutIfNeeded()
+            #expect(field.attributedPlaceholder?.string == (cancelled ? "Search or Ask" : "Search"))
+            #expect(full.alpha == (cancelled ? 1 : 0))
+            #expect(short.alpha == (cancelled ? 0 : 1))
+            #expect(field.alpha == (cancelled && source == .compactToolbar ? 0 : 1))
+        }
+
+        toolbar.configuration.text = "ton"
+        #expect(full.isHidden && short.isHidden)
+        toolbar.configuration.text = ""
+        #expect(!full.isHidden && !short.isHidden)
+    }
+
+    private func searchTextField(in view: UIView) -> UITextField? {
+        (view as? UITextField) ?? view.subviews.lazy.compactMap { searchTextField(in: $0) }.first
+    }
+
+    @Test(arguments: [false, true])
+    func `shared background merges and splits live glass geometry`(isRTL: Bool) async throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeToolbar(isRTL: isRTL)
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let scan = try #require(toolbar.scanButtonPresentationSourceView)
+
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: true), animated: true)
+        let merged = transitionGlassViews(in: toolbar)
+        #expect(merged.count == 3)
+        let groupFrame = [toolbar.accountsButton, scan, toolbar.trailingButtonView].reduce(CGRect.null) {
+            $0.union($1.convert($1.bounds, to: toolbar))
+        }
+        for glass in merged {
+            #expect(glass.convert(glass.bounds, to: toolbar) == groupFrame)
+            #expect(glass.effect is UIGlassEffect)
+            #expect(glass.alpha == 1)
+        }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(merged.allSatisfy { $0.superview == nil })
+        #expect(glassEffects(in: toolbar).count == 2)
+        #expect(glassEffects(in: toolbar).allSatisfy { $0.isInteractive })
+
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: true)
+        let split = transitionGlassViews(in: toolbar)
+        #expect(split.count == 3)
+        for (glass, button) in zip(split, [toolbar.accountsButton, scan, toolbar.trailingButtonView]) {
+            #expect(glass.convert(glass.bounds, to: toolbar) == button.convert(button.bounds, to: toolbar))
+            #expect(glass.effect is UIGlassEffect)
+            #expect(glass.alpha == 1)
+        }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(split.allSatisfy { $0.superview == nil })
+        #expect(glassEffects(in: toolbar).count == 4)
+    }
+
+    @Test
+    func `removing optional buttons keeps their glass until it reaches the action button`() async throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: false), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: false, showsScan: false, sharesBackground: false), animated: true)
+        let backgrounds = transitionGlassViews(in: toolbar)
+        #expect(backgrounds.count == 3)
+        let finalFrame = toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: toolbar)
+        for glass in backgrounds {
+            #expect(glass.convert(glass.bounds, to: toolbar) == finalFrame)
+            #expect(glass.effect is UIGlassEffect)
+            #expect(glass.alpha == 1)
+        }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(backgrounds.allSatisfy { $0.superview == nil })
+        #expect(glassEffects(in: toolbar).count == 2)
+    }
+
+    private func transitionGlassViews(in view: UIView) -> [UIVisualEffectView] {
+        effectViews(in: view).filter { $0.accessibilityIdentifier?.hasPrefix("home_toolbar_transition_glass_") == true }
+    }
+
+    @Test
+    func `queued preferences still animate after cancelled navigation`() async throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let transition = try #require(toolbar.preparePresentationTransition(to: .search))
+        toolbar.applyPreparedPresentationTransition(transition)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: false, sharesBackground: false), animated: true)
+        toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
+        #expect(transitionGlassViews(in: toolbar).count == 3)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(transitionGlassViews(in: toolbar).isEmpty)
+        #expect(!toolbar.accountsButton.isHidden)
+        #expect(toolbar.scanButtonPresentationSourceView == nil)
+    }
+
+    @Test
+    func `navigation reuses its glass views`() throws {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: true), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        var glassViews = Set<ObjectIdentifier>()
+        func visitToken() throws {
+            let push = try #require(toolbar.preparePresentationTransition(to: .compactToolbar, compactActions: tradeActions))
+            glassViews.formUnion(effectViews(in: toolbar).map { ObjectIdentifier($0) })
+            toolbar.applyPreparedPresentationTransition(push)
+            toolbar.finishPreparedPresentationTransition(push, isCancelled: false)
+            let pop = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
+            glassViews.formUnion(effectViews(in: toolbar).map { ObjectIdentifier($0) })
+            toolbar.applyPreparedPresentationTransition(pop)
+            toolbar.finishPreparedPresentationTransition(pop, isCancelled: false)
+            // The navigation host releases actions once their provider leaves the screen.
+            toolbar.setCompactActions([])
+        }
+        try visitToken()
+        let firstVisit = glassViews
+        for _ in 0..<10 {
+            try visitToken()
+        }
+        #expect(glassViews == firstVisit)
+    }
+
+    @Test
+    func `returning home renews a glass container that many glass views joined`() throws {
+        guard #available(iOS 26, *), IOS_26_MODE_ENABLED else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let container = try #require(toolbar.subviews.first as? UIVisualEffectView)
+        let effect = try #require(container.effect as? UIGlassContainerEffect)
+        let assignments = EffectAssignments()
+        let observation = container.observe(\.effect, options: .new) { _, change in
+            MainActor.assumeIsolated { assignments.effects.append(change.newValue ?? nil) }
+        }
+        defer { observation.invalidate() }
+        // Hosted glass joins the container and leaves it during the push
+        let hostedGlass = (0..<48).map { _ in UIVisualEffectView(effect: UIGlassEffect()) }
+        hostedGlass.forEach { toolbar.glassContentView.addSubview($0) }
+        let push = try #require(toolbar.preparePresentationTransition(to: .compactToolbar, compactActions: tradeActions))
+        hostedGlass.forEach { $0.removeFromSuperview() }
+        toolbar.applyPreparedPresentationTransition(push)
+        toolbar.finishPreparedPresentationTransition(push, isCancelled: false)
+        #expect(assignments.effects.isEmpty, "Tinted actions on screen keep the container's glass")
+
+        let pop = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
+        toolbar.applyPreparedPresentationTransition(pop)
+        toolbar.finishPreparedPresentationTransition(pop, isCancelled: false)
+        #expect(assignments.effects.map { $0 == nil } == [true, false])
+        #expect((container.effect as? UIGlassContainerEffect)?.spacing == effect.spacing)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `home buttons reserve space in logical order and preserve touch targets`(shared: Bool, isRTL: Bool) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: 320)
+        defer { window.isHidden = true }
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true, sharesBackground: shared), animated: false)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let scan = try #require(toolbar.scanButtonPresentationSourceView)
+        let accounts = toolbar.accountsButton
+        let controls = [toolbar.searchButtonPresentationSourceView, accounts, scan, toolbar.trailingButtonView]
+        let frames = controls.map { $0.convert($0.bounds, to: toolbar) }
+        for frame in frames {
+            #expect(frame.width >= 44 && frame.height >= 44)
+            #expect(toolbar.bounds.contains(frame))
+        }
+        for index in 1..<frames.count {
+            #expect(isRTL ? frames[index].maxX <= frames[index - 1].minX : frames[index].minX >= frames[index - 1].maxX)
+        }
+        #expect(!accounts.isHidden && accounts.isUserInteractionEnabled)
+        #expect(effectViews(in: toolbar).allSatisfy { $0.alpha == 1 })
+    }
+
+    @Test(arguments: [UniversalSearchFieldPresentation.search, .compactToolbar, .empty, .sideToolbar], [false, true])
+    func `optional buttons restore after navigation completes or cancels`(target: UniversalSearchFieldPresentation, cancelled: Bool) throws {
+        for shared in [false, true] {
+            let (window, toolbar) = makeToolbar()
+            defer { window.isHidden = true }
+            let configuration = HomeToolbarConfiguration(showsAccounts: true, showsScan: true, sharesBackground: shared)
+            toolbar.setHomeConfiguration(configuration, animated: false)
+            toolbar.setPresentation(.homeToolbar, animated: false)
+            let source = try #require(toolbar.scanButtonPresentationSourceView)
+            let originalFrame = source.convert(source.bounds, to: toolbar)
+            let transition = try #require(toolbar.preparePresentationTransition(to: target, compactActions: tradeActions))
+            toolbar.applyPreparedPresentationTransition(transition)
+            #expect((toolbar.scanButtonPresentationSourceView != nil) == (target == .sideToolbar))
+            #expect(toolbar.accountsButton.isUserInteractionEnabled == (target == .sideToolbar))
+            #expect(effectViews(in: toolbar).allSatisfy { $0.alpha == 1 })
+            toolbar.finishPreparedPresentationTransition(transition, isCancelled: cancelled)
+            #expect(transitionGlassViews(in: toolbar).isEmpty)
+            if !cancelled {
+                let pop = try #require(toolbar.preparePresentationTransition(to: .homeToolbar, navigationOperation: .pop))
+                toolbar.applyPreparedPresentationTransition(pop)
+                toolbar.finishPreparedPresentationTransition(pop, isCancelled: false)
+            }
+            #expect(toolbar.homeConfiguration == configuration)
+            #expect(toolbar.scanButtonPresentationSourceView === source)
+            #expect(source.convert(source.bounds, to: toolbar) == originalFrame)
+            #expect(!toolbar.accountsButton.isHidden && toolbar.accountsButton.isUserInteractionEnabled)
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `preference changes during navigation apply after completion or cancellation`(cancelled: Bool) throws {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        let transition = try #require(toolbar.preparePresentationTransition(to: .search))
+        toolbar.applyPreparedPresentationTransition(transition)
+        let configuration = HomeToolbarConfiguration(showsAccounts: true, showsScan: false, sharesBackground: false)
+        toolbar.setHomeConfiguration(configuration, animated: false)
+        #expect(toolbar.homeConfiguration != configuration)
+        toolbar.finishPreparedPresentationTransition(transition, isCancelled: cancelled)
+        #expect(toolbar.homeConfiguration == configuration)
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        #expect(toolbar.scanButtonPresentationSourceView == nil)
+        #expect(!toolbar.accountsButton.isHidden)
+        #expect(toolbar.accountsButton.isUserInteractionEnabled)
+    }
+
+    @Test
+    func `rapid configuration changes finish at the latest settings`() async throws {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(.homeToolbar, animated: false)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: false, sharesBackground: false), animated: true)
+        try await Task.sleep(for: .milliseconds(80))
+        toolbar.setHomeConfiguration(.init(showsAccounts: false, showsScan: true, sharesBackground: true), animated: true)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(toolbar.accountsButton.isHidden)
+        #expect(toolbar.scanButtonPresentationSourceView != nil)
+        #expect(effectViews(in: toolbar).allSatisfy { $0.alpha == 1 })
+        let transition = try #require(toolbar.preparePresentationTransition(to: .compactToolbar, compactActions: tradeActions))
+        toolbar.applyPreparedPresentationTransition(transition)
+        toolbar.finishPreparedPresentationTransition(transition, isCancelled: false)
+        expectVisibleActions(in: toolbar)
+    }
+
     @Test
     func `compact action tint updates do not inherit surrounding animations`() async throws {
         guard #available(iOS 26, *) else { return }
@@ -72,7 +539,7 @@ struct UniversalSearchToolbarTransitionTests {
     }
 
     private func effectViews(in view: UIView) -> [UIVisualEffectView] {
-        (view as? UIVisualEffectView).map { [$0] } ?? view.subviews.flatMap { effectViews(in: $0) }
+        ((view as? UIVisualEffectView).map { [$0] } ?? []) + view.subviews.flatMap { effectViews(in: $0) }
     }
 
     @Test
@@ -398,15 +865,19 @@ struct UniversalSearchToolbarTransitionTests {
         let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
         toolbar.translatesAutoresizingMaskIntoConstraints = true
         controller.view.addSubview(toolbar)
-        toolbar.semanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
-        toolbar.frame = CGRect(x: 420, y: 740, width: 48, height: 108)
+        forceLayoutDirection(in: toolbar, isRTL: isRTL)
+        toolbar.setHomeConfiguration(.init(showsAccounts: true, showsScan: true), animated: false)
+        let sideFrame = CGRect(x: 420, y: 868 - toolbar.sideToolbarHeight, width: 48, height: toolbar.sideToolbarHeight)
+        toolbar.frame = sideFrame
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
         toolbar.setPresentation(.sideToolbar, animated: false)
         toolbar.layoutIfNeeded()
         let actionFrame = toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: toolbar)
-        #expect(actionFrame == CGRect(x: 0, y: 60, width: 48, height: 48))
-        #expect(toolbar.hitTest(CGPoint(x: 24, y: 84), with: nil) != nil)
+        #expect(actionFrame == CGRect(x: 0, y: toolbar.sideToolbarHeight - 48, width: 48, height: 48))
+        #expect(toolbar.hitTest(CGPoint(x: 24, y: actionFrame.midY), with: nil) != nil)
+        let scan = try #require(toolbar.scanButtonPresentationSourceView)
+        let scanFrame = scan.convert(scan.bounds, to: toolbar)
         #expect(!toolbar.trailingButtonView.accessibilityElementsHidden)
         toolbar.configuration.text = "ton"
         toolbar.layoutIfNeeded()
@@ -425,17 +896,20 @@ struct UniversalSearchToolbarTransitionTests {
         #expect(toolbar.bounds.contains(toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: toolbar)))
 
         if isCancelled {
-            toolbar.frame = CGRect(x: 420, y: 740, width: 48, height: 108)
+            toolbar.frame = sideFrame
             toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
         } else {
             toolbar.finishPreparedPresentationTransition(transition, isCancelled: false)
             let collapse = try #require(toolbar.preparePresentationTransition(to: .sideToolbar))
-            toolbar.frame = CGRect(x: 420, y: 740, width: 48, height: 108)
+            toolbar.frame = sideFrame
             toolbar.applyPreparedPresentationTransition(collapse)
             toolbar.finishPreparedPresentationTransition(collapse, isCancelled: false)
         }
         toolbar.layoutIfNeeded()
         #expect(toolbar.presentation == .sideToolbar)
+        #expect(toolbar.scanButtonPresentationSourceView === scan)
+        #expect(scan.convert(scan.bounds, to: toolbar) == scanFrame)
+        #expect(!toolbar.accountsButton.isHidden && toolbar.accountsButton.isUserInteractionEnabled)
         #expect(toolbar.text == "ton")
         #expect(toolbar.trailingButtonView.convert(toolbar.trailingButtonView.bounds, to: toolbar) == actionFrame)
         #expect(fieldContent.bounds.size == CGSize(width: 48, height: 48))
@@ -469,9 +943,15 @@ struct UniversalSearchToolbarTransitionTests {
         ])
         window.isHidden = false
         window.layoutIfNeeded()
-        toolbar.semanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
+        forceLayoutDirection(in: toolbar, isRTL: isRTL)
         toolbar.setPresentation(.compactToolbar, animated: false)
         return (window, toolbar)
+    }
+
+    private func forceLayoutDirection(in view: UIView, isRTL: Bool) {
+        view.semanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
+        view.subviews.forEach { forceLayoutDirection(in: $0, isRTL: isRTL) }
+        view.setNeedsLayout()
     }
 
     private func actionButtons(in view: UIView) -> [UIControl] {
@@ -497,4 +977,8 @@ struct UniversalSearchToolbarTransitionTests {
             #expect(!button.isHidden && button.isUserInteractionEnabled)
         }
     }
+}
+
+private final class EffectAssignments {
+    var effects: [UIVisualEffect?] = []
 }

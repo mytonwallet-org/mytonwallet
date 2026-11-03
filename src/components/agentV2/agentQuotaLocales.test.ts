@@ -23,13 +23,9 @@ const QUOTA_KEYS = [
   '$agent_capacity_limit_known',
   '$agent_capacity_degraded_title',
   '$agent_capacity_limit_unknown',
-  '$agent_response_failed_title',
-  '$agent_response_interrupted_title',
   '$agent_retry_request',
   '$agent_rate_limit_title',
   '$agent_rate_limit_body',
-  '$agent_user_quota_meter',
-  '$agent_user_quota_reset',
   '$agent_user_quota_exhausted_title',
   '$agent_user_quota_exhausted_body',
 ] as const;
@@ -57,23 +53,17 @@ describe('Agent quota locale catalogs', () => {
   it.each(LOCALES)('preserves Agent limit placeholders for %s', (locale) => {
     const catalog = catalogs.get(locale)!;
     expect(catalog.$agent_capacity_limit_known).toEqual(expect.stringContaining('%duration%'));
-    expect(catalog.$agent_user_quota_meter).toEqual(expect.stringContaining('%remaining%'));
-    expect(catalog.$agent_user_quota_meter).toEqual(expect.stringContaining('%limit%'));
-    expect(catalog.$agent_user_quota_reset).toEqual(expect.stringContaining('%duration%'));
     expect(catalog.$agent_user_quota_exhausted_body).toEqual(expect.stringContaining('%limit%'));
     expect(catalog.$agent_user_quota_exhausted_body).toEqual(expect.stringContaining('%duration%'));
   });
 
   it('describes partial quota insufficiency in units', () => {
-    expect(english.$agent_user_quota_meter).toContain('units');
     expect(english.$agent_user_quota_exhausted_title).toBe('Not enough Agent quota');
     expect(english.$agent_user_quota_exhausted_body).toContain('enough quota for this request');
     expect(english.$agent_user_quota_exhausted_body).not.toContain('used all');
   });
 
   it('distinguishes failed responses from current Agent availability', () => {
-    expect(english.$agent_response_failed_title).toBe('Couldn’t get a response');
-    expect(english.$agent_response_interrupted_title).toBe('Response interrupted');
     expect(english.$agent_retry_request).toBe('Retry request');
     expect(english.$agent_capacity_limit_title).toBe('Agent is temporarily unavailable');
     expect(english.$agent_capacity_limit_known).toBe('New requests will be available in %duration%.');
@@ -82,8 +72,6 @@ describe('Agent quota locale catalogs', () => {
       .toBe('You can try again, but the response may not load.');
 
     const russian = catalogs.get('ru')!;
-    expect(russian.$agent_response_failed_title).toBe('Не удалось получить ответ');
-    expect(russian.$agent_response_interrupted_title).toBe('Ответ прерван');
     expect(russian.$agent_retry_request).toBe('Повторить запрос');
     expect(russian.$agent_capacity_limit_title).toBe('Агент временно недоступен');
     expect(russian.$agent_capacity_limit_known)

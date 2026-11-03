@@ -2,20 +2,28 @@ import SwiftUI
 
 public struct WarningBackground: View {
     public var color: Color
+    public var isCompact: Bool
 
-    public init(color: Color) {
+    public init(color: Color, isCompact: Bool = false) {
         self.color = color
+        self.isCompact = isCompact
     }
 
     public var body: some View {
-        RoundedRectangle(cornerRadius: 26, style: .continuous)
-            .fill(color.opacity(0.12))
-            .overlay {
-                WarningSideBars()
-                    .fill(color)
+        Group {
+            if isCompact {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(color.opacity(0.12))
+                    .overlay(alignment: .leading) { color.frame(width: 3) }
+                    .clipShape(.rect(cornerRadius: 10))
+            } else {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(color.opacity(0.12))
+                    .overlay { WarningSideBars().fill(color) }
             }
-            .accessibilityHidden(true)
-            .allowsHitTesting(false)
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }
 

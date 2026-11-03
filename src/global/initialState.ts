@@ -99,6 +99,7 @@ export const INITIAL_STATE: GlobalState = {
 
   tokenPriceHistory: {
     bySlug: {},
+    restoredBySlug: {},
   },
 
   tokenDetails: {

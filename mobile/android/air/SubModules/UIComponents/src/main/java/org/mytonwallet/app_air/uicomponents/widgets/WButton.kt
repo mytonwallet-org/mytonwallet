@@ -52,7 +52,10 @@ class WButton(context: Context) :
 
         data object Primary : Type()
         data object Destructive : Type()
-        data class Secondary(val backgroundBaseColor: WColor? = null) : Type()
+        data class Secondary(
+            val backgroundBaseColor: WColor? = null,
+            val textColor: WColor? = null
+        ) : Type()
 
         companion object {
             val PRIMARY: Type = Primary
@@ -60,6 +63,7 @@ class WButton(context: Context) :
             val SECONDARY: Type = Secondary()
             val SECONDARY_WITH_BACKGROUND: Type =
                 Secondary(backgroundBaseColor = WColor.SecondaryBackground)
+            val SECONDARY_NEUTRAL: Type = Secondary(textColor = WColor.SecondaryText)
         }
     }
 
@@ -364,7 +368,9 @@ class WButton(context: Context) :
                     )
                 }
 
-                is Type.Secondary -> tintColor
+                is Type.Secondary -> type.textColor?.color?.let {
+                    fromToArgb(alphaColor(0.5f, it), it, isEnabledAnimator.floatValue)
+                } ?: tintColor
             },
             errorTextColor,
             isErrorAnimator.floatValue
@@ -372,7 +378,9 @@ class WButton(context: Context) :
 
         val rippleColor = when (type) {
             is Type.Primary, Type.Destructive -> WColor.backgroundRippleColor
-            is Type.Secondary -> WColor.tintRippleColor
+
+            is Type.Secondary ->
+                if (type.textColor != null) WColor.backgroundRippleColor else WColor.tintRippleColor
         }
 
         ripple.rippleColor = rippleColor

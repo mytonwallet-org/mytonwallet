@@ -17,6 +17,7 @@ import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
+import { capturePendingTransferBalances, registerPendingTransfer } from '../common/pendingBalances';
 import { bytesToBase64 } from '../common/utils';
 import { requireMfaMethods } from './optional';
 import { buildTokenSlug } from './tokens';
@@ -173,6 +174,10 @@ export async function submitTransfer(
   } = options;
 
   const fromAddress = await fetchStoredAddress(accountId, chain);
+  const slug = tokenAddress
+    ? buildTokenSlug(chain, tokenAddress)
+    : getNativeToken(chain).slug;
+  const balancesBeforeTransfer = capturePendingTransferBalances(accountId, chain, slug);
 
   let result: ApiSubmitGasfullTransferResult | ApiSubmitGaslessTransferResult | { error: string };
 
@@ -204,15 +209,20 @@ export async function submitTransfer(
     return result;
   }
 
-  const slug = tokenAddress
-    ? buildTokenSlug(chain, tokenAddress)
-    : getNativeToken(chain).slug;
   const comment = payload?.type === 'comment' && !payload.shouldEncrypt ? payload.text : undefined;
+  const { network } = parseAccountId(accountId);
+  const isSelfTransfer = chains[chain].normalizeAddress(toAddress, network)
+    === chains[chain].normalizeAddress(fromAddress, network);
+  const pendingAmount = isSelfTransfer ? 0n : amount;
 
   if (result.mfaRequest) {
     const { publishSignedMfaRequest, registerMfaConfirmationHandler } = requireMfaMethods();
     const mfaResult = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
     registerMfaConfirmationHandler(mfaResult.mfaRequestHash, (txHash) => {
+      registerPendingTransfer(
+        accountId, chain, { slug, amount: pendingAmount, fee: realFee ?? 0n }, balancesBeforeTransfer,
+        (update) => onUpdate(update),
+      );
       createLocalTransactions(accountId, chain, [{
         id: txHash,
         amount,
@@ -225,6 +235,13 @@ export async function submitTransfer(
       }]);
     });
     return mfaResult;
+  }
+
+  if (result.txId) {
+    registerPendingTransfer(
+      accountId, chain, { slug, amount: pendingAmount, fee: realFee ?? 0n }, balancesBeforeTransfer,
+      (update) => onUpdate(update),
+    );
   }
 
   const [localActivity] = createLocalTransactions(accountId, chain, [{

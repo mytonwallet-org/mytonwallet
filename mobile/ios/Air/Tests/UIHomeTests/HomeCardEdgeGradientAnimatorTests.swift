@@ -5,9 +5,7 @@ import UIKit
 @MainActor
 final class HomeCardEdgeGradientAnimatorTests: XCTestCase {
     func testDisablingMotionRestoresStaticGradientEvenDuringReturnAnimation() async throws {
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         window.rootViewController = UIViewController()
         window.isHidden = false
         defer { window.isHidden = true }
@@ -41,9 +39,7 @@ final class HomeCardEdgeGradientAnimatorTests: XCTestCase {
     }
 
     func testSwipeTransitionSurvivesLayoutAndReturnsSmoothly() async throws {
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         let host = UIViewController()
         window.rootViewController = host
         window.isHidden = false
@@ -59,8 +55,15 @@ final class HomeCardEdgeGradientAnimatorTests: XCTestCase {
         for away in [true, false] {
             let destination: CGFloat = away ? 24 : 0
             animator.update(leading: leading, trailing: trailing, leadingOffset: -destination, trailingOffset: destination, animated: true)
-            try await Task.sleep(for: .milliseconds(60))
-            let beforeLayout = try XCTUnwrap(trailing.layer.presentation()).transform.m41
+            // Catch the 0.24 s transition in flight. The wait counts 8 ms samples rather than wall time, so a busy
+            // machine that delays the first frames does not read the start as the middle.
+            var beforeLayout = try XCTUnwrap(trailing.layer.presentation()).transform.m41
+            var samples = 30
+            while !(beforeLayout > 0 && beforeLayout < 24), samples > 0 {
+                samples -= 1
+                try await Task.sleep(for: .milliseconds(8))
+                beforeLayout = try XCTUnwrap(trailing.layer.presentation()).transform.m41
+            }
             XCTAssertGreaterThan(beforeLayout, 0)
             XCTAssertLessThan(beforeLayout, 24)
             animator.update(leading: leading, trailing: trailing, leadingOffset: -destination, trailingOffset: destination, animated: false)
@@ -68,7 +71,11 @@ final class HomeCardEdgeGradientAnimatorTests: XCTestCase {
             CATransaction.flush()
             let afterLayout = try XCTUnwrap(trailing.layer.presentation()).transform.m41
             XCTAssertEqual(afterLayout, beforeLayout, accuracy: 1, "Relayout must not jump to the final opacity/position")
-            try await Task.sleep(for: .milliseconds(300))
+            samples = 40
+            while trailing.layer.animationKeys()?.isEmpty == false, samples > 0 {
+                samples -= 1
+                try await Task.sleep(for: .milliseconds(16))
+            }
             XCTAssertEqual(trailing.layer.presentation()?.transform.m41 ?? trailing.transform.tx, destination, accuracy: 0.01)
             XCTAssertEqual(leading.transform.tx, -destination)
         }

@@ -3,6 +3,7 @@ import TeactDOM from '../../lib/teact/teact-dom';
 
 import { pause } from '../../util/schedulers';
 import { enclave } from '../../enclave';
+import { EnclaveError } from '../../enclave/errors';
 
 import PasswordForm, { triggerPasswordFormHandleBiometrics } from './PasswordForm';
 
@@ -20,7 +21,7 @@ jest.mock('../../global', () => {
     withGlobal: () => (Component: unknown) => Component,
   };
 });
-jest.mock('../../enclave', () => ({ enclave: { authorize: jest.fn() } }));
+jest.mock('../../enclave', () => ({ enclave: { authorizeOrThrow: jest.fn() } }));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => Object.assign((key: string) => key, { code: 'en', isRtl: false }),
@@ -100,7 +101,7 @@ describe('PasswordForm', () => {
   });
 
   it('lets the user leave the form when the password check fails', async () => {
-    jest.mocked(enclave.authorize).mockRejectedValueOnce(new Error('Check failed'));
+    jest.mocked(enclave.authorizeOrThrow).mockRejectedValueOnce(new Error('Check failed'));
     const onCancel = jest.fn();
     const onError = jest.fn();
 
@@ -119,8 +120,8 @@ describe('PasswordForm', () => {
     await submitPassword(root, 'Confirm');
     clickButton(root, 'Back');
 
-    expect(onError).toHaveBeenCalledWith('Check failed');
-    expect(root.textContent).toContain('Check failed');
+    expect(onError).toHaveBeenCalledWith('Something went wrong.');
+    expect(root.textContent).toContain('Something went wrong.');
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
@@ -168,7 +169,7 @@ describe('PasswordForm', () => {
       root,
     );
     await pause(20);
-    resolveCheck(undefined);
+    resolveCheck(new EnclaveError('wrong_passcode', 'Wrong passcode'));
     await pause(20);
 
     expect(onError).not.toHaveBeenCalledWith('Wrong password, please try again.');
@@ -216,7 +217,7 @@ describe('PasswordForm', () => {
   });
 
   it('authorizes on a form that stays inactive, like the manually locked app', async () => {
-    jest.mocked(enclave.authorize).mockResolvedValue({ token: 'token' });
+    jest.mocked(enclave.authorizeOrThrow).mockResolvedValue({ token: 'token', validUntil: undefined });
     const onAuthorize = jest.fn();
 
     TeactDOM.render(<PasswordForm isActive={false} submitLabel="Unlock" onAuthorize={onAuthorize} />, root);
@@ -227,7 +228,7 @@ describe('PasswordForm', () => {
   });
 
   it('leaves the lock screen biometrics signal to the unlock form', async () => {
-    jest.mocked(enclave.authorize).mockResolvedValue({ token: 'token' });
+    jest.mocked(enclave.authorizeOrThrow).mockResolvedValue({ token: 'token', validUntil: undefined });
     // State props go straight to the form, as `withGlobal` is mocked
     const biometricsProps = { isBiometricAuthEnabled: true };
     const renderForm = (operationType: 'transfer' | 'unlock') => TeactDOM.render(
@@ -240,7 +241,7 @@ describe('PasswordForm', () => {
     triggerPasswordFormHandleBiometrics();
     await pause(20);
 
-    expect(enclave.authorize).not.toHaveBeenCalled();
+    expect(enclave.authorizeOrThrow).not.toHaveBeenCalled();
 
     TeactDOM.render(undefined, root);
     renderForm('unlock');
@@ -248,18 +249,20 @@ describe('PasswordForm', () => {
     triggerPasswordFormHandleBiometrics();
     await pause(20);
 
-    expect(enclave.authorize).toHaveBeenCalledTimes(1);
+    expect(enclave.authorizeOrThrow).toHaveBeenCalledTimes(1);
   });
 });
 
-// Makes the next `enclave.authorize` call wait until the returned callback answers it
+// Makes the next `enclave.authorizeOrThrow` call wait until the returned callback answers it
 function deferAuthorize() {
-  let resolveCheck: (session?: { token: string }) => void;
-  jest.mocked(enclave.authorize).mockReturnValueOnce(new Promise((resolve) => {
-    resolveCheck = resolve;
+  let settleCheck: (outcome: { token: string } | Error) => void;
+  jest.mocked(enclave.authorizeOrThrow).mockReturnValueOnce(new Promise((resolve, reject) => {
+    settleCheck = (outcome) => (
+      outcome instanceof Error ? reject(outcome) : resolve({ validUntil: undefined, ...outcome })
+    );
   }));
 
-  return (session?: { token: string }) => resolveCheck(session);
+  return (outcome: { token: string } | Error) => settleCheck(outcome);
 }
 
 async function submitPassword(root: HTMLElement, submitLabel: string) {

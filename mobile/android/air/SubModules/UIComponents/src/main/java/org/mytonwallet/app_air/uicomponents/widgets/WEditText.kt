@@ -93,11 +93,12 @@ open class WEditText(
 
     override fun onTextContextMenuItem(id: Int): Boolean {
         if (multilinePaste && (id == R.id.paste || id == R.id.pasteAsPlainText)) {
-            val clipboard: ClipboardManager =
-                context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            if (clipboard != null && clipboard.hasText()) {
-                val pasteData = clipboard.getText().toString()
-                if (pasteData.contains("\n") || pasteData.contains(" ")) {
+            val clipboard =
+                context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            if (clipboard?.hasText() == true) {
+                val pasteData =
+                    clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
+                if (pasteData != null && (pasteData.contains("\n") || pasteData.contains(" "))) {
                     handlePaste(pasteData)
                     return true
                 }

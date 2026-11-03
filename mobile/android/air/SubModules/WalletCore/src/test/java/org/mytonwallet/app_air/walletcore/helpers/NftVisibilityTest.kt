@@ -5,9 +5,38 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.moshi.ApiNftMetadata
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
+import org.mytonwallet.app_air.walletcore.stores.mergeIncomingNft
 
 class NftVisibilityTest {
+
+    @Test
+    fun changedNftKeepsItsPosition() {
+        val first = nft("first")
+        val original = nft("changed").copy(description = "Old description")
+        val last = nft("last")
+        val current = listOf(first, original, last)
+        val changed = original.copy(
+            name = "Updated NFT",
+            description = null,
+            isOnSale = true,
+            metadata = ApiNftMetadata(fragmentUrl = "", imageUrl = "https://example.com/new.png")
+        )
+
+        val updated = mergeIncomingNft(current, changed)
+
+        assertEquals(listOf(first, changed, last), updated)
+    }
+
+    @Test
+    fun missingChangedNftIsPrependedLikeReceivedNft() {
+        val existing = nft("existing")
+        val changed = nft("changed")
+
+        assertEquals(listOf(changed, existing), mergeIncomingNft(listOf(existing), changed))
+        assertEquals(listOf(changed), mergeIncomingNft(null, changed))
+    }
 
     @Test
     fun providerSpamMetadataSurvivesSdkAndCacheBoundaries() {
@@ -140,4 +169,12 @@ class NftVisibilityTest {
             )
         )
     }
+
+    private fun nft(address: String) = ApiNft(
+        address = address,
+        thumbnail = null,
+        image = null,
+        isOnSale = false,
+        metadata = ApiNftMetadata(fragmentUrl = "")
+    )
 }

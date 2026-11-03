@@ -19,6 +19,7 @@ import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.FiatCurrencyIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
@@ -196,11 +197,14 @@ class TokenTradeView(
             )
         }
         controlsContainer.addView(percentRow, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        controlsContainer.addView(continueButton, LayoutParams(MATCH_PARENT, 52.dp))
+        controlsContainer.addView(
+            continueButton,
+            LayoutParams(MATCH_PARENT, CONTROLS_HEIGHT.dp)
+        )
         bottomPanel.addView(
             controlsContainer,
-            LinearLayout.LayoutParams(MATCH_PARENT, 52.dp).apply {
-                setMargins(24.dp, 24.dp, 24.dp, 12.dp)
+            LinearLayout.LayoutParams(MATCH_PARENT, CONTROLS_HEIGHT.dp).apply {
+                setMargins(24.dp, 24.dp, 24.dp, CONTROLS_BOTTOM_MARGIN.dp)
             }
         )
         bottomPanel.addView(keypad, LinearLayout.LayoutParams(MATCH_PARENT, 256.dp))
@@ -251,43 +255,65 @@ class TokenTradeView(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val height = MeasureSpec.getSize(heightMeasureSpec)
-        val panelChromeHeight = 88.dp + max(16.dp, bottomInset)
-        val methodRowSpace = (METHOD_ROW_HEIGHT + 2 * METHOD_ROW_GAP).dp
-        var keypadHeight = TokenTradeKeypadView.preferredHeight
-        val flexibleCardHeight = height - panelChromeHeight - keypadHeight - methodRowSpace
-        // The card stops at its design height; taller screens give the rest to the keypad,
-        // and short screens shrink the keypad before the card goes below its minimum.
+        val panelBottomPadding = max(16.dp, bottomInset)
         val maxCardHeight = topInset + CARD_MAX_CONTENT_HEIGHT.dp
         val minCardHeight = topInset + CARD_MIN_CONTENT_HEIGHT.dp
-        if (flexibleCardHeight > maxCardHeight) {
-            keypadHeight += flexibleCardHeight - maxCardHeight
-        } else if (flexibleCardHeight < minCardHeight) {
-            keypadHeight = max(
-                KEYPAD_MIN_HEIGHT.dp,
-                keypadHeight - (minCardHeight - flexibleCardHeight)
+        val compactCardHeight = topInset + CARD_COMPACT_CONTENT_HEIGHT.dp
+        // Screens too short for the minimum card and keypad tighten the gaps around the controls.
+        val isTight = height - panelBottomPadding - KEYPAD_MIN_HEIGHT.dp -
+            panelChromeHeight(isTight = false) - methodRowSpace(isTight = false) <
+            minCardHeight
+        val panelChromeHeight = panelChromeHeight(isTight) + panelBottomPadding
+        val methodRowGap = methodRowGap(isTight).dp
+        val cardAndKeypadHeight = height - panelChromeHeight - methodRowSpace(isTight)
+        // The card stops at its design height; taller screens give the rest to the keypad.
+        // Short screens shrink the keypad to its minimum, then bring the card items closer down
+        // to the compact card, then shrink the keypad to its compact minimum.
+        val preferredKeypadHeight = TokenTradeKeypadView.preferredHeight
+        val keypadHeight = when {
+            cardAndKeypadHeight - preferredKeypadHeight > maxCardHeight ->
+                cardAndKeypadHeight - maxCardHeight
+
+            cardAndKeypadHeight - KEYPAD_MIN_HEIGHT.dp >= compactCardHeight -> min(
+                preferredKeypadHeight,
+                max(KEYPAD_MIN_HEIGHT.dp, cardAndKeypadHeight - minCardHeight)
             )
+
+            else -> max(KEYPAD_COMPACT_MIN_HEIGHT.dp, cardAndKeypadHeight - compactCardHeight)
         }
         (keypad.layoutParams as LinearLayout.LayoutParams).height = keypadHeight
-        bottomPanel.setPadding(0, 0, 0, max(16.dp, bottomInset))
+        (controlsContainer.layoutParams as LinearLayout.LayoutParams).topMargin =
+            panelTopMargin(isTight).dp
+        bottomPanel.setPadding(0, 0, 0, panelBottomPadding)
+        (methodRow.layoutParams as LinearLayout.LayoutParams).apply {
+            topMargin = methodRowGap
+            bottomMargin = methodRowGap
+        }
+        (estimateDebugSummaryView.layoutParams as LinearLayout.LayoutParams).bottomMargin =
+            methodRowGap
         val controlsHeight = panelChromeHeight + keypadHeight
-        val contentHeight = max(0, height - controlsHeight)
-        val cardHeight = max(minCardHeight, contentHeight - methodRowSpace)
+        val cardHeight = max(compactCardHeight, cardAndKeypadHeight - keypadHeight)
         val isCompact = cardHeight - topInset < 260.dp
         (amountCard.layoutParams as LinearLayout.LayoutParams).height = cardHeight
         val amountFieldHeight = if (isCompact) 64.dp else 86.dp
+        val cardTopPadding = if (isTight) 4.dp else 8.dp
+        val feeBottomMargin = when {
+            isTight -> 8.dp
+            isCompact -> 12.dp
+            else -> 22.dp
+        }
         // Space above the pill is 78dp less than below the field; when that leaves less than
         // 48dp above the pill, the gap below is only 16dp larger.
         val freeHeight = max(
             0,
-            cardHeight - topInset - 8.dp - 26.dp - 1.dp - amountFieldHeight
+            cardHeight - topInset - cardTopPadding - 26.dp - 1.dp - amountFieldHeight
         )
         val topGap = ((freeHeight - 78.dp) / 2).takeIf { it >= 48.dp }
             ?: max(0, (freeHeight - 16.dp) / 2)
         (cardTopSpacer.layoutParams as LinearLayout.LayoutParams).height =
-            topInset + 8.dp + topGap
+            topInset + cardTopPadding + topGap
         (amountField.layoutParams as LinearLayout.LayoutParams).height = amountFieldHeight
-        (feeLabel.layoutParams as LinearLayout.LayoutParams).bottomMargin =
-            if (isCompact) 12.dp else 22.dp
+        (feeLabel.layoutParams as LinearLayout.LayoutParams).bottomMargin = feeBottomMargin
         (scrollView.layoutParams as LayoutParams).bottomMargin = controlsHeight
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
@@ -451,13 +477,34 @@ class TokenTradeView(
         keypad.setDeleteEnabled(model.input.text.isNotEmpty())
     }
 
-    private companion object {
-        const val METHOD_ROW_HEIGHT = 56
-        const val METHOD_ROW_GAP = 12
+    companion object {
+        private const val METHOD_ROW_HEIGHT = 56
+        private const val METHOD_ROW_GAP = 12
 
         // Card height below the top bars in the design (bottom at 390dp under 88dp of bars).
-        const val CARD_MAX_CONTENT_HEIGHT = 302
-        const val CARD_MIN_CONTENT_HEIGHT = 200
-        const val KEYPAD_MIN_HEIGHT = 240
+        private const val CARD_MAX_CONTENT_HEIGHT = 302
+        private const val CARD_MIN_CONTENT_HEIGHT = 200
+        private const val CARD_COMPACT_CONTENT_HEIGHT = 124
+        private const val KEYPAD_MIN_HEIGHT = 240
+        private const val KEYPAD_COMPACT_MIN_HEIGHT = 186
+        private const val CONTROLS_HEIGHT = 52
+        private const val CONTROLS_BOTTOM_MARGIN = 12
+
+        private fun methodRowGap(isTight: Boolean) = if (isTight) 8 else METHOD_ROW_GAP
+
+        // Sums the per-view pixel sizes the layout uses, so content that fits does not overflow
+        // by a rounding pixel.
+        private fun methodRowSpace(isTight: Boolean) =
+            METHOD_ROW_HEIGHT.dp + 2 * methodRowGap(isTight).dp
+
+        private fun panelTopMargin(isTight: Boolean) = if (isTight) 12 else 24
+
+        private fun panelChromeHeight(isTight: Boolean) =
+            panelTopMargin(isTight).dp + CONTROLS_HEIGHT.dp + CONTROLS_BOTTOM_MARGIN.dp
+
+        fun minimumHeight(topInset: Int, bottomInset: Int): Int =
+            topInset + CARD_COMPACT_CONTENT_HEIGHT.dp + methodRowSpace(isTight = true) +
+                panelChromeHeight(isTight = true) + max(16.dp, bottomInset) +
+                KEYPAD_COMPACT_MIN_HEIGHT.dp
     }
 }

@@ -75,8 +75,11 @@ final class AgentBubbleBackgroundView: UIView {
         fillColor: UIColor,
         usesTintColor: Bool = false,
         showsTail: Bool = true,
-        cornerRadii: CornerRadii = .standAlone
+        cornerRadii: CornerRadii = .standAlone,
+        shouldAnimateTail: Bool = false
     ) {
+        let shouldRevealTail = shouldAnimateTail && showsTail && !self.showsTail && window != nil
+            && !UIAccessibility.isReduceMotionEnabled
         self.direction = direction
         self.fillColor = fillColor
         self.usesTintColor = usesTintColor
@@ -98,6 +101,38 @@ final class AgentBubbleBackgroundView: UIView {
         tailHeightConstraint.constant = showsTail ? Metrics.tailSize.height : 0
 
         setNeedsLayout()
+        if shouldRevealTail {
+            revealTail()
+        } else if !showsTail {
+            tailView.layer.removeAllAnimations()
+            tailView.alpha = 1
+            tailView.transform = .identity
+        }
+    }
+
+    /// The tail grows out of the bubble's corner, from where it joins the bubble
+    private func revealTail() {
+        let scale: CGFloat = 0.4
+        tailView.alpha = 0
+        tailView.transform = CGAffineTransform(translationX: 0, y: -Metrics.tailSize.height * (1 - scale) / 2)
+            .scaledBy(x: scale, y: scale)
+        UIView.animate(
+            withDuration: 0.4,
+            delay: 0.05,
+            usingSpringWithDamping: 0.75,
+            initialSpringVelocity: 0,
+            options: [.allowUserInteraction, .beginFromCurrentState]
+        ) {
+            self.tailView.alpha = 1
+            self.tailView.transform = .identity
+        }
+    }
+
+    /// `previewPath` moved into `rect`, for a menu that masks the bubble's attachment with it
+    func makePreviewPath(in rect: CGRect) -> CGPath {
+        let path = previewPath()
+        path.apply(CGAffineTransform(translationX: rect.minX, y: rect.minY))
+        return path.cgPath
     }
 
     func previewPath() -> UIBezierPath {
@@ -198,6 +233,21 @@ final class AgentBubbleBackgroundView: UIView {
         performWithoutImplicitAnimations {
             bodyView.backgroundColor = appliedFillColor
             tailLayer.fillColor = appliedFillColor.cgColor
+        }
+    }
+
+    func revealFill(from color: UIColor, duration: TimeInterval) {
+        let source = color.resolvedColor(with: traitCollection).cgColor
+        for (layer, key, target) in [
+            (bodyView.layer, "backgroundColor", bodyView.layer.backgroundColor),
+            (tailLayer, "fillColor", tailLayer.fillColor),
+        ] {
+            let animation = CABasicAnimation(keyPath: key)
+            animation.fromValue = source
+            animation.toValue = target
+            animation.duration = duration
+            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(animation, forKey: "agentSkeletonReveal.fill")
         }
     }
 

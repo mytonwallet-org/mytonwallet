@@ -1,6 +1,5 @@
 const ENV_KEYS = [
   'AGENT_OVERRIDE',
-  'AGENT_V2_QUOTA_STATUS_ENABLED',
 ] as const;
 type EnvKey = (typeof ENV_KEYS)[number];
 
@@ -29,24 +28,13 @@ describe('Agent V2 rollout config', () => {
       );
     });
   });
-
-  describe('AGENT_V2_QUOTA_STATUS_ENABLED', () => {
-    it.each([
-      ['unset', undefined, false],
-      ['disabled', '0', false],
-      ['enabled', '1', true],
-      ['invalid', 'true', false],
-    ] as const)('resolves the flag when %s', async (_name, value, expected) => {
-      expect(await readConfigValue('AGENT_V2_QUOTA_STATUS_ENABLED', value)).toBe(expected);
-    });
-  });
 });
 
 async function readConfigValue(envKey: EnvKey, value: string | undefined) {
   const previousValue = process.env[envKey];
   setEnvValue(envKey, value);
 
-  let result: boolean | string | undefined;
+  let result: string | undefined;
   try {
     await jest.isolateModulesAsync(async () => {
       const config = await import('./config');

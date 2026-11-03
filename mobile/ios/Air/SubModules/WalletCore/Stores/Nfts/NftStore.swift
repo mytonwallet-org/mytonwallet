@@ -47,12 +47,18 @@ public final class _NftStore: Sendable {
     private let cacheQueue = DispatchQueue(label: "org.mytonwallet.app.nft-cache", qos: .utility)
 
     private let cacheUrl: URL
+    /// Tests turn it off to reach the order repair, which the assertion stops in debug builds
+    private let assertsNftsOrder: Bool
 
-    init(cacheUrl: URL = URL.cachesDirectory.appending(components: "air", "nfts", "nfts.json")) {
+    init(
+        cacheUrl: URL = URL.cachesDirectory.appending(components: "air", "nfts", "nfts.json"),
+        assertsNftsOrder: Bool = true
+    ) {
         self.cacheUrl = cacheUrl
+        self.assertsNftsOrder = assertsNftsOrder
     }
 
-    private let _nfts: UnfairLock<[String: OrderedDictionary<String, DisplayNft>]> = .init(initialState: [:])
+    let _nfts: UnfairLock<[String: OrderedDictionary<String, DisplayNft>]> = .init(initialState: [:])
     private var nfts: [String: OrderedDictionary<String, DisplayNft>] {
         _nfts.withLock { $0 }
     }
@@ -717,6 +723,15 @@ public final class _NftStore: Sendable {
         }
     }
 
+    func applyChangedMtwCard(accountId: String, nft: ApiNft) {
+        guard nft.collectionAddress == MTW_CARDS_COLLECTION else {
+            return
+        }
+        Task { @MainActor in
+            replaceInstalledMtwCard(accountId: accountId, nft: nft)
+        }
+    }
+
     func applyMintedMtwCard(accountId: String, nft: ApiNft) {
         guard nft.chain == .ton, nft.collectionAddress == MTW_CARDS_COLLECTION else { return }
         updatesQueue.async { [self] in
@@ -797,33 +812,51 @@ public final class _NftStore: Sendable {
         accountSettings.setBackgroundNft(nft)
         accountSettings.setAccentColorNft(nft)
     }
+
+    @MainActor
+    func replaceInstalledMtwCard(accountId: String, nft: ApiNft) {
+        @Dependency(\.accountSettings) var accountSettingsStore
+        let accountSettings = accountSettingsStore.for(accountId: accountId)
+        guard accountSettings.backgroundNft?.id == nft.id else {
+            return
+        }
+        accountSettings.setBackgroundNft(nft)
+    }
     
     // MARK: - Private
     
     private func _moveHiddenToEnd(accountId: String) {
         _nfts.withLock {
-            if var nfts = $0[accountId], let lastShown = nfts.elements.lastIndex(where: { $1.shouldHide == false }) {
-                let tooEarly = nfts.elements[..<lastShown].filter { _, nft in
-                    nft.shouldHide
-                }
-                for (nftId, nft) in tooEarly {
-                    nfts.removeValue(forKey: nftId)
-                    nfts[nftId] = nft
-                }
+            if var nfts = $0[accountId] {
+                Self.moveHiddenToEnd(&nfts)
                 $0[accountId] = nfts
             }
         }
     }
+
+    private static func moveHiddenToEnd(_ nfts: inout OrderedDictionary<String, DisplayNft>) {
+        guard let lastShown = nfts.elements.lastIndex(where: { $1.shouldHide == false }) else {
+            return
+        }
+        let tooEarly = nfts.elements[..<lastShown].filter { _, nft in
+            nft.shouldHide
+        }
+        for (nftId, nft) in tooEarly {
+            nfts.removeValue(forKey: nftId)
+            nfts[nftId] = nft
+        }
+    }
     
-    private func _checkNftsOrder(accountId: String) {
+    func _checkNftsOrder(accountId: String) {
         _nfts.withLock {
-            let nfts = $0[accountId, default: [:]]
+            var nfts = $0[accountId, default: [:]]
             let shownNfts = nfts.filter { (_, nft) in !nft.shouldHide }
             let hiddenNfts = nfts.filter { (_, nft) in nft.shouldHide }
-            assert(Array(nfts.values) == Array(shownNfts.values) + Array(hiddenNfts.values), "nfts are out of order; reordering won't work")
+            assert(!assertsNftsOrder || Array(nfts.values) == Array(shownNfts.values) + Array(hiddenNfts.values), "nfts are out of order; reordering won't work")
             if Array(nfts.values) != Array(shownNfts.values) + Array(hiddenNfts.values) {
                 log.fault("logic error: nfts are out of order; reordering won't work")
-                _moveHiddenToEnd(accountId: accountId)
+                Self.moveHiddenToEnd(&nfts)
+                $0[accountId] = nfts
             }
         }
     }
@@ -888,7 +921,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
         }
     }
 
-    private func handleEvent(_ event: WalletCoreData.Event) {
+    func handleEvent(_ event: WalletCoreData.Event) {
         switch event {
         case .accountDeleted(let accountId):
             _nfts.withLock { $0[accountId] = nil }
@@ -950,6 +983,23 @@ extension _NftStore: WalletCoreData.EventsObserver {
         case .nftReceived(let update):
             self.received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
             applyIncomingMtwCard(accountId: update.accountId, nft: update.nft)
+
+        case .nftChanged(let update):
+            let didReplace = _nfts.withLock {
+                guard var nfts = $0[update.accountId], nfts[update.nft.id] != nil else { return false }
+                nfts[update.nft.id]?.nft = update.nft
+                Self.moveHiddenToEnd(&nfts)
+                $0[update.accountId] = nfts
+                return true
+            }
+            if didReplace {
+                saveToCache()
+                WalletCoreData.notify(event: .nftsChanged(accountId: update.accountId))
+            } else {
+                received(accountId: update.accountId, newNfts: [update.nft], removedNftIds: [])
+                applyIncomingMtwCard(accountId: update.accountId, nft: update.nft)
+            }
+            applyChangedMtwCard(accountId: update.accountId, nft: update.nft)
 
         case .nftSent(let update):
             self.received(

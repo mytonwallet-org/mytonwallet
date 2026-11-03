@@ -154,7 +154,7 @@ describe('ElectronAuth', () => {
     mockElectron({ decryptPassword });
 
     await expect(new ElectronAuth(createMemoryStorage()).authorize())
-      .rejects.toThrow('ElectronAuth: no key material is stored');
+      .rejects.toMatchObject({ code: 'auth_not_configured', message: 'ElectronAuth: no key material is stored' });
     expect(decryptPassword).not.toHaveBeenCalled();
   });
 });

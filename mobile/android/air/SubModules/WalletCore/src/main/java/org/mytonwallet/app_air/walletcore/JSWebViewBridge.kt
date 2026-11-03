@@ -273,6 +273,12 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         methodName: String,
         args: String,
         callback: (result: String?, error: MBridgeError?) -> Unit
+    ) = callApiWithQuotedArgs(methodName, JSONObject.quote(args), callback)
+
+    private fun callApiWithQuotedArgs(
+        methodName: String,
+        quotedArgs: String,
+        callback: (result: String?, error: MBridgeError?) -> Unit
     ) {
         callIdentifier += 1
         val thisCallIdentifier = callIdentifier
@@ -280,9 +286,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         val script = "if (!window.airBridge?.callApi) {\n" +
             "androidApp.callback($thisCallIdentifier, false, 'airBridge not working!');" +
             "} else {" +
-            "   let call = window.airBridge.callApi('$methodName',...JSON.parse(${
-                JSONObject.quote(args)
-            }, window.airBridge.bigintReviver));" +
+            "   let call = window.airBridge.callApi('$methodName',...JSON.parse(" +
+            "$quotedArgs, window.airBridge.bigintReviver));" +
             "   if (call?.then) {" +
             "       call.then((res) => {" +
             "           if (res?.error || res?.err) {" +
@@ -735,11 +740,13 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         return parseResult(methodName, args, result, clazz)
     }
 
-    private suspend fun callApiAsyncRaw(methodName: String, args: String, clazz: Type): String =
-        suspendCancellableCoroutine { continuation ->
+    private suspend fun callApiAsyncRaw(methodName: String, args: String, clazz: Type): String {
+        // Long arguments take time to quote, which stays on the calling thread
+        val quotedArgs = JSONObject.quote(args)
+        return suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { }
             ensureMainThread {
-                callApi(methodName, args) { res, err ->
+                callApiWithQuotedArgs(methodName, quotedArgs) { res, err ->
                     if (continuation.isActive) {
                         if (err != null) {
                             continuation.resumeWith(
@@ -753,7 +760,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                                                 parseResult(methodName, args, it, clazz)
                                             } catch (e: CancellationException) {
                                                 continuation.cancel(e)
-                                                return@callApi
+                                                return@callApiWithQuotedArgs
                                             } catch (_: Exception) {
                                                 null
                                             }
@@ -768,6 +775,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 }
             }
         }
+    }
 
     fun <T> callApi(
         methodName: String,

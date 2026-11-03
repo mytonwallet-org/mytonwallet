@@ -11,5 +11,9 @@
 		<string>applinks:go.mytonwallet.org</string>
 		<string>applinks:my.tt</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.org.mytonwallet.app.preview</string>
+	</array>
 </dict>
 </plist>

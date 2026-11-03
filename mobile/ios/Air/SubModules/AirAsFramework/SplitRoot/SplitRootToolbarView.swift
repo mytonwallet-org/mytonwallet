@@ -9,15 +9,18 @@ import WalletCore
 @available(iOS 27.1, *)
 @MainActor
 final class SplitRootToolbarView: UIView {
-    static let tabIds: [AppTabId] = [.wallet, .market, .explore]
-    let accountButton = TopTabsAccountButton()
+    let tabIds: [AppTabId]
+    let accountButton = WalletAccountButton()
     let tabBar: WVerticalTabBar
     weak var navigationContainer: UIView?
     var onLayout: (() -> Void)?
     private var accountMenuInteraction: ContextMenuInteraction?
+    private var showsAccount = true
+    private var accountAnimationID: UUID?
 
-    init() {
-        tabBar = WVerticalTabBar(items: Self.tabIds.compactMap { id in
+    init(tabIds: [AppTabId]) {
+        self.tabIds = tabIds
+        tabBar = WVerticalTabBar(items: tabIds.compactMap { id in
             guard let registration = AppTabManager.shared.registration(for: id) else { return nil }
             return .init(id: id.rawValue, title: registration.titleProvider(), image: registration.compactIcon)
         })
@@ -31,10 +34,47 @@ final class SplitRootToolbarView: UIView {
         }
         interaction.attach(to: accountButton)
         accountMenuInteraction = interaction
+        NotificationCenter.default.addObserver(self, selector: #selector(toolbarSettingsChanged),
+            name: ToolbarSettings.didChangeNotification, object: nil)
+        updateAccountPlacement(animated: false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func toolbarSettingsChanged() {
+        updateAccountPlacement(animated: true)
+    }
+
+    private func updateAccountPlacement(animated: Bool) {
+        let showsAccount = !ToolbarSettings.configuration().showsAccounts
+        guard self.showsAccount != showsAccount else { return }
+        layoutIfNeeded()
+        self.showsAccount = showsAccount
+        let animationID = UUID()
+        accountAnimationID = animationID
+        accountButton.isHidden = false
+        accountButton.isUserInteractionEnabled = showsAccount
+        accountButton.accessibilityElementsHidden = !showsAccount
+        let updates = {
+            self.accountButton.setToolbarAppearance(showsBackground: showsAccount, showsContent: showsAccount)
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
+        }
+        let completion: (Bool) -> Void = { [weak self] _ in
+            guard let self, self.accountAnimationID == animationID else { return }
+            self.accountButton.isHidden = !showsAccount
+        }
+        if animated, window != nil, UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled {
+            UIView.animate(withDuration: 0.4, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction],
+                           animations: updates, completion: completion)
+        } else {
+            UIView.performWithoutAnimation(updates)
+            completion(true)
+        }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -45,7 +85,7 @@ final class SplitRootToolbarView: UIView {
         guard !region.isEmpty else { return }
         let origin = convert(CGPoint(x: region.midX - 24, y: max(region.minY, container.bounds.minY + 24)), from: container)
         accountButton.frame = CGRect(origin: origin, size: CGSize(width: 48, height: 48))
-        tabBar.frame = CGRect(x: origin.x, y: origin.y + 60, width: 48, height: tabBar.intrinsicContentSize.height)
+        tabBar.frame = CGRect(x: origin.x, y: origin.y + (showsAccount ? 60 : 0), width: 48, height: tabBar.intrinsicContentSize.height)
         tabBar.isOnLeftEdge = isLeft
         onLayout?()
     }

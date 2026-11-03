@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import android.net.Uri
+import androidx.core.net.toUri
 import com.squareup.moshi.JsonClass
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
@@ -27,6 +28,18 @@ enum class MBlockchainExplorer(val identifier: String) {
     HYPEREVMSCAN("hyperevmscan"),
     ROBINSCAN("robinscan"),
     ARCSCAN("arcscan");
+
+    companion object {
+        private val hosts by lazy {
+            entries.flatMap { explorer ->
+                MBlockchainNetwork.entries.mapNotNull {
+                    explorer.transactionUrl(it, "0").toUri().host?.lowercase()
+                }
+            }.toSet()
+        }
+
+        fun isExplorerUrl(uri: Uri): Boolean = uri.host?.lowercase() in hosts
+    }
 
     val isMessageHashSupported: Boolean
         get() = when (this) {

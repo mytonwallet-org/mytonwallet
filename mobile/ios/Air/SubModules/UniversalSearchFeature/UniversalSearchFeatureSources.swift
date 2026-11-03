@@ -5,12 +5,15 @@ import UniversalSearchCore
 import UniversalSearchPersistence
 import UniversalSearchWalletCore
 import WalletContext
+import WalletCore
 
 private let persistenceLog = Log("UniversalSearchPersistence")
 
 enum UniversalSearchFeatureAttributeKey {
+    static let agentThread = SearchAttributeKey("universal-search.agent-thread")
     static let agentHintID = SearchAttributeKey("universal-search.agent-hint-id")
     static let agentHintCatalogVersion = SearchAttributeKey("universal-search.agent-hint-catalog-version")
+    static let isPinned = SearchAttributeKey("universal-search.is-pinned")
     static let query = SearchAttributeKey("universal-search.query")
     static let subtitle = SearchAttributeKey("universal-search.subtitle")
     static let title = SearchAttributeKey("universal-search.title")
@@ -87,64 +90,134 @@ struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
 }
 
 struct UniversalSearchAgentConversationSource: UniversalSearchSource {
-    typealias Loader = @Sendable () async -> AgentConversationSearchSnapshot?
+    typealias Loader = @Sendable (String?) async throws -> [ApiAgentV2ThreadListItem]
 
     static let id = SearchSourceID("feature:agent-conversation")
     let sourceID = Self.id
     var scoping: UniversalSearchSourceScoping { .global }
     private let loader: Loader
 
-    init(loader: @escaping Loader = Self.loadLiveSnapshot) {
+    init(loader: @escaping Loader = Self.loadLiveThreads) {
         self.loader = loader
     }
 
     func snapshot(
         for context: UniversalSearchContext
     ) async throws -> UniversalSearchSourceSnapshot {
-        let snapshot = await loader()
-        let documents = snapshot.map { [Self.document($0)] } ?? []
+        let threads = try await loader(nil)
         return UniversalSearchSourceSnapshot(
             sourceID: sourceID,
             authority: 100,
             generatedAt: Date(),
-            documents: documents
+            documents: try threads.map { try Self.document($0) }
         )
     }
 
-    private static func document(
-        _ snapshot: AgentConversationSearchSnapshot
-    ) -> SearchDocument {
+    static func document(
+        _ item: ApiAgentV2ThreadListItem,
+        matchingQuery: UniversalSearchQuery? = nil
+    ) throws -> SearchDocument {
+        let thread = item.thread
+        let title = thread.title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? lang("New Chat")
+        let subtitle = (item.preview ?? "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        let updatedAt = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+            .parse(thread.lastActivityAt))
+            ?? (try? Date.ISO8601FormatStyle().parse(thread.lastActivityAt))
+            ?? .distantPast
+        let threadJSON = String(decoding: try JSONEncoder().encode(thread), as: UTF8.self)
         var fields = [
-            SearchField(snapshot.title, kind: .title),
-            SearchField(snapshot.subtitle, kind: .description),
+            SearchField(title, kind: .title),
+            SearchField(subtitle, kind: .description),
         ]
-        fields.append(contentsOf: snapshot.searchableMessages.map {
-            SearchField($0, kind: .keyword)
-        })
+        if let matchingQuery {
+            // Query-scoped keywords preserve server matches from messages outside the preview
+            fields.append(SearchField(
+                matchingQuery.text,
+                kind: .keyword,
+                matchPolicy: matchingQuery.requiresExactIdentifierMatch ? .exact : .text
+            ))
+        }
         return SearchDocument(
-            id: SearchEntityID("agent-chat:current"),
+            id: SearchEntityID("agent-chat:\(thread.id)"),
             kind: .agentChat,
             fields: fields,
             attributes: [
-                SearchAttribute(key: UniversalSearchFeatureAttributeKey.title, value: snapshot.title),
-                SearchAttribute(key: UniversalSearchFeatureAttributeKey.subtitle, value: snapshot.subtitle),
+                SearchAttribute(key: UniversalSearchFeatureAttributeKey.agentThread, value: threadJSON),
+                SearchAttribute(key: UniversalSearchFeatureAttributeKey.title, value: title),
+                SearchAttribute(key: UniversalSearchFeatureAttributeKey.subtitle, value: subtitle),
+                SearchAttribute(
+                    key: UniversalSearchFeatureAttributeKey.isPinned,
+                    value: thread.isPinned == true ? "true" : "false"
+                ),
                 SearchAttribute(
                     key: UniversalSearchFeatureAttributeKey.updatedAt,
-                    value: snapshot.updatedAt.ISO8601Format()
+                    value: Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(updatedAt)
                 ),
             ],
             signals: SearchSignals(
                 traits: [.fromHistory],
                 interaction: SearchInteractionSignal(
-                    lastSelectedAt: snapshot.updatedAt,
+                    lastSelectedAt: updatedAt,
                     selectionCount: 1
                 )
             )
         )
     }
 
-    private static func loadLiveSnapshot() async -> AgentConversationSearchSnapshot? {
-        await AgentSearchProvider.shared.loadConversationSearchSnapshot()
+    static func loadLiveThreads(query: String?) async throws -> [ApiAgentV2ThreadListItem] {
+        guard try await Api.getAgentV2Consent() else { return [] }
+        return try await Api.listAgentV2Threads(query: query).threads
+    }
+}
+
+struct UniversalSearchAgentConversationQuerySource: UniversalSearchQuerySource {
+    static let id = SearchSourceID("feature:agent-conversation-query")
+    let sourceID = Self.id
+    private let loader: UniversalSearchAgentConversationSource.Loader
+    private let debounce: Duration
+
+    init(
+        loader: @escaping UniversalSearchAgentConversationSource.Loader = UniversalSearchAgentConversationSource.loadLiveThreads,
+        debounce: Duration = .milliseconds(250)
+    ) {
+        self.loader = loader
+        self.debounce = debounce
+    }
+
+    func snapshots(
+        for query: UniversalSearchQuery,
+        context: UniversalSearchContext
+    ) -> AsyncThrowingStream<UniversalSearchSourceSnapshot, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard !query.isEmpty else {
+                        continuation.finish()
+                        return
+                    }
+                    try await Task.sleep(for: debounce)
+                    let threads = try await loader(query.text)
+                    try Task.checkCancellation()
+                    continuation.yield(UniversalSearchSourceSnapshot(
+                        sourceID: sourceID,
+                        authority: 110,
+                        generatedAt: Date(),
+                        documents: try threads.map {
+                            try UniversalSearchAgentConversationSource.document($0, matchingQuery: query)
+                        }
+                    ))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
     }
 }
 

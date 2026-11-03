@@ -131,7 +131,7 @@ class HeaderActionsView(
                     else -> leftToRight(itemViews[index - 1], itemView)
                 }
             }
-            rightToRight(this@HeaderActionsView, itemViews.last())
+            itemViews.lastOrNull()?.let { rightToRight(this@HeaderActionsView, it) }
             if (itemViews.size > 1) {
                 createHorizontalChain(
                     ConstraintSet.PARENT_ID,

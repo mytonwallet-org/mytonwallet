@@ -1,4 +1,4 @@
-import { segmentStreamingMarkdown } from './streamingMarkdown';
+import { closeStreamingInlineMarkdown, segmentStreamingMarkdown } from './streamingMarkdown';
 
 describe('segmentStreamingMarkdown', () => {
   it('commits blocks only after an empty line', () => {
@@ -106,5 +106,42 @@ describe('segmentStreamingMarkdown', () => {
       ],
       tail: 'Third.',
     });
+  });
+});
+
+describe('closeStreamingInlineMarkdown', () => {
+  it('closes the bold, italics and code a growing paragraph has opened', () => {
+    expect(closeStreamingInlineMarkdown('**Here is w')).toBe('**Here is w**');
+    expect(closeStreamingInlineMarkdown('**Here is ')).toBe('**Here is** ');
+    expect(closeStreamingInlineMarkdown('Fees are *high')).toBe('Fees are *high*');
+    expect(closeStreamingInlineMarkdown('**Done** and *so')).toBe('**Done** and *so*');
+    expect(closeStreamingInlineMarkdown('Run `npm')).toBe('Run `npm`');
+  });
+
+  it('waits for the rest of a marker that has come in only in part', () => {
+    expect(closeStreamingInlineMarkdown('**Here is what I found*')).toBe('**Here is what I found**');
+    expect(closeStreamingInlineMarkdown('**Here is what I found**')).toBe('**Here is what I found**');
+    expect(closeStreamingInlineMarkdown('Your balance *')).toBe('Your balance');
+    expect(closeStreamingInlineMarkdown('Your balance **')).toBe('Your balance');
+    expect(closeStreamingInlineMarkdown('*Note*')).toBe('*Note*');
+  });
+
+  it('shows a link that is still coming in as its label', () => {
+    expect(closeStreamingInlineMarkdown('See [the expl')).toBe('See the expl');
+    expect(closeStreamingInlineMarkdown('See [the explorer](https://tonscan.o')).toBe('See the explorer');
+    expect(closeStreamingInlineMarkdown('See [**the expl')).toBe('See **the expl**');
+  });
+
+  it('leaves out a marker with nothing after it yet and keeps closed markup and plain text as they are', () => {
+    expect(closeStreamingInlineMarkdown('Run `')).toBe('Run ');
+    expect(closeStreamingInlineMarkdown('**Done** and `code`')).toBe('**Done** and `code`');
+    expect(closeStreamingInlineMarkdown('`a ** b` and **c')).toBe('`a ** b` and **c**');
+    expect(closeStreamingInlineMarkdown('2 * 3 = 6 and snake_case')).toBe('2 * 3 = 6 and snake_case');
+    expect(closeStreamingInlineMarkdown('* Fees are low')).toBe('* Fees are low');
+    expect(closeStreamingInlineMarkdown('**Open\nNext line')).toBe('**Open\nNext line');
+  });
+
+  it('leaves an open code block as it is', () => {
+    expect(closeStreamingInlineMarkdown('```\nconst a = **b')).toBe('```\nconst a = **b');
   });
 });

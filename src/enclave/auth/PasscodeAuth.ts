@@ -1,5 +1,6 @@
 import { hexFromArrayBuffer } from '../../util/casting';
 import { randomBase64 } from '../../util/random';
+import { EnclaveError } from '../errors';
 import { deriveBitsFromPasscode } from './deriveKey';
 
 import BaseAuth from './BaseAuth';
@@ -32,10 +33,12 @@ export default class PasscodeAuth extends BaseAuth {
       this.storage.getItem(STORAGE_KEY_VERIFIER_SALT),
       this.storage.getItem(STORAGE_KEY_VERIFIER),
     ]);
-    if (!salt || !verifierSalt || !storedVerifier) throw new Error('PasscodeAuth: Missing salt or verifier');
+    if (!salt || !verifierSalt || !storedVerifier) {
+      throw new EnclaveError('auth_not_configured', 'PasscodeAuth: Missing salt or verifier');
+    }
 
     const verifier = await generateVerifier(passcode, verifierSalt);
-    if (verifier !== storedVerifier) throw new Error('PasscodeAuth: Invalid passcode');
+    if (verifier !== storedVerifier) throw new EnclaveError('wrong_passcode', 'PasscodeAuth: Invalid passcode');
 
     return this.setupSession([passcode, salt], isLong, usageCount);
   }

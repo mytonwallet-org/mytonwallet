@@ -53,7 +53,7 @@ class StakeInputView(
         setLineHeight(24f)
     }
 
-    private val maxBalanceButton = WTokenMaxButton(context).apply {
+    val maxBalanceButton = WTokenMaxButton(context).apply {
         this.id = generateViewId()
         setPaddingDp(6, 0, 6, 0)
 

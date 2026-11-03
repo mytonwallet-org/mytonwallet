@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uisettings.viewControllers.appInfo
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -18,21 +19,20 @@ import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
-import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
-import org.mytonwallet.app_air.uicomponents.widgets.pulseView
+import org.mytonwallet.app_air.uicomponents.widgets.particles.WelcomeParticleView
+import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
@@ -45,6 +45,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 class AppInfoVC(context: Context) : WViewController(context) {
@@ -58,31 +59,38 @@ class AppInfoVC(context: Context) : WViewController(context) {
 
     private val isGramApp = ApplicationContextHolder.isGramApp
 
-    private val particleParams: ParticleConfig? = if (isGramApp) {
-        ParticleConfig(
-            particleCount = 35,
-            centerShift = floatArrayOf(0f, -28f),
-            distanceLimit = 0.45f,
-            colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
-            useStarShape = true
-        )
-    } else {
-        null
-    }
-
-    var particlesCleaner: (() -> Unit)? = null
-    val tonParticlesView = ParticleView(context).apply {
+    val tonParticlesView = WelcomeParticleView(context).apply {
         id = View.generateViewId()
-        isGone = true
     }
 
-    val diamondAnimationView: WSpeedingDiamondView? = if (isGramApp) {
-        WSpeedingDiamondView(view.context).apply {
+    val diamondAnimationView: WBlueDiamondView? = if (isGramApp) {
+        WBlueDiamondView(
+            view.context,
+            maxGrow = 1.15f,
+            hoverSpeed = 2f,
+            shouldRotateOnTap = true,
+            restingCanvasSize = 146.dp
+        ).apply {
             id = View.generateViewId()
-            bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -28f))
+            onParticleInteraction = { pressed, hovered ->
+                tonParticlesView.setInteraction(pressed, hovered)
+            }
         }
     } else {
         null
+    }
+
+    private val diamondContainer = diamondAnimationView?.let { diamond ->
+        WView(context).apply {
+            translationZ = 1.dp.toFloat()
+            clipChildren = false
+            clipToPadding = false
+            addView(diamond, FrameLayout.LayoutParams(146.dp, 146.dp))
+            setConstraints {
+                toCenterX(diamond)
+                toCenterY(diamond)
+            }
+        }
     }
 
     val logoImageView = AppCompatImageView(view.context).apply {
@@ -91,13 +99,33 @@ class AppInfoVC(context: Context) : WViewController(context) {
             isGone = true
         } else {
             setImageDrawable(view.context.getDrawableCompat(R.drawable.img_logo))
-            setOnClickListener {
-                pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-                tonParticlesView.addParticleSystem(
-                    ParticleConfig.particleBurstParams(
-                        ParticleConfig.Companion.PARTICLE_COLORS.TON
+            setOnTouchListener { v, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    Haptics.play(v, HapticType.LIGHT_TAP)
+                    v.animate().cancel()
+                    v.scaleIn(AnimationConstants.QUICK_ANIMATION, 0.96f, WInterpolator.smooth)
+                    tonParticlesView.setInteraction(true, v.isHovered)
+                } else if (event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
+                    v.animate().cancel()
+                    v.scaleIn(
+                        AnimationConstants.VERY_QUICK_ANIMATION,
+                        interpolator = WInterpolator.smooth
                     )
+                    tonParticlesView.setInteraction(false, v.isHovered)
+                }
+                false
+            }
+            setOnHoverListener { v, event ->
+                tonParticlesView.setInteraction(
+                    v.isPressed,
+                    event.action != MotionEvent.ACTION_HOVER_EXIT
                 )
+                false
+            }
+            setOnClickListener {
+                tonParticlesView.boost()
             }
         }
     }
@@ -215,17 +243,18 @@ class AppInfoVC(context: Context) : WViewController(context) {
     private val scrollingContentView: WView by lazy {
         val v = WView(context)
         v.layoutDirection = View.LAYOUT_DIRECTION_LTR
+        v.clipChildren = false
+        v.clipToPadding = false
         v.setPaddingLocalized(
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp,
             0
         )
-        v.addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(tonParticlesView, FrameLayout.LayoutParams(386.dp, 268.dp))
         v.addView(logoImageView, FrameLayout.LayoutParams(96.dp, 96.dp))
-        diamondAnimationView?.let { dv ->
+        diamondContainer?.let { dv ->
             v.addView(dv, FrameLayout.LayoutParams(96.dp, 96.dp))
-            dv.start()
         }
         v.addView(titleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         v.addView(subtitleLabel, ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -237,11 +266,11 @@ class AppInfoVC(context: Context) : WViewController(context) {
         v.addView(readBlogRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(helpRow, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
-            toTop(tonParticlesView, -11f)
+            toTop(tonParticlesView, -30f)
             toCenterX(tonParticlesView)
             toTop(logoImageView, 66f)
             toCenterX(logoImageView)
-            diamondAnimationView?.let {
+            diamondContainer?.let {
                 toTop(it, 66f)
                 toCenterX(it)
                 topToBottom(titleLabel, it, 17f)
@@ -319,7 +348,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
     override fun updateTheme() {
         val backgroundColor = WColor.SecondaryBackground.color
         view.setBackgroundColor(backgroundColor)
-        tonParticlesView.setParticleBackgroundColor(backgroundColor)
+        tonParticlesView.particleColor = WColor.Tint.color
         titleLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.Tint.color)
         subtitleLabel.addRippleEffect(WColor.TintRipple.color, 10f.dp)
@@ -335,28 +364,16 @@ class AppInfoVC(context: Context) : WViewController(context) {
         descriptionLabel.setTextColor(WColor.PrimaryText.color)
     }
 
-    override fun viewDidAppear() {
-        super.viewDidAppear()
-
-        if (particleParams != null && particlesCleaner == null) {
-            particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
-        }
-        tonParticlesView.isGone = false
-        tonParticlesView.fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-    }
-
-    override fun viewWillDisappear() {
-        super.viewWillDisappear()
-        tonParticlesView.fadeOut(AnimationConstants.VERY_VERY_QUICK_ANIMATION) {
-            particlesCleaner?.invoke()
-            particlesCleaner = null
-            tonParticlesView.isGone = true
-        }
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        diamondAnimationView?.isRenderingEnabled = true
+        tonParticlesView.isRenderingEnabled = true
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        particlesCleaner?.invoke()
+        diamondAnimationView?.isRenderingEnabled = false
+        tonParticlesView.isRenderingEnabled = false
     }
 
     private fun openLink(link: String) {
@@ -365,7 +382,6 @@ class AppInfoVC(context: Context) : WViewController(context) {
         nav.setRoot(
             InAppBrowserVC(
                 context,
-                null,
                 InAppBrowserConfig(
                     link,
                     injectDappConnect = false,

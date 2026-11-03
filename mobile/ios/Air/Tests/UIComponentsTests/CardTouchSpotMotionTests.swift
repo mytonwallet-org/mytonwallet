@@ -62,26 +62,27 @@ struct CardTouchSpotMotionTests {
         #expect(motion.light.position == .zero && motion.light.opacity == 0)
     }
 
-    @Test @MainActor func suspensionPreservesSpotAndReuseClearsIt() async throws {
+    @Test @MainActor func suspensionPreservesSpotAndReuseClearsIt() throws {
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()
         let driver = CardSurfaceMotionDriver(cardView: view) { light = $0 }
+        driver.externallyDriven = true
         driver.input = .drag
         driver.shineStyle = .linear
         driver.linearTouchMode = .circular
         driver.setActive(true)
         defer { driver.setActive(false) }
         driver.press(at: CGPoint(x: 0.7, y: -0.7), began: true)
-        try await Task.sleep(for: .milliseconds(250))
+        driver.advance(for: 0.25)
         let spot = try #require(light.touchSpot)
         #expect(spot.position.x > 0 && spot.position.y < 0 && spot.opacity > 0)
         #expect(light.linearPosition == 1, "The circular option must not start a band pass")
         driver.setSuspended(true)
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         #expect(light.touchSpot == spot)
         driver.setSuspended(false)
         #expect(light.touchSpot == spot)
-        try await Task.sleep(for: .milliseconds(400))
+        driver.advance(for: 0.4)
         #expect(try #require(light.touchSpot).opacity < spot.opacity)
         driver.setActive(false)
         #expect(light.touchSpot == nil)

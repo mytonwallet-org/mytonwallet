@@ -39,6 +39,8 @@ class WAgentHintView(
     context: Context,
     title: CharSequence,
     contentVerticalPadding: Int = 10.dp,
+    contentHorizontalPadding: Int = 16.dp,
+    borderWidth: Float = 0.75f.dp,
     animatePressAlpha: Boolean = true,
     showsIcon: Boolean = true,
     titleMaxLines: Int = 2,
@@ -91,7 +93,7 @@ class WAgentHintView(
     ).apply {
         cornerRadius = 22f.dp
     }
-    private val borderDrawable = GradientBorderDrawable(22f.dp, 0.75f.dp)
+    private val borderDrawable = GradientBorderDrawable(22f.dp, borderWidth)
     private val fillDrawable = GradientFillDrawable(22f.dp, LocaleController.isRTL)
     private val initialAngle = (Math.random() * 360).toFloat()
     private val borderAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
@@ -119,7 +121,12 @@ class WAgentHintView(
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPaddingRelative(16.dp, contentVerticalPadding, 16.dp, contentVerticalPadding)
+            setPaddingRelative(
+                contentHorizontalPadding,
+                contentVerticalPadding,
+                contentHorizontalPadding,
+                contentVerticalPadding
+            )
             if (showsIcon) {
                 addView(iconView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             }
@@ -147,7 +154,7 @@ class WAgentHintView(
                     if (isTouchAccepted) {
                         val animator = animate().scaleX(0.97f).scaleY(0.97f)
                         if (animatePressAlpha) animator.alpha(0.82f)
-                        animator.setDuration(100).start()
+                        animator.setStartDelay(0).setDuration(100).start()
                     }
                 }
 
@@ -157,7 +164,7 @@ class WAgentHintView(
                     isTouchAccepted = false
                     val animator = animate().scaleX(1f).scaleY(1f)
                     if (animatePressAlpha && alpha > 0f) animator.alpha(1f)
-                    animator.setDuration(100).start()
+                    animator.setStartDelay(0).setDuration(100).start()
                     if (shouldPerformClick) performClick()
                 }
             }

@@ -3,17 +3,7 @@ import WalletContext
 import WalletCore
 
 struct MarketToken: Hashable, Identifiable, Sendable {
-    enum Chart: Hashable, Sendable {
-        case bundled(fillImageName: String, lineImageName: String, tint: UInt32)
-        case sparkline(points: [Double], tint: UInt32)
-
-        var tint: UInt32 {
-            switch self {
-            case .bundled(_, _, let tint), .sparkline(_, let tint):
-                tint
-            }
-        }
-    }
+    typealias Chart = MarketItemDisplayData.Chart
 
     let token: ApiToken
     let fallbackPrice: Double?

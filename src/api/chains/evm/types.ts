@@ -63,7 +63,7 @@ export type ZerionTransaction = {
   attributes: {
     address: string;
     operation_type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'revoke'
-      | 'delegate' | 'revoke_delegation';
+      | 'delegate' | 'revoke_delegation' | 'mint';
     hash: string;
     mined_at_block: number;
     mined_at: string;
@@ -87,7 +87,7 @@ export type ZerionTransaction = {
     flags: { is_trash: boolean };
     acts: {
       id: string;
-      type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation';
+      type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation' | 'mint';
       application_metadata?: ZerionTransaction['attributes']['application_metadata'];
     }[];
     paymaster?: string;
@@ -273,6 +273,7 @@ export type MinedTransactionNotification = {
 export type LogNotification = {
   address: string;
   topics: string[];
+  blockNumber?: string;
   data?: string;
   removed?: boolean;
 };
@@ -397,7 +398,7 @@ export type AlchemyNftsForOwnerResponse = {
 export type AlchemyAssetChange = {
   changes: {
     amount: string;
-    assetType: 'NATIVE' | 'ERC20' | 'ERC721' | 'ERC1155';
+    assetType: 'NATIVE' | 'ERC20' | 'ERC721' | 'ERC1155' | 'SPECIAL_NFT';
     changeType: 'TRANSFER';
     contractAddress: string | null;
     decimals: number;
@@ -426,5 +427,5 @@ export type EvmTokenOperation = {
 } | {
   isSwap: false;
   assets: string[];
-  transfer: BaseApiTransaction;
+  transfers: BaseApiTransaction[];
 };

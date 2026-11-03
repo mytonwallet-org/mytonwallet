@@ -57,6 +57,21 @@ class SettingsHeaderView: WTouchPassView {
     }()
     
     private let avatarImageView = IconView(size: 88)
+    var largeAvatarView: UIView { avatarImageView }
+
+    func avatarState(scrollOffset: CGFloat, navigationCenterY: CGFloat) -> (frame: CGRect, alpha: CGFloat, blurRadius: CGFloat) {
+        let scrollNonNegative = max(scrollOffset, 0)
+        let collapseProgress = clamp(scrollOffset / layoutGeometry.fullScrollRange, to: 0...1)
+        let titleY = layoutGeometry.scrollRange * (1 - collapseProgress) + navigationCenterY - min(scrollOffset, 0)
+        let centerY = titleY - layoutGeometry.distanceBetweenTitleAndAvatarMidY
+            - scrollNonNegative / (1 + log(1 + scrollNonNegative))
+        let scrollMultiplier: CGFloat = scrollOffset > 0 ? 0.85 : 1
+        return (
+            CGRect(x: layoutMarginsGuide.layoutFrame.midX - 44, y: centerY - 44, width: 88, height: 88),
+            clamp((190 - scrollOffset * scrollMultiplier) / 40, to: 0...1),
+            (1 - clamp((155 - scrollOffset * scrollMultiplier) / 155, to: 0...1)) * 30
+        )
+    }
     private let avatarBlurView = WBlurredContentView()
     private lazy var avatarLongPressGestureRecognizer: UILongPressGestureRecognizer = {
         let gestureRecognizer = UILongPressGestureRecognizer(
@@ -339,14 +354,6 @@ class SettingsHeaderView: WTouchPassView {
         lastScrollOffset = scrollOffset
         updateStatusVisibility()
         
-        let scrollMultiplier: CGFloat = scrollOffset > 0 ? 0.85 : 1
-        let scrollNonNegative = max(scrollOffset, 0)
-        avatarCenterYConstraint.constant = -layoutGeometry.distanceBetweenTitleAndAvatarMidY - scrollNonNegative * 1.0 / (1.0 + log(1 + scrollNonNegative))
- 
-        let blurProgress: CGFloat = 1.0 - min(1.0, max(0.0, (155.0 - scrollOffset * scrollMultiplier) / 155.0))
-        avatarBlurView.blurRadius = blurProgress * 30
-        avatarImageView.alpha = min(1.0, max(0.0, (190.0 - scrollOffset * scrollMultiplier) / 40.0))
-                         
         let navigationCenterY = headerTouchTarget.convert(headerTouchTarget.bounds.center, to: self).y
         let scrollRange = layoutGeometry.scrollRange
         let collapseProgress = max(0, min(1, scrollOffset / layoutGeometry.fullScrollRange))
@@ -359,6 +366,10 @@ class SettingsHeaderView: WTouchPassView {
         let titleTransform = CGAffineTransform.identity.scaledBy(x: titleScale, y: titleScale)
         let topOverscroll = -min(0, scrollOffset)
         let titlePosition = interpolate(from: scrollRange, to: 0, progress: collapseProgress) + navigationCenterY + topOverscroll
+        let avatar = avatarState(scrollOffset: scrollOffset, navigationCenterY: navigationCenterY)
+        avatarCenterYConstraint.constant = avatar.frame.midY - titlePosition
+        avatarBlurView.blurRadius = avatar.blurRadius
+        avatarImageView.alpha = avatar.alpha
                 
         let balanceTransform = CGAffineTransform.identity
             .scaledBy(x: titleScale, y: titleScale)

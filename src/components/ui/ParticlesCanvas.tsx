@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
+import { type ElementRef, memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 
 import type { ParticleConfig } from '../../util/particles';
@@ -18,6 +18,8 @@ interface OwnProps {
   burstConfig?: Partial<ParticleConfig>;
   className?: string;
   onParticleClick?: NoneToVoidFunction;
+  interactionRef?: ElementRef<HTMLElement>;
+  isStatic?: boolean;
 }
 
 // Default burst parameters that match original PARTICLE_BURST_PARAMS
@@ -35,6 +37,8 @@ const ParticlesCanvas = ({
   burstConfig = DEFAULT_BURST_PARAMS,
   className,
   onParticleClick,
+  interactionRef,
+  isStatic,
 }: OwnProps) => {
   const canvasRef = useRef<HTMLCanvasElement>();
 
@@ -45,14 +49,14 @@ const ParticlesCanvas = ({
       return setupParticles(canvasRef.current, {
         color,
         ...particleConfig,
-      });
+      }, { target: interactionRef?.current, isStatic });
     } catch (err: any) {
       logDebugError('ParticlesCanvas initial effect', err);
     }
-  }, [isActive, color, particleConfig]);
+  }, [isActive, color, particleConfig, interactionRef, isStatic]);
 
   const handleParticlesClick = useLastCallback(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || particleConfig.drift || isStatic) return;
 
     try {
       setupParticles(canvasRef.current, {

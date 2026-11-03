@@ -186,11 +186,7 @@ export async function refreshMfaState(accountId: string, enclaveToken?: string):
     }
   }
 
-  const changed = currentMfa?.address !== nextMfa?.address
-    || currentMfa?.user?.id !== nextMfa?.user?.id
-    || currentMfa?.user?.name !== nextMfa?.user?.name
-    || currentMfa?.user?.username !== nextMfa?.user?.username
-    || currentMfa?.user?.avatarUrl !== nextMfa?.user?.avatarUrl;
+  const changed = !isSameMfa(currentMfa, nextMfa);
 
   if (changed) {
     await updateStoredWallet(accountId, 'ton', { mfa: nextMfa });
@@ -199,18 +195,31 @@ export async function refreshMfaState(accountId: string, enclaveToken?: string):
   return { changed, mfa: nextMfa };
 }
 
-export async function refreshMfaStateAndNotify(accountId: string, enclaveToken?: string) {
-  const result = await refreshMfaState(accountId, enclaveToken);
-  if (result.changed) {
+/**
+ * Reports the MFA state when it changes the storage or differs from `reportedMfa`, the state this caller reported
+ * before. The UI may lack MFA that the storage already has, so a comparison with the storage alone would never report
+ * it, while other flows write the storage without this caller knowing.
+ */
+export async function refreshMfaStateAndNotify(accountId: string, reportedMfa?: ApiMfa | false) {
+  const { changed, mfa } = await refreshMfaState(accountId);
+  if (changed || reportedMfa === undefined || !isSameMfa(reportedMfa || undefined, mfa)) {
     onUpdate({
       type: 'updateAccount',
       accountId,
       chain: 'ton',
-      mfa: result.mfa ?? false,
+      mfa: mfa ?? false,
     });
   }
 
-  return result;
+  return mfa ?? false;
+}
+
+function isSameMfa(first?: ApiMfa, second?: ApiMfa) {
+  return first?.address === second?.address
+    && first?.user?.id === second?.user?.id
+    && first?.user?.name === second?.user?.name
+    && first?.user?.username === second?.user?.username
+    && first?.user?.avatarUrl === second?.user?.avatarUrl;
 }
 
 async function setAccountExtensionAddress(

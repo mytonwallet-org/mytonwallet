@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
@@ -148,12 +150,14 @@ class WalletConnectPayDataCollectionVC(
 
     private fun openExternally(rawUrl: String): Boolean = try {
         val intent = if (rawUrl.startsWith("intent:")) {
-            Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
+            browsableIntent(rawUrl)
         } else {
             Intent(Intent.ACTION_VIEW, android.net.Uri.parse(rawUrl))
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
         true
     } catch (_: ActivityNotFoundException) {
         val fallback = runCatching {
@@ -168,6 +172,28 @@ class WalletConnectPayDataCollectionVC(
         }
     } catch (_: Throwable) {
         true
+    }
+
+    /**
+     * An `intent:` link names its target, extras and flags, and this app becomes its sender. It
+     * opens only like a link from a browser: no explicit component or selector, no URI grants, and
+     * never an activity of this app, whose launches from its own package are trusted.
+     */
+    private fun browsableIntent(rawUrl: String): Intent? {
+        val intent = Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME).apply {
+            component = null
+            selector = null
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            flags = flags and URI_GRANT_FLAGS.inv()
+        }
+        val packageManager = context.packageManager
+        val targets = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(intent, 0)
+        }
+        return intent.takeIf { targets.none { it.activityInfo.packageName == context.packageName } }
     }
 
     private inline fun finish(action: () -> Unit) {
@@ -185,6 +211,10 @@ class WalletConnectPayDataCollectionVC(
 
     companion object {
         private const val JS_INTERFACE = "WcPayCollect"
+        private const val URI_GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
 
         private val MESSAGE_LISTENER_JS = """
             (function() {

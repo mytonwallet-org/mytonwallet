@@ -933,6 +933,21 @@ describe('Outgoing NFT activity', () => {
     expect(await applyOutgoingNft(false)).toBeUndefined();
   });
 
+  it('keeps an NFT after a failed outgoing transfer', async () => {
+    const global = buildGlobal([]);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT.address]: NFT },
+      orderedAddresses: [NFT.address],
+    };
+    setGlobal(global);
+
+    await applyActivities([makeRawReceive({
+      id: 'failed-nft-out-hash', status: 'failed', isIncoming: false, nft: NFT,
+    })]);
+
+    expect(selectStoredNft()).toBe(NFT);
+  });
+
   it('keeps an NFT that `nftPutUpForSale` has already marked as listed', async () => {
     expect(await applyOutgoingNft(true)).toMatchObject({ isOnSale: true });
   });

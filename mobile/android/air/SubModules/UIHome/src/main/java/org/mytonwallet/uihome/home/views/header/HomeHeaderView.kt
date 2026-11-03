@@ -121,6 +121,7 @@ open class HomeHeaderView(
         private val NAV_SIZE_OFFSET = 8.dp
         val navDefaultHeight = WNavigationBar.DEFAULT_HEIGHT.dp - NAV_SIZE_OFFSET
         const val CARD_RATIO = 208 / 358f
+        const val ACTIONS_SWIPE_OFFSET = 94f
         private const val COLLAPSE_PROGRESS_THRESHOLD = 0.8f
         private const val EXPAND_PROGRESS_THRESHOLD = 0.84f
 
@@ -1325,7 +1326,8 @@ open class HomeHeaderView(
         if (edgeLevel != 0f && !coverFlowAllowed()) animateCarouselEdges(0f)
         val inset = ((width - cardView.width) / 2f).coerceAtLeast(0f)
         if (inset == 0f) return
-        val color = WColor.GroupedBackground.color
+        val color =
+            if (wideHomeHeaderView) WColor.Background.color else WColor.GroupedBackground.color
         if (leadingEdgeShader == null || edgeColor != color) {
             // Unit-width gradients, placed per frame through the local matrix.
             val opaque = (color and 0xFFFFFF) or 0x99000000.toInt()
@@ -1886,16 +1888,16 @@ open class HomeHeaderView(
     private fun notifyVerticalOffsetChange(progress: Float) {
         val verticalOffset = if (progress < 0) {
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 94f.dp,
-                if (prevCardView.account?.isViewOnly == true) 0f else 94f.dp,
+                if (cardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp,
+                if (prevCardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp,
                 abs(progress)
-            ) - if (cardView.account?.isViewOnly == true) 0f else 94f.dp
+            ) - if (cardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp
         } else {
             lerp(
-                if (cardView.account?.isViewOnly == true) 0f else 94f.dp,
-                if (nextCardView.account?.isViewOnly == true) 0f else 94f.dp,
+                if (cardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp,
+                if (nextCardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp,
                 progress
-            ) - if (cardView.account?.isViewOnly == true) 0f else 94f.dp
+            ) - if (cardView.account?.isViewOnly == true) 0f else ACTIONS_SWIPE_OFFSET.dp
         }
         val actionsFadeOutPercent = if (progress < 0) {
             lerp(

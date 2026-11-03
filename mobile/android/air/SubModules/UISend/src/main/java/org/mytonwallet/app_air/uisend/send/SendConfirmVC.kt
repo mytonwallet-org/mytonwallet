@@ -21,6 +21,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.holders.ListGapCell
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
@@ -305,7 +306,7 @@ class SendConfirmVC(
 
     private val confirmButton by lazy {
         WButton(context, WButton.Type.PRIMARY).apply {
-            id = View.generateViewId()
+            id = UIComponentsR.id.send_confirm
             text = LocaleController.getString("Confirm")
             setOnClickListener {
                 if (AccountStore.activeAccount?.isHardware == true) {
@@ -319,7 +320,7 @@ class SendConfirmVC(
 
     private val cancelButton by lazy {
         WButton(context, WButton.Type.SECONDARY_WITH_BACKGROUND).apply {
-            id = View.generateViewId()
+            id = UIComponentsR.id.send_confirm_edit
             text = LocaleController.getString("Edit")
             setOnClickListener { pop() }
         }

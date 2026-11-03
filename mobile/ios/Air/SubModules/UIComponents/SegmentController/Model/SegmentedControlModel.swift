@@ -96,7 +96,7 @@ public final class SegmentedControlModel {
             constants.spacing = 0
             constants.height = 34
             constants.topInset = 0
-            constants.innerPadding = 13
+            constants.innerPadding = 18
             constants.backgroundPadding = 3
         }
         self.constants = constants
@@ -181,6 +181,11 @@ public final class SegmentedControlModel {
     // MARK: Internals
 
     func calculateContentWidth(includeBackground: Bool) -> CGFloat {
+        ceil(measureContentWidth(includeBackground: includeBackground))
+    }
+
+    /// The content width as measured, before rounding up to whole points
+    func measureContentWidth(includeBackground: Bool) -> CGFloat {
         guard items.count > 0 else { return 0 }
         let attrs: [NSAttributedString.Key: Any] = [.font: font]
         var width = items.reduce(CGFloat.zero) { width, item in
@@ -195,7 +200,7 @@ public final class SegmentedControlModel {
         if includeBackground {
             width += 2 * constants.backgroundPadding
         }
-        return ceil(width)
+        return width
     }
 
     func itemLayouts() -> [SegmentedControlItemLayout]? {
@@ -237,6 +242,14 @@ public final class SegmentedControlModel {
     }
     
     var selectionFrame: CGRect? {
+        guard let selection, let ends = selectionEndFrames else { return nil }
+        let progress = clamp(selection.progress ?? 0.0, to: 0...1)
+        return interpolate(from: ends.from, to: ends.to, progress: progress)
+    }
+
+    /// The selection's frame as it rests on each of the two items it runs between; for a single selected item, both
+    /// are that item's
+    var selectionEndFrames: (from: CGRect, to: CGRect)? {
         guard let selection else { return nil }
         let items = self.items
         let itemIds = items.map(\.id)
@@ -267,9 +280,8 @@ public final class SegmentedControlModel {
             w2 += constants.accessoryWidth
         }
         let frame1 = CGRect(x: x, y: 0, width: w1, height: constants.height)
-        let frame2 = CGRect(x: x2, y: 0, width: w2, height: constants.height)
-        let progress = clamp(selection.progress ?? 0.0, to: 0...1)
-        return interpolate(from: frame1, to: frame2, progress: progress)
+        guard selection.item2 != nil else { return (frame1, frame1) }
+        return (frame1, CGRect(x: x2, y: 0, width: w2, height: constants.height))
     }
     
     func setSize(itemId: String, size: CGSize) {

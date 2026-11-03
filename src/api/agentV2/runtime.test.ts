@@ -1083,6 +1083,264 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
+  it.each(['clear', 'delete'] as const)(
+    'retains independent failed-run requests and preserves the other retry after a thread %s', async (operation) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const requests: Array<{ clientRunId: string; threadId: string }> = [];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+        if (url.endsWith('/runs')) {
+          const request = JSON.parse(init!.body as string) as (typeof requests)[number];
+          requests.push(request);
+          if (requests.filter(({ clientRunId }) => clientRunId === request.clientRunId).length === 1) {
+            return Promise.resolve(jsonResponse({
+              protocolVersion: 3,
+              error: { code: 'rate_limited', retryable: true, retryAfterMs: 5_000 },
+            }, 429));
+          }
+          const isFirstThread = request.threadId === THREAD_ID;
+          const runId = isFirstThread ? RUN_ID : RUN_ID_2;
+          const messageId = isFirstThread ? MESSAGE_ID : MESSAGE_ID_2;
+          return Promise.resolve(ndjsonResponse([
+            boundEvent(runId, {
+              type: 'run_start', sequence: 1, clientRunId: request.clientRunId,
+              threadId: request.threadId, threadRevision: 1,
+            }),
+            boundEvent(runId, {
+              type: 'message_start', sequence: 2, messageId, role: 'assistant', contentKind: 'markdown',
+            }),
+            boundEvent(runId, { type: 'text_delta', sequence: 3, messageId, delta: 'Recovered' }),
+            boundEvent(runId, { type: 'message_end', sequence: 4, messageId, finishReason: 'complete' }),
+          ]));
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, thread: threadSummary({ revision: 2 }), duplicate: false,
+          }));
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/delete`)) {
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      const ids = [CLIENT_RUN_ID, MESSAGE_ID, CLIENT_RUN_ID_2, MESSAGE_ID_2, TOOL_CALL_ID, MESSAGE_ID_3];
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: jest.fn(),
+        randomUuid: () => ids.shift() ?? DEVICE_ID,
+      });
+      await runtime.acceptConsent();
+
+      const firstRun = await runtime.startRun({
+        threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Retry later' },
+      });
+      const otherRun = await runtime.startRun({
+        threadId: THREAD_ID_2, expectedThreadRevision: 1, input: { kind: 'append', text: 'Retry later' },
+      });
+      expect(firstRun.state).toBe('failed');
+      expect(otherRun.state).toBe('failed');
+      expect(requests[0]).toMatchObject({ clientRunId: firstRun.clientRunId, threadId: THREAD_ID });
+      expect(requests[1]).toMatchObject({ clientRunId: otherRun.clientRunId, threadId: THREAD_ID_2 });
+      await expect(runtime.retryRun(firstRun.clientRunId)).resolves.toMatchObject({
+        clientRunId: firstRun.clientRunId, state: 'completed',
+      });
+      const failedRun = await runtime.startRun({
+        threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Another failure' },
+      });
+      expect(failedRun.state).toBe('failed');
+      expect(requests[3]).toMatchObject({ clientRunId: failedRun.clientRunId, threadId: THREAD_ID });
+      if (operation === 'clear') await runtime.clearThread(THREAD_ID, 1);
+      else await runtime.deleteThread(THREAD_ID);
+      await expect(runtime.retryRun(failedRun.clientRunId)).resolves.toBeUndefined();
+      expect(requests).toHaveLength(4);
+      await expect(runtime.retryRun(otherRun.clientRunId)).resolves.toMatchObject({
+        clientRunId: otherRun.clientRunId, state: 'completed',
+      });
+      expect(requests).toHaveLength(5);
+      expect(requests[2]).toEqual(requests[0]);
+      expect(requests[4]).toEqual(requests[1]);
+      await runtime.destroy();
+    },
+  );
+
+  it('deletes only the target thread runs, retained actions and tool state', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    const clear = jest.fn();
+    const reconnectSignals = new Map<string, AbortSignal>();
+    let resolveOtherRun!: (response: Response) => void;
+    let markBothReconnecting!: () => void;
+    const bothReconnecting = new Promise<void>((resolve) => {
+      markBothReconnecting = resolve;
+    });
+    const action = { ...navigationActionFixture.projectionCases[0].expectedPersisted, title: 'Open link' };
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.includes('/messages?')) {
+        const threadId = url.includes(THREAD_ID_2) ? THREAD_ID_2 : THREAD_ID;
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          thread: threadSummary({ id: threadId }),
+          messages: [{
+            id: threadId === THREAD_ID ? MESSAGE_ID : MESSAGE_ID_2,
+            threadId,
+            role: 'assistant',
+            status: 'complete',
+            content: { kind: 'markdown', text: 'Open link' },
+            createdAt: '2026-08-11T12:00:00.000Z',
+            actions: [action],
+          }],
+        }));
+      }
+      if (url.endsWith('/runs')) {
+        const request = JSON.parse(init!.body as string) as {
+          clientRunId: string; threadId: string; resumeAfterSequence?: number;
+        };
+        if (!request.resumeAfterSequence) {
+          return Promise.resolve(ndjsonResponse([boundEvent(request.threadId === THREAD_ID ? RUN_ID : RUN_ID_2, {
+            type: 'run_start', sequence: 1, clientRunId: request.clientRunId,
+            threadId: request.threadId, threadRevision: 1,
+          })]));
+        }
+        reconnectSignals.set(request.threadId, init!.signal!);
+        if (reconnectSignals.size === 2) markBothReconnecting();
+        return new Promise<Response>((resolve, reject) => {
+          if (request.threadId === THREAD_ID_2) resolveOtherRun = resolve;
+          init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason));
+        });
+      }
+      if (url.endsWith(`/threads/${THREAD_ID}/delete`)) {
+        expect(reconnectSignals.get(THREAD_ID)!.aborted).toBe(false);
+        expect(reconnectSignals.get(THREAD_ID_2)!.aborted).toBe(false);
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID_3, CLIENT_RUN_ID_2, TOOL_RESULT_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: (update) => updates.push(update),
+      randomUuid: () => ids.shift() ?? DEVICE_ID,
+      wait: () => Promise.resolve(),
+      toolExecutor: { execute: jest.fn(), discard: jest.fn(), clear },
+    });
+    await runtime.acceptConsent();
+    await runtime.updateHostContext(receiveHost('ton'));
+    clear.mockClear();
+    await runtime.getMessages(THREAD_ID);
+    await runtime.getMessages(THREAD_ID_2);
+    expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'openDapp', url: action.url });
+    expect(runtime.resolveAction(MESSAGE_ID_2, action.id)).toEqual({ kind: 'openDapp', url: action.url });
+
+    const firstRun = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'First chat' },
+    });
+    const otherRun = runtime.startRun({
+      threadId: THREAD_ID_2, expectedThreadRevision: 1, input: { kind: 'append', text: 'Other chat' },
+    });
+    await bothReconnecting;
+    await runtime.deleteThread(THREAD_ID);
+
+    await expect(firstRun).resolves.toMatchObject({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, state: 'cancelled' });
+    expect(reconnectSignals.get(THREAD_ID)!.aborted).toBe(true);
+    expect(reconnectSignals.get(THREAD_ID_2)!.aborted).toBe(false);
+    expect(clear.mock.calls).toEqual([[THREAD_ID]]);
+    expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    expect(runtime.resolveAction(MESSAGE_ID_2, action.id)).toEqual({ kind: 'openDapp', url: action.url });
+    expect(updates.filter(({ kind }) => kind === 'runCancelled')).toEqual([{
+      kind: 'runCancelled', clientRunId: CLIENT_RUN_ID, runId: RUN_ID, threadId: THREAD_ID,
+    }]);
+    resolveOtherRun(ndjsonResponse([
+      boundEvent(RUN_ID_2, {
+        type: 'message_start', sequence: 2, messageId: MESSAGE_ID_3, role: 'assistant', contentKind: 'markdown',
+      }),
+      boundEvent(RUN_ID_2, { type: 'text_delta', sequence: 3, messageId: MESSAGE_ID_3, delta: 'Other chat answer' }),
+      boundEvent(RUN_ID_2, { type: 'message_end', sequence: 4, messageId: MESSAGE_ID_3, finishReason: 'complete' }),
+    ]));
+    await expect(otherRun).resolves.toMatchObject({
+      clientRunId: CLIENT_RUN_ID_2, runId: RUN_ID_2, state: 'completed',
+    });
+    await runtime.destroy();
+  });
+
+  it.each(['network', 'http'] as const)(
+    'keeps a reconnecting answer active after a %s deletion failure', async (failure) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const updates: AgentV2ClientUpdate[] = [];
+      let reconnectSignal!: AbortSignal;
+      let resolveRun!: (response: Response) => void;
+      let markReconnecting!: () => void;
+      let clientRunId!: string;
+      const reconnecting = new Promise<void>((resolve) => {
+        markReconnecting = resolve;
+      });
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+        if (url.endsWith('/runs')) {
+          const request = JSON.parse(init!.body as string) as { clientRunId: string; resumeAfterSequence?: number };
+          clientRunId = request.clientRunId;
+          if (!request.resumeAfterSequence) {
+            return Promise.resolve(ndjsonResponse([boundEvent(RUN_ID, {
+              type: 'run_start', sequence: 1, clientRunId, threadId: THREAD_ID, threadRevision: 1,
+            })]));
+          }
+          reconnectSignal = init!.signal!;
+          markReconnecting();
+          return new Promise<Response>((resolve, reject) => {
+            resolveRun = resolve;
+            reconnectSignal.addEventListener('abort', () => reject(reconnectSignal.reason));
+          });
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/delete`)) {
+          if (failure === 'network') return Promise.reject(new TypeError('Failed to fetch'));
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, error: { code: 'internal_error', retryable: true },
+          }, 503));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: (update) => updates.push(update),
+        wait: () => Promise.resolve(),
+      });
+      try {
+        await runtime.acceptConsent();
+        const run = runtime.startRun({
+          threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Continue answering' },
+        });
+        await reconnecting;
+        await expect(runSafeAgentV2Operation(() => runtime.deleteThread(THREAD_ID)))
+          .resolves.toMatchObject({ ok: false });
+
+        expect(reconnectSignal.aborted).toBe(false);
+        expect(updates.filter(({ kind }) => kind === 'runCancelled')).toEqual([]);
+        resolveRun(ndjsonResponse([
+          boundEvent(RUN_ID, {
+            type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown',
+          }),
+          boundEvent(RUN_ID, { type: 'text_delta', sequence: 3, messageId: MESSAGE_ID, delta: 'Finished answer' }),
+          boundEvent(RUN_ID, { type: 'message_end', sequence: 4, messageId: MESSAGE_ID, finishReason: 'complete' }),
+        ]));
+        await expect(run).resolves.toMatchObject({ clientRunId, runId: RUN_ID, state: 'completed' });
+      } finally {
+        await runtime.destroy();
+      }
+    },
+  );
+
   it('cancels a reconnecting answer before its clear and clears past the revision the answer moved', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -1209,6 +1467,91 @@ describe('AgentV2Runtime transport', () => {
     expect(lostInit!.body).toBe(retryInit!.body);
     expect(JSON.parse(blankCommentInit!.body as string))
       .toEqual({ protocolVersion: 3, clientOperationId: CLIENT_RUN_ID_2 });
+    await runtime.destroy();
+  });
+
+  it.each(['clear', 'delete'] as const)(
+    'isolates unanswered problem reports across a thread %s', async (operation) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const reports: Array<{ threadId: string; clientOperationId: string }> = [];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith('/reports')) {
+          const { clientOperationId } = JSON.parse(init!.body as string) as { clientOperationId: string };
+          reports.push({ threadId: url.includes(THREAD_ID_2) ? THREAD_ID_2 : THREAD_ID, clientOperationId });
+          if (reports.length <= 3) return Promise.reject(new TypeError('Failed to fetch'));
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, reportId: RUN_ID, duplicate: false }));
+        }
+        if (url.endsWith('/clear')) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, thread: threadSummary({ revision: 2 }), duplicate: false,
+          }));
+        }
+        if (url.endsWith('/delete')) {
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      const ids = [CLIENT_RUN_ID, CLIENT_RUN_ID_2, MESSAGE_ID, TOOL_RESULT_ID];
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: jest.fn(),
+        randomUuid: () => ids.shift()!,
+      });
+      await runtime.acceptConsent();
+
+      await expect(runtime.reportProblem(THREAD_ID, { comment: 'First chat' })).rejects.toThrow();
+      await expect(runtime.reportProblem(THREAD_ID_2, { comment: 'Other chat' })).rejects.toThrow();
+      await expect(runtime.reportProblem(THREAD_ID, { comment: 'First chat' })).rejects.toThrow();
+      if (operation === 'clear') await runtime.clearThread(THREAD_ID, 1);
+      else await runtime.deleteThread(THREAD_ID);
+      await runtime.reportProblem(THREAD_ID_2, { comment: 'Other chat' });
+      await runtime.reportProblem(THREAD_ID, { comment: 'First chat' });
+
+      expect(reports.map(({ threadId }) => threadId))
+        .toEqual([THREAD_ID, THREAD_ID_2, THREAD_ID, THREAD_ID_2, THREAD_ID]);
+      expect(reports[0].clientOperationId).not.toBe(reports[1].clientOperationId);
+      expect(reports[2]).toEqual(reports[0]);
+      expect(reports[3]).toEqual(reports[1]);
+      if (operation === 'clear') expect(reports[4]).toEqual(reports[0]);
+      else expect(reports[4].clientOperationId).not.toBe(reports[0].clientOperationId);
+      await runtime.destroy();
+    },
+  );
+
+  it('transcribes in the app language and keeps the delay an unavailable transcription states', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse({ protocolVersion: 3, outcome: 'transcribed', text: 'Send 5 TON to Pete' }),
+    )).mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3,
+      error: { code: 'transcription_unavailable', retryable: true, retryAfterMs: 2_000 },
+    }, 503));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    const recording = { audio: 'GkXfow==', format: 'webm' as const, lang: 'ru' };
+    await expect(runtime.transcribe(recording)).rejects.toMatchObject({
+      code: 'transcription_unavailable', retryable: true, retryAfterMs: 2_000,
+    });
+    await expect(runtime.transcribe(recording))
+      .resolves.toEqual({ protocolVersion: 3, outcome: 'transcribed', text: 'Send 5 TON to Pete' });
+
+    const [[url, init]] = fetchMock.mock.calls;
+    expect(getRequestUrl(url)).toBe('https://agent.test/api/v2/transcriptions');
+    expect(init!.method).toBe('POST');
+    expect(JSON.parse(init!.body as string)).toEqual({
+      protocolVersion: 3, audio: 'GkXfow==', format: 'webm', lang: 'ru',
+    });
     await runtime.destroy();
   });
 
@@ -4630,6 +4973,59 @@ describe('AgentV2Runtime transport', () => {
     expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
   });
 
+  it.each(['clear', 'delete', 'update'] as const)(
+    'preserves delayed history hydration for another thread during a thread %s', async (operation) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      let resolveMessages!: (response: Response) => void;
+      let markMessagesRequested!: () => void;
+      const messagesRequested = new Promise<void>((resolve) => {
+        markMessagesRequested = resolve;
+      });
+      const fetchMock = jest.fn((input: string | URL | Request) => {
+        const url = getRequestUrl(input);
+        if (url.includes(`/threads/${THREAD_ID_2}/messages?`)) {
+          markMessagesRequested();
+          return new Promise<Response>((resolve) => {
+            resolveMessages = resolve;
+          });
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, thread: threadSummary({ revision: 2 }), duplicate: false,
+          }));
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/delete`)) {
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/update`)) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, thread: threadSummary({ title: 'Renamed chat' }),
+          }));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: jest.fn(),
+      });
+      await runtime.acceptConsent();
+
+      const hydration = runtime.getMessages(THREAD_ID_2);
+      await messagesRequested;
+      if (operation === 'clear') await runtime.clearThread(THREAD_ID, 1);
+      else if (operation === 'delete') await runtime.deleteThread(THREAD_ID);
+      else await runtime.updateThread(THREAD_ID, { title: 'Renamed chat' });
+      const thread = threadSummary({ id: THREAD_ID_2 });
+      resolveMessages(jsonResponse({ protocolVersion: 3, thread, messages: [] }));
+
+      await expect(hydration).resolves.toEqual({ thread, messages: [], nextCursor: undefined });
+      await runtime.destroy();
+    },
+  );
+
   it('hydrates executable V3 navigation targets', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -5394,6 +5790,412 @@ describe('AgentV2Runtime transport', () => {
       },
       { url: `https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=100` },
     ]);
+  });
+
+  it('lists chat threads with an escaped search and cursor, and preserves thread previews', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const threads = [{
+      thread: threadSummary({ title: 'TON & staking', icon: '💎', hasCustomTitle: true, isPinned: true }),
+      preview: 'Review staking options',
+    }, {
+      thread: threadSummary({ id: THREAD_ID_2 }),
+    }];
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(jsonResponse({
+      protocolVersion: 3, threads, nextCursor: 'next_page-token',
+    })));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.listThreads({ cursor: 'page/+?=&', limit: 20, query: '  TON & staking/💎  ' }))
+      .resolves.toEqual({ protocolVersion: 3, threads, nextCursor: 'next_page-token' });
+    await runtime.listThreads();
+    await runtime.listThreads({ cursor: '', query: '   ' });
+    await runtime.listThreads({ query: '' });
+
+    const [[input, init], [defaultInput, defaultInit], [blankInput], [emptyInput]] = fetchMock.mock.calls;
+    const url = new URL(getRequestUrl(input));
+    expect(url.origin + url.pathname).toBe('https://agent.test/api/v2/threads');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      cursor: 'page/+?=&', limit: '20', query: 'TON & staking/💎',
+    });
+    expect(init?.method ?? 'GET').toBe('GET');
+    expect(init?.body).toBeUndefined();
+    const defaultUrl = new URL(getRequestUrl(defaultInput));
+    expect(defaultUrl.pathname).toBe('/api/v2/threads');
+    expect(defaultUrl.searchParams.has('cursor')).toBe(false);
+    expect(defaultUrl.searchParams.has('query')).toBe(false);
+    expect(defaultInit?.body).toBeUndefined();
+    expect(getRequestUrl(blankInput)).toBe('https://agent.test/api/v2/threads');
+    expect(getRequestUrl(emptyInput)).toBe('https://agent.test/api/v2/threads');
+    await runtime.destroy();
+  });
+
+  it.each([
+    ['ru', 'ru'],
+    ['ru-RU', 'ru'],
+    ['en', 'en'],
+    ['en-US', 'en'],
+    ['uk', 'en'],
+    ['fr', 'en'],
+    ['', 'en'],
+  ])('reads the news feed for app language %s using locale %s', async (lang, locale) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const items = [{
+      eventId: 307,
+      deliveredAt: '2026-10-19T09:00:00.000Z',
+      headline: 'MyPulse headline',
+      body: 'MyPulse publication',
+      sources: [{ name: 'MyPulse', url: 'https://t.me/mypulse/307' }],
+      discussion: { threadId: THREAD_ID, icon: '📰' },
+    }];
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(jsonResponse({
+      protocolVersion: 3, locale: 'en', items, nextCursor: 'next-page',
+    })));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await runtime.acceptConsent();
+
+      await expect(runtime.getNewsFeed({ lang, cursor: 'page/+?=&' }))
+        .resolves.toEqual({ locale: 'en', items, nextCursor: 'next-page' });
+      await runtime.getNewsFeed({ lang });
+
+      const [[input, init], [defaultInput]] = fetchMock.mock.calls;
+      const url = new URL(getRequestUrl(input));
+      expect(url.origin + url.pathname).toBe('https://agent.test/api/v2/news-feed');
+      expect(Object.fromEntries(url.searchParams)).toEqual({ locale, cursor: 'page/+?=&' });
+      expect(init?.method ?? 'GET').toBe('GET');
+      expect(init?.body).toBeUndefined();
+      expect(new Headers(init?.headers).get('Authorization')).toBe(`Bearer adt_v2.${'a'.repeat(43)}`);
+      expect(getRequestUrl(defaultInput)).toBe(`https://agent.test/api/v2/news-feed?locale=${locale}`);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('requires consent before reading the news feed', async () => {
+    const fetchMock = jest.fn();
+    const runtime = new AgentV2Runtime({
+      storage: createMemoryStorage(),
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await expect(runtime.getNewsFeed({ lang: 'ru' })).rejects.toThrow('Agent V2 consent is required');
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('creates and loads a news thread with its server post without starting a run', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const news = {
+      eventId: 307,
+      headline: '  Thread headline\nwith exact whitespace  ',
+      body: 'The **full publication**.',
+      sources: [{ name: 'MyPulse', url: 'https://t.me/mypulse/307' }],
+      publishedAt: '2026-10-19T08:00:00.000Z',
+    };
+    const response = { protocolVersion: 3, thread: threadSummary({ news, messageCount: 1 }), created: true };
+    const post = {
+      id: MESSAGE_ID,
+      threadId: THREAD_ID,
+      role: 'assistant',
+      status: 'complete',
+      content: { kind: 'markdown', text: `**${news.headline}**\n\n${news.body}` },
+      createdAt: news.publishedAt,
+      newsPost: true,
+    };
+    const requests: { url: string; method?: string; body?: unknown }[] = [];
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      requests.push({
+        url,
+        ...(init?.method && { method: init.method }),
+        ...(init?.body && { body: JSON.parse(init.body as string) }),
+      });
+      if (url.includes('/news-feed?')) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          locale: 'en',
+          items: [{
+            eventId: news.eventId,
+            deliveredAt: '2026-10-19T09:00:00.000Z',
+            headline: 'A different feed headline',
+            body: 'MyPulse publication',
+            sources: [],
+          }],
+        }));
+      }
+      if (url.endsWith('/threads')) return Promise.resolve(jsonResponse(response));
+      if (url.endsWith(`/threads/${THREAD_ID}/messages?limit=100`)) {
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, thread: response.thread, messages: [post] }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await runtime.acceptConsent();
+      const feed = await runtime.getNewsFeed({ lang: 'ru' });
+      const item = feed.items[0];
+      const created = await runtime.createThread({ news: { eventId: item.eventId, locale: feed.locale } });
+      expect(created).toEqual(response);
+      expect(created.thread.news!.headline).not.toBe(item.headline);
+      await expect(runtime.getMessages(created.thread.id)).resolves.toEqual({
+        thread: response.thread, messages: [post], nextCursor: undefined,
+      });
+
+      expect(requests.find(({ url }) => url.endsWith('/threads'))).toEqual({
+        url: 'https://agent.test/api/v2/threads',
+        method: 'POST',
+        body: { protocolVersion: 3, news: { eventId: news.eventId, locale: 'en' } },
+      });
+      expect(requests.filter(({ url }) => url.endsWith('/runs'))).toHaveLength(0);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it.each([true, false])('creates or reuses an empty chat thread with created=%s', async (created) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const response = { protocolVersion: 3, thread: threadSummary(), created };
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse(response),
+    ));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.createThread()).resolves.toEqual(response);
+
+    const [[input, init]] = fetchMock.mock.calls;
+    expect(getRequestUrl(input)).toBe('https://agent.test/api/v2/threads');
+    expect(init!.method).toBe('POST');
+    expect(new Headers(init!.headers).get('Content-Type')).toBe('application/json');
+    expect(JSON.parse(init!.body as string)).toEqual({ protocolVersion: 3 });
+    await runtime.destroy();
+  });
+
+  it('updates a chat title and pin, and sends null and false when resetting them', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const onUpdate = jest.fn();
+    const updatedThread = threadSummary({ title: 'My chat', icon: '💎', hasCustomTitle: true, isPinned: true });
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(jsonResponse({
+      protocolVersion: 3, thread: updatedThread,
+    })));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate,
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.updateThread(THREAD_ID, { title: 'My chat', isPinned: true }))
+      .resolves.toEqual({ protocolVersion: 3, thread: updatedThread });
+    expect(onUpdate).toHaveBeenCalledWith({ kind: 'threadChanged', threadId: THREAD_ID, thread: updatedThread });
+    // eslint-disable-next-line no-null/no-null -- A null title resets the custom chat title
+    await runtime.updateThread(THREAD_ID, { title: null, isPinned: false });
+
+    expect(fetchMock.mock.calls.map(([input]) => getRequestUrl(input))).toEqual([
+      `https://agent.test/api/v2/threads/${THREAD_ID}/update`,
+      `https://agent.test/api/v2/threads/${THREAD_ID}/update`,
+    ]);
+    expect(fetchMock.mock.calls.map(([, init]) => ({ method: init!.method, body: JSON.parse(init!.body as string) })))
+      .toEqual([
+        { method: 'POST', body: { protocolVersion: 3, title: 'My chat', isPinned: true } },
+        // eslint-disable-next-line no-null/no-null -- A null title resets the custom chat title
+        { method: 'POST', body: { protocolVersion: 3, title: null, isPinned: false } },
+      ]);
+    await runtime.destroy();
+  });
+
+  it.each(['clear', 'delete'] as const)(
+    'returns a delayed thread update after a thread %s without publishing its stale summary', async (operation) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const onUpdate = jest.fn();
+      let resolveUpdate!: (response: Response) => void;
+      let markUpdateRequested!: () => void;
+      const updateRequested = new Promise<void>((resolve) => {
+        markUpdateRequested = resolve;
+      });
+      const fetchMock = jest.fn((input: string | URL | Request) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith(`/threads/${THREAD_ID}/update`)) {
+          markUpdateRequested();
+          return new Promise<Response>((resolve) => {
+            resolveUpdate = resolve;
+          });
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+          return Promise.resolve(jsonResponse({
+            protocolVersion: 3, thread: threadSummary({ revision: 2 }), duplicate: false,
+          }));
+        }
+        if (url.endsWith(`/threads/${THREAD_ID}/delete`)) {
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      const runtime = new AgentV2Runtime({
+        storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock as unknown as typeof fetch, onUpdate,
+      });
+      await runtime.acceptConsent();
+
+      const update = runtime.updateThread(THREAD_ID, { title: 'Renamed chat', isPinned: true });
+      await updateRequested;
+      if (operation === 'clear') await runtime.clearThread(THREAD_ID, 1);
+      else await runtime.deleteThread(THREAD_ID);
+      const publishedChanges = onUpdate.mock.calls.filter(([event]) => event.kind === 'threadChanged');
+      const response = {
+        protocolVersion: 3,
+        thread: threadSummary({ title: 'Renamed chat', hasCustomTitle: true, isPinned: true }),
+      };
+      resolveUpdate(jsonResponse(response));
+
+      await expect(update).resolves.toEqual(response);
+      expect(onUpdate.mock.calls.filter(([event]) => event.kind === 'threadChanged')).toEqual(publishedChanges);
+      await runtime.destroy();
+    },
+  );
+
+  it.each([false, true])('deletes a chat thread with a client operation id and duplicate=%s', async (duplicate) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const response = { protocolVersion: 3, threadId: THREAD_ID, duplicate };
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse(response),
+    ));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => CLIENT_RUN_ID,
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.deleteThread(THREAD_ID)).resolves.toEqual(response);
+
+    const [[input, init]] = fetchMock.mock.calls;
+    expect(getRequestUrl(input)).toBe(`https://agent.test/api/v2/threads/${THREAD_ID}/delete`);
+    expect(init!.method).toBe('POST');
+    expect(JSON.parse(init!.body as string)).toEqual({ protocolVersion: 3, clientOperationId: CLIENT_RUN_ID });
+    await runtime.destroy();
+  });
+
+  it.each(['network error', 'timeout'] as const)(
+    'reuses an unanswered delete operation after a %s independently of another thread', async (failure) => {
+      if (failure === 'timeout') jest.useFakeTimers();
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const requests: Array<{ threadId: string; clientOperationId: string }> = [];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        const threadId = url.includes(THREAD_ID_2) ? THREAD_ID_2 : THREAD_ID;
+        const { clientOperationId } = JSON.parse(init!.body as string) as { clientOperationId: string };
+        requests.push({ threadId, clientOperationId });
+        const attempt = requests.filter((request) => request.threadId === threadId).length;
+        if (threadId === THREAD_ID && attempt === 1) {
+          if (failure === 'network error') return Promise.reject(new TypeError('Failed to fetch'));
+          return new Promise<Response>((_resolve, reject) => {
+            init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason));
+          });
+        }
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, threadId, duplicate: attempt === 2 }));
+      });
+      const ids = [CLIENT_RUN_ID, CLIENT_RUN_ID_2, MESSAGE_ID];
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: jest.fn(),
+        randomUuid: () => ids.shift()!,
+        requestTimeoutMs: 1_000,
+      });
+      try {
+        await runtime.acceptConsent();
+        const deletion = runSafeAgentV2Operation(() => runtime.deleteThread(THREAD_ID));
+        if (failure === 'timeout') await jest.advanceTimersByTimeAsync(1_000);
+        await expect(deletion).resolves.toEqual({ ok: false, error: { code: 'network_error', retryable: true } });
+        await runtime.deleteThread(THREAD_ID_2);
+        await expect(runtime.deleteThread(THREAD_ID)).resolves.toEqual({
+          protocolVersion: 3, threadId: THREAD_ID, duplicate: true,
+        });
+        await runtime.deleteThread(THREAD_ID);
+
+        expect(requests.map(({ threadId }) => threadId)).toEqual([THREAD_ID, THREAD_ID_2, THREAD_ID, THREAD_ID]);
+        expect(requests[1].clientOperationId).not.toBe(requests[0].clientOperationId);
+        expect(requests[2]).toEqual(requests[0]);
+        expect(requests[3].clientOperationId).not.toBe(requests[0].clientOperationId);
+      } finally {
+        await runtime.destroy();
+        if (failure === 'timeout') jest.useRealTimers();
+      }
+    },
+  );
+
+  it.each([
+    {
+      status: 503,
+      response: { protocolVersion: 3, error: { code: 'internal_error', retryable: true } },
+      error: { code: 'internal_error' },
+    },
+    { status: 400, response: { protocolVersion: 3 }, error: { name: 'AgentV2ContractError' } },
+  ])('discards an unanswered delete operation after an HTTP $status response', async ({ status, response, error }) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(jsonResponse({
+      protocolVersion: 3, threadId: THREAD_ID, duplicate: false,
+    })))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse(response, status));
+    const ids = [CLIENT_RUN_ID, CLIENT_RUN_ID_2];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => ids.shift()!,
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.deleteThread(THREAD_ID)).rejects.toThrow();
+    await expect(runtime.deleteThread(THREAD_ID)).rejects.toMatchObject(error);
+    await runtime.deleteThread(THREAD_ID);
+
+    const requests = fetchMock.mock.calls.map(([, init]) => JSON.parse(init!.body as string) as {
+      clientOperationId: string;
+    });
+    expect(requests[1]).toEqual(requests[0]);
+    expect(requests[2].clientOperationId).not.toBe(requests[0].clientOperationId);
+    await runtime.destroy();
   });
 
   it('restores persisted capacity failures from message history', async () => {

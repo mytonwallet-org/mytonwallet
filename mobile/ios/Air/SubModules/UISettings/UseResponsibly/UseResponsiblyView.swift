@@ -30,6 +30,7 @@ struct UseResponsiblyView: View {
             Text(lang("Use Responsibly"))
                 .textStyle(.screenTitle)
                 .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("use_responsibly_title")
         }
         .environment(\.openURL, OpenURLAction { url in
             UIApplication.shared.open(url)
@@ -60,11 +61,13 @@ struct UseResponsiblyView: View {
                 text: lang("Terms of Use"),
                 onTap: onTerms
             )
+            .accessibilityIdentifier("use_responsibly_terms")
             Item(
                 icon: "PolicyIcon",
                 text: lang("Privacy Policy"),
                 onTap: onPrivacyPolicy
             )
+            .accessibilityIdentifier("use_responsibly_privacy_policy")
         }
     }
     

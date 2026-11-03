@@ -139,11 +139,10 @@ function RenewDomainModal({
           {domainNfts.length > 1 && <NftChips nfts={domainNfts} className={styles.multiNftChips} />}
         </div>
 
-        <FeeLine terms={feeTerms} token={TONCOIN} precision="exact" />
+        <FeeLine terms={feeTerms} token={TONCOIN} precision="exact" isError={isInsufficientBalance} />
         <div className={buildClassName(modalStyles.buttons, styles.footer)}>
           <Button
             isPrimary
-            isDestructive={isInsufficientBalance}
             isDisabled={isInsufficientBalance}
             isLoading={!realFee || isLoading}
             className={styles.button}

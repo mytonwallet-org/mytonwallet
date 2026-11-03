@@ -29,6 +29,7 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
         guard var config else { return nil }
         if let isLimitedOverride = _isLimitedOverride {
             config.isLimited = isLimitedOverride
+            config.isSwapAndOnRampLimited = isLimitedOverride
         }
         if let seasonalThemeOverride = _seasonalThemeOverride {
             config.seasonalTheme = seasonalThemeOverride
@@ -78,7 +79,10 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
         }
     }
 
-    public var shouldRestrictSwapsAndOnRamp: Bool { config?.isLimited == true }
+    public var shouldRestrictSwapsAndOnRamp: Bool {
+        guard let config else { return false }
+        return (config.isSwapAndOnRampLimited ?? config.isLimited) == true
+    }
     public var shouldRestrictBuyNfts: Bool { config?.isLimited == true }
     public var shouldRestrictSites: Bool { config?.isLimited == true }
     public var shouldRestrictSell: Bool { config?.isLimited == true }

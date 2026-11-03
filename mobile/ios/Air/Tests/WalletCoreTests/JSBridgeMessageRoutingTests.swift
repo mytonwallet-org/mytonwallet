@@ -279,8 +279,10 @@ private final class QueueGate: Sendable {
         return gate
     }
 
+    /// Gives up together with the suite's time limit, so a failed test never keeps its queue blocked, while a slow
+    /// runner cannot open the gate before the test releases it.
     func wait() {
-        _ = semaphore.wait(timeout: .now() + 5)
+        _ = semaphore.wait(timeout: .now() + 60)
         finished.withLock { $0 = true }
     }
 

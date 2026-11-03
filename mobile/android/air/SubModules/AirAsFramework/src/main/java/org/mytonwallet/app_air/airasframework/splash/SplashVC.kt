@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListVC
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
@@ -631,6 +632,17 @@ class SplashVC(context: Context) :
 
     override fun walletIsReady() {
         _isWalletReady = true
+        val window = window
+        // Home can report readiness mid-layout; navigating then would change the same view tree
+        if (window?.windowView?.isInLayout == true) {
+            window.windowView.post {
+                if (_isWalletReady && this.window === window) {
+                    handleDeeplinkIfRequired()
+                    window.doPendingTasks()
+                }
+            }
+            return
+        }
         handleDeeplinkIfRequired()
         window?.doPendingTasks()
     }
@@ -1277,13 +1289,14 @@ class SplashVC(context: Context) :
             }
 
             is Deeplink.Agent -> {
-                tabsVC?.switchToAgent()
+                if (tabsVC?.switchToAgent() != true) {
+                    window.navigationControllers.lastOrNull()?.push(AgentThreadListVC(context))
+                }
             }
 
             is Deeplink.Url -> {
                 val inAppBrowserVC = InAppBrowserVC(
                     context,
-                    null,
                     deeplink.config
                 )
                 val nav = WNavigationController(window)
@@ -1555,7 +1568,7 @@ class SplashVC(context: Context) :
             return
         }
         val window = window ?: return
-        val inAppBrowserVC = InAppBrowserVC(context, null, config)
+        val inAppBrowserVC = InAppBrowserVC(context, config)
         val nav = WNavigationController(window)
         nav.setRoot(inAppBrowserVC)
         window.present(nav)

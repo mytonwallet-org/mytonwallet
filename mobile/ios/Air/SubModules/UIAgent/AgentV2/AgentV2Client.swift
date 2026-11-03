@@ -12,12 +12,18 @@ protocol AgentV2Client: AnyObject, Sendable {
     func problemReportAvailability() async -> Bool
     func setChatActive(_ isActive: Bool) async
     func defaultThread() async throws -> ApiAgentV2DefaultThreadResponse
+    func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse
+    func createThread() async throws -> ApiAgentV2ThreadCreateResponse
+    func createThread(news: ApiAgentV2ThreadNewsRequest) async throws -> ApiAgentV2ThreadCreateResponse
+    func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse
+    func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse
     func messages(threadId: String, cursor: String?, limit: Int) async throws -> ApiAgentV2ThreadHydration
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult
     func retryRun(clientRunId: String) async throws -> ApiAgentV2RunResult?
     func cancelRun(_ runId: String) async
     func clearThread(id: String, revision: Int) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse>
     func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws
+    func transcribeAgentV2Audio(_ request: ApiAgentV2TranscriptionRequest) async throws -> ApiAgentV2TranscriptionResponse
     /// Returns the rating the server keeps for the answer
     func setMessageFeedback(
         threadId: String,
@@ -66,6 +72,26 @@ final class LiveAgentV2Client: AgentV2Client {
         try await Api.getAgentV2DefaultThread()
     }
 
+    func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse {
+        try await Api.listAgentV2Threads(cursor: cursor, limit: limit, query: query)
+    }
+
+    func createThread() async throws -> ApiAgentV2ThreadCreateResponse {
+        try await Api.createAgentV2Thread()
+    }
+
+    func createThread(news: ApiAgentV2ThreadNewsRequest) async throws -> ApiAgentV2ThreadCreateResponse {
+        try await Api.createAgentV2Thread(news: news)
+    }
+
+    func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse {
+        try await Api.updateAgentV2Thread(threadId: id, update: update)
+    }
+
+    func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse {
+        try await Api.deleteAgentV2Thread(threadId: id)
+    }
+
     func messages(threadId: String, cursor: String?, limit: Int) async throws -> ApiAgentV2ThreadHydration {
         try await Api.getAgentV2Messages(threadId: threadId, cursor: cursor, limit: limit)
     }
@@ -88,6 +114,10 @@ final class LiveAgentV2Client: AgentV2Client {
 
     func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws {
         _ = try await Api.reportAgentV2Problem(threadId: threadId, report: report)
+    }
+
+    func transcribeAgentV2Audio(_ request: ApiAgentV2TranscriptionRequest) async throws -> ApiAgentV2TranscriptionResponse {
+        try await Api.transcribeAgentV2Audio(request)
     }
 
     func setMessageFeedback(

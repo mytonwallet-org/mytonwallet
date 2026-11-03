@@ -3,6 +3,8 @@ package org.mytonwallet.app_air.uiagent.agentV2
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.TimeZone
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -32,45 +34,35 @@ private class AgentV2PositionsProjection(
 )
 
 internal object AgentHostContextBuilder {
-    fun build(): AgentHostContextSnapshot {
+    suspend fun build(): AgentHostContextSnapshot {
         val activeAccount = AccountStore.activeAccount
         val activeSavedAddresses = savedAddresses(activeAccount?.accountId)
-        val accounts = WalletCore.getAllAccounts().map { account ->
-            makeAccount(
+        // The stores are read here, on the main thread, and copied where they can change; the JSON
+        // takes long to build, and is built off the main thread from those copies, TokenStore's
+        // concurrent map and its swap list, which is replaced as a whole
+        val accountSources = WalletCore.getAllAccounts().map { account ->
+            readAccount(
                 account,
-                if (account.accountId ==
-                    activeAccount?.accountId
-                ) {
+                if (account.accountId == activeAccount?.accountId) {
                     activeSavedAddresses
                 } else {
                     emptyList()
                 }
             )
         }
-        val assets = TokenStore.tokens.values
-            .asSequence()
-            .filter {
-                it.slug.isNotBlank() &&
-                    it.symbol.isNotBlank() &&
-                    it.decimals >= 0 &&
-                    it.chain in MBlockchain.supportedChainValues
-            }
-            // A catalog over its limit keeps its first assets by slug, the same on every platform and launch
-            .sortedBy { it.slug }
-            .take(MAX_ASSET_CATALOG_SIZE)
-            .map(::makeAsset)
-            .toList()
+        val baseCurrencyRate = TokenStore.baseCurrencyRate
+        val (assets, swapAssetCatalog, accounts) = withContext(Dispatchers.Default) {
+            Triple(
+                makeAssetCatalog(),
+                makeSwapAssetCatalog(),
+                accountSources.map { makeAccount(it, baseCurrencyRate) }
+            )
+        }
         val currencyRate = if (WalletCore.baseCurrency.currencyCode == "USD") {
             "1"
         } else {
-            decimalString(TokenStore.baseCurrencyRate?.takeIf { it > 0 })
+            decimalString(baseCurrencyRate?.takeIf { it > 0 })
         }
-        val swapAssetCatalog = TokenStore.swapAssets
-            ?.asSequence()
-            ?.sortedBy { it.slug }
-            ?.mapNotNull(::makeSwapAsset)
-            ?.take(MAX_ASSET_CATALOG_SIZE)
-            ?.toList()
 
         val json = JSONObject()
             .put(
@@ -122,10 +114,45 @@ internal object AgentHostContextBuilder {
         return AgentHostContextSnapshot(activeAccount?.accountId, json)
     }
 
-    private fun makeAccount(account: MAccount, savedAddresses: List<JSONObject>): JSONObject {
+    private fun makeAssetCatalog() = TokenStore.tokens.values
+        .asSequence()
+        .filter {
+            it.slug.isNotBlank() &&
+                it.symbol.isNotBlank() &&
+                it.decimals >= 0 &&
+                it.chain in MBlockchain.supportedChainValues
+        }
+        // A catalog over its limit keeps its first assets by slug, the same on every platform and launch
+        .sortedBy { it.slug }
+        .take(MAX_ASSET_CATALOG_SIZE)
+        .map(::makeAsset)
+        .toList()
+
+    private fun makeSwapAssetCatalog() = TokenStore.swapAssets
+        ?.asSequence()
+        ?.sortedBy { it.slug }
+        ?.mapNotNull(::makeSwapAsset)
+        ?.take(MAX_ASSET_CATALOG_SIZE)
+        ?.toList()
+
+    // What an account's context is built from, read on the main thread
+    private class AccountSource(
+        val account: MAccount,
+        val savedAddresses: List<JSONObject>,
+        val chains: List<String>,
+        val hasBalances: Boolean,
+        val holdings: List<HoldingSource>,
+        // The account's NFTs, each with whether it is hidden, when they are loaded
+        val nfts: List<Pair<ApiNft, Boolean>>?,
+        val stakingStates: List<StakingState>?,
+        val fullyLoadedChains: List<String>
+    )
+
+    private class HoldingSource(val token: MToken, val balance: BigInteger, val isHidden: Boolean)
+
+    private fun readAccount(account: MAccount, savedAddresses: List<JSONObject>): AccountSource {
         val chains = MBlockchain.supportedChainValues.filter(account.byChain::containsKey)
-        val addresses = chains.associateWith { chain -> account.byChain.getValue(chain).address }
-        val balances = BalanceStore.getBalances(account.accountId)
+        val balances = BalanceStore.getBalances(account.accountId)?.toMap()
         val assetsAndActivityData = if (account.accountId == AccountStore.activeAccountId) {
             AccountStore.assetsAndActivityData
         } else {
@@ -138,17 +165,43 @@ internal object AgentHostContextBuilder {
                         it.chain in chains && it.slug !in assetsAndActivityData.deletedTokens
                     }
                     ?.let { token ->
-                        makeHolding(account, assetsAndActivityData, token, balance)
+                        HoldingSource(
+                            token,
+                            balance,
+                            token.isHidden(account, assetsAndActivityData)
+                        )
                     }
             }
             .orEmpty()
-        val positionsProjection = makePositions(account)
+        val nfts = NftStore.nftData?.takeIf { it.accountId == account.accountId }?.cachedNfts
+            ?.map { nft -> nft to NftStore.shouldHide(account.accountId, nft) }
         // Only the active account keeps its NFTs, so another one has no network read in full
-        val fullyLoadedChains = if (positionsProjection.hasNftData) {
+        val fullyLoadedChains = if (nfts != null) {
             NftStore.getFullyLoadedChains(account.accountId).map { it.name }
         } else {
             emptyList()
         }
+        return AccountSource(
+            account = account,
+            savedAddresses = savedAddresses,
+            chains = chains,
+            hasBalances = balances != null,
+            holdings = holdings,
+            nfts = nfts,
+            stakingStates = StakingStore.getStakingState(account.accountId)
+                ?.states
+                ?.filterNotNull(),
+            fullyLoadedChains = fullyLoadedChains
+        )
+    }
+
+    private fun makeAccount(source: AccountSource, baseCurrencyRate: Double?): JSONObject {
+        val account = source.account
+        val chains = source.chains
+        val addresses = chains.associateWith { chain -> account.byChain.getValue(chain).address }
+        val holdings = source.holdings.map { makeHolding(it, baseCurrencyRate) }
+        val positionsProjection = makePositions(source)
+        val fullyLoadedChains = source.fullyLoadedChains
         val portfolioWalletKeys = if (account.isMainnet) {
             addresses.map { (chain, address) -> "$chain:$address" }
         } else {
@@ -161,13 +214,7 @@ internal object AgentHostContextBuilder {
                 "fungible",
                 JSONObject().put(
                     "state",
-                    if (balances !=
-                        null
-                    ) {
-                        "fresh"
-                    } else {
-                        "notLoaded"
-                    }
+                    if (source.hasBalances) "fresh" else "notLoaded"
                 )
             )
             .put(
@@ -216,22 +263,18 @@ internal object AgentHostContextBuilder {
                         positionsProjection.hasStakingData
                 }?.let(::JSONArray)
             )
-            .put("savedAddresses", JSONArray(savedAddresses))
+            .put("savedAddresses", JSONArray(source.savedAddresses))
             .put("nftLoadedChains", JSONArray(chains.filter(fullyLoadedChains::contains)))
             .put("domainStates", domainStates)
     }
 
-    private fun makeHolding(
-        account: MAccount,
-        assetsAndActivityData: MAssetsAndActivityData,
-        token: MToken,
-        atomicBalance: BigInteger
-    ): JSONObject {
-        val balance = atomicString(atomicBalance, token.decimals)
+    private fun makeHolding(source: HoldingSource, baseCurrencyRate: Double?): JSONObject {
+        val token = source.token
+        val balance = atomicString(source.balance, token.decimals)
         val fiatPrice = token.priceUsd
             .takeIf { it.isFinite() && it >= 0 }
             ?.let { usdPrice ->
-                TokenStore.baseCurrencyRate
+                baseCurrencyRate
                     ?.takeIf { it.isFinite() && it > 0 }
                     ?.let { usdPrice * it }
             }
@@ -246,34 +289,22 @@ internal object AgentHostContextBuilder {
             .put("fiatValue", fiatValue)
             .put("fiatPrice", decimalString(fiatPrice))
             .put("valuationStatus", if (fiatValue == null) "unpriced" else "valued")
-            .put(
-                "visibility",
-                if (token.isHidden(account, assetsAndActivityData)) {
-                    "hidden"
-                } else {
-                    "visible"
-                }
-            )
+            .put("visibility", if (source.isHidden) "hidden" else "visible")
     }
 
-    private fun makePositions(account: MAccount): AgentV2PositionsProjection {
-        val nftData = NftStore.nftData?.takeIf { it.accountId == account.accountId }
-        val nfts = nftData?.cachedNfts
-        val stakingData = StakingStore.getStakingState(account.accountId)
+    private fun makePositions(source: AccountSource): AgentV2PositionsProjection {
         val positions = buildList {
-            nfts?.mapNotNullTo(this) { nft -> makeNftPosition(account.accountId, nft) }
-            stakingData?.states?.mapNotNullTo(this) { state ->
-                state?.let(::makeStakingPosition)
-            }
+            source.nfts?.mapNotNullTo(this) { (nft, isHidden) -> makeNftPosition(nft, isHidden) }
+            source.stakingStates?.mapNotNullTo(this, ::makeStakingPosition)
         }.sortedBy { it.getString("id") }
         return AgentV2PositionsProjection(
             positions = positions,
-            hasNftData = nfts != null,
-            hasStakingData = stakingData != null
+            hasNftData = source.nfts != null,
+            hasStakingData = source.stakingStates != null
         )
     }
 
-    private fun makeNftPosition(accountId: String, nft: ApiNft): JSONObject? {
+    private fun makeNftPosition(nft: ApiNft, isHidden: Boolean): JSONObject? {
         val chain = nft.chain?.name?.takeIf { it in MBlockchain.supportedChainValues }
             ?: return null
         return JSONObject()
@@ -284,7 +315,7 @@ internal object AgentHostContextBuilder {
             .put("valuationStatus", "not_applicable")
             .put("collection", nft.collectionName?.let { normalizeAgentContextLabel(it, 80) })
             .put("isOnSale", nft.isOnSale)
-            .put("visibility", if (NftStore.shouldHide(accountId, nft)) "hidden" else "visible")
+            .put("visibility", if (isHidden) "hidden" else "visible")
             .put("riskVerdict", if (nft.isScam == true) "spam" else null)
     }
 

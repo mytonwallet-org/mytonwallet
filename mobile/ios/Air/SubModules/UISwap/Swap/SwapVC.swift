@@ -526,6 +526,7 @@ extension SwapVC: TokenSelectionVCDelegate {
         case .selling:
             swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: swapModel.input.sellingToken?.slug,
+                disabledTokenSlug: tradeModel?.token.slug,
                 otherSymbolOrMinterAddress: nil,
                 showOnlyMyAssets: tradeModel != nil,
                 myAssetsDisplayMode: .swap,
@@ -539,6 +540,7 @@ extension SwapVC: TokenSelectionVCDelegate {
         case .buying:
             swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: swapModel.input.buyingToken?.slug,
+                disabledTokenSlug: tradeModel?.token.slug,
                 extraWalletTokenSlugs: ApiChain.allCases
                     .filter(\.isOnchainSwapSupported)
                     .map(\.nativeToken.slug),

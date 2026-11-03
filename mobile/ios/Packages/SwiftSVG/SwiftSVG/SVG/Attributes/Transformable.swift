@@ -76,9 +76,9 @@ struct Transform {
                 self.affineTransform = CGAffineTransform(rotationAngle: degrees.toRadians)
             } else if coordinates.count == 3 {
                 let degrees = CGFloat(coordinates[0])
-                let translate = CGAffineTransform(translationX: coordinates[0], y: coordinates[1])
+                let translate = CGAffineTransform(translationX: -coordinates[1], y: -coordinates[2])
                 let rotate = CGAffineTransform(rotationAngle: degrees.toRadians)
-                let translateReverse = CGAffineTransform(translationX: -coordinates[0], y: -coordinates[1])
+                let translateReverse = CGAffineTransform(translationX: coordinates[1], y: coordinates[2])
                 self.affineTransform = translate.concatenating(rotate).concatenating(translateReverse)
             } else {
                 return nil
@@ -195,7 +195,7 @@ extension Transformable {
                 return Transform(rawValue: transformName, coordinatesString: coordinateString)
             })
             .reduce(CGAffineTransform.identity, { (accumulate, next) -> CGAffineTransform in
-                return accumulate.concatenating(next.affineTransform)
+                return next.affineTransform.concatenating(accumulate)
             })
             self.layerToTransform.setAffineTransform(combinedTransforms)
 

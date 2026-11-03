@@ -31,6 +31,9 @@ open class HeroAmountField: UITextField, UITextFieldDelegate {
         set { clearAmountButton.accessibilityIdentifier = newValue }
     }
     public var focusesOnAppearance = true
+    public var showsClearButton = true {
+        didSet { if showsClearButton != oldValue { needsFormatting = true; setNeedsLayout() } }
+    }
     public var usesSystemKeyboard = false {
         didSet { inputView = usesSystemKeyboard ? nil : UIView(frame: .zero); reloadInputViews() }
     }
@@ -174,7 +177,7 @@ open class HeroAmountField: UITextField, UITextFieldDelegate {
         amountPresentation.configure(active: active, animated: animated)
         if !motionEnabled {
             clearAmountButton.layer.removeAllAnimations()
-            clearAmountButton.alpha = inputText.isEmpty ? 0 : 1
+            clearAmountButton.alpha = showsClearButton && !inputText.isEmpty ? 1 : 0
             clearAmountButton.transform = .identity
         }
         setNeedsLayout()
@@ -229,7 +232,7 @@ open class HeroAmountField: UITextField, UITextFieldDelegate {
     }
 
     private func updateClearButton() {
-        let visible = !inputText.isEmpty
+        let visible = showsClearButton && !inputText.isEmpty
         guard clearButtonVisible != visible else { return }
         clearButtonVisible = visible
         clearAmountButton.isUserInteractionEnabled = visible
@@ -355,7 +358,7 @@ open class HeroAmountField: UITextField, UITextFieldDelegate {
                       height: font?.lineHeight ?? 86)
     }
 
-    private var clearButtonReservedWidth: CGFloat { inputText.isEmpty ? 0 : 52 }
+    private var clearButtonReservedWidth: CGFloat { !showsClearButton || inputText.isEmpty ? 0 : 52 }
     private var suffixSpacing: CGFloat { suffixLabel.text?.isEmpty == false ? 18 : 0 }
 
     public override func editingRect(forBounds bounds: CGRect) -> CGRect { textRect(forBounds: bounds) }

@@ -3,7 +3,7 @@ import { Address, beginCell, type Cell } from '@ton/core';
 import type { ApiAccountWithChain, ApiSwapBuildTransactionRequest } from '../../types';
 import type { TonTransferParams } from './types';
 
-import { DIESEL_ADDRESS, SWAP_FEE_ADDRESS } from '../../../config';
+import { DIESEL_ADDRESSES, SWAP_FEE_ADDRESS, SWAP_FEE_ADDRESSES } from '../../../config';
 import { OpCode } from './constants';
 import { validateDexSwapTransfers } from './swap';
 import { getContractInfo } from './wallet';
@@ -139,6 +139,16 @@ describe('validateDexSwapTransfers Uranus memepad buys', () => {
       withFee(),
       ACCOUNT,
     )).resolves.toBe(990_000_000n);
+  });
+
+  it('accepts the fee transfer to every swap fee wallet the build ships with', async () => {
+    for (const feeAddress of SWAP_FEE_ADDRESSES) {
+      const transfers = withFee();
+      transfers[1].toAddress = feeAddress;
+      await expect(validateDexSwapTransfers(
+        'mainnet', USER_ADDRESS, buildRequest(), transfers, ACCOUNT,
+      )).resolves.toBe(990_000_000n);
+    }
   });
 
   it('accepts a MAX buy whose signed amount matches the estimate input', async () => {
@@ -315,10 +325,12 @@ describe('validateDexSwapTransfers Uranus memepad buys', () => {
       'mainnet', USER_ADDRESS, buildRequest(), transfers, ACCOUNT,
     )).rejects.toThrow('Unexpected fee transfer address');
 
-    transfers[1].toAddress = DIESEL_ADDRESS;
-    await expect(validateDexSwapTransfers(
-      'mainnet', USER_ADDRESS, buildRequest(), transfers, ACCOUNT,
-    )).rejects.toThrow('Uranus memepad fee destination is invalid');
+    for (const dieselAddress of DIESEL_ADDRESSES) {
+      transfers[1].toAddress = dieselAddress;
+      await expect(validateDexSwapTransfers(
+        'mainnet', USER_ADDRESS, buildRequest(), transfers, ACCOUNT,
+      )).rejects.toThrow('Uranus memepad fee destination is invalid');
+    }
   });
 
   it('rejects a nonzero fee transfer with the wrong opcode', async () => {

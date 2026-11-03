@@ -1,72 +1,10 @@
 import UIKit
+import UIComponents
 
-/// Claims the entire two-finger sequence before UIPinchGestureRecognizer reaches
-/// its scale threshold. It remains active when one finger lifts, until both are up.
-/// Observation never prevents the system pinch or delays one-finger scrolling.
-final class NftDetailsPinchTouchGuard: UIGestureRecognizer {
-    var canClaim: () -> Bool = { false }
-    var onClaimChanged: (Bool) -> Void = { _ in }
-    private(set) var isClaimed = false
-    private var trackedTouches = Set<UITouch>()
-
-    init() {
-        super.init(target: nil, action: nil)
-        cancelsTouchesInView = false
-        delaysTouchesBegan = false
-        delaysTouchesEnded = false
-    }
-
-    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
-    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
-        trackedTouches.formUnion(touches)
-        updateTouchCount(trackedTouches.count)
-    }
-
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
-        if isClaimed { state = .changed }
-    }
-
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
-        trackedTouches.subtract(touches)
-        updateTouchCount(trackedTouches.count)
-    }
-
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
-        trackedTouches.subtract(touches)
-        updateTouchCount(trackedTouches.count)
-    }
-
-    func updateTouchCount(_ count: Int) {
-        if !isClaimed, count >= 2, canClaim() {
-            isClaimed = true
-            onClaimChanged(true)
-            state = .began
-        } else if count == 0 {
-            // Release in reset, after all recognizers handle the final touch-up.
-            state = isClaimed ? .ended : .failed
-        }
-    }
-
-    override func reset() {
-        super.reset()
-        trackedTouches.removeAll()
-        if isClaimed {
-            isClaimed = false
-            onClaimChanged(false)
-        }
-    }
-}
+typealias NftDetailsMediaMotion = MediaViewerMotion
 
 /// UIKit adaptation of Telegram's media gestures: preserve the pinch anchor, track
 /// the finger centroid, and spring back to the source when the gesture ends.
-enum NftDetailsMediaMotion {
-    static var duration: TimeInterval { UIAccessibility.isReduceMotionEnabled ? 0.15 : 0.32 }
-    static var collapseDuration: TimeInterval { UIAccessibility.isReduceMotionEnabled ? 0.15 : 0.28 }
-    static let damping: CGFloat = 0.94
-}
-
 @MainActor
 final class NftDetailsInlineZoom {
     private let overlay = UIView()

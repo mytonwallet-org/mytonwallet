@@ -77,17 +77,23 @@ struct SdkActivationRelayTests {
     }
 }
 
+/// Counts the timeout in 5 ms samples rather than wall time. On a loaded machine the relay's task and this wait share
+/// a starved cooperative pool, and the time neither of them runs is not the condition's to spend. Ten times the
+/// timeout in wall time still ends a wait whose samples keep stalling.
 private func waitUntil(
     timeout: Duration = .seconds(5),
     _ condition: @Sendable () -> Bool
 ) async throws {
+    let sampleInterval = Duration.milliseconds(5)
+    var remainingSamples = Int((timeout / sampleInterval).rounded(.up))
     let clock = ContinuousClock()
-    let deadline = clock.now.advanced(by: timeout)
-    while clock.now < deadline {
+    let deadline = clock.now.advanced(by: timeout * 10)
+    while remainingSamples > 0, clock.now < deadline {
         if condition() {
             return
         }
-        try await Task.sleep(for: .milliseconds(5))
+        remainingSamples -= 1
+        try await Task.sleep(for: sampleInterval)
     }
     #expect(condition(), "timed out waiting for condition")
 }

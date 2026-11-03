@@ -6,6 +6,7 @@ import { ApiCommonError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
+import { isTypedDataDomainOnChain } from './typedDataChainId';
 
 export type Eip712TypedDataFields = {
   domain: Record<string, unknown>;
@@ -34,6 +35,17 @@ export async function signPayload(
   if (enclaveToken === undefined) return { error: ApiCommonError.InvalidPassword };
 
   const { network } = parseAccountId(accountId);
+
+  // The confirmation shows `chain`, so typed data bound to another chain's domain is never signed here
+  if (
+    payloadToSign.type === 'eip712'
+    && (
+      (network === 'testnet' && payloadToSign.network === 'mainnet')
+      || !isTypedDataDomainOnChain(payloadToSign.domain, payloadToSign.network ?? network, chain)
+    )
+  ) {
+    return { error: ApiCommonError.Unexpected };
+  }
 
   const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken);
   if (!privateKey) return { error: ApiCommonError.InvalidPassword };

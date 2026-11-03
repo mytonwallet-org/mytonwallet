@@ -27,6 +27,11 @@ extension Api {
     }
 
     @concurrent public static func fetchTokenDetails(asset: String, slug: String) async throws -> ApiTokenDetails? {
+        let details = try await fetchTokenDetails(tokens: [(asset: asset, slug: slug)])
+        return details[slug]
+    }
+
+    @concurrent public static func fetchTokenDetails(tokens: [(asset: String, slug: String)]) async throws -> [String: ApiTokenDetails] {
         let preset = DebugTokenInfoMock.preset
 
         if preset == .loading {
@@ -39,26 +44,32 @@ extension Api {
             try await Task.sleep(for: .seconds(1.5))
         }
 
+        let mock: ApiTokenDetails
         switch preset {
         case .disabled:
             let response = try await bridge.callApi(
                 "fetchTokenDetails",
-                [asset],
+                tokens.map(\.asset),
                 decoding: [ApiTokenDetailsResponse].self
             )
-            return response.first { $0.slug == slug }?.tokenInfo
+            return response.reduce(into: [:]) { details, token in
+                details[token.slug] = token.tokenInfo
+            }
         case .design:
-            return .designMock
+            mock = .designMock
         case .localizedDescription:
-            return .localizedDescriptionMock
+            mock = .localizedDescriptionMock
         case .longSparse:
-            return .longSparseMock
+            mock = .longSparseMock
         case .missingDescription:
-            return .missingDescriptionMock
+            mock = .missingDescriptionMock
         case .missingTokenInfo:
-            return nil
+            return [:]
         case .error, .loading:
             throw TokenInfoMockError.noData
+        }
+        return tokens.reduce(into: [:]) { details, token in
+            details[token.slug] = mock
         }
     }
 }

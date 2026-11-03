@@ -165,14 +165,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         ])
         segmentedControlContainer.frame.size.height = 54
         
-        if let cls = NSClassFromString("ettelaPraBnoitagivaNIU_".reverse) as? UIView.Type {
-            let palette = cls.perform(NSSelectorFromString("alloc"))
-                .takeUnretainedValue()
-                .perform(NSSelectorFromString("initWithContentView:"), with: segmentedControlContainer)
-                .takeUnretainedValue()
-        
-            navigationItem.perform(NSSelectorFromString(":ettelaPmottoBtes_".reverse), with: palette)
-        }
+        PrivateAPI.setBottomPalette(of: navigationItem, contentView: segmentedControlContainer)
         
         segmentedController.blurView.isHidden = true
         segmentedController.separator.isHidden = true

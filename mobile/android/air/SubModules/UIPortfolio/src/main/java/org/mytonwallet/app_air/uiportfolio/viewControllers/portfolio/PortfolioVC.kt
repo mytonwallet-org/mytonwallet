@@ -29,7 +29,7 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
@@ -163,6 +163,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         addView(periodSelectorPill, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setOnClickListener {}
     }
+    private var periodSelectorShadow: WGlassView? = null
     private var periodSelectorGlass: WGlassView? = null
 
     // While fading placeholders in over the prior content, defer applying the new
@@ -216,10 +217,18 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             periodSelectorContainer,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, PERIOD_SELECTOR_SECTION_HEIGHT.dp)
         )
+        periodSelectorShadow = WGlassView.attachTo(
+            periodSelectorPill,
+            24f.dp,
+            GlassProviders.shadowOnly(),
+            null
+        ).apply {
+            (layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.LEFT or Gravity.TOP
+        }
         periodSelectorGlass = WGlassView.attachTo(
             periodSelectorPill,
             24f.dp,
-            GlassProviders.pill(WColor.SearchFieldBackground),
+            GlassProviders.plain(WColor.Background),
             view
         ).apply {
             (layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.LEFT or Gravity.TOP
@@ -242,6 +251,12 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         distributionSection.chartHeaderView.back.setOnClickListener {
             zoomOut(distributionSection, animated = true)
+        }
+        distributionSection.chartHeaderView.today.setOnClickListener {
+            showLatestPie(distributionSection)
+        }
+        distributionSection.chartHeaderView.onDatesChanged = {
+            updateTodayState(distributionSection)
         }
         absoluteSection.stackChartView.legendSignatureView.apply {
             isClickable = true
@@ -292,8 +307,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         updateSimpleSectionTheme(totalPnlSection)
         updateSimpleSectionTheme(dailyPnlSection)
         periodSelector.updateTheme()
-        periodSelector.setBackgroundColor(Color.TRANSPARENT, 24f.dp)
         periodSelector.setSliderColor(WColor.SecondaryBackground.color)
+        periodSelectorShadow?.updateTheme()
         periodSelectorGlass?.updateTheme()
     }
 
@@ -649,6 +664,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 distributionSection.pieChartView.updatePicker(data, pieDate)
             }
             distributionSection.mode = ChartMode.PIE
+            updateTodayState(distributionSection)
             distributionSection.stackChartView.visibility = View.GONE
             distributionSection.stackChartView.legendSignatureView.visibility = View.GONE
             distributionSection.pieChartView.visibility = View.VISIBLE
@@ -669,6 +685,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             distributionSection.stackChartView.getPickerWindowSpan()
 
         distributionSection.mode = ChartMode.STACK
+        updateTodayState(distributionSection)
         distributionSection.pieChartView.setData(null)
         distributionSection.stackChartView.visibility = View.VISIBLE
         distributionSection.stackChartView.legendSignatureView.visibility = View.GONE
@@ -896,17 +913,43 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun zoomIntoPieFromLegend(section: ChartSection) {
         if (section.mode != ChartMode.STACK) return
         if (!section.stackChartView.legendSignatureView.canGoZoom) return
-        val date = section.stackChartView.getPickerCenterDate()
+        val date = section.stackChartView.getSelectedDate().takeIf { it >= 0 }
+            ?: section.stackChartView.getPickerCenterDate()
         if (date < 0) return
         zoomIntoPie(section, date)
     }
 
-    private fun zoomIntoPie(section: ChartSection, date: Long) {
+    private fun showLatestPie(section: ChartSection) {
+        val data = section.chartData ?: return
+        if (data.x.isEmpty() || section.transitionAnimator?.isRunning == true) return
+        if (section.mode == ChartMode.PIE) {
+            section.pieChartView.clearSelection()
+            section.pieChartView.updatePickerToIndex(data, data.x.lastIndex)
+        } else {
+            zoomIntoPie(section, data.x.last(), data.x.lastIndex)
+        }
+    }
+
+    private fun updateTodayState(section: ChartSection) {
+        if (section !== distributionSection) return
+        val lastIndex = section.chartData?.x?.lastIndex ?: -1
+        val isOnLatest =
+            section.mode == ChartMode.PIE && section.pieChartView.getPickerEndIndex() >= lastIndex
+        val canShowLatest =
+            section.mode == ChartMode.PIE || section.lineEnabledById.values.count { it } > 1
+        section.chartHeaderView.setTodayState(
+            visible = lastIndex >= 0,
+            enabled = !isOnLatest && canShowLatest,
+            animated = true
+        )
+    }
+
+    private fun zoomIntoPie(section: ChartSection, date: Long, index: Int? = null) {
         val data = section.chartData ?: return
         if (section.lineEnabledById.values.count { it } <= 1) return
 
         if (section.mode == ChartMode.PIE) {
-            section.pieChartView.updatePicker(data, date)
+            updatePiePicker(section, data, date, index)
             return
         }
 
@@ -916,7 +959,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.pieChartView.setData(data)
         section.pieChartView.updateTheme()
         syncLineEnabledState(section.pieChartView, section.lineEnabledById)
-        section.pieChartView.updatePicker(data, date)
+        updatePiePicker(section, data, date, index)
         section.pieChartView.visibility = View.VISIBLE
         section.pieChartView.legendSignatureView.visibility = View.GONE
         updateChartInteractivity(
@@ -950,6 +993,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     section.mode = ChartMode.PIE
+                    updateTodayState(section)
                     section.stackChartView.visibility = View.GONE
                     section.stackChartView.legendSignatureView.visibility = View.GONE
                     updateChartInteractivity(
@@ -964,12 +1008,21 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
     }
 
+    private fun updatePiePicker(section: ChartSection, data: ChartData, date: Long, index: Int?) {
+        if (index != null) {
+            section.pieChartView.updatePickerToIndex(data, index)
+        } else {
+            section.pieChartView.updatePicker(data, date)
+        }
+    }
+
     private fun zoomOut(section: ChartSection, animated: Boolean) {
         val data = section.chartData
         section.transitionAnimator?.cancel()
 
         if (section.mode == ChartMode.STACK || data == null) {
             section.mode = ChartMode.STACK
+            updateTodayState(section)
             section.stackChartView.visibility = View.VISIBLE
             section.pieChartView.visibility = View.GONE
             section.pieChartView.setData(null)
@@ -1024,6 +1077,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         if (!animated) {
             section.chartHeaderView.zoomOut(section.stackChartView, false)
             section.mode = ChartMode.STACK
+            updateTodayState(section)
             section.pieChartView.visibility = View.GONE
             section.pieChartView.setData(null)
             section.stackChartView.clearSelection()
@@ -1047,6 +1101,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     section.mode = ChartMode.STACK
+                    updateTodayState(section)
                     section.pieChartView.visibility = View.GONE
                     section.pieChartView.setData(null)
                     section.stackChartView.clearSelection()
@@ -1177,6 +1232,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
         refreshCheckBoxState(section.checkBoxes, lineEnabledById)
         applyLineEnabledState(section)
+        updateTodayState(section)
     }
 
     private fun refreshCheckBoxState(
@@ -1320,7 +1376,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
 
     private fun createAbsoluteSection(): ChartSection {
-        val chartHeaderView = ChartHeaderView(context).apply {
+        val chartHeaderView = ChartHeaderView(context, showsControlsRow = true).apply {
             id = ViewGroup.generateViewId()
             setTitle(LocaleController.getString("Total Value"))
         }
@@ -1376,7 +1432,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
 
     private fun createDistributionSection(): ChartSection {
-        val chartHeaderView = ChartHeaderView(context).apply {
+        val chartHeaderView = ChartHeaderView(context, showsControlsRow = true).apply {
             id = ViewGroup.generateViewId()
             setTitle(LocaleController.getString("Portfolio Share"))
         }
@@ -1463,20 +1519,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             accountScope = "current",
             source = "analyzeIt"
         )
-        if (navigationController.tabBarController?.switchToAgent(
-                prompt,
-                entryPoint = entryPoint
-            ) == true
-        ) {
-            return
-        }
-        navigationController.push(
-            AgentVC(
-                context,
-                initialPrompt = prompt,
-                initialEntryPoint = entryPoint
-            )
-        )
+        AgentNavigation.openNewChat(context, navigationController, prompt, entryPoint)
     }
 
     // Inline error/empty overlay shown in place of a chart when its fetch fails (with a
@@ -1662,6 +1705,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun createPeriodSelector(): WSegmentedControlGroup =
         WSegmentedControlGroup(context).apply {
             setDividerColor(Color.TRANSPARENT)
+            setBackgroundColorOverride(Color.TRANSPARENT)
             MHistoryTimePeriod.allPeriods.forEach { period ->
                 addView(
                     WLabel(context).apply {
@@ -1826,6 +1870,56 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             "$currency$value"
         }
 
+    override val docksMinimizedBrowser: Boolean
+        get() = window?.isWideLayout == true && navigationController?.tabBarController != null
+
+    private val dockedMinimizedBrowserWidth: Int
+        get() {
+            if (!docksMinimizedBrowser || window?.hasMinimizedBrowser != true) return 0
+            val rowWidth = view.width - ViewConstants.HORIZONTAL_PADDINGS.dp -
+                additionalTabletPadding - systemBarStartInset - systemBarEndInset -
+                periodSelectorContainer.paddingLeft - periodSelectorContainer.paddingRight
+            if (rowWidth <= 0) return 0
+            return minOf(
+                (rowWidth * DOCKED_MINIMIZED_BROWSER_WIDTH_RATIO).toInt(),
+                DOCKED_MINIMIZED_BROWSER_MAX_WIDTH.dp
+            )
+        }
+
+    private val viewLocation = IntArray(2)
+
+    override val minimizedBrowserSpan: IntRange?
+        get() {
+            val width = dockedMinimizedBrowserWidth
+            if (width <= 0) return null
+            view.getLocationInWindow(viewLocation)
+            val left = viewLocation[0] - view.translationX.toInt()
+            val edgeOffset = systemBarEndInset + periodSelectorContainer.paddingRight
+            val start = if (LocaleController.isRTL) {
+                left + edgeOffset
+            } else {
+                left + view.width - edgeOffset - width
+            }
+            // The presenter insets the bar 10dp per side.
+            return (start - 10.dp) until (start + width + 10.dp)
+        }
+
+    override val minimizedBrowserBottomInset: Int?
+        get() {
+            if (dockedMinimizedBrowserWidth <= 0) return null
+            return (navigationController?.getSystemBars()?.bottom ?: 0) +
+                DOCKED_MINIMIZED_BROWSER_BOTTOM.dp
+        }
+
+    override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+        super.onSizeChanged(w, h, oldW, oldH)
+        if (w == oldW || dockedMinimizedBrowserWidth <= 0) return
+        view.post {
+            insetsUpdated()
+            if (window?.hasMinimizedBrowser == true) window?.minimizedBrowser?.snapToRest()
+        }
+    }
+
     override fun insetsUpdated() {
         super.insetsUpdated()
         val bottomInset = navigationController?.getSystemBars()?.bottom ?: 0
@@ -1835,17 +1929,20 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             systemBarEndInset,
             bottomInset + PERIOD_SELECTOR_SECTION_HEIGHT.dp + 8.dp
         )
+        val dockedWidth = dockedMinimizedBrowserWidth
+        val endMargin = systemBarEndInset +
+            if (dockedWidth > 0) dockedWidth + DOCKED_MINIMIZED_BROWSER_GAP.dp else 0
         (periodSelectorContainer.layoutParams as? ConstraintLayout.LayoutParams)?.let { lp ->
             if (LocaleController.isRTL) {
                 lp.rightMargin =
                     ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding +
                     systemBarStartInset
-                lp.leftMargin = systemBarEndInset
+                lp.leftMargin = endMargin
             } else {
                 lp.leftMargin =
                     ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding +
                     systemBarStartInset
-                lp.rightMargin = systemBarEndInset
+                lp.rightMargin = endMargin
             }
             lp.bottomMargin = bottomInset
             periodSelectorContainer.layoutParams = lp
@@ -1853,7 +1950,11 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     }
 
     private companion object {
-        private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
+        private const val PERIOD_SELECTOR_SECTION_HEIGHT = 60
+        private const val DOCKED_MINIMIZED_BROWSER_WIDTH_RATIO = 0.4f
+        private const val DOCKED_MINIMIZED_BROWSER_MAX_WIDTH = 480
+        private const val DOCKED_MINIMIZED_BROWSER_GAP = 8
+        private const val DOCKED_MINIMIZED_BROWSER_BOTTOM = 4
         private const val SENSITIVE_VALUE_MASK = "***"
         private const val TWO_COLUMN_SECTIONS_MIN_WIDTH_DP = 480
         private const val ANALYZE_BUTTON_MIN_HEIGHT_DP = 35

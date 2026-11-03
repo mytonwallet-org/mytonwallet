@@ -16,8 +16,8 @@ public class FeeEstimationHelpers {
             return nil
         }
         let tokenInChain = sellToken.chain
-        let nativeUserTokenIn = sellToken.isOnChain == true && tokenInChain.isSupported ? TokenStore.tokens[tokenInChain.nativeToken.slug] : nil
-        let isNativeIn = sellToken.slug == nativeUserTokenIn?.slug
+        let nativeTokenIn = tokenInChain.isSupported ? tokenInChain.nativeToken : nil
+        let isNativeIn = sellToken.slug == nativeTokenIn?.slug
         let chainConfigIn = tokenInChain.isSupported ? tokenInChain.gas : nil
         let fee = {
             var value: BigInt = 0
@@ -25,7 +25,7 @@ public class FeeEstimationHelpers {
                 return value
             }
             
-            if let networkFee, networkFee > 0, let decimals = nativeUserTokenIn?.decimals {
+            if let networkFee, networkFee > 0, let decimals = nativeTokenIn?.decimals {
                 value = doubleToBigInt(networkFee, decimals: decimals)
             } else if swapType.route == .dex {
                 value = chainConfigIn?.maxSwap ?? 0

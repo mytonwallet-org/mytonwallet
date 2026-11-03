@@ -8,6 +8,7 @@ import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import {
   fetchBackendTokenDetails,
+  getHasFullTokenSlug,
   getTokenBySlug,
   resetLastTokens,
   sendUpdateTokens,
@@ -15,6 +16,7 @@ import {
   updateTokensFromBackend,
 } from '../common/tokens';
 import { storage } from '../storages';
+import { resetLastCurrencyRates, updateCurrencyRates } from './polling';
 
 export { buildTokenSlug } from '../common/tokens';
 
@@ -34,19 +36,32 @@ export async function fetchTokenDetails(assets: string[]): Promise<ApiTokenPrice
   return fetchBackendTokenDetails(assets, langCode);
 }
 
-export async function fetchTokenInfo(slug: string): Promise<{ details?: ApiTokenDetails } | { error: ApiCommonError }> {
+/**
+ * A requested slug absent from `detailsBySlug` has no info. A token with a full slug never gets any, as its details
+ * come back under the slug of another token.
+ */
+export async function fetchTokenInfo(
+  slugs: string[],
+): Promise<{ detailsBySlug: Record<string, ApiTokenDetails> } | { error: ApiCommonError }> {
   await tokensPreload.promise;
-  const token = getTokenBySlug(slug);
-  if (!token) return {};
+  const assetIds: string[] = [];
+  for (const slug of slugs) {
+    const token = getTokenBySlug(slug);
+    if (!token || getHasFullTokenSlug(token)) continue;
 
-  // The backend keys the assets by the token address, and the native ones by the slug, `TON` aside
-  const assetId = token.tokenAddress ?? (slug === TONCOIN.slug ? 'TON' : slug);
+    // The backend keys the assets by the token address, and the native ones by the slug, `TON` aside
+    assetIds.push(token.tokenAddress ?? (slug === TONCOIN.slug ? 'TON' : slug));
+  }
+  if (!assetIds.length) return { detailsBySlug: {} };
 
   try {
-    const details = await fetchTokenDetails([assetId]);
-    const tokenInfo = details.find((item) => item.slug === slug)?.tokenInfo;
+    const requestedSlugs = new Set(slugs);
+    const detailsBySlug: Record<string, ApiTokenDetails> = {};
+    for (const { slug, tokenInfo } of await fetchTokenDetails(assetIds)) {
+      if (tokenInfo && requestedSlugs.has(slug)) detailsBySlug[slug] = buildTokenDetails(tokenInfo);
+    }
 
-    return { details: tokenInfo && buildTokenDetails(tokenInfo) };
+    return { detailsBySlug };
   } catch (err) {
     logDebugError('fetchTokenInfo', err);
 
@@ -65,9 +80,10 @@ export function initTokens(_onUpdate: OnApiUpdate) {
 export async function refreshTokens() {
   if (!onUpdate) return;
   resetLastTokens();
+  resetLastCurrencyRates();
   const langCode = await storage.getItem('langCode');
   try {
-    await updateTokensFromBackend(onUpdate, { langCode, shouldNarrowToHeldTokens: true });
+    await updateTokensFromBackend(onUpdate, { langCode, shouldNarrowToHeldTokens: true }, updateCurrencyRates);
   } finally {
     // Concurrent polling may have sent a diff while the request was in flight.
     resetLastTokens();

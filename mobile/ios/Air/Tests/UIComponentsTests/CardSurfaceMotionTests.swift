@@ -105,14 +105,15 @@ struct CardSurfaceMotionTests {
         #expect(CardSurfaceLight.resumeProgress(elapsed: 0.28) == 1)
     }
 
-    @Test @MainActor func deactivationClearsPoseAndLight() async throws {
+    @Test @MainActor func deactivationClearsPoseAndLight() throws {
         let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()
         let driver = CardSurfaceMotionDriver(cardView: surface) { light = $0 }
+        driver.externallyDriven = true
         driver.input = .drag
         driver.setActive(true)
         driver.press(at: CGPoint(x: 1, y: -1), began: true)
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         #expect(!CATransform3DIsIdentity(surface.layer.transform))
         #expect(light.tilt != .zero)
         #expect(light.activity > 0)
@@ -123,26 +124,27 @@ struct CardSurfaceMotionTests {
         #expect(CATransform3DIsIdentity(surface.layer.transform))
     }
 
-    @Test @MainActor func suspensionFreezesPoseAndFadeUntilResume() async throws {
+    @Test @MainActor func suspensionFreezesPoseAndFadeUntilResume() throws {
         let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()
         let driver = CardSurfaceMotionDriver(cardView: surface) { light = $0 }
+        driver.externallyDriven = true
         driver.input = .drag
         driver.setActive(true)
         driver.press(at: CGPoint(x: 1, y: -1), began: true)
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         let pose = surface.layer.transform
         let before = light
         #expect(before.activity > 0)
         driver.setSuspended(true)
         driver.press(at: CGPoint(x: -1, y: 1), began: true)
-        try await Task.sleep(for: .milliseconds(200))
+        driver.advance(for: 0.2)
         #expect(CATransform3DEqualToTransform(pose, surface.layer.transform))
         #expect(light == before)
         driver.setSuspended(false)
         #expect(light == before)
         #expect(CATransform3DEqualToTransform(pose, surface.layer.transform))
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         #expect(light.press < before.press)
         #expect(light.activity >= before.activity)
         driver.setSuspended(true)
@@ -152,42 +154,52 @@ struct CardSurfaceMotionTests {
     }
 
     @Test @MainActor
-    func linearSweepSurvivesSuspensionAndClearsOnReuse() async throws {
+    func linearSweepSurvivesSuspensionAndClearsOnReuse() throws {
         let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()
         let driver = CardSurfaceMotionDriver(cardView: surface) { light = $0 }
+        driver.externallyDriven = true
         driver.shineStyle = .linear
         driver.input = .drag
         driver.setActive(true)
         driver.press(at: .zero, began: true)
-        try await Task.sleep(for: .milliseconds(250))
+        driver.advance(for: 0.25)
         let before = light
         #expect(abs(try #require(before.linearPosition)) < 0.99)
         driver.setSuspended(true)
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         #expect(light == before)
         driver.setSuspended(false)
         #expect(light == before)
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         let delta = try #require(light.linearPosition) - #require(before.linearPosition)
         #expect(delta < 0)
         driver.setActive(false)
         #expect(light == CardSurfaceLight(linearPosition: 1))
     }
 
-    @Test @MainActor func heldTouchCannotParkOrRepeatLinearShine() async throws {
+    @Test @MainActor func heldTouchCannotParkOrRepeatLinearShine() throws {
         let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()
         let driver = CardSurfaceMotionDriver(cardView: surface) { light = $0 }
+        driver.externallyDriven = true
         driver.shineStyle = .linear
         driver.input = .drag
         driver.setActive(true)
         driver.press(at: CGPoint(x: 0.8, y: -0.8), began: true)
-        try await Task.sleep(for: .milliseconds(1250))
+        driver.advance(for: 1.25)
         #expect(light.linearPosition == -1)
         driver.press(at: CGPoint(x: -0.8, y: 0.8))
-        try await Task.sleep(for: .milliseconds(150))
+        driver.advance(for: 0.15)
         #expect(light.linearPosition == -1)
         driver.setActive(false)
+    }
+}
+
+extension CardSurfaceMotionDriver {
+    /// Runs the display frames of `duration` at 60 Hz, so a test sees the motion's nominal timing however busy the
+    /// machine running it is.
+    func advance(for duration: TimeInterval) {
+        for _ in 0..<Int((duration * 60).rounded()) { advanceFrame(by: 1.0 / 60) }
     }
 }

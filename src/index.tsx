@@ -19,6 +19,7 @@ import { initElectron } from './util/electron';
 import { initExtensionWindow } from './util/extensionWindow';
 import { initFocusScrollController } from './util/focusScroll';
 import { forceLoadFonts } from './util/fonts';
+import { probeIndexedDb } from './util/indexedDbLoss';
 import { logDebug, logSelfXssWarnings } from './util/logs';
 import { initTelegramApp } from './util/telegram';
 import { IS_ELECTRON, IS_LEDGER_EXTENSION_TAB } from './util/windowEnvironment';
@@ -55,7 +56,7 @@ addChunkLoadErrorListener(() => {
 });
 
 void (async () => {
-  await window.electron?.restoreStorage?.();
+  await probeIndexedDb(window.electron?.restoreStorage);
 
   getActions().init();
   void initAgentV2HostContext();

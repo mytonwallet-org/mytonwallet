@@ -55,7 +55,16 @@ public class WScalableButton: UIControl {
     }
 
     public static let preferredHeight: CGFloat = 66
-    public static let preferredCornerRadius: CGFloat = 24
+    public static let preferredCornerRadius: CGFloat = preferredHeight / 2
+    public static let preferredImageSize = CGSize(width: 24, height: 24)
+
+    static var preferredTitleFont: UIFont {
+        WTypography.uiFont(Language.current == .ru ? .caption2Emphasized : .footnoteEmphasized)
+    }
+
+    static var preferredTitleVerticalOffset: CGFloat {
+        Language.current == .ru ? -1 : 0
+    }
 
     private let baseCornerRadius: CGFloat = WScalableButton.preferredCornerRadius
 
@@ -67,7 +76,7 @@ public class WScalableButton: UIControl {
         return view
     }()
 
-    private let baseTitleLabelFont = WTypography.uiFont(.footnoteEmphasized)
+    private let baseTitleLabelFont = WScalableButton.preferredTitleFont
     private let titleLabelHorMargin: CGFloat = 8
 
     private lazy var titleLabel: UILabel = {
@@ -89,7 +98,7 @@ public class WScalableButton: UIControl {
                 effect.isInteractive = true
                 effect.tintColor = UIColor.air.folderFill
                 let view = UIVisualEffectView(effect: effect)
-                view.cornerConfiguration = .corners(radius: .init(floatLiteral: baseCornerRadius))
+                view.cornerConfiguration = .capsule()
                 return view
             }
             
@@ -110,6 +119,7 @@ public class WScalableButton: UIControl {
 
         case .thinGlass:
             let view = ThinGlassView()
+            view.cornerRadius = baseCornerRadius
             view.isUserInteractionEnabled = false
             return view
         }
@@ -144,7 +154,7 @@ public class WScalableButton: UIControl {
         onTap: (() -> Void)? = nil
     ) {
         self.style = style
-        self.imageSize = imageSize
+        self.imageSize = imageSize ?? Self.preferredImageSize
         self.onTap = onTap
         super.init(frame: .zero)
         setup()
@@ -184,9 +194,9 @@ public class WScalableButton: UIControl {
             containerView.heightAnchor.constraint(equalToConstant: Self.preferredHeight),
                   
             imageView.centerXAnchor.constraint(equalTo: containerContentView.centerXAnchor, constant: 0),
-            imageView.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor, constant: -10),
+            imageView.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor, constant: -9),
             
-            titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9),
+            titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9 + Self.preferredTitleVerticalOffset),
             titleLabel.leadingAnchor.constraint(equalTo: containerContentView.leadingAnchor, constant: titleLabelHorMargin),
             titleLabel.trailingAnchor.constraint(equalTo: containerContentView.trailingAnchor, constant: -titleLabelHorMargin),
         ]
@@ -371,7 +381,7 @@ open class ButtonsToolbar: UIView {
     private func setupStackView() {
         stackView.axis = .horizontal
         stackView.alignment = .fill
-        stackView.distribution = .fill
+        stackView.distribution = .fillEqually
         stackView.spacing = spacing
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
@@ -426,8 +436,10 @@ open class ButtonsToolbar: UIView {
         let visibleItems = arrangedSubviews.filter { !$0.view.isHidden }
         let visibleCount = visibleItems.count
         let visibleCountF = CGFloat(visibleItems.count)
-        var itemWidth = visibleCount > 0 ? ((width - spacing * (visibleCountF - 1)) /  visibleCountF).rounded() : minItemWidth
-        itemWidth = min(itemWidth, minItemWidth)
+        let availableItemWidth = visibleCount > 0 ? max(0, (width - spacing * (visibleCountF - 1)) / visibleCountF) : minItemWidth
+        let displayScale = max(1, traitCollection.displayScale)
+        // Keep equal, whole-pixel widths without overflowing and compressing one button.
+        let itemWidth = (min(availableItemWidth, minItemWidth) * displayScale).rounded(.down) / displayScale
         
         let context = ButtonsToolbarLayoutContext(font: nil, itemWidth: itemWidth, pass: .draft)
         visibleItems.forEach { arrangedView in

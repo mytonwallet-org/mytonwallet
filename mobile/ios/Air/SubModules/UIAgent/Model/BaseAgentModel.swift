@@ -34,6 +34,7 @@ class BaseAgentModel {
 
     private var orderedItemIDs: [AgentItemID] = []
     private var itemsByID: [AgentItemID: AgentTimelineItem] = [:]
+    private(set) var userMessageRevision = 0
     private var availableHints: [AgentHint] = []
     private var deferredTypingIndicator: AgentTimelineItem?
     private(set) var pendingRevealUserMessageID: AgentItemID?
@@ -136,7 +137,7 @@ class BaseAgentModel {
     }
 
     func canSendMessage(draftText: String?) -> Bool {
-        backend.canSendMessages && normalizedText(from: draftText) != nil
+        backend.canSendMessages && Self.normalizedText(from: draftText) != nil
     }
 
     func refreshDerivedSystemMessages(animated: Bool = false) {
@@ -145,11 +146,11 @@ class BaseAgentModel {
     }
 
     func send(
-        text: String?,
+        text rawText: String?,
         editingMessageID: AgentItemID? = nil,
         source: AgentBackendSendSource = .composer
     ) {
-        guard let text = normalizedText(from: text) else { return }
+        guard let text = Self.normalizedText(from: rawText) else { return }
 
         if let editingMessageID,
            let editContext = makeEditContext(for: editingMessageID) {
@@ -199,6 +200,26 @@ class BaseAgentModel {
 
     func loadOlderMessages() async -> Bool {
         await backend.loadOlderMessages()
+    }
+
+    var isLoadingOlderMessages: Bool {
+        backend.isLoadingOlderMessages
+    }
+
+    func canRegenerateMessage(_ messageID: AgentItemID) -> Bool {
+        backend.canRegenerateMessage(messageID: messageID)
+    }
+
+    /// The rows `regenerateMessage(_:)` takes out of the chat, in timeline order: the answer, the messages after it and
+    /// the date lines they leave with nothing under them
+    func getItemIDsRemovedByRegenerating(_ messageID: AgentItemID) -> [AgentItemID] {
+        guard backend.canRegenerateMessage(messageID: messageID) else { return [] }
+        return getItemIDsLeavingTimeline(removing: Set(backend.getItemIDsRemovedByRegenerating(messageID: messageID)))
+    }
+
+    func regenerateMessage(_ messageID: AgentItemID) {
+        guard backend.canRegenerateMessage(messageID: messageID) else { return }
+        backend.regenerateMessage(messageID: messageID)
     }
 
     func performControl(messageID: AgentItemID, controlID: String) {
@@ -281,6 +302,7 @@ class BaseAgentModel {
             orderedItemIDs.append(item.id)
             itemsByID[item.id] = item
         }
+        userMessageRevision += 1
         delegate?.agentModelDidReloadTimeline(
             animated: animated,
             reconfigureItemIDs: previousFollowupMessageID != followupMessageID
@@ -291,6 +313,7 @@ class BaseAgentModel {
     private func appendDirectly(_ item: AgentTimelineItem, animated: Bool) {
         orderedItemIDs.append(item.id)
         itemsByID[item.id] = item
+        userMessageRevision += 1
         delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
     }
 
@@ -315,11 +338,16 @@ class BaseAgentModel {
     }
 
     private func updateMessage(_ message: AgentMessage, animated: Bool, scrollToBottom: Bool) {
+        let previousMessage = self.message(for: message.id)
         itemsByID[message.id] = .message(message)
+        if (previousMessage?.role == .user || message.role == .user),
+           previousMessage?.role != message.role || previousMessage?.text != message.text {
+            userMessageRevision += 1
+        }
         delegate?.agentModelDidUpdateItems([message.id], animated: animated, scrollToBottom: scrollToBottom)
     }
 
-    private func message(for id: AgentItemID) -> AgentMessage? {
+    func message(for id: AgentItemID) -> AgentMessage? {
         guard let item = itemsByID[id], case .message(let message) = item else { return nil }
         return message
     }
@@ -382,6 +410,7 @@ class BaseAgentModel {
         let timelineItems = timelineItemsByInsertingDateMessages(into: items)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
+        userMessageRevision += 1
         delegate?.agentModelDidReloadTimeline(
             animated: animated,
             reconfigureItemIDs: reconfigureItemIDs
@@ -414,6 +443,23 @@ class BaseAgentModel {
         lastMessageTimestamp.map { timestamp.timeIntervalSince($0) > Metrics.dateHeaderGap } ?? true
     }
 
+    /// The rows that go when the items `removedIDs` leave the timeline: those items and the date lines that head none of
+    /// the messages left. Date lines are made anew with every timeline, so one that stays is known by its timestamp.
+    private func getItemIDsLeavingTimeline(removing removedIDs: Set<AgentItemID>) -> [AgentItemID] {
+        guard !removedIDs.isEmpty else { return [] }
+        let remainingItems = baseTimelineItems.filter { !removedIDs.contains($0.id) }
+        let remainingDateTimestamps = Set(timelineItemsByInsertingDateMessages(into: remainingItems).compactMap { item -> Date? in
+            guard case .message(let message) = item, message.isDateTimeSystemMessage else { return nil }
+            return message.timestamp
+        })
+        return orderedItemIDs.filter { itemID in
+            guard case .message(let message)? = itemsByID[itemID], message.isDateTimeSystemMessage else {
+                return removedIDs.contains(itemID)
+            }
+            return !remainingDateTimestamps.contains(message.timestamp)
+        }
+    }
+
     func setTimeline(
         _ baseItems: [AgentTimelineItem],
         animated: Bool,
@@ -423,6 +469,7 @@ class BaseAgentModel {
         let timelineItems = timelineItemsByInsertingDateMessages(into: baseItems)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
+        userMessageRevision += 1
         var updatedIDs = Set(reconfigureItemIDs)
         if previousFollowupMessageID != followupMessageID {
             if let previousFollowupMessageID, itemsByID[previousFollowupMessageID] != nil {
@@ -433,7 +480,7 @@ class BaseAgentModel {
         delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: Array(updatedIDs))
     }
 
-    private func normalizedText(from text: String?) -> String? {
+    static func normalizedText(from text: String?) -> String? {
         let trimmedText = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedText.isEmpty ? nil : trimmedText
     }

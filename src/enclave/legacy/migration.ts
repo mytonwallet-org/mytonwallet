@@ -3,6 +3,7 @@ import type { EnclaveErrorCode } from '../errors';
 
 import { PRIVATE_KEY_HEX_LENGTH } from '../../config';
 import { logDebugError } from '../../util/logs';
+import { getEnclaveErrorCode } from '../errors';
 
 export interface LegacyAccountWithMnemonic {
   accountId: string;
@@ -110,16 +111,6 @@ export function checkIsMigrationFailure(outcome: MigrationOutcome): outcome is M
   return 'error' in outcome;
 }
 
-const ENCLAVE_ERROR_CODES: ReadonlySet<string> = new Set<EnclaveErrorCode>([
-  'auth_already_configured',
-  'auth_setup_in_progress',
-  'auth_not_configured',
-  'session_expired',
-  'unknown_token',
-  'master_key_missing',
-  'secret_missing',
-]);
-
 /** The names a dismissed platform prompt arrives under, whichever API raised it */
 const CANCELLATION_ERROR_NAMES: ReadonlySet<string> = new Set(['NotAllowedError', 'AbortError']);
 
@@ -161,6 +152,8 @@ function describeEnclaveError(code: EnclaveErrorCode, cause: MigrationErrorCause
     case 'unknown_token':
       return { kind: 'retryable', cause };
 
+    // The legacy ciphertext took the password the verifier refused, and one typed password cannot be both
+    case 'wrong_passcode':
     case 'auth_already_configured':
     case 'auth_not_configured':
     case 'master_key_missing':
@@ -177,19 +170,6 @@ function buildErrorCause(err: unknown, step: MigrationStep): MigrationErrorCause
     name: getEnclaveErrorCode(err) ?? (typeof error?.name === 'string' ? error.name : 'Error'),
     message: typeof error?.message === 'string' ? error.message : String(err),
   };
-}
-
-/**
- * Read off the property rather than through `instanceof`: an error that crossed the worker bridge is
- * rebuilt as a plain `Error` with the code copied and the class lost, and an enclave that ever answers
- * from the other side would silently stop matching. Membership is what separates a code the enclave
- * minted from a `code` any platform error may carry - an `ENOENT` or an `UNAVAILABLE` from a native
- * bridge would otherwise reach support looking like a verdict the enclave had reached.
- */
-function getEnclaveErrorCode(err: unknown): EnclaveErrorCode | undefined {
-  const code = (err as { code?: unknown } | undefined)?.code;
-
-  return typeof code === 'string' && ENCLAVE_ERROR_CODES.has(code) ? code as EnclaveErrorCode : undefined;
 }
 
 function checkIsPrivateKey(mnemonic: string[]): boolean {

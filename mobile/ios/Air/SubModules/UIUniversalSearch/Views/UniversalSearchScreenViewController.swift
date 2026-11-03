@@ -10,9 +10,16 @@ public final class UniversalSearchScreenViewController: UIViewController {
     private enum Metrics {
         static let searchFieldHeight: CGFloat = 48
         static let searchFieldToKeyboardSpacing: CGFloat = 10
+        /// Without a keyboard the field rests where the home toolbar does, this far above a bottom edge
+        /// that has no safe area
+        static let restingSearchFieldBottomSpacing: CGFloat = 16
 
         static var resultsBottomSafeArea: CGFloat {
             searchFieldHeight + searchFieldToKeyboardSpacing
+        }
+
+        static var restingResultsBottomSafeArea: CGFloat {
+            searchFieldHeight + restingSearchFieldBottomSpacing
         }
     }
 
@@ -163,9 +170,11 @@ public final class UniversalSearchScreenViewController: UIViewController {
     }
 
     private func updateResultsBottomInset() {
-        let keyboardInset = max(0, keyboardOverlap - view.safeAreaInsets.bottom)
-        resultsViewController.setBottomContentInset(
-            Metrics.resultsBottomSafeArea + keyboardInset
-        )
+        let safeAreaBottom = view.safeAreaInsets.bottom
+        let keyboardInset = max(0, keyboardOverlap - safeAreaBottom)
+        let fieldInset = keyboardInset == 0 && safeAreaBottom == 0
+            ? Metrics.restingResultsBottomSafeArea
+            : Metrics.resultsBottomSafeArea
+        resultsViewController.setBottomContentInset(fieldInset + keyboardInset)
     }
 }

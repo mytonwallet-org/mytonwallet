@@ -18,6 +18,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     private enum SharedToolbarActionID {
         static let buy = "token.buy"
         static let sell = "token.sell"
+        static let receive = "token.receive"
     }
 
     @MainActor
@@ -51,23 +52,41 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     private var hasSellableBalance: Bool {
         ($account.balances[token.slug] ?? 0) > 0
     }
+    private lazy var hasBalance = hasSellableBalance
+    private var canReceiveToken: Bool {
+        account.supportsReceive && account.supports(chain: currentToken.chain)
+    }
     private var isSharedBottomToolbarHosted = false
     private var tradeActionsBottomConstraint: NSLayoutConstraint?
     private let registeredRangeInteractionBlockers = NSHashTable<UIGestureRecognizer>.weakObjects()
 
     public var onSharedBottomToolbarActionsChange: (() -> Void)?
 
+    public var sharedBottomToolbarSearchAccessibilityIdentifier: String? { "token_search_input" }
+
     public var sharedBottomToolbarActions: [SharedBottomToolbarAction] {
-        guard areTradeActionsAvailable else { return [] }
-        var actions = [SharedBottomToolbarAction(
-            id: SharedToolbarActionID.buy,
-            title: lang("Buy"),
-            style: .positive
-        )]
-        if hasSellableBalance {
+        var actions: [SharedBottomToolbarAction] = []
+        if !hasBalance && canReceiveToken {
+            actions.append(SharedBottomToolbarAction(
+                id: SharedToolbarActionID.receive,
+                title: lang("Receive"),
+                accessibilityIdentifier: "token_receive",
+                style: .neutral
+            ))
+        }
+        if areTradeActionsAvailable {
+            actions.append(SharedBottomToolbarAction(
+                id: SharedToolbarActionID.buy,
+                title: lang("Buy"),
+                accessibilityIdentifier: "token_buy",
+                style: .positive
+            ))
+        }
+        if hasBalance && areTradeActionsAvailable {
             actions.append(SharedBottomToolbarAction(
                 id: SharedToolbarActionID.sell,
                 title: lang("Sell"),
+                accessibilityIdentifier: "token_sell",
                 style: .negative
             ))
         }
@@ -112,38 +131,42 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         button.customTitleFont = WButton.capsuleFont
         button.setTitle(lang("Sell"), for: .normal)
         button.addAction(UIAction { [weak self] _ in
-            self?.presentTokenTrade(isBuying: false)
+            self?.performSharedBottomToolbarAction(id: SharedToolbarActionID.sell)
         }, for: .touchUpInside)
         return button
     }()
 
-    private lazy var tradeActionsView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [buyButton, sellButton])
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .horizontal
-        stackView.spacing = TradeActionsLayout.buttonSpacing
-        stackView.distribution = .fillEqually
-        return stackView
-    }()
-
-    private lazy var tradeActionsHostView: UIView = {
-        guard #available(iOS 26, *) else {
-            return tradeActionsView
+    private lazy var receiveButton: UIButton = {
+        let button = UIButton(type: .system)
+        var configuration: UIButton.Configuration
+        if IOS_26_MODE_ENABLED, #available(iOS 26, *) {
+            configuration = .glass()
+        } else {
+            configuration = .filled()
+            configuration.baseBackgroundColor = .air.secondaryFill
+            configuration.background.cornerRadius = 12
+            configuration.cornerStyle = .fixed
         }
-
-        let effect = UIGlassContainerEffect()
-        effect.spacing = 0
-        let effectView = UIVisualEffectView(effect: effect)
-        effectView.translatesAutoresizingMaskIntoConstraints = false
-        effectView.contentView.addSubview(tradeActionsView)
-        NSLayoutConstraint.activate([
-            tradeActionsView.topAnchor.constraint(equalTo: effectView.contentView.topAnchor),
-            tradeActionsView.leadingAnchor.constraint(equalTo: effectView.contentView.leadingAnchor),
-            tradeActionsView.trailingAnchor.constraint(equalTo: effectView.contentView.trailingAnchor),
-            tradeActionsView.bottomAnchor.constraint(equalTo: effectView.contentView.bottomAnchor),
-        ])
-        return effectView
+        configuration.baseForegroundColor = .label
+        let font = WButton.capsuleFont
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = font
+            return outgoing
+        }
+        button.configuration = configuration
+        button.setTitle(lang("Receive"), for: .normal)
+        button.accessibilityIdentifier = "token_receive"
+        button.addAction(UIAction { [weak self] _ in
+            self?.performSharedBottomToolbarAction(id: SharedToolbarActionID.receive)
+        }, for: .touchUpInside)
+        return button
     }()
+
+    private lazy var tradeActionsHostView = WActionButtonBar(
+        buttons: [receiveButton, buyButton, sellButton],
+        spacing: TradeActionsLayout.buttonSpacing
+    )
 
     private lazy var expandableContentView = TokenExpandableContentView(accountContext: accountContext)
 
@@ -154,7 +177,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     private var chartCustomSectionDescriptor: CustomSectionDescriptor?
 
     private let infoCustomSectionID = "info"
-    private lazy var tokenInfoModel = TokenInfoModel(state: tokenVM.tokenInfoState)
+    private lazy var tokenInfoModel = TokenInfoModel(state: tokenVM.tokenInfoState, hasBalance: hasBalance)
     private var infoCustomSectionDescriptor: CustomSectionDescriptor?
 
     private var suppressScrollUpdates = false
@@ -242,8 +265,15 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         UIView.performWithoutAnimation {
             self.invalidateCustomSectionLayout(id: id)
             self.collectionView.layoutIfNeeded()
-            if self.collectionView.contentOffset.y != savedOffset.y {
-                self.collectionView.contentOffset = savedOffset
+            var offset = savedOffset
+            let maximumOffset = max(-self.collectionView.adjustedContentInset.top,
+                                    self.collectionView.contentSize.height + self.collectionView.adjustedContentInset.bottom - self.collectionView.bounds.height)
+            offset.y = min(offset.y, maximumOffset)
+            if self.infoTransitionScrollAnchor != nil {
+                self.infoTransitionScrollAnchor = offset
+            }
+            if self.collectionView.contentOffset.y != offset.y {
+                self.collectionView.contentOffset = offset
             }
         }
     }
@@ -258,7 +288,23 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     public override var headerPlaceholderHeight: CGFloat {
-        expandableContentView.metrics.headerPlaceholderHeight
+        hasBalance ? expandableContentView.metrics.headerPlaceholderHeight : 8
+    }
+
+    public override var headerPlaceholderBottomSpacing: CGFloat { hasBalance ? 16 : 0 }
+    public override var displaysActivitySections: Bool {
+        hasBalance || activityViewModel?.snapshot?.itemIdentifiers.contains {
+            if case .transaction = $0.value { return true }
+            return false
+        } == true
+    }
+    public override var displaysActivityPlaceholders: Bool { hasBalance }
+    public override var usesBackgroundSnapshotDiffing: Bool { false }
+    public override var isActivityDataAvailableForSkeleton: Bool {
+        !hasBalance || super.isActivityDataAvailableForSkeleton
+    }
+    public override var isActivityHistoryEndReachedForSkeleton: Bool {
+        !hasBalance || super.isActivityHistoryEndReachedForSkeleton
     }
 
     public override var customSections: [any CustomSectionDataProvider] {
@@ -269,10 +315,9 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     public override var activeCustomSectionIDs: [String] {
-        if isLpToken {
-            return [actionsCustomSectionID, infoCustomSectionID]
-        }
-        return [actionsCustomSectionID, chartCustomSectionID, infoCustomSectionID]
+        (hasBalance ? [actionsCustomSectionID] : [])
+            + (isLpToken ? [] : [chartCustomSectionID])
+            + [infoCustomSectionID]
     }
 
     private func configureActionsCustomSection(cell: TokenActionsCell) {
@@ -295,7 +340,10 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         registerRangeGestureDependencies(for: cell)
         cell.configure(
             token: token,
+            showsTokenIcon: !hasBalance,
             historyData: tokenVM.historyData,
+            isHistoryRestored: tokenVM.isHistoryRestored,
+            historyLoadingState: tokenVM.historyLoadingState,
             onPeriodChange: { [weak self] period in
                 guard let self else { return }
                 tokenVM.selectedPeriod = period
@@ -319,7 +367,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func configureInfoCustomSection(cell: TokenInfoCell) {
-        tokenInfoModel.configure(state: tokenVM.tokenInfoState)
+        tokenInfoModel.configure(state: tokenVM.tokenInfoState, hasBalance: hasBalance)
         cell.configure(
             model: tokenInfoModel,
             onHeightChange: { [weak self] in
@@ -363,6 +411,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func setupViews() {
+        hasBalance = hasSellableBalance
         updateNavigationHeader()
 
         navigationHeader.viewToRedirectTouchesTo = expandableContentView
@@ -432,12 +481,21 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             maxWidthConstraint,
         ])
         expandableContentView.configure(token: currentToken)
+        updateHeroVisibility()
         updateTradeActions()
     }
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         tokenVM.refreshTransactions()
+        loadActivityHistoryInBackgroundIfNeeded()
+    }
+
+    private func loadActivityHistoryInBackgroundIfNeeded() {
+        guard !hasBalance, let activityViewModel, activityViewModel.isEndReached != true else { return }
+        Task {
+            await activityViewModel.requestMoreIfNeeded()
+        }
     }
 
     public override func viewIsAppearing(_ animated: Bool) {
@@ -474,7 +532,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private var minimumBottomContentInset: CGFloat {
-        let reservesLocalTradeActions = areTradeActionsAvailable && !isSharedBottomToolbarHosted
+        let reservesLocalTradeActions = !sharedBottomToolbarActions.isEmpty && !isSharedBottomToolbarHosted
         let bottomSpacing = -(tradeActionsBottomConstraint?.constant ?? -TradeActionsLayout.bottomSpacing)
         let reservedHeight = reservesLocalTradeActions ? TradeActionsLayout.buttonHeight + bottomSpacing : 0
         return view.safeAreaInsets.bottom
@@ -495,6 +553,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        guard hasBalance else { return }
         let automaticTopInset = scrollView.adjustedContentInset.top - scrollView.contentInset.top
         let safeBottom = view.safeAreaInsets.bottom
         let fullScrollRange = expandableContentView.metrics.fullScrollRange
@@ -521,7 +580,9 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         let scrollOffset = scrollOffset(for: collectionView)
 
         let navBarShift = navigationHeader.distanceFromNavigationBarBottomToContentCenter
-        expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
+        if hasBalance {
+            expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
+        }
 
         updateNavigationBarChrome(scrollOffset: scrollOffset)
         updateVisibleActivityNftAnimationPlayback()
@@ -530,6 +591,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,
                                           withVelocity velocity: CGPoint,
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        guard hasBalance else { return }
         let automaticTopInset = scrollView.adjustedContentInset.top - scrollView.contentInset.top
         let realTargetY = targetContentOffset.pointee.y + automaticTopInset
         let metrics = expandableContentView.metrics
@@ -557,20 +619,58 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.reduceButtonHeightFor(expandableContentView.metrics.adjustedFullScrollRange - scrollOffset)
         }
 
-        navigationHeader.visibilityAlpha = min(1, max(0, (30 - scrollOffset) / 14 + 1))
+        navigationHeader.visibilityAlpha = hasBalance ? min(1, max(0, (30 - scrollOffset) / 14 + 1)) : 1
+    }
+
+    private func updateHeroVisibility() {
+        expandableContentView.setRenderingVisible(hasBalance)
+        expandableContentView.alpha = hasBalance ? 1 : 0
+        expandableContentView.transform = hasBalance ? .identity : CGAffineTransform(translationX: 0, y: -16)
+        expandableContentView.isUserInteractionEnabled = hasBalance
+        expandableContentView.accessibilityElementsHidden = !hasBalance
+        navigationHeader.viewToRedirectTouchesTo = hasBalance ? expandableContentView : nil
+    }
+
+    @discardableResult
+    private func updateOwnershipLayout() -> Bool {
+        guard hasBalance != hasSellableBalance else { return false }
+        hasBalance = hasSellableBalance
+        loadActivityHistoryInBackgroundIfNeeded()
+        infoTransitionScrollAnchor = nil
+        let animated = shouldAnimateContentUpdates
+        let snapshot = makeSnapshot(reconfiguringCustomSections: [])
+        activitySnapshot = snapshot
+        applyContentReplacementSnapshot(snapshot, animatingDifferences: animated, alongside: { [weak self] in
+            guard let self else { return }
+            reconfigureHeaderPlaceholder(animated: animated)
+            updateHeroVisibility()
+            tokenInfoModel.configure(state: tokenVM.tokenInfoState, hasBalance: hasBalance)
+            (visibleCustomSectionCell(id: infoCustomSectionID) as? TokenInfoCell)?.modelStateDidChange()
+            updateChartCustomSection()
+            updateTradeActions()
+            collectionView.contentInset.bottom = minimumBottomContentInset
+            updateScroll()
+        }, completion: { [weak self] in
+            guard let self else { return }
+            updateSkeletonState()
+            updateScroll()
+        })
+        return true
     }
 
     private func updateTradeActions() {
         let actions = sharedBottomToolbarActions
-        if actions != tradeActionsSnapshot {
+        let actionsChanged = actions != tradeActionsSnapshot
+        if actionsChanged {
             tradeActionsSnapshot = actions
             onSharedBottomToolbarActionsChange?()
         }
         guard isViewLoaded else { return }
 
-        let actionsAvailable = areTradeActionsAvailable
-        tradeActionsHostView.isHidden = isSharedBottomToolbarHosted || !actionsAvailable
-        sellButton.isHidden = !hasSellableBalance
+        tradeActionsHostView.isHidden = isSharedBottomToolbarHosted || actions.isEmpty
+        receiveButton.isHidden = !actions.contains { $0.id == SharedToolbarActionID.receive }
+        buyButton.isHidden = !actions.contains { $0.id == SharedToolbarActionID.buy }
+        sellButton.isHidden = !actions.contains { $0.id == SharedToolbarActionID.sell }
 
         updateSafeAreaInsets()
     }
@@ -582,13 +682,16 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     public func performSharedBottomToolbarAction(id: String) {
-        guard areTradeActionsAvailable else { return }
         switch id {
         case SharedToolbarActionID.buy:
+            guard areTradeActionsAvailable else { return }
             presentTokenTrade(isBuying: true)
         case SharedToolbarActionID.sell:
-            guard hasSellableBalance else { return }
+            guard areTradeActionsAvailable, hasSellableBalance else { return }
             presentTokenTrade(isBuying: false)
+        case SharedToolbarActionID.receive:
+            guard canReceiveToken else { return }
+            AppActions.showReceive(accountContext: accountContext, chain: currentToken.chain, buyingToken: currentToken.slug)
         default:
             break
         }
@@ -639,8 +742,21 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func makeMenu() -> UIMenu {
+        let share = UIAction(title: lang("Share"), image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+            guard let self else { return }
+            let token = currentToken
+            var url = URL(string: SHORT_UNIVERSAL_URL)!.appendingPathComponent("token")
+            if let tokenAddress = token.tokenAddress?.nilIfEmpty {
+                url = url.appendingPathComponent(token.chain.rawValue).appendingPathComponent(tokenAddress)
+            } else {
+                url = url.appendingPathComponent(token.slug)
+            }
+            AppActions.copyString(url.absoluteString, toastMessage: lang("Link Copied"))
+        }
+        var sections: [UIMenu] = []
+
         guard !ConfigStore.shared.shouldRestrictSwapsAndOnRamp else {
-            return UIMenu(children: [])
+            return UIMenu(children: [share])
         }
 
         let openUrl: (URL) -> () = { url in
@@ -648,7 +764,6 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         }
         let token = currentToken
         let details = tokenVM.tokenInfoState.details
-        var sections: [UIMenu] = []
 
         let aggregatorActions = details?.links?
             .filter { $0.kind == .aggregator && $0.url.isValidTokenMenuUrl }
@@ -679,7 +794,9 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             ) { _ in
                 openUrl(explorerUrl)
             }
-            sections.append(UIMenu(options: .displayInline, children: [openInExplorer]))
+            sections.append(UIMenu(options: .displayInline, children: [openInExplorer, share]))
+        } else {
+            sections.append(UIMenu(options: .displayInline, children: [share]))
         }
 
         return UIMenu(children: sections)
@@ -720,11 +837,14 @@ extension TokenVC: WalletCoreData.EventsObserver {
 extension TokenVC: TokenVMDelegate {
     func dataUpdated() {
         guard isViewLoaded else { return }
+        let ownershipChanged = updateOwnershipLayout()
         expandableContentView.configure(token: currentToken)
         updateNavigationHeader()
         updateActionsCustomSection()
-        updateChartCustomSection()
-        updateTradeActions()
+        if !ownershipChanged {
+            updateChartCustomSection()
+            updateTradeActions()
+        }
         updateTokensInVisibleRows()
     }
     func priceDataUpdated() {
@@ -732,7 +852,7 @@ extension TokenVC: TokenVMDelegate {
         updateChartCustomSection()
     }
     func tokenDetailsUpdated() {
-        tokenInfoModel.configure(state: tokenVM.tokenInfoState)
+        tokenInfoModel.configure(state: tokenVM.tokenInfoState, hasBalance: hasBalance)
         updateNavigationMenu()
         (visibleCustomSectionCell(id: infoCustomSectionID) as? TokenInfoCell)?.modelStateDidChange()
     }
@@ -745,6 +865,7 @@ extension TokenVC: TokenVMDelegate {
             self.tokenVM.refreshTransactions()
             self.dataUpdated()
             self.updateActivities(animated: false)
+            self.loadActivityHistoryInBackgroundIfNeeded()
         }
     }
 }

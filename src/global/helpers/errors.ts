@@ -26,6 +26,14 @@ export function isInlineError(error: ApiAnyDisplayError | string | undefined) {
     || _error === ApiHardwareError.RejectedByUser;
 }
 
+/** Returns `true` if the transfer form should show the error on its submit button and the address field */
+export function isToAddressError(error: ApiAnyDisplayError | undefined) {
+  return error === ApiCommonError.InvalidAddress
+    || error === ApiCommonError.DomainNotResolved
+    || error === ApiTransactionDraftError.InvalidToAddress
+    || error === ApiTransactionDraftError.InvalidAddressFormat;
+}
+
 export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommonError.Unexpected): string {
   const _error = error as ApiAnyDisplayError;
   switch (_error) {

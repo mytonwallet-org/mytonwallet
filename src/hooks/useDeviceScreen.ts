@@ -1,10 +1,12 @@
 import { MOBILE_SCREEN_MAX_WIDTH } from '../config';
 import { useMediaQuery } from './useMediaQuery';
 
+export const PORTRAIT_SCREEN_QUERY = `(max-width: ${MOBILE_SCREEN_MAX_WIDTH - 0.02}px)`;
+
 let isPortrait: boolean | undefined;
 
 export function useDeviceScreen() {
-  isPortrait = useMediaQuery(`(max-width: ${MOBILE_SCREEN_MAX_WIDTH - 0.02}px)`);
+  isPortrait = useMediaQuery(PORTRAIT_SCREEN_QUERY);
   const isSmallHeight = useMediaQuery('(max-height: 43.5rem)');
 
   return {

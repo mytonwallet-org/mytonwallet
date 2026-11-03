@@ -9,6 +9,7 @@ export function updateTokenPriceHistory(global: GlobalState, slug: string, parti
   return {
     ...global,
     tokenPriceHistory: {
+      ...global.tokenPriceHistory,
       bySlug: {
         ...bySlug,
         [slug]: {
@@ -20,17 +21,28 @@ export function updateTokenPriceHistory(global: GlobalState, slug: string, parti
   };
 }
 
-export function updateTokenDetails(global: GlobalState, slug: string, partial: TokenDetailsState): GlobalState {
-  const { bySlug } = global.tokenDetails;
+export function clearTokenPriceHistory(global: GlobalState): GlobalState {
+  return {
+    ...global,
+    tokenPriceHistory: {
+      bySlug: {},
+      restoredBySlug: {},
+    },
+  };
+}
+
+export function updateTokenDetails(
+  global: GlobalState,
+  partialBySlug: Record<string, TokenDetailsState>,
+): GlobalState {
+  const bySlug = { ...global.tokenDetails.bySlug };
+  for (const [slug, partial] of Object.entries(partialBySlug)) {
+    bySlug[slug] = { ...bySlug[slug], ...partial };
+  }
 
   return {
     ...global,
-    tokenDetails: {
-      bySlug: {
-        ...bySlug,
-        [slug]: { ...bySlug[slug], ...partial },
-      },
-    },
+    tokenDetails: { bySlug },
   };
 }
 

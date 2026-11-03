@@ -15,6 +15,17 @@ public final class WSuggestionsView: UIView {
         didSet { updatePosition() }
     }
 
+    /// A keyboard-adjacent bar on compact portrait layouts; nil keeps the input popover.
+    public var bottomPresentationFrame: CGRect? {
+        didSet {
+            suggestionsList.isDocked = bottomPresentationFrame != nil
+            updatePosition()
+        }
+    }
+
+    public var onSuggestionsChange: (() -> Void)?
+    public var hasSuggestions: Bool { !suggestions.isEmpty }
+
     private weak var activeInput: WWordInput?
     private var suggestions = [String]()
     private let suggestionsList = SuggestionsListView()
@@ -59,11 +70,22 @@ public final class WSuggestionsView: UIView {
         self.suggestions = suggestions
         suggestionsList.configure(suggestions: suggestions)
         updatePosition()
+        onSuggestionsChange?()
     }
 
     public func updatePosition() {
         guard let activeInput, activeInput.textField.isFirstResponder,
-              !suggestions.isEmpty, let superview, !presentationBounds.isEmpty else {
+              !suggestions.isEmpty, let superview else {
+            isHidden = true
+            return
+        }
+        if let bottomPresentationFrame, !bottomPresentationFrame.isEmpty {
+            frame = bottomPresentationFrame
+            isHidden = false
+            superview.bringSubviewToFront(self)
+            return
+        }
+        guard !presentationBounds.isEmpty else {
             isHidden = true
             return
         }
@@ -92,6 +114,13 @@ public final class WSuggestionsView: UIView {
 
 private final class SuggestionsListView: UIView {
     var didSelectSuggestion: ((String) -> Void)?
+    var isDocked = false {
+        didSet {
+            guard oldValue != isDocked else { return }
+            collectionView.collectionViewLayout.invalidateLayout()
+            collectionView.reloadData()
+        }
+    }
 
     private var suggestions = [String]()
     private let collectionView: UICollectionView = {
@@ -131,6 +160,7 @@ private final class SuggestionsListView: UIView {
         self.suggestions = suggestions
         collectionView.collectionViewLayout.invalidateLayout()
         collectionView.reloadData()
+        collectionView.setContentOffset(.zero, animated: false)
     }
 }
 
@@ -146,7 +176,8 @@ extension SuggestionsListView: UICollectionViewDelegate, UICollectionViewDataSou
               let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SuggestionCell.identifier, for: indexPath) as? SuggestionCell else {
             return UICollectionViewCell()
         }
-        cell.configure(with: suggestions[indexPath.row], isPreferred: indexPath.row == 0)
+        cell.configure(with: suggestions[indexPath.row], isPreferred: indexPath.row == 0,
+                       isDocked: isDocked, showsSeparator: isDocked && indexPath.row < suggestions.count - 1)
         return cell
     }
     
@@ -157,8 +188,12 @@ extension SuggestionsListView: UICollectionViewDelegate, UICollectionViewDataSou
         }
         let text = suggestions[indexPath.row]
         let font = WTypography.uiFont(.subheadlineBold)
-        let width = text.size(withAttributes: [.font: font]).width + 32
-        return CGSize(width: width, height: WSuggestionsView.defaultHeight - 6)
+        var width = ceil(text.size(withAttributes: [.font: font]).width) + 32
+        if isDocked {
+            let totalWidth = suggestions.reduce(CGFloat(0)) { $0 + ceil($1.size(withAttributes: [.font: font]).width) + 32 }
+            width += max(0, collectionView.bounds.width - totalWidth) / CGFloat(suggestions.count)
+        }
+        return CGSize(width: width, height: max(0, collectionView.bounds.height))
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -169,6 +204,7 @@ extension SuggestionsListView: UICollectionViewDelegate, UICollectionViewDataSou
 
 private class SuggestionCell: UICollectionViewCell {
     static let identifier = "SuggestionCell"
+    private let separator = UIView()
     
     private let suggestionLabel = {
         let label = UILabel()
@@ -183,11 +219,18 @@ private class SuggestionCell: UICollectionViewCell {
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         contentView.addSubview(suggestionLabel)
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.backgroundColor = .separator
+        contentView.addSubview(separator)
         NSLayoutConstraint.activate([
             suggestionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             suggestionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             suggestionLabel.topAnchor.constraint(equalTo: contentView.topAnchor),
             suggestionLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            separator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            separator.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            separator.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            separator.heightAnchor.constraint(equalToConstant: 24),
         ])
         contentView.layer.cornerRadius = 17
         contentView.layer.cornerCurve = .continuous
@@ -197,11 +240,12 @@ private class SuggestionCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
-    func configure(with text: String, isPreferred: Bool) {
+    func configure(with text: String, isPreferred: Bool, isDocked: Bool, showsSeparator: Bool) {
         suggestionLabel.text = text
-        suggestionLabel.applyTextStyle(isPreferred ? .subheadlineBold : .subheadlineEmphasized)
+        suggestionLabel.applyTextStyle(isPreferred && !isDocked ? .subheadlineBold : .subheadlineEmphasized)
         suggestionLabel.textColor = isPreferred ? tintColor : .label
-        contentView.backgroundColor = isPreferred ? .tertiarySystemFill : .clear
+        contentView.backgroundColor = isPreferred && !isDocked ? .tertiarySystemFill : .clear
+        separator.isHidden = !showsSeparator
         isAccessibilityElement = true
         accessibilityLabel = text
         accessibilityTraits = .button

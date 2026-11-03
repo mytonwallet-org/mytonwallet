@@ -58,6 +58,17 @@ final class ContextMenuAccessoryTests: XCTestCase {
         XCTAssertFalse(overlay.isUserInteractionEnabled)
     }
 
+    func testOverlayReportsTheStartOfItsDismissalOnce() {
+        let overlay = makeOverlay(sourceRect: CGRect(x: 16.0, y: 400.0, width: 250.0, height: 120.0), hasAccessory: false)
+        var dismissalStarts = 0
+        overlay.onWillDismiss = { dismissalStarts += 1 }
+
+        XCTAssertTrue(overlay.accessibilityPerformEscape())
+        XCTAssertTrue(overlay.accessibilityPerformEscape())
+
+        XCTAssertEqual(dismissalStarts, 1)
+    }
+
     private func makeOverlay(
         sourceRect: CGRect,
         layoutDirection: UIUserInterfaceLayoutDirection = .leftToRight,

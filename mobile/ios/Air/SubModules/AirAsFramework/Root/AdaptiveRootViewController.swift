@@ -265,7 +265,7 @@ struct AdaptiveRootNavigationState {
         selectedTabId = topTabsRootViewController.currentTabId
         var homePath: [AdaptiveRootHomeStackItem]?
         var navigationStacks: [AppTabId: [UIViewController]] = [:]
-        for id in [.wallet, .market, .explore, .settings] as [AppTabId] {
+        for id in [.wallet, .market, .agent, .explore, .settings] as [AppTabId] {
             if id == .wallet {
                 if let stack = topTabsRootViewController.takeNavigationStack(for: id, keepingRoot: true) {
                     homePath = Self.homePath(from: stack)
@@ -306,7 +306,23 @@ struct AdaptiveRootNavigationState {
 
         switch viewController {
         case let splitRootViewController as SplitRootViewController:
-            if let homePath = restoredHomePath(for: layout) {
+            let configuredTabIds = AppTabManager.shared.orderedTabIds
+            var selectedTabId = configuredTabIds.contains(self.selectedTabId) ? self.selectedTabId : .wallet
+            var homePath = restoredHomePath(for: layout)
+            var navigationStacks = self.navigationStacks
+            if !configuredTabIds.contains(.agent),
+               let agentStack = navigationStacks.removeValue(forKey: .agent),
+               agentStack.count > 1 {
+                let agentPath = Array(agentStack.dropFirst())
+                if selectedTabId != .wallet, var destinationStack = navigationStacks[selectedTabId] {
+                    destinationStack.append(contentsOf: agentPath)
+                    navigationStacks[selectedTabId] = destinationStack
+                } else {
+                    homePath = (homePath ?? []) + agentPath
+                    selectedTabId = .wallet
+                }
+            }
+            if let homePath {
                 splitRootViewController.setNavigationPath(homePath, for: .wallet)
             }
             for (id, stack) in navigationStacks {

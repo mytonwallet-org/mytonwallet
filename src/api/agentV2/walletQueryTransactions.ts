@@ -385,6 +385,7 @@ function toAgentTransactionType(activity: ApiActivity): AgentWalletDataTransacti
   if (activity.kind === 'swap') return 'swap';
   if (activity.type === 'approval') return 'callContract';
   if (activity.type === 'nftAuctionStart' || activity.type === 'nftAuctionCancel') return 'auctionBid';
+  if (activity.type === 'perps_deposit' || activity.type === 'perps_withdraw') return 'callContract';
   return activity.type ?? 'transfer';
 }
 

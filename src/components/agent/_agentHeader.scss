@@ -1,0 +1,15 @@
+@use "../../styles/mixins";
+
+@mixin variables {
+  // The variables `AgentHeader` lays itself out with, set on the screen it heads: a 3rem bar under the safe area
+  --header-padding-top: var(--safe-area-top);
+  --header-title-height: 3rem;
+  --header-padding-bottom: 0rem;
+
+  @include mixins.respond-below(xs) {
+    // Fix for Opera, dead zone of 37 pixels in extension window on Windows
+    :global(html.is-windows.is-opera.is-extension) & {
+      --header-padding-top: 2.3125rem;
+    }
+  }
+}

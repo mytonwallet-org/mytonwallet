@@ -101,6 +101,25 @@ public struct InsetButtonStyle: SwiftUI.ButtonStyle {
     }
 }
 
+public struct InsetRowButtonStyle: SwiftUI.ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        HighlightedRow(configuration: configuration)
+    }
+
+    private struct HighlightedRow: View {
+        let configuration: Configuration
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .background(CellBackgroundHighlight(isHighlighted: configuration.isPressed || isHovered))
+                .onHover { isHovered = $0 }
+        }
+    }
+}
+
 
 public struct InsetExpandableCell: View {
     

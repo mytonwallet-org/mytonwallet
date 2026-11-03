@@ -22,14 +22,13 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
     private weak var splitHomeAssetsSectionCell: SplitHomeAssetsSectionCell?
     private var actionsCustomSectionDescriptor: SplitHomeRowSection<SplitHomeActionsSectionCell>?
     private var assetsCustomSectionDescriptor: SplitHomeRowSection<SplitHomeAssetsSectionCell>?
-    private let bannersSection = HomeBannersSection()
     private var actionsLayout: SplitHomeActionsLayout?
 
     override var hideBottomBar: Bool { false }
     override var headerPlaceholderHeight: CGFloat { 0 }
     override var customSections: [any CustomSectionDataProvider] {
         let sections: [(any CustomSectionDataProvider)?] = [
-            actionsCustomSectionDescriptor, bannersSection.descriptor, assetsCustomSectionDescriptor,
+            actionsCustomSectionDescriptor, assetsCustomSectionDescriptor,
         ]
         return sections.compactMap { $0 }
     }
@@ -68,13 +67,6 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
         setupViews()
         registerForOtherViewControllerAppearNotifications()
         WalletCoreData.add(eventObserver: self)
-        observe { [weak self] in
-            guard let self else { return }
-            let context = AccountContext(accountId: account.id)
-            if bannersSection.update(accountContext: context) {
-                applySnapshot(makeSnapshot(reconfiguringCustomSections: [bannersSection.id]), animatingDifferences: true)
-            }
-        }
         Task {
             await reloadActivityViewModel(accountChanged: true)
         }
@@ -320,31 +312,37 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
     }
 
     @discardableResult
-    private func prepareAccountSwitchCrossfade() -> UIView? {
-        cleanupAccountSwitchCrossfade()
+    func prepareAccountSwitchCrossfade() -> UIView? {
+        cleanupAccountSwitchCrossfade(snapshot: accountSwitchSnapshotView)
+        guard shouldAnimateContentUpdates else { return nil }
         view.layoutIfNeeded()
         collectionView.layoutIfNeeded()
-        guard let snapshot = collectionView.snapshotView(afterScreenUpdates: false) else {
-            collectionView.alpha = 1
-            return nil
-        }
-        snapshot.frame = collectionView.frame
+
+        // Keep the live glass actions outside the crossfade, including their shadows.
+        let hasActions = firstItemFrame(inCustomSection: actionsCustomSectionID) != nil
+        guard hasActions == !account.isView,
+              let assetsFrame = firstItemFrame(inCustomSection: assetsCustomSectionID) else { return nil }
+        var rect = collectionView.bounds
+        let top = max(rect.minY, assetsFrame.minY)
+        rect.size.height = max(0, rect.maxY - top)
+        rect.origin.y = top
+        guard !rect.isEmpty,
+              let content = collectionView.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero) else { return nil }
+
+        let snapshot = UIView(frame: collectionView.convert(rect, to: view))
+        snapshot.backgroundColor = view.backgroundColor
         snapshot.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        content.frame = snapshot.bounds
+        content.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        snapshot.addSubview(content)
         view.addSubview(snapshot)
-        view.bringSubviewToFront(snapshot)
         accountSwitchSnapshotView = snapshot
-        collectionView.alpha = 0
         return snapshot
     }
 
-    private func finishAccountSwitchCrossfade(snapshot: UIView?) {
-        guard let snapshot else {
-            collectionView.alpha = 1
-            return
-        }
-        guard accountSwitchSnapshotView === snapshot else { return }
-        UIView.animate(withDuration: 0.24, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) { [self] in
-            collectionView.alpha = 1
+    func finishAccountSwitchCrossfade(snapshot: UIView?) {
+        guard let snapshot, accountSwitchSnapshotView === snapshot else { return }
+        UIView.animate(withDuration: 0.24, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) {
             snapshot.alpha = 0
         } completion: { [weak self] _ in
             snapshot.removeFromSuperview()
@@ -354,21 +352,14 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
         }
     }
 
-    private func cleanupAccountSwitchCrossfade(snapshot: UIView? = nil) {
-        if let snapshot {
-            guard accountSwitchSnapshotView === snapshot else { return }
-            snapshot.removeFromSuperview()
-            accountSwitchSnapshotView = nil
-        } else {
-            accountSwitchSnapshotView?.removeFromSuperview()
-            accountSwitchSnapshotView = nil
-        }
-        collectionView.alpha = 1
+    func cleanupAccountSwitchCrossfade(snapshot: UIView?) {
+        guard let snapshot, accountSwitchSnapshotView === snapshot else { return }
+        snapshot.removeFromSuperview()
+        accountSwitchSnapshotView = nil
     }
 
     override var activeCustomSectionIDs: [String] {
         var ids = account.isView ? [] : [actionsCustomSectionID]
-        if bannersSection.isVisible { ids.append(bannersSection.id) }
         ids.append(assetsCustomSectionID)
         return ids
     }

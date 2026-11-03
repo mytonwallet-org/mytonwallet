@@ -5,9 +5,11 @@ import type { ApiUpdate } from '../../../api/types/updates';
 import type { GlobalState } from '../../types';
 import { AppState } from '../../types';
 
+import { MW_CARDS_COLLECTION, TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../config';
 import { callApi, callApiWithThrow } from '../../../api';
 import { persistCache } from '../../cache';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { applyOutgoingNftFromActivity } from '../../reducers';
 
 jest.mock('../../../api', () => ({ callApi: jest.fn(), callApiWithThrow: jest.fn() }));
 jest.mock('../../cache', () => ({ persistCache: jest.fn(() => true) }));
@@ -150,6 +152,39 @@ describe('updateNfts api update', () => {
     expect(nft).toMatchObject({ isOnSale: true, name: 'From socket' });
   });
 
+  it('replaces fields from the final snapshot batch while keeping positions and other chains', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    const secondNft = makeNft({ address: 'second-nft' });
+    const removedNft = makeNft({ address: 'removed-nft' });
+    const otherChainNft = makeNft({ address: 'other-chain-nft', chain: 'tron' });
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: {
+        [NFT_ADDRESS]: makeNft({ name: 'Old metadata', isHidden: true }),
+        [secondNft.address]: secondNft,
+        [removedNft.address]: removedNft,
+        [otherChainNft.address]: otherChainNft,
+      },
+      orderedAddresses: [otherChainNft.address, secondNft.address, NFT_ADDRESS, removedNft.address],
+    };
+    const freshNft = makeNft({
+      name: 'Fresh metadata', isOnSale: true, metadata: { attributes: [{ trait_type: 'State', value: 'Fresh' }] },
+    });
+
+    getApiUpdateHandler()(global, { checkCardNftOwnership: jest.fn() }, {
+      type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts: [freshNft, secondNft],
+      isFullLoading: false, streamedAddresses: [NFT_ADDRESS, secondNft.address],
+    });
+
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    const { nfts } = (updatedGlobal as GlobalState).byAccountId[ACCOUNT_ID];
+    expect(nfts?.byAddress).toEqual({
+      [NFT_ADDRESS]: freshNft, [secondNft.address]: secondNft, [otherChainNft.address]: otherChainNft,
+    });
+    expect(nfts?.orderedAddresses).toEqual([otherChainNft.address, secondNft.address, NFT_ADDRESS]);
+    expect(nfts?.isFullLoadCompleteByChain?.ton).toBe(true);
+    expect(nfts?.isFullLoadingByChain?.ton).toBe(false);
+  });
+
   it('replaces a stored NFT without metadata with the batch version', () => {
     const global = makeGlobal(ACCOUNT_ID);
     global.byAccountId[ACCOUNT_ID].nfts = {
@@ -173,6 +208,79 @@ describe('updateNfts api update', () => {
     expect(nfts?.byAddress?.[NFT_ADDRESS]?.isOnSale).toBe(true);
     expect(nfts?.orderedAddresses).toEqual([NFT_ADDRESS]);
   });
+
+  it('replaces a changed NFT and keeps its position', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    const otherNft = makeNft({ address: 'other-nft' });
+    const oldNft = makeNft({
+      name: 'Old metadata', isHidden: true, collectionAddress: MW_CARDS_COLLECTION,
+      metadata: { mtwCardType: 'standard' },
+    });
+    global.settings.byAccountId[ACCOUNT_ID].cardBackgroundNft = oldNft;
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: {
+        [otherNft.address]: otherNft,
+        [NFT_ADDRESS]: oldNft,
+      },
+      orderedAddresses: [otherNft.address, NFT_ADDRESS],
+    };
+    const nft = makeNft({
+      name: 'Fresh metadata', isOnSale: true, collectionAddress: MW_CARDS_COLLECTION,
+      metadata: { mtwCardType: 'silver' },
+    });
+
+    getApiUpdateHandler()(global, {}, {
+      type: 'nftChanged', accountId: ACCOUNT_ID, chain: 'ton', nft,
+    });
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    const { nfts } = (updatedGlobal as GlobalState).byAccountId[ACCOUNT_ID];
+
+    expect(nfts?.byAddress?.[NFT_ADDRESS]).toEqual(nft);
+    expect(nfts?.byAddress?.[otherNft.address]).toBe(otherNft);
+    expect(nfts?.orderedAddresses).toBe(global.byAccountId[ACCOUNT_ID].nfts.orderedAddresses);
+    expect((updatedGlobal as GlobalState).settings.byAccountId[ACCOUNT_ID].cardBackgroundNft).toBe(nft);
+  });
+
+  it('restores a listed NFT removed by its outgoing activity', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    const nft = makeNft();
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: nft },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+    const afterActivity = applyOutgoingNftFromActivity(global, ACCOUNT_ID, nft);
+    expect(afterActivity.byAccountId[ACCOUNT_ID].nfts?.byAddress?.[NFT_ADDRESS]).toBeUndefined();
+    const listedNft = makeNft({ isOnSale: true, name: 'Listed NFT' });
+
+    getApiUpdateHandler()(afterActivity, {}, {
+      type: 'nftChanged', accountId: ACCOUNT_ID, chain: 'ton', nft: listedNft,
+    });
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    const { nfts } = (updatedGlobal as GlobalState).byAccountId[ACCOUNT_ID];
+
+    expect(nfts?.byAddress?.[NFT_ADDRESS]).toEqual(listedNft);
+    expect(nfts?.orderedAddresses).toEqual([NFT_ADDRESS]);
+  });
+
+  it.each(['updateNfts', 'nftReceived', 'nftChanged'] as const)(
+    'adds the Telegram Gifts tab when the first gift arrives through %s',
+    (type) => {
+      const nft = makeNft({ isTelegramGift: true });
+      const actions = { addCollectionTab: jest.fn(), checkCardNftOwnership: jest.fn() };
+      const update: ApiUpdate = type === 'updateNfts'
+        ? { type, accountId: ACCOUNT_ID, chain: 'ton', nfts: [nft], isFullLoading: true }
+        : type === 'nftReceived'
+          ? { type, accountId: ACCOUNT_ID, nftAddress: nft.address, nft }
+          : { type, accountId: ACCOUNT_ID, chain: 'ton', nft };
+
+      getApiUpdateHandler()(makeGlobal(ACCOUNT_ID), actions, update);
+
+      expect(actions.addCollectionTab).toHaveBeenCalledTimes(1);
+      expect(actions.addCollectionTab).toHaveBeenCalledWith({
+        collection: { address: TELEGRAM_GIFTS_SUPER_COLLECTION, chain: 'ton' }, isAuto: true,
+      });
+    },
+  );
 });
 
 describe('removeAccounts api update', () => {

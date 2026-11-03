@@ -10,6 +10,7 @@ import WalletCoreTypes
 @MainActor
 public struct UniversalSearchResultsPresenter {
     static let startAgentConversationItemID = "agent-chat:start"
+    static let chatsSectionID = "chats"
 
     public typealias Resolver = @MainActor (
         SearchDocument,
@@ -198,11 +199,13 @@ public struct UniversalSearchResultsPresenter {
         selectedModes: [String: UniversalSearchBrowseMode] = [:],
         context: UniversalSearchContext
     ) -> UniversalSearchPresentation {
-        let currentConversation = resolvedBrowseDocuments(
-            snapshot.recentDocuments,
+        let recentConversations = resolvedBrowseDocuments(
+            snapshot.recentDocuments
+                .filter { $0.kind == .agentChat }
+                .sorted(by: Self.agentChatPrecedes),
             kinds: [.agentChat],
             context: context
-        ).first ?? startAgentConversationResult()
+        )
         let agentSuggestions = resolvedBrowseDocuments(
             snapshot.trendingDocuments,
             kinds: [.agentAction],
@@ -213,27 +216,13 @@ public struct UniversalSearchResultsPresenter {
             ("tokens", lang("Tokens and Stocks"), [.token, .stock]),
             ("apps", lang("Apps"), [.application]),
         ]
-        var sections = [UniversalSearchSection(
-            id: "chats",
-            title: lang("Chats"),
-            showsLeadingSeparator: false,
-            items: [currentConversation.item]
+        var routesByItemID: [String: UniversalSearchFeatureRoute] = [:]
+        var sections = [makeChatsSection(
+            recentConversations: recentConversations,
+            suggestions: agentSuggestions,
+            preferredMode: selectedModes[Self.chatsSectionID],
+            routesByItemID: &routesByItemID
         )]
-        if !agentSuggestions.isEmpty {
-            sections.append(UniversalSearchSection(
-                id: "agent-suggestions",
-                title: "",
-                layout: .promptPages(rowsPerPage: Metrics.rowsPerPage),
-                showsHeader: false,
-                showsLeadingSeparator: false,
-                items: agentSuggestions.map(\.item)
-            ))
-        }
-        var routesByItemID = Dictionary(uniqueKeysWithValues: (
-            [currentConversation] + agentSuggestions
-        ).map {
-            ($0.item.id, $0.route)
-        })
 
         for group in groups {
             let recent = resolvedBrowseDocuments(
@@ -291,6 +280,69 @@ public struct UniversalSearchResultsPresenter {
             sections: sections,
             preselectedItemID: nil,
             routesByItemID: routesByItemID
+        )
+    }
+
+    /// Orders browse chats like the Agent thread list: pinned first, then by latest activity.
+    private static func agentChatPrecedes(_ lhs: SearchDocument, _ rhs: SearchDocument) -> Bool {
+        let lhsPinned = lhs.attributeValue(for: UniversalSearchFeatureAttributeKey.isPinned) == "true"
+        let rhsPinned = rhs.attributeValue(for: UniversalSearchFeatureAttributeKey.isPinned) == "true"
+        if lhsPinned != rhsPinned {
+            return lhsPinned
+        }
+        let lhsUpdatedAt = lhs.attributeValue(for: UniversalSearchFeatureAttributeKey.updatedAt) ?? ""
+        let rhsUpdatedAt = rhs.attributeValue(for: UniversalSearchFeatureAttributeKey.updatedAt) ?? ""
+        if lhsUpdatedAt != rhsUpdatedAt {
+            return lhsUpdatedAt > rhsUpdatedAt
+        }
+        return lhs.id < rhs.id
+    }
+
+    /// Agent chats and suggestions share one section whose header switches between them. Without chats,
+    /// Recent offers to start one and Suggest is shown until a mode is chosen.
+    private func makeChatsSection(
+        recentConversations: [UniversalSearchResolvedResult],
+        suggestions: [UniversalSearchResolvedResult],
+        preferredMode: UniversalSearchBrowseMode?,
+        routesByItemID: inout [String: UniversalSearchFeatureRoute]
+    ) -> UniversalSearchSection {
+        let conversations = recentConversations.isEmpty
+            ? [startAgentConversationResult()]
+            : recentConversations
+        let selectedMode: UniversalSearchBrowseMode = if suggestions.isEmpty {
+            .recent
+        } else {
+            preferredMode ?? (recentConversations.isEmpty ? .trending : .recent)
+        }
+        let selectedResults = selectedMode == .recent ? conversations : suggestions
+        for result in selectedResults {
+            routesByItemID[result.item.id] = result.route
+        }
+        let headerAccessory: UniversalSearchSection.HeaderAccessory? = if !suggestions.isEmpty {
+            .toggle(
+                primary: lang("$universal_search_recent"),
+                secondary: lang("Suggest"),
+                selected: selectedMode == .recent ? .primary : .secondary
+            )
+        } else if !recentConversations.isEmpty {
+            .text(lang("$universal_search_recent"))
+        } else {
+            nil
+        }
+        let layout: UniversalSearchSection.Layout = if selectedMode == .trending {
+            .promptPages(rowsPerPage: Metrics.rowsPerPage)
+        } else if conversations.count > Metrics.rowsPerPage {
+            .paged(rowsPerPage: Metrics.rowsPerPage)
+        } else {
+            .list
+        }
+        return UniversalSearchSection(
+            id: Self.chatsSectionID,
+            title: lang("Chats"),
+            headerAccessory: headerAccessory,
+            layout: layout,
+            showsLeadingSeparator: false,
+            items: selectedResults.map(\.item)
         )
     }
 
@@ -483,15 +535,25 @@ public struct UniversalSearchResultsPresenter {
         _ document: SearchDocument
     ) -> UniversalSearchResolvedResult? {
         guard let title = document.attributeValue(for: UniversalSearchFeatureAttributeKey.title),
-              let subtitle = document.attributeValue(for: UniversalSearchFeatureAttributeKey.subtitle) else {
+              let subtitle = document.attributeValue(for: UniversalSearchFeatureAttributeKey.subtitle),
+              let threadJSON = document.attributeValue(for: UniversalSearchFeatureAttributeKey.agentThread),
+              let thread = try? JSONDecoder().decode(
+                  ApiAgentV2ThreadSummary.self,
+                  from: Data(threadJSON.utf8)
+              ),
+              document.id == SearchEntityID("agent-chat:\(thread.id)") else {
             return nil
         }
         return UniversalSearchResolvedResult(
             item: UniversalSearchItem(
                 id: document.id.rawValue,
-                content: .chat(UniversalSearchChatResult(title: title, subtitle: subtitle))
+                content: .chat(UniversalSearchChatResult(
+                    title: title,
+                    subtitle: subtitle,
+                    icon: thread.icon?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ))
             ),
-            route: .agent(query: nil)
+            route: .agentThread(thread)
         )
     }
 

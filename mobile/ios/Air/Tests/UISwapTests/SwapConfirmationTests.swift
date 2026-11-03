@@ -422,10 +422,16 @@ private func quote(crosschain: Bool, amount: Double, networkFee: String = "0.01"
     )
 }
 
+/// The timeout counts 5 ms samples rather than wall time: on a busy machine the estimate and this wait share a stalled
+/// main actor, and the time neither of them runs is not the estimate's to spend. Ten times the timeout in wall time
+/// still ends a wait whose samples keep stalling.
 @MainActor private func waitUntil(_ condition: () -> Bool) async throws {
-    let deadline = ContinuousClock.now + .seconds(3)
+    let timeout = Duration.seconds(3), sampleInterval = Duration.milliseconds(5)
+    var remainingSamples = Int((timeout / sampleInterval).rounded(.up))
+    let deadline = ContinuousClock.now + timeout * 10
     while !condition() {
-        try #require(ContinuousClock.now < deadline, "Timed out waiting for swap estimate")
-        try await Task.sleep(for: .milliseconds(5))
+        try #require(remainingSamples > 0 && ContinuousClock.now < deadline, "Timed out waiting for swap estimate")
+        remainingSamples -= 1
+        try await Task.sleep(for: sampleInterval)
     }
 }

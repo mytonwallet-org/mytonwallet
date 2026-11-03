@@ -10,6 +10,7 @@ import type {
   ApiSwapBuildTransactionResponse,
   ApiSwapCexLabel,
   ApiSwapEstimateRequest,
+  ApiSwapEstimateRequestErrors,
   ApiSwapEstimateResponse,
   ApiSwapExecuteTransactionResult,
   ApiSwapHistoryItem,
@@ -56,6 +57,8 @@ let onUpdate: OnApiUpdate;
 // Keep recent creations available for an immediate failure update even if the backend is unreachable.
 const createdCexSwaps = new Map<string, ApiSwapHistoryItem>();
 const MAX_CREATED_CEX_SWAPS = 100;
+/** 503 answers in which no DEX router or CEX provider responded in time. Clients know them under one message. */
+const SWAP_ESTIMATE_OUTAGES = new Set([SWAP_ROUTERS_UNAVAILABLE_ERROR, 'Exchange providers are unavailable']);
 
 export function initSwap(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
@@ -309,7 +312,7 @@ export async function swapEstimate(
     const { swapVersion } = await getBackendConfigCache();
 
     stage('http');
-    let estimate = await callBackendPost<ApiSwapEstimateResponse>('/swap/estimate', {
+    const answer = await callBackendPost<ApiSwapEstimateResponse | ApiSwapEstimateRequestErrors>('/swap/estimate', {
       ...request,
       swapVersion: swapVersion ?? SWAP_API_VERSION,
       walletVersion,
@@ -320,11 +323,16 @@ export async function swapEstimate(
     }).catch((error: unknown): ApiSwapEstimateResponse => {
       // Keep expected quote outages available to every client instead of losing them at the SDK boundary.
       if (error instanceof ApiServerError && error.statusCode === 503
-        && error.message === SWAP_ROUTERS_UNAVAILABLE_ERROR) {
-        return { error: error.message };
+        && SWAP_ESTIMATE_OUTAGES.has(error.message)) {
+        return { error: SWAP_ROUTERS_UNAVAILABLE_ERROR };
       }
       throw error;
     });
+
+    // Clients read every refusal from `error`; the backend's request validator lists its reasons in `errors` instead.
+    let estimate: ApiSwapEstimateResponse = 'errors' in answer
+      ? { error: answer.errors.map(({ msg }) => msg).join(', ') }
+      : answer;
 
     if (estimate.hint?.type === 'intermediate') {
       estimate = { ...estimate, hint: { ...estimate.hint, token: getSwapItemSlug(estimate.hint.token) } };

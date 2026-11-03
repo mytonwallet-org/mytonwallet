@@ -44,6 +44,7 @@ final class AgentStreamingTextView: UIView {
     var onPreferredHeightChanged: ((_ animated: Bool) -> Void)?
     var onRevealCompleted: (() -> Void)?
     var onURLTap: ((URL) -> Void)?
+    private var linkMenu: AgentLinkMenu?
 
     override var isHidden: Bool {
         didSet {
@@ -137,6 +138,15 @@ final class AgentStreamingTextView: UIView {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        updateTextColors()
+    }
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        updateTextColors()
+    }
+
+    private func updateTextColors() {
         guard let configuration = appliedConfiguration ?? pendingConfiguration else { return }
         pendingConfiguration = configuration
         appliedConfiguration = nil
@@ -270,6 +280,10 @@ final class AgentStreamingTextView: UIView {
     }
 
     private func setupViews() {
+        linkMenu = AgentLinkMenu(source: self, linkAt: { [weak self] point in
+            guard let self, self.allowsLinkInteraction else { return nil }
+            return self.layout?.link(at: self.pointInRenderContainer(point))
+        }, open: { [weak self] url in self?.onURLTap?(url) })
         backgroundColor = .clear
         clipsToBounds = false
 
@@ -351,28 +365,32 @@ final class AgentStreamingTextView: UIView {
             && !configuration.isStreaming
             && !isInStreamingMode
 
-        let rendered = AgentMessageTextRenderer.makeAttributedText(
-            configuration.text,
-            textColor: configuration.textColor.resolvedColor(with: traitCollection),
-            rendersMarkdown: configuration.rendersMarkdown,
-            detectsLinks: configuration.allowsLinks,
-            markdownProfile: configuration.markdownProfile,
-            isStreaming: configuration.isStreaming,
-            baseFont: configuration.baseFont,
-            linkColor: tintColor.resolvedColor(with: traitCollection)
-        )
+        let textColor = configuration.textColor.resolvedColor(with: traitCollection)
+        let linkColor = tintColor.resolvedColor(with: traitCollection)
+        func render() -> NSAttributedString {
+            AgentMessageTextRenderer.makeAttributedText(
+                configuration.text,
+                textColor: textColor,
+                rendersMarkdown: configuration.rendersMarkdown,
+                detectsLinks: configuration.allowsLinks,
+                markdownProfile: configuration.markdownProfile,
+                isStreaming: configuration.isStreaming,
+                baseFont: configuration.baseFont,
+                linkColor: linkColor
+            )
+        }
 
         if configuration.isStreaming {
             isInStreamingMode = true
             finalizedAllowsLinks = allowsLinks
-            applyLayout(for: rendered, keepingReveal: true)
+            applyLayout(AgentStreamingTextLayout.make(attributedString: render(), maxWidth: layoutMaxWidth), keepingReveal: true)
             updateRevealAnimation(hasStreaming: true, hadStreaming: false)
             return
         }
 
         if configuration.hadStreaming, isInStreamingMode {
             finalizedAllowsLinks = allowsLinks
-            applyLayout(for: rendered, keepingReveal: true)
+            applyLayout(AgentStreamingTextLayout.make(attributedString: render(), maxWidth: layoutMaxWidth), keepingReveal: true)
             updateRevealAnimation(hasStreaming: false, hadStreaming: true)
             return
         }
@@ -381,12 +399,24 @@ final class AgentStreamingTextView: UIView {
         isDrainingSnippets = false
         stopRevealAnimation(resetController: true)
         removeAllSnippets()
-        applyLayout(for: rendered, keepingReveal: false)
+        let key = AgentTextLayoutCache.Key(
+            text: configuration.text,
+            textColor: textColor,
+            linkColor: linkColor,
+            font: configuration.baseFont,
+            rendersMarkdown: configuration.rendersMarkdown,
+            markdownProfile: configuration.markdownProfile,
+            detectsLinks: configuration.allowsLinks,
+            maxWidth: layoutMaxWidth
+        )
+        let staticLayout = AgentTextLayoutCache.shared.getLayout(for: key) {
+            AgentStreamingTextLayout.make(attributedString: render(), maxWidth: layoutMaxWidth, measuresCharacters: false)
+        }
+        applyLayout(staticLayout, keepingReveal: false)
         allowsLinkInteraction = allowsLinks
     }
 
-    private func applyLayout(for attributedText: NSAttributedString, keepingReveal: Bool) {
-        let newLayout = AgentStreamingTextLayout.make(attributedString: attributedText, maxWidth: layoutMaxWidth)
+    private func applyLayout(_ newLayout: AgentStreamingTextLayout, keepingReveal: Bool) {
         layout = newLayout
 
         CATransaction.begin()

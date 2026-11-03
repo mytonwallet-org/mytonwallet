@@ -9,7 +9,9 @@ jest.mock('../db', () => ({
   },
 }));
 jest.mock('./backend', () => ({
-  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendGet: jest.fn().mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+    ? { catalogVersion: 'empty', prices: {} }
+    : { version: 'empty', assets: [] })),
   callBackendPost: jest.fn().mockResolvedValue([]),
 }));
 
@@ -17,11 +19,23 @@ describe('initial token snapshots and quote availability', () => {
   const previousIsAirApp = process.env.IS_AIR_APP;
   let sdk: typeof import('./tokens');
   let backend: typeof import('./backend');
+  let catalogVersion: number;
+  let backendReplies: Record<string, AnyLiteral | Error | undefined>;
 
   beforeEach(async () => {
     jest.resetModules();
+    catalogVersion = 0;
     sdk = await import('./tokens');
     backend = await import('./backend');
+    backendReplies = {};
+    jest.mocked(backend.callBackendGet).mockImplementation((path: string) => {
+      const reply = backendReplies[path];
+      delete backendReplies[path];
+      if (reply instanceof Error) return Promise.reject(reply);
+      return Promise.resolve(reply ?? (path === '/assets/prices'
+        ? { catalogVersion: 'empty', prices: {} }
+        : { version: 'empty', assets: [] }));
+    });
     await sdk.loadTokensCache();
   });
 
@@ -36,7 +50,7 @@ describe('initial token snapshots and quote availability', () => {
     const token = makeToken({ priceUsd: 1 });
     sdk.pauseTokenUpdates();
     await sdk.updateTokens([token], () => sdk.sendUpdateTokens(onUpdate));
-    jest.mocked(backend.callBackendGet).mockRejectedValueOnce(new Error('offline'));
+    backendReplies['/assets/prices'] = new Error('offline');
     await expect(sdk.updateTokensFromBackend(onUpdate)).rejects.toThrow('offline');
     sdk.resumeTokenUpdates();
 
@@ -77,8 +91,8 @@ describe('initial token snapshots and quote availability', () => {
     expect(onUpdate.mock.lastCall![0].unpricedSlugs).toContain(slug);
 
     // Resolving a placeholder to a real zero must send a delta even when the numeric token fields match.
-    const token = { ...sdk.getTokensCache().bySlug[slug] };
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([token]);
+    const token = { ...sdk.getTokensCache().bySlug[slug], isPriceFromBackend: true };
+    jest.mocked(backend.callBackendPost).mockResolvedValueOnce([{ slug, priceUsd: 0, percentChange24h: 0 }]);
     await sdk.updateTokensFromBackend(onUpdate);
 
     expect(onUpdate.mock.lastCall![0]).toEqual({ type: 'updateTokens', kind: 'partial', tokens: { [slug]: token } });
@@ -122,7 +136,7 @@ describe('initial token snapshots and quote availability', () => {
   it('keeps backend quotes through balance responses and failures, then accepts a backend refresh', async () => {
     const onUpdate = jest.fn();
     const token = makeToken({ priceUsd: 2390, percentChange24h: 2 }) as ApiTokenWithPrice;
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([token]);
+    mockBackendTokens([token]);
     await sdk.updateTokensFromBackend(onUpdate);
     onUpdate.mockClear();
 
@@ -131,14 +145,14 @@ describe('initial token snapshots and quote availability', () => {
     expect(onUpdate).not.toHaveBeenCalled();
     expect(sdk.getTokensCache().bySlug[token.slug]).toMatchObject({ priceUsd: 2390, percentChange24h: 2 });
 
-    jest.mocked(backend.callBackendGet).mockRejectedValueOnce(new Error('offline'));
+    backendReplies['/assets/prices'] = new Error('offline');
     await expect(sdk.updateTokensFromBackend(onUpdate)).rejects.toThrow('offline');
     await sdk.updateTokens([makeToken({ priceUsd: 2500, tokenWalletAddress: 'new-wallet' })]);
     expect(sdk.getTokensCache().bySlug[token.slug]).toMatchObject({
       priceUsd: 2390, percentChange24h: 2, tokenWalletAddress: 'new-wallet',
     });
 
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([{ ...token, priceUsd: 2400, percentChange24h: 3 }]);
+    mockBackendTokens([{ ...token, priceUsd: 2400, percentChange24h: 3 }]);
     await sdk.updateTokensFromBackend(onUpdate);
     expect(onUpdate.mock.lastCall![0].tokens[token.slug]).toMatchObject({ priceUsd: 2400, percentChange24h: 3 });
   });
@@ -187,7 +201,7 @@ describe('initial token snapshots and quote availability', () => {
     const onUpdate = jest.fn();
     const token = makeToken({ priceUsd: 4, percentChange24h: 2 }) as ApiTokenWithPrice;
     const unrequested = { ...token, slug: 'base-unrequested', chain: 'base' as const };
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([token, unrequested]);
+    mockBackendTokens([token, unrequested]);
     await sdk.updateTokensFromBackend(onUpdate);
 
     const heldTokens = await import('./heldTokens');
@@ -211,7 +225,7 @@ describe('initial token snapshots and quote availability', () => {
   });
 
   it('does not claim a quote for backend metadata without a price', async () => {
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([makeToken()]);
+    mockBackendTokens([makeToken()]);
     await sdk.updateTokensFromBackend(jest.fn());
     await sdk.updateTokens([makeToken({ priceUsd: 6, percentChange24h: 3 })]);
 
@@ -223,7 +237,7 @@ describe('initial token snapshots and quote availability', () => {
   it.each(['timeout', 'zero'])('keeps backend ownership after a POST %s', async (response) => {
     const onUpdate = jest.fn();
     const token = makeToken({ priceUsd: 4, percentChange24h: 2 }) as ApiTokenWithPrice;
-    jest.mocked(backend.callBackendGet).mockResolvedValueOnce([token]);
+    mockBackendTokens([token]);
     await sdk.updateTokensFromBackend(onUpdate);
 
     if (response === 'timeout') {
@@ -239,6 +253,16 @@ describe('initial token snapshots and quote availability', () => {
       priceUsd: response === 'timeout' ? 4 : 0, isPriceFromBackend: true,
     });
   });
+
+  function mockBackendTokens(tokens: ApiTokenWithMaybePrice[]) {
+    const version = String(++catalogVersion);
+    const assets = tokens.map(({ priceUsd, percentChange24h, ...token }) => token);
+    const prices = Object.fromEntries(tokens.filter((token) => token.priceUsd! > 0)
+      // eslint-disable-next-line no-null/no-null
+      .map(({ slug, priceUsd, percentChange24h }) => [slug, [priceUsd, percentChange24h ?? null]]));
+    backendReplies['/assets/prices'] = { catalogVersion: version, prices };
+    backendReplies['/assets/catalog'] = { version, assets };
+  }
 });
 
 function makeToken(rest?: Partial<ApiTokenWithPrice>): ApiTokenWithMaybePrice {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pin in a chat row's swipe actions: the design's "Icon / Pin / Filled — pinned chat" -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3.071,10.0088L1.50821,8.44605C0.348537,7.28671 1.16581,5.30372 2.80573,5.29769L6.91054,5.28226C7.17597,5.28123 7.43049,5.1752 7.61815,4.98748L11.5254,1.08053C12.9658,-0.360177 15.3016,-0.360177 16.7423,1.08053L17.8309,2.16911L18.9195,3.25769C20.3602,4.69841 20.3602,7.03386 18.9195,8.47457L15.0122,12.3822C14.8245,12.5698 14.7184,12.8244 14.7174,13.0898L14.702,17.1946C14.6959,18.8345 12.713,19.6515 11.5533,18.4918L9.99049,16.929L7.91744,14.856L0.617916,19.9277C0.259595,20.1767 -0.175725,19.741 0.0735609,19.3829L5.15086,12.0894L3.071,10.0088Z" />
+</vector>

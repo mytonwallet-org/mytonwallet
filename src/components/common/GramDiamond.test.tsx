@@ -37,7 +37,9 @@ describe('GramDiamond in TransactionInfo', () => {
   function render(
     slug: string,
     token: ApiTokenWithPrice,
-    { type, noGramDiamond }: { type?: ApiTransactionType; noGramDiamond?: boolean } = {},
+    { type, noGramDiamond, isOpen = true }: {
+      type?: ApiTransactionType; noGramDiamond?: boolean; isOpen?: boolean;
+    } = {},
   ) {
     const transaction = makeMockTransactionActivity({
       id: 'tx-1',
@@ -59,7 +61,7 @@ describe('GramDiamond in TransactionInfo', () => {
         baseCurrency="USD"
         currencyRates={CURRENCY_RATES}
         theme="light"
-        isOpen
+        isOpen={isOpen}
         isGramDiamondEnabled={!noGramDiamond}
       />,
       root,
@@ -74,6 +76,10 @@ describe('GramDiamond in TransactionInfo', () => {
     expect(canvas).not.toBeNull();
     expect(mockMountDiamond).toHaveBeenCalledTimes(1);
     expect(mockMountDiamond.mock.calls[0][0]).toBe(canvas);
+    const destroy = mockMountDiamond.mock.results[0].value;
+    render(TONCOIN.slug, GRAM_TOKEN, { isOpen: false });
+    await pause(50);
+    expect(destroy).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the regular amount when the diamond is off', async () => {

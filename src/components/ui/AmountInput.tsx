@@ -33,13 +33,14 @@ interface OwnProps extends AmountInputStateOutput {
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
   hasError: boolean;
+  hasMaxAmountError?: boolean;
   withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
   isMaxAmountLoading?: boolean;
   /** If true, the max amount label will say "All" instead of "Max" and all the amount digits will be shown (made for unstaking) */
   isMaxAmountAllMode?: boolean;
   labelText?: TeactNode;
-  renderBottomRight: (className: string) => TeactNode;
+  renderBottomRight?: (className: string) => TeactNode;
   onPressEnter?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
@@ -54,6 +55,7 @@ function AmountInput({
   token,
   allTokens,
   hasError,
+  hasMaxAmountError,
   withChainIcon,
   isSensitiveDataHidden,
   isMaxAmountLoading,
@@ -92,6 +94,7 @@ function AmountInput({
         isAllMode={isMaxAmountAllMode}
         isSensitiveDataHidden={isSensitiveDataHidden}
         isDisabled={isAmountReadonly}
+        hasError={hasMaxAmountError}
         onAmountClick={handleMaxAmountClick}
       />
     );
@@ -183,7 +186,7 @@ function AmountInput({
       {renderInput()}
       <div className={styles.bottom}>
         {renderAlternativeAmount()}
-        {renderBottomRight(styles.bottom__right)}
+        {renderBottomRight?.(styles.bottom__right)}
       </div>
     </Transition>
   );

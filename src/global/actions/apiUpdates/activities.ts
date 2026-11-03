@@ -184,7 +184,7 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
         // The stream repeats already confirmed activities, for example after an account switch. Those have been
         // applied already, and applying an old transfer again would remove an NFT that has come back since.
         for (const activity of sortActivities(newConfirmedActivities, true)) {
-          if (activity.kind !== 'transaction' || !activity.nft) continue;
+          if (activity.kind !== 'transaction' || !activity.nft || activity.status === 'failed') continue;
 
           const knownActivity = activities?.byId[activity.id];
           if (knownActivity && !getIsActivityPending(knownActivity)) continue;

@@ -205,6 +205,7 @@ class SendVC(
             id = generateViewId()
             amountEditText.id = UIComponentsR.id.send_amount_input
             tokenSelectorView.id = UIComponentsR.id.send_token_selector
+            maxBalanceButton.id = UIComponentsR.id.send_max_button
         }
     }
     private val addressInputView by lazy {

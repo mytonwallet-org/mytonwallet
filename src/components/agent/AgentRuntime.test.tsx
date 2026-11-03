@@ -3,22 +3,22 @@ import TeactDOM from '../../lib/teact/teact-dom';
 
 import { pause } from '../../util/schedulers';
 
-import AgentV2Classic from '../agentV2/AgentV2Classic';
+import AgentV2Chats from '../agentV2/AgentV2Chats';
 import AgentRuntime from './AgentRuntime';
 
-jest.mock('../agentV2/AgentV2Classic', () => ({
+jest.mock('../agentV2/AgentV2Chats', () => ({
   __esModule: true,
-  default: jest.fn(() => 'agent-v2-classic'),
+  default: jest.fn(() => 'agent-v2-chats'),
 }));
 
-const AgentV2ClassicMock = jest.mocked(AgentV2Classic);
+const AgentV2ChatsMock = jest.mocked(AgentV2Chats);
 
 let root: HTMLDivElement;
 
 beforeEach(() => {
   root = document.createElement('div');
   document.body.appendChild(root);
-  AgentV2ClassicMock.mockClear();
+  AgentV2ChatsMock.mockClear();
 });
 
 afterEach(() => {
@@ -32,7 +32,16 @@ describe('AgentRuntime', () => {
     expect(root.textContent).toBe('');
     await pause(100);
 
-    expect(root.textContent).toBe('agent-v2-classic');
-    expect(AgentV2ClassicMock).toHaveBeenCalledTimes(1);
+    expect(root.textContent).toBe('agent-v2-chats');
+    expect(AgentV2ChatsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the loaded interface at once when it mounts again, as across the phone breakpoint', async () => {
+    TeactDOM.render(<AgentRuntime isActive />, root);
+    await pause(100);
+    TeactDOM.render(undefined, root);
+
+    TeactDOM.render(<AgentRuntime isActive />, root);
+    expect(root.textContent).toBe('agent-v2-chats');
   });
 });

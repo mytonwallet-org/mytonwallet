@@ -249,7 +249,9 @@ struct SwapEstimatePipelineTests {
         ("No swap quote available", SwapIssue.quoteUnavailable),
         ("Swap routers are unavailable", SwapIssue.serviceUnavailable),
         ("Insufficient liquidity", SwapIssue.insufficientLiquidity),
-        ("Something broke", SwapIssue.unexpectedEstimateError),
+        ("fromAmount is required for ethereum swaps (only ExactIn is supported)", SwapIssue.quoteUnavailable),
+        ("Near Intents quote failed", SwapIssue.quoteUnavailable),
+        ("Invalid value", SwapIssue.quoteUnavailable),
     ])
     func `quote failures have helpful messages in returned and thrown responses`(message: String, issue: SwapIssue) throws {
         let thrown = SdkError.apiReturnedError(error: message, data: "")
@@ -262,6 +264,14 @@ struct SwapEstimatePipelineTests {
         #expect(result.dexEstimate == nil)
         #expect(result.cexEstimate == nil)
         #expect(!result.isRateLimited)
+    }
+
+    @Test(arguments: [
+        SdkError.unexpected(message: "Expected DEX swap estimate"),
+        SdkError.javaScriptException(SdkJavaScriptException(methodName: "swapEstimate", exceptionMessage: "Failed to fetch")),
+    ])
+    func `a failure without a backend answer stays unexpected`(error: SdkError) {
+        #expect(swapEstimateIssue(from: error) == .unexpectedEstimateError)
     }
 
     @Test
@@ -502,6 +512,90 @@ struct SwapEstimatePipelineTests {
     }
 
     @Test
+    func `internal cross chain native max rejects a CEX quote that leaves less than the fee`() async throws {
+        let trx = ApiChain.tron.nativeToken
+        let account = tronAccount(balances: [TRX_SLUG: 105_240_099])
+        let quote = try await CrosschainSwapEstimateEngine().enrich(
+            estimate: makeCexEstimate(fromAmount: 104.240099, toAmount: 199),
+            selling: TokenAmount(105_240_099, trx),
+            swapType: .crosschainInsideWallet,
+            isMaxAmount: true,
+            account: account,
+            networkFee: MDouble("1.1"),
+            realNetworkFee: nil
+        )
+
+        #expect(quote.isEnoughNative == false)
+        #expect(CrosschainSwapValidator().validationIssue(
+            input: SwapValidationInput(
+                sellingToken: trx,
+                buyingToken: ApiChain.ton.nativeToken,
+                sellingAmount: 104_240_099,
+                maxAmount: nil,
+                swapType: .crosschainInsideWallet
+            ),
+            swapEstimate: quote,
+            account: account
+        ) == .insufficientFee)
+    }
+
+    @Test
+    func `internal cross chain native max keeps a fallback reserve for a zero CEX fee`() async throws {
+        let trx = ApiChain.tron.nativeToken
+        let account = tronAccount(balances: [TRX_SLUG: 105_240_099])
+        let quote = try await CrosschainSwapEstimateEngine().enrich(
+            estimate: makeCexEstimate(fromAmount: 105.240099, toAmount: 200),
+            selling: TokenAmount(105_240_099, trx),
+            swapType: .crosschainInsideWallet,
+            isMaxAmount: true,
+            account: account,
+            networkFee: MDouble("0"),
+            realNetworkFee: nil
+        )
+
+        #expect(quote.isEnoughNative == false)
+        #expect(CrosschainSwapValidator().validationIssue(
+            input: SwapValidationInput(
+                sellingToken: trx,
+                buyingToken: ApiChain.ton.nativeToken,
+                sellingAmount: 105_240_099,
+                maxAmount: nil,
+                swapType: .crosschainInsideWallet
+            ),
+            swapEstimate: quote,
+            account: account
+        ) == .insufficientFee)
+    }
+
+    @Test
+    func `internal cross chain native max reserves the native transfer fee for a zero CEX fee`() async throws {
+        let trx = ApiChain.tron.nativeToken
+        let account = tronAccount(balances: [TRX_SLUG: 105_240_099])
+        let quote = try await CrosschainSwapEstimateEngine().enrich(
+            estimate: makeCexEstimate(fromAmount: 104.240099, toAmount: 199),
+            selling: TokenAmount(105_240_099, trx),
+            swapType: .crosschainInsideWallet,
+            isMaxAmount: true,
+            account: account,
+            networkFee: MDouble("0"),
+            realNetworkFee: nil
+        )
+
+        #expect(quote.isEnoughNative == true)
+        #expect(CrosschainSwapValidator().validationIssue(
+            input: SwapValidationInput(
+                sellingToken: trx,
+                buyingToken: ApiChain.ton.nativeToken,
+                sellingAmount: 104_240_099,
+                maxAmount: nil,
+                swapType: .crosschainInsideWallet
+            ),
+            swapEstimate: quote,
+            account: account
+        ) == nil)
+    }
+
+    @Test
     func `native max returning from CEX can receive a full balance DEX quote`() async throws {
         let eth = ApiChain.ethereum.nativeToken
         let baseEth = ApiChain.base.nativeToken
@@ -521,7 +615,7 @@ struct SwapEstimatePipelineTests {
         {
           "route":"dex", "from":"\(eth.swapIdentifier)", "to":"\(baseEth.swapIdentifier)",
           "fromAmount":"0.98", "toAmount":"0.97", "toMinAmount":"0.96",
-          "impact":0.1, "dieselStatus":"not-available", "networkFee":"0.01",
+          "impact":0.1, "dieselStatus":"not-available", "networkFee":"0.01", "realNetworkFee":"0.01",
           "swapFee":"0", "swapFeePercent":0, "ourFee":"0", "ourFeePercent":0
         }
         """.utf8))

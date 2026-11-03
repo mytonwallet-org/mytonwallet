@@ -69,6 +69,9 @@ open class RecoveryPhraseVC(
     open val skipTitle = LocaleController.getString("Close")
     open val checkMode: WordCheckMode = WordCheckMode.Check
 
+    override val inactivityTimeoutMs: Long?
+        get() = (5 * 60 * 1000L).takeIf { checkMode == WordCheckMode.Check }
+
     private var skipAvailable =
         checkMode == WordCheckMode.Check || (DEBUG_MODE || EnvironmentStore.isBeta)
     private var isShowingPrivateKey =

@@ -29,6 +29,7 @@ jobs:
     steps:
       - name: Read the expiry out of every signing secret
         env:
+          PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_GRAM_CERTIFICATE_BASE64: ${{ secrets.IOS_GRAM_CERTIFICATE_BASE64 }}
@@ -36,6 +37,9 @@ jobs:
           IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
           IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
           IOS_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
           IOS_GRAM_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_BASE64 }}
           IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64 }}
           IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
@@ -77,6 +81,12 @@ jobs:
               ("IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64", "Gram", "Gram widget"),
               ("IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64", "Gram", "Gram notification"),
           ]
+          if not os.environ.get("PUBLISH_REPO"):
+              PROFILES.extend([
+                  ("IOS_PREVIEW_PROVISION_PROFILE_BASE64", "MyTonWallet", "Preview app"),
+                  ("IOS_PREVIEW_PROVISION_PROFILE_WIDGET_BASE64", "MyTonWallet", "Preview widget"),
+                  ("IOS_PREVIEW_PROVISION_PROFILE_NOTIFICATION_BASE64", "MyTonWallet", "Preview notification"),
+              ])
           # What signs a build is a pair, and the packaging step resolves its two halves
           # independently: the Gram variant takes the Gram certificate if that secret is set and the
           # shared one otherwise, and likewise the Gram password or the shared one. So a Gram

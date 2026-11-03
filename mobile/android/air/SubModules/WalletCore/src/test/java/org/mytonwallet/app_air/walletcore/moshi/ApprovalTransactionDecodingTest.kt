@@ -15,4 +15,10 @@ class ApprovalTransactionDecodingTest {
     fun decodesApprovalType() {
         assertEquals(ApiTransactionType.APPROVAL, adapter.fromJson("\"approval\""))
     }
+
+    @Test
+    fun decodesPerpsTypes() {
+        assertEquals(ApiTransactionType.PERPS_DEPOSIT, adapter.fromJson("\"perps_deposit\""))
+        assertEquals(ApiTransactionType.PERPS_WITHDRAW, adapter.fromJson("\"perps_withdraw\""))
+    }
 }

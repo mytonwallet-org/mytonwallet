@@ -6,15 +6,15 @@ import { copyTextToClipboard } from './clipboard';
 import { getTranslation } from './langProvider';
 import { IS_IOS, IS_TOUCH_ENV } from './windowEnvironment';
 
-export async function shareUrl(url: string, title?: string) {
-  if (await tryNavigatorShare({ url, title })) {
+export async function shareUrl(url: string | undefined, title?: string, text?: string) {
+  if (await tryNavigatorShare({ url, title, text })) {
     return;
   }
 
-  await copyTextToClipboard(url);
+  await copyTextToClipboard(url ?? text ?? '');
   getActions().showToast({
-    message: getTranslation('Link Copied'),
-    icon: 'icon-link',
+    message: getTranslation(url ? 'Link Copied' : 'Message Copied'),
+    icon: url ? 'icon-link' : 'icon-copy',
   });
 }
 

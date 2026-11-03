@@ -7,6 +7,17 @@ on:
   pull_request:
 
 jobs:
+  ios-distribution-tests:
+    name: iOS distribution routing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - run: ruby mobile/ios/App/fastlane/tests/preview_distribution_test.rb
+
   # Decides which costly jobs below the change can affect: the Mac localization check runs only when
   # its own inputs move, and the web jobs only when a pull request touches what they read.
   detect-changes:
@@ -18,6 +29,8 @@ jobs:
     outputs:
       swift-catalogs: ${{ steps.filter.outputs.swift-catalogs }}
       web: ${{ steps.filter.outputs.web }}
+      agent-v2-e2e: ${{ steps.filter.outputs.agent-v2-e2e }}
+      web-funnel-storage: ${{ steps.filter.outputs.web-funnel-storage }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,25 +70,51 @@ jobs:
           echo "web=$WEB" >> "$GITHUB_OUTPUT"
           echo "web=$WEB"
 
+          # Agent E2E runs for changes to its source and build inputs; a push runs it regardless of the diff.
+          AGENT_V2_E2E="true"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ "$WEB" = "false" ] || bash dev/agentV2/e2e-untouched.sh "$BASE" HEAD; then
+              AGENT_V2_E2E="false"
+            fi
+          fi
+          echo "agent-v2-e2e=$AGENT_V2_E2E" >> "$GITHUB_OUTPUT"
+          echo "agent-v2-e2e=$AGENT_V2_E2E"
+
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "No usable base revision ($EVENT_NAME, ${BASE:-empty}) - running the Swift catalog test"
+            echo "No usable base revision ($EVENT_NAME, ${BASE:-empty}) - running the remaining checks"
             echo "swift-catalogs=true" >> "$GITHUB_OUTPUT"
+            echo "web-funnel-storage=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          CHANGED=$(git diff --name-only --no-renames "$BASE" HEAD)
+          if ! CHANGED=$(git -c core.quotePath=false diff --name-only --no-renames "$BASE" HEAD); then
+            echo "Cannot read changed paths - running the remaining checks"
+            echo "swift-catalogs=true" >> "$GITHUB_OUTPUT"
+            echo "web-funnel-storage=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
+          # The funnel fixture reads only these storage modules and its installed dependencies.
+          WEB_FUNNEL_STORAGE="true"
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$CHANGED" ]; then
+            WEB_FUNNEL_STORAGE="false"
+          fi
           SWIFT_CATALOGS="false"
           while IFS= read -r file; do
             case "$file" in
               src/i18n/*|mobile/ios/Air/scripts/strings/*|.github/workflows/test.yml) SWIFT_CATALOGS="true" ;;
             esac
+            case "$file" in
+              dev/testWebFunnelStorage.mjs|src/api/storages/idb.ts|src/api/storages/webFunnel.ts|src/api/storages/webFunnelState.ts|package.json|package-lock.json|.github/workflows/test.yml) WEB_FUNNEL_STORAGE="true" ;;
+            esac
           done <<< "$CHANGED"
 
           echo "swift-catalogs=$SWIFT_CATALOGS" >> "$GITHUB_OUTPUT"
+          echo "web-funnel-storage=$WEB_FUNNEL_STORAGE" >> "$GITHUB_OUTPUT"
           echo "Changed files:"
           echo "$CHANGED"
           echo "swift-catalogs=$SWIFT_CATALOGS"
+          echo "web-funnel-storage=$WEB_FUNNEL_STORAGE"
 
   localizations:
     name: Localization health
@@ -149,6 +188,8 @@ jobs:
 
   test:
     name: Simple tests
+    permissions:
+      contents: read
     needs: detect-changes
     # A failed detection leaves the output empty, and that runs the job
     if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
@@ -157,6 +198,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Prepare the Node environment
         uses: mytonwallet-org/shared-actions/prepare_node@master
@@ -187,14 +230,19 @@ jobs:
       - name: Check Agent V2 contracts
         run: npm run contract:agent:v2:check
 
+      - name: Test Agent V2 E2E change detection
+        run: node --test dev/agentV2/e2e-untouched-tests.mjs
+
       # The standalone Air SDK sets `NO_EXTRA_FEATURES=1` to exclude guarded extra features from the bundle
       - name: Build the standalone SDK bundle
         run: npm run sdk:build:slim
 
   chromium-e2e:
     name: Agent V2 / Chromium E2E
+    permissions:
+      contents: read
     needs: detect-changes
-    if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
+    if: ${{ !cancelled() && (needs.detect-changes.outputs.agent-v2-e2e != 'false' || needs.detect-changes.outputs.web-funnel-storage != 'false') }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
@@ -209,19 +257,23 @@ jobs:
           node-version: ${{ vars.NODE_VERSION }}
 
       - name: Prepare default translations
+        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
         run: npm run i18n:build:default
 
       - name: Install Chromium
+        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' || needs.detect-changes.outputs.web-funnel-storage != 'false' }}
         run: npx --no-install playwright install --with-deps chromium
 
       - name: Test Web funnel IndexedDB concurrency
+        if: ${{ needs.detect-changes.outputs.web-funnel-storage != 'false' }}
         run: npm run test:web-funnel-storage
 
       - name: Run Agent V2 Chromium E2E
+        if: ${{ needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
         run: npm run test:agent:v2:e2e
 
       - name: Upload Playwright diagnostics
-        if: failure()
+        if: ${{ failure() && needs.detect-changes.outputs.agent-v2-e2e != 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: agent-v2-playwright-diagnostics
@@ -230,3 +282,87 @@ jobs:
             test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  # Gram Web and Chrome ship only through ton-blockchain/ton-wallet, which rejects an artifact its own
+  # validators fail. This job builds both the way the receiver does; the next one runs those validators.
+  gram-build:
+    name: Gram production build
+    permissions:
+      contents: read
+    needs: detect-changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.detect-changes.outputs.web != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare the Node environment
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+
+      - name: Prepare default translations
+        run: npm run i18n:build:default
+
+      - name: Build Gram Web and Chrome for production
+        run: |
+          mkdir -p "$RUNNER_TEMP/gram"
+          npm run gram:build:production
+          mv dist "$RUNNER_TEMP/gram/web"
+          npm run gram:extension-chrome:package:production
+          mv MyWallet-chrome.zip "$RUNNER_TEMP/gram/chrome.zip"
+
+      - name: Upload Gram artifacts
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: gram-production-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gram
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 3
+
+  # The validators are code from another repository's default branch, so they run without a token, a
+  # package cache or this repository's source, and only on pull requests, whose cache scope master never reads.
+  gram-receiver-policy:
+    name: Gram receiver policy
+    permissions: {}
+    needs: gram-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch the receiver's validators
+        run: git clone --depth 1 https://github.com/ton-blockchain/ton-wallet.git receiver
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Download Gram artifacts
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.gram-build.outputs.artifact-id }}
+          merge-multiple: true
+          path: gram
+
+      - name: Read the built version
+        id: version
+        run: |
+          version=$(cat gram/web/version.txt)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Gram Web
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node receiver/scripts/validate-web.mjs gram/web "$VERSION"
+
+      - name: Validate Gram Chrome
+        if: ${{ !cancelled() && steps.version.outcome == 'success' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node receiver/scripts/validate-chrome.mjs gram/chrome.zip "$VERSION"

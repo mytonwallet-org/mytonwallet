@@ -2,12 +2,12 @@
 
 import { suppressStrict } from '../lib/fasterdom/fasterdom';
 import { COLOR_COUNT, QUALITY } from './accentColor/constants';
+import { getIsInBackground } from './backgroundMode';
+import { type DriftParticleConfig, type ParticleInteraction, setupDriftParticles } from './driftParticles';
 import generateUniqueId from './generateUniqueId';
 import { getCachedImageUrl } from './getCachedImageUrl';
 import { requestMediaWorker } from './launchMediaWorkers';
 import { logDebugError } from './logs';
-
-import { getIsInBackground } from '../hooks/useBackgroundMode';
 
 export interface ParticleConfig {
   width?: number;
@@ -28,6 +28,7 @@ export interface ParticleConfig {
   centerShift?: readonly [number, number];
   accelerationFactor?: number;
   selfDestroyTime?: number;
+  drift?: DriftParticleConfig | undefined;
 }
 
 interface Locations {
@@ -65,7 +66,7 @@ interface Buffers {
 
 interface ParticleSystem {
   id: string;
-  config: Required<ParticleConfig>;
+  config: Required<Omit<ParticleConfig, 'drift'>>;
   buffers: Buffers;
   startTime: number;
   seed: number;
@@ -96,7 +97,7 @@ class SeededRandom {
   }
 }
 
-const DEFAULT_CONFIG: Required<ParticleConfig> = {
+const DEFAULT_CONFIG: Required<Omit<ParticleConfig, 'drift'>> = {
   width: 400,
   height: 250,
   particleCount: 19,
@@ -183,7 +184,14 @@ export async function getAccentColorFromImage(imageUrl: string) {
 export function setupParticles(
   canvas: HTMLCanvasElement,
   options: Partial<ParticleConfig>,
+  interaction: ParticleInteraction = {},
 ) {
+  if (options.drift) {
+    const config = { ...DEFAULT_CONFIG, ...options };
+    return setupDriftParticles(canvas, options.drift, config.width, config.height,
+      config.color, config.centerShift, interaction);
+  }
+
   let manager = canvasManagers.get(canvas);
   if (!manager) {
     manager = createParticleSystemManager(canvas);
@@ -410,7 +418,7 @@ function createParticleSystemManager(canvas: HTMLCanvasElement) {
 
   function addSystem(options: Partial<ParticleConfig>) {
     const id = generateUniqueId();
-    const config: Required<ParticleConfig> = { ...DEFAULT_CONFIG, ...options };
+    const config: Required<Omit<ParticleConfig, 'drift'>> = { ...DEFAULT_CONFIG, ...options };
 
     const buffers: Buffers = {
       startPosition: gl.createBuffer(),

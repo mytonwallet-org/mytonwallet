@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "26.10.7",
+  "version": "26.11.0",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -62,7 +62,7 @@
     "test": "cross-env APP_ENV=test jest --verbose",
     "contract:agent:v2:check": "node dev/checkAgentV2Contract.mjs && tsc -p dev/agentV2/tsconfig.json && cross-env APP_ENV=test jest src/api/agentV2/protocol/transportContracts.test.ts --runInBand",
     "test:agent:v2": "cross-env APP_ENV=test jest src/api/agentV2 src/api/environment.agentV2.test.ts src/api/methods/agentV2Lifecycle.test.ts src/api/methods/registry.test.ts src/components/agentV2 src/components/agent src/global/agentV2 src/global/initAgentV2HostContext.test.ts src/config.agentV2.test.ts src/util/renderMarkdown.test.ts",
-    "build:agent:v2:e2e": "cross-env APP_ENV=development AGENT_V2_QUOTA_STATUS_ENABLED=1 AGENT_API_URL=http://127.0.0.1:1235/api vite build --mode development && bash ./deploy/copy_to_dist.sh",
+    "build:agent:v2:e2e": "cross-env APP_ENV=development AGENT_API_URL=http://127.0.0.1:1235/api vite build --mode development && bash ./deploy/copy_to_dist.sh",
     "dev:agent:v2": "bash dev/agentV2/frontendLocal.sh",
     "dev:agent:v2:ios": "bash dev/agentV2/iosLocal.sh",
     "dev:agent:v2:ios:codex": "cross-env AGENT_V2_IOS_PROVIDER=codex_subscription bash dev/agentV2/iosLocal.sh",

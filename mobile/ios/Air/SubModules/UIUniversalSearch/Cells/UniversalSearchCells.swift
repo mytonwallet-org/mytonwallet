@@ -401,14 +401,6 @@ final class UniversalSearchActionCell: UniversalSearchBaseCell {
         case agent
         case webSearch
 
-        var systemName: String {
-            switch self {
-            case .agent:
-                "sparkles.2"
-            case .webSearch:
-                "magnifyingglass"
-            }
-        }
     }
 
     override var usesDefaultSelectedAppearance: Bool { kind != .agent }
@@ -466,10 +458,13 @@ final class UniversalSearchActionCell: UniversalSearchBaseCell {
 
     func configure(kind: Kind, title: String) {
         self.kind = kind
-        symbolView.config(with: UniversalSearchIconConfiguration(
-            systemName: kind.systemName,
-            foregroundColor: .label
-        ))
+        if kind == .agent {
+            symbolView.config(with: UniversalSearchIconConfiguration(
+                image: UIImage.airBundle("AgentSearchGlyph"), shape: .square, foregroundColor: .label
+            ))
+        } else {
+            symbolView.config(with: UniversalSearchIconConfiguration(systemName: "magnifyingglass", foregroundColor: .label))
+        }
         titleLabel.text = title
         selectedTitleView.configure(text: title)
         accessibilityLabel = title

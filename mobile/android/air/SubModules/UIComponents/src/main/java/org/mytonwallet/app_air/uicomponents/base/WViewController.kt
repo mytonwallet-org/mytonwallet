@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.os.MessageQueue.IdleHandler
+import android.os.SystemClock
 import android.text.method.LinkMovementMethod
 import android.view.MotionEvent
 import android.view.View
@@ -27,6 +28,8 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -67,6 +70,14 @@ abstract class WViewController(val context: Context) :
     WThemedView,
     WProtectedView {
     companion object {
+        private val inactivityHandler = Handler(Looper.getMainLooper())
+        private val inactivityControllers: MutableSet<WViewController> =
+            Collections.newSetFromMap(WeakHashMap())
+
+        // Pending checks do not advance during deep sleep
+        internal fun checkInactivityOfAll() {
+            inactivityControllers.toList().forEach { it.checkInactivity() }
+        }
 
         // How long a scrollable must rest before paused blur views resume after an over-scroll.
         private const val OVER_SCROLL_SETTLE_DELAY = 500L
@@ -92,7 +103,24 @@ abstract class WViewController(val context: Context) :
     open val isSwipeBackAllowed = true
     open val isEdgeSwipeBackAllowed = false
 
+    // Distance from the window bottom the minimized browser rests at while this screen is on top.
+    // Null rests it above the system bar and reserves its height in the navigation bottom inset.
+    open val minimizedBrowserBottomInset: Int? get() = null
+
+    // Window span the minimized browser centers in; null is the whole window.
+    open val minimizedBrowserSpan: IntRange? get() = null
+
+    // Places the minimized browser by its own span and bottom inset in a tab container.
+    open val docksMinimizedBrowser: Boolean get() = false
+
+    // A nav rooted at this screen is presented above the minimized browser instead of below it.
+    open val coversMinimizedBrowser: Boolean get() = isLockedScreen
+
     open val ignoreSideGuttering = false
+
+    /** Space a root-top search field leaves for this screen's buttons. */
+    open val rootTopLeadingWidth: Int get() = 0
+    open val rootTopTrailingWidth: Int get() = 0
 
     // If the view-controller is presented in the content panel on tablet, returns the `ADDITIONAL_TABLET_PADDING`
     open val additionalTabletPadding: Int
@@ -134,7 +162,17 @@ abstract class WViewController(val context: Context) :
     private val shouldShowBottomCornerRadius: Boolean
         get() = shouldDisplayBottomBar &&
             !isInCenteredWindow &&
-            systemBarBottomInset > 0
+            systemBarBottomInset > 0 &&
+            !usesTabletHostBottomBar
+
+    private val usesTabletHostBottomBar: Boolean
+        get() = !forceBlurBottomView &&
+            (
+                !WGlobalStorage.isGradientNavigationBarActive() ||
+                    additionalBottomGradientHeight == 0
+                ) &&
+            window?.isWideLayout == true &&
+            navigationController?.tabBarController != null
 
     open val forceBlurBottomView = false
     open val bottomBlurRootView: ViewGroup? by lazy {
@@ -142,6 +180,11 @@ abstract class WViewController(val context: Context) :
     }
 
     open val protectFromScreenRecord = false
+
+    open val inactivityTimeoutMs: Long? = null
+    private var inactivityDeadline = 0L
+    private val inactivityCheck = Runnable { checkInactivity() }
+
     open val shouldHideKeyboardOnDisappear = true
     open val shouldKeepWalletEventSubscription = false
 
@@ -540,7 +583,7 @@ abstract class WViewController(val context: Context) :
     open fun didSetupViews() {
         if (overrideShowTopBlurView ?: shouldDisplayTopBar) addTopCornerRadius()
         if (isRootTopGradientEnabled) topReversedCornerView?.bringToFront()
-        if (shouldShowBottomCornerRadius) addBottomCornerRadius()
+        syncBottomCornerRadius()
         updateBlurPaddings()
     }
 
@@ -565,6 +608,28 @@ abstract class WViewController(val context: Context) :
     open fun viewDidEnterForeground() {
         WalletCore.doOnBridgeReady {
             switchToDisplayedAccountId()
+        }
+        checkInactivity()
+    }
+
+    private fun checkInactivity() {
+        val timeoutMs = inactivityTimeoutMs ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (inactivityDeadline == 0L) {
+            inactivityDeadline = now + timeoutMs
+            inactivityControllers.add(this)
+        }
+        // Unlock passcode input must not extend an expired deadline
+        val lastInputAt = window?.lastInputAt ?: 0L
+        if (lastInputAt < inactivityDeadline) {
+            inactivityDeadline = maxOf(inactivityDeadline, lastInputAt + timeoutMs)
+        }
+        inactivityHandler.removeCallbacks(inactivityCheck)
+        val remainingMs = inactivityDeadline - now
+        if (remainingMs > 0) {
+            inactivityHandler.postDelayed(inactivityCheck, remainingMs)
+        } else {
+            navigationController?.removeViewController(this)
         }
     }
 
@@ -593,6 +658,8 @@ abstract class WViewController(val context: Context) :
         isDisappeared = true
         isDestroyed = true
         frameMonitor?.stopMonitoring()
+        inactivityHandler.removeCallbacks(inactivityCheck)
+        inactivityControllers.remove(this)
         dismissActiveDialogs()
         if (this is WalletCore.EventObserver && !shouldKeepWalletEventSubscription) {
             WalletCore.unregisterObserver(this)
@@ -666,10 +733,18 @@ abstract class WViewController(val context: Context) :
 
     override fun updateProtectedView() {}
 
-    fun setupNavBar(shouldShow: Boolean, defaultHeight: Int = WNavigationBar.DEFAULT_HEIGHT) {
+    fun setupNavBar(
+        shouldShow: Boolean,
+        defaultHeight: Int = WNavigationBar.DEFAULT_HEIGHT,
+        contentMarginTop: Int = 0
+    ) {
         if (navigationController == null) throw Exception()
         if (shouldShow) {
-            val navigationBar = navigationBar ?: WNavigationBar(this, defaultHeight).also {
+            val navigationBar = navigationBar ?: WNavigationBar(
+                this,
+                defaultHeight,
+                contentMarginTop
+            ).also {
                 navigationBar = it
                 view.addView(it, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             }
@@ -760,7 +835,7 @@ abstract class WViewController(val context: Context) :
         val isRootTop = isRootTopGradientEnabled
         overlayView.gradientFadeStartY =
             (
-                (navigationController?.getSystemBars()?.top ?: 0) -
+                (navigationController?.getSystemBars(this)?.top ?: 0) -
                     (navigationController?.additionalRootTopInset ?: 0)
                 ).toFloat()
         val targetHeight = if (isRootTop) rootTopOverlayHeight(overlayView.isGradientMode) else 0
@@ -790,8 +865,19 @@ abstract class WViewController(val context: Context) :
 
     protected open fun onRootTopGradientModeChanged(enabled: Boolean) {}
 
+    /** A root that stays still under the screens pushed over it, keeping the root's top inset */
+    open val shouldKeepRootInsetWhenCovered: Boolean
+        get() = false
+
+    /** Whether the screen shrinks a little under one being swiped away */
+    open val shrinksUnderSwipeBack: Boolean
+        get() = true
+
     protected val isRootTopGradientEnabled: Boolean
         get() = navigationController?.usesRootTopGradient(this) == true
+
+    protected val rootTopBarBottom: Int
+        get() = rootTopGradientHeight()
 
     private fun addTopCornerRadius() {
         if (topReversedCornerView != null) return
@@ -806,16 +892,20 @@ abstract class WViewController(val context: Context) :
     }
 
     private fun rootTopGradientHeight(): Int {
-        val systemBarsTop = navigationController?.getSystemBars()?.top ?: 0
+        val systemBarsTop = navigationController?.getSystemBars(this)?.top ?: 0
         val rootTopInset = navigationController?.additionalRootTopInset ?: 0
         return systemBarsTop - rootTopInset + ROOT_TOP_TABS_HEIGHT.dp
     }
 
     private fun rootTopBlurHeight(): Int {
-        val systemBarsTop = navigationController?.getSystemBars()?.top ?: 0
+        val systemBarsTop = navigationController?.getSystemBars(this)?.top ?: 0
         val rootTopInset = navigationController?.additionalRootTopInset ?: 0
-        return systemBarsTop - rootTopInset +
-            (ROOT_TOP_TABS_HEIGHT + ROOT_TOP_BLUR_BOTTOM_MARGIN).dp +
+        val tabsHeight = if (window?.isWideLayout == true) {
+            rootTopInset
+        } else {
+            (ROOT_TOP_TABS_HEIGHT + ROOT_TOP_BLUR_BOTTOM_MARGIN).dp
+        }
+        return systemBarsTop - rootTopInset + tabsHeight +
             ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
     }
 
@@ -917,6 +1007,9 @@ abstract class WViewController(val context: Context) :
         }
 
     open fun getModalHalfExpandedHeight(): Int? = null
+
+    // Sizes the centered window to the content height instead of the default height.
+    open val wrapsContentInCenteredWindow = false
 
     protected var modalExpandOffset: Int? = null
     protected var modalExpandProgress: Float? = null

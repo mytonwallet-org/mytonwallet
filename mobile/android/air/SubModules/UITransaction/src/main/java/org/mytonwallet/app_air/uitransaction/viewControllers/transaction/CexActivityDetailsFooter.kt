@@ -120,7 +120,7 @@ internal class CexActivityDetailsFooter(context: Context) : LinearLayout(context
                 listOf(
                     "%support%" to SpanHelpers.buildSpannable(
                         label,
-                        supportUrl?.let { InAppBrowserUrlSpan(it, null) } ?: URLSpan(emailUrl)
+                        supportUrl?.let { InAppBrowserUrlSpan(it) } ?: URLSpan(emailUrl)
                     ),
                     "%email%" to
                         (email?.let { SpanHelpers.buildSpannable(it, URLSpan(emailUrl)) } ?: "")

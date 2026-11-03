@@ -12,7 +12,9 @@ import android.text.style.TypefaceSpan
 import android.util.Patterns
 import kotlin.math.ceil
 import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 
 object MarkdownParser {
@@ -287,7 +289,7 @@ object MarkdownParser {
                     .none { it.family == "monospace" }
             ) {
                 sb.setSpan(
-                    WClickableSpan(url, linkColor, onClick),
+                    makeLinkSpan(url, linkColor, onClick),
                     start,
                     end,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -323,12 +325,20 @@ object MarkdownParser {
             }
             if (!AgentTextLinks.isOpenable(url)) continue
             sb.setSpan(
-                WClickableSpan(url, linkColor, onClick),
+                makeLinkSpan(url, linkColor, onClick),
                 matchStart,
                 matchEnd,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
+    }
+
+    private fun makeLinkSpan(
+        url: String,
+        linkColor: Int?,
+        onClick: (String) -> Unit
+    ): WClickableSpan = WClickableSpan(url, linkColor, onClick).apply {
+        underlineMonochrome = true
     }
 
     private fun parseInline(
@@ -352,7 +362,8 @@ object MarkdownParser {
             ) {
                 break
             }
-            val link = markdownLinkPattern.matchAt(text, i)
+            // Links start with "[", so other characters skip the matcher
+            val link = if (text[i] == '[') markdownLinkPattern.matchAt(text, i) else null
             if (link != null && i > 0 && text[i - 1] == '!') {
                 val start = result.length
                 result.append(link.value)
@@ -376,7 +387,7 @@ object MarkdownParser {
                         AgentTextLinks.isOpenable(destination)
                     ) {
                         result.setSpan(
-                            WClickableSpan(destination, linkColor, onUrlClick),
+                            makeLinkSpan(destination, linkColor, onUrlClick),
                             start,
                             result.length,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -428,16 +439,13 @@ object MarkdownParser {
                                 isArriving && end < 0
                             )
                         )
+                        // Bold takes MiSans' own Demibold face rather than bold synthesized from Regular
                         result.setSpan(
-                            StyleSpan(
-                                if (marker ==
-                                    "**"
-                                ) {
-                                    Typeface.BOLD
-                                } else {
-                                    Typeface.ITALIC
-                                }
-                            ),
+                            if (marker == "**") {
+                                WTypefaceSpan(WFont.Medium)
+                            } else {
+                                StyleSpan(Typeface.ITALIC)
+                            },
                             start,
                             result.length,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE

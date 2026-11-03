@@ -4,6 +4,7 @@ import android.view.Choreographer
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.hypot
+import org.mytonwallet.app_air.uicomponents.helpers.ScrollLockHost
 
 /** Observes a stationary host; only a recognized hold owns the gesture. */
 class CardPressInteraction(
@@ -42,8 +43,8 @@ class CardPressInteraction(
         }
         var ancestor = host.parent
         while (ancestor is View) {
-            if (ancestor is CardPlayScrollHost) {
-                val release = ancestor.acquireCardPlayScrollLock()
+            if (ancestor is ScrollLockHost) {
+                val release = ancestor.acquireScrollLock()
                 if (release == null) {
                     releaseScrollLocks()
                     return@Runnable

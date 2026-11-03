@@ -49,7 +49,6 @@ mkdir -p "$LOG_DIR"
 trap cleanup EXIT INT TERM
 
 AGENT_OVERRIDE=v2 \
-  AGENT_V2_QUOTA_STATUS_ENABLED=1 \
   AGENT_API_URL="${AGENT_V2_LOCAL_BASE_URL_A:-http://127.0.0.1:3001}/api" \
   APP_ENV=development \
   ./node_modules/.bin/vite --port "$CLASSIC_PORT" >"$CLASSIC_LOG" 2>&1 &

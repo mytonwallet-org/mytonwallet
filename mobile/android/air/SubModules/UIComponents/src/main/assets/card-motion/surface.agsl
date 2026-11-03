@@ -96,8 +96,8 @@ float3 cardMaterial(float2 uv, float3 base) {
     float fresnel = pow(1-sat(dot(normal,view)),3);
     float3 result = 1-(1-sat(base))*exp(-radiance*materialIntensity*(0.5+fresnel*2));
     // Thin rounded perimeter and internal facet/print edges, never a full-card wash.
-    float2 point = uv*float2(400,232);
-    float2 q = abs(point-float2(200,116))-float2(174,90);
+    float2 point = uv*size;
+    float2 q = abs(point-size*0.5)-(size*0.5-26);
     float sdf = length(max(q,0.0))+min(max(q.x,q.y),0.0)-26;
     float edge = exp(-pow((sdf+1.2)/0.8,2.0));
     float inner = (customSurface == 0 && shineStyle == 0) ? crystal.w : sat(length(float2(dx,dy))*5);

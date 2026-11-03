@@ -1,5 +1,8 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -10,7 +13,9 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.animation.AccelerateDecelerateInterpolator
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
@@ -276,6 +281,44 @@ class ReversedCornerViewUpsideDown(
 
         updateRadius()
         postInvalidateOnAnimation()
+    }
+
+    private var radiusAnimator: ValueAnimator? = null
+
+    fun animateRadius(from: Float, to: Float) {
+        if (from == to) return
+        radiusAnimator?.cancel()
+        radiusAnimator = ValueAnimator.ofFloat(from, to).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            interpolator = AccelerateDecelerateInterpolator()
+
+            addUpdateListener { animator ->
+                cornerRadius = animator.animatedValue as Float
+                radii = floatArrayOf(
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    cornerRadius,
+                    cornerRadius,
+                    cornerRadius,
+                    cornerRadius
+                )
+                pathDirty = true
+                translationY =
+                    (if (to > from) -1f else 1f) * ((animatedFraction - 1) * 24.dp).roundToInt()
+
+                postInvalidateOnAnimation()
+            }
+
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    radiusAnimator = null
+                }
+            })
+
+            start()
+        }
     }
 
     private fun updateRadius() {

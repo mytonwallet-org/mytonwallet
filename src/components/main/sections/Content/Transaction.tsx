@@ -92,7 +92,8 @@ const COMMENT_EXTRA_HEIGHT = 2.375; // rem
 const SUBHEADER_RELEASE_HEIGHT = 1.25; // rem
 
 const OUT_TRANSACTION_TYPES = new Set<ApiTransactionType>([
-  undefined, 'unstakeRequest', 'nftTrade', 'auctionBid', 'nftAuctionStart', 'nftAuctionCancel', 'liquidityDeposit',
+  undefined, 'unstakeRequest', 'nftTrade', 'auctionBid',
+  'nftAuctionStart', 'nftAuctionCancel', 'liquidityDeposit', 'perps_deposit',
 ]);
 
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
@@ -286,6 +287,10 @@ function Transaction({
       iconName = buildClassName('rounded-font', styles.dnsIcon);
     } else if (type === 'mint') {
       iconName = 'icon-magic-wand';
+    } else if (type === 'perps_deposit') {
+      iconName = 'icon-can-in';
+    } else if (type === 'perps_withdraw') {
+      iconName = 'icon-can-out';
     } else if (type === 'burn') {
       iconName = 'icon-fire';
     } else if (type === 'auctionBid' || type === 'nftAuctionStart' || type === 'nftAuctionCancel') {

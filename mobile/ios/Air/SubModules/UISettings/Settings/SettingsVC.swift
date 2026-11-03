@@ -185,6 +185,23 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.reloadData()
     }
 
+    public var morphAvatarView: UIView {
+        loadViewIfNeeded()
+        return settingsHeaderView.largeAvatarView
+    }
+
+    /// The avatar at the retained scroll offset, including when the destination bar has not been laid out yet
+    public func morphAvatarState(navigationBarMidY: CGFloat) -> (frame: CGRect, alpha: CGFloat, blurRadius: CGFloat) {
+        loadViewIfNeeded()
+        view.layoutIfNeeded()
+        let offset = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+        let state = settingsHeaderView.avatarState(
+            scrollOffset: offset,
+            navigationCenterY: settingsHeaderView.convert(CGPoint(x: 0, y: navigationBarMidY), from: view).y
+        )
+        return (settingsHeaderView.convert(state.frame, to: view), state.alpha, state.blurRadius)
+    }
+
     private func configureNavigationItems() {
         let receiveBarButtonItem = UIBarButtonItem(
             title: lang("Receive"),

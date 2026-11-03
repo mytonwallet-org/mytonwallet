@@ -8,14 +8,14 @@ import { surfaceRenderer } from './surfaceRenderer';
 
 jest.mock('./surfaceRenderer', () => ({ surfaceRenderer: jest.fn() }));
 jest.mock('../logs', () => ({ logDebugError: jest.fn() }));
-jest.mock('../../hooks/useBackgroundMode', () => {
+jest.mock('../backgroundMode', () => {
   const [getIsInBackground, setIsInBackground] = jest.requireActual('../signals').createSignal(false);
 
   return { getIsInBackground, setIsInBackground };
 });
 
 const { setIsInBackground } = jest.requireMock<{ setIsInBackground: (value: boolean) => void }>(
-  '../../hooks/useBackgroundMode',
+  '../backgroundMode',
 );
 
 const callbacks = new Map<number, FrameRequestCallback>();

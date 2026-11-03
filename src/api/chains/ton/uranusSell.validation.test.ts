@@ -3,7 +3,7 @@ import { Address, beginCell, Cell } from '@ton/core';
 import type { ApiAccountWithChain, ApiSwapBuildTransactionRequest } from '../../types';
 import type { TonTransferParams } from './types';
 
-import { SWAP_FEE_ADDRESS } from '../../../config';
+import { DIESEL_ADDRESSES, SWAP_FEE_ADDRESS, SWAP_FEE_ADDRESSES } from '../../../config';
 import { OpCode } from './constants';
 import { validateDexSwapTransfers } from './swap';
 
@@ -137,6 +137,20 @@ describe('direct Uranus sell validation', () => {
         : { isInitialized: true, codeHash: 'attacker' },
     ));
     await expect(validateDexSwapTransfers('mainnet', OWNER, request(), transfers(), ACCOUNT)).rejects.toThrow();
+  });
+
+  it('accepts the fee to every swap fee wallet the build ships with', async () => {
+    for (const feeAddress of SWAP_FEE_ADDRESSES) {
+      await expect(validateDexSwapTransfers('mainnet', OWNER, request(),
+        transfers({}, { payload: feePayload(FEE, feeAddress) }), ACCOUNT)).resolves.toBe(7_326_000n);
+    }
+  });
+
+  it('rejects the fee to a diesel wallet', async () => {
+    for (const dieselAddress of DIESEL_ADDRESSES) {
+      await expect(validateDexSwapTransfers('mainnet', OWNER, request(),
+        transfers({}, { payload: feePayload(FEE, dieselAddress) }), ACCOUNT)).rejects.toThrow();
+    }
   });
 
   it('rejects diesel and unexpected extra transfers', async () => {

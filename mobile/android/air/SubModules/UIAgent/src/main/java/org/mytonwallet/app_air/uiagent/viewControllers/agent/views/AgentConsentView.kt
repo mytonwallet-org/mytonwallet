@@ -1,9 +1,14 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
 import android.content.Context
+import android.graphics.Outline
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.method.LinkMovementMethod
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -11,17 +16,25 @@ import androidx.core.view.isGone
 import androidx.core.view.updateLayoutParams
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ConsentCopy
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentChatBackgroundColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 
 class AgentConsentView(context: Context) : WView(context) {
     var onAllow: (() -> Unit)? = null
@@ -30,6 +43,12 @@ class AgentConsentView(context: Context) : WView(context) {
 
     private var topInset = 0
     private var bottomInset = 0
+
+    private val spinningTop = AgentSpinningTopView(context, speed = 0.5f).apply {
+        id = View.generateViewId()
+        isTouchInteractive = true
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
 
     private val titleLabel = WLabel(context).apply {
         gravity = Gravity.CENTER
@@ -50,20 +69,44 @@ class AgentConsentView(context: Context) : WView(context) {
         }
     }
     private val disclosureTitleLabel = WLabel(context).apply {
-        setStyle(16f, WFont.Medium)
+        id = UIComponentsR.id.agent_consent_disclosure_title
+        setStyle(14f, WFont.Medium)
         text = copy.disclosureTitle
     }
     private val disclosureLabel = WLabel(context).apply {
-        setStyle(14f)
-        setLineHeight(20f)
+        setStyle(13f)
+        setLineHeight(18f)
         text = copy.disclosure
     }
     private val searchDisclosureLabel = WLabel(context).apply {
-        setStyle(14f)
-        setLineHeight(20f)
-        text = copy.searchDisclosure
+        setStyle(13f)
+        setLineHeight(18f)
+        movementMethod = LinkMovementMethod.getInstance()
+        text = SpannableStringBuilder(copy.searchDisclosure).apply {
+            append(" ")
+            val start = length
+            append(LocaleController.getString("Learn more"))
+            setSpan(
+                WClickableSpan(context.getString(BaseR.string.app_privacy_policy_url)) { url ->
+                    WalletCore.notifyEvent(
+                        WalletEvent.OpenUrlWithConfig(
+                            InAppBrowserConfig(
+                                url,
+                                injectDappConnect = false,
+                                injectDarkModeStyles = true,
+                                title = LocaleController.getString("Privacy Policy")
+                            )
+                        )
+                    )
+                },
+                start,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
     }
     private val errorLabel = WLabel(context).apply {
+        id = UIComponentsR.id.agent_consent_error
         gravity = Gravity.CENTER
         setStyle(14f)
         isGone = true
@@ -81,7 +124,8 @@ class AgentConsentView(context: Context) : WView(context) {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         setPadding(24.dp, 28.dp, 24.dp, 28.dp)
-        addView(titleLabel, matchWidth())
+        addView(spinningTop, LinearLayout.LayoutParams(74.dp, 74.dp))
+        addView(titleLabel, matchWidth(topMargin = 14.dp))
         addView(subtitleLabel, matchWidth(topMargin = 12.dp))
         featureLabels.forEachIndexed { index, label ->
             addView(label, matchWidth(topMargin = if (index == 0) 32.dp else 18.dp))
@@ -104,6 +148,7 @@ class AgentConsentView(context: Context) : WView(context) {
     }
     private val bottomReversedCornerView = ReversedCornerViewUpsideDown(context, scrollView)
     private val allowButton = WButton(context, WButton.Type.PRIMARY).apply {
+        id = UIComponentsR.id.agent_consent_allow
         text = copy.allowButton
         setOnClickListener { onAllow?.invoke() }
     }
@@ -138,10 +183,30 @@ class AgentConsentView(context: Context) : WView(context) {
         errorLabel.isGone = message.isNullOrBlank()
     }
 
-    fun updateInsets(top: Int, bottom: Int) {
-        if (topInset == top && bottomInset == bottom) return
+    private var bottomCornerRadius = 0f
+
+    private fun setBottomCornerRadius(radius: Float) {
+        if (bottomCornerRadius == radius) return
+        bottomCornerRadius = radius
+        outlineProvider = if (radius > 0f) {
+            object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, -radius.roundToInt(), view.width, view.height, radius)
+                }
+            }
+        } else {
+            ViewOutlineProvider.BACKGROUND
+        }
+        clipToOutline = radius > 0f
+    }
+
+    /** [endsAboveBottomBar]: rounds its own end, since the bar would blur it. */
+    fun updateInsets(top: Int, bottom: Int, endsAboveBottomBar: Boolean = false) {
+        setBottomCornerRadius(if (endsAboveBottomBar) ViewConstants.TOOLBAR_RADIUS.dp else 0f)
+        val contentBottom = if (endsAboveBottomBar) 0 else bottom
+        if (topInset == top && bottomInset == contentBottom) return
         topInset = top
-        bottomInset = bottom
+        bottomInset = contentBottom
         applyInsets()
     }
 
@@ -164,7 +229,7 @@ class AgentConsentView(context: Context) : WView(context) {
         bottomInset + BUTTON_SPACE.dp + ViewConstants.BLOCK_RADIUS.dp.roundToInt()
 
     fun updateTheme() {
-        setBackgroundColor(WColor.Background.color)
+        setBackgroundColor(agentChatBackgroundColor)
         titleLabel.setTextColor(WColor.PrimaryText)
         subtitleLabel.setTextColor(WColor.SecondaryText)
         featureLabels.forEach { it.setTextColor(WColor.PrimaryText) }
@@ -173,10 +238,10 @@ class AgentConsentView(context: Context) : WView(context) {
         searchDisclosureLabel.setTextColor(WColor.SecondaryText)
         errorLabel.setTextColor(WColor.Error)
         disclosureContainer.setBackgroundColor(
-            WColor.SecondaryBackground.color,
+            agentIncomingBubbleColor,
             ViewConstants.BLOCK_RADIUS.dp
         )
-        bottomReversedCornerView.setBlurOverlayColor(WColor.Background.color)
+        bottomReversedCornerView.setBlurOverlayColor(agentChatBackgroundColor)
         bottomReversedCornerView.updateTheme()
         allowButton.updateTheme()
     }

@@ -3,18 +3,18 @@
   "protocolVersion": 3,
   "fixtureInventorySha256": "c8714c4389e099470b35f9f0b22037a86a86603d882419847accbf31a269eb7d",
   "fixtureSha256ByName": {
-    "client-wire-compatibility.v1.json": "5ca991f2f29069bd6753f47504289d2c9cade661c6723c916d290e08aa43abe5",
+    "client-wire-compatibility.v1.json": "237e928c0446e2e5d90aa3413ac62c3d2a12a98fb5f6b1c8862c236aa6b07405",
     "navigation-action-projection.v1.json": "ceb2878536e60aff9e87f359e6ba6b7812d462002a302ebc96b72870633b7b81",
     "p0-action-scope.v3.json": "4925ff50f2bec04fc7e21bb251444b761afdfe3ca11c446db51b122e6fa918f6",
     "privacy-storage-scopes.v2.json": "1ad456e47afea7ed2fdf948ff70200c5d3dd93810d6a5de3c306c83cabb122ec",
     "public-contract-fixture-inventory.v1.json": "c8714c4389e099470b35f9f0b22037a86a86603d882419847accbf31a269eb7d",
-    "public-wire.v1.json": "5e61353216903dfbf9a33c132fc0374f7d648106003b8012714f1aa49c00189f",
+    "public-wire.v1.json": "e4921dc69385a059b58d0c2620dcab03acb8634e0b720b652c78f50237d005ac",
     "run-origin-bindings.v1.json": "a08a980e2be402b11205c9f0bff44fe821749204b7bf6770951817fc8a7cb8d6",
     "send-amount-normalization.v1.json": "9fee6301da4dc094255cbbc65baa5dd320cdf023f8e563ecb0de88ab02acec92",
     "terminal-structured-output-stream.v1.json": "a8a9e34601b156e682aad7fc85d298306615e916c27c9c010b537885329a5c46",
     "wallet-asset-symbol-matching.v1.json": "5096c06dbd171131256c13bf1c4fbe10a62f0d2580527b4a12e34ab4b9a47acc"
   },
   "walletFilterCatalogSha256": "cbb752f15d98c9b9928dcd1c7db5a3b0b89b61387a308d8b0394680862021168",
-  "publicTypesSha256": "92a4827d1fa8445ef314629fa483862dd2753e4bda69395432c6409a50bac168",
-  "publicConstantsSha256": "45e70676d3b9affe7de28d9597acf6745dd591c648e4ca887189b17714952993"
+  "publicTypesSha256": "aea8ab6656ddafbde195595d52d4eb3876d48bcef61b5387b7b7e32c6b340465",
+  "publicConstantsSha256": "cb51afd37abfa104cfc2f070990b78efb5978f500dc33060ec4e4034c8c2c0f5"
 }

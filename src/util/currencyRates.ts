@@ -38,7 +38,7 @@ export function sanitizeCurrencyRates(rates: Partial<ApiCurrencyRates> | undefin
  * `Big` - it reads `'0x10'` and tolerates surrounding spaces, both of which `Big` rejects - so a
  * check written in terms of `Number` would pass values that still throw downstream.
  */
-function isUsableRate(rate: unknown): rate is string {
+export function isUsableRate(rate: unknown): rate is string {
   if (typeof rate !== 'string') {
     return false;
   }

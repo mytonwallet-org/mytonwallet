@@ -58,6 +58,7 @@ final class TokenSendReviewViewController: WViewController {
             confirmButton.setTitle(lang("Confirm"), for: .normal)
             let editButton = WButton(style: .secondary)
             editButton.setTitle(lang("Edit"), for: .normal)
+            editButton.accessibilityIdentifier = "send_edit"
             self.editButton = editButton
         case .sellToMoonpay:
             navigationItem.title = lang("Sell")
@@ -92,6 +93,7 @@ final class TokenSendReviewViewController: WViewController {
     }
 
     private func setupButtons() {
+        confirmButton.accessibilityIdentifier = "send_confirm"
         confirmButton.translatesAutoresizingMaskIntoConstraints = false
         confirmButton.addTarget(
             self,

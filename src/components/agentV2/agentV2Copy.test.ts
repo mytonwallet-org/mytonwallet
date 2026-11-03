@@ -14,7 +14,7 @@ lang.code = 'en';
 
 describe('Agent V2 error copy', () => {
   it('distinguishes a transport interruption from provider availability failures', () => {
-    expect(getAgentV2ErrorText('network_error', lang)).toBe('$agent_connection_interrupted');
+    expect(getAgentV2ErrorText('network_error', lang)).toBe('$agent_connection_lost');
     expect(getAgentV2ErrorText('provider_timeout', lang)).toBe('$agent_capacity_limit_unknown');
     expect(getAgentV2ErrorText('provider_unavailable', lang)).toBe('$agent_capacity_limit_unknown');
   });

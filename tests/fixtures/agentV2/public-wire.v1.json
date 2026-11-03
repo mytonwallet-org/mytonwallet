@@ -2,6 +2,102 @@
   "schemaVersion": 1,
   "fixtures": [
     {
+      "schema": "AgentNewsFeedRequestV2",
+      "valid": [
+        {
+          "locale": "ru"
+        },
+        {
+          "locale": "en",
+          "cursor": "2026-10-19T09:00:00.000Z:42=="
+        }
+      ],
+      "invalid": [
+        {
+          "locale": "de"
+        },
+        {
+          "locale": "en",
+          "cursor": ""
+        },
+        {
+          "locale": "ru",
+          "limit": 10
+        }
+      ]
+    },
+    {
+      "schema": "AgentNewsFeedPageV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "locale": "en",
+          "items": [
+            {
+              "eventId": 42,
+              "deliveredAt": "2026-10-19T09:00:00.000Z",
+              "headline": "TON network update",
+              "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+              "sources": [
+                {
+                  "name": "TON Blog",
+                  "url": "https://blog.ton.org/network-update"
+                },
+                {
+                  "url": "https://mytonwallet.io/news/network-update"
+                }
+              ],
+              "discussion": {
+                "threadId": "33333333-3333-4333-8333-333333333333",
+                "icon": "📰"
+              }
+            },
+            {
+              "eventId": 41,
+              "deliveredAt": "2026-10-19T08:00:00.000Z",
+              "headline": "Wallet update",
+              "body": "A new wallet release is available.",
+              "sources": [
+                {
+                  "url": "https://mytonwallet.io/news/wallet-update"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "protocolVersion": 3,
+          "locale": "ru",
+          "items": []
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "locale": "en",
+          "items": [
+            {
+              "eventId": 42,
+              "deliveredAt": "2026-10-19T09:00:00.000Z",
+              "headline": "TON network update",
+              "body": "The latest network update is available.",
+              "sources": [],
+              "discussion": {
+                "threadId": "not-a-thread"
+              }
+            }
+          ]
+        },
+        {
+          "protocolVersion": 3,
+          "locale": "ru",
+          "items": [],
+          "nextCursor": ""
+        }
+      ]
+    },
+    {
       "schema": "AgentUserQuotaResponseV2",
       "valid": [
         {
@@ -406,6 +502,10 @@
           "retryable": true,
           "retryAfterMs": 60000,
           "resetAt": "2026-07-29T18:00:00.000Z"
+        },
+        {
+          "code": "news_unavailable",
+          "retryable": true
         }
       ],
       "invalid": [
@@ -419,6 +519,10 @@
           "userMessage": "Agent is temporarily unavailable.",
           "retryable": true,
           "resetAt": "2026-07-29T18:00:00.000Z"
+        },
+        {
+          "code": "news_unavailable",
+          "retryable": false
         }
       ]
     },
@@ -464,6 +568,16 @@
         {
           "protocolVersion": 3,
           "deviceId": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "protocolVersion": 3,
+          "deviceId": "11111111-1111-4111-8111-111111111111",
+          "context": {
+            "platform": "ios",
+            "client": "native",
+            "appName": "My Wallet",
+            "appVersion": "26.10.5"
+          }
         }
       ],
       "invalid": [
@@ -471,6 +585,215 @@
           "protocolVersion": 3,
           "deviceId": "not-a-uuid",
           "clientOperationId": "22222222-2222-4222-8222-222222222222"
+        },
+        {
+          "protocolVersion": 3,
+          "deviceId": "11111111-1111-4111-8111-111111111111",
+          "context": {
+            "platform": "ios",
+            "lang": "en"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadCreateRequestV2",
+      "valid": [
+        {
+          "protocolVersion": 3
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 1,
+            "locale": "ru"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 2147483647,
+            "locale": "en"
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 0,
+            "locale": "ru"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 2147483648,
+            "locale": "en"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 1.5,
+            "locale": "en"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": "42",
+            "locale": "en"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 42,
+            "locale": "de"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 42
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "locale": "ru"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 42,
+            "locale": "en",
+            "headline": "Untrusted title"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadNewsCardV2",
+      "valid": [
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+          "sources": [
+            {
+              "name": "TON Blog",
+              "url": "https://blog.ton.org/network-update"
+            },
+            {
+              "url": "https://mytonwallet.io/news/network-update"
+            }
+          ],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "publishedAt": "2026-10-19T09:00:00.000Z"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": "",
+          "sources": [],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        }
+      ],
+      "invalid": [
+        {
+          "headline": "TON network update",
+          "publishedAt": "2026-10-19T09:00:00.000Z"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": 42,
+          "sources": [
+            {
+              "name": "TON Blog",
+              "url": "https://blog.ton.org/network-update"
+            },
+            {
+              "url": "https://mytonwallet.io/news/network-update"
+            }
+          ],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+          "sources": [
+            {
+              "url": ""
+            }
+          ],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+          "sources": [
+            {
+              "url": "https://blog.ton.org/network-update",
+              "name": ""
+            }
+          ],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
+        },
+        {
+          "eventId": 42,
+          "headline": "TON network update",
+          "excerpt": "The update improves network performance.",
+          "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+          "sources": [
+            {
+              "url": "https://blog.ton.org/network-update",
+              "unknown": true
+            }
+          ],
+          "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+          "publishedAt": "2026-10-19T09:00:00.000Z",
+          "source": "MyPulse News"
         }
       ]
     },
@@ -495,6 +818,62 @@
           "title": "Taxes 2026",
           "hasCustomTitle": true,
           "isPinned": true
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 1,
+          "createdAt": "2026-07-12T00:00:00.000Z",
+          "updatedAt": "2026-07-12T00:00:00.000Z",
+          "lastActivityAt": "2026-07-12T00:00:00.000Z",
+          "messageCount": 0,
+          "news": {
+            "eventId": 42,
+            "headline": "TON network update",
+            "excerpt": "The update improves network performance.",
+            "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+            "publishedAt": "2026-10-19T09:00:00.000Z",
+            "source": "MyPulse News"
+          }
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 1,
+          "createdAt": "2026-07-12T00:00:00.000Z",
+          "updatedAt": "2026-07-12T00:00:00.000Z",
+          "lastActivityAt": "2026-07-12T00:00:00.000Z",
+          "messageCount": 0,
+          "news": {
+            "eventId": 42,
+            "headline": "TON network update",
+            "publishedAt": "2026-10-19T09:00:00.000Z"
+          }
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 2,
+          "createdAt": "2026-10-19T09:00:00.000Z",
+          "updatedAt": "2026-10-19T09:00:00.000Z",
+          "lastActivityAt": "2026-10-19T09:00:00.000Z",
+          "messageCount": 1,
+          "title": "TON network update",
+          "news": {
+            "eventId": 42,
+            "headline": "TON network update",
+            "excerpt": "The update improves network performance.",
+            "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+            "sources": [
+              {
+                "name": "TON Blog",
+                "url": "https://blog.ton.org/network-update"
+              },
+              {
+                "url": "https://mytonwallet.io/news/network-update"
+              }
+            ],
+            "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+            "publishedAt": "2026-10-19T09:00:00.000Z",
+            "source": "MyPulse News"
+          }
         }
       ],
       "invalid": [
@@ -511,6 +890,34 @@
           "updatedAt": "2026-07-12T00:00:00.000Z",
           "lastActivityAt": "2026-07-12T00:00:00.000Z",
           "messageCount": 0
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 1,
+          "createdAt": "2026-07-12T00:00:00.000Z",
+          "updatedAt": "2026-07-12T00:00:00.000Z",
+          "lastActivityAt": "2026-07-12T00:00:00.000Z",
+          "messageCount": 0,
+          "news": {
+            "headline": "TON network update",
+            "publishedAt": "2026-10-19T09:00:00.000Z"
+          }
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 1,
+          "createdAt": "2026-07-12T00:00:00.000Z",
+          "updatedAt": "2026-07-12T00:00:00.000Z",
+          "lastActivityAt": "2026-07-12T00:00:00.000Z",
+          "messageCount": 0,
+          "news": {
+            "eventId": 42,
+            "headline": "TON network update",
+            "excerpt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+            "publishedAt": "2026-10-19T09:00:00.000Z",
+            "source": "MyPulse News"
+          }
         }
       ]
     },
@@ -521,24 +928,29 @@
           "protocolVersion": 3,
           "threads": [
             {
-              "id": "33333333-3333-4333-8333-333333333333",
-              "revision": 4,
-              "createdAt": "2026-07-12T00:00:00.000Z",
-              "updatedAt": "2026-07-12T00:00:00.000Z",
-              "lastActivityAt": "2026-07-12T00:00:00.000Z",
-              "messageCount": 2,
-              "title": "Taxes 2026",
-              "hasCustomTitle": true,
-              "isPinned": true
+              "thread": {
+                "id": "33333333-3333-4333-8333-333333333333",
+                "revision": 4,
+                "createdAt": "2026-07-12T00:00:00.000Z",
+                "updatedAt": "2026-07-12T00:00:00.000Z",
+                "lastActivityAt": "2026-07-12T00:00:00.000Z",
+                "messageCount": 2,
+                "title": "Taxes 2026",
+                "hasCustomTitle": true,
+                "isPinned": true
+              },
+              "preview": "Your tax report is ready."
             },
             {
-              "id": "34343434-3434-4434-8434-343434343434",
-              "revision": 3,
-              "createdAt": "2026-07-12T00:00:00.000Z",
-              "updatedAt": "2026-07-12T00:00:00.000Z",
-              "lastActivityAt": "2026-07-12T00:00:00.000Z",
-              "messageCount": 2,
-              "title": "How do I buy TON?"
+              "thread": {
+                "id": "34343434-3434-4434-8434-343434343434",
+                "revision": 3,
+                "createdAt": "2026-07-12T00:00:00.000Z",
+                "updatedAt": "2026-07-12T00:00:00.000Z",
+                "lastActivityAt": "2026-07-12T00:00:00.000Z",
+                "messageCount": 2,
+                "title": "How do I buy TON?"
+              }
             }
           ],
           "nextCursor": "eyJpc1Bpbm5lZCI6ZmFsc2UsImxhc3RBY3Rpdml0eUF0IjoiMjAyNi0wNy0xMlQwMDowMDowMC4wMDAwMDBaIiwiaWQiOiIzNDM0MzQzNC0zNDM0LTQ0MzQtODQzNC0zNDM0MzQzNDM0MzQifQ"
@@ -553,14 +965,16 @@
           "protocolVersion": 3,
           "threads": [
             {
-              "id": "34343434-3434-4434-8434-343434343434",
-              "revision": 3,
-              "createdAt": "2026-07-12T00:00:00.000Z",
-              "updatedAt": "2026-07-12T00:00:00.000Z",
-              "lastActivityAt": "2026-07-12T00:00:00.000Z",
-              "messageCount": 2,
-              "title": "How do I buy TON?",
-              "isPinned": false
+              "thread": {
+                "id": "34343434-3434-4434-8434-343434343434",
+                "revision": 3,
+                "createdAt": "2026-07-12T00:00:00.000Z",
+                "updatedAt": "2026-07-12T00:00:00.000Z",
+                "lastActivityAt": "2026-07-12T00:00:00.000Z",
+                "messageCount": 2,
+                "title": "How do I buy TON?",
+                "isPinned": false
+              }
             }
           ]
         },
@@ -568,6 +982,23 @@
           "protocolVersion": 3,
           "threads": [],
           "nextCursor": "not a cursor"
+        },
+        {
+          "protocolVersion": 3,
+          "threads": [
+            {
+              "thread": {
+                "id": "34343434-3434-4434-8434-343434343434",
+                "revision": 3,
+                "createdAt": "2026-07-12T00:00:00.000Z",
+                "updatedAt": "2026-07-12T00:00:00.000Z",
+                "lastActivityAt": "2026-07-12T00:00:00.000Z",
+                "messageCount": 2,
+                "title": "How do I buy TON?"
+              },
+              "preview": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ]
         }
       ]
     },
@@ -584,6 +1015,175 @@
         {
           "protocolVersion": 3,
           "threadId": "33333333-3333-4333-8333-333333333333"
+        }
+      ]
+    },
+    {
+      "schema": "AgentTranscriptionRequestV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "m4a",
+          "lang": "ru"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "ogg_opus",
+          "lang": "zh-Hant-TW"
+        }
+      ],
+      "invalid": [
+        {
+          "audio": "YXVkaW8=",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 2,
+          "audio": "YXVkaW8=",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "not base64",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8",
+          "format": "webm"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "mp3"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "webm",
+          "lang": "ru_RU"
+        },
+        {
+          "protocolVersion": 3,
+          "audio": "YXVkaW8=",
+          "format": "webm",
+          "language": "ru"
+        }
+      ]
+    },
+    {
+      "schema": "AgentTranscriptionResponseV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "outcome": "transcribed",
+          "text": "Send a message"
+        },
+        {
+          "protocolVersion": 3,
+          "outcome": "no_speech"
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "outcome": "transcribed"
+        },
+        {
+          "protocolVersion": 3,
+          "outcome": "transcribed",
+          "text": ""
+        },
+        {
+          "protocolVersion": 3,
+          "outcome": "transcribed",
+          "text": "   "
+        },
+        {
+          "protocolVersion": 3,
+          "outcome": "transcribed",
+          "text": "Send a message",
+          "provider": "inworld"
+        },
+        {
+          "protocolVersion": 3,
+          "outcome": "no_speech",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "schema": "AgentApiErrorV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "recording_too_large",
+            "retryable": false
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "audio_unreadable",
+            "retryable": false
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "transcription_unavailable",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "news_unavailable",
+            "retryable": true
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "recording_too_large",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "audio_unreadable",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "transcription_unavailable",
+            "retryable": false
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "news_unavailable",
+            "retryable": false
+          }
         }
       ]
     },
@@ -3727,6 +4327,45 @@
       ]
     },
     {
+      "schema": "AgentEntryPoint",
+      "valid": [
+        {
+          "kind": "pulseNews",
+          "eventId": 1
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": 2147483647
+        }
+      ],
+      "invalid": [
+        {
+          "kind": "pulseNews"
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": 0
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": 2147483648
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": 1.5
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": "1"
+        },
+        {
+          "kind": "pulseNews",
+          "eventId": 1,
+          "headline": "App-supplied headline"
+        }
+      ]
+    },
+    {
       "schema": "AgentRunRequestV2",
       "valid": [
         {
@@ -4319,6 +4958,124 @@
             "status": "complete",
             "items": []
           }
+        }
+      ],
+      "invalid": []
+    },
+    {
+      "schema": "AgentThreadCreateResponseV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 2,
+            "createdAt": "2026-10-19T09:00:00.000Z",
+            "updatedAt": "2026-10-19T09:00:00.000Z",
+            "lastActivityAt": "2026-10-19T09:00:00.000Z",
+            "messageCount": 1,
+            "title": "TON network update",
+            "news": {
+              "eventId": 42,
+              "headline": "TON network update",
+              "excerpt": "The update improves network performance.",
+              "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+              "sources": [
+                {
+                  "name": "TON Blog",
+                  "url": "https://blog.ton.org/network-update"
+                },
+                {
+                  "url": "https://mytonwallet.io/news/network-update"
+                }
+              ],
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+              "publishedAt": "2026-10-19T09:00:00.000Z",
+              "source": "MyPulse News"
+            }
+          },
+          "created": true
+        }
+      ],
+      "invalid": []
+    },
+    {
+      "schema": "AgentPersistedMessageV2",
+      "valid": [
+        {
+          "id": "38383838-3838-4838-8838-383838383838",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "assistant",
+          "status": "complete",
+          "content": {
+            "kind": "markdown",
+            "text": "**TON network update**\n\nThe latest **network update** is available.\n\nRead the release notes for details."
+          },
+          "createdAt": "2026-10-19T09:00:00.000Z",
+          "newsPost": true
+        }
+      ],
+      "invalid": [
+        {
+          "id": "38383838-3838-4838-8838-383838383838",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "assistant",
+          "status": "complete",
+          "content": {
+            "kind": "markdown",
+            "text": "**TON network update**\n\nThe latest **network update** is available.\n\nRead the release notes for details."
+          },
+          "createdAt": "2026-10-19T09:00:00.000Z",
+          "newsPost": false
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 2,
+            "createdAt": "2026-10-19T09:00:00.000Z",
+            "updatedAt": "2026-10-19T09:00:00.000Z",
+            "lastActivityAt": "2026-10-19T09:00:00.000Z",
+            "messageCount": 1,
+            "title": "TON network update",
+            "news": {
+              "eventId": 42,
+              "headline": "TON network update",
+              "excerpt": "The update improves network performance.",
+              "body": "The latest **network update** is available.\n\nRead the release notes for details.",
+              "sources": [
+                {
+                  "name": "TON Blog",
+                  "url": "https://blog.ton.org/network-update"
+                },
+                {
+                  "url": "https://mytonwallet.io/news/network-update"
+                }
+              ],
+              "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
+              "publishedAt": "2026-10-19T09:00:00.000Z",
+              "source": "MyPulse News"
+            }
+          },
+          "messages": [
+            {
+              "id": "38383838-3838-4838-8838-383838383838",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "**TON network update**\n\nThe latest **network update** is available.\n\nRead the release notes for details."
+              },
+              "createdAt": "2026-10-19T09:00:00.000Z",
+              "newsPost": true
+            }
+          ]
         }
       ],
       "invalid": []

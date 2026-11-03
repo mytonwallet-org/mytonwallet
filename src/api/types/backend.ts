@@ -184,6 +184,8 @@ export type ApiSwapEstimateResponse = (
   | { error: string }
 ) & { hint?: ApiSwapHint; debug?: ApiSwapEstimateDebug };
 
+export type ApiSwapEstimateRequestErrors = { errors: { msg: string }[] };
+
 export type ApiSwapBuildTransactionRequest = {
   from: string;
   to: string;
@@ -615,6 +617,8 @@ export type ApiCardOverlayPromotion = {
 
 export type ApiBackendConfig = {
   isLimited: boolean;
+  /** Narrower than `isLimited`: covers only swaps and the on-ramp. Absent on older backends */
+  isSwapAndOnRampLimited?: boolean;
   isCopyStorageEnabled?: boolean;
   supportAccountsCount?: number;
   now: number;

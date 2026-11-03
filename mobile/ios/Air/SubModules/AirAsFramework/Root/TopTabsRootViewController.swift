@@ -2,6 +2,7 @@ import ContextMenuKit
 import SwiftUI
 import SwiftNavigation
 import UIKit
+import UIAgent
 import UIBrowser
 import UIAssets
 import UIComponents
@@ -13,19 +14,20 @@ import WalletCore
 private let topTabsNavigationBarHeight: CGFloat = 44
 private let topTabsSegmentedControlHeight: CGFloat = 40
 private let topTabsNavigationBarSpacing: CGFloat = 10
-private let topTabsAccountAvatarSize: CGFloat = 36
 
 @MainActor
 final class TopTabsRootViewController: WViewController, VisibleContentProviding {
     private enum Page: Int {
         case wallet
         case market
+        case agent
         case explore
 
         var navigationTitle: String {
             switch self {
             case .wallet: lang("Wallet")
             case .market: lang("Market")
+            case .agent: lang("Agent")
             case .explore: lang("Explore")
             }
         }
@@ -44,6 +46,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     private let walletPage: TopTabsPageViewController
     private let marketPage: TopTabsPageViewController
+    private let agentPage: TopTabsPageViewController
     private let explorePage: TopTabsPageViewController
 
     private var pager: WPagerViewController!
@@ -54,6 +57,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var sideHeaderConstraints: [NSLayoutConstraint] = []
     private var sideHeaderCenterConstraint: NSLayoutConstraint?
     private var sideHeaderTopConstraint: NSLayoutConstraint?
+    private var sideTabTopConstraint: NSLayoutConstraint?
     private enum SideTabEdge { case left, right }
     private var sideTabEdge: SideTabEdge?
     private var sideTabBar: UIView?
@@ -62,12 +66,30 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         sideTabEdge != nil && (selectedPage != .wallet || homeVC.walletAssetsEditingNavigator?.state.editingState == nil)
     }
     private var navigationBarTitleWidthConstraint: NSLayoutConstraint?
-    private let accountSwitcherButton = TopTabsAccountButton()
+    private var tabControlTrailingConstraint: NSLayoutConstraint?
+    private var toolbarSettingsObservation: NSObjectProtocol?
+    private var accountVisibilityAnimationID: UUID?
+    private var accountButtonPlacement: (isHidden: Bool, trailingSpacing: CGFloat)?
+    private var headerPlatterTransition: AgentHeaderPlatterTransition?
+    /// A chat composed in the list is taking the screen's place, carrying the header with it
+    private var isPresentingComposedChat = false
+    /// The tabs' content as they last showed, for a pop that brings them back while they are not on screen
+    private var tabsTransitionSnapshot: UIView?
+    private lazy var composeHeaderSwap = AgentComposeHeaderSwap { [weak self] in
+        self?.view.window?.endEditing(true)
+    }
+    private let accountSwitcherButton = WalletAccountButton()
     let searchController: RootSearchToolbarController
     private var accountSwitcherMenuInteraction: ContextMenuInteraction?
     private var isSearchVisible: Bool { searchController.isSearchVisible }
 
     private var accountObservation: ObserveToken?
+    private struct TintedBackground {
+        weak var view: UIView?
+        let original: UIColor?
+    }
+    private var tintedPageBackgrounds: [ObjectIdentifier: [TintedBackground]] = [:]
+    private var appliedPageTintShares: [Page: CGFloat?] = [:]
     private var sharedNavigationPaths: [Page: [UIViewController]] = [:]
     private var activePage: Page = .wallet {
         didSet {
@@ -98,6 +120,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         return switch selectedPage {
         case .explore: .explore
         case .market: .market
+        case .agent: .agent
         case .wallet: .wallet
         }
     }
@@ -123,6 +146,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         self.marketPage = TopTabsPageViewController {
             MarketVC(showsLargeTitle: false, usesTopTabsChrome: true)
         }
+        self.agentPage = TopTabsPageViewController {
+            AgentThreadListVC(userDefaults: .standard)
+        }
         self.explorePage = TopTabsPageViewController {
             ExploreTabVC(showsSearchBar: false, showsLargeTitle: false, usesTopTabsChrome: true)
         }
@@ -140,33 +166,196 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         title = activePage.navigationTitle
         view.backgroundColor = .air.groupedBackground
 
-        let pages = [walletPage, marketPage, explorePage]
+        let pages = [walletPage, marketPage, agentPage, explorePage]
+        AgentHeaderPlatterTransition.installBetweenChats()
         searchController.attach(to: self)
         pages.forEach { page in
             page.onLoadContent = { [weak self] in self?.applyChromeInsets(to: $0) }
         }
+        agentPage.onLoadContent = { [weak self] controller in
+            self?.applyChromeInsets(to: controller)
+            self?.installAgentBottomBar(from: controller)
+        }
         pages.compactMap(\.loadedContentViewController).forEach(applyChromeInsets)
+        agentPage.loadedContentViewController.map(installAgentBottomBar)
         configurePager()
         configureToolbarPaging()
         observeHomeWalletAssetsEditingState()
         observeAccountSwitcher()
         observeHomeUpdateStatus()
+        toolbarSettingsObservation = NotificationCenter.default.addObserver(
+            forName: ToolbarSettings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateAccountButtonPlacement(animated: true) }
+        }
         if #available(iOS 27.1, *) {
             registerForTraitChanges(UITraitCollection.systemTraitsAffectingVerticalBarEdge + [UITraitLayoutDirection.self]) { (controller: TopTabsRootViewController, _: UITraitCollection) in
                 controller.updateTabBarPlacement()
             }
         }
         updateTabBarPlacement()
+        updateAccountButtonPlacement(animated: false)
+    }
+
+    deinit {
+        if let toolbarSettingsObservation { NotificationCenter.default.removeObserver(toolbarSettingsObservation) }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updateTabBarPlacement()
+        animateTabsChatHandoff(isCollapsing: false)
+        if let coordinator = transitionCoordinator, coordinator.isAnimated {
+            // The header lives in the navigation bar's title view, which stays put while this screen springs past the
+            // leading edge after a fast swipe back: the capsules move along with the screen so they don't show beside it.
+            // Their glass takes the move from the title view around its container, not from the container itself.
+            NavigationOvershootFollower.follow(coordinator) { [weak self] offset, _ in
+                self?.tabControlContainer.transform = offset == 0 ? .identity : CGAffineTransform(translationX: offset, y: 0)
+            }
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.cancelInteraction() }
+        animateTabsChatHandoff(isCollapsing: true)
+    }
+
+    /// Pushing a chat from the Agent list turns the tabs' capsule into the chat's title pill, out of which its threads
+    /// button grows, and the avatar's into its more button; popping turns them back
+    private func animateTabsChatHandoff(isCollapsing: Bool) {
+        if isPresentingComposedChat {
+            // The composed chat's own transition carries the header; the new chat's header steps aside under it
+            composeHeaderSwap.setActive(false, animated: false)
+            updatePagingEnabled()
+            return
+        }
+        headerPlatterTransition?.cancel()
+        headerPlatterTransition = nil
+        if isCollapsing, composeHeaderSwap.isActive {
+            // A sent question's chat has the new chat's header in the same place; the bar's crossfade carries it
+            let accepted = transitionCoordinator?.animate(alongsideTransition: nil) { [weak self] context in
+                guard !context.isCancelled else { return }
+                self?.composeHeaderSwap.setActive(false, animated: false)
+            } ?? false
+            if !accepted { composeHeaderSwap.setActive(false, animated: false) }
+            return
+        }
+        guard sideTabEdge == nil, selectedPage == .agent, segmentedControl != nil,
+              let window = view.window ?? navigationController?.view.window,
+              let coordinator = transitionCoordinator, coordinator.isAnimated,
+              let chat = coordinator.viewController(forKey: isCollapsing ? .to : .from) as? any AgentChatNavigationHandoff else {
+            return
+        }
+        let listBar: @MainActor () -> AgentHeaderPlatterTransition.Bar = { [weak self] in
+            self?.makeListHeaderBar() ?? AgentHeaderPlatterTransition.Bar()
+        }
+        let chatBar: @MainActor () -> AgentHeaderPlatterTransition.Bar = { [weak chat] in
+            AgentHeaderPlatterTransition.Bar.chat(chat)
+        }
+        // The chat's title pill swells a third as wide as it turns back into the tabs, as tall as ever
+        let transition = AgentHeaderPlatterTransition(
+            outgoing: isCollapsing ? listBar : chatBar,
+            incoming: isCollapsing ? chatBar : listBar,
+            pillSwellStrength: isCollapsing ? CGSize(width: 1, height: 1) : CGSize(width: 1 / 3, height: 1)
+        )
+        headerPlatterTransition = transition
+        transition.run(in: window, alongside: coordinator)
+    }
+
+    /// A question sent while the list composes one, from its field or its suggestions, continues on the same screen: the
+    /// chat takes the list's place without sliding in, its content fading in over the list's, and the new chat's header
+    /// turns into the chat's where it is. Returns false when the chat should be pushed as usual.
+    private func presentComposedChat(_ chat: UIViewController) -> Bool {
+        guard composeHeaderSwap.isActive, let navigationController = sharedMainNavigationController,
+              navigationController.topViewController === self, navigationController.transitionCoordinator == nil,
+              let window = view.window, chat is any AgentChatNavigationHandoff else { return false }
+        // The field gives up the keyboard first, and the chat comes on the next turn of the run loop, once nothing on
+        // this screen is editing: a field still editing when the chat covers it would take the keyboard back as the
+        // chat closes
+        isPresentingComposedChat = true
+        searchController.agentBar.beginComposedChatHandoff()
+        window.endEditing(true)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let isShown = showComposedChat(chat)
+            isPresentingComposedChat = false
+            if !isShown {
+                composeHeaderSwap.setActive(false, animated: false)
+                updatePagingEnabled()
+                navigationController.pushViewController(chat, animated: true)
+            }
+        }
+        return true
+    }
+
+    private func showComposedChat(_ chat: UIViewController) -> Bool {
+        guard composeHeaderSwap.isActive, let navigationController = sharedMainNavigationController,
+              navigationController.topViewController === self, navigationController.transitionCoordinator == nil,
+              let window = view.window, let handoff = chat as? any AgentChatNavigationHandoff else { return false }
+        headerPlatterTransition?.cancel()
+        let transition = AgentHeaderPlatterTransition(
+            outgoing: { [weak self] in self?.composeHeaderSwap.makeBar() ?? AgentHeaderPlatterTransition.Bar() },
+            incoming: { [weak handoff] in AgentHeaderPlatterTransition.Bar.chat(handoff) }
+        )
+        headerPlatterTransition = transition
+        transition.run(in: window) {
+            let push = { navigationController.pushViewController(chat, animated: false) }
+            if UIAccessibility.isReduceMotionEnabled {
+                push()
+            } else {
+                UIView.transition(
+                    with: navigationController.view,
+                    duration: 0.25,
+                    options: [.transitionCrossDissolve, .allowUserInteraction],
+                    animations: push
+                )
+            }
+            navigationController.view.layoutIfNeeded()
+        }
+        return true
+    }
+
+    /// The list header's capsules for the header transitions: the tabs and the wallet avatar
+    private func makeListHeaderBar() -> AgentHeaderPlatterTransition.Bar {
+        let hasAvatar = accountButtonPlacement?.isHidden != true
+        // The tabs and the avatar share one glass container, which the transition hides as a whole: hidden one by
+        // one, each would linger a moment as the container merges it away
+        return AgentHeaderPlatterTransition.Bar(
+            pill: AgentHeaderPlatterTransition.Capsule(
+                view: segmentedControl,
+                makeItem: { [weak self] in self?.makeTabsTransitionItem() },
+                shouldSwapOnHandOff: true,
+                shouldKeepContentScale: true,
+                hidingView: tabControlContainer
+            ),
+            trailing: hasAvatar ? AgentHeaderPlatterTransition.Capsule(
+                view: accountSwitcherButton,
+                makeItem: { [weak self] in self?.accountSwitcherButton.makeContentCopy() },
+                hidingView: tabControlContainer
+            ) : nil,
+            // With the avatar in the bottom toolbar, the chat's more button grows out of the tabs
+            isTrailingGrowingFromPill: !hasAvatar
+        )
+    }
+
+    /// The tabs' content for the header transition: taken fresh while they show, kept for the way back
+    private func makeTabsTransitionItem() -> UIView? {
+        if let snapshot = segmentedControl.makeContentSnapshot() {
+            tabsTransitionSnapshot = snapshot
+            return snapshot
+        }
+        guard let snapshot = tabsTransitionSnapshot else { return nil }
+        snapshot.removeFromSuperview()
+        snapshot.transform = .identity
+        snapshot.alpha = 1
+        return snapshot
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        installSettingsMorph()
+        settingsMorphSource = nil
     }
 
     override func viewDidLayoutSubviews() {
@@ -253,6 +442,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         switch id {
         case .wallet: page = .wallet
         case .market: page = .market
+        case .agent: page = .agent
         case .explore: page = .explore
         default: return false
         }
@@ -266,10 +456,22 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if popToRoot {
             sharedNavigationPaths[page] = []
         }
+        if animated, page.rawValue != pager.selectedIndex {
+            segmentedControl.beginSelectionScroll(toItemId: id.rawValue)
+        }
         pager.select(index: page.rawValue, animated: animated)
         if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(page.rawValue, animated: animated) }
         installSharedNavigationPath(for: page)
         return true
+    }
+
+    func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
+        discardSearch()
+        selectTab(.agent, popToRoot: true, animated: false)
+        sharedMainNavigationController?.pushViewController(
+            AgentEntryPoint.makeNewChatViewController(query: query, entryPoint: entryPoint),
+            animated: true
+        )
     }
 
     func switchToHome(popToRoot: Bool) {
@@ -329,6 +531,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 viewController: marketPage
             ),
             SegmentedControlItem(
+                id: AppTabId.agent.rawValue,
+                title: lang("Agent"),
+                isDeletable: false,
+                accessibilityIdentifier: "tab_agent",
+                viewController: agentPage
+            ),
+            SegmentedControlItem(
                 id: AppTabId.explore.rawValue,
                 title: lang("Explore"),
                 isDeletable: false,
@@ -351,16 +560,27 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             self?.selectTab(AppTabId(item.id))
         }
 
-        let pages = [walletPage, marketPage, explorePage]
+        let pages = [walletPage, marketPage, agentPage, explorePage]
         let pager = WPagerViewController(pages: zip(items, pages).map { item, page in
             .init(id: item.id, makeViewController: { page })
         }, preloadsPages: true)
         self.pager = pager
         pager.onProgressChanged = { [weak self] progress in
             self?.segmentedControl.setPagingProgress(progress.logicalOffset)
+            let agent = Page.agent.rawValue
+            if progress.source == agent, progress.destination != agent {
+                self?.updateAgentPaging(agentShare: 1 - progress.fraction, neighbor: Page(rawValue: progress.destination))
+            } else if progress.destination == agent, progress.source != agent {
+                self?.updateAgentPaging(agentShare: progress.fraction, neighbor: Page(rawValue: progress.source))
+            } else {
+                self?.updateAgentPaging(agentShare: progress.source == agent ? 1 : 0, neighbor: nil)
+            }
         }
         pager.onSelectionChanged = { [weak self] index in
             self?.pagerDidSelect(index)
+        }
+        pager.onCommittedIndexChanged = { [weak self] index in
+            self?.updateAgentBottomBar(committedIndex: index)
         }
         addChild(pager)
         view.addStretchedToBounds(subview: pager.view)
@@ -385,7 +605,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         tabControlContainer.backgroundColor = .clear
         tabControlContainer.translatesAutoresizingMaskIntoConstraints = false
         let contentView: UIView
-        if #available(iOS 26, iOSApplicationExtension 26, *) {
+        if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
             let effect = UIGlassContainerEffect()
             effect.spacing = topTabsNavigationBarSpacing
             let glassContainerView = UIVisualEffectView(effect: effect)
@@ -404,6 +624,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         headerContentView = contentView
         contentView.addSubview(accountSwitcherButton)
         contentView.addSubview(segmentedControl)
+        composeHeaderSwap.install(in: contentView, tabs: segmentedControl, avatar: accountSwitcherButton) { [weak self] in
+            self?.makeListHeaderBar() ?? AgentHeaderPlatterTransition.Bar()
+        }
         navigationItem.titleView = tabControlContainer
 
         let titleWidthConstraint = tabControlContainer.widthAnchor.constraint(
@@ -411,6 +634,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         )
         navigationBarTitleWidthConstraint = titleWidthConstraint
 
+        let tabControlTrailingConstraint = segmentedControl.trailingAnchor.constraint(
+            equalTo: accountSwitcherButton.leadingAnchor, constant: -topTabsNavigationBarSpacing
+        )
+        self.tabControlTrailingConstraint = tabControlTrailingConstraint
         horizontalHeaderConstraints = [
             titleWidthConstraint,
             tabControlContainer.heightAnchor.constraint(equalToConstant: topTabsNavigationBarHeight),
@@ -421,10 +648,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             accountSwitcherButton.heightAnchor.constraint(equalToConstant: topTabsNavigationBarHeight),
 
             segmentedControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            segmentedControl.trailingAnchor.constraint(
-                equalTo: accountSwitcherButton.leadingAnchor,
-                constant: -topTabsNavigationBarSpacing
-            ),
+            tabControlTrailingConstraint,
             segmentedControl.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             segmentedControl.heightAnchor.constraint(equalToConstant: topTabsSegmentedControlHeight),
         ]
@@ -448,14 +672,16 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return
         }
         if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.cancelInteraction() }
+        composeHeaderSwap.setActive(false, animated: false)
         sideTabEdge = edge
         NSLayoutConstraint.deactivate(sideHeaderConstraints)
         sideHeaderConstraints = []
         sideHeaderCenterConstraint = nil
         sideHeaderTopConstraint = nil
+        sideTabTopConstraint = nil
         if let edge, #available(iOS 27.1, *) {
             if sideTabBar == nil {
-                let ids: [AppTabId] = [.wallet, .market, .explore]
+                let ids: [AppTabId] = [.wallet, .market, .agent, .explore]
                 let items = ids.compactMap { id -> WVerticalTabBar.Item? in
                     guard let registration = AppTabManager.shared.registration(for: id) else { return nil }
                     return .init(id: id.rawValue, title: registration.titleProvider(), image: registration.compactIcon)
@@ -483,13 +709,16 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 let top = accountSwitcherButton.topAnchor.constraint(equalTo: view.topAnchor)
                 sideHeaderCenterConstraint = center
                 sideHeaderTopConstraint = top
+                let tabsTop = bar.topAnchor.constraint(equalTo: accountSwitcherButton.bottomAnchor,
+                    constant: ToolbarSettings.configuration().showsAccounts ? -48 : 12)
+                sideTabTopConstraint = tabsTop
                 sideHeaderConstraints = [
                     center,
                     top,
                     accountSwitcherButton.widthAnchor.constraint(equalToConstant: 48),
                     accountSwitcherButton.heightAnchor.constraint(equalToConstant: 48),
                     bar.centerXAnchor.constraint(equalTo: accountSwitcherButton.centerXAnchor),
-                    bar.topAnchor.constraint(equalTo: accountSwitcherButton.bottomAnchor, constant: 12),
+                    tabsTop,
                     bar.widthAnchor.constraint(equalToConstant: bar.intrinsicContentSize.width),
                     bar.heightAnchor.constraint(equalToConstant: bar.intrinsicContentSize.height),
                 ]
@@ -504,8 +733,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             NSLayoutConstraint.activate(horizontalHeaderConstraints)
         }
         segmentedControl.accessibilityElementsHidden = edge != nil
-        [walletPage, marketPage, explorePage].compactMap(\.loadedContentViewController).forEach(applyChromeInsets)
+        [walletPage, marketPage, agentPage, explorePage].compactMap(\.loadedContentViewController).forEach(applyChromeInsets)
+        agentPage.loadedContentViewController.map(installAgentBottomBar)
         updateHomeWalletAssetsNavigationChrome()
+        updateRootChromeVisibilityForSelectedPage()
     }
 
     private func updateSideHeaderGeometry() {
@@ -536,11 +767,141 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func observeHomeUpdateStatus() {
         homeVC.onUpdateStatusChange = { [weak self] state, animated in
             self?.accountSwitcherButton.setUpdateStatus(state, animated: animated)
+            self?.searchController.searchToolbar.accountsButton.setUpdateStatus(state, animated: animated)
         }
         accountSwitcherButton.setUpdateStatus(homeVC.updateStatus, animated: false)
+        searchController.searchToolbar.accountsButton.setUpdateStatus(homeVC.updateStatus, animated: false)
     }
 
-    private func updateRootChromeVisibilityForSelectedPage() { searchController.updatePresentation() }
+    private func updateAccountButtonPlacement(animated: Bool) {
+        let movedToToolbar = ToolbarSettings.configuration().showsAccounts
+        let isHidden = movedToToolbar
+            || (sideTabEdge != nil && homeVC.walletAssetsEditingNavigator?.state.editingState != nil)
+        let trailingSpacing = movedToToolbar ? topTabsNavigationBarHeight : -topTabsNavigationBarSpacing
+        guard accountButtonPlacement?.isHidden != isHidden || accountButtonPlacement?.trailingSpacing != trailingSpacing else { return }
+        accountButtonPlacement = (isHidden, trailingSpacing)
+        let animationID = UUID()
+        accountVisibilityAnimationID = animationID
+        tabControlContainer.layoutIfNeeded()
+        if sideTabEdge != nil { view.layoutIfNeeded() }
+        sideTabTopConstraint?.constant = movedToToolbar ? -48 : 12
+        tabControlTrailingConstraint?.constant = trailingSpacing
+        accountSwitcherButton.isHidden = false
+        accountSwitcherButton.isUserInteractionEnabled = !isHidden
+        accountSwitcherButton.accessibilityElementsHidden = isHidden
+        let updates = {
+            self.accountSwitcherButton.setToolbarAppearance(showsBackground: !isHidden, showsContent: !isHidden)
+            self.tabControlContainer.layoutIfNeeded()
+            if self.sideTabEdge != nil { self.view.layoutIfNeeded() }
+        }
+        let completion: (Bool) -> Void = { [weak self] _ in
+            guard let self, self.accountVisibilityAnimationID == animationID else { return }
+            self.accountSwitcherButton.isHidden = isHidden
+        }
+        if animated, view.window != nil, UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled {
+            UIView.animate(withDuration: 0.4, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction],
+                           animations: updates, completion: completion)
+        } else {
+            UIView.performWithoutAnimation(updates)
+            completion(true)
+        }
+    }
+
+    private func updateRootChromeVisibilityForSelectedPage() {
+        updateAccountButtonPlacement(animated: view.window != nil)
+        searchController.updatePresentation()
+    }
+
+    private func installAgentBottomBar(from controller: UIViewController) {
+        guard let list = controller as? AgentThreadListVC else { return }
+        list.presentComposedChat = { [weak self] chat in self?.presentComposedChat(chat) ?? false }
+        list.onConsentChanged = { [weak self, weak list] in
+            guard let self, let list else { return }
+            self.searchController.applyChromeInsets(to: list)
+            self.updateAgentBottomBar(committedIndex: self.pager?.committedIndex ?? self.selectedPage.rawValue)
+        }
+        // A side tab bar keeps the toolbar beside the content, so the list lays out its own field there
+        let isBarHostedInToolbar = sideTabEdge == nil
+        list.setBottomBarHostedExternally(isBarHostedInToolbar)
+        if isBarHostedInToolbar {
+            searchController.agentBar.install(list.bottomBar)
+        }
+        updateAgentPaging(agentShare: selectedPage == .agent ? 1 : 0, neighbor: nil)
+        updateAgentBottomBar(committedIndex: pager?.committedIndex ?? selectedPage.rawValue)
+    }
+
+    /// The Agent tab's bar grows out of the toolbar once paging commits to the Agent tab, and goes back into it once
+    /// paging commits elsewhere: as with Telegram's bars, nothing changes while the finger holds the pages
+    private func updateAgentBottomBar(committedIndex: Int) {
+        let isAgent = committedIndex == Page.agent.rawValue
+        let list = agentPage.loadedContentViewController as? AgentThreadListVC
+        searchController.agentBar.isAvailable = list?.isConsentRequired != true
+        searchController.isAgentConsentVisible = isAgent && list?.isConsentRequired == true
+        searchController.agentBar.setMorphProgress(sideTabEdge == nil && isAgent ? 1 : 0)
+    }
+
+    /// The Agent tab's white background fades in with paging on both the Agent list and the page beside it, so the two
+    /// screens change color together.
+    ///
+    /// `agentShare` is how much of the transition the Agent tab occupies; `neighbor` is the other page in it.
+    private func updateAgentPaging(agentShare: CGFloat, neighbor: Page?) {
+        let share = min(1, max(0, agentShare))
+        let list = agentPage.loadedContentViewController as? AgentThreadListVC
+        list?.setTabTransitionProgress(share)
+        for page in [Page.wallet, .market, .explore] {
+            let tintShare: CGFloat? = page == neighbor && share > 0 && list != nil ? share : nil
+            guard appliedPageTintShares[page] != tintShare else { continue }
+            appliedPageTintShares[page] = tintShare
+            tintPageBackground(self.page(for: page), with: tintShare.flatMap { list?.getBackgroundColor(for: $0) })
+        }
+    }
+
+    /// Paints a page's grouped backgrounds with `color`, or restores them when `color` is nil. A screen that draws
+    /// its background itself, in SwiftUI for example, takes the color through `WPagingBackgroundTinting`.
+    private func tintPageBackground(_ page: TopTabsPageViewController, with color: UIColor?) {
+        if let content = page.loadedContentViewController {
+            let screen = (content as? UINavigationController)?.topViewController ?? content
+            // The band under the bar changes color with the page, or the Agent tab's background meets it in a seam
+            (screen as? WViewController)?.setCustomNavigationBarBackgroundTint(color)
+            if let tinting = screen as? any WPagingBackgroundTinting {
+                page.viewIfLoaded?.backgroundColor = color
+                tinting.setPagingBackgroundColor(color)
+                return
+            }
+        }
+        let key = ObjectIdentifier(page)
+        guard let color else {
+            for entry in tintedPageBackgrounds.removeValue(forKey: key) ?? [] {
+                entry.view?.backgroundColor = entry.original
+            }
+            return
+        }
+        if tintedPageBackgrounds[key] == nil {
+            tintedPageBackgrounds[key] = findPageBackgroundViews(of: page).map { TintedBackground(view: $0, original: $0.backgroundColor) }
+        }
+        for entry in tintedPageBackgrounds[key] ?? [] {
+            entry.view?.backgroundColor = color
+        }
+    }
+
+    /// The page's views that show the grouped background: the page, its screen and that screen's scroll views
+    private func findPageBackgroundViews(of page: TopTabsPageViewController) -> [UIView] {
+        guard page.isViewLoaded, let content = page.loadedContentViewController else { return [] }
+        let screen = (content as? UINavigationController)?.topViewController ?? content
+        guard screen.isViewLoaded else { return [] }
+        let grouped = UIColor.air.groupedBackground.resolvedColor(with: traitCollection)
+        let candidates = [page.view, content.view, screen.view] + screen.view.subviews.filter { $0 is UIScrollView }
+        var seen = Set<ObjectIdentifier>()
+        return candidates.compactMap { $0 }.filter { view in
+            guard seen.insert(ObjectIdentifier(view)).inserted else { return false }
+            guard let background = view.backgroundColor?.resolvedColor(with: traitCollection) else {
+                // A clear page shows the root's grouped background through it
+                return view === page.view
+            }
+            return background.isApproximatelyEqual(to: grouped)
+        }
+    }
+
     private func applyChromeInsets(to controller: UIViewController) { searchController.applyChromeInsets(to: controller) }
     private func removeChrome(from controller: UIViewController) { searchController.removeChrome(from: controller) }
 
@@ -562,6 +923,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         searchController.updatePresentation()
     }
 
+    private var isWalletAssetsEditing = false
+
+    /// Paging stops while the wallet's assets are edited and while a question is composed in the Agent list
+    private func updatePagingEnabled() {
+        pager?.isPagingEnabled = !isWalletAssetsEditing && !composeHeaderSwap.isActive
+    }
+
     private func updateHomeWalletAssetsNavigationChrome() {
         // Keep the root item's controls in sync while a transient controller is presented.
         let isShowingWalletRoot = selectedPage == .wallet
@@ -569,13 +937,14 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         let navigator = isShowingWalletRoot ? homeVC.walletAssetsEditingNavigator : nil
         let editingState = navigator?.state.editingState
 
-        pager?.isPagingEnabled = editingState == nil
+        isWalletAssetsEditing = editingState != nil
+        updatePagingEnabled()
         navigationItem.titleView = editingState == nil && sideTabEdge == nil ? tabControlContainer : UIView()
         if editingState != nil, #available(iOS 26.0, *) {
             (sideTabBar as? WVerticalTabBar)?.cancelInteraction()
         }
         sideTabBar?.isHidden = sideTabEdge == nil || editingState != nil
-        accountSwitcherButton.isHidden = sideTabEdge != nil && editingState != nil
+        updateAccountButtonPlacement(animated: false)
         if sharedMainNavigationController?.topViewController === self {
             sharedMainNavigationController?.setNavigationBarHidden(hideNavigationBar, animated: false)
         }
@@ -607,6 +976,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 && !isSearchVisible
                 && !searchController.isClosingSearch
                 && !searchController.searchToolbar.isHidden
+                && !composeHeaderSwap.isActive
         }
         pager.setAdditionalPagingGestureView(searchController.searchToolbar, isEnabled: isPagingEnabled)
         pager.setForwardNavigation(in: sharedMainNavigationController?.view ?? view, allowsEdgeNavigation: true, beginTransition: { [weak self] in
@@ -616,6 +986,70 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             applyChromeInsets(to: settings)
             return navigationController.beginInteractivePush(settings)
         }, isEnabled: isPagingEnabled)
+    }
+
+    private var settingsMorphSource: SettingsMorphSource?
+    private let settingsMorphPressRecognizer = SettingsMorphPressRecognizer()
+
+    private var canMorphSettings: Bool {
+        guard IOS_26_MODE_ENABLED, AppStorageHelper.animations, UIView.areAnimationsEnabled,
+              !UIAccessibility.isReduceMotionEnabled, !ToolbarSettings.configuration().showsAccounts,
+              sideTabEdge == nil, !isSearchVisible, !composeHeaderSwap.isActive,
+              accountButtonPlacement?.isHidden == false,
+              navigationItem.titleView === tabControlContainer else { return false }
+        if #available(iOS 27.1, *) {
+            switch traitCollection.verticalBarEdge {
+            case .leading, .trailing: return false
+            default: break
+            }
+        }
+        return true
+    }
+
+    private func installSettingsMorph() {
+        guard #available(iOS 26, *), let navigationController = sharedMainNavigationController else { return }
+        let bar = navigationController.navigationBar
+        if settingsMorphPressRecognizer.view !== bar {
+            bar.addGestureRecognizer(settingsMorphPressRecognizer)
+        }
+        navigationController.customTransitionProvider = { [weak self, weak navigationController] operation, from, to in
+            guard let self, let navigationController, canMorphSettings,
+                  !navigationController.isInteractivePopInProgress else { return nil }
+            switch operation {
+            case .push where from === self && to === standardSettingsRootViewController:
+                settingsMorphSource = captureSettingsMorphSource()
+                guard let source = settingsMorphSource else { return nil }
+                return SettingsMorphTransition(isPush: true, source: source, navigationController: navigationController)
+            case .pop where to === self && from === standardSettingsRootViewController:
+                guard var source = settingsMorphSource, source.matches(navigationController.view) else { return nil }
+                let bar = navigationController.navigationBar
+                let isRTL = source.layoutDirection == .rightToLeft
+                source.pressLift = settingsMorphPressRecognizer.recentLift(in: CGRect(
+                    x: isRTL ? bar.bounds.width - 90 : 0, y: 0, width: 90, height: bar.bounds.height
+                ))
+                return SettingsMorphTransition(isPush: false, source: source, navigationController: navigationController)
+            default:
+                return nil
+            }
+        }
+    }
+
+    private func captureSettingsMorphSource() -> SettingsMorphSource? {
+        guard canMorphSettings, let navigationView = sharedMainNavigationController?.view,
+              let segmentedControl, segmentedControl.window != nil,
+              accountSwitcherButton.window != nil, !accountSwitcherButton.isHidden,
+              let titles = segmentedControl.makeContentSnapshot(),
+              let bar = sharedMainNavigationController?.navigationBar else { return nil }
+        return SettingsMorphSource(
+            segmentedFrame: segmentedControl.convert(segmentedControl.bounds, to: navigationView),
+            segmentedSnapshot: titles,
+            avatarGlassFrame: accountSwitcherButton.convert(accountSwitcherButton.bounds, to: navigationView),
+            avatarFrame: accountSwitcherButton.convert(accountSwitcherButton.avatarFrame, to: navigationView),
+            containerSize: navigationView.bounds.size,
+            safeAreaInsets: navigationView.safeAreaInsets,
+            layoutDirection: navigationView.effectiveUserInterfaceLayoutDirection,
+            pressLift: settingsMorphPressRecognizer.recentLift(in: accountSwitcherButton.convert(accountSwitcherButton.bounds, to: bar))
+        )
     }
 
     @objc private func openSettings() {
@@ -721,7 +1155,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             sharedMainNavigationController.viewIfLoaded?.layoutIfNeeded()
         }
 
-        for page in [Page.wallet, .market, .explore] {
+        for page in [Page.wallet, .market, .agent, .explore] {
             guard let path = sharedNavigationPaths[page],
                   let settingsIndex = standardSettingsIndex(in: path) else {
                 continue
@@ -761,6 +1195,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         return switch id {
         case .wallet: walletPage
         case .market: marketPage
+        case .agent: agentPage
         case .explore: explorePage
         default: nil
         }
@@ -770,6 +1205,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         return switch id {
         case .wallet: .wallet
         case .market: .market
+        case .agent: .agent
         case .explore: .explore
         default: nil
         }
@@ -779,6 +1215,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         return switch page {
         case .wallet: walletPage
         case .market: marketPage
+        case .agent: agentPage
         case .explore: explorePage
         }
     }
@@ -787,6 +1224,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 extension TopTabsRootViewController {
     private func pagerDidSelect(_ index: Int) {
         segmentedControl.setPagingProgress(CGFloat(index))
+        segmentedControl.endSelectionScroll()
+        updateAgentPaging(agentShare: index == Page.agent.rawValue ? 1 : 0, neighbor: nil)
+        updateAgentBottomBar(committedIndex: index)
         let page = selectedPage
         if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(page.rawValue) }
         if page != activePage {
@@ -797,161 +1237,6 @@ extension TopTabsRootViewController {
         navigationController(for: page)?.viewControllers.forEach(applyChromeInsets)
         updateHomeWalletAssetsNavigationChrome()
         updateRootChromeVisibilityForSelectedPage()
-    }
-}
-
-@MainActor
-final class TopTabsAccountButton: UIControl {
-    private let iconView = IconView(size: topTabsAccountAvatarSize)
-    private let activityIndicator = UIView()
-    private let activityIndicatorImage = UIImageView(image: .airBundle("AccountActivityIndicator"))
-    private var isUpdating = false
-    private var visibilityAnimationId = 0
-    private let glassView: UIVisualEffectView = {
-        let view: UIVisualEffectView
-        if #available(iOS 26, iOSApplicationExtension 26, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.isInteractive = true
-            view = UIVisualEffectView(effect: effect)
-            view.cornerConfiguration = .capsule()
-        } else {
-            view = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
-            view.layer.cornerRadius = topTabsNavigationBarHeight / 2
-            view.layer.cornerCurve = .continuous
-            view.clipsToBounds = true
-            view.isUserInteractionEnabled = false
-        }
-        return view
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        translatesAutoresizingMaskIntoConstraints = false
-        isAccessibilityElement = true
-        accessibilityTraits = .button
-        accessibilityIdentifier = "tab_settings_button"
-
-        glassView.translatesAutoresizingMaskIntoConstraints = false
-        glassView.isAccessibilityElement = false
-        addSubview(glassView)
-
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.isUserInteractionEnabled = false
-        glassView.contentView.addSubview(iconView)
-
-        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-        activityIndicator.isUserInteractionEnabled = false
-        activityIndicator.isAccessibilityElement = false
-        activityIndicator.alpha = 0
-        activityIndicator.isHidden = true
-        glassView.contentView.addSubview(activityIndicator)
-        activityIndicatorImage.translatesAutoresizingMaskIntoConstraints = false
-        activityIndicator.addSubview(activityIndicatorImage)
-        NSLayoutConstraint.activate([
-            activityIndicatorImage.leadingAnchor.constraint(equalTo: activityIndicator.leadingAnchor),
-            activityIndicatorImage.trailingAnchor.constraint(equalTo: activityIndicator.trailingAnchor),
-            activityIndicatorImage.topAnchor.constraint(equalTo: activityIndicator.topAnchor),
-            activityIndicatorImage.bottomAnchor.constraint(equalTo: activityIndicator.bottomAnchor),
-            glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            glassView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            glassView.topAnchor.constraint(equalTo: topAnchor),
-            glassView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            iconView.centerXAnchor.constraint(equalTo: glassView.contentView.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: glassView.contentView.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: topTabsAccountAvatarSize),
-            iconView.heightAnchor.constraint(equalToConstant: topTabsAccountAvatarSize),
-
-            activityIndicator.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
-            activityIndicator.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
-            activityIndicator.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
-            activityIndicator.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
-        ])
-
-        if #available(iOS 26, iOSApplicationExtension 26, *) {
-            glassView.addGestureRecognizer(
-                UITapGestureRecognizer(target: self, action: #selector(glassTapped))
-            )
-        }
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func configure(account: MAccount?) {
-        iconView.config(with: account)
-        accessibilityLabel = lang("Settings")
-    }
-
-    func setUpdateStatus(_ state: UpdateStatusView.State, animated: Bool) {
-        switch state {
-        case .waitingForNetwork:
-            accessibilityValue = lang("Waiting for network…")
-        case .updating:
-            accessibilityValue = lang("Updating…")
-        case .updated:
-            accessibilityValue = nil
-        }
-
-        let isUpdating = state != .updated
-        guard self.isUpdating != isUpdating else { return }
-        self.isUpdating = isUpdating
-        visibilityAnimationId += 1
-        let animationId = visibilityAnimationId
-        if isUpdating {
-            activityIndicator.isHidden = false
-            startIndicatorRotation()
-        }
-
-        let opacity = activityIndicator.layer.presentation()?.opacity ?? activityIndicator.layer.opacity
-        let targetOpacity: Float = isUpdating ? 1 : 0
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        CATransaction.setCompletionBlock { [weak self] in
-            guard let self, self.visibilityAnimationId == animationId, !self.isUpdating else { return }
-            self.activityIndicator.isHidden = true
-            self.activityIndicatorImage.layer.removeAnimation(forKey: "rotation")
-        }
-        activityIndicator.layer.opacity = targetOpacity
-        if animated && !UIAccessibility.isReduceMotionEnabled {
-            let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = opacity
-            fade.toValue = targetOpacity
-            fade.duration = 0.3
-            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            activityIndicator.layer.add(fade, forKey: "opacity")
-        } else {
-            activityIndicator.layer.removeAnimation(forKey: "opacity")
-        }
-        CATransaction.commit()
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        if window != nil, isUpdating {
-            startIndicatorRotation()
-        } else if window == nil {
-            activityIndicatorImage.layer.removeAnimation(forKey: "rotation")
-        }
-    }
-
-    private func startIndicatorRotation() {
-        guard activityIndicatorImage.layer.animation(forKey: "rotation") == nil else { return }
-        let animation = CABasicAnimation(keyPath: "transform.rotation")
-        animation.fromValue = 0
-        animation.beginTime = activityIndicatorImage.layer.convertTime(CACurrentMediaTime(), from: nil)
-        animation.timingFunction = CAMediaTimingFunction(name: .linear)
-        animation.toValue = 2 * Double.pi
-        animation.duration = 0.625
-        animation.repeatCount = .infinity
-        animation.isRemovedOnCompletion = false
-        activityIndicatorImage.layer.add(animation, forKey: "rotation")
-    }
-
-    @objc private func glassTapped() {
-        sendActions(for: .touchUpInside)
     }
 }
 
@@ -1040,10 +1325,28 @@ extension TopTabsRootViewController: RootSearchToolbarHost {
 
     var searchNavigationController: WNavigationController? { sharedMainNavigationController }
     var searchRootContentControllers: [UIViewController] {
-        [walletPage, marketPage, explorePage].compactMap(\.loadedContentViewController)
+        [walletPage, marketPage, agentPage, explorePage].compactMap(\.loadedContentViewController)
     }
     var searchEditingNavigator: NftsEditingNavigator? {
         selectedPage == .wallet ? homeVC.walletAssetsEditingNavigator : nil
     }
     var showsRootSearchToolbar: Bool { true }
+
+    func agentQuestionEditingDidChange(_ isEditing: Bool) {
+        guard isEditing else {
+            // Sending pushes the question's chat right after the field resigns; that chat's header takes over then
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !isPresentingComposedChat, composeHeaderSwap.isActive,
+                      sharedMainNavigationController?.topViewController === self,
+                      sharedMainNavigationController?.transitionCoordinator == nil else { return }
+                composeHeaderSwap.setActive(false, animated: true)
+                updatePagingEnabled()
+            }
+            return
+        }
+        guard sideTabEdge == nil, selectedPage == .agent,
+              sharedMainNavigationController?.topViewController === self else { return }
+        composeHeaderSwap.setActive(true, animated: view.window != nil)
+        updatePagingEnabled()
+    }
 }

@@ -27,10 +27,13 @@ public struct UniversalSearchIcon {
 public struct UniversalSearchChatResult {
     public let title: String
     public let subtitle: String
+    /// The thread's emoji; the row shows the default Agent symbol without it.
+    public let icon: String?
 
-    public init(title: String, subtitle: String) {
+    public init(title: String, subtitle: String, icon: String? = nil) {
         self.title = title
         self.subtitle = subtitle
+        self.icon = icon
     }
 }
 

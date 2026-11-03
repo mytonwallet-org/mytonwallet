@@ -245,9 +245,9 @@ Dark: مظلم
 System: نظام
 $stake_asset: حصة %symbol%
 Add Stake: أضف حصة
-"🔒 %amount% %symbol% locked in another staking": "\u200F🔒 \u200E%amount% %symbol%\u200F مقفلة في استيكينغ آخر"
-"Unstake them to restake with **higher returns**.": "اسحبها لإعادة الاستيكينغ مع **عوائد أعلى**."
-"💎 More profitable staking available": "💎 يتوفر استيكينغ أكثر ربحية"
+"🔒 %amount% %symbol% staked elsewhere": "\u200F🔒 \u200E%amount% %symbol%\u200F في استيكينغ آخر"
+"Unlock your %symbol% to access higher-yield staking.": "حرّر %symbol% الخاصة بك للوصول إلى استيكينغ بعائد أعلى."
+"💎 Higher-yield staking available": "💎 يتوفر استيكينغ بعائد أعلى"
 "Tap to restake your %symbol% with higher returns.": "اضغط لإعادة استيكينغ %symbol% الخاصة بك مع عوائد أعلى."
 "Restake Now": "أعد الاستيكينغ الآن"
 Earn from your tokens while holding them: اربح من الاحتفاظ بـ %symbol%
@@ -657,6 +657,9 @@ Data Copied: تم نسخ البيانات
 URL Copied: تم نسخ URL
 Private Key Copied: تم نسخ المفتاح الخاص
 Contract Initialization Data Copied: تم نسخ بيانات تهيئة العقد
+$state_init_deploys_wallet: سيتم إنشاء محفظة %version% على عنوان المستلم إذا لم يكن هناك شيء بعد.
+$state_init_deploys_contract: سيتم إنشاء عقد ذكي على عنوان المستلم إذا لم يكن هناك شيء بعد.
+$state_init_not_deployable: ستتجاهل الشبكة هذه البيانات، ولن يتم إنشاء أي شيء.
 Open NFT Collection: افتح مجموعة NFT
 Previous: سابق
 Next: التالي
@@ -895,6 +898,10 @@ $mint_action: نعناع
 Burning: حرق
 Burned: محترق
 $burn_action: يحرق
+Perps Deposit: إيداع في العقود الآجلة
+$perps_deposit_action: إيداع في العقود الآجلة
+Perps Withdrawal: سحب من العقود الآجلة
+$perps_withdraw_action: سحب من العقود الآجلة
 Updating Address: تحديث العنوان
 Updated Address: العنوان المحدث
 $update_address_action: تحديث العنوان
@@ -1028,6 +1035,10 @@ $iab_more_tabs_count:
   oneValue: "+ علامة التبويب %count%"
   otherValue: "+ علامات التبويب %count%"
 Close Tab: إغلاق علامة التبويب
+Close All: "إغلاق الكل"
+$browser_more_tabs:
+  oneValue: "%title% و%count% أخرى"
+  otherValue: "%title% و%count% أخرى"
 $domains_amount %count%:
   zeroValue: لا المجالات
   oneValue: المجال %count%
@@ -1151,6 +1162,7 @@ Without it, you won't be able to access your wallet.: وبدون ذلك، لن �
 $ledger_connection_broken: لقد انقطع اتصال Ledger. الرجاء إعادة الاتصال والمحاولة مرة أخرى.
 $ledger_wrong_device: تم إعداد الحساب الحالي بعبارات الاسترداد أو عبارة مرور Ledger مختلفة، أو تم تخزينه على جهاز Ledger آخر
 Show More: عرض المزيد
+Show Less: عرض أقل
 Search app or enter address: ابحث في التطبيق أو أدخل العنوان
 Search or Ask: ابحث أو اسأل
 Connected Apps: التطبيقات المتصلة
@@ -1353,6 +1365,21 @@ $agent_error_limit: لا يمكن إكمال الطلب بسبب الوصول إ
 $agent_error_tool: تعذر إتمام عملية المحفظة. الرجاء المحاولة مرة أخرى.
 $agent_error_conversation_updated: تم تحديث المحادثة. الرجاء إعادة محاولة الطلب.
 $agent_error_generic: لم يتمكن الوكيل من إكمال الطلب. الرجاء المحاولة مرة أخرى.
+$agent_error_recording_too_large: "التسجيل طويل جدًا. أملِ دقيقة واحدة كحد أقصى في كل مرة."
+$agent_error_audio_unreadable: "تعذرت معالجة التسجيل. سجّله مرة أخرى."
+$agent_error_transcription_unavailable: "الإدخال الصوتي غير متاح حاليًا. حاول مرة أخرى لاحقًا."
+$agent_dictation_start: "إملاء"
+$agent_dictation_finish: "إنهاء الإملاء"
+$agent_dictation_recognizing: "جارٍ التعرّف…"
+$agent_dictation_no_speech: "لم يُسمع أي كلام. تحدّث بالقرب من الميكروفون وحاول مرة أخرى."
+$agent_dictation_time_left: "متبقٍ %seconds% ث"
+$agent_dictation_time_left_short: "%seconds% ث"
+$agent_dictation_limit_reached: "توقف الإملاء بعد دقيقة واحدة، وهي أقصى مدة للتسجيل."
+$agent_dictation_microphone_denied: "اسمح بالوصول إلى الميكروفون لتتمكن من الإملاء."
+$agent_dictation_hold_hint: "اضغط مطولًا للإملاء. اسحب لأعلى للتسجيل دون الاستمرار بالضغط."
+$agent_dictation_too_short: "التسجيل قصير جدًا. استمر بالضغط أثناء التحدث."
+$agent_dictation_slide_to_cancel: "اسحب إلى اليمين للإلغاء"
+$agent_dictation_deleted: "تم حذف التسجيل"
 $agent_error_invalid_response: تعذّرت قراءة رد الوكيل. يُرجى المحاولة مرة أخرى.
 $agent_error_update_required: قم بتحديث التطبيق للمتابعة.
 $agent_wallet_page_navigation: صفحات بيانات المحفظة
@@ -1522,6 +1549,8 @@ Edit Wallet Name: تحرير اسم المحفظة
 Wallet Name: اسم المحفظة
 App Icon: أيقونة التطبيق
 Rounded Toolbars: أشرطة الأدوات المستديرة
+Toolbar: شريط الأدوات
+Shared Background: خلفية مشتركة
 Side Gutters: المزاريب الجانبية
 Gradient Navigation Bar: شريط التنقل المتدرج
 Tokens on Home Screen: الرموز على الشاشة الرئيسية
@@ -1739,12 +1768,12 @@ $web_permission_location: موقع
 $web_permission_device_features: ميزات الجهاز
 $web_permission_this_site: هذا الموقع
 push_title_wallet: "%wallet_title%"
-push_activity_token_sent: تم إرسال %amount% %symbol%
-push_activity_token_received: تم استلام %amount% %symbol%
+push_activity_token_sent: "تم إرسال \u2066%amount% %symbol%\u2069"
+push_activity_token_received: "تم استلام \u2066%amount% %symbol%\u2069"
 push_activity_contract_called: تم استدعاء العقد الذكي
 push_activity_contract_deployed: تم نشر العقد الذكي
-push_activity_token_minted: تم سك %amount% %symbol%
-push_activity_token_burned: تم حرق %amount% %symbol%
+push_activity_token_minted: "تم سك \u2066%amount% %symbol%\u2069"
+push_activity_token_burned: "تم حرق \u2066%amount% %symbol%\u2069"
 push_activity_nft_sent: تم إرسال NFT
 push_activity_nft_sent_named: "تم إرسال NFT: %name%"
 push_activity_nft_received: تم استلام NFT
@@ -1753,22 +1782,22 @@ push_activity_nft_minted: تم سك NFT
 push_activity_nft_minted_named: "تم سك NFT: %name%"
 push_activity_liquidity_deposited: تم توفير السيولة
 push_activity_liquidity_withdrawn: تم سحب السيولة
-push_activity_stake_deposit: تم تخزين %amount% %symbol%
-push_activity_stake_withdrawal: تم إلغاء تخزين %amount% %symbol%
+push_activity_stake_deposit: "تم تخزين \u2066%amount% %symbol%\u2069"
+push_activity_stake_withdrawal: "تم إلغاء تخزين \u2066%amount% %symbol%\u2069"
 push_activity_stake_withdrawal_request: تم طلب إلغاء التخزين
-push_activity_auction_bid: تم تقديم عرض في المزاد %amount% %symbol%
+push_activity_auction_bid: "تم تقديم عرض في المزاد \u2066%amount% %symbol%\u2069"
 push_activity_dns_changed: تم تحديث سجل DNS
 push_activity_dns_deleted: تم حذف سجل DNS
 push_activity_dns_renewed: تم تجديد DNS
 push_activity_subscription_started: بدأ الاشتراك
-push_activity_subscription_payment_received: تم استلام دفعة الاشتراك %amount% %symbol%
+push_activity_subscription_payment_received: "تم استلام دفعة الاشتراك \u2066%amount% %symbol%\u2069"
 push_activity_subscription_canceled: تم إلغاء الاشتراك
-push_activity_swap_completed: تمت مبادلة %from_symbol% → %to_symbol%
-push_activity_swap_failed: فشلت مبادلة %from_symbol% → %to_symbol%
-push_activity_swap_expired: انتهت صلاحية مبادلة %from_symbol% → %to_symbol%
-push_activity_swap_pending: مبادلة %from_symbol% → %to_symbol% %status%
-push_activity_staking_profit: أرباح التخزين %amount% GRAM
-push_activity_staking_loyalty_profit: أرباح ولاء التخزين %amount% GRAM
+push_activity_swap_completed: "تمت مبادلة \u2066%from_symbol% → %to_symbol%\u2069"
+push_activity_swap_failed: "فشلت مبادلة \u2066%from_symbol% → %to_symbol%\u2069"
+push_activity_swap_expired: "انتهت صلاحية مبادلة \u2066%from_symbol% → %to_symbol%\u2069"
+push_activity_swap_pending: "مبادلة \u2066%from_symbol% → %to_symbol%\u2069 %status%"
+push_activity_staking_profit: "أرباح التخزين \u2066%amount% GRAM\u2069"
+push_activity_staking_loyalty_profit: "أرباح ولاء التخزين \u2066%amount% GRAM\u2069"
 push_domain_title_renew: جدّد نطاقك
 push_domain_expired_yesterday: انتهت صلاحية نطاقك %domain% أمس. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
 push_domain_expired_days_ago: انتهت صلاحية نطاقك %domain% منذ %days% أيام. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
@@ -1977,13 +2006,9 @@ $agent_capacity_limit_title: الوكيل غير متاح مؤقتًا
 $agent_capacity_limit_known: ستتمكن من إرسال طلبات جديدة بعد %duration%.
 $agent_capacity_degraded_title: قد تكون استجابات الوكيل غير مستقرة
 $agent_capacity_limit_unknown: يمكنك المحاولة مرة أخرى، ولكن قد لا يتم تحميل الرد.
-$agent_response_failed_title: تعذّر الحصول على رد
-$agent_response_interrupted_title: انقطع الرد
 $agent_retry_request: إعادة محاولة الطلب
 $agent_rate_limit_title: طلبات كثيرة جدًا إلى الوكيل
 $agent_rate_limit_body: حاول مرة أخرى خلال %duration%.
-$agent_user_quota_meter: "حصة الوكيل: متبقي %remaining% من %limit% وحدة"
-$agent_user_quota_reset: تُعاد تهيئة الحصة اليومية خلال %duration%.
 $agent_user_quota_exhausted_title: حصة الوكيل غير كافية
 $agent_user_quota_exhausted_body: الحصة المتاحة لا تكفي لهذا الطلب. الحد اليومي هو %limit% وحدة وتُعاد تهيئته خلال %duration%.
 $agent_time_hours: "%value% س"
@@ -2061,7 +2086,6 @@ Search token or stock: ابحث عن توكن أو سهم
 Unknown Transfer: تحويل غير معروف
 $dapp_sign_data_for_prefix: لـ
 
-# Token Buy / Sell
 "Pay %value%": "ادفع %value%"
 "Receive %value%": "استلم %value%"
 "Buy %token% via %provider%": "شراء %token% عبر %provider%"
@@ -2078,7 +2102,6 @@ Successfully Signed: تم التوقيع بنجاح
 Coming soon: قريبًا
 $dapp_identity_not_confirmed: هوية التطبيق **غير مؤكدة**.
 
-# Token trade asset browser and details
 "Choose Asset": "اختر أصلًا"
 "Asset to Buy": "الأصل المراد شراؤه"
 "Asset to Sell": "الأصل المراد بيعه"
@@ -2093,11 +2116,270 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: ت�
 3D Gram Diamond: ماسة Gram ثلاثية الأبعاد
 Hold to enlarge. Drag to rotate.: اضغط مطولًا للتكبير. اسحب للتدوير.
 "Max": "الأقصى"
+
+or use web version: "أو استخدم إصدار الويب"
+By continuing, you agree to our %terms% and %privacy%.: "بالمتابعة، فإنك توافق على\n%terms% و%privacy% الخاصة بنا."
+$auth_privacy_policy: "سياسة الخصوصية"
+$auth_more: "المزيد"
+$auth_terms_of_use: "شروط الاستخدام"
+
+"Pinned": "المثبتة"
+"New Chat": "محادثة جديدة"
+"Search chats": "البحث في المحادثات"
+"Ask a question to start a new chat.": "اطرح سؤالًا لبدء محادثة جديدة."
+"No chats found": "لم يتم العثور على محادثات"
+"Rename Chat": "إعادة تسمية المحادثة"
+"Delete Chat?": "حذف المحادثة؟"
+"$agent_delete_chat_confirmation": "ستُحذف الرسائل في هذه المحادثة نهائيًا. ستبقى تقارير المشكلات المُرسلة لدى فريقنا."
+
+Invalid Address: عنوان غير صالح
+Domain Not Found: لم يتم العثور على المجال
+Multisig Sending Disabled: تم تعطيل إرسال Multisig
+Insufficient Liquidity: سيولة غير كافية
+Too Small Amount: كمية صغيرة جدًا
+
+News: "الأخبار"
+Crypto Market News: "أخبار سوق العملات المشفرة"
+$agent_news_new: "الجديد"
+$agent_news_open_source: "فتح المصدر"
+$agent_news_unavailable: "الأخبار غير متاحة حاليًا"
+$agent_news_read_more: "قراءة المزيد"
+$agent_news_discuss: "ناقش"
+$agent_news_continue_discussion: "متابعة النقاش"
+$agent_news_read_more_accessibility: "قراءة المزيد عن %headline%"
+$agent_news_continue_discussion_accessibility: "متابعة النقاش حول %headline%"
+$agent_news_ask_placeholder: "اسأل عن هذا الخبر"
+$agent_news_quote_accessibility: "خبر MyPulse: %headline%"
+$agent_news_unread_count:
+  zeroValue: "لا أخبار غير مقروءة"
+  oneValue: "خبر واحد غير مقروء"
+  twoValue: "خبران غير مقروءين"
+  fewValue: "%count% أخبار غير مقروءة"
+  manyValue: "%count% خبرًا غير مقروء"
+  otherValue: "%count% خبر غير مقروء"
 Explorer mode: وضع المستكشف
 Open a link to a wallet, transfer, token or collectible to see its details here.: افتح رابطًا لمحفظة أو تحويل أو توكن أو مقتنى لعرض تفاصيله هنا.
+
+# Perps
+Long: "لونغ"
+Short: "شورت"
+Funding Rate: "معدل التمويل"
+Max Leverage: "أقصى رافعة مالية"
+24h Volume: "حجم التداول خلال 24 ساعة"
+Open Interest: "قيمة المراكز المفتوحة"
+$perps_funding_rate_hint: "المعدل المستخدم لحساب مدفوعات التمويل بين المتداولين أصحاب المراكز الطويلة والقصيرة. عندما يكون المعدل موجبًا، تدفع المراكز الطويلة للمراكز القصيرة. وعندما يكون سالبًا، تدفع المراكز القصيرة للمراكز الطويلة."
+$perps_max_leverage_hint: "أعلى رافعة مالية متاحة لهذا السوق."
+$perps_volume_24h_hint: "القيمة الإجمالية للتداولات في سوق العقود الآجلة هذا خلال آخر 24 ساعة. تشمل تداولات فتح المراكز وإغلاقها."
+$perps_open_interest_hint: "القيمة الإجمالية للعقود المفتوحة حاليًا في سوق العقود الآجلة هذا. بخلاف حجم التداول خلال 24 ساعة، لا تشمل المراكز التي أُغلقت بالفعل."
+
+# Perps order entry
+"Leverage": "الرافعة المالية"
+"Position Size": "حجم المركز"
+"Liquidation Price": "سعر التصفية"
+"Trading Fee": "رسوم التداول"
+"Funding Payments": "دفعات التمويل"
+"Swap Fee": "رسوم المبادلة"
+"Review": "مراجعة"
+"$perps_order_long": "لونغ %asset%"
+"$perps_order_short": "شورت %asset%"
+"$perps_swap_fee_hint": "رسوم تحويل رمز إلى آخر ضمن هذه المعاملة."
+"$perps_trading_fee_hint": "رسوم فتح هذا المركز."
+"$perps_position_size_hint": "حجم المركز — القيمة الإجمالية لمركزك مع احتساب الرافعة المالية."
+"$perps_position_size_details_hint": "القيمة الإجمالية لمركزك مع احتساب الرافعة المالية.\n\nعلى سبيل المثال، إذا استثمرت $100 برافعة مالية 5x، فإن حجم مركزك هو $500."
+"$perps_position_size_change_hint": "القيمة الإجمالية لمركزك مع احتساب الرافعة المالية.\nتُظهر القيم حجم مركزك قبل التغيير وبعده."
+"$perps_profit_hint": "الربح من إغلاق جزء من مركزك.\n\nعلى سبيل المثال، إذا أغلقت نصف مركزك، فسيظهر هنا ربح الجزء الذي أغلقته."
+"$perps_loss_hint": "الخسارة من إغلاق جزء من مركزك.\n\nعلى سبيل المثال، إذا أغلقت نصف مركزك، فستظهر هنا خسارة الجزء الذي أغلقته."
+"$perps_closing_value_hint": "المبلغ المتبقي بعد تصفية مركزك. بحسب نتيجة التصفية، قد يكون هذا المبلغ أقل مما استثمرته أو صفرًا."
+"$perps_fees_hint": "إجمالي الرسوم المفروضة على هذه المعاملة. بحسب المعاملة، قد تشمل رسوم التداول والمبادلة والشبكة."
+"$perps_liquidation_price_hint": "السعر التقديري الذي قد يُغلق عنده مركزك تلقائيًا بسبب عدم كفاية الأموال لإبقائه مفتوحًا."
+"$perps_high_leverage_warning": "رافعة مالية عالية: حركة بسيطة في السعر ستؤدي إلى التصفية."
+"$perps_leverage_disclaimer": "تزيد الرافعة المالية الأعلى من الأرباح والخسائر المحتملة. حتى التغير البسيط في السعر بعكس اتجاه مركزك قد يؤدي إلى إغلاقه تلقائيًا."
+
+# Perps order review
+"Open Position": "فتح مركز"
+"$perps_asset_price": "سعر %asset%"
+"$perps_leverage_direction": "%direction% برافعة %leverage%×"
+"$perps_liquidation_acknowledgment": "بالتأكيد، أقر بأن هذا المركز قد يُصفّى وأنني قد أخسر المال الذي استثمرته."
+
+# Perps position receipt
+"Position Opened": "تم فتح المركز"
+"Fees": "الرسوم"
+"Transfer ID": "معرّف التحويل"
+
+# Perps active position
+"Equity": "قيمة المركز"
+"Profit and Loss": "الربح والخسارة"
+"Invested": "المبلغ المستثمر"
+"Entry Price": "سعر الدخول"
+"Edit Position": "تعديل المركز"
+"Close Position": "إغلاق المركز"
+"PerpsEditPositionAction": "تعديل المركز"
+"PerpsClosePositionAction": "إغلاق المركز"
+"$perps_invested_hint": "مبلغ أموالك الخاصة المستخدم في هذا المركز. على سبيل المثال، إذا استثمرت $100 برافعة مالية 5x، فإن المبلغ المستثمر هو $100 وحجم مركزك هو $500."
+"$perps_entry_price_hint": "متوسط السعر الذي فُتح عنده هذا المركز."
+"$perps_funding_payments_hint": "مدفوعات دورية بين المتداولين أصحاب المراكز الطويلة والقصيرة. بحسب معدل التمويل، قد تدفع أو تتلقى التمويل ما دام مركزك مفتوحًا."
+
+# Perps edit position
+"$perps_edit_long": "تعديل لونغ %asset%"
+"$perps_edit_short": "تعديل شورت %asset%"
+"Current:": "الحالي:"
+"Liquidation": "التصفية"
+"You Pay or Receive": "تدفع أو تستلم"
+"Reset to Current Amount": "إعادة إلى المبلغ الحالي"
+"Network Fee": "رسوم الشبكة"
+"$perps_network_fee_hint": "رسوم معالجة هذه المعاملة على البلوكشين."
+"$perps_edit_liquidation_hint": "التصفية — السعر الذي يُغلق عنده مركزك تلقائيًا."
+
+# Perps position lifecycle
+"Increase Position": "زيادة المركز"
+"Reduce Position": "تقليل المركز"
+"Current Value": "القيمة الحالية"
+"Closing Value": "القيمة عند الإغلاق"
+"Entry / Exit Price": "سعر الدخول / الخروج"
+"Entry / Liquidation Price": "سعر الدخول / التصفية"
+"You Paid": "دفعت"
+"You Received": "استلمت"
+"Position Increased": "تمت زيادة المركز"
+"Position Reduced": "تم تقليل المركز"
+"Position Closed": "تم إغلاق المركز"
+"Position Liquidated": "تمت تصفية المركز"
+"Profit": "الربح"
+"Loss": "الخسارة"
+"$perps_current_value_hint": "القيمة الحالية للمبلغ المستثمر، بما في ذلك ربح مركزك أو خسارته."
+"$perps_price_when_opened": "سعر %asset% عند الفتح"
+"$perps_price_now": "سعر %asset% الآن"
+"$perps_held": "مدة الاحتفاظ: %duration%"
+"$perps_liquidated_title": "تم إغلاق المركز تلقائيًا."
+"$perps_liquidated_message": "وصل سعر السوق إلى سعر التصفية، مما أدى إلى خسارة."
+
+# Perps home
+"Open Positions": "المراكز المفتوحة"
+"Show All Positions": "عرض جميع المراكز"
+"Futures": "العقود الآجلة"
+"Futures Market": "سوق العقود الآجلة"
+"Liquidation Risk": "خطر التصفية"
+"Refresh": "تحديث"
+"More Actions": "المزيد من الإجراءات"
+"$perps_no_positions": "لا توجد مراكز مفتوحة بعد. استكشف سوق العقود الآجلة للبدء."
+"$perps_explore_market": "تداول العملات المشفرة والأصول الواقعية"
+"PerpsExploreAgentDescription": "مساعدك بالذكاء الاصطناعي"
+"$perps_explore_futures": "افتح مراكز بيع وشراء"
+"$perps_explore_apps": "استكشف الإنترنت اللامركزي"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "تغيرت الأسعار أو مركزك. ارجع لمراجعة الأمر مجددًا."
+"PerpsReviewChanged": "تغير الأمر. ارجع لمراجعته مجددًا."
+"PerpsInsufficientUsdc": "رصيد USDC على Arbitrum غير كافٍ، بما في ذلك رسوم الجسر."
+"PerpsAmountTooSmall": "هذا المبلغ أقل من الحد الأدنى للسوق."
+"PerpsUnchanged": "أدخل مبلغًا مختلفًا لتحديث المركز."
+"PerpsPositionChanged": "تغير هذا المركز. حدّث وحاول مجددًا."
+"PerpsPositionExists": "لديك مركز بالفعل في هذا السوق. عدّل المركز الحالي."
+"PerpsOperationPending": "لا تزال هناك عملية معلقة. تحقق من حالتها قبل التداول مجددًا."
+"PerpsUnsupportedAccount": "يتطلب تداول العقود الآجلة محفظة برمجية بعنوان على شبكة Arbitrum الرئيسية."
+"PerpsTradingUnavailable": "التداول غير متاح في هذا السوق حتى الآن."
+"PerpsInvalidLeverage": "اختر رافعة مالية يدعمها هذا السوق."
+"PerpsInvalidAmount": "أدخل مبلغًا صالحًا."
+"PerpsChangeLeverage": "تغيير الرافعة المالية"
+"PerpsChangeLeverageSeparately": "غيّر الرافعة المالية بشكل منفصل عن مبلغ المركز."
+"PerpsUnavailable": "العقود الآجلة غير متاحة. يرجى المحاولة لاحقًا."
+"PerpsIncompleteData": "تعذّر تحميل بعض المراكز. حدّث للحصول على الرصيد الكامل."
+"PerpsFeesAtExecution": "تُحدّد الرسوم النهائية عند التنفيذ"
+"PerpsWithdrawalPending": "تم تحديث المركز، لكن سحب USDC لم يكتمل. لا ترسل الأمر مجددًا."
+"PerpsOperationStatus": "حالة الأمر"
+"PerpsExecutionUnknown": "لم يتم تأكيد النتيجة بعد. حدّث وتحقق من مركزك والتحويل قبل اتخاذ إجراء آخر."
+"PerpsProcessing": "جارٍ معالجة أمرك. قد يستغرق التحويل عبر الجسر والتسوية عدة دقائق."
+"PerpsCompleted": "اكتمل الأمر"
+"PerpsReconciled": "تم تحديث حسابك. ستظهر تفاصيل الصفقة عند توفر سجل التنفيذ."
+
+PerpsWithdrawReleased: "سحب الأموال المحررة"
+PerpsWithdrawDescription: "حوّل USDC المتاح من Hyperliquid إلى هذه المحفظة على Arbitrum. تُطبق رسوم إعادة إرسال قدرها 0.20 USDC."
+PerpsPartialFill: "تم تنفيذ الأمر جزئيًا. المبلغ المنفذ موضح أدناه؛ راجع مركزك الحالي قبل تقديم أمر آخر."
+
 Receiver %blockchain% Address: عنوان %blockchain% للمتلقي
+
 
 Save to Photos: حفظ في الصور
 Image Saved: تم حفظ الصورة
 Allow access to Photos in Settings to save NFT images.: اسمح بالوصول إلى الصور في الإعدادات لحفظ صور NFT.
 Could not save the image. Please try again.: تعذر حفظ الصورة. يُرجى المحاولة مرة أخرى.
+
+"$perps_activity_opened": "فتح %asset%"
+"$perps_activity_increased": "زيادة %asset%"
+"$perps_activity_reduced": "تقليل %asset%"
+"$perps_activity_closed": "إغلاق %asset%"
+"$perps_activity_liquidated": "تصفية %asset%"
+
+# Perps
+"PerpsInsufficientGas": "رصيد ETH على Arbitrum غير كافٍ لرسوم الشبكة. مبلغ USDC المخصص للمركز منفصل عن هذه الرسوم."
+"PerpsFundingMissingTitle": "لا يوجد USDC أو ETH على Arbitrum"
+"$perps_funding_missing": "استلم ما لا يقل عن %minUSDC% USDC و%feeETH% ETH للرسوم."
+"$perps_funding_usdc": "تحتاج إلى ما لا يقل عن %minUSDC% USDC على Arbitrum لفتح مركز."
+"$perps_funding_usdc_increase": "تحتاج إلى ما لا يقل عن %minUSDC% USDC على Arbitrum لزيادة هذا المركز."
+"PerpsFundingGasTitle": "رصيد ETH غير كافٍ للرسوم"
+"$perps_funding_gas": "تُدفع الرسوم على Arbitrum بعملة ETH. استلم %feeETH% ETH (~%feeFiat%)."
+"PerpsFundingTokenTitle": "ادفع بعملة USDC على Arbitrum"
+"PerpsFundingTokenDescription": "الرموز الأخرى غير مدعومة بعد. استلم USDC للمتابعة."
+"Not Enough Funds": "الرصيد غير كافٍ"
+"Unsupported Token": "رمز غير مدعوم"
+"PerpsReviewUpdated": "تم تحديث الأسعار. راجع الأمر مجددًا قبل التأكيد."
+"PerpsOrderTooSmall": "الحد الأدنى لقيمة الأمر هو 10 دولارات أمريكية."
+"PerpsOrderNotFilled": "تعذّر تنفيذ الأمر بالسعر الذي تمت مراجعته. حدّث وحاول مجددًا."
+"PerpsInsufficientMargin": "الهامش غير كافٍ لهذا الأمر. حدّث مركزك وعدّل المبلغ."
+"PerpsOrderRejected": "رفضت منصة التداول هذا الأمر. حدّث مركزك وراجع الأمر مجددًا."
+"Order": "الأمر"
+"Order ID": "معرّف الأمر"
+"Date": "التاريخ"
+"PerpsAllowNewOrders": "السماح بأوامر جديدة"
+"PerpsAcknowledgeUnknown": "قد يُنفذ الأمر الأصلي لاحقًا. تحقق من مراكزك وتحويلاتك أولًا. السماح بأوامر جديدة لا يلغي الأمر الأصلي."
+"$perps_market_title": "عقود %asset% الآجلة"
+"Recent Market Activity": "نشاط السوق الأخير"
+"Trade Size": "حجم الصفقة"
+"PerpsExchangeFee": "رسوم منصة التداول"
+"PerpsServiceFee": "رسوم المحفظة"
+"PerpsBridgeFee": "رسوم الجسر"
+"PerpsTotalFees": "إجمالي الرسوم بعملة USDC"
+"PerpsFeeEstimateHint": "الرسوم المميزة بعلامة ≈ تقديرية وقد تتغير عند التنفيذ. تُدفع رسوم شبكة Arbitrum بشكل منفصل بعملة ETH."
+"PerpsUnallocatedCollateral": "ضمان غير مخصص"
+"PerpsUnallocatedCollateralHint": "قد يؤدي التقريب إلى حجم الصفقة المسموح في السوق إلى بقاء بعض USDC خارج المركز. تبقى هذه الأموال في حساب العقود الآجلة وليست رسومًا."
+"PerpsOnboardingTitle": "جديد في العقود الآجلة؟"
+"PerpsOnboardingDescription": "تعرّف على طريقة عملها في أقل من دقيقة واحدة."
+"PerpsOnboardingOpen": "فتح الدليل التعريفي"
+"PerpsStoryIntroTitle": "تعرّف على العقود الآجلة الدائمة"
+"PerpsStoryIntroBody": "افتح مراكز على ارتفاع أسعار الأصول أو انخفاضها."
+"PerpsStoryLongTitle": "تتوقع ارتفاعًا؟ افتح مركز لونغ"
+"PerpsStoryLongBody": "عندما يرتفع السعر، تربح. وعندما ينخفض، تخسر."
+"PerpsStoryShortTitle": "تتوقع انخفاضًا؟ افتح مركز شورت"
+"PerpsStoryShortBody": "عندما ينخفض السعر، تربح. وعندما يرتفع، تخسر."
+"PerpsStoryLeverageTitle": "الرافعة المالية تضاعف النتيجة"
+"PerpsStoryLeverageBody": "الهامش هو أموالك في المركز. برافعة مالية 5×، يتيح لك مبلغ $10 التحكم في مركز بقيمة $50 — وتتضاعف الأرباح والخسائر أيضًا 5 مرات."
+"PerpsStoryLiquidationTitle": "قد يُغلق مركزك تلقائيًا"
+"PerpsStoryLiquidationBody": "هذه هي التصفية: إذا أدت الخسائر إلى بقاء هامش غير كافٍ، فقد يُغلق مركزك. راقب سعر التصفية."
+"PerpsStoryFundingTitle": "التمويل هو دفعة بين المتداولين"
+"PerpsStoryFundingBody": "عندما يكون معدل التمويل موجبًا، يدفع أصحاب مراكز لونغ لأصحاب مراكز شورت. وعندما يكون سالبًا، يدفع أصحاب مراكز شورت لأصحاب مراكز لونغ."
+"PerpsStoryStart": "ابدأ"
+
+"Funding Payment": "دفعة تمويل"
+"Withdrawal": "سحب"
+"Transfer": "تحويل"
+"Spot Balance": "الرصيد الفوري"
+"From": "من"
+"To": "إلى"
+
+Delete Chat: حذف المحادثة
+Unread: غير مقروء
+$agent_connection_lost: تم قطع اتصال الوكيل.
+$agent_daily_limit_reached: تم بلوغ الحد اليومي للوكيل
+$media_viewer_date_at_time: "%date% في %time%"
+Picture: صورة
+
+Add to Reading List: إضافة إلى قائمة القراءة
+
+$enclave_data_missing_title: لم يتم العثور على بيانات المحفظة
+$enclave_data_missing_message: |
+  هذه ليست مشكلة في كلمة المرور. البيانات التي يحتفظ بها التطبيق على هذا الجهاز للتحقق من كلمة المرور وفتح محافظك مفقودة، لذلك لا يمكن لأي كلمة مرور فتحها هنا.
+
+  لا تعِد تثبيت التطبيق ولا تمسح بياناته من إعدادات النظام. صدّر السجلات بالزر أدناه وأرسلها إلى %support_link%: سنرى من خلالها ما حدث على هذا الجهاز.
+
+  إذا كانت لديك عبارات الاسترداد لمحافظك، يمكنك الخروج من جميع المحافظ واستيرادها من جديد.
+
+Install the TON App on your Ledger and try again.: قم بتثبيت تطبيق TON على Ledger الخاص بك وحاول مرة أخرى.

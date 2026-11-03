@@ -92,6 +92,14 @@ struct DappSendTransactionDetailView: View {
 
             if let stateInit = message.stateInit?.nilIfEmpty {
                 InsetSection {
+                    if let summary = message.parsedStateInit?.summary {
+                        InsetCell {
+                            Text(summary)
+                                .textStyle(.body, scaling: .dynamic)
+                                .lineSpacing(1)
+                                .frame(minHeight: 22)
+                        }
+                    }
                     InsetExpandableCell(content: stateInit)
                 } header: {
                     Text(lang("Contract Initialization Data"))
@@ -157,6 +165,14 @@ private struct DappSendNftPreviewRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+}
+
+private extension ApiParsedStateInit {
+    var summary: String {
+        guard isDeployable else { return lang("$state_init_not_deployable") }
+        guard let walletName else { return lang("$state_init_deploys_contract") }
+        return L10n.stateInitDeploysWallet(version: walletName)
     }
 }
 

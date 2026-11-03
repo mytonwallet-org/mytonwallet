@@ -22,10 +22,10 @@ test('rejects Agent V2 runtime in the main graph and an initial Agent V2 chunk',
 
 test('rejects a missing Agent V2 lazy chunk', () => {
   const manifest = createManifest();
-  manifest.chunks = manifest.chunks.filter(({ fileName }) => fileName !== 'AgentV2Classic.js');
+  manifest.chunks = manifest.chunks.filter(({ fileName }) => fileName !== 'AgentV2Chats.js');
 
   assert.deepEqual(getAgentV2BundleBoundaryFailures(manifest), [
-    'Missing the lazy chunk of src/components/agentV2/AgentV2Classic.tsx',
+    'Missing the lazy chunk of src/components/agentV2/AgentV2Chats.tsx',
   ]);
 });
 
@@ -60,7 +60,7 @@ function createManifest() {
       isDynamicEntry: false,
       facadeModuleId: 'src/index.html',
       imports: ['shared.js'],
-      dynamicImports: ['AgentV2Classic.js', 'hostContextSync.js'],
+      dynamicImports: ['AgentV2Chats.js', 'hostContextSync.js'],
       modules: ['src/index.tsx'],
     }, {
       fileName: 'shared.js',
@@ -71,14 +71,14 @@ function createManifest() {
       dynamicImports: [],
       modules: ['src/lib/teact/teact.ts'],
     }, {
-      fileName: 'AgentV2Classic.js',
-      name: 'AgentV2Classic',
+      fileName: 'AgentV2Chats.js',
+      name: 'AgentV2Chats',
       isEntry: false,
       isDynamicEntry: true,
-      facadeModuleId: 'src/components/agentV2/AgentV2Classic.tsx',
+      facadeModuleId: 'src/components/agentV2/AgentV2Chats.tsx',
       imports: ['shared.js'],
       dynamicImports: [],
-      modules: ['src/components/agentV2/AgentV2Classic.tsx', 'src/api/agentV2/runtime.ts'],
+      modules: ['src/components/agentV2/AgentV2Chats.tsx', 'src/api/agentV2/runtime.ts'],
     }, {
       fileName: 'hostContextSync.js',
       name: 'hostContextSync',
