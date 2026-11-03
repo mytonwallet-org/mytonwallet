@@ -3,6 +3,7 @@ import { BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron';
 import { ElectronAction } from './types';
 
 import { checkIsKycUrlAllowed, parseWalletConnectPayDataCollectionMessage } from '../util/walletConnectPay';
+import { validateIpcSender } from './ipcSecurity';
 import { focusMainWindow, mainWindow } from './utils';
 
 const COLLECT_LOG_PREFIX = '[wc-pay-collect]';
@@ -305,11 +306,17 @@ function openCollectWindow(url: string, confirmStrings: CollectConfirmStrings): 
 }
 
 export function setupWalletConnectPayCollectHandlers() {
-  ipcMain.handle(ElectronAction.OPEN_WALLET_CONNECT_PAY_COLLECT, async (_, url: string, confirmStrings: unknown) => {
+  ipcMain.handle(ElectronAction.OPEN_WALLET_CONNECT_PAY_COLLECT, async (
+    event, url: string, confirmStrings: unknown,
+  ) => {
+    validateIpcSender(event);
+
     return openCollectWindow(url, sanitizeConfirmStrings(confirmStrings));
   });
 
-  ipcMain.handle(ElectronAction.CLOSE_WALLET_CONNECT_PAY_COLLECT, () => {
+  ipcMain.handle(ElectronAction.CLOSE_WALLET_CONNECT_PAY_COLLECT, (event) => {
+    validateIpcSender(event);
+
     closeCollectWindow();
   });
 }

@@ -53,6 +53,8 @@ public class ChangePasscodeVC: WViewController {
                                                 biometricPassAllowed: false,
                                                 delegate: self,
                                                 matchHeaderColors: false)
+        // passcode_title marks the lock screen; the change steps are told apart by their titles
+        passcodeScreenView.enterPasscodeLabel.label.accessibilityIdentifier = nil
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(passcodeScreenView)
         NSLayoutConstraint.activate([

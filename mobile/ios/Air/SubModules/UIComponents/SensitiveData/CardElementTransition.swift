@@ -102,10 +102,10 @@ final class CardElementTransition {
     private func startDisplayLink() {
         guard link == nil else { return }
         previousTime = 0
-        let proxy = ElementDisplayLinkTarget(owner: self)
-        let link = CADisplayLink(target: proxy, selector: #selector(ElementDisplayLinkTarget.tick(_:)))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
-        link.add(to: .main, forMode: .common); self.link = link
+        link = .makeWeak(
+            owner: self,
+            frameRateRange: CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
+        ) { owner, link in owner.tick(link) }
     }
     /// Read the existing render tree without committing any screen-wide updates
     /// or briefly exposing the concealed element in the live hierarchy.
@@ -197,12 +197,6 @@ final class CardElementTransition {
             progress = concealed ? 1 : 0
         }
     }
-}
-
-@MainActor private final class ElementDisplayLinkTarget: NSObject {
-    weak var owner: CardElementTransition?
-    init(owner: CardElementTransition) { self.owner = owner }
-    @objc func tick(_ link: CADisplayLink) { owner?.tick(link) }
 }
 
 /// One instanced draw, independent of the number of fragments. The texture is

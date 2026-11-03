@@ -74,6 +74,8 @@ internal struct PathDConstants {
      A dictionary that generates a new `PathCommand` based on the `CChar` value of the SVG path letter
      */
     static let characterDictionary: [CChar : PathCommand] = [
+        DCharacter.A.rawValue: EllipticalArc(pathType: .absolute),
+        DCharacter.a.rawValue: EllipticalArc(pathType: .relative),
         DCharacter.M.rawValue: MoveTo(pathType: .absolute),
         DCharacter.m.rawValue: MoveTo(pathType: .relative),
         DCharacter.C.rawValue: CurveTo(pathType: .absolute),

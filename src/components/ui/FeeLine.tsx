@@ -124,7 +124,7 @@ function FeeLineContainer({
         <span
           role="button"
           tabIndex={0}
-          className={styles.details}
+          className={buildClassName(styles.details, isError && styles.detailsError)}
           onClick={() => onDetailsClick()}
           onKeyDown={handleDetailsKeyDown}
         >

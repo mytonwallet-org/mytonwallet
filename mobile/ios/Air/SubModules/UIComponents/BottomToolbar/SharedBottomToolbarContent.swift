@@ -2,6 +2,7 @@ import Foundation
 
 public struct SharedBottomToolbarAction: Equatable, Identifiable, Sendable {
     public enum Style: Equatable, Sendable {
+        case neutral
         case accent
         case positive
         case negative
@@ -10,17 +11,20 @@ public struct SharedBottomToolbarAction: Equatable, Identifiable, Sendable {
     public let id: String
     public var title: String
     public var accessibilityLabel: String
+    public var accessibilityIdentifier: String?
     public var style: Style
 
     public init(
         id: String,
         title: String,
         accessibilityLabel: String? = nil,
+        accessibilityIdentifier: String? = nil,
         style: Style = .accent
     ) {
         self.id = id
         self.title = title
         self.accessibilityLabel = accessibilityLabel ?? title
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.style = style
     }
 }
@@ -33,6 +37,8 @@ public struct SharedBottomToolbarAction: Equatable, Identifiable, Sendable {
 public protocol SharedBottomToolbarContentProviding: AnyObject {
     var isSharedBottomToolbarEnabled: Bool { get }
     var sharedBottomToolbarActions: [SharedBottomToolbarAction] { get }
+    /// Accessibility identifier of the toolbar's collapsed search field while this screen hosts it
+    var sharedBottomToolbarSearchAccessibilityIdentifier: String? { get }
     /// Notify the host when actions or toolbar availability change.
     var onSharedBottomToolbarActionsChange: (() -> Void)? { get set }
 
@@ -42,4 +48,5 @@ public protocol SharedBottomToolbarContentProviding: AnyObject {
 
 extension SharedBottomToolbarContentProviding {
     public var isSharedBottomToolbarEnabled: Bool { true }
+    public var sharedBottomToolbarSearchAccessibilityIdentifier: String? { nil }
 }

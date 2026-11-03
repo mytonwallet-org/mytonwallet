@@ -20,8 +20,16 @@ struct AgentStreamingTextLayout {
     let totalCharacterCount: Int
     let renderedImage: CGImage?
 
-    static func make(attributedString: NSAttributedString, maxWidth: CGFloat) -> AgentStreamingTextLayout {
+    /// Lays out and draws `attributedString`. Revealing streamed text needs the frame of every character, which takes
+    /// a TextKit query per character, so text shown whole leaves `measuresCharacters` off and has no `lines`.
+    static func make(
+        attributedString: NSAttributedString,
+        maxWidth: CGFloat,
+        measuresCharacters: Bool = true
+    ) -> AgentStreamingTextLayout {
         let textStorage = NSTextStorage(attributedString: attributedString)
+        // Hit testing uses the original links; TextKit draws only their explicit color and underline.
+        textStorage.removeAttribute(.link, range: NSRange(location: 0, length: textStorage.length))
         let layoutManager = NSLayoutManager()
         textStorage.addLayoutManager(layoutManager)
 
@@ -37,7 +45,7 @@ struct AgentStreamingTextLayout {
         var lines: [Line] = []
         var glyphIndex = 0
 
-        while glyphIndex < layoutManager.numberOfGlyphs {
+        while measuresCharacters, glyphIndex < layoutManager.numberOfGlyphs {
             var lineGlyphRange = NSRange()
             let lineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineGlyphRange)
             let characterRange = layoutManager.characterRange(forGlyphRange: lineGlyphRange, actualGlyphRange: nil)

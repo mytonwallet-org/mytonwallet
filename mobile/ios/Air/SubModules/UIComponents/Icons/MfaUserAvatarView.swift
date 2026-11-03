@@ -39,6 +39,7 @@ public struct MfaUserAvatarView: View {
     private func remoteAvatar(_ avatarUrl: URL) -> some View {
         KFImage(avatarUrl)
             .setProcessor(SVGImageProcessor.default)
+            .serialize(by: SVGImageProcessor.cacheSerializer)
             .resizable()
             .diskCacheExpiration(.days(1))
             .scaledToFill()

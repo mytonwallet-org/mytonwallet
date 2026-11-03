@@ -262,6 +262,21 @@
   }
 }
 
+.advancedLinkError {
+  color: var(--color-red);
+
+  &:active {
+    color: var(--color-red-button-background-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-red-button-background-hover);
+    }
+  }
+}
+
 .advancedLinkIcon {
   margin-inline-end: -0.267em;
   font-size: 115.4%;
@@ -428,17 +443,18 @@
   padding: 0 2rem;
 }
 
+.blockchainButtonSlide {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .cexDescription,
 .blockchainHintText {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--color-gray-2);
   text-align: center;
-}
-
-.blockchainHintTextError {
-  font-size: 0.9375rem;
-  color: var(--color-red);
 }
 
 .inputButton {

@@ -3,6 +3,7 @@ import {
   AppState,
   AuthState,
   ContentTab,
+  MediaType,
   SettingsState,
   TransactionInfoState,
 } from '../../types';
@@ -52,6 +53,7 @@ import {
   updateDappConnectRequest,
   updateSettings,
 } from '../../reducers';
+import { clearTokenPriceHistory } from '../../reducers/tokens';
 import {
   selectAccountSettings,
   selectCurrentAccount,
@@ -614,6 +616,7 @@ addActionHandler('changeBaseCurrency', (global, actions, { currency }) => {
   global = updateSettings(global, {
     baseCurrency: currency,
   });
+  global = clearTokenPriceHistory(global);
   setGlobal(global);
 });
 
@@ -649,8 +652,21 @@ addActionHandler('closeOffRampWidgetModal', (global) => {
 });
 
 addActionHandler('openMediaViewer', (global, actions, {
-  mediaId, mediaType, txId, hiddenNfts, noGhostAnimation,
+  mediaId, mediaType, txId, hiddenNfts, noGhostAnimation, pictures,
 }) => {
+  if (mediaType !== MediaType.Nft) {
+    // Paging through the pictures keeps the ones the viewer opened with
+    const viewerPictures = pictures ?? global.mediaViewer.pictures;
+    if (!viewerPictures?.byId[mediaId]) return undefined;
+
+    return {
+      ...global,
+      mediaViewer: {
+        mediaId, mediaType, noGhostAnimation, pictures: viewerPictures,
+      },
+    };
+  }
+
   const accountState = selectCurrentAccountState(global);
   const { byAddress } = accountState?.nfts || {};
   const nft = byAddress?.[mediaId];
@@ -669,12 +685,16 @@ addActionHandler('openMediaViewer', (global, actions, {
   };
 });
 
+// The pictures and their kind stay while the viewer fades out showing the last one, until it opens again
 addActionHandler('closeMediaViewer', (global) => {
+  const { mediaType, pictures } = global.mediaViewer;
+
   return {
     ...global,
     mediaViewer: {
       mediaId: undefined,
-      mediaType: undefined,
+      mediaType: pictures ? mediaType : undefined,
+      pictures,
     },
   };
 });

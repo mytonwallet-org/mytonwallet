@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import org.mytonwallet.app_air.airasframework.splash.SplashVC
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
+import org.mytonwallet.app_air.uiagent.search.AgentSearchSuggestions
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -107,6 +108,7 @@ class MainWindow : WWindow() {
     }
 
     fun restartBridge(forcedRecreation: Boolean) {
+        AgentSearchSuggestions.observeRecent()
         splashVC.preloadScreens()
         WalletCore.setupBridge(
             applicationContext,
@@ -170,8 +172,6 @@ class MainWindow : WWindow() {
             navigationControllers.firstOrNull()?.viewControllers?.firstOrNull()
         when (currentContainer) {
             is PhoneTabsVC -> if (nowWide) {
-                // Tablet has no minimized-nav support; restore it as a presented nav first.
-                currentContainer.maximize(animated = false)
                 val transfer = currentContainer.exportStacks()
                 val tabletContainer = TabletTabsVC(this)
                 tabletContainer.adoptStacksBeforeSetup(transfer)
@@ -192,6 +192,8 @@ class MainWindow : WWindow() {
         // Re-layout any presented navs (bottom sheet <-> centered window, PreferredFullScreen, dim
         // overlays, behind-screen visibility) for the new layout.
         reapplyPresentedNavsLayout()
+        // Rebinds minimized bars' blur to the new tab container.
+        if (hasMinimizedBrowser) minimizedBrowser.updateTheme()
         notifyInsetsUpdated()
         WalletCore.notifyEvent(WalletEvent.WideLayoutChanged)
     }

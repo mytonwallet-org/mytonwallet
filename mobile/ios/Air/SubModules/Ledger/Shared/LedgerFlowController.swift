@@ -1,4 +1,5 @@
 import CoreBluetooth
+@preconcurrency import BleTransport
 import Foundation
 import OrderedCollections
 import UIComponents
@@ -103,13 +104,55 @@ final class LedgerFlowController {
                 appInfo = try await connection.connectToTonApp(peripheralID: id)
                 try Task.checkCancellation()
                 updateStep(.openApp, status: .done)
+            } handleError: { error in
+                try Self.handleAppConnectionError(error)
             }
         } catch {
             log.error("\(error)")
-            let errorString = (error as? LocalizedError)?.errorDescription
+            let errorString = Self.appConnectionErrorMessage(error)
             updateStep(.openApp, status: .error(errorString))
             throw error
         }
+    }
+
+    static func handleAppConnectionError(_ error: Error) throws {
+        if let status = error as? BleStatusError {
+            switch status {
+            case .deviceLocked:
+                return
+            default:
+                throw error
+            }
+        }
+        if let transportError = error as? BleTransportError, transportError == .userRefusedOnDevice {
+            throw error
+        }
+    }
+
+    static func appConnectionErrorMessage(_ error: Error) -> String {
+        if let status = error as? BleStatusError {
+            switch status {
+            case .userRejected:
+                return lang("Canceled by the user")
+            case .appNotAvailableInDevice:
+                return lang("Install the TON App on your Ledger and try again.")
+            case .noStatus:
+                return lang("$ledger_connection_broken")
+            default:
+                return lang("Unlock it and open the TON App")
+            }
+        }
+        if let transportError = error as? BleTransportError {
+            switch transportError {
+            case .userRefusedOnDevice:
+                return lang("Canceled by the user")
+            case .pendingActionOnDevice:
+                return lang("Please confirm action on your Ledger")
+            default:
+                return lang("$ledger_connection_broken")
+            }
+        }
+        return lang("Unlock it and open the TON App")
     }
 
     func cancel() {

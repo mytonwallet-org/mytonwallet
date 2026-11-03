@@ -1,4 +1,5 @@
 import Foundation
+import WalletContext
 
 public protocol MfaProtectedActionResult: Sendable {
     var mfaRequestHash: String? { get }
@@ -33,6 +34,13 @@ public struct ApiMfaProtectedResult: Decodable, Sendable {
 
     public var firstActivityId: String? {
         activityId ?? activityIds?.first
+    }
+
+    func requireActivityId() throws -> String {
+        if let error {
+            throw SdkError.apiReturnedError(error: error, context: self)
+        }
+        return try activityId.orThrow()
     }
 }
 

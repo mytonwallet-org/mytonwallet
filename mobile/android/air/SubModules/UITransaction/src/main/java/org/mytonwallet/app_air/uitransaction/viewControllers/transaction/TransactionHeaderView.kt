@@ -15,6 +15,7 @@ import android.widget.Space
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import java.lang.ref.WeakReference
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
@@ -85,7 +86,9 @@ class TransactionHeaderView(
         setConstraints { allEdges(tokenIconView) }
     }
 
-    private val amountView = LabelAndIconView(context)
+    private val amountView = LabelAndIconView(context).apply {
+        lbl.id = UIComponentsR.id.transaction_amount
+    }
     private val amountContainerView = WSensitiveDataContainer(
         amountView,
         WSensitiveDataContainer.MaskConfig(
@@ -108,6 +111,7 @@ class TransactionHeaderView(
     private var peerBlockchain: MBlockchain? = null
 
     private val addressLabel = WLabel(context).apply {
+        id = UIComponentsR.id.transaction_address
         setStyle(adaptiveFontSize())
         setLineHeight(24f)
         setPaddingDp(8, 4, 8, 4)
@@ -309,7 +313,7 @@ class TransactionHeaderView(
             addressLabel.movementMethod =
                 ExtraHitLinkMovementMethod(addressLabel.paddingLeft, addressLabel.paddingTop)
             addressLabel.highlightColor = Color.TRANSPARENT
-        } else if (transaction.type == ApiTransactionType.STAKE) {
+        } else if (transaction.shouldShowTransactionAnnualYield) {
             val stakingState =
                 AccountStore.activeAccountId?.let {
                     StakingStore.getStakingState(it)

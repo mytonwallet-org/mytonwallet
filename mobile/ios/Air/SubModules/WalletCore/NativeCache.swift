@@ -13,6 +13,7 @@ extension WalletCoreData {
         try await ActivityStore.clearCache()
         await TokenStore.clearCache()
         try await NftStore.clearCache()
+        await PerpsStore.shared.clearCache()
         ImageDownloader.default.cancelAll()
         await ImageCache.default.clearCache()
     }

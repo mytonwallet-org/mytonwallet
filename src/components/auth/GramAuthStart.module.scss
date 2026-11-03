@@ -1,0 +1,302 @@
+@use "../../styles/mixins";
+
+.root {
+  overflow: auto;
+  height: 100%;
+  background: var(--color-background-second);
+}
+
+.content {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  height: 100%;
+  min-height: 44.5rem;
+  padding: 5rem 1rem max(2rem, var(--safe-area-bottom, 0rem));
+
+  @include mixins.respond-below(xs) {
+    padding-bottom: max(0.5rem, var(--safe-area-bottom, 0rem));
+  }
+}
+
+.back {
+  position: absolute;
+  top: 1rem;
+  inset-inline-start: 1rem;
+
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+
+  width: 100%;
+}
+
+.logo {
+  position: relative;
+  z-index: 1;
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+.diamond {
+  position: absolute;
+  top: -2rem;
+  left: -2rem;
+
+  @media (prefers-reduced-motion: reduce) {
+    transform: none !important;
+    transition: none;
+  }
+
+  :global(html.animation-level-0) & {
+    transform: none !important;
+  }
+}
+
+.title {
+  margin: 2rem 0 1.25rem;
+
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 2.5rem;
+  color: var(--color-black);
+  text-align: center;
+}
+
+.description {
+  width: 100%;
+  max-width: 22.125rem;
+  margin: 0;
+
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.375rem;
+  color: var(--color-gray-1);
+  text-align: center;
+}
+
+.more {
+  display: inline;
+
+  padding: 0;
+
+  font-size: inherit;
+  font-weight: 500;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.stores {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+
+  margin-top: 2rem;
+}
+
+.store {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.625rem;
+  align-items: center;
+  justify-content: center;
+
+  height: 3rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 1.5rem;
+
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-decoration: none;
+
+  @include mixins.transition(opacity 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--store-color);
+      text-decoration: none;
+      opacity: 0.7;
+    }
+  }
+
+  &:active {
+    transition: none !important;
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--color-accent);
+    outline-offset: 0.25rem;
+  }
+
+  @include mixins.respond-below(xs) {
+    width: 3rem;
+    padding: 0.625rem 0.8125rem;
+  }
+}
+
+.apple {
+  --store-color: #000;
+  --store-background-rgb: 0, 0, 0;
+
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 590;
+  color: var(--store-color);
+  letter-spacing: -0.026875rem;
+
+  background: rgba(var(--store-background-rgb), var(--store-background-opacity, 0.06));
+
+  :global(.theme-dark) & {
+    --store-color: #FFF;
+    --store-background-rgb: 255, 255, 255;
+
+    --store-background-opacity: 0.12;
+  }
+}
+
+.googlePlay {
+  --store-color: #566F14;
+
+  font-family: "Google Sans Flex", "Nunito Sans", sans-serif;
+  color: var(--store-color);
+  background: var(--store-background, rgb(137 169 39 / 14%));
+
+  :global(.theme-dark) & {
+    --store-color: #B0D24D;
+
+    --store-background: rgb(176 210 77 / 18%);
+  }
+
+  @include mixins.respond-below(xs) {
+    padding-right: 0.6875rem;
+    padding-left: 0.9375rem;
+  }
+}
+
+.appleIcon,
+.qrIcon {
+  display: block;
+  background: currentColor;
+
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+
+.appleIcon {
+  width: 1.375rem;
+  height: 1.75rem;
+
+  mask-position: center top;
+}
+
+.qrIcon {
+  width: 1.875rem;
+  height: 1.875rem;
+}
+
+.storeIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.375rem;
+  height: 1.75rem;
+}
+
+.storeLabel {
+  text-align: center;
+  white-space: nowrap;
+
+  @include mixins.respond-below(xs) {
+    display: none;
+  }
+}
+
+.appleLabel {
+  width: 5rem;
+}
+
+.googlePlayLabel {
+  width: 6.125rem;
+}
+
+.mobileStore {
+  width: auto;
+  padding: 0.625rem 1.25rem;
+}
+
+.mobileStoreLabel {
+  display: inline;
+}
+
+.qrButton {
+  --store-color: var(--color-accent);
+
+  width: 3rem;
+  padding: 0.5625rem;
+  color: var(--store-color);
+  background: var(--color-transaction-amount-bg);
+}
+
+.footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+
+  width: 100%;
+  margin-top: auto;
+  padding-top: 3rem;
+}
+
+.divider {
+  width: 100%;
+  margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  width: 100%;
+  max-width: 21.125rem;
+}
+
+.action {
+  width: 100%;
+  max-width: none !important;
+  height: 3rem !important;
+  min-height: 3rem;
+  border-radius: 1.5rem !important;
+
+  font-size: 1.0625rem !important;
+  font-weight: 700 !important;
+}
+
+.terms {
+  width: 100%;
+  max-width: 48rem;
+  margin: 1.5rem 0 0;
+
+  @include mixins.respond-below(xs) {
+    max-width: 23.125rem;
+    margin-top: 1.5rem;
+  }
+}

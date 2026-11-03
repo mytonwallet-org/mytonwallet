@@ -279,3 +279,40 @@ describe('TonConnectAdapter SSE delivery', () => {
     expect(mockStorage.state?.cursor).toBe('11');
   });
 });
+
+describe('TonConnectAdapter deep link return URL', () => {
+  const unknownClientId = toHex(otherDappKeys.publicKey);
+
+  async function getDisconnectedUrl(ret: string) {
+    const { adapter, onUpdate } = await createAdapter();
+    await adapter.handleDeepLink(`tc://?v=2&id=${unknownClientId}&ret=${encodeURIComponent(ret)}`);
+
+    const updates = onUpdate.mock.calls.filter(([update]) => update.type === 'dappDisconnected');
+    expect(updates).toHaveLength(1);
+    return updates[0][0].url;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    FakeEventSource.instances = [];
+    (globalThis as any).EventSource = FakeEventSource;
+  });
+
+  it.each([
+    'javascript:alert(1)',
+    'file:///etc/passwd',
+    'data:text/html,hello',
+    'vbscript:msgbox',
+    'about:blank',
+    'not a url',
+  ])('opens no return URL for %s', async (ret) => {
+    expect(await getDisconnectedUrl(ret)).toBeUndefined();
+  });
+
+  it.each([
+    'https://example.com',
+    'myapp://back',
+  ])('keeps the return URL %s', async (ret) => {
+    expect(await getDisconnectedUrl(ret)).toBe(ret);
+  });
+});

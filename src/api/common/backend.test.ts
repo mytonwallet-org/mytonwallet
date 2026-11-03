@@ -1,5 +1,6 @@
 const mockFetchJson = jest.fn();
 const mockFetchWithTimeout = jest.fn();
+const mockFetchWithRetry = jest.fn();
 
 jest.mock('../../config', () => ({
   ...jest.requireActual('../../config'),
@@ -7,8 +8,14 @@ jest.mock('../../config', () => ({
 }));
 
 jest.mock('../../util/fetch', () => ({
+  buildRequestUrl: (url: URL, data?: Record<string, string>) => {
+    const result = new URL(url);
+    for (const [key, value] of Object.entries(data ?? {})) result.searchParams.set(key, value);
+    return result;
+  },
   fetchJson: (...args: unknown[]) => mockFetchJson(...args),
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+  fetchWithRetry: (...args: unknown[]) => mockFetchWithRetry(...args),
   handleFetchErrors: (response: Response) => Promise.resolve(response),
 }));
 
@@ -30,6 +37,7 @@ describe('backend API helpers', () => {
   afterEach(() => {
     mockFetchJson.mockReset();
     mockFetchWithTimeout.mockReset();
+    mockFetchWithRetry.mockReset();
   });
 
   it('uses per-endpoint circuit breaker buckets for backend GET requests', async () => {
@@ -42,6 +50,22 @@ describe('backend API helpers', () => {
       undefined,
       expect.any(Object),
       { bucketKey: 'https://api.example.test/swap' },
+    );
+  });
+
+  it('returns the raw response status with a single attempt and query parameters for sync', async () => {
+    const { callBackendGet } = await import('./backend');
+    const response = { status: 202 };
+    mockFetchWithRetry.mockResolvedValueOnce(response);
+    const controller = new AbortController();
+
+    await expect(callBackendGet('/nfts/ton/mainnet/owner', { since: 'opaque-token' }, undefined,
+      controller.signal, { shouldReturnResponse: true, shouldRetry: false, timeout: 25000 })).resolves.toBe(response);
+
+    expect(mockFetchWithRetry).toHaveBeenCalledWith(
+      new URL('https://api.example.test/nfts/ton/mainnet/owner?since=opaque-token'),
+      expect.objectContaining({ signal: controller.signal }),
+      { bucketKey: 'https://api.example.test/nfts', retries: 1, timeouts: 25000 },
     );
   });
 

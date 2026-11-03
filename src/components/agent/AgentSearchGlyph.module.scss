@@ -1,0 +1,10 @@
+.icon {
+  display: inline-block;
+
+  width: 1.375rem;
+  height: 1.375rem;
+
+  background-color: currentColor;
+
+  mask: url('../../assets/agentSearchGlyph.svg') center / contain no-repeat;
+}

@@ -32,7 +32,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         var clientRunId: String?
         var runId: String?
         let threadId: String
-        let localInputMessageId: String?
+        var localInputMessageId: String?
         var isRunning: Bool
     }
 
@@ -55,7 +55,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     private enum ErrorSource {
         case agentUnavailable
-        case failedToLoadChat
+        case newsUnavailable
+        case failedToLoadChat(ApiAgentV2ErrorCode?)
         case run(ApiAgentV2ErrorCode)
     }
 
@@ -97,36 +98,113 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private(set) var hints: ApiAgentV2HintsResponse?
     private(set) var limitRetry: LimitRetry?
     private(set) var hasHydratedMessages = false
+    private var unloadedMessageCount = 0
+
+    var seenMessageCount: Int? {
+        guard hasHydratedMessages else { return nil }
+        return unloadedMessageCount + messages.filter { !$0.status.isStreaming }.count
+    }
+
+    /// The message that follows the first `seenMessageCount` ones counted as `seenMessageCount` counts them, without
+    /// the messages in `ignoredIDs`. Seen messages beyond the loaded ones leave the first loaded message.
+    func getFirstUnseenMessageID(seenMessageCount: Int, ignoredIDs: Set<String>) -> String? {
+        guard hasHydratedMessages else { return nil }
+        let settled = messages.filter { !$0.status.isStreaming && !ignoredIDs.contains($0.id) }
+        let index = max(0, seenMessageCount - unloadedMessageCount)
+        return index < settled.count ? settled[index].id : nil
+    }
+
     /// Whether the server takes problem reports, checked once the thread loads and whenever the chat is shown
     private(set) var isProblemReportAvailable = false
 
     var error: String? {
         switch errorSource {
         case .agentUnavailable: lang("Agent is unavailable")
-        case .failedToLoadChat: lang("Failed to load chat")
+        case .newsUnavailable: lang("$agent_news_unavailable")
+        case .failedToLoadChat(let code): Self.loadErrorText(code)
         case .run(let code): AgentV2Copy.error(code)
         case nil: nil
         }
     }
 
-    var isInputBlockedByLimit: Bool {
+    /// A history request cannot fail a wallet operation. Keep actionable connection/session errors, but name
+    /// the failed read for other codes, including a tool error returned by the SDK's read operation.
+    private static func loadErrorText(_ code: ApiAgentV2ErrorCode?) -> String {
+        guard let code else { return lang("Failed to load chat") }
+        switch code {
+        case .clientUpdateRequired, .deviceTokenMissing, .deviceTokenInvalid, .deviceTokenExpired,
+             .profileIdInvalid, .profileDeleted, .networkError, .invalidEvent:
+            return AgentV2Copy.error(code)
+        default:
+            return lang("Failed to load chat")
+        }
+    }
+
+    /// The chat couldn't load its messages, which Retry loads again
+    var isLoadFailure: Bool {
+        if case .failedToLoadChat? = errorSource {
+            return true
+        }
+        return false
+    }
+
+    /// Loads the chat again after it failed to: its newest messages, or the whole chat if none had loaded
+    func retryLoad() {
+        guard !isStopped, loadRetryTask == nil else { return }
+        let shouldReloadMessages = hasHydratedMessages || isLoadFailure && thread != nil
+        errorSource = nil
+        notifyObservers()
+        if shouldReloadMessages {
+            // News can fail its history read while startup still publishes host context. Retry the read now,
+            // without waiting for that independent work or starting a second request on another tap.
+            loadRetryTask = Task { [weak self] in
+                guard let self else { return }
+                defer { self.loadRetryTask = nil }
+                await self.hydrate()
+            }
+        } else if let startupTask {
+            // The chat failed while startup still waits for its hints, which would end it without loading again
+            loadRetryTask = Task { [weak self] in
+                await startupTask.value
+                guard let self else { return }
+                defer { self.loadRetryTask = nil }
+                self.start()
+            }
+        } else {
+            start()
+        }
+    }
+
+    /// The error is the failure of a run, which its failed answer may show as well
+    var isRunFailure: Bool {
+        if case .run? = errorSource {
+            return true
+        }
+        return false
+    }
+
+    var isInputBlockedByLimit: Bool { inputLimitErrorCode != nil }
+
+    /// The limit that blocks sending now, if any
+    var inputLimitErrorCode: ApiAgentV2ErrorCode? {
         let now = Date()
         if availability.state == .capacityExhausted,
            let resetAt = availability.resetAt,
            Date(timeIntervalSince1970: resetAt / 1_000) > now {
-            return true
+            return .agentCapacityExhausted
         }
         if let userQuota,
            limitRetry?.kind != .userQuota,
            userQuota.remaining == 0,
            AgentV2DateParser.date(userQuota.resetAt) > now {
-            return true
+            return .userQuotaExhausted
         }
-        if let resetAt = limitRetry?.resetAt,
+        if let retry = limitRetry,
+           let resetAt = retry.resetAt,
            Date(timeIntervalSince1970: resetAt / 1_000) > now {
-            return true
+            return retry.kind == .rateLimit ? .rateLimited : .userQuotaExhausted
         }
-        return false
+        return nil
     }
 
     var hasLimitRetry: Bool {
@@ -137,10 +215,112 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         limitRetry != nil && activeRun?.isRunning != true && !isInputBlockedByLimit
     }
 
+    struct Opening {
+        enum Source {
+            case question(text: String, entryPoint: ApiAgentV2EntryPoint?)
+            case news(ApiAgentV2ThreadNewsRequest, ApiAgentV2ThreadNewsCard)
+        }
+
+        let source: Source
+        let inputMessageId = "local-opening-\(UUID().uuidString.lowercased())"
+        let createdAt = Date()
+
+        var text: String {
+            switch source {
+            case .question(let text, _): text
+            case .news(_, let preview): preview.headline
+            }
+        }
+
+        var entryPoint: ApiAgentV2EntryPoint? {
+            switch source {
+            case .question(_, let entryPoint): entryPoint ?? .agentTab
+            case .news: nil
+            }
+        }
+
+        var isQuestion: Bool {
+            if case .question = source { return true }
+            return false
+        }
+    }
+
+    private let newsRequest: ApiAgentV2ThreadNewsRequest?
+    private(set) var newsPreview: ApiAgentV2ThreadNewsCard?
+    private var opening: Opening?
+    private var queuedOpenings: [Opening] = []
+    private var openingFinished = false
+    private var openingRunAttempted = false
+    private var openingBaselineMessageIds = Set<String>()
+    private var openingMessageDates: [String: Date] = [:]
+    private var openingCanonicalInputMessageId: String?
+    private var hasOpeningConsent = false
+    private(set) var needsOpeningConsent = false
+    private(set) var isAcceptingOpeningConsent = false
+    var resolveOpeningThread: ((ApiAgentV2ThreadSummary) -> Bool)?
+    var onOpeningThreadCreated: ((ApiAgentV2ThreadSummary) -> Void)?
+
+    var news: ApiAgentV2ThreadNewsCard? {
+        guard let news = thread?.news else { return newsPreview }
+        guard let newsPreview, newsPreview.eventId == news.eventId else { return news }
+        return ApiAgentV2ThreadNewsCard(
+            eventId: news.eventId,
+            headline: news.headline,
+            excerpt: news.excerpt,
+            imageUrl: news.imageUrl,
+            publishedAt: news.publishedAt,
+            source: news.source ?? newsPreview.source,
+            body: news.body ?? newsPreview.body,
+            sources: Self.fillSourceNames(news.sources, from: newsPreview.sources)
+        )
+    }
+
+    /// The thread's sources, named as the feed named them where the thread leaves a name out, so the post keeps showing
+    /// the source the card showed
+    private static func fillSourceNames(
+        _ sources: [ApiAgentV2NewsFeedItem.Source]?,
+        from preview: [ApiAgentV2NewsFeedItem.Source]?
+    ) -> [ApiAgentV2NewsFeedItem.Source]? {
+        guard let sources else { return preview }
+        guard let preview else { return sources }
+        return sources.map { source in
+            guard source.name?.isEmpty != false,
+                  let name = preview.first(where: { $0.url == source.url })?.name, !name.isEmpty else { return source }
+            return ApiAgentV2NewsFeedItem.Source(name: name, url: source.url)
+        }
+    }
+
+    func updateNewsPreview(_ preview: ApiAgentV2ThreadNewsCard) {
+        newsPreview = preview
+        notifyObservers()
+    }
+
+    var openingInputMessageId: String? { opening?.isQuestion == true ? opening?.inputMessageId : nil }
+    var presentationOpeningInputMessageId: String? {
+        queuedOpenings.last?.inputMessageId ?? openingCanonicalInputMessageId ?? openingInputMessageId
+    }
+    var hasOpening: Bool { opening != nil || !queuedOpenings.isEmpty }
+    var hasPendingOpenings: Bool { isOpening || !queuedOpenings.isEmpty }
+    var isOpening: Bool { opening != nil && !openingFinished }
+    var canRetryOpening: Bool {
+        isOpening && error != nil && startupTask == nil && activeRun?.isRunning != true && !isInputBlockedByLimit
+    }
+    var showsOpeningTypingIndicator: Bool {
+        (opening?.isQuestion == true && isOpening || !queuedOpenings.isEmpty)
+            && error == nil && !needsOpeningConsent && activeRun?.isRunning != false
+    }
+
+    func openingMessageDate(id: String) -> Date? { openingMessageDates[id] }
+
     private var revision = 1
     private var conversation = AgentV2ConversationState()
     private var observers: [WeakObserver] = []
     private var startupTask: Task<Void, Never>?
+    private var threadCreationTask: Task<ApiAgentV2ThreadSummary, Error>?
+    private var deletionTask: Task<Void, Error>?
+    private(set) var isDeletingChat = false
+    private var loadRetryTask: Task<Void, Never>?
+    private var initialHostContextTask: Task<Bool, Never>?
     private var statusRefreshTask: Task<Void, Never>?
     private var problemReportAvailabilityTask: Task<Void, Never>?
     private var runTask: Task<Void, Never>?
@@ -163,8 +343,25 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private let hostContextProvider: AgentV2HostContextProvider
     private let initialHostContextRetryDelay: Duration
 
-    init(client: AgentV2Client, initialHostContextRetryDelay: Duration = .seconds(1)) {
+    init(
+        client: AgentV2Client,
+        thread: ApiAgentV2ThreadSummary? = nil,
+        initialHostContextRetryDelay: Duration = .seconds(1),
+        news: ApiAgentV2ThreadNewsCard? = nil,
+        newsRequest: ApiAgentV2ThreadNewsRequest? = nil,
+        question: String? = nil,
+        entryPoint: ApiAgentV2EntryPoint? = nil
+    ) {
         self.client = client
+        self.thread = thread
+        self.newsPreview = news
+        self.newsRequest = newsRequest
+        if let newsRequest, let news {
+            opening = Opening(source: .news(newsRequest, news))
+        } else if let question {
+            opening = Opening(source: .question(text: question, entryPoint: entryPoint))
+        }
+        revision = thread?.revision ?? 1
         self.initialHostContextRetryDelay = initialHostContextRetryDelay
         hostContextProvider = AgentV2HostContextProvider(client: client)
         hostContextProvider.isRunActive = { [weak self] in
@@ -175,12 +372,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         }
         hostContextProvider.onAuthorityContextPublished = { [weak self] in
             self?.refreshActionPresentations()
+            self?.loadStartupStatusIfNeeded()
         }
         WalletCoreData.add(eventObserver: self)
     }
 
     deinit {
         startupTask?.cancel()
+        loadRetryTask?.cancel()
+        initialHostContextTask?.cancel()
         statusRefreshTask?.cancel()
         runTask?.cancel()
         limitExpiryTask?.cancel()
@@ -188,44 +388,318 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func start() {
-        guard !isStopped, startupTask == nil, thread == nil else { return }
+        guard !isStopped, startupTask == nil, !hasHydratedMessages else { return }
+        if isOpening {
+            seedOpeningMessage()
+            startOpening()
+            return
+        }
         startupTask = Task { [weak self] in
             guard let self else { return }
-            for attempt in 0..<Self.initialHostContextMaxAttempts {
-                let didPublishHostContext = await self.hostContextProvider.start()
-                guard !Task.isCancelled else { return }
-                if didPublishHostContext {
-                    self.errorSource = nil
-                    self.statusRefreshTask = Task { [client] in
-                        async let availability: Void = client.loadAvailability()
-                        async let userQuota: Void = client.loadUserQuota()
-                        _ = await (availability, userQuota)
-                    }
-                    async let hints: Void = self.loadHints()
+            defer {
+                self.startupTask = nil
+                self.startNextOpeningIfPossible()
+            }
+            await self.prepareStartup {
+                if self.thread != nil {
+                    await self.hydrate()
+                } else {
                     await self.loadDefaultThread()
-                    await hints
-                    self.startupTask = nil
-                    return
-                }
-
-                self.errorSource = .agentUnavailable
-                self.notifyObservers()
-                guard attempt + 1 < Self.initialHostContextMaxAttempts else {
-                    self.startupTask = nil
-                    return
-                }
-                do {
-                    try await Task.sleep(for: self.initialHostContextRetryDelay)
-                } catch {
-                    return
                 }
             }
         }
     }
 
+    private func prepareStartup(loadConversation: () async -> Void) async {
+        let shouldReloadStartupStatus = statusRefreshTask != nil
+        let requiresHostContext = news == nil
+        if initialHostContextTask == nil {
+            initialHostContextTask = Task { [weak self] in
+                guard let self else { return false }
+                for attempt in 0..<Self.initialHostContextMaxAttempts {
+                    let didPublishHostContext = await self.hostContextProvider.start()
+                    guard !Task.isCancelled, !self.isStopped else { return false }
+                    if didPublishHostContext { return true }
+                    if requiresHostContext {
+                        self.errorSource = .agentUnavailable
+                        self.notifyObservers()
+                    }
+                    guard attempt + 1 < Self.initialHostContextMaxAttempts else { return false }
+                    do {
+                        try await Task.sleep(for: self.initialHostContextRetryDelay)
+                    } catch {
+                        return false
+                    }
+                }
+                return false
+            }
+        }
+        let hostContextTask = initialHostContextTask
+        if !requiresHostContext {
+            await loadConversation()
+        }
+        let didPublishHostContext = await hostContextTask?.value == true
+        guard !Task.isCancelled, !isStopped else { return }
+        guard didPublishHostContext else {
+            initialHostContextTask = nil
+            return
+        }
+        if shouldReloadStartupStatus {
+            statusRefreshTask?.cancel()
+            statusRefreshTask = nil
+        }
+        loadStartupStatusIfNeeded()
+        if requiresHostContext { errorSource = nil }
+        guard opening?.isQuestion != true, news == nil else {
+            if requiresHostContext { await loadConversation() }
+            return
+        }
+        async let hints = loadStartupHints()
+        if requiresHostContext { await loadConversation() }
+        let response = await hints
+        guard !isStopped, news == nil, self.hints != response else { return }
+        self.hints = response
+        notifyObservers()
+    }
+
+    private func loadStartupStatusIfNeeded() {
+        guard !isStopped, statusRefreshTask == nil else { return }
+        statusRefreshTask = Task { [client] in
+            async let availability: Void = client.loadAvailability()
+            async let userQuota: Void = client.loadUserQuota()
+            _ = await (availability, userQuota)
+        }
+        refreshProblemReportAvailability()
+    }
+
+    private func loadStartupHints() async -> ApiAgentV2HintsResponse? {
+        guard !isStopped, opening?.isQuestion != true, news == nil else { return nil }
+        return try? await client.hints()
+    }
+
+    private func openingMessage(_ opening: Opening) -> AgentV2NativeMessage {
+        AgentV2NativeMessage(
+            id: opening.inputMessageId,
+            threadId: thread?.id ?? "",
+            role: .user,
+            text: opening.isQuestion ? opening.text : news?.headline ?? opening.text,
+            createdAt: opening.createdAt
+        )
+    }
+
+    private func seedOpeningMessage() {
+        guard let opening, opening.isQuestion else { return }
+        openingMessageDates[opening.inputMessageId] = opening.createdAt
+        let message = openingMessage(opening)
+        if messages.contains(where: { $0.id == opening.inputMessageId }) {
+            conversation.replaceMessages(messages.map { $0.id == opening.inputMessageId ? message : $0 })
+        } else {
+            conversation.appendMessage(message)
+        }
+        notifyObservers()
+    }
+
+    func transferOpening(to coordinator: AgentV2Coordinator) {
+        if let newsPreview { coordinator.updateNewsPreview(newsPreview) }
+        guard let opening, opening.isQuestion, !openingRunAttempted else { return }
+        coordinator.acceptOpening(opening)
+    }
+
+    private func acceptOpening(_ accepted: Opening) {
+        guard !isStopped,
+              opening?.inputMessageId != accepted.inputMessageId,
+              !queuedOpenings.contains(where: { $0.inputMessageId == accepted.inputMessageId }) else { return }
+        queuedOpenings.append(accepted)
+        openingMessageDates[accepted.inputMessageId] = accepted.createdAt
+        conversation.appendMessage(openingMessage(accepted))
+        notifyObservers()
+        startNextOpeningIfPossible()
+    }
+
+    private func startNextOpeningIfPossible() {
+        guard !isStopped, startupTask == nil, hasHydratedMessages,
+              activeRun?.isRunning != true, !isOpening, !queuedOpenings.isEmpty else { return }
+        invalidateRunLifecycle(clearsActiveRun: true)
+        opening = queuedOpenings.removeFirst()
+        openingFinished = false
+        openingRunAttempted = false
+        openingCanonicalInputMessageId = nil
+        hasOpeningConsent = true
+        startOpening()
+    }
+
+    private func startOpening() {
+        guard !isStopped, startupTask == nil, let opening else { return }
+        errorSource = nil
+        startupTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.startupTask = nil
+                self.notifyObservers()
+                self.startNextOpeningIfPossible()
+            }
+            do {
+                if !self.hasOpeningConsent {
+                    self.hasOpeningConsent = try await self.client.consent()
+                    guard !Task.isCancelled, !self.isStopped else { return }
+                    self.needsOpeningConsent = !self.hasOpeningConsent
+                    if self.needsOpeningConsent { return }
+                }
+                if self.thread == nil {
+                    // Deletion cancels startup but must retain an in-flight create's response for cleanup.
+                    let creation = Task { [client = self.client, weak self] in
+                        guard let self, !self.isDeletingChat else { throw CancellationError() }
+                        try Task.checkCancellation()
+                        switch opening.source {
+                        case .question:
+                            return try await client.createThread().thread
+                        case .news(let request, _):
+                            return try await client.createThread(news: request).thread
+                        }
+                    }
+                    self.threadCreationTask = creation
+                    defer { self.threadCreationTask = nil }
+                    let created = try await creation.value
+                    guard !Task.isCancelled, !self.isStopped else { return }
+                    guard self.resolveOpeningThread?(created) != false else { return }
+                    try self.bindThread(created, notify: false)
+                    if created.messageCount == 0 { self.seedOpeningMessage() }
+                    self.onOpeningThreadCreated?(created)
+                    AgentSearchProvider.shared.notifyConversationChanged()
+                }
+                guard !Task.isCancelled, !self.isStopped else { return }
+                if !opening.isQuestion {
+                    self.notifyObservers()
+                }
+                await self.prepareStartup {
+                    guard !Task.isCancelled, !self.isStopped, let thread = self.thread else { return }
+                    if !opening.isQuestion {
+                        await self.hydrate()
+                        return
+                    }
+                    if thread.messageCount > 0, !self.hasHydratedMessages {
+                        guard await self.hydrate(), !Task.isCancelled, !self.isStopped else { return }
+                    }
+                    self.sendOpening()
+                }
+            } catch {
+                guard !Task.isCancelled, !self.isStopped else { return }
+                self.errorSource = self.openingError(error)
+            }
+        }
+        notifyObservers()
+    }
+
+    private func sendOpening() {
+        guard !isDeletingChat, !isStopped, let opening, opening.isQuestion else { return }
+        if let code = inputLimitErrorCode {
+            errorSource = .run(code)
+            return
+        }
+        hasHydratedMessages = true
+        openingBaselineMessageIds = Set(messages.map(\.id))
+        openingRunAttempted = true
+        send(
+            input: .append(text: opening.text),
+            entryPoint: opening.entryPoint,
+            localInputMessageId: opening.inputMessageId
+        )
+    }
+
+    func acceptOpeningConsent() {
+        guard needsOpeningConsent, startupTask == nil, !isStopped else { return }
+        isAcceptingOpeningConsent = true
+        startupTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.client.acceptConsent()
+                guard !Task.isCancelled, !self.isStopped else { return }
+                self.hasOpeningConsent = true
+                self.needsOpeningConsent = false
+                self.isAcceptingOpeningConsent = false
+                self.startupTask = nil
+                self.startOpening()
+            } catch {
+                guard !Task.isCancelled, !self.isStopped else { return }
+                self.isAcceptingOpeningConsent = false
+                self.startupTask = nil
+                if let displayError = AgentV2Copy.displayError(error) {
+                    if self.opening?.isQuestion == true {
+                        self.needsOpeningConsent = false
+                        self.errorSource = .agentUnavailable
+                    } else {
+                        AppActions.showError(error: displayError)
+                    }
+                }
+                self.notifyObservers()
+            }
+        }
+        notifyObservers()
+    }
+
+    func retryOpening() {
+        guard canRetryOpening else { return }
+        if hasHydratedMessages, let thread, openingRunAttempted {
+            if let clientRunId = activeRun?.clientRunId {
+                retryRun(clientRunId: clientRunId, threadId: thread.id)
+            } else {
+                invalidateRunLifecycle(clearsActiveRun: true)
+                errorSource = nil
+                startupTask = Task { [weak self] in
+                    guard let self else { return }
+                    defer {
+                        self.startupTask = nil
+                        self.notifyObservers()
+                        self.startNextOpeningIfPossible()
+                    }
+                    guard await self.hydrate(), !Task.isCancelled, !self.isStopped else { return }
+                    guard self.isOpening, self.activeRun == nil else { return }
+                    self.sendOpening()
+                }
+                notifyObservers()
+            }
+        } else {
+            startOpening()
+        }
+    }
+
+    private func openingError(_ error: Error) -> ErrorSource {
+        if newsRequest != nil,
+           (error as? ApiAgentV2MutationError)?.code == .newsUnavailable
+            || (error as? SdkError)?.backendMessage == "news_unavailable" {
+            return .newsUnavailable
+        }
+        return .agentUnavailable
+    }
+
     /// Waits for the initial timeline and suggestions; status probes update independently.
     func waitForInitialLoad() async {
         await startupTask?.value
+    }
+
+    func beginChatDeletion() {
+        guard !isDeletingChat else { return }
+        isDeletingChat = true
+        let threadId = thread?.id
+        let creation = threadCreationTask
+        stop()
+        deletionTask = Task { [client] in
+            let id: String?
+            if let threadId {
+                id = threadId
+            } else {
+                id = try? await creation?.value.id
+            }
+            // A failed or unstarted creation has nothing to remove on the server.
+            guard let id else { return }
+            let response = try await client.deleteThread(id: id)
+            WalletCoreData.notify(event: .agentThreadDeleted(threadId: response.threadId))
+            AgentSearchProvider.shared.notifyConversationChanged()
+        }
+    }
+
+    func waitForChatDeletion() async throws {
+        try await deletionTask?.value
     }
 
     /// While the chat is on screen in the foreground, the SDK keeps the server's copy of the wallet snapshot current.
@@ -274,8 +748,13 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             sendChatActivity(false)
         }
         isStopped = true
+        if !isDeletingChat { threadCreationTask?.cancel() }
         startupTask?.cancel()
         startupTask = nil
+        loadRetryTask?.cancel()
+        loadRetryTask = nil
+        initialHostContextTask?.cancel()
+        initialHostContextTask = nil
         statusRefreshTask?.cancel()
         statusRefreshTask = nil
         problemReportAvailabilityTask?.cancel()
@@ -302,9 +781,10 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func loadHints() async {
-        guard !isStopped else { return }
-        hints = try? await client.hints()
-        guard !isStopped else { return }
+        guard !isStopped, news == nil else { return }
+        let response = try? await client.hints()
+        guard !isStopped, news == nil, hints != response else { return }
+        hints = response
         notifyObservers()
     }
 
@@ -319,13 +799,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         } catch {
             guard !isStopped else { return }
             log.error("default thread load failed error=\(agentFailureSummary(error), .public)")
-            self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) } ?? .failedToLoadChat
+            self.errorSource = .failedToLoadChat((error as? ApiAgentV2MutationError)?.code)
             notifyObservers()
         }
     }
 
     func clearThread() async -> Bool {
-        guard !isStopped, let thread, activeRun?.isRunning != true else { return false }
+        guard !isStopped, let thread, activeRun?.isRunning != true,
+              news == nil || hasHydratedMessages else { return false }
+        let newsBeforeClear = news
         let generation = runGeneration
         guard let result = try? await client.clearThread(id: thread.id, revision: currentRevision()),
               result.ok,
@@ -333,17 +815,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         guard !isStopped,
               runGeneration == generation,
               (try? bindThread(updated, notify: false)) != nil else { return false }
+        newsPreview = newsBeforeClear
         invalidateRunLifecycle(clearsActiveRun: true)
         hydrationGeneration += 1
         invalidateActionPresentations(threadId: thread.id)
         conversation.removeAllMessages()
+        unloadedMessageCount = 0
         nextMessageCursor = nil
         hasHydratedMessages = true
         runActivity = nil
         errorSource = nil
         limitRetry = nil
         scheduleLimitExpiryUpdate()
-        AgentSearchProvider.shared.invalidateConversationTitle()
         AgentSearchProvider.shared.notifyConversationChanged()
         notifyObservers()
         return true
@@ -400,16 +883,32 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         return didSave
     }
 
-    func hydrate(preservingLiveActions: Bool = false) async {
-        guard !Task.isCancelled, !isStopped, let threadId = thread?.id else { return }
+    @discardableResult
+    func hydrate(preservingLiveActions: Bool = false) async -> Bool {
+        guard !Task.isCancelled, !isStopped, let threadId = thread?.id else { return false }
         hydrationGeneration += 1
         let generation = hydrationGeneration
+        let fetchRunGeneration = activeRun?.generation
         do {
-            let page = try await client.messages(threadId: threadId, cursor: nil, limit: 50)
-            guard !Task.isCancelled,
-                  !isStopped,
-                  hydrationGeneration == generation,
-                  page.thread.id == threadId,
+            var retriesRemaining = 2
+            let page: ApiAgentV2ThreadHydration
+            while true {
+                do {
+                    page = try await client.messages(threadId: threadId, cursor: nil, limit: 50)
+                    break
+                } catch let error as ApiAgentV2MutationError
+                    where error.code == .walletContextChanged && retriesRemaining > 0 {
+                    guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+                    if let initialHostContextTask {
+                        _ = await initialHostContextTask.value
+                        guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+                    }
+                    retriesRemaining -= 1
+                }
+            }
+            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+            guard !hasHydratedMessages || activeRun?.generation == fetchRunGeneration else { return false }
+            guard page.thread.id == threadId,
                   page.messages.allSatisfy({ $0.threadId == threadId }) else {
                 throw AgentV2NativeContractError.threadBindingMismatch
             }
@@ -417,26 +916,69 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 threadId: threadId,
                 clearsExistingPresentations: !preservingLiveActions
             )
+            newsPreview = news
             try bindThread(page.thread, notify: false)
             let hydratedMessages = page.messages.map(hydratedMessage)
-            conversation.replaceMessages(
-                hydratedMessages,
-                preservingLiveActions: preservingLiveActions
-            )
+            var shouldFinishOpening = false
+            if isOpening, let opening {
+                if opening.isQuestion {
+                    if openingRunAttempted,
+                       let accepted = hydratedMessages.first(where: {
+                           $0.role == .user && !openingBaselineMessageIds.contains($0.id)
+                       }) {
+                        reconcileOpeningInput(localId: opening.inputMessageId, canonicalId: accepted.id)
+                        shouldFinishOpening = true
+                    }
+                } else {
+                    shouldFinishOpening = true
+                }
+            }
+            let pending = (isOpening && !shouldFinishOpening ? opening.map { [$0] } ?? [] : []) + queuedOpenings
+            let pendingMessages = pending.filter { item in
+                !hydratedMessages.contains(where: { $0.id == item.inputMessageId })
+            }.map(openingMessage)
+            let shouldReplaceMessages = !hydratedMessages.isEmpty || pendingMessages.isEmpty
+            if shouldReplaceMessages {
+                unloadedMessageCount = max(0, page.thread.messageCount - hydratedMessages.count)
+                conversation.replaceMessages(
+                    hydratedMessages + pendingMessages,
+                    preservingLiveActions: preservingLiveActions
+                )
+            }
             applyPendingFeedback()
             nextMessageCursor = page.nextCursor
             hasHydratedMessages = true
-            if limitRetry == nil {
+            if limitRetry == nil && (!isOpening || shouldFinishOpening) {
                 errorSource = nil
             }
             refreshActionPresentations(in: messages, threadId: threadId)
             AgentSearchProvider.shared.notifyConversationChanged()
-            notifyObservers(.messagesHydrated)
+            notifyObservers(shouldReplaceMessages ? .messagesHydrated : .reload)
+            if shouldFinishOpening {
+                openingFinished = true
+                notifyObservers()
+            }
+            startNextOpeningIfPossible()
+            return true
         } catch {
-            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return }
+            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return false }
+            if (error as? ApiAgentV2MutationError)?.code == .threadNotFound {
+                WalletCoreData.notify(event: .agentThreadDeleted(threadId: threadId))
+                return false
+            }
             log.error("thread hydration failed error=\(agentFailureSummary(error), .public)")
-            self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) } ?? .failedToLoadChat
+            self.errorSource = .failedToLoadChat((error as? ApiAgentV2MutationError)?.code)
             notifyObservers()
+            return false
+        }
+    }
+
+    func refreshThreadIfNeeded(_ thread: ApiAgentV2ThreadSummary) {
+        guard !isStopped, !hasPendingOpenings, isBoundThread(thread.id), activeRun?.isRunning != true,
+              thread.revision > currentRevision() else { return }
+        Task { [weak self] in
+            guard let self, self.activeRun?.isRunning != true else { return }
+            await self.hydrate()
         }
     }
 
@@ -452,7 +994,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
               page.messages.allSatisfy({ $0.threadId == threadId }) else { return false }
         guard (try? bindThread(page.thread, notify: false)) != nil else { return false }
         let hydratedMessages = page.messages.map(hydratedMessage)
+        let previousMessageCount = messages.count
         conversation.prependMessages(hydratedMessages)
+        unloadedMessageCount = max(0, unloadedMessageCount - (messages.count - previousMessageCount))
         applyPendingFeedback()
         nextMessageCursor = page.nextCursor
         refreshActionPresentations(in: hydratedMessages, threadId: threadId)
@@ -461,22 +1005,23 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         return true
     }
 
+    @discardableResult
     func send(
         input: ApiAgentV2RunInput,
         entryPoint: ApiAgentV2EntryPoint? = .agentTab,
         followup: ApiAgentV2RunCommand.FollowUpReference? = nil,
         visibleText: String? = nil,
         localInputMessageId: String? = nil
-    ) {
+    ) -> Bool {
         guard !isStopped,
               let threadId = thread?.id,
               activeRun?.isRunning != true,
-              !isInputBlockedByLimit else { return }
+              news == nil || hasHydratedMessages,
+              !isInputBlockedByLimit else { return false }
         let generation = beginRunLifecycle()
         switch input {
         case .edit:
             invalidateActionPresentations(threadId: threadId)
-            AgentSearchProvider.shared.invalidateConversationTitle()
         case .regenerate:
             invalidateActionPresentations(threadId: threadId)
         case .append:
@@ -526,28 +1071,32 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             let terminalState: ApiAgentV2RunResultState
             let clientRunId: String?
             do {
+                if self.news != nil {
+                    if let hostContextTask = self.initialHostContextTask {
+                        _ = await hostContextTask.value
+                    }
+                    guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                    guard await self.hostContextProvider.start() else {
+                        throw AgentV2NativeContractError.retryUnavailable
+                    }
+                    guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                }
+                guard !Task.isCancelled, !self.isDeletingChat, self.isCurrentRun(generation) else { return }
                 let result = try await self.client.startRun(command)
                 guard !Task.isCancelled,
                       self.bindRunResult(result, generation: generation, threadId: threadId) else { return }
-                let localInputMessageId = self.activeRun?.localInputMessageId
-                let isRunAdmitted = self.activeRun?.runId != nil
-                if isRunAdmitted,
-                   self.conversation.reconcileOptimisticInputMessage(
-                    localId: localInputMessageId,
-                    canonicalId: result.inputMessageId
-                ), let localInputMessageId, let canonicalInputMessageId = result.inputMessageId {
-                    self.notifyObservers(.messageIdReconciled(
-                        localId: localInputMessageId,
-                        canonicalId: canonicalInputMessageId
-                    ))
-                }
+                self.reconcileRunInput(result)
                 terminalState = result.state
                 clientRunId = result.clientRunId
             } catch {
                 guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
                 log.error("run start failed error=\(agentFailureSummary(error), .public)")
                 let activeClientRunId = self.activeRun?.clientRunId
-                await self.hydrate()
+                if !self.isOpening {
+                    await self.hydrate()
+                } else {
+                    self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) }
+                }
                 guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
                 self.settleRun(
                     generation: generation,
@@ -556,7 +1105,10 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 )
                 return
             }
-            await self.hydrate(preservingLiveActions: true)
+            if !self.isOpening || terminalState == .completed || terminalState == .cancelled {
+                if self.isOpening { self.openingFinished = true }
+                await self.hydrate(preservingLiveActions: true)
+            }
             guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
             self.settleRun(
                 generation: generation,
@@ -564,6 +1116,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 outcome: terminalState
             )
         }
+        return true
     }
 
     func cancelRun() {
@@ -573,13 +1126,19 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     func retryLimit() {
         guard !isStopped, canRetryLimit, let retry = limitRetry else { return }
-        let generation = beginRunLifecycle(reusingClientRunId: retry.clientRunId)
+        retryRun(clientRunId: retry.clientRunId, threadId: retry.threadId)
+    }
+
+    private func retryRun(clientRunId: String, threadId: String) {
+        let retry = limitRetry
+        let generation = beginRunLifecycle(reusingClientRunId: clientRunId)
+        if isOpening { errorSource = nil }
         activeRun = RunState(
             generation: generation,
-            clientRunId: retry.clientRunId,
+            clientRunId: clientRunId,
             runId: nil,
-            threadId: retry.threadId,
-            localInputMessageId: nil,
+            threadId: threadId,
+            localInputMessageId: isOpening ? openingInputMessageId : nil,
             isRunning: true
         )
         scheduleLimitExpiryUpdate()
@@ -588,24 +1147,40 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         runTask = Task { [weak self] in
             guard let self else { return }
             let terminalState: ApiAgentV2RunResultState
-            let clientRunId: String?
+            let resultClientRunId: String?
             do {
-                guard let result = try await self.client.retryRun(clientRunId: retry.clientRunId) else {
+                guard let result = try await self.client.retryRun(clientRunId: clientRunId) else {
                     throw AgentV2NativeContractError.retryUnavailable
                 }
                 guard !Task.isCancelled,
-                      self.bindRunResult(result, generation: generation, threadId: retry.threadId) else { return }
+                      self.bindRunResult(result, generation: generation, threadId: threadId) else { return }
+                if self.opening != nil, self.activeRun?.localInputMessageId != nil {
+                    self.reconcileRunInput(result)
+                }
                 if result.state == .completed || result.state == .cancelled,
                    self.limitRetry == retry {
                     self.limitRetry = nil
                 }
                 terminalState = result.state
-                clientRunId = result.clientRunId
+                resultClientRunId = result.clientRunId
             } catch {
                 guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
                 log.error("run retry failed error=\(agentFailureSummary(error), .public)")
                 let activeClientRunId = self.activeRun?.clientRunId
-                await self.hydrate()
+                if !self.isOpening {
+                    await self.hydrate()
+                } else {
+                    self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) }
+                    if let contractError = error as? AgentV2NativeContractError,
+                       case .retryUnavailable = contractError {
+                        self.activeRun?.clientRunId = nil
+                        self.activeRun?.runId = nil
+                        if self.limitRetry?.clientRunId == clientRunId {
+                            self.limitRetry = nil
+                            self.scheduleLimitExpiryUpdate()
+                        }
+                    }
+                }
                 guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
                 self.settleRun(
                     generation: generation,
@@ -614,11 +1189,14 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 )
                 return
             }
-            await self.hydrate(preservingLiveActions: true)
+            if !self.isOpening || terminalState == .completed || terminalState == .cancelled {
+                if self.isOpening { self.openingFinished = true }
+                await self.hydrate(preservingLiveActions: true)
+            }
             guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
             self.settleRun(
                 generation: generation,
-                clientRunId: clientRunId,
+                clientRunId: resultClientRunId,
                 outcome: terminalState
             )
         }
@@ -678,6 +1256,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 run.runId = bound.runId
                 run.isRunning = true
                 localInputMessageId = run.localInputMessageId
+                if let inputMessageId {
+                    run.localInputMessageId = inputMessageId
+                }
                 activeRun = run
             } else {
                 let generation = beginRunLifecycle(reusingClientRunId: bound.clientRunId)
@@ -687,16 +1268,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                     clientRunId: bound.clientRunId,
                     runId: bound.runId,
                     threadId: bound.threadId,
-                    localInputMessageId: nil,
+                    localInputMessageId: inputMessageId,
                     isRunning: true
                 )
             }
             revision = threadRevision
+            if isOpening { openingFinished = true }
             let didReconcileInputMessage = conversation.reconcileOptimisticInputMessage(
                 localId: localInputMessageId,
                 canonicalId: inputMessageId
             )
             if didReconcileInputMessage, let localInputMessageId, let inputMessageId {
+                preserveOpeningMessageDate(localId: localInputMessageId, canonicalId: inputMessageId)
                 change = .messageIdReconciled(localId: localInputMessageId, canonicalId: inputMessageId)
             } else {
                 change = .reload
@@ -706,6 +1289,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
                 messageId: messageId,
+                inputMessageId: activeRun?.localInputMessageId,
                 contentKind: contentKind,
                 responseLanguage: responseLanguage
             )
@@ -716,6 +1300,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
                 messageId: messageId,
+                inputMessageId: activeRun?.localInputMessageId,
                 contentKind: .markdown
             )
             conversation.appendMarkdown(messageId: messageId, delta: delta)
@@ -730,6 +1315,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
                 messageId: messageId,
+                inputMessageId: activeRun?.localInputMessageId,
                 contentKind: .markdown
             )
             conversation.addAnswerLink(id: messageId, link: link)
@@ -772,6 +1358,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
                 messageId: messageId,
+                inputMessageId: activeRun?.localInputMessageId,
                 contentKind: .semantic
             )
             conversation.setSemanticContent(id: messageId, content: content)
@@ -792,7 +1379,8 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                     runId: bound?.runId,
                     threadId: target
                   ) else { return }
-            terminalErrorSourcesByClientRunId[clientRunId] = .run(code)
+            let errorSource: ErrorSource = .run(code)
+            terminalErrorSourcesByClientRunId[clientRunId] = errorSource
             limitRetry = makeLimitRetry(
                 bound: bound,
                 clientRunId: clientRunId,
@@ -808,7 +1396,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                conversation.failMessage(id: messageId, error: ApiAgentV2MessageError(code: code, retryable: retryable)) {
                 failedMessageIdsByClientRunId[clientRunId] = messageId
             } else {
-                errorSource = .run(code)
+                self.errorSource = errorSource
             }
             if disposition == .retiredActive {
                 change = .reload
@@ -823,6 +1411,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             }
             hostContextProvider.flushDeferredDynamicUpdate()
             if code == .threadRevisionConflict || code == .runReplayExpired {
+                if isOpening {
+                    invalidateRunLifecycle(clearsActiveRun: true)
+                }
                 Task { [weak self] in await self?.hydrate() }
             }
             change = .runTerminated(.failed)
@@ -1057,6 +1648,37 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         return true
     }
 
+    private func reconcileRunInput(_ result: ApiAgentV2RunResult) {
+        guard activeRun?.runId != nil else { return }
+        let localInputMessageId = activeRun?.localInputMessageId
+        if let inputMessageId = result.inputMessageId {
+            activeRun?.localInputMessageId = inputMessageId
+        }
+        if conversation.reconcileOptimisticInputMessage(
+            localId: localInputMessageId,
+            canonicalId: result.inputMessageId
+           ), let localId = localInputMessageId, let canonicalId = result.inputMessageId {
+            preserveOpeningMessageDate(localId: localId, canonicalId: canonicalId)
+            notifyObservers(.messageIdReconciled(localId: localId, canonicalId: canonicalId))
+        }
+    }
+
+    private func preserveOpeningMessageDate(localId: String, canonicalId: String) {
+        if let date = openingMessageDates[localId] {
+            openingMessageDates[canonicalId] = date
+        }
+        if localId == openingInputMessageId {
+            openingCanonicalInputMessageId = canonicalId
+        }
+    }
+
+    private func reconcileOpeningInput(localId: String, canonicalId: String) {
+        preserveOpeningMessageDate(localId: localId, canonicalId: canonicalId)
+        if conversation.reconcileOptimisticInputMessage(localId: localId, canonicalId: canonicalId) {
+            notifyObservers(.messageIdReconciled(localId: localId, canonicalId: canonicalId))
+        }
+    }
+
     private func acceptPayloadUpdate(_ bound: ApiAgentV2ClientUpdate.Bound) -> Bool {
         guard isBoundThread(bound.threadId),
               !retiredClientRunIds.contains(bound.clientRunId),
@@ -1134,6 +1756,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         }
         AgentSearchProvider.shared.notifyConversationChanged()
         notifyObservers(.runTerminated(outcome))
+        startNextOpeningIfPossible()
     }
 
     private func restoreTerminalErrorIfNeeded(

@@ -1078,6 +1078,42 @@ a.item:hover {
   margin: 0 auto 1.25rem;
 }
 
+.aboutLogo {
+  isolation: isolate;
+  position: relative;
+
+  flex-shrink: 0;
+
+  width: 6rem;
+  height: 6rem;
+  margin: 0 auto 1.25rem;
+}
+
+.aboutLogoImage {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+
+  @include mixins.transition(transform 150ms);
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.aboutDiamond {
+  position: absolute;
+  z-index: 1;
+  top: -1.5625rem;
+  left: -1.5625rem;
+
+  margin: 0;
+}
+
+.aboutParticles {
+  --particle-offset-y: -3.875rem;
+}
+
 .pinPadHeader {
   display: flex;
   flex-direction: column;

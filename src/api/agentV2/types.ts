@@ -15,8 +15,10 @@ import type {
   AgentSwapAmountV1,
   AgentThreadMessagesPageV2,
   AgentThreadSummaryV2,
+  AgentThreadUpdateRequestV2,
   AgentToolName,
   AgentToolStatusEvent,
+  AgentTranscriptionRequestV2,
   AgentUserQuotaV2,
   AgentV2LiveAction,
   AgentWalletSemanticOperationV2,
@@ -202,9 +204,19 @@ export interface AgentV2RunResult {
 /** A problem report on the conversation, or on one of its messages when `messageId` names it */
 export type AgentV2ProblemReport = Pick<AgentProblemReportRequestV2, 'comment' | 'messageId'>;
 
+export type AgentV2ThreadUpdate = Omit<AgentThreadUpdateRequestV2, 'protocolVersion'> & (
+  Required<Pick<AgentThreadUpdateRequestV2, 'title'>>
+  | Required<Pick<AgentThreadUpdateRequestV2, 'isPinned'>>
+);
+
+/** One dictated recording: its base64 bytes, its container and the app language as a hint */
+export type AgentV2Transcription = Omit<AgentTranscriptionRequestV2, 'protocolVersion'>;
+
 export interface AgentV2OperationError {
   code: AgentV2ErrorCode;
   retryable: boolean;
+  /** How long the server asked to wait before trying again, when it said */
+  retryAfterMs?: number;
 }
 
 export type AgentV2OperationResult<T> =

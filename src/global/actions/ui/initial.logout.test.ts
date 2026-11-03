@@ -2,6 +2,7 @@ import './initial';
 
 import type { GlobalState } from '../../types';
 
+import { getAgentV2LocalState } from '../../../util/agent/agentV2LocalState';
 import { callApiWithThrow } from '../../../api';
 import { enclave } from '../../../enclave';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -32,6 +33,9 @@ function makeGlobal() {
 }
 
 beforeEach(() => {
+  getAgentV2LocalState().draftOnMount = 'Private draft';
+  localStorage.setItem('mytonwallet-agent-last-thread', 'old-thread');
+  localStorage.setItem('mytonwallet-agent-thread-read-state', 'old-state');
   jest.mocked(callApiWithThrow).mockClear();
   jest.mocked(enclave.reset).mockClear();
   jest.mocked(enclave.removeSecret).mockClear();
@@ -58,6 +62,9 @@ it.each(['account', 'network'])('removing %s on mainnet preserves the existing o
   expect(getGlobal().byAccountId[TEST].currentTokenSlug).toBe('testnet-token');
   expect(getGlobal().settings.byAccountId[TEST]?.pinnedSlugs).toEqual(['testnet-token']);
   expect(actions.switchAccount).toHaveBeenCalledWith({ accountId: TEST, newNetwork: 'testnet' });
+  expect(localStorage.getItem('mytonwallet-agent-last-thread')).toBe('old-thread');
+  expect(localStorage.getItem('mytonwallet-agent-thread-read-state')).toBe('old-state');
+  expect(getAgentV2LocalState().draftOnMount).toBe('Private draft');
 });
 
 it('explicit all-account removal resets SDK once before clearing Enclave', async () => {
@@ -68,4 +75,21 @@ it('explicit all-account removal resets SDK once before clearing Enclave', async
   expect(enclave.reset).toHaveBeenCalledTimes(1);
   expect(actions.afterSignOut).toHaveBeenCalledWith({ shouldReset: true });
   expect(actions.init).toHaveBeenCalledTimes(1);
+  expect(localStorage.getItem('mytonwallet-agent-last-thread')).toBeNull();
+  expect(localStorage.getItem('mytonwallet-agent-thread-read-state')).toBeNull();
+  expect(getAgentV2LocalState().draftOnMount).toBe('');
+});
+
+it('clears Enclave when Agent storage cannot be removed', async () => {
+  const removeItem = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+    throw new Error('Storage is unavailable');
+  });
+
+  try {
+    await handler('afterSignOut')(getGlobal(), makeActions(), { shouldReset: true });
+    expect(enclave.reset).toHaveBeenCalledTimes(1);
+    expect(getAgentV2LocalState().draftOnMount).toBe('');
+  } finally {
+    removeItem.mockRestore();
+  }
 });

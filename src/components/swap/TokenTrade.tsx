@@ -77,6 +77,7 @@ function TokenTrade({
     tradeCardCurrency,
     tradeAmount,
     isTradeAmountInToken,
+    isMaxAmount,
     amountIn,
     amountOut,
     amountOutMin,
@@ -129,12 +130,12 @@ function TokenTrade({
   const {
     tokenIn,
     tokenOut,
-    nativeUserTokenIn,
     explainedFee,
     maxAmount,
     isEnoughNative,
     isDieselNotAuthorized,
     canSubmit: canSubmitSwap,
+    isAmountGreaterThanBalance,
     hasInsufficientFeeError,
     isPriceImpactError,
     isCrosschain,
@@ -194,6 +195,21 @@ function TokenTrade({
   const canConvertPercent = !isBuy || Boolean(tokenIn?.priceUsd && tokenOut?.priceUsd);
   const percentMaxAmount = isCardMode ? cardMax.amount : (canConvertPercent ? maxAmount : undefined);
   const shouldShowPercents = !(isCardMode && isBuy);
+  // A sold 100% is the maximum of the current mode: the card takes the balance without the transfer fee, while a swap
+  // estimate leaves room for its own fee. 100% chosen while a token was the counter is the whole balance, so the card
+  // mode cuts it down to its own maximum. A field that differs from the global amount holds a typed amount on its way
+  // to the global state, which drops the Max flag, so it is left as typed.
+  const tradeAmountBigint = tradeAmount && screenToken ? fromDecimal(tradeAmount, screenToken.decimals) : 0n;
+  const isCardMaxPending = isCardMode && !isBuy && Boolean(isMaxAmount) && tradeAmountBigint > 0n
+    && tokenAmountBigint === tradeAmountBigint && cardMax.amount !== undefined && tradeAmountBigint !== cardMax.amount;
+
+  useEffect(() => {
+    if (!isCardMaxPending || !screenToken) return;
+
+    const amount = toDecimal(cardMax.amount!, screenToken.decimals);
+    applyTokenAmount(amount);
+    setTradeAmount({ amount, isMaxAmount: true });
+  }, [isCardMaxPending, cardMax.amount, screenToken, applyTokenAmount]);
 
   const handlePercentClick = useLastCallback((percent: number) => {
     if (!percentMaxAmount || !screenToken || !tokenIn) return;
@@ -203,7 +219,7 @@ function TokenTrade({
     if (isCardMode) {
       const amount = toDecimal(bigintMultiplePercent(percentMaxAmount, percent), screenToken.decimals);
       applyTokenAmount(amount);
-      setTradeAmount({ amount });
+      setTradeAmount({ amount, isMaxAmount: percent === 100 });
       return;
     }
 
@@ -279,10 +295,10 @@ function TokenTrade({
   if (isCardMode) {
     if (!isBuy && cardMax.hasError) {
       cardErrorText = lang('Unexpected Error');
-    } else if (!isBuy && cardMax.amount !== undefined && tokenAmountBigint > cardMax.amount) {
+    } else if (!isBuy && !isCardMaxPending && cardMax.amount !== undefined && tokenAmountBigint > cardMax.amount) {
       cardErrorText = lang('Insufficient Balance');
     }
-    canSubmitCard = !cardErrorText && (isBuy || !cardMax.isLoading);
+    canSubmitCard = !cardErrorText && (isBuy || (!cardMax.isLoading && !isCardMaxPending));
   }
   const canSubmit = tokenAmountBigint > 0n && (isCardMode ? canSubmitCard : canSubmitSwap);
   const hint = !isCardMode && errorType !== undefined ? swapHint : undefined;
@@ -559,9 +575,10 @@ function TokenTrade({
               amountIn={amountIn}
               amountOut={amountOut}
               swapType={swapType}
-              isEstimating={isCardMode ? !isBuy && cardMax.isLoading : isEstimating}
+              isEstimating={isCardMode ? !isBuy && (cardMax.isLoading || isCardMaxPending) : isEstimating}
               isNotEnoughNative={!isCardMode && !isEnoughNative}
-              nativeToken={nativeUserTokenIn}
+              isAmountGreaterThanBalance={!isCardMode && isAmountGreaterThanBalance}
+              hasInsufficientFeeError={!isCardMode && hasInsufficientFeeError}
               dieselStatus={isCardMode ? undefined : dieselStatus}
               isSending={isLoading}
               isPriceImpactError={!isCardMode && isPriceImpactError}

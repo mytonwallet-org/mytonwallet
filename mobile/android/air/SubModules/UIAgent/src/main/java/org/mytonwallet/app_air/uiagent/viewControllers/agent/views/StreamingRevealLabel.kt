@@ -59,7 +59,10 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     private val snippets = mutableListOf<Snippet>()
 
     private var textBitmap: Bitmap? = null
-    private var textBitmapText: CharSequence? = null
+    private var textBitmapLayout: Layout? = null
+
+    // The layout the snippets took their glyphs and places from
+    private var snippetLayout: Layout? = null
 
     private var hasSizeOverride = false
     private var sizeFromWidth = 0f
@@ -179,7 +182,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         revealCharCount = null
         snippets.clear()
         textBitmap = null
-        textBitmapText = null
+        textBitmapLayout = null
         if (hasSizeOverride) {
             hasSizeOverride = false
             if (notifySizeChange) onSizeTransitionFrame?.invoke()
@@ -262,7 +265,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         } else if (hasSizeOverride) {
             hasSizeOverride = false
             textBitmap = null
-            textBitmapText = null
+            textBitmapLayout = null
             onSizeTransitionFrame?.invoke()
             requestLayout()
         }
@@ -366,6 +369,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
             adoptInFlightSnippets(nowSeconds())
         }
         val layout = layout
+        if (layout != null && layout !== snippetLayout) relayoutSnippets(layout)
         val limit = maskCharLimit()
         if (limit == null || layout == null) {
             super.onDraw(canvas)
@@ -424,8 +428,25 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         }
     }
 
+    /**
+     * Moves the snippets still flying in onto [layout], where the text re-wrapped as it grew, so each glyph lands where
+     * the text now has it
+     */
+    private fun relayoutSnippets(layout: Layout) {
+        snippetLayout = layout
+        if (snippets.isEmpty()) return
+        val inFlight = snippets.map { it.charIndex to it.startTime }
+        snippets.clear()
+        val bitmap = ensureTextBitmap(layout) ?: return
+        val textLength = layout.text.length
+        for ((charIndex, startTime) in inFlight) {
+            if (charIndex < textLength) spawnSnippetForChar(layout, bitmap, charIndex, startTime)
+        }
+    }
+
     private fun spawnSnippets(from: Int, to: Int, now: Double) {
         val layout = layout ?: return
+        if (layout !== snippetLayout) relayoutSnippets(layout)
         val textLength = layout.text.length
         val end = min(to, textLength)
         if (from >= end) return
@@ -446,6 +467,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     private fun adoptInFlightSnippets(now: Double) {
         val entries = revealKey?.let { snippetTimesByKey[it] } ?: return
         val layout = layout ?: return
+        if (layout !== snippetLayout) relayoutSnippets(layout)
         val bitmap = ensureTextBitmap(layout) ?: return
         val textLength = layout.text.length
         for ((charIndex, startTime) in entries) {
@@ -501,7 +523,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
 
     private fun ensureTextBitmap(layout: Layout): Bitmap? {
         textBitmap?.let {
-            if (textBitmapText === layout.text) return it
+            if (textBitmapLayout === layout) return it
         }
         val width = layout.width
         val height = layout.height
@@ -511,7 +533,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         val bitmap = createBitmap(width, height)
         layout.draw(Canvas(bitmap))
         textBitmap = bitmap
-        textBitmapText = layout.text
+        textBitmapLayout = layout
         return bitmap
     }
 

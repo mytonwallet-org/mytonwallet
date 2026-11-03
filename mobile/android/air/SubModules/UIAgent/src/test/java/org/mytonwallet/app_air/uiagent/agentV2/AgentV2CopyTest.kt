@@ -185,7 +185,7 @@ class AgentV2CopyTest {
     }
 
     @Test
-    fun preservesTextAndExplainsAnInvalidHistoryExtension() {
+    fun keepsTextApartFromTheFailureOfAnInvalidHistoryExtension() {
         val message = mapAgentV2Message(
             AgentV2PersistedMessage(
                 id = "message",
@@ -197,7 +197,8 @@ class AgentV2CopyTest {
                 createdAt = "2026-08-10T12:00:00.000Z"
             )
         )!!
-        assertEquals("Valid answer\n\n${agentV2ErrorText("invalid_event")}", message.text)
+        assertEquals("Valid answer", message.text)
+        assertEquals(agentV2ErrorText("invalid_event"), message.failureText)
         assertFalse(message.isStreaming)
     }
 

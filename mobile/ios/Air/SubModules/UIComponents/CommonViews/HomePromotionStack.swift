@@ -123,6 +123,18 @@ private struct PromotionDismissModifier: AnimatableModifier {
     }
 }
 
+private enum PromotionBannerMetrics {
+    static let topPadding: CGFloat = 14
+    static let closeButtonInset: CGFloat = 5
+    static let closeButtonSize: CGFloat = 44
+    static let actionHitPadding: CGFloat = 7
+    static let minimumControlSpacing: CGFloat = 8
+
+    static var minimumActionTop: CGFloat {
+        closeButtonInset + closeButtonSize + minimumControlSpacing + actionHitPadding - topPadding
+    }
+}
+
 private struct HomePromotionBanner: View {
     let banner: ApiPromotion.InfoBanner
     let isSensitiveDataHidden: Bool
@@ -153,12 +165,20 @@ private struct HomePromotionBanner: View {
                 text[run.range].font = WTypography.font(.supportingStrong, scaling: .dynamic)
             }
         }
+        return keepingWordsWhole(text)
+    }
+
+    // An undetermined language has no hyphenation dictionary, while Chinese needs its own to segment words.
+    private func keepingWordsWhole(_ text: AttributedString) -> AttributedString {
+        guard Language.current != .zhHans, Language.current != .zhHant else { return text }
+        var text = text
+        text.languageIdentifier = "und"
         return text
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: localized(banner.title))
+        PromotionContentLayout(forceVertical: dynamicTypeSize.isAccessibilitySize) {
+            Text(keepingWordsWhole(AttributedString(localized(banner.title))))
                 .textStyle(.calloutEmphasized, scaling: .dynamic)
                 .tracking(-0.43)
                 .foregroundStyle(Color.air.primaryLabel)
@@ -168,13 +188,11 @@ private struct HomePromotionBanner: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-            PromotionContentLayout(forceVertical: dynamicTypeSize.isAccessibilitySize) {
-                descriptionView
-                actionButton
-            }
+            descriptionView
+            actionButton
         }
         .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .padding(.top, PromotionBannerMetrics.topPadding)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .opacity(showsContent ? 1 : 0)
@@ -204,13 +222,13 @@ private struct HomePromotionBanner: View {
                 Image.airBundle("PromotionClose")
                     .resizable()
                     .frame(width: 12, height: 12)
-                    .frame(width: 44, height: 44)
+                    .frame(width: PromotionBannerMetrics.closeButtonSize, height: PromotionBannerMetrics.closeButtonSize)
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(lang("Close"))
             .accessibilityIdentifier("promotion.dismiss")
-            .padding(5)
+            .padding(PromotionBannerMetrics.closeButtonInset)
             .opacity(showsContent ? 1 : 0)
         }
         .highlightScale(isPressed, scale: 0.98, isEnabled: !reduceMotion)
@@ -259,30 +277,55 @@ private struct PromotionContentLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let measurement = measurement(width: bounds.width, subviews: subviews)
-        let descriptionY = measurement.isVertical ? bounds.minY : bounds.maxY - measurement.description.height - 8
         subviews[0].place(
-            at: CGPoint(x: bounds.minX, y: descriptionY),
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(measurement.title)
+        )
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + measurement.descriptionY),
             anchor: .topLeading,
             proposal: ProposedViewSize(measurement.description)
         )
-        subviews[1].place(
-            at: CGPoint(x: bounds.maxX, y: bounds.maxY),
-            anchor: .bottomTrailing,
+        subviews[2].place(
+            at: CGPoint(x: bounds.maxX, y: bounds.minY + measurement.actionY),
+            anchor: .topTrailing,
             proposal: ProposedViewSize(measurement.action)
         )
     }
 
-    private func measurement(width proposedWidth: CGFloat?, subviews: Subviews) -> (size: CGSize, description: CGSize, action: CGSize, isVertical: Bool) {
-        let idealAction = subviews[1].sizeThatFits(.unspecified)
+    private struct Measurement {
+        var size: CGSize
+        var title: CGSize
+        var description: CGSize
+        var action: CGSize
+        var descriptionY: CGFloat
+        var actionY: CGFloat
+    }
+
+    private func measurement(width proposedWidth: CGFloat?, subviews: Subviews) -> Measurement {
+        let idealAction = subviews[2].sizeThatFits(.unspecified)
         let width = proposedWidth.flatMap { $0.isFinite ? max(0, $0) : nil }
-            ?? (subviews[0].sizeThatFits(.unspecified).width + 10 + idealAction.width)
+            ?? max(subviews[0].sizeThatFits(.unspecified).width, subviews[1].sizeThatFits(.unspecified).width + 10 + idealAction.width)
+        let title = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
         // Leave most of the row for the description; longer translations get their own button row.
         let isVertical = forceVertical || idealAction.width > width * 0.4
-        let action = subviews[1].sizeThatFits(ProposedViewSize(width: min(idealAction.width, width), height: nil))
+        let action = subviews[2].sizeThatFits(ProposedViewSize(width: min(idealAction.width, width), height: nil))
         let descriptionWidth = isVertical ? width : max(0, width - action.width - 10)
-        let description = subviews[0].sizeThatFits(ProposedViewSize(width: descriptionWidth, height: nil))
-        let height = isVertical ? description.height + 8 + action.height : max(description.height + 8, action.height)
-        return (CGSize(width: width, height: height), description, action, isVertical)
+        let description = subviews[1].sizeThatFits(ProposedViewSize(width: descriptionWidth, height: nil))
+        let contentY = title.height + 4
+        let contentHeight = isVertical ? description.height + 8 + action.height : max(description.height + 8, action.height)
+        let descriptionY = contentY + (isVertical ? 0 : contentHeight - description.height - 8)
+        // Include the action's expanded tap area when clearing the close button's tap target.
+        let actionY = max(contentY + contentHeight - action.height, PromotionBannerMetrics.minimumActionTop)
+        return Measurement(
+            size: CGSize(width: width, height: actionY + action.height),
+            title: title,
+            description: description,
+            action: action,
+            descriptionY: descriptionY,
+            actionY: actionY
+        )
     }
 }
 
@@ -293,13 +336,17 @@ extension ApiPromotion.InfoBanner {
             values["%amount%"] = "***"
         }
         switch text {
-        case "🔒 %amount% %symbol% locked in another staking":
+        case "🔒 %amount% %symbol% staked elsewhere":
             if let amount = values["%amount%"], let symbol = values["%symbol%"] {
                 // Keep the amount and ticker in one LTR run inside the localized sentence.
-                return L10n.amountSymbolLockedInAnotherStaking(
+                return L10n.amountSymbolStakedElsewhere(
                     amount: "\u{2066}\(amount)",
                     symbol: "\(symbol)\u{2069}"
                 )
+            }
+        case "Unlock your %symbol% to access higher-yield staking.":
+            if let symbol = values["%symbol%"] {
+                return L10n.unlockYourSymbolToAccessHigherYieldStaking(symbol: symbol)
             }
         case "Tap to restake your %symbol% with higher returns.":
             if let symbol = values["%symbol%"] {
@@ -320,11 +367,11 @@ private struct PromotionActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(.tint.opacity(configuration.isPressed || isHovering ? 0.2 : 0.1), in: .capsule)
-            // Expand the tap target without adding space above short descriptions.
-            .padding(.vertical, 7)
+            // The banner layout reserves space for this expanded tap target.
+            .padding(.vertical, PromotionBannerMetrics.actionHitPadding)
             .frame(minHeight: 44)
             .contentShape(.rect)
-            .padding(.vertical, -7)
+            .padding(.vertical, -PromotionBannerMetrics.actionHitPadding)
             .onHover { isHovering = $0 }
     }
 }

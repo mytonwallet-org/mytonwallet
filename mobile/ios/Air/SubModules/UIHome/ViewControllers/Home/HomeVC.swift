@@ -96,6 +96,100 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private let tokensSectionDataProvider: HomeWalletTokensSectionDataProvider
     private let activitySectionDataProvider = HomeActivitySectionDataProvider()
     private let bannersSection = HomeBannersSection(topSpacing: 16, bottomSpacing: 0)
+    private let perpsSections = HomePerpsSections()
+    private var hasLivePerpsSections = false
+    private var perpsAccountId: String?
+    private var perpsPollingTask: Task<Void, Never>?
+    private var pendingPerpsUpdate: (accountID: String, apply: () -> Void)?
+
+    /// The SDK adapter supplies snapshots only for this home controller's currently selected account.
+    /// Sections stay absent until configured; switching wallets cannot display the previous wallet's positions.
+    public func updatePerpsSections(data: PerpsPositionsDisplayData?,
+                                   exploreDestinations: [HomeExploreDestination] = HomeExploreDestination.allCases,
+                                   onPositionAction: @escaping (PerpsHomeAction) -> Void,
+                                   onExplore: @escaping (HomeExploreDestination) -> Void) {
+        guard data == nil || data?.accountID == homeVM.account.id else { return }
+        if let data, data.accountID != displayedActivitiesAccountId {
+            // Keep the old wallet's visible content intact until its replacement snapshot commits.
+            pendingPerpsUpdate = (data.accountID, { [weak self] in
+                self?.updatePerpsSections(data: data, exploreDestinations: exploreDestinations,
+                                          onPositionAction: onPositionAction, onExplore: onExplore)
+            })
+            return
+        }
+        pendingPerpsUpdate = nil
+        let animatePositions = data?.shouldAnimatePositionsChange(from: perpsSections.data) == true
+            && viewIfLoaded?.window != nil && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+        perpsSections.data = data
+        perpsSections.destinations = data == nil ? [] : exploreDestinations
+        perpsSections.onPositionAction = { [weak self] action in
+            guard let self, let snapshot = perpsSections.data,
+                  snapshot.accountID == displayedActivitiesAccountId, snapshot.accountID == homeVM.account.id else { return }
+            if case .position(let id) = action {
+                guard snapshot.status == .ready, snapshot.positions.contains(where: { $0.id == id && $0.canSelect }) else { return }
+            }
+            onPositionAction(action)
+        }
+        perpsSections.onExplore = { [weak self] destination in
+            guard let self, perpsSections.data?.accountID == displayedActivitiesAccountId,
+                  perpsSections.data?.accountID == homeVM.account.id,
+                  perpsSections.destinations.contains(destination) else { return }
+            onExplore(destination)
+        }
+        if isViewLoaded, !isCommittingAccount {
+            applySnapshot(makeSnapshot(reconfiguringCustomSections: [perpsSections.positionsID, perpsSections.exploreID]), animatingDifferences: animatePositions)
+        }
+    }
+    private func renderLivePerpsSections() {
+        let account = homeVM.account
+        guard PerpsAvailability.canRead(account) else {
+            // Leave explicit Lab injection alone while the live feature is disabled.
+            if hasLivePerpsSections {
+                updatePerpsSections(data: nil, onPositionAction: { _ in }, onExplore: { _ in })
+                hasLivePerpsSections = false
+            }
+            return
+        }
+        hasLivePerpsSections = true
+        if perpsAccountId != account.id {
+            perpsAccountId = account.id
+            Task { await PerpsStore.shared.refresh(accountId: account.id) }
+        }
+        let store = PerpsStore.shared
+        updatePerpsSections(data: PerpsHomeAdapter.positions(store: store, accountId: account.id),
+            exploreDestinations: [.market, .agent, .futures, .apps], onPositionAction: { action in
+                switch action {
+                case .position(let id): AppActions.showPerps(accountId: account.id, positionId: id)
+                case .refresh: Task { await store.refresh(accountId: account.id) }
+                case .allPositions: AppActions.showPerps(accountId: account.id, showsAllPositions: true)
+                default: break
+                }
+            }, onExplore: { destination in
+                switch destination {
+                case .market: AppActions.showMarket()
+                case .agent: AppActions.showAgent()
+                case .futures: AppActions.showPerps(accountId: account.id)
+                case .apps: AppActions.showExplore()
+                }
+            })
+    }
+
+    private func startPerpsPolling() {
+        perpsPollingTask?.cancel()
+        renderLivePerpsSections()
+        perpsPollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                if UIApplication.shared.applicationState == .active {
+                    if !PerpsStore.shared.hasResolvedCapabilities { await PerpsStore.shared.loadCapabilities() }
+                    if let account = self?.homeVM.account, PerpsAvailability.canRead(account) {
+                        await PerpsStore.shared.refresh(accountId: account.id)
+                    }
+                }
+                try? await Task.sleep(for: .seconds(20))
+            }
+        }
+    }
+
     private var activityPreviewViewModel: ActivityPreviewViewModel?
     private var isPreparingActivityHistory = false
 
@@ -454,6 +548,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         walletAssetsVC.delegate = self
 
         updateNavigationItem()
+        observe { [weak self] in self?.renderLivePerpsSections() }
         observeCurrentAccount()
         observeActionsRowHeight()
         observe { [weak self] in
@@ -517,6 +612,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         headerViewModel.isVisible = true
+        startPerpsPolling()
         collectionView.traceHome("home.appeared", "account=\(homeVM.account.id)")
         if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
             updateSafeAreaInsets()
@@ -533,6 +629,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         headerViewModel.isVisible = false
+        perpsPollingTask?.cancel()
+        perpsPollingTask = nil
     }
 
     public override func viewDidLayoutSubviews() {
@@ -741,7 +839,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
     public override var headerPlaceholderBottomSpacing: CGFloat { 0 }
     private var assetsCustomSectionHeight: CGFloat {
-        return max(0, assetsHeight - sectionSpacing)
+        return InsetSectionHeader.height + max(0, assetsHeight - sectionSpacing)
     }
     public override var customSections: [any CustomSectionDataProvider] {
         var dataProviders: [any CustomSectionDataProvider] = [
@@ -749,10 +847,12 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         ].compactMap { $0 }
         dataProviders.append(tokensSectionDataProvider)
         dataProviders.insert(bannersSection.descriptor, at: 0)
+        dataProviders.append(perpsSections.positionsDescriptor)
         if let assetsCustomSectionDescriptor {
             dataProviders.append(assetsCustomSectionDescriptor)
         }
         dataProviders.append(activitySectionDataProvider)
+        dataProviders.append(perpsSections.exploreDescriptor)
         return dataProviders
     }
     public override var displaysActivitySections: Bool { false }
@@ -777,10 +877,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             ids.append(multisigWalletWarningCustomSectionID)
         }
         ids.append(tokensCustomSectionID)
+        if let data = perpsSections.data, data.accountID == accountId, !data.positions.isEmpty {
+            ids.append(perpsSections.positionsID)
+        }
         if walletAssetsVC?.hasVisibleContent == true {
             ids.append(assetsCustomSectionID)
         }
         ids.append(activityCustomSectionID)
+        if perpsSections.data?.accountID == accountId, !perpsSections.destinations.isEmpty { ids.append(perpsSections.exploreID) }
         return ids
     }
     public override var activeCustomSectionIDs: [String] {
@@ -812,6 +916,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         assetsCustomSectionDescriptor = CustomSectionDescriptor(
             id: assetsCustomSectionID,
             usesInsetGroupedMargins: true,
+            topSpacing: sectionSpacing,
+            bottomSpacing: 0,
             dequeueCell: { [unowned self] collectionView, indexPath in
                 collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
             },
@@ -1169,6 +1275,9 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             }
             activityPreviewViewModel?.delegate = nil
             activityPreviewViewModel = presentation.activities
+            let perpsUpdate = pendingPerpsUpdate
+            pendingPerpsUpdate = nil
+            if perpsUpdate?.accountID == accountId { perpsUpdate?.apply() }
             _ = bannersSection.update(accountContext: AccountContext(accountId: accountId))
             tokensSectionDataProvider.topSpacing = bannersSection.isVisible ? 8 : nil
             activitySectionDataProvider.update(viewModel: presentation.activities)
@@ -1217,11 +1326,21 @@ extension HomeVC: ActivityPreviewViewModelDelegate {
 @MainActor
 private final class HomeAssetsRowCell: FirstRowCell {
     private var heightConstraint: NSLayoutConstraint?
+    private let header = InsetSectionHeaderCell()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         contentView.backgroundColor = .clear
+        header.configure(title: lang("Collectibles"))
+        header.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(header)
+        NSLayoutConstraint.activate([
+            header.topAnchor.constraint(equalTo: contentView.topAnchor),
+            header.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            header.heightAnchor.constraint(equalToConstant: InsetSectionHeader.height),
+        ])
         let heightConstraint = contentView.heightAnchor.constraint(equalToConstant: 0).withPriority(.init(999))
         heightConstraint.isActive = true
         self.heightConstraint = heightConstraint
@@ -1244,7 +1363,7 @@ private final class HomeAssetsRowCell: FirstRowCell {
             assetsView.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(assetsView)
             NSLayoutConstraint.activate([
-                assetsView.topAnchor.constraint(equalTo: contentView.topAnchor),
+                assetsView.topAnchor.constraint(equalTo: header.bottomAnchor),
                 assetsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
                 assetsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
                 assetsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),

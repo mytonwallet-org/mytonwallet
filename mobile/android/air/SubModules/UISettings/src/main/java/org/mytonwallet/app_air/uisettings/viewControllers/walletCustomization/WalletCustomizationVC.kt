@@ -10,6 +10,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
+import androidx.core.animation.doOnEnd
 import androidx.core.graphics.toColorInt
 import androidx.core.view.updateLayoutParams
 import java.lang.ref.WeakReference
@@ -107,6 +108,7 @@ class WalletCustomizationVC private constructor(
     private var loadingCards = mutableSetOf<String>()
     private var tabHeights = mutableMapOf<Int, Int>()
     private var hintVisibilities = mutableMapOf<Int, Float>()
+    private var availableCardsHeightAnimator: ValueAnimator? = null
 
     companion object {
         fun create(context: Context, defaultSelectedAccountId: String): WalletCustomizationVC? {
@@ -130,6 +132,9 @@ class WalletCustomizationVC private constructor(
                 offsetPercent
             ).roundToInt()
         }
+
+    private val contentWidth: Int
+        get() = view.width - scrollView.paddingLeft - scrollView.paddingRight
 
     private val hintVisibility: Float
         get() {
@@ -201,6 +206,9 @@ class WalletCustomizationVC private constructor(
             }
             onEmptyViewTap = {
                 openUpgradeCard(selectedAccount.accountId)
+            }
+            onLayoutWidthChanged = {
+                updateTabHeights()
             }
         }
     }
@@ -440,21 +448,30 @@ class WalletCustomizationVC private constructor(
             LocaleController.getString(if (isFirstCard) "Get First Card" else "Get More Cards")
     }
 
+    private fun availableCardsHeightFor(cards: List<ApiNft>): Int = if (cards.isNotEmpty()) {
+        WalletCustomizationAvailableCardsView.calculateHeight(contentWidth, cards.size + 1)
+    } else {
+        WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
+    }
+
+    private fun updateTabHeights() {
+        availableCardsHeightAnimator?.end()
+        loadedCards.forEach { (accountId, cards) ->
+            val accountIndex = accounts.indexOfFirst { it.accountId == accountId }
+            if (accountIndex >= 0) tabHeights[accountIndex] = availableCardsHeightFor(cards)
+        }
+        availableCardsView.updateLayoutParams {
+            height = availableCardsHeight
+        }
+    }
+
     private fun loadCards(accountId: String?) {
         val accountId = accountId ?: return
         loadedCards[accountId]?.let { loadedCards ->
             if (selectedAccount.accountId == accountId) {
-                val finalHeight = if (loadedCards.isNotEmpty()) {
-                    WalletCustomizationAvailableCardsView.calculateHeight(
-                        view.width,
-                        loadedCards.size + 1
-                    )
-                } else {
-                    WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
-                }
                 val accountIndex =
                     accounts.indexOfFirst { it.accountId == selectedAccount.accountId }
-                tabHeights[accountIndex] = finalHeight
+                tabHeights[accountIndex] = availableCardsHeightFor(loadedCards)
                 availableCardsView.configure(
                     selectedAccount.accountId,
                     if (loadedCards.isNotEmpty()) listOf(null) + loadedCards else listOf()
@@ -509,15 +526,7 @@ class WalletCustomizationVC private constructor(
                     appPaletteView.updatePaletteView(walletEvent.accountId, walletEvent.nfts)
                     updateGetMoreCardsButton(walletEvent.nfts.isEmpty())
                 }
-                val finalHeight =
-                    if (walletEvent.nfts.isNotEmpty()) {
-                        WalletCustomizationAvailableCardsView.calculateHeight(
-                            view.width,
-                            walletEvent.nfts.size + 1
-                        )
-                    } else {
-                        WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
-                    }
+                val finalHeight = availableCardsHeightFor(walletEvent.nfts)
                 val targetHintVisibility = if (walletEvent.nfts.isEmpty()) 0f else 1f
                 val accountIndex =
                     accounts.indexOfFirst { it.accountId == walletEvent.accountId }
@@ -525,7 +534,11 @@ class WalletCustomizationVC private constructor(
                     val currentHeight = tabHeights[accountIndex]
                         ?: WalletCustomizationAvailableCardsView.DEFAULT_HEIGHT.dp
                     val currentHintVisibility = hintVisibilities[accountIndex] ?: 0f
-                    ValueAnimator.ofInt(currentHeight, finalHeight).apply {
+                    availableCardsHeightAnimator?.end()
+                    availableCardsHeightAnimator = ValueAnimator.ofInt(
+                        currentHeight,
+                        finalHeight
+                    ).apply {
                         duration = AnimationConstants.VERY_QUICK_ANIMATION
                         interpolator = AccelerateDecelerateInterpolator()
 
@@ -541,6 +554,11 @@ class WalletCustomizationVC private constructor(
                                 animation.animatedFraction
                             )
                             updateHintVisibility()
+                        }
+                        doOnEnd {
+                            if (availableCardsHeightAnimator === it) {
+                                availableCardsHeightAnimator = null
+                            }
                         }
 
                         start()

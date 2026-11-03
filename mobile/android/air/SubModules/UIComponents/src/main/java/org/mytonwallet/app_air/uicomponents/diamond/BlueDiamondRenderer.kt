@@ -38,6 +38,7 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
+import kotlin.math.exp
 import kotlin.math.min
 
 internal class BlueDiamondRenderer(
@@ -46,11 +47,21 @@ internal class BlueDiamondRenderer(
     private var size: Int,
     private val maxGrow: Float,
     private val pixelsPerPoint: Float,
+    private val hoverSpeed: Float,
+    private val restingCanvasSize: Int?,
+    private val state: State,
     private val onError: () -> Unit
 ) {
     private val thread = HandlerThread("BlueDiamond").apply { start() }
     private val handler = Handler(thread.looper)
-    private val motion = BlueDiamondMotion()
+
+    // The view retains motion across TextureView surface recreation during navigation.
+    internal class State {
+        val motion = BlueDiamondMotion()
+        var time = 0f
+    }
+
+    private val motion get() = state.motion
     private var display = EGL_NO_DISPLAY
     private var eglContext = EGL_NO_CONTEXT
     private var eglSurface = EGL_NO_SURFACE
@@ -64,8 +75,14 @@ internal class BlueDiamondRenderer(
     private var isVisible = false
     private var canAnimate = false
     private var hasFailed = false
-    private var time = 0f
+    private var time: Float
+        get() = state.time
+        set(value) {
+            state.time = value
+        }
     private var lastFrameAt = 0L
+    private var isHovered = false
+    private var idleSpeed = 1f
     private val drawFrame = Runnable { drawFrame() }
 
     @Volatile private var isStopped = false
@@ -106,13 +123,29 @@ internal class BlueDiamondRenderer(
         }
     }
 
-    fun press() = handler.post { motion.press(time) }
-    fun drag(dx: Float, dy: Float) = handler.post { motion.drag(dx, dy) }
-    fun release(tapX: Float? = null, tapY: Float? = null, flingDirection: Float? = null) =
-        handler.post { motion.release(time, tapX, tapY, flingDirection) }
+    fun press(springGrowth: Boolean = false) = handler.post {
+        synchronized(state) { if (!isStopped) motion.press(time, springGrowth) }
+    }
+    fun drag(dx: Float, dy: Float) =
+        handler.post { synchronized(state) { if (!isStopped) motion.drag(dx, dy) } }
+    fun release(
+        tapX: Float? = null,
+        tapY: Float? = null,
+        flingDirection: Float? = null,
+        fullTurn: Boolean = false
+    ) = handler.post {
+        synchronized(state) {
+            if (!isStopped) motion.release(time, tapX, tapY, flingDirection, fullTurn)
+        }
+    }
+
+    fun setHovered(value: Boolean) = handler.post { isHovered = value }
 
     fun stop() {
-        isStopped = true
+        synchronized(state) {
+            isStopped = true
+            motion.cancelPress(time)
+        }
         handler.post {
             handler.removeCallbacks(drawFrame)
             closeEgl()
@@ -164,7 +197,9 @@ internal class BlueDiamondRenderer(
         scene = BlueDiamondScene(assets).also { it.setLensSource(lensMask, lensRect) }
     }
 
-    private fun drawFrame() {
+    private fun drawFrame() = synchronized(state) { drawFrameLocked() }
+
+    private fun drawFrameLocked() {
         if (isStopped || hasFailed || !isVisible) return
         val scene = scene ?: return
         try {
@@ -179,10 +214,20 @@ internal class BlueDiamondRenderer(
             lastFrameAt = now
             if (canAnimate) {
                 time += frameTime
-                motion.update(time)
+                val target = if (isHovered) hoverSpeed else 1f
+                idleSpeed += (target - idleSpeed) * (1 - exp(-frameTime * 10))
+                motion.update(time, idleSpeed)
                 grip = motion.grip
             }
-            val scale = (1 + (maxGrow - 1) * motion.grip) / maxGrow
+            val restingScale = restingCanvasSize?.let { it.toFloat() / size } ?: (1 / maxGrow)
+            val growth = if (restingCanvasSize !=
+                null
+            ) {
+                motion.grip.coerceAtMost(1f)
+            } else {
+                motion.grip
+            }
+            val scale = (1 + (maxGrow - 1) * growth) * restingScale
             scene.draw(
                 size,
                 time,

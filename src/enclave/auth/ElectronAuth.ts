@@ -1,6 +1,7 @@
 import { base64FromBuffer, bufferFromBase64 } from '../../util/casting';
 import { logDebugError } from '../../util/logs';
 import { randomBytes } from '../../util/random';
+import { EnclaveError } from '../errors';
 
 import BaseAuth from './BaseAuth';
 
@@ -56,7 +57,7 @@ export default class ElectronAuth extends BaseAuth {
 
     const encryptedKeyMaterial = await this.#loadEncryptedKeyMaterial();
     if (!encryptedKeyMaterial) {
-      throw new Error('ElectronAuth: no key material is stored');
+      throw new EnclaveError('auth_not_configured', 'ElectronAuth: no key material is stored');
     }
 
     // The prompt reports refusal and plain cancellation alike as an absent value rather than a throw

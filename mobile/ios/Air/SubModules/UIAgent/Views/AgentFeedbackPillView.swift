@@ -13,10 +13,16 @@ private enum AgentFeedbackPillMetrics {
     // The pill overlaps the answer's top edge and reaches past its trailing edge
     static let answerOverlap: CGFloat = 12
     static let answerOverhang: CGFloat = 20
-    // The tail is a bump that grows out of the middle of the pill and a dot below it towards the answer's leading side
-    static let bumpFrame = CGRect(x: bodyWidth / 2 - 8, y: bodyHeight - 10, width: 16, height: 16)
+    // The tail is a bump that grows out of the middle of the pill, half of it below the pill, and a dot below it
+    // towards the answer's leading side
+    static let bumpFrame = CGRect(x: bodyWidth / 2 - 8, y: bodyHeight - 8, width: 16, height: 16)
     static let dotFrame = CGRect(x: bodyWidth / 2 - 13, y: bodyHeight + 10, width: 8, height: 8)
     static let size = CGSize(width: bodyWidth, height: dotFrame.maxY)
+    // The design's drop shadow: a 40 pt blur 8 pt down
+    static let shadowRadius: CGFloat = 20
+    static let shadowOffset = CGSize(width: 0, height: 8)
+    static let shadowOpacity: Float = 0.12
+    static let darkShadowOpacity: Float = 0.2
 }
 
 /// The like and dislike buttons that the menu of a complete answer shows over the answer
@@ -43,7 +49,18 @@ final class AgentFeedbackPillView: UIView {
                 ),
                 AgentFeedbackPillMetrics.bumpFrame,
                 AgentFeedbackPillMetrics.dotFrame
-            ]
+            ],
+            // The design's pill is near-white glass over the dimmed chat, lighter than the menu panel, with a soft
+            // drop shadow around it
+            glassTint: .strong,
+            shadow: ContextMenuAccessoryShadow(
+                lightOpacity: AgentFeedbackPillMetrics.shadowOpacity,
+                darkOpacity: AgentFeedbackPillMetrics.darkShadowOpacity,
+                radius: AgentFeedbackPillMetrics.shadowRadius,
+                offset: AgentFeedbackPillMetrics.shadowOffset
+            ),
+            // The pill swells and stretches under the finger as the system's glass does
+            isGlassInteractive: true
         ) { context in
             AgentFeedbackPillView(feedback: feedback) { selectedFeedback in
                 onSelect(selectedFeedback)
@@ -93,11 +110,14 @@ final class AgentFeedbackPillView: UIView {
     ) -> UIButton {
         var configuration = UIButton.Configuration.plain()
         configuration.image = UIImage(systemName: Self.symbolName(for: option))
+        // The design's 30 pt glyph; a button would draw a symbol without a scale of its own at the large scale
         configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
-            pointSize: AgentFeedbackPillMetrics.iconPointSize
+            pointSize: AgentFeedbackPillMetrics.iconPointSize,
+            weight: .regular,
+            scale: .medium
         )
-        // Both thumbs are filled; the chosen one takes the accent color
-        configuration.baseForegroundColor = isSelected ? .tintColor : .label
+        // Both thumbs are filled in the design's vibrant primary label color; the chosen one takes the accent color
+        configuration.baseForegroundColor = isSelected ? .tintColor : UIColor(light: "#333333", dark: "#FFFFFF")
         configuration.contentInsets = .zero
         let button = UIButton(configuration: configuration, primaryAction: UIAction { _ in
             Haptics.play(.lightTap)

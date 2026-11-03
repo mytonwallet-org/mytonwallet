@@ -5,6 +5,7 @@
     <item name="tab_wallet" type="id" />
     <item name="tab_market" type="id" />
     <item name="tab_explore" type="id" />
+    <item name="tab_agent" type="id" />
     <item name="tab_portfolio" type="id" />
     <item name="tab_settings_button" type="id" />
 
@@ -18,6 +19,9 @@
     <item name="header_action_send" type="id" />
     <item name="header_action_swap" type="id" />
     <item name="header_action_earn" type="id" />
+
+    <!-- Home search field beside the "+" button -->
+    <item name="home_search_input" type="id" />
 
     <!-- Home "+" button and the actions sheet it opens (HomeActionsSheetVC) -->
     <item name="home_more_actions_button" type="id" />
@@ -49,6 +53,7 @@
     <item name="import_mode_12" type="id" />
     <item name="import_mode_24" type="id" />
     <item name="import_continue" type="id" />
+    <item name="import_title" type="id" />
     <item name="import_word_1" type="id" />
     <item name="import_word_2" type="id" />
     <item name="import_word_3" type="id" />
@@ -82,6 +87,7 @@
     <item name="create_check" type="id" />
     <item name="create_skip_check" type="id" />
     <item name="wallet_added_open" type="id" />
+    <item name="wallet_added_title" type="id" />
 
     <!-- View-only wallet (ImportViewWalletVC) -->
     <item name="view_address_input" type="id" />
@@ -90,6 +96,11 @@
     <!-- Receive (ReceiveVC) -->
     <item name="receive_buy_card" type="id" />
     <item name="receive_buy_crypto" type="id" />
+    <item name="receive_title" type="id" />
+    <item name="receive_options" type="id" />
+    <item name="receive_deposit_link" type="id" />
+    <!-- Receive address (QRCodeVC), one per chain page -->
+    <item name="receive_address" type="id" />
 
     <!-- Send (SendVC) -->
     <item name="send_address_input" type="id" />
@@ -97,6 +108,11 @@
     <item name="send_token_selector" type="id" />
     <item name="send_comment_input" type="id" />
     <item name="send_continue" type="id" />
+    <item name="send_max_button" type="id" />
+
+    <!-- Send confirmation (SendConfirmVC) -->
+    <item name="send_confirm" type="id" />
+    <item name="send_confirm_edit" type="id" />
 
     <!-- Swap (SwapVC) -->
     <item name="swap_sell_token" type="id" />
@@ -104,8 +120,111 @@
     <item name="swap_buy_token" type="id" />
     <item name="swap_buy_amount" type="id" />
     <item name="swap_continue" type="id" />
+    <item name="swap_sell_max" type="id" />
+    <item name="swap_price_impact_warning" type="id" />
 
     <!-- Stake (StakingVC) -->
     <item name="stake_amount_input" type="id" />
     <item name="stake_submit" type="id" />
+    <item name="stake_max_button" type="id" />
+    <item name="stake_title" type="id" />
+
+    <!-- QR scanner (QrScannerView) -->
+    <item name="qr_scan_title" type="id" />
+
+    <!-- Use Responsibly (UserResponsibilityVC) -->
+    <item name="responsibility_title" type="id" />
+    <item name="responsibility_terms" type="id" />
+    <item name="responsibility_privacy" type="id" />
+
+    <!-- Settings sub-screens (NotificationSettingsVC, AssetsAndActivitiesHeaderCell, WalletVersionsHeaderCell) -->
+    <item name="notifications_title" type="id" />
+    <item name="assets_tokens_on_home_title" type="id" />
+    <item name="wallet_versions_current_title" type="id" />
+
+    <!-- Passcode unlock / confirm (PasscodeScreenView) -->
+    <item name="passcode_title" type="id" />
+    <item name="passcode_subtitle" type="id" />
+    <item name="passcode_input" type="id" />
+    <item name="passcode_confirm" type="id" />
+
+    <!-- Passcode creation (SetPasscodeVC): create and repeat steps -->
+    <item name="passcode_set_subtitle" type="id" />
+    <item name="passcode_repeat_subtitle" type="id" />
+    <item name="passcode_set_input" type="id" />
+
+    <!-- Token screen (TokenVC) -->
+    <item name="token_title" type="id" />
+    <item name="token_price_card" type="id" />
+    <item name="token_info_card" type="id" />
+    <item name="token_search_input" type="id" />
+    <item name="token_buy" type="id" />
+    <item name="token_sell" type="id" />
+    <item name="token_receive" type="id" />
+
+    <!-- In-app browser top bar (InAppBrowserTopBarView) -->
+    <item name="browser_title" type="id" />
+    <item name="browser_subtitle" type="id" />
+    <item name="browser_back" type="id" />
+    <item name="browser_minimize" type="id" />
+    <item name="browser_more" type="id" />
+
+    <!-- Activity details (TransactionVC, TransactionHeaderView) -->
+    <item name="transaction_title" type="id" />
+    <item name="transaction_status" type="id" />
+    <item name="transaction_amount" type="id" />
+    <item name="transaction_address" type="id" />
+    <item name="transaction_address_row" type="id" />
+    <item name="transaction_fee_row" type="id" />
+
+    <!-- Shared alert dialog (WDialog) -->
+    <item name="dialog_title" type="id" />
+    <item name="dialog_message" type="id" />
+    <item name="dialog_action" type="id" />
+    <item name="dialog_secondary" type="id" />
+
+    <!-- Agent chat (AgentVC, AgentComposerView, AgentConsentView, AgentNewChatVC) -->
+    <item name="agent_chat_list" type="id" />
+    <item name="agent_input" type="id" />
+    <item name="agent_send" type="id" />
+    <item name="agent_microphone" type="id" />
+    <item name="agent_menu_button" type="id" />
+    <item name="agent_menu_retry" type="id" />
+    <item name="agent_menu_report" type="id" />
+    <item name="agent_menu_clear_chat" type="id" />
+    <item name="agent_menu_delete_chat" type="id" />
+    <item name="agent_threads_button" type="id" />
+    <item name="agent_scroll_to_bottom" type="id" />
+    <item name="agent_suggestions" type="id" />
+    <item name="agent_consent_allow" type="id" />
+    <item name="agent_consent_disclosure_title" type="id" />
+    <item name="agent_consent_error" type="id" />
+    <item name="agent_new_chat_progress" type="id" />
+    <item name="agent_new_chat_error" type="id" />
+    <item name="agent_new_chat_retry" type="id" />
+
+    <!-- Agent message rows (AgentMessageCell, AgentSystemMessageCell): the same id in every row -->
+    <item name="agent_message_user" type="id" />
+    <item name="agent_message_assistant" type="id" />
+    <item name="agent_message_streaming" type="id" />
+    <item name="agent_message_text" type="id" />
+    <item name="agent_message_system" type="id" />
+    <item name="agent_typing_indicator" type="id" />
+    <item name="agent_message_actions" type="id" />
+    <item name="agent_action_button" type="id" />
+
+    <!-- Agent chats list (AgentThreadListVC, AgentThreadCell) -->
+    <item name="agent_threads_list" type="id" />
+    <item name="agent_threads_search" type="id" />
+    <item name="agent_threads_empty" type="id" />
+    <item name="agent_thread_row" type="id" />
+    <item name="agent_thread_title" type="id" />
+    <item name="agent_thread_swipe_rename" type="id" />
+    <item name="agent_thread_swipe_pin" type="id" />
+    <item name="agent_thread_swipe_delete" type="id" />
+    <item name="agent_news_row" type="id" />
+    <item name="agent_thread_menu_pin" type="id" />
+    <item name="agent_thread_menu_rename" type="id" />
+    <item name="agent_thread_menu_delete" type="id" />
+    <item name="agent_message_menu_tap" type="id" />
 </resources>

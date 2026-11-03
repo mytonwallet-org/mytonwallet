@@ -57,6 +57,10 @@ export function getBackendConfigCacheSync() {
   return backendConfig;
 }
 
+export function getStakingCommonCacheSync(chain: ApiChain) {
+  return stakingCommonCacheByChain[chain];
+}
+
 /**
  * Feature flag for the L1 retry-break (negative-verdict cache + EVM untrackable registry).
  * Reads synchronously; before the backend config arrives (or if it never does) this is `false`,

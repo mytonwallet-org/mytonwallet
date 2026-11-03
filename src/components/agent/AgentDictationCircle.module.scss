@@ -1,0 +1,307 @@
+@use "../../styles/mixins";
+
+@use "agentSurface";
+
+// Telegram's recording circle: a 99 px accent circle with voice waves, a 40 × 72 lock 122 px above its middle
+$centreSize: 6.1875rem;
+$lockWidth: 2.5rem;
+$lockHeight: 4.5rem;
+$lockOffset: 7.625rem;
+$telegramCurve: cubic-bezier(0.38, 0.7, 0.125, 1);
+// Where the circle shrinks back onto the 48 px microphone
+$microphoneScale: 0.485;
+
+.root {
+  pointer-events: none;
+
+  position: fixed;
+  z-index: var(--z-media-viewer);
+  top: var(--anchor-y);
+  left: var(--anchor-x);
+
+  width: 0;
+  height: 0;
+}
+
+.follow {
+  will-change: transform;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+// It grows out of a fifth of its size on a spring and goes back the same way
+.present {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: agent-dictation-circle-present 500ms cubic-bezier(0.34, 1.45, 0.64, 1);
+
+  .closing & {
+    transform: scale(0.2);
+    opacity: 0;
+
+    @include mixins.transition('transform 180ms ease-in, opacity 180ms ease-in');
+  }
+
+  .failed & {
+    animation: agent-dictation-circle-failed 750ms ease-out forwards;
+  }
+
+  .failedFromMicrophone & {
+    animation: agent-dictation-circle-failed-pop 750ms ease-out forwards;
+  }
+}
+
+.waves {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+
+  overflow: visible;
+
+  animation: agent-dictation-waves-presence 350ms ease-in-out;
+
+  .failed &,
+  .failedFromMicrophone & {
+    opacity: 0;
+  }
+
+  @include mixins.transition(opacity 200ms);
+}
+
+// The waves are the accent over the screen's colour rather than see-through, so the tab bar under them does not show
+.outerWave,
+.innerWave {
+  @include agentSurface.variables;
+
+  --agent-wave-base: var(--agent-background);
+}
+
+.outerWave {
+  fill: color-mix(in srgb, var(--color-accent) 15%, var(--agent-wave-base));
+}
+
+// As strong as the inner wave's 30 % tint over the outer one's
+.innerWave {
+  fill: color-mix(in srgb, var(--color-accent) 40%, var(--agent-wave-base));
+}
+
+.centre {
+  position: absolute;
+  top: calc(#{$centreSize} / -2);
+  left: calc(#{$centreSize} / -2);
+
+  width: $centreSize;
+  height: $centreSize;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+
+  color: var(--color-accent-button-text);
+
+  background-color: var(--color-accent);
+  outline: none;
+
+  @include mixins.transition(background-color 200ms);
+
+  &:disabled {
+    cursor: default;
+  }
+
+  // The locked recording finishes from the circle's check mark
+  .locked & {
+    pointer-events: auto;
+    cursor: var(--custom-cursor, pointer);
+  }
+
+  .failed &,
+  .failedFromMicrophone & {
+    background-color: var(--color-red);
+  }
+}
+
+// The old glyph shrinks away as the new one grows in
+.glyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.001);
+
+  width: 1.875rem;
+  height: 1.875rem;
+
+  opacity: 0;
+
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+
+  @include mixins.transition('transform 300ms #{$telegramCurve}, opacity 200ms');
+}
+
+.glyphShown {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+// The design's microphone, filled as the one in the recording circle on mobile, 32 px tall as there
+.glyphMicrophone {
+  width: 2.25rem;
+  height: 2.25rem;
+  fill: currentColor;
+  stroke: none;
+}
+
+// The lock shortens as the finger goes up toward it, and closes once the recording locks
+.lock {
+  --lockness: 0;
+
+  position: absolute;
+  top: calc(-1 * #{$lockOffset});
+  left: calc(#{$lockWidth} / -2);
+  transform: translateY(-50%);
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+
+  width: $lockWidth;
+  height: calc(#{$lockHeight} - (#{$lockHeight} - #{$lockWidth}) * var(--lockness));
+  padding-top: 0.75rem;
+  border-radius: calc(#{$lockWidth} / 2);
+
+  color: var(--color-gray-1);
+
+  background-color: var(--color-background-lock);
+  backdrop-filter: blur(1rem);
+  box-shadow: var(--shadow-glass-capsule);
+
+  animation: agent-dictation-lock-present 250ms $telegramCurve;
+
+  .locked & {
+    transform: translateY(-50%) scale(0.01);
+    height: $lockWidth;
+    opacity: 0;
+
+    @include mixins.transition('transform 250ms ease 100ms, opacity 250ms ease 100ms');
+  }
+
+  .closing &,
+  .failed & {
+    transform: translateY(calc(-50% + 6.25rem));
+    opacity: 0;
+
+    @include mixins.transition('transform 180ms ease-in, opacity 180ms ease-in');
+  }
+
+  .startedLocked &,
+  .failedFromMicrophone & {
+    display: none;
+  }
+}
+
+// The wallet's lock glyph, as large as the other small icons
+.lockIcon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+// The lock's shackle stands open, its left leg out of the body, and closes as the press slides up to it, shut once the
+// recording locks. The lift is in the glyph's units, 80 of 768.
+.lockShackle {
+  transform: translateY(calc(-80px * (1 - var(--lockness))));
+
+  .locked & {
+    transform: none;
+
+    @include mixins.transition(transform 150ms ease);
+  }
+}
+
+.lockChevron {
+  transform: translateY(calc(-0.625rem * var(--lockness)));
+
+  flex-shrink: 0;
+
+  width: 0.75rem;
+  height: 0.75rem;
+
+  opacity: calc(1 - var(--lockness));
+
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+@keyframes agent-dictation-circle-present {
+  from {
+    transform: scale(0.2);
+  }
+}
+
+@keyframes agent-dictation-waves-presence {
+  from {
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+}
+
+@keyframes agent-dictation-lock-present {
+  from {
+    transform: translateY(calc(-50% + 6.25rem));
+    opacity: 0;
+  }
+}
+
+// It pops, settles and shrinks back onto the microphone, which shows through, within the 0.75 s of a failure
+
+@keyframes agent-dictation-circle-failed {
+  0% {
+    transform: scale(1);
+  }
+
+  16% {
+    transform: scale(1.1);
+  }
+
+  56%,
+  72% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale($microphoneScale);
+    opacity: 0;
+  }
+}
+
+@keyframes agent-dictation-circle-failed-pop {
+  0% {
+    transform: scale($microphoneScale);
+    opacity: 0;
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  44%,
+  72% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale($microphoneScale);
+    opacity: 0;
+  }
+}

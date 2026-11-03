@@ -110,6 +110,20 @@ data class MApiSwapEstimateErrorResponse(
         fun hintFrom(raw: String?): MApiSwapHint? = fromRaw(raw)?.hint
 
         fun debugSummaryFrom(raw: String?): String? = fromRaw(raw)?.debug?.summary
+
+        /** A refusal worded in a way this map does not know still means the backend has no quote. */
+        fun refusalOf(message: String): MBridgeError.Type =
+            REFUSALS[message.trim()] ?: MBridgeError.Type.SWAP_QUOTE_UNAVAILABLE
+
+        private val REFUSALS = mapOf(
+            "Insufficient liquidity" to MBridgeError.Type.INSUFFICIENT_LIQUIDITY,
+            "Tokens must be different" to MBridgeError.Type.PAIR_NOT_FOUND,
+            "Asset not found" to MBridgeError.Type.PAIR_NOT_FOUND,
+            "Pair not found" to MBridgeError.Type.PAIR_NOT_FOUND,
+            "Too small amount" to MBridgeError.Type.TOO_SMALL_AMOUNT,
+            "No swap quote available" to MBridgeError.Type.SWAP_QUOTE_UNAVAILABLE,
+            "Swap routers are unavailable" to MBridgeError.Type.SWAP_ROUTERS_UNAVAILABLE
+        )
     }
 }
 
@@ -228,45 +242,13 @@ data class MApiSwapCexEstimateResponse(
     @JsonClass(generateAdapter = true)
     data class SwapEstimateError(val msg: String)
 
-    enum class SwapErrorType {
-        InvalidPair,
-        NotEnoughLiquidity,
-        TooSmallAmount
-    }
-
     val error: MBridgeError?
-        get() {
-            return errors?.firstOrNull()?.msg.let { msg ->
-                when (SERVER_ERRORS_MAP[msg]) {
-                    SwapErrorType.InvalidPair -> {
-                        MBridgeError.Type.PAIR_NOT_FOUND
-                    }
-
-                    SwapErrorType.NotEnoughLiquidity -> {
-                        MBridgeError.Type.INSUFFICIENT_LIQUIDITY
-                    }
-
-                    SwapErrorType.TooSmallAmount -> {
-                        MBridgeError.Type.TOO_SMALL_AMOUNT
-                    }
-
-                    null -> null
-                }
-            }
-        }
+        get() = errors?.firstOrNull()?.msg?.let(MApiSwapEstimateErrorResponse::refusalOf)
 
     companion object {
         fun fromRaw(raw: String): MApiSwapCexEstimateResponse? = runCatching {
             WalletCore.moshi.adapter(MApiSwapCexEstimateResponse::class.java).fromJson(raw)
         }.getOrNull()
-
-        val SERVER_ERRORS_MAP = mapOf(
-            "Insufficient liquidity" to SwapErrorType.NotEnoughLiquidity,
-            "Tokens must be different" to SwapErrorType.InvalidPair,
-            "Asset not found" to SwapErrorType.InvalidPair,
-            "Pair not found" to SwapErrorType.InvalidPair,
-            "Too small amount" to SwapErrorType.TooSmallAmount
-        )
     }
 }
 

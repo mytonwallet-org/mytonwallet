@@ -41,6 +41,9 @@ final class SceneDelegate: UIResponder, UISceneDelegate, UIWindowSceneDelegate {
         
         if let shortcutItem = connectionOptions.shortcutItem {
             pendingShortcutItem = shortcutItem
+        } else if let userActivity = connectionOptions.userActivities.first,
+                  let action = AirSystemAction(searchContinuation: userActivity) {
+            AirLauncher.handle(systemAction: action)
         } else if let userActivity = connectionOptions.userActivities.first, userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
             handleUrl(url)
         } else if let urlContext = connectionOptions.urlContexts.first {
@@ -66,7 +69,9 @@ final class SceneDelegate: UIResponder, UISceneDelegate, UIWindowSceneDelegate {
     }
     
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        if let action = AirSystemAction(searchContinuation: userActivity) {
+            AirLauncher.handle(systemAction: action)
+        } else if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
             handleUrl(url)
         }
     }

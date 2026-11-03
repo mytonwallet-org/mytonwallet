@@ -1,13 +1,16 @@
 import { getIsHeavyAnimating, onFullyIdle } from '../lib/teact/teact';
 import { addCallback, removeCallback } from '../lib/teact/teactn';
 
-import type { ApiActivity, ApiChain } from '../api/types';
+import type { ApiActivity, ApiChain, ApiPriceHistoryPeriod } from '../api/types';
 import type {
   Account,
   AccountState,
   GlobalState,
+  LangCode,
   PortfolioState,
+  PriceHistoryPeriods,
   SavedAddress,
+  TokenDetailsState,
   TokenPeriod,
 } from './types';
 import {
@@ -36,9 +39,12 @@ import {
   clearPoisoningCache,
   updatePoisoningCacheFromGlobalState,
 } from '../util/poisoningHash';
+import { TIME_RANGES } from '../util/portfolio/timeRange';
+import { DEFAULT_PRICE_HISTORY_PERIOD, isPriceHistoryFresh } from '../util/priceHistory';
 import { onBeforeUnload, throttle } from '../util/schedulers';
 import { getIsActiveStakingState } from '../util/staking';
 import { IS_ELECTRON } from '../util/windowEnvironment';
+import { getIsTokenDetailsFresh } from './helpers/tokenDetails';
 import { addActionHandler, getGlobal } from './index';
 import { INITIAL_STATE, STATE_VERSION } from './initialState';
 import { clearCurrentTransfer } from './reducers';
@@ -119,6 +125,11 @@ export function loadCache(initialState: GlobalState): GlobalState {
   if (cached) {
     try {
       migrateCache(cached, initialState);
+      cached.tokenPriceHistory = {
+        bySlug: {},
+        restoredBySlug: reduceTokenPriceHistory([cached.tokenPriceHistory?.bySlug ?? {}], TIME_RANGES),
+      };
+      cached.tokenDetails = reduceTokenDetails(cached.tokenDetails?.bySlug ?? {}, cached.settings.langCode);
       loadMemoryCache(cached);
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -835,6 +846,7 @@ function updateCache(force?: boolean) {
       'isManualLockActive',
       'stakingDefault',
       'currencyRates',
+      'perpsAssets',
       'accountSelectorViewMode',
       'seasonalTheme',
       'isLegacyCoreMigrationCompleted',
@@ -855,10 +867,51 @@ function updateCache(force?: boolean) {
   reducedGlobal.tokenInfo = {
     bySlug: pickTruthy(global.tokenInfo.bySlug, usedTokenSlugs),
   };
+  const { bySlug: priceHistory, restoredBySlug: restoredPriceHistory } = global.tokenPriceHistory;
+  // The token screen opens on the selected period, so other periods are not worth the storage
+  const shownPeriods = unique(
+    Object.values(reducedGlobal.byAccountId).map((state) => state.currentTokenPeriod ?? DEFAULT_PRICE_HISTORY_PERIOD),
+  );
+  reducedGlobal.tokenPriceHistory = {
+    bySlug: reduceTokenPriceHistory([
+      pickTruthy(priceHistory, usedTokenSlugs),
+      pickTruthy(restoredPriceHistory, usedTokenSlugs),
+    ], shownPeriods),
+    restoredBySlug: {},
+  };
+  reducedGlobal.tokenDetails = reduceTokenDetails(global.tokenDetails.bySlug, global.settings.langCode);
 
   const json = JSON.stringify(reducedGlobal);
   localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
   return true;
+}
+
+function reduceTokenPriceHistory(
+  sources: Record<string, PriceHistoryPeriods>[],
+  periods: readonly ApiPriceHistoryPeriod[],
+) {
+  const result: Record<string, PriceHistoryPeriods> = {};
+  const slugs = unique(sources.flatMap((bySlug) => Object.keys(bySlug)));
+
+  slugs.forEach((slug) => {
+    periods.forEach((period) => {
+      const history = sources
+        .map((bySlug) => bySlug[slug]?.[period])
+        .find((series) => series?.length && isPriceHistoryFresh(series, period));
+
+      if (history) {
+        result[slug] = { ...result[slug], [period]: history };
+      }
+    });
+  });
+
+  return result;
+}
+
+// The token screen opened after a long break shows the loading state rather than outdated market data
+function reduceTokenDetails(bySlug: Record<string, TokenDetailsState>, langCode: LangCode) {
+  const now = Date.now();
+  return { bySlug: filterValues(bySlug, (details) => getIsTokenDetailsFresh(details, langCode, now)) };
 }
 
 function getGlobalWithoutTemporaryAccount(): GlobalState {
@@ -912,6 +965,7 @@ function reduceByAccountId(global: GlobalState) {
       'dapps',
       'tradeCounterTokenSlugs',
       'lastSwapPairsBySlug',
+      'perpsOperations',
     ]);
 
     if (state.nfts?.collectionTabs || state.nfts?.ownedMwCardAddresses) {

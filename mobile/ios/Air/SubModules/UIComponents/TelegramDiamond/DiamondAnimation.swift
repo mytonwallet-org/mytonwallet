@@ -109,6 +109,14 @@ struct DiamondMotion {
     private var lastDragTime: Double = 0
     private var timeSinceRelease: Float = 10
     private var tapRotation: TapRotation?
+    private var fullTurn: (elapsed: Float, fromYaw: Float, tangent: Float)?
+    private var interruptedTurnVelocity: Float?
+
+    private var fullTurnVelocity: Float? {
+        guard let turn = fullTurn else { return nil }
+        let t = min(1, max(0, turn.elapsed / 1.8))
+        return (36 * .pi * t * (1 - t) + turn.tangent * (3 * t * t - 4 * t + 1)) / 1.8
+    }
     private var entranceInterrupted = false
 
     mutating func tap(direction: Float, speed: Float, mode: DiamondStyle.AnimationMode, time: Float, appearance: DiamondStyle.Appearance = .blue) -> Bool? {
@@ -145,6 +153,24 @@ struct DiamondMotion {
 
     mutating func stopSpin() {
         spinVelocity = 0
+        fullTurn = nil
+        interruptedTurnVelocity = nil
+    }
+
+    mutating func turnOnTap() {
+        guard !isDragging else { return }
+        tapRotation = nil
+        spinVelocity = 0
+        yawVelocity = 0
+        yawSpringVelocity = 0
+        targetYaw = yaw
+        pitch = Self.referencePitch
+        targetPitch = pitch
+        rawPitchOffset = 0
+        pitchSpringVelocity = 0
+        let velocity = interruptedTurnVelocity ?? fullTurnVelocity ?? (18 * .pi / 1.8)
+        fullTurn = (0, externalYaw, velocity * 1.8)
+        interruptedTurnVelocity = nil
     }
 
     mutating func setSpin(_ velocity: Float, decay: Float) {
@@ -195,6 +221,8 @@ struct DiamondMotion {
     }
 
     mutating func begin(at time: Double) {
+        interruptedTurnVelocity = fullTurnVelocity
+        fullTurn = nil
         spinAtPress = spinVelocity
         isDragging = true
         isAppearanceImpulseActive = false
@@ -248,6 +276,7 @@ struct DiamondMotion {
                        mode: DiamondStyle.AnimationMode = .continuous, time: Float = 0, appearance: DiamondStyle.Appearance = .blue) {
         let dt = min(max(dt, 0), 0.05)
         if reduceMotion {
+            fullTurn = nil
             lean = targetLean
             leanVelocity = 0
             isAppearanceImpulseActive = false
@@ -266,6 +295,19 @@ struct DiamondMotion {
             yawVelocity = 0
             spinVelocity = 0
             return
+        }
+
+        let effectiveSpeed: Float
+        if var turn = fullTurn {
+            turn.elapsed += dt
+            let progress = min(1, turn.elapsed / 1.8)
+            let t = progress
+            externalYaw = turn.fromYaw + 6 * .pi * t * t * (3 - 2 * t)
+                + turn.tangent * t * (1 - t) * (1 - t)
+            fullTurn = progress < 1 ? turn : nil
+            effectiveSpeed = 0
+        } else {
+            effectiveSpeed = speed
         }
 
         // The card's yaw adds a separate, softer spring without changing drag or spin velocity.
@@ -302,10 +344,10 @@ struct DiamondMotion {
 
                 let automaticTravel: Float
                 if var tapRotation = self.tapRotation {
-                    automaticTravel = tapRotation.step(dt: step, speed: speed)
+                    automaticTravel = tapRotation.step(dt: step, speed: effectiveSpeed)
                     self.tapRotation = tapRotation
                 } else {
-                    automaticTravel = self.automaticTravel(from: max(0, stepTime - step), to: stepTime, speed: speed, mode: mode, appearance: appearance)
+                    automaticTravel = self.automaticTravel(from: max(0, stepTime - step), to: stepTime, speed: effectiveSpeed, mode: mode, appearance: appearance)
                 }
                 let travel = automaticTravel * min(timeSinceRelease / 0.75, 1)
                 targetYaw += travel

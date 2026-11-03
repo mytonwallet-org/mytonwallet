@@ -272,14 +272,22 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func scanAndHandleQR(accountContext: AccountContext) {
+        scanAndHandleQR(accountContext: accountContext, sourceViewProvider: { nil })
+    }
+
+    static func scanAndHandleQR(accountContext: AccountContext, sourceViewProvider: @escaping () -> UIView?) {
         Task {
-            if let result = await scanQR() {
+            if let result = await scanQR(sourceViewProvider: sourceViewProvider) {
                 handleScanResult(result, accountContext: accountContext)
             }
         }
     }
     
     static func scanQR() async -> ScanResult? {
+        await scanQR(sourceViewProvider: { nil })
+    }
+
+    private static func scanQR(sourceViewProvider: @escaping () -> UIView?) async -> ScanResult? {
         return await withCheckedContinuation { continuation in
             guard let topVC = topViewController() else {
                 continuation.resume(returning: nil)
@@ -288,7 +296,12 @@ private class AppActionsImpl: AppActionsProtocol {
             let qrScanVC = QRScanVC(callback: { result in
                 continuation.resume(returning: result)
             })
-            topVC.present(WNavigationController(rootViewController: qrScanVC), animated: true)
+            let navigation = WNavigationController(rootViewController: qrScanVC)
+            navigation.view.backgroundColor = .black
+            if #available(iOS 18, *), sourceViewProvider() != nil {
+                navigation.preferredTransition = .zoom { _ in sourceViewProvider() }
+            }
+            topVC.present(navigation, animated: true)
         }
     }
     
@@ -504,8 +517,7 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
-        AgentEntryPoint.enqueue(query: query, entryPoint: entryPoint)
-        rootContainerRouter.showAgent()
+        rootContainerRouter.showAgent(query: query, entryPoint: entryPoint)
     }
     
     static func showEarn(accountContext: AccountContext, tokenSlug: String?, prefilledAmount: StakePrefilledAmount?) {
@@ -636,6 +648,25 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) {
         let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool) {
+        guard PerpsAvailability.canRead(AccountContext(accountId: accountId).account) else { return }
+        if accountId == AccountStore.currentAccountId {
+            rootContainerRouter.showTab(.futures, popToRoot: true)
+            if let tab = topViewController()?.descendantViewController(of: PerpsTabVC.self) {
+                if let positionId { tab.showPosition(positionId) }
+                else if showsAllPositions { tab.showAllPositions() }
+            }
+            return
+        }
+        let coordinator = PerpsCoordinator(accountId: accountId)
+        let controller = coordinator.makeHome()
+        let navigation = WNavigationController(rootViewController: controller)
+        topViewController()?.present(navigation, animated: true) {
+            if let positionId { coordinator.showPosition(positionId, from: controller) }
+            else if showsAllPositions { coordinator.showAllPositions() }
+        }
     }
 
     static func showMarket() {
@@ -776,11 +807,12 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(walletActionNavigationController(rootViewController: vc, preferredContentSize: buyAndSellSheetSize), animated: true)
     }
 
-    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async {
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool, onDismiss: (() -> Void)?) async {
         guard accountContext.account.supportsSwap else {
             await showSwap(accountContext: accountContext, defaultSellingToken: isBuying ? nil : token.slug,
                            defaultBuyingToken: isBuying ? token.slug : nil, defaultSellingAmount: nil,
                            defaultBuyingAmount: nil, push: nil, isAccountSwitchingAllowed: true)
+            onDismiss?()
             return
         }
         guard !isShowingSwap else { return }
@@ -793,6 +825,7 @@ private class AppActionsImpl: AppActionsProtocol {
         guard !Task.isCancelled else { return }
         let vc = SwapVC(accountContext: context, defaults: defaults, tradeDirection: isBuying ? .buy : .sell)
         let nc = walletActionNavigationController(rootViewController: vc, preferredContentSize: sendAndSwapSheetSize)
+        nc.onPresentationDismissed = onDismiss
         nc.sheetPresentationController?.detents = [.large()]
         topViewController()?.present(nc, animated: true)
     }
@@ -861,7 +894,22 @@ private class AppActionsImpl: AppActionsProtocol {
         topWViewController()?.showToast(config)
     }
     
+    static func showSearch(query: String) {
+        RootStateCoordinator.shared.rootHostViewController
+            .descendantViewController(of: AdaptiveRootViewController.self)?
+            .searchController.showSearch(query: query)
+    }
+
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) {
+        if !isInModal,
+           let rootViewController = UIApplication.shared.sceneKeyWindow?.rootViewController,
+           rootViewController.presentedViewController != nil {
+            rootViewController.dismiss(animated: true) {
+                showToken(accountSource: accountSource, token: token, isInModal: false)
+            }
+            return
+        }
+
         guard let navigationController = topWViewController()?.navigationController,
               let source = navigationController.topViewController else { return }
         Task { [weak navigationController, weak source] in
@@ -869,6 +917,9 @@ private class AppActionsImpl: AppActionsProtocol {
             guard let navigationController, let source,
                   navigationController.topViewController === source else { return }
             navigationController.pushViewController(tokenVC, animated: true)
+            if #available(iOS 18.4, *) {
+                TokenSpotlightIndexer.shared.recordOpened(token)
+            }
         }
     }
 

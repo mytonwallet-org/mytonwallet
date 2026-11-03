@@ -8,8 +8,8 @@ $avatarSize: 2.625rem;
   align-items: center;
   justify-content: center;
 
-  width: #{$avatarSize};
-  height: #{$avatarSize};
+  width: var(--wallet-avatar-size, #{$avatarSize});
+  height: var(--wallet-avatar-size, #{$avatarSize});
   padding-top: 0.125rem;
   border-radius: 50%;
 

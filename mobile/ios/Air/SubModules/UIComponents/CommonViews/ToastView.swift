@@ -10,6 +10,7 @@ public final class ToastController {
     private var toastView: ToastView?
     private var toastHider: DispatchWorkItem?
     private var currentToastIdentity: ToastIdentity?
+    private var currentTransition: ToastTransition = .fadeIn
 
     /// Note this does not include action handler, because it is not equatable.
     /// In practice this should be fine - things like this are not going to be updated.
@@ -41,6 +42,7 @@ public final class ToastController {
         }
 
         currentToastIdentity = identity
+        currentTransition = config.transition
 
         let toastView = ToastView(config: config) { [weak self] in
             self?.toastHider?.perform()
@@ -49,11 +51,14 @@ public final class ToastController {
 
         toastView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(toastView)
+        let sideInset: CGFloat = config.style == .overlay ? 12 : 24
+        // Above the keyboard, or above the safe area without one, also where the keyboard guide leaves the safe area out
         NSLayoutConstraint.activate([
-            toastView.bottomAnchor.constraint(equalTo: containerView.keyboardLayoutGuide.topAnchor, constant: -12),
+            toastView.bottomAnchor.constraint(lessThanOrEqualTo: containerView.keyboardLayoutGuide.topAnchor, constant: -12),
+            toastView.bottomAnchor.constraint(lessThanOrEqualTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             toastView.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh),
-            toastView.leftAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor, constant: 24),
-            toastView.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.rightAnchor, constant: -24),
+            toastView.leftAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor, constant: sideInset),
+            toastView.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.rightAnchor, constant: -sideInset),
         ])
 
         containerView.layoutIfNeeded()
@@ -73,6 +78,11 @@ public final class ToastController {
                 toastView.alpha = 1
                 toastView.transform = .identity
             }
+        case .scale:
+            UIView.animate(withDuration: 0.3) {
+                toastView.alpha = 1
+            }
+            toastView.layer.add(Self.makeScaleAnimation(from: Self.overlayHiddenScale, to: 1), forKey: "scale")
         }
 
         rescheduleToastHider(duration: config.duration)
@@ -93,12 +103,41 @@ public final class ToastController {
         guard let toastView else {
             return
         }
-        UIView.animate(withDuration: 0.3) {
-            toastView.alpha = 0
-        } completion: { _ in
-            toastView.removeFromSuperview()
+        if currentTransition == .scale {
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
+                toastView.alpha = 0
+            } completion: { _ in
+                toastView.removeFromSuperview()
+            }
+            let animation = Self.makeScaleAnimation(from: 1, to: Self.overlayHiddenScale)
+            animation.fillMode = .forwards
+            animation.isRemovedOnCompletion = false
+            toastView.layer.add(animation, forKey: "scale")
+        } else {
+            UIView.animate(withDuration: 0.3) {
+                toastView.alpha = 0
+            } completion: { _ in
+                toastView.removeFromSuperview()
+            }
         }
         self.toastView = nil
+    }
+
+    private static let overlayHiddenScale: CGFloat = 0.96
+
+    /// The spring Telegram's undo overlay scales on over 0.5 s
+    private static func makeScaleAnimation(from: CGFloat, to: CGFloat) -> CASpringAnimation {
+        let animation = makeSpringAnimation("transform.scale")
+        if #available(iOS 26.0, *) {
+            // Telegram's iOS 26 spring from UIKitRuntimeUtils/make26SpringAnimationImpl
+            animation.mass = 1
+            animation.stiffness = 555.027
+            animation.damping = 47.118
+            animation.allowsOverdamping = false
+        }
+        animation.fromValue = from
+        animation.toValue = to
+        return animation
     }
 }
 
@@ -145,7 +184,7 @@ public class ToastView: UIView {
     }
 
     private func setContent(config: ToastConfig, animated: Bool) {
-        let cornerRadius: CGFloat = config.style == .large ? 25 : 16
+        let cornerRadius: CGFloat = config.style == .standard ? 16 : 25
 
         let oldContent = contentView
         let newContent = ToastContentView(config: config, dismiss: dismiss)
@@ -225,7 +264,9 @@ private final class ToastContentView: UIView {
         let iconSize: CGFloat
         var leftContentInsets = 12.0
         var standAloneLabelInsets: CGFloat = 0
-        let labelVerticalPadding: CGFloat = 16
+        var labelVerticalPadding: CGFloat = 16
+        var labelTrailingInset: CGFloat = 12
+        var maximumLineCount = 0
         switch style {
         case .standard:
             font = WTypography.uiFont(.footnote)
@@ -238,6 +279,17 @@ private final class ToastContentView: UIView {
             symbolConfiguration = .init(pointSize: 22)
             iconSize = 40
             standAloneLabelInsets = 12
+        case .overlay:
+            // The text starts 50 pt in, after the icon, and is centred in the toast's 50 pt or more
+            font = .systemFont(ofSize: 14)
+            actionFont = .systemFont(ofSize: 17)
+            symbolConfiguration = .init(pointSize: 15)
+            iconSize = Self.overlayIconSize
+            leftContentInsets = 50 - iconSize
+            standAloneLabelInsets = iconSize
+            labelVerticalPadding = 0
+            labelTrailingInset = 24
+            maximumLineCount = 2
         }
 
         var constraints: [NSLayoutConstraint] = []
@@ -266,7 +318,15 @@ private final class ToastContentView: UIView {
             case .animatedCopy:
                 let animatedSticker = WAnimatedSticker()
                 animatedSticker.animationName = "Copy"
-                animatedSticker.setup(width: Int(iconSize), height: Int(iconSize), playbackMode: .once)
+                if style == .overlay {
+                    // The icon plays once the toast is in
+                    animatedSticker.setup(width: Int(iconSize), height: Int(iconSize), playbackMode: .still(position: .begin))
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak animatedSticker] in
+                        animatedSticker?.playOnceFromStart()
+                    }
+                } else {
+                    animatedSticker.setup(width: Int(iconSize), height: Int(iconSize), playbackMode: .once)
+                }
                 animatedSticker.translatesAutoresizingMaskIntoConstraints = false
                 iconView.addSubview(animatedSticker)
                 iconSticker = animatedSticker
@@ -347,7 +407,7 @@ private final class ToastContentView: UIView {
             addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(onDismissTap)))
         } else {
             constraints += [
-                contentLayoutGuide.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12)
+                contentLayoutGuide.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -labelTrailingInset)
             ]
             addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(onActionTap)))
         }
@@ -356,7 +416,7 @@ private final class ToastContentView: UIView {
         lbl.font = font
         lbl.textColor = .white
         lbl.text = message
-        lbl.numberOfLines = 0
+        lbl.numberOfLines = maximumLineCount
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(lbl)
@@ -372,6 +432,9 @@ private final class ToastContentView: UIView {
 
         NSLayoutConstraint.activate(constraints)
     }
+
+    /// Telegram's copy animation, 512 pt drawn at 0.066
+    private static let overlayIconSize: CGFloat = 34
 
     func replayIcon() {
         iconSticker?.playOnceFromStart()

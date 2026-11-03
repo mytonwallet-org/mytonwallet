@@ -162,17 +162,18 @@ internal fun mapAgentV2Message(
     actions: List<AgentV2Action> = message.actions.orEmpty()
 ): AgentMessage? {
     val markdown = message.content as? AgentV2MessageContent.Markdown
+    val failureText = message.error?.let { agentV2ErrorText(it.code) }
     val text = when (val content = message.content) {
         is AgentV2MessageContent.Markdown -> content.text
         is AgentV2MessageContent.Semantic -> agentV2SemanticText(content.content)
-        null -> message.error?.let { agentV2ErrorText(it.code) } ?: return null
+        null -> if (failureText != null) "" else return null
     }
     val role = when (message.role) {
         "user" -> AgentMessageRole.USER
         "assistant" -> AgentMessageRole.ASSISTANT
         else -> AgentMessageRole.SYSTEM
     }
-    val mapped = AgentMessage(
+    return AgentMessage(
         id = message.id,
         sdkMessageId = message.id,
         role = role,
@@ -187,13 +188,8 @@ internal fun mapAgentV2Message(
             AgentDeeplink(action.title, actionId = action.id)
         },
         isComplete = role == AgentMessageRole.ASSISTANT && message.status == "complete",
-        feedback = AgentAnswerFeedback.fromWireValue(message.feedback)
+        feedback = AgentAnswerFeedback.fromWireValue(message.feedback),
+        newsPost = message.newsPost == true,
+        failureText = failureText
     )
-    val error = message.error
-    return if (error != null && message.content != null) {
-        val errorText = agentV2ErrorText(error.code)
-        mapped.copy(text = if (mapped.hasText) "$text\n\n$errorText" else errorText)
-    } else {
-        mapped
-    }
 }

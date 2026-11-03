@@ -14,4 +14,7 @@ export * from './transfer';
 export * from './wallet';
 export * from './portfolio';
 export * from './market';
+export * from './perps';
 export type { ApiSwapDefaults, ApiSwapDefaultsRequest } from './swap';
+
+export * from './perpsTrading';

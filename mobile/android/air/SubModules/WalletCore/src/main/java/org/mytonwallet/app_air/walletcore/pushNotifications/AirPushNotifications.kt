@@ -1,5 +1,8 @@
 package org.mytonwallet.app_air.walletcore.pushNotifications
 
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
 import com.google.firebase.messaging.FirebaseMessaging
@@ -20,6 +23,21 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 object AirPushNotifications {
     const val MAX_PUSH_NOTIFICATIONS_ACCOUNT_COUNT = 3
+
+    /**
+     * Keeps FCM notifications posted by this process. `MainActivity` admits a push payload only
+     * from a launch this app's own package started, and a tap on a notification delegated to Play
+     * services comes from Play services. The manifest meta-data covers fresh installs; this call
+     * also clears a delegate set before it. No-op below Android 10.
+     */
+    @JvmStatic
+    fun disableNotificationDelegation(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
+        if (notificationManager.notificationDelegate == "com.google.android.gms") {
+            notificationManager.setNotificationDelegate(null)
+        }
+    }
 
     fun register(subscribePreviousAccountsIfEmpty: Boolean) {
         FirebaseMessaging.getInstance().isAutoInitEnabled = true

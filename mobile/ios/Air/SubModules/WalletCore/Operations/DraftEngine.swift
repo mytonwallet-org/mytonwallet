@@ -155,6 +155,10 @@ public final class DraftEngine<
     @PerceptionIgnored
     private var timerTask: Task<Void, Never>?
     @PerceptionIgnored
+    var sleep: @MainActor @Sendable (Duration) async throws -> Void = {
+        try await Task.sleep(for: $0)
+    }
+    @PerceptionIgnored
     private let debounce: DebouncePolicy
     @PerceptionIgnored
     /// Delay used for the next periodic refresh. Owners may adjust it after
@@ -313,12 +317,13 @@ public final class DraftEngine<
             startLoad()
             return
         }
-        debounceTask = Task { [weak self] in
+        debounceTask = Task { [weak self, sleep] in
             do {
-                try await Task.sleep(for: delay)
+                try await sleep(delay)
             } catch {
                 return
             }
+            guard !Task.isCancelled else { return }
             guard let self else { return }
             debounceTask = nil
             startLoad()
@@ -402,12 +407,13 @@ public final class DraftEngine<
             return
         }
         timerTask?.cancel()
-        timerTask = Task { [weak self] in
+        timerTask = Task { [weak self, sleep] in
             do {
-                try await Task.sleep(for: refreshInterval)
+                try await sleep(refreshInterval)
             } catch {
                 return
             }
+            guard !Task.isCancelled else { return }
             self?.refresh()
         }
     }

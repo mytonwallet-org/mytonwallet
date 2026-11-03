@@ -11,7 +11,7 @@ struct DeeplinkProvenanceHandlerTests {
     func `routes mint card links without requiring account promotion data`() throws {
         let navigator = RecordingDeeplinkNavigator()
         let handler = DeeplinkHandler(deeplinkNavigator: navigator)
-        let url = try #require(URL(string: "\(SELF_PROTOCOL_SCHEME)://card"))
+        let url = try #require(URL(string: "\(SELF_PROTOCOL_SCHEME)://nft-card"))
         let sources: [DeeplinkOpenSource] = [.generic, .qrScan, .inAppBrowser, .exploreSearchBar]
         for source in sources {
             #expect(handler.handle(url, source: source))

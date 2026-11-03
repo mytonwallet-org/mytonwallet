@@ -96,6 +96,7 @@ class MoshiBuilder {
                     .withSubtype(ApiUpdate.ApiUpdateConfig::class.java, "updateConfig")
                     .withSubtype(ApiUpdate.ApiUpdateNftSent::class.java, "nftSent")
                     .withSubtype(ApiUpdate.ApiUpdateNftReceived::class.java, "nftReceived")
+                    .withSubtype(ApiUpdate.ApiUpdateNftChanged::class.java, "nftChanged")
                     .withSubtype(
                         ApiUpdate.ApiUpdateAccountDomainData::class.java,
                         "updateAccountDomainData"
@@ -329,12 +330,17 @@ internal fun Moshi.Builder.addAgentV2Adapters(): Moshi.Builder = this
                 AgentV2Update.SemanticContentAvailable::class.java,
                 "semanticContentAvailable"
             )
+            .withSubtype(AgentV2Update.ToolActivityChanged::class.java, "toolActivityChanged")
+            .withSubtype(AgentV2Update.RunActivityChanged::class.java, "runActivityChanged")
             .withSubtype(AgentV2Update.RunFailed::class.java, "runFailed")
             .withSubtype(AgentV2Update.RunCancelled::class.java, "runCancelled")
+            .withSubtype(AgentV2Update.AvailabilityChanged::class.java, "availabilityChanged")
+            .withSubtype(AgentV2Update.UserQuotaChanged::class.java, "userQuotaChanged")
             .withSubtype(
                 AgentV2Update.WalletAuthorityChanged::class.java,
                 "walletAuthorityChanged"
             )
+            .withSubtype(AgentV2Update.WalletContextChanged::class.java, "walletContextChanged")
             .withSubtype(AgentV2Update.ThreadChanged::class.java, "threadChanged")
             .withSubtype(AgentV2Update.RuntimeReady::class.java, "runtimeReady")
             .withDefaultValue(null)

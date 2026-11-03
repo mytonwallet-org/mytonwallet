@@ -108,6 +108,7 @@ class StakingVC(
             onClickMaxBalanceButton = { onMaxBalanceButtonClicked() }
         ).apply {
             amountEditText.id = UIComponentsR.id.stake_amount_input
+            maxBalanceButton.id = UIComponentsR.id.stake_max_button
         }
     }
     private val spacerView = WView(context)
@@ -193,7 +194,7 @@ class StakingVC(
                             providerName,
                             draft
                         ),
-                        onDone = { finishForeignUnstake(draft) }
+                        onDone = { finishForeignUnstake(accountId, chain, draft) }
                     ),
                     headerView = header
                 )
@@ -250,12 +251,13 @@ class StakingVC(
                         ),
                         onFinishOverride = {
                             AccountStore.dismissForeignStakingBanner(accountId, chain, providerName)
-                            finishForeignUnstake(draft)
+                            finishForeignUnstake(accountId, chain, draft)
                         }
                     )
                 } else {
                     check(!result.activityIds.isNullOrEmpty()) { "Missing unstake activity" }
                     AccountStore.dismissForeignStakingBanner(accountId, chain, providerName)
+                    stakingViewModel.onForeignUnstakeCompleted(accountId, chain, draft)
                     val topVC = navigationController?.viewControllers?.lastOrNull()
                     if (!draft.isInstant) {
                         dismissStaking()
@@ -342,6 +344,7 @@ class StakingVC(
             }
         )
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.stake_title
         navigationBar?.addCloseButton()
         if (isAccountSwitchingAllowed()) {
             AccountStore.activeAccount?.let { accountSelectorView.config(it) }
@@ -405,6 +408,7 @@ class StakingVC(
 
         stakeInputView.setOnAmountInputListener {
             if (!stakingViewModel.isInputListenerLocked) {
+                stakingViewModel.clearRestakeAmount()
                 stakingViewModel.onAmountInputChanged(it)
             }
         }
@@ -615,6 +619,7 @@ class StakingVC(
     }
 
     private fun onMaxBalanceButtonClicked() {
+        stakingViewModel.clearRestakeAmount()
         val maxBalance = stakingViewModel.tokenBalance
 
         val maxBalanceStr: String =
@@ -885,7 +890,12 @@ class StakingVC(
         window?.dismissLastNav()
     }
 
-    private fun finishForeignUnstake(draft: ApiForeignUnstakeDraft) {
+    private fun finishForeignUnstake(
+        accountId: String,
+        chain: String,
+        draft: ApiForeignUnstakeDraft
+    ) {
+        stakingViewModel.onForeignUnstakeCompleted(accountId, chain, draft)
         if (draft.isInstant) pop() else dismissStaking()
     }
 

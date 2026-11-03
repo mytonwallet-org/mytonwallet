@@ -6,6 +6,11 @@ public var IS_GRAM_WALLET: Bool {
     Bundle.main.bundleIdentifier?.hasPrefix("io.gramwallet.") == true
 }
 
+public var IS_PREVIEW_APP: Bool {
+    let identifier = Bundle.main.bundleIdentifier ?? ""
+    return identifier == "org.mytonwallet.app.preview" || identifier.hasPrefix("org.mytonwallet.app.preview.")
+}
+
 // reference: src/config.ts
 
 public var NATIVE_BIOMETRICS_USERNAME: String { IS_GRAM_WALLET ? "GramWallet" : "MyTonWallet" }

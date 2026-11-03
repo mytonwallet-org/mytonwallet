@@ -123,6 +123,12 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         )
     }
 
+    public func configurePositions(positionsCount: Int) {
+        configure(title: lang("Show All Positions"), count: positionsCount,
+                  leadingIconSystemName: "circle.grid.2x2")
+        accessibilityIdentifier = "perps.positions.showAll"
+    }
+
     public func configureActivities(menu: UIMenu? = nil) {
         configure(
             title: lang("Show All Actions"),

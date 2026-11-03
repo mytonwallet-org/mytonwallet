@@ -60,13 +60,24 @@ enum AgentV2Copy {
         }
     }
 
+    static func displayError(_ error: Error) -> DisplayError? {
+        guard !(error is CancellationError) else { return nil }
+        if let error = error as? ApiAgentV2MutationError {
+            guard error.code != .runInterrupted else { return nil }
+            return DisplayError(text: self.error(error.code))
+        }
+        return DisplayError(text: lang("$agent_error_generic"))
+    }
+
     static func error(_ code: ApiAgentV2ErrorCode) -> String {
         switch code {
         case .clientUpdateRequired:
             lang("$agent_error_update_required")
         case .deviceTokenMissing, .deviceTokenInvalid, .deviceTokenExpired, .profileIdInvalid, .profileDeleted:
             lang("$agent_error_session")
-        case .rateLimited, .userQuotaExhausted, .agentCapacityExhausted, .runBudgetExceeded,
+        case .userQuotaExhausted:
+            lang("$agent_daily_limit_reached")
+        case .rateLimited, .agentCapacityExhausted, .runBudgetExceeded,
              .outputLimitReached, .contextTooLargeRetryable, .deviceTokenRateLimited:
             lang("$agent_error_limit")
         case .toolUnsupported, .toolScopeMismatch, .toolResultAlreadySubmitted, .toolRejected,
@@ -74,12 +85,20 @@ enum AgentV2Copy {
             lang("$agent_error_tool")
         case .marketDataUnavailable:
             lang("$agent_error_generic")
+        case .newsUnavailable:
+            lang("$agent_news_unavailable")
         case .networkError:
-            lang("$agent_connection_interrupted")
+            lang("$agent_connection_lost")
         case .providerTimeout, .providerUnavailable:
             lang("$agent_capacity_limit_unknown")
         case .invalidEvent:
             lang("$agent_error_invalid_response")
+        case .recordingTooLarge:
+            lang("$agent_error_recording_too_large")
+        case .audioUnreadable:
+            lang("$agent_error_audio_unreadable")
+        case .transcriptionUnavailable:
+            lang("$agent_error_transcription_unavailable")
         case .invalidRequest, .deviceIdInvalid, .idempotencyMismatch,
              .threadRevisionConflict, .threadNotFound, .threadRunInProgress, .runNotFound,
              .runInterrupted, .runReplayExpired, .messageNotFound, .messageNotEditable,

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Delete in a chat row's swipe actions: the design's "Icon / Delete / Filled", its body slotted -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="30dp"
+    android:viewportWidth="30"
+    android:viewportHeight="30">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M18.3254,7.93271V6.51524C18.3254,5.44138 17.4553,4.57129 16.3814,4.57129H13.6174C12.5435,4.57129 11.6734,5.44138 11.6734,6.51524V7.93271M6.20605,7.93271H23.7927"
+        android:strokeWidth="1.62"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M7.8512,10.4033H22.1473C22.6212,10.4033 22.996,10.8078 22.9539,11.2873L21.8058,23.7376C21.6752,25.1567 20.485,26.2389 19.0637,26.2389H10.9346C9.51328,26.2389 8.3242,25.1567 8.19352,23.7376L7.0444,11.2873C7.0012,10.8078 7.37704,10.4033 7.8512,10.4033ZM11.2024,13.9876L11.9044,22.6276C11.9415,23.0845 12.342,23.4248 12.7989,23.3877C13.2558,23.3505 13.5961,22.9501 13.559,22.4932L12.857,13.8532C12.8198,13.3963 12.4194,13.056 11.9625,13.0931C11.5056,13.1302 11.1653,13.5307 11.2024,13.9876ZM17.1424,13.8532L16.4404,22.4932C16.4033,22.9501 16.7436,23.3505 17.2005,23.3877C17.6574,23.4248 18.0578,23.0845 18.095,22.6276L18.797,13.9876C18.8341,13.5307 18.4938,13.1302 18.0369,13.0931C17.58,13.056 17.1795,13.3963 17.1424,13.8532Z" />
+</vector>

@@ -47,6 +47,10 @@ extension NSXMLSVGParser: SVGParser { }
 
 open class NSXMLSVGParser: XMLParser, XMLParserDelegate {
 
+    /// Rasterizers can parse on one thread to avoid reading partially committed layers.
+    public var shouldParsePathsAsynchronously = true
+    private var rootFill: String?
+
     /**
      Error type used when a fatal error has occured
      */
@@ -132,18 +136,38 @@ open class NSXMLSVGParser: XMLParser, XMLParserDelegate {
         }
 
         let svgElement = elementType()
+        if elementName == "svg", elementStack.last == nil {
+            rootFill = attributeDict["fill"]
+        } else if svgElement is SVGShapeElement, let rootFill {
+            svgElement.supportedAttributes["fill"]?(rootFill)
+        }
 
         if var asyncElement = svgElement as? ParsesAsynchronously {
-            self.asyncCountQueue.sync {
-                self.asyncParseCount += 1
-                asyncElement.asyncParseManager = self
+            asyncElement.shouldParseAsynchronously = shouldParsePathsAsynchronously
+            if shouldParsePathsAsynchronously {
+                self.asyncCountQueue.sync {
+                    self.asyncParseCount += 1
+                    asyncElement.asyncParseManager = self
+                }
             }
         }
 
         for (attributeName, attributeClosure) in svgElement.supportedAttributes {
-            if let attributeValue = attributeDict[attributeName] {
+            if attributeName != "d", let attributeValue = attributeDict[attributeName] {
                 attributeClosure(attributeValue)
             }
+        }
+
+        if let classes = attributeDict["class"] {
+            self.supportedElements?.renderContext.applyClasses(classes, to: svgElement)
+        }
+        // Inline declarations take precedence over presentation attributes and classes.
+        if let style = attributeDict["style"] {
+            svgElement.supportedAttributes["style"]?(style)
+        }
+        // Path completion clears its attribute handlers; apply all styling first.
+        if let path = attributeDict["d"] {
+            svgElement.supportedAttributes["d"]?(path)
         }
 
         self.elementStack.push(svgElement)
@@ -209,6 +233,7 @@ open class NSXMLSVGParser: XMLParser, XMLParserDelegate {
         }
         if self.asyncParseCount <= 0 {
             DispatchQueue.main.safeAsync {
+                self.supportedElements?.renderContext.applyShapeFills()
                 self.completionBlock?(self.containerLayer)
                 self.completionBlock = nil
             }
@@ -267,6 +292,7 @@ extension NSXMLSVGParser: CanManageAsychronousParsing {
             return
         }
         DispatchQueue.main.safeAsync {
+            self.supportedElements?.renderContext.applyShapeFills()
             self.completionBlock?(self.containerLayer)
             self.completionBlock = nil
         }

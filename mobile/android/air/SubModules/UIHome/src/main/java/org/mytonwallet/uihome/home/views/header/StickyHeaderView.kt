@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
@@ -56,6 +57,10 @@ class StickyHeaderView(
         WideScreen,
         Collapsed,
         Expanded
+    }
+
+    companion object {
+        private const val BUTTON_SIZE = 40
     }
 
     init {
@@ -282,9 +287,9 @@ class StickyHeaderView(
             scanButton.isVisible = !isWideScreen && !hideDefaultItems
         }
         eyeButton.isVisible = !hideDefaultItems
-        editButton.isVisible = isWideScreen && !isInActionMode
 
         updateActions()
+        updateButtonPositions()
     }
 
     private fun applyButtonEdge(button: View, atStart: Boolean, edgeMargin: Int) {
@@ -308,8 +313,8 @@ class StickyHeaderView(
             if (!hideDefaultItems && WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
         if (lockButton.visibility != lockButtonVisibility) {
             lockButton.visibility = lockButtonVisibility
-            updateButtonPositions()
         }
+        updateButtonPositions()
         val statusViewMargin = defaultStatusViewMargin()
         (updateStatusView.layoutParams as? MarginLayoutParams)?.let { layoutParams ->
             updateStatusView.layoutParams = layoutParams.apply {
@@ -319,7 +324,15 @@ class StickyHeaderView(
         }
     }
 
-    private fun shouldHideDefaultItems(): Boolean = !isWideLayout
+    private fun shouldHideDefaultItems(): Boolean =
+        screenMode is MScreenMode.Default || !isWideLayout
+
+    var onWideAccessoryWidthsChanged: (() -> Unit)? = null
+
+    var wideLeadingWidth = 0
+        private set
+    var wideTrailingWidth = 0
+        private set
 
     private fun updateButtonPositions() {
         val isWideScreen = appliedWideScreen == true
@@ -328,11 +341,30 @@ class StickyHeaderView(
             atStart = isWideScreen,
             edgeMargin = if (isWideScreen) 8.dp else 56.dp
         )
+        val eyeEdgeMargin = if (isWideScreen && lockButton.isVisible) 56.dp else 8.dp
         applyButtonEdge(
             eyeButton,
             atStart = isWideScreen,
-            edgeMargin = if (isWideScreen && lockButton.isVisible) 56.dp else 8.dp
+            edgeMargin = eyeEdgeMargin
         )
+        updateWideAccessoryWidths(isWideScreen, eyeEdgeMargin)
+    }
+
+    private fun updateWideAccessoryWidths(isWideScreen: Boolean, eyeEdgeMargin: Int) {
+        var leading = 0
+        var trailing = 0
+        if (isWideScreen) {
+            if (lockButton.isVisible) leading = 8.dp + BUTTON_SIZE.dp
+            if (eyeButton.isVisible) leading = eyeEdgeMargin + BUTTON_SIZE.dp
+            if (editButton.isVisible) {
+                trailing = 8.dp + editButton.paddingStart + editButton.paddingEnd +
+                    editButton.paint.measureText(editButton.text.toString()).ceilToInt()
+            }
+        }
+        if (wideLeadingWidth == leading && wideTrailingWidth == trailing) return
+        wideLeadingWidth = leading
+        wideTrailingWidth = trailing
+        onWideAccessoryWidthsChanged?.invoke()
     }
 
     val animationDuration = AnimationConstants.QUICK_ANIMATION / 2

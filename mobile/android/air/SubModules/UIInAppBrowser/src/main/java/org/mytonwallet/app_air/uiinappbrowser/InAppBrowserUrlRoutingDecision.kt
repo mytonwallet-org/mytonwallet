@@ -1,7 +1,30 @@
 package org.mytonwallet.app_air.uiinappbrowser
 
+import android.net.Uri
+import androidx.core.net.toUri
 import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.helpers.InAppBrowserDeeplinkHelpers
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchainExplorer
+
+internal fun inAppBrowserTabMatchesUrl(
+    currentUrl: String,
+    requestedUrl: String,
+    isKnownDapp: Boolean
+): Boolean {
+    val current = currentUrl.toUri().buildUpon().fragment(null).build()
+    val requested = requestedUrl.toUri().buildUpon().fragment(null).build()
+    if (current == requested) return true
+    if (!isKnownDapp || !current.isWebUrl || !requested.isWebUrl ||
+        MBlockchainExplorer.isExplorerUrl(requested)
+    ) {
+        return false
+    }
+    return current.scheme.equals(requested.scheme, ignoreCase = true) &&
+        current.host.equals(requested.host, ignoreCase = true) &&
+        current.port == requested.port
+}
+
+private val Uri.isWebUrl get() = scheme?.lowercase().let { it == "http" || it == "https" }
 
 internal enum class InAppBrowserUrlRoutingDecision {
     ALLOW_WEB_VIEW,

@@ -125,7 +125,6 @@ class NftDetailsPageView: UIView {
                     let button = WScalableButton(
                         title: title,
                         image: .airBundle(imageName),
-                        imageSize: CGSize(width: 26, height: 26),
                         style: .plain,
                         onTap: config.onTap ?? {},
                     )

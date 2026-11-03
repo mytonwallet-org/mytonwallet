@@ -126,7 +126,7 @@ final class OnboardingLayoutTests: XCTestCase {
             assertInsideColumn(header, screen: screen, safe: safe, name: name)
         }
         if screen is ImportWalletVC {
-            let inputs = views.compactMap { $0 as? WWordInput }.filter { !$0.isHidden }
+            let inputs = views.compactMap { $0 as? WWordInput }.filter { !$0.isHidden && $0.alpha > 0 }
             XCTAssertEqual(inputs.count, 12, name)
             for input in inputs {
                 assertInsideColumn(input, screen: screen, safe: safe, name: name)

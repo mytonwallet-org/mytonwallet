@@ -177,7 +177,9 @@ it.each([
   expect(mockCheckMultiTransactionDraft).not.toHaveBeenCalled();
 });
 
-it('submits only the reviewed transaction and refreshes the active promotion', async () => {
+// The tsTON balance trigger of the promotion polling hides the banner once the burn lands, while a promotion fetched
+// right after sending would still show the old position
+it('submits only the reviewed transaction without refetching the promotion', async () => {
   expect(await submitForeignUnstake('0-mainnet', 'ton', 'GRAM', draft, 'enclave')).toEqual({
     activityIds: ['activity-id'],
   });
@@ -185,7 +187,26 @@ it('submits only the reviewed transaction and refreshes the active promotion', a
   expect(options).toMatchObject({ accountId: '0-mainnet', signer: mockSigner });
   expect(options.messages[0].amount).toBe(1050000000n);
   expect(options.messages[0].payload.toBoc().toString('base64')).toBe(payload);
-  expect(mockPollForeignStakingPromotion).toHaveBeenCalledTimes(1);
+  expect(mockCallBackendGet).toHaveBeenCalledTimes(1);
+  expect(mockPollForeignStakingPromotion).not.toHaveBeenCalled();
+});
+
+it('creates the activities on the MFA confirmation without refetching the promotion', async () => {
+  mockSubmitMultiTransferWithMfa.mockResolvedValue({ mfaRequest: 'signed-request' });
+  mockPublishMfa.mockResolvedValue({ mfaRequestHash: 'mfa-hash' });
+
+  expect(await submitForeignUnstake('0-mainnet', 'ton', 'GRAM', draft, 'enclave')).toEqual({
+    mfaRequestHash: 'mfa-hash',
+  });
+  expect(mockActivities).not.toHaveBeenCalled();
+
+  const [hash, onConfirmed] = mockRegisterMfa.mock.calls[0];
+  expect(hash).toBe('mfa-hash');
+  onConfirmed('confirmed-hash');
+
+  expect(mockActivities).toHaveBeenCalledWith('0-mainnet', 'ton', [expect.objectContaining({ id: 'confirmed-hash' })]);
+  expect(mockCallBackendGet).toHaveBeenCalledTimes(1);
+  expect(mockPollForeignStakingPromotion).not.toHaveBeenCalled();
 });
 
 it('rejects unsupported or changed provider data before signing', async () => {

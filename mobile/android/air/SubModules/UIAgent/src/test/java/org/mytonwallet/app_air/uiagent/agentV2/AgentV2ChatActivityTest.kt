@@ -7,6 +7,24 @@ import org.junit.Test
 
 class AgentV2ChatActivityTest {
     @Test
+    fun keepsTheSdkActiveWhileAnotherThreadIsStillVisible() = runBlocking {
+        val calls = mutableListOf<Boolean>()
+        coroutineScope {
+            val group = AgentV2ChatActivityGroup()
+            val first = AgentV2ChatActivity(this, group) { calls += it }
+            val second = AgentV2ChatActivity(this, group) { calls += it }
+            first.setConsentAccepted(true)
+            second.setConsentAccepted(true)
+            first.setVisible(true)
+            second.setVisible(true)
+            first.stop()
+            second.stop()
+        }
+
+        assertEquals(listOf(true, false), calls)
+    }
+
+    @Test
     fun keepsTheChatActiveOnlyWhileItIsVisibleInTheForegroundAfterConsent() = runBlocking {
         val calls = mutableListOf<Boolean>()
         coroutineScope {

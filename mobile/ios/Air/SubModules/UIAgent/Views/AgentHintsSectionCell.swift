@@ -10,7 +10,11 @@ private enum AgentHintsSectionMetrics {
 
 final class AgentHintsSectionView: UIView {
     private let stackView = UIStackView()
-    private let sparkleView = UIImageView(image: UIImage(named: "HintSparcle", in: AirBundle, compatibleWith: nil))
+    /// The Agent's spinning top, half as fast as in a thinking reply
+    private let sparkleView = AgentSpinningTopView(speedMultiplier: 0.5)
+    var isActive = true {
+        didSet { sparkleView.isActive = isActive }
+    }
     private var buttons: [AgentSuggestionButton] = []
     private var hints: [AgentHint] = []
     private var onHintTap: ((AgentHint) -> Void)?
@@ -26,6 +30,7 @@ final class AgentHintsSectionView: UIView {
         super.init(frame: frame)
         backgroundColor = .clear
         clipsToBounds = false
+        accessibilityIdentifier = "agent_suggestions"
         layer.shadowOpacity = 1
         layer.shadowRadius = 12
         stackView.translatesAutoresizingMaskIntoConstraints = false
@@ -33,7 +38,6 @@ final class AgentHintsSectionView: UIView {
         stackView.alignment = .leading
         stackView.spacing = AgentSuggestionButton.spacing
         addSubview(stackView)
-        sparkleView.contentMode = .scaleAspectFit
         sparkleView.isAccessibilityElement = false
         stackView.addArrangedSubview(sparkleView)
         stackView.setCustomSpacing(AgentHintsSectionMetrics.sparkleToPillsSpacing, after: sparkleView)
@@ -73,6 +77,7 @@ final class AgentHintsSectionView: UIView {
         while buttons.count < hints.count {
             let index = buttons.count
             let button = AgentSuggestionButton()
+            button.accessibilityIdentifier = "agent_suggestion"
             button.addAction(UIAction { [weak self] _ in
                 guard let self, self.hints.indices.contains(index) else { return }
                 self.onHintTap?(self.hints[index])

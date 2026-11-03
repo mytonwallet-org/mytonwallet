@@ -1,72 +1,124 @@
-.composerStatus,
-.composerStatusNeutral,
-.runFailure,
-.quotaStatus {
+// A status reads as a centered line, as the design's "Date" row without its fill
+.statusLine {
   unicode-bidi: plaintext;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  justify-content: space-between;
 
-  border: 0.0625rem solid var(--color-separator);
-  border-radius: 0.75rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
 
-  color: var(--color-black);
-
-  background: var(--color-background-second);
-}
-
-.composerStatus,
-.composerStatusNeutral {
-  padding: 0.75rem;
-}
-
-.composerStatus {
-  border-color: var(--color-yellow);
-}
-
-.runFailure {
-  padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
-}
-
-.quotaStatus {
-  width: 100%;
-  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  line-height: 1.125rem;
   color: var(--color-gray-1);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
-.quotaStatus strong {
-  color: var(--color-text);
+// The whole line is SemiBold 13, as in the design
+.title {
+  font-weight: inherit;
 }
 
-.copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  min-width: 0;
+// A title with an explanation stands on a line of its own above it
+.titleWithBody {
+  display: block;
 }
 
-.copy span {
+// A limit is the chat's last line, 4 px into its row after the gap that follows the last message, as in the design
+.chatStatus {
+  margin-top: 0.875rem;
+}
+
+// A question a limit kept from starting has its failure under it, as an answer that failed does
+.chatFailure {
+  margin-top: 0.625rem;
+}
+
+// The line that leaves stays where it was over the one that comes, so the two cross-fade
+.chatStatusSlot {
+  position: relative;
+}
+
+.chatStatusLeaving {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+
+  animation: agent-status-leave 250ms ease-in-out forwards;
+}
+
+.chatStatusEntering {
+  animation: agent-status-enter 250ms ease-in-out;
+}
+
+:global(html.animation-level-0) .chatStatusLeaving {
+  display: none;
+}
+
+:global(html.animation-level-0) .chatStatusEntering {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatStatusLeaving {
+    display: none;
+  }
+
+  .chatStatusEntering {
+    animation: none;
+  }
+}
+
+@keyframes agent-status-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes agent-status-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+// A failed request reads as the limit's line does, its text 4 px of row and 4 px of pill into its row, as in the design
+.failureCaption {
+  unicode-bidi: plaintext;
+
+  margin: 0;
+  padding: 0.5rem 0.5rem 0.25rem;
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.125rem;
   color: var(--color-gray-1);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
-.retry {
+// Retry follows the text after a space, as a link in the accent color
+.failureRetry {
   cursor: var(--custom-cursor, pointer);
 
-  flex: 0 0 auto;
+  display: inline;
 
-  padding: 0.375rem 0.625rem;
+  margin-inline-start: 0.1875rem;
+  padding: 0;
   border: 0;
-  border-radius: 0.5rem;
 
-  font-weight: 600;
+  font: inherit;
   color: var(--color-accent);
 
-  background: var(--color-accent-10o);
-}
+  background: none;
 
-.retry:disabled {
-  cursor: default;
-  opacity: 0.45;
+  &:focus-visible {
+    text-decoration: underline;
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: default;
+    color: inherit;
+  }
 }

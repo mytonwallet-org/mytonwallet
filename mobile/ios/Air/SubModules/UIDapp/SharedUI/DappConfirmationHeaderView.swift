@@ -26,14 +26,9 @@ struct DappConfirmationHeaderView: ConfirmationContent {
                 if let swapPayload {
                     SwapOverviewView(
                         fromAmount: TokenAmount(swapPayload.amount, TokenStore.getNativeToken(chain: .ton)),
-                        toAmount: swapOutputAmount ?? swapPayload.minimumReceived,
-                        toAmountIsEstimated: swap != nil
+                        toAmount: swapPayload.minimumReceived,
+                        hideToAmount: true
                     )
-                    if swap == nil {
-                        Text(lang("Minimum Received"))
-                            .textStyle(.footnote)
-                            .foregroundStyle(Color.air.secondaryLabel)
-                    }
                     destination
                 } else {
                     if case .connect = action {
@@ -91,31 +86,6 @@ struct DappConfirmationHeaderView: ConfirmationContent {
               !request.combinedInfo.isDangerous, !request.combinedInfo.isScam,
               case .dedustNativeSwap(let payload) = request.transactions[0].payload else { return nil }
         return payload
-    }
-
-    var swap: ApiSwapActivity? {
-        guard let swapPayload, case .send(let request) = action,
-              let activities = request.emulation?.activities else { return nil }
-        let swaps = activities.compactMap(\.swap)
-        guard swaps.count == 1, let swap = swaps.first,
-              swap.status == .completed || swap.status == .confirmed,
-              swap.isCanceled != true, swap.from != swap.to,
-              swap.fromAmount.value > 0, swap.toAmount.value > 0,
-              swap.from == request.operationChain.nativeToken.slug, swap.to == swapPayload.toSlug,
-              swap.displayFromAmount.amount == swapPayload.amount,
-              TokenAmount.fromDouble(swap.toAmount.value, swapPayload.toToken).amount >= swapPayload.minimumAmountOut,
-              activities.allSatisfy({ activity in
-                  if activity.swap != nil { return true }
-                  guard let transaction = activity.transaction else { return false }
-                  return transaction.type == .excess && transaction.isIncoming && transaction.amount >= 0
-                      && transaction.slug == request.operationChain.nativeToken.slug && transaction.status == .completed
-              }) else { return nil }
-        return swap
-    }
-
-    var swapOutputAmount: TokenAmount? {
-        guard let swap, let swapPayload else { return nil }
-        return TokenAmount.fromDouble(swap.toAmount.value, swapPayload.toToken)
     }
 
     private var assetIcons: some View {
@@ -231,12 +201,10 @@ struct DappConfirmationHeaderView: ConfirmationContent {
         }
     }
 
-    private var compactSummary: String {
+    var compactSummary: String {
         if let swapPayload {
             let from = TokenAmount(swapPayload.amount, TokenStore.getNativeToken(chain: .ton)).formatted(.defaultAdaptive)
-            let to = (swapOutputAmount ?? swapPayload.minimumReceived).formatted(.defaultAdaptive, roundHalfUp: false, precision: swap != nil ? .approximate : nil)
-            let prefix = swap != nil ? "" : "\(lang("Minimum Received")): "
-            return "\(lang("Swap")) · \(from) → \(prefix)\(to)"
+            return "\(lang("Swap")) · \(from)"
         }
         if assets.count == 1, let asset = assets.first {
             switch asset {

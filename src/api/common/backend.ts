@@ -1,10 +1,16 @@
 import { APP_ENV, APP_NAME, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
 import { bucketKey } from '../../util/circuitBreaker';
-import { fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
+import { buildRequestUrl, fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
 import { getEnvironment } from '../environment';
 import { getClientId } from './other';
 
 const BAD_REQUEST_CODE = 400;
+
+type BackendResponseOptions = {
+  shouldReturnResponse: true;
+  shouldRetry?: boolean;
+  timeout?: number;
+};
 
 export async function callBackendPost<T>(path: string, data: AnyLiteral, options?: {
   authToken?: string;
@@ -53,6 +59,13 @@ export function callBackendGet(
   data: AnyLiteral | undefined,
   headers: HeadersInit | undefined,
   signal: AbortSignal | undefined,
+  options: BackendResponseOptions,
+): Promise<Response>;
+export function callBackendGet(
+  path: string,
+  data: AnyLiteral | undefined,
+  headers: HeadersInit | undefined,
+  signal: AbortSignal | undefined,
   options: { shouldReturnText: true },
 ): Promise<string>;
 export function callBackendGet<T extends AnyLiteral>(
@@ -66,8 +79,8 @@ export function callBackendGet<T extends AnyLiteral>(
   data?: AnyLiteral,
   headers?: HeadersInit,
   signal?: AbortSignal,
-  options?: { shouldReturnText: true },
-): Promise<T | string> {
+  options?: { shouldReturnText: true } | BackendResponseOptions,
+): Promise<T | string | Response> {
   const url = new URL(`${BRILLIANT_API_BASE_URL}${path}`);
   const init: RequestInit = {
     headers: {
@@ -79,6 +92,14 @@ export function callBackendGet<T extends AnyLiteral>(
   const fetchOptions = {
     bucketKey: bucketKey(url, { includePathPrefix: true }),
   };
+
+  if (options && 'shouldReturnResponse' in options) {
+    return fetchWithRetry(buildRequestUrl(url, data), init, {
+      ...fetchOptions,
+      ...(options.shouldRetry === false && { retries: 1 }),
+      ...(options.timeout !== undefined && { timeouts: options.timeout }),
+    });
+  }
 
   if (options?.shouldReturnText) {
     return fetchJson(url, data, init, { ...fetchOptions, shouldReturnText: true });

@@ -5,7 +5,8 @@ import UIKit
 #if GRAM_WALLET
 let SELF_PROTOCOL = "gramwallet://"
 #else
-let SELF_PROTOCOL = "mtw://"
+let SELF_PROTOCOL = Bundle.main.bundleIdentifier?.hasPrefix("org.mytonwallet.app.preview.") == true
+    ? "mtw-preview://" : "mtw://"
 #endif
 
 let TONCOIN_SLUG = "toncoin"

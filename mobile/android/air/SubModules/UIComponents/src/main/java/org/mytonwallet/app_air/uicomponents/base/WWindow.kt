@@ -10,10 +10,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
+import android.os.SystemClock
 import android.util.SparseArray
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -111,6 +115,7 @@ abstract class WWindow :
 
             override fun onViewAdded(view: View?) {
                 super.onViewAdded(view)
+                restackMinimizedBrowser()
                 bringChildToFront(popupHost)
             }
         }.apply {
@@ -123,7 +128,152 @@ abstract class WWindow :
         }
     }
 
+    var lastInputAt = 0L
+        private set
+
+    override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+        lastInputAt = SystemClock.elapsedRealtime()
+        return super.dispatchTouchEvent(event)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        lastInputAt = SystemClock.elapsedRealtime()
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        lastInputAt = SystemClock.elapsedRealtime()
+        return super.dispatchGenericMotionEvent(event)
+    }
+
     abstract fun getKeyNavigationController(): WNavigationController
+
+    private var minimizedBrowserPresenter: MinimizedBrowserPresenter? = null
+
+    // Hosts one minimized nav above every presented nav, resting on the top screen's bottom chrome.
+    val minimizedBrowser: MinimizedBrowserPresenter
+        get() = minimizedBrowserPresenter ?: MinimizedBrowserPresenter(
+            object : MinimizedBrowserPresenter.Host {
+                override val container get() = windowView
+                override val availableHeight get() = windowView.height
+                override val bottomInset
+                    get() = minimizedBrowserAnchor?.let {
+                        it.minimizedBrowserBottomInset
+                            ?: it.navigationController?.viewControllers?.firstOrNull()
+                                ?.minimizedBrowserBottomInset
+                    } ?: (systemBars?.bottom ?: 0)
+                override val horizontalSpan
+                    get() = minimizedBrowserAnchor?.let {
+                        it.minimizedBrowserSpan
+                            ?: it.navigationController?.viewControllers?.firstOrNull()
+                                ?.minimizedBrowserSpan
+                    } ?: (0 until windowView.width)
+                override val animationsEnabled
+                    get() = WGlobalStorage.getAreAnimationsActive() && !isConfiguring
+                override fun canMinimize(nav: WNavigationController) =
+                    navigationControllers.size > 1 && navigationControllers.last() === nav
+
+                override fun maximizedFrame(nav: WNavigationController, minimizedHeight: Int) =
+                    if (nav.isCenteredWindow) {
+                        val frame = centeredWindowFrame(nav, minimizedHeight)
+                        RectF(
+                            frame.x.toFloat(),
+                            frame.y.toFloat(),
+                            (frame.x + frame.width).toFloat(),
+                            (frame.y + frame.height).toFloat()
+                        )
+                    } else {
+                        RectF(0f, 0f, windowView.width.toFloat(), windowView.height.toFloat())
+                    }
+
+                override fun detach(nav: WNavigationController) = detachLastNav()
+                override fun attach(nav: WNavigationController, animated: Boolean) =
+                    attachNavigationController(nav, animated)
+
+                override fun destroy(nav: WNavigationController) {
+                    nav.willBeDismissed()
+                    windowView.removeView(nav)
+                    nav.onDestroy()
+                }
+
+                override fun render() {
+                    notifyInsetsUpdated()
+                    relayoutCenteredWindows()
+                }
+            }
+        ).also { minimizedBrowserPresenter = it }
+
+    val minimizedBrowserHeight: Float
+        get() = minimizedBrowserPresenter?.height ?: 0f
+
+    val hasMinimizedBrowser: Boolean
+        get() = minimizedBrowserPresenter?.hasNavigation == true
+
+    // Index of the lowest nav presented above the minimized browser, or -1. Every nav from it up
+    // stays above the minimized browser.
+    private val minimizedBrowserCoverIndex: Int
+        get() = navigationControllers.indexOfFirst {
+            it.viewControllers.firstOrNull()?.coversMinimizedBrowser == true
+        }
+
+    // Top screen the minimized browser rests on: below any covering nav, dismissing navs skipped.
+    val minimizedBrowserAnchor: WViewController?
+        get() {
+            val coverIndex = minimizedBrowserCoverIndex
+            val candidates = if (coverIndex < 0) {
+                navigationControllers
+            } else {
+                navigationControllers.take(coverIndex)
+            }
+            return candidates.lastOrNull { !it.isDismissed }?.viewControllers?.lastOrNull()
+        }
+
+    private fun restackMinimizedBrowser() {
+        val presenter = minimizedBrowserPresenter ?: return
+        presenter.bringToFront()
+        val coverIndex = minimizedBrowserCoverIndex
+        if (coverIndex < 0) return
+        for (i in coverIndex until navigationControllers.size) {
+            navigationControllerOverlays.getOrNull(i)
+                ?.takeIf { it.parent === windowView }?.bringToFront()
+            navigationControllers[i].takeIf { it.parent === windowView }?.bringToFront()
+        }
+    }
+
+    private fun relayoutCenteredWindows() {
+        if (navAnimation != NavAnimation.NONE) return
+        for (nav in navigationControllers) {
+            if (!nav.isCenteredWindow || nav.isDismissed || nav.parent !== windowView) continue
+            val lp = nav.layoutParams ?: continue
+            val frame = centeredWindowFrame(nav)
+            if (lp.width != frame.width || lp.height != frame.height) {
+                applyCenteredWindowLayout(nav)
+            }
+            nav.y = frame.y.toFloat()
+        }
+    }
+
+    // Bottom inset a nav reserves so its content stays above the minimized nav.
+    fun minimizedBrowserInset(navigationController: WNavigationController): Int {
+        val presenter = minimizedBrowserPresenter ?: return 0
+        val coverIndex = minimizedBrowserCoverIndex
+        val isCovering =
+            coverIndex >= 0 && navigationControllers.indexOf(navigationController) >= coverIndex
+        if (presenter.hosts(navigationController) ||
+            isCovering ||
+            navigationController.isCenteredWindow ||
+            navigationController.tabBarController != null ||
+            navigationController.viewControllers.lastOrNull()?.minimizedBrowserBottomInset != null
+        ) {
+            return 0
+        }
+        return (presenter.occupiedHeight - navigationController.floatingSheetBottomGap)
+            .coerceAtLeast(0)
+    }
+
+    fun navigationStackChanged() {
+        minimizedBrowserPresenter?.stackChanged()
+    }
 
     // Array of fragment stacks (navigation controllers), that are being shown right now.
     var navigationControllers = ArrayList<WNavigationController>()
@@ -139,7 +289,12 @@ abstract class WWindow :
             setAppFocusedState()
         }
 
+    // The minimized browser follows nav animations.
     private var activeAnimator: ValueAnimator? = null
+        set(value) {
+            field = value
+            if (value != null) minimizedBrowserPresenter?.follow(value)
+        }
 
     // The ExpandFrom transition [activeAnimator] is currently presenting, so a dismiss that lands
     // mid-flight can turn it around instead of snapping.
@@ -213,15 +368,24 @@ abstract class WWindow :
     // centered within the safe area so it stays below the status bar and above the bottom system bar.
     data class WindowFrame(val x: Int, val y: Int, val width: Int, val height: Int)
 
-    private fun centeredWindowFrame(overrideWidth: Int? = null): WindowFrame {
+    // Ignores the minimized browser, so it changes only with the window size.
+    val centeredWindowHeight: Int
+        get() = centeredWindowFrame(minimizedBrowserHeight = 0).height
+
+    private fun centeredWindowFrame(
+        navigationController: WNavigationController? = null,
+        minimizedBrowserHeight: Int = minimizedBrowserPresenter?.occupiedHeight ?: 0
+    ): WindowFrame {
         val w = windowView.width
         val h = windowView.height
         val topInset = systemBars?.top ?: 0
-        val bottomInset = systemBars?.bottom ?: 0
+        val bottomInset = max(systemBars?.bottom ?: 0, minimizedBrowserHeight)
         val safeHeight = (h - topInset - bottomInset).coerceAtLeast(0)
         val defaultWidth = min((w * 0.85f).roundToInt(), WIDE_LAYOUT_MIN_WIDTH_DP.dp)
-        val width = (overrideWidth ?: defaultWidth).coerceAtMost(w)
-        val height = min((h * 0.8f).roundToInt(), safeHeight)
+        val width = (navigationController?.centeredWindowWidth ?: defaultWidth).coerceAtMost(w)
+        val maxHeight = min((h * 0.8f).roundToInt(), safeHeight)
+        val height =
+            navigationController?.centeredWindowHeight(width)?.coerceAtMost(maxHeight) ?: maxHeight
         return WindowFrame(
             x = ((w - width) / 2).coerceAtLeast(0),
             y = (topInset + (safeHeight - height) / 2).coerceAtLeast(topInset),
@@ -233,7 +397,7 @@ abstract class WWindow :
     // Apply the resting (non-animated) layout for a centered window: size, x, rounded corners.
     // Y is driven by the present/dismiss animators (so it can slide), so it's set by the caller.
     private fun applyCenteredWindowLayout(navigationController: WNavigationController) {
-        val frame = centeredWindowFrame(navigationController.centeredWindowWidth)
+        val frame = centeredWindowFrame(navigationController)
         navigationController.updateLayoutParams {
             width = frame.width
             height = frame.height
@@ -289,7 +453,7 @@ abstract class WWindow :
             if (nav.isCenteredWindow) {
                 nav.clearBottomSheetBehaviour()
                 applyCenteredWindowLayout(nav)
-                nav.y = centeredWindowFrame(nav.centeredWindowWidth).y.toFloat()
+                nav.y = centeredWindowFrame(nav).y.toFloat()
                 nav.insetsUpdated()
             } else if (nav.isBottomSheet) {
                 nav.clipToOutline = false
@@ -334,6 +498,7 @@ abstract class WWindow :
                 }
             }
         }
+        minimizedBrowserPresenter?.containerResized()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -372,8 +537,10 @@ abstract class WWindow :
 
         // Set padding for navigation controllers
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+            // Hidden bars still count, so hiding the status bar moves nothing underneath
+            val bars = Insets.max(
+                insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars()),
+                insets.getInsets(WindowInsetsCompat.Type.displayCutout())
             )
             systemBars = Insets.of(
                 bars.left,
@@ -394,6 +561,7 @@ abstract class WWindow :
         for (navigationController in navigationControllers) {
             navigationController.insetsUpdated()
         }
+        minimizedBrowserPresenter?.relayout()
     }
 
     override fun onStart() {
@@ -423,6 +591,7 @@ abstract class WWindow :
             isPaused = false
             navigationControllers.lastOrNull()?.viewWillAppear()
             navigationControllers.lastOrNull()?.viewDidAppear()
+            WViewController.checkInactivityOfAll()
             WalletCore.notifyEvent(WalletEvent.AppForeground)
         }
     }
@@ -440,6 +609,7 @@ abstract class WWindow :
         navigationControllers.forEach {
             it.updateTheme()
         }
+        minimizedBrowserPresenter?.updateTheme()
         popupHost.updateTheme()
 
         val darkModeChanged = ThemeManager.isDark != _isDarkThemeApplied
@@ -691,6 +861,7 @@ abstract class WWindow :
 
         // Add new navigation controller to window
         navigationControllers.add(navigationController)
+        navigationStackChanged()
         navigationController.viewWillAppear()
         windowView.addView(
             navigationController,
@@ -718,7 +889,7 @@ abstract class WWindow :
                 navigationController.viewControllers.firstOrNull()?.isExpandable == true
             val finalY =
                 if (navigationController.isCenteredWindow) {
-                    centeredWindowFrame(navigationController.centeredWindowWidth).y
+                    centeredWindowFrame(navigationController).y
                 } else if (shouldPresentFullScreen) {
                     0
                 } else {
@@ -902,6 +1073,7 @@ abstract class WWindow :
         navigationControllerOverlays.removeAt(index)
         windowView.removeView(overlay)
         windowView.removeView(navigationController)
+        navigationStackChanged()
     }
 
     enum class DismissAnimation {
@@ -931,6 +1103,7 @@ abstract class WWindow :
         val navigationController = navigationControllers.lastOrNull()
         if (navigationController?.isDismissed == true) return true
         navigationController?.willBeDismissed()
+        navigationStackChanged()
         val prevNavigationController =
             navigationControllers.getOrNull(navigationControllers.size - 2)
         val skipPrevNavAnimation =
@@ -1171,21 +1344,27 @@ abstract class WWindow :
     // Detach a navigation controller from the window, to use somewhere else!
     fun detachLastNav() {
         val overlay = navigationControllerOverlays.lastOrNull()
-        if (navigationControllers.size >= 2) {
-            windowView.addView(navigationControllers[navigationControllers.size - 2], 0)
-            navigationControllers[navigationControllers.size - 2].visibility = View.VISIBLE
-            navigationControllers[navigationControllers.size - 2].viewWillAppear()
-        }
+        addPrevNavigationControllersToHierarchy()
         windowView.removeView(navigationControllers.lastOrNull())
         forgetNav(navigationControllers.lastOrNull())
         navigationControllers.removeAt(navigationControllers.lastIndex)
         navigationControllerOverlays.removeAt(navigationControllerOverlays.lastIndex)
-        windowView.removeView(overlay)
+        if (overlay != null && overlay.alpha > 0f && WGlobalStorage.getAreAnimationsActive()) {
+            overlay.setOnClickListener(null)
+            overlay.isClickable = false
+            overlay.animate().alpha(0f).setDuration(AnimationConstants.QUICK_ANIMATION)
+                .withEndAction { windowView.removeView(overlay) }
+        } else {
+            windowView.removeView(overlay)
+        }
         navigationControllers.lastOrNull()?.viewDidAppear()
     }
 
     // Attach a navigation controller to the window, to animate and present it freely!
-    fun attachNavigationController(navigationController: WNavigationController) {
+    fun attachNavigationController(
+        navigationController: WNavigationController,
+        animated: Boolean = true
+    ) {
         val overlayView = WBaseView(this)
         overlayView.setBackgroundColor(Color.BLACK.colorWithAlpha(76))
         overlayView.setOnClickListener {
@@ -1196,8 +1375,10 @@ abstract class WWindow :
         windowView.addView(overlayView)
 
         navigationControllers.add(navigationController)
-        navigationControllers[navigationControllers.size - 2].viewControllers.lastOrNull()
-            ?.viewWillDisappear()
+        if (!navigationController.overFullScreen) {
+            navigationControllers[navigationControllers.size - 2].viewControllers.lastOrNull()
+                ?.viewWillDisappear()
+        }
         windowView.addView(
             navigationController,
             ViewGroup.LayoutParams(
@@ -1206,13 +1387,19 @@ abstract class WWindow :
             )
         )
         if (navigationController.overFullScreen) {
-            navigationControllers[navigationControllers.size - 2].let {
-                it.visibility = View.GONE
-                windowView.removeView(it)
-            }
             navigationControllerOverlays.lastOrNull()?.let {
                 it.visibility = View.GONE
                 windowView.removeView(it)
+            }
+            removePrevNavigationControllersFromHierarchy()
+        } else if (navigationController.isCenteredWindow) {
+            applyCenteredWindowLayout(navigationController)
+            navigationController.y =
+                centeredWindowFrame(navigationController).y.toFloat()
+            if (animated && WGlobalStorage.getAreAnimationsActive()) {
+                overlayView.animate().alpha(1f).duration = AnimationConstants.QUICK_ANIMATION
+            } else {
+                overlayView.alpha = 1f
             }
         }
         navigationController.viewDidAppear()
@@ -1221,6 +1408,7 @@ abstract class WWindow :
     // Remove all the navigation controllers and overlays. Make screen clean :)
     private fun detachAllNavigationControllers(animated: Boolean, onCompletion: () -> Unit) {
         fun removeNavViewsAndContinue() {
+            minimizedBrowserPresenter?.dismissAll()
             for (nav in navigationControllers) {
                 nav.willBeDismissed()
                 windowView.removeView(nav)

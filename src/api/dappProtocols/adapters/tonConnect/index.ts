@@ -86,9 +86,11 @@ import safeExec from '../../../../util/safeExec';
 import { pause } from '../../../../util/schedulers';
 import { getMaxMessagesInTransaction } from '../../../../util/ton/transfer';
 import { tonConnectGetDeviceInfo } from '../../../../util/tonConnectEnvironment';
+import { safeParseUrl } from '../../../../util/url';
 import { fetchExternalMessageBocByHashNormalized } from '../../../chains/ton/toncenter/messages';
 import { checkMultiTransactionDraft, sendSignedTransactions } from '../../../chains/ton/transfer';
 import { parsePayloadBase64, preloadPayloadNfts } from '../../../chains/ton/util/metadata';
+import { parseStateInit } from '../../../chains/ton/util/stateInit';
 import {
   areAddressesEqual,
   getIsRawAddress,
@@ -156,6 +158,9 @@ import {
 const BLANK_GIF_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 type ReturnStrategy = 'back' | 'none' | (string & {});
+// Schemes that run script or load local or embedded content in the opener. Native apps return through their own
+// custom schemes, so other schemes are kept
+const UNSAFE_RETURN_URL_PROTOCOLS = new Set(['javascript:', 'data:', 'file:', 'blob:', 'vbscript:', 'about:']);
 const ALLOWED_SSE_METHODS = new Set<RpcMethod>(['sendTransaction', 'disconnect', 'signData']);
 
 const TTL_SEC = 300;
@@ -889,7 +894,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
   ): Promise<string | undefined> {
     const { searchParams: params, origin: connectionOrigin } = new URL(url);
 
-    const ret: ReturnStrategy = params.get('ret') || 'back';
+    const ret = parseReturnStrategy(params.get('ret'));
     const version = Number(params.get('v') as string);
     const appClientId = params.get('id') as string;
     // `back` strategy cannot be implemented
@@ -1424,6 +1429,17 @@ async function getCurrentAccountOrFail() {
   return accountId;
 }
 
+// A return value that is not an absolute URL with a permitted scheme falls back to `back`, which opens nothing
+function parseReturnStrategy(ret: string | null): ReturnStrategy {
+  if (!ret || ret === 'back' || ret === 'none') {
+    return ret || 'back';
+  }
+
+  const parsedUrl = safeParseUrl(ret);
+
+  return parsedUrl && !UNSAFE_RETURN_URL_PROTOCOLS.has(parsedUrl.protocol) ? ret : 'back';
+}
+
 async function hasStoredSseConnection(appClientId: string): Promise<boolean> {
   const dappsState = await getDappsState();
   if (!dappsState) {
@@ -1685,6 +1701,7 @@ async function prepareTransactionForRequest(
         rawPayload,
         payload,
         stateInit,
+        parsedStateInit: stateInit ? parseStateInit(stateInit, toAddress) : undefined,
         normalizedAddress,
         isScam,
         isDangerous: isTransferPayloadDangerous(payload, expectedOwnerAddress),

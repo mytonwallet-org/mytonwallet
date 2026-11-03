@@ -36,6 +36,8 @@ import type {
   ApiTokenWithPrice,
   ApiWalletWithVersionInfo,
 } from './misc';
+import type { ApiPerpsExecutePositionResult, ApiPerpsGetAssetsResult } from './perps';
+import type { ApiPerpsOperation } from './perpsTrading';
 import type { ApiTonWallet } from './storage';
 import type { ApiCheckTransactionDraftResult } from './transfer';
 
@@ -130,6 +132,39 @@ export type ApiUpdateCreateSignature = {
 export type ApiUpdateShowError = {
   type: 'showError';
   error?: ApiAnyDisplayError | string;
+};
+
+/** Correlated progress for a reviewed operation; running does not imply a filled order. */
+export type ApiUpdatePerpsOperation = {
+  type: 'perpsOperationUpdated';
+  operation: ApiPerpsOperation;
+};
+
+/** Balance deposit phase 1: Arbitrum CCTP deposit submitted; HL execute already started on the backend. */
+export type ApiUpdatePerpsDepositSubmitted = {
+  type: 'perpsDepositSubmitted';
+  accountId: string;
+  flow: 'deposit';
+  depositTxHash: string;
+};
+
+/** Balance deposit phase 2: `/perps/position/execute` finished successfully. */
+export type ApiUpdatePerpsExecuteComplete = {
+  type: 'perpsExecuteComplete';
+  accountId: string;
+  flow: 'deposit';
+  depositTxHash: string;
+  result: ApiPerpsExecutePositionResult;
+};
+
+/** Balance deposit phase 2: Hyperliquid execute failed or timed out, or the Arbitrum burn was not broadcast. */
+export type ApiUpdatePerpsExecuteFailed = {
+  type: 'perpsExecuteFailed';
+  accountId: string;
+  flow: 'deposit';
+  /** Absent when the burn was refused before a transaction hash existed. */
+  depositTxHash?: string;
+  error: string;
 };
 
 export type ApiUpdateMigrateLegacyCoreApplication = {
@@ -372,6 +407,13 @@ export type ApiUpdateNftReceived = {
   nft: ApiNft;
 };
 
+export type ApiUpdateNftChanged = {
+  type: 'nftChanged';
+  accountId: string;
+  chain: ApiChain;
+  nft: ApiNft;
+};
+
 export type ApiUpdateNftSent = {
   type: 'nftSent';
   accountId: string;
@@ -393,7 +435,7 @@ export type ApiUpdateNftPutUpForSale = {
   nft?: ApiNft;
 };
 
-export type ApiNftUpdate = ApiUpdateNftReceived | ApiUpdateNftSent | ApiUpdateNftPutUpForSale;
+export type ApiNftUpdate = ApiUpdateNftReceived | ApiUpdateNftChanged | ApiUpdateNftSent | ApiUpdateNftPutUpForSale;
 
 export type ApiUpdateAccount = {
   type: 'updateAccount';
@@ -412,6 +454,7 @@ export type ApiUpdateAccount = {
 export type ApiUpdateConfig = {
   type: 'updateConfig';
   isLimited: boolean;
+  isSwapAndOnRampLimited?: boolean;
   isCopyStorageEnabled: boolean;
   supportAccountsCount?: number;
   countryCode?: ApiCountryCode;
@@ -492,6 +535,14 @@ export type ApiUpdateAccountDomainData = {
   nfts: Record<string, ApiNft>;
 };
 
+/** Cached `GET /perps/assets` catalogue. Readers use this until the next poll replaces it. */
+export type ApiUpdatePerpsAssets = {
+  type: 'updatePerpsAssets';
+  assets: ApiPerpsGetAssetsResult;
+  langCode?: string;
+  fetchedAt: number;
+};
+
 export type ApiUpdate =
   | ApiUpdateAgentV2
   | ApiUpdateBalances
@@ -532,6 +583,11 @@ export type ApiUpdate =
   | ApiUpdatePrepareTransaction
   | ApiUpdateProcessDeeplink
   | ApiUpdateShowError
+  | ApiUpdatePerpsOperation
+  | ApiUpdatePerpsDepositSubmitted
+  | ApiUpdatePerpsExecuteComplete
+  | ApiUpdatePerpsExecuteFailed
+  | ApiUpdatePerpsAssets
   | ApiUpdateMigrateLegacyCoreApplication
   | ApiUpdateLegacyCoreMigrationReady
   | ApiUpdateNfts

@@ -3,18 +3,14 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiNetwork } from '../../api/types';
 import type { Account, AuthType, DeveloperSettingsOverrides } from '../../global/types';
-import type { Log } from '../../util/logs';
 import type { DropdownItem } from '../ui/Dropdown';
 
 import {
-  APP_COMMIT_HASH,
-  APP_ENV,
-  APP_VERSION,
-  IS_EXTENSION,
   IS_GRAM_WALLET,
-  IS_TELEGRAM_APP,
+  IS_PERPS_ENABLED,
   SHOULD_CLEANUP_LEGACY_AUTH,
 } from '../../config';
+import { CAN_DOWNLOAD_LOGS, exportLogs } from '../../global/helpers/logsExport';
 import {
   selectCurrentAccountId,
   selectDeveloperSettingsOverrides,
@@ -22,18 +18,13 @@ import {
   selectSeasonalThemeOverride,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { copyTextToClipboard } from '../../util/clipboard';
-import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
-import { getPlatform } from '../../util/getPlatform';
-import { mapValues } from '../../util/iteratees';
-import { getLogs } from '../../util/logs';
-import { shareFile } from '../../util/share';
-import { IS_IOS } from '../../util/windowEnvironment';
 import { callApi } from '../../api';
 
+import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
+import PerpsLabModal from '../perps/PerpsLabModal';
 import Button from '../ui/Button';
 import Dropdown from '../ui/Dropdown';
 import Modal from '../ui/Modal';
@@ -84,11 +75,6 @@ const SEASONAL_THEME_OVERRIDE_OPTIONS: DropdownItem<SeasonalThemeOverrideOption>
   name: 'Valentine',
 }];
 
-// iOS allows downloading files even in TMA, however, in other platforms,
-// downloading files from `blob:https://` schemes is limited by Telegram itself.
-// Also, file downloading is limited in extensions.
-const CAN_DOWNLOAD_LOGS = IS_IOS || !(IS_EXTENSION || IS_TELEGRAM_APP);
-
 function SettingsDeveloperOptions({
   isOpen,
   isTestnet,
@@ -115,6 +101,7 @@ function SettingsDeveloperOptions({
   } = getActions();
 
   const lang = useLang();
+  const [isPerpsLabOpen, openPerpsLab, closePerpsLab] = useFlag(false);
   const [hasLegacyData, setHasLegacyData] = useState(false);
   const currentNetwork = NETWORK_OPTIONS[isTestnet ? 1 : 0].value;
 
@@ -156,16 +143,11 @@ function SettingsDeveloperOptions({
   });
 
   const handleDownloadLogs = useLastCallback(async () => {
-    const logsString = await getLogsString({ currentAccountId, accountsById });
+    const isCopied = await exportLogs({ currentAccountId, accountsById });
 
-    if (!CAN_DOWNLOAD_LOGS) {
-      await copyTextToClipboard(logsString);
+    if (isCopied) {
       showToast({ message: lang('Logs Copied'), icon: 'icon-copy' });
       onClose();
-    } else {
-      const brandPrefix = IS_GRAM_WALLET ? 'gramwallet' : 'mytonwallet';
-      const filename = `${brandPrefix}_logs_${new Date().toISOString()}.json`;
-      await shareFile(filename, logsString, 'application/json');
     }
   });
 
@@ -176,127 +158,142 @@ function SettingsDeveloperOptions({
   });
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      noBackdropClose
-      isCompact
-      title={lang('Developer Options')}
-    >
-      <div className={styles.settingsBlock}>
-        <Dropdown
-          label={lang('Network')}
-          items={NETWORK_OPTIONS}
-          selectedValue={currentNetwork}
-          theme="light"
-          arrow="chevron"
-          className={buildClassName(styles.item, styles.item_small)}
-          onChange={handleNetworkChange}
-        />
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        noBackdropClose
+        isCompact
+        title={lang('Developer Options')}
+      >
+        <div className={styles.settingsBlock}>
+          <Dropdown
+            label={lang('Network')}
+            items={NETWORK_OPTIONS}
+            selectedValue={currentNetwork}
+            theme="light"
+            arrow="chevron"
+            className={buildClassName(styles.item, styles.item_small)}
+            onChange={handleNetworkChange}
+          />
 
-        <div className={buildClassName(styles.item, styles.item_small)} onClick={handleAddTonOnlyWallet}>
-          <span className={styles.itemTitle}>{lang('Create TON-Only Wallet')}</span>
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleAddTonOnlyWallet}>
+            <span className={styles.itemTitle}>{lang('Create TON-Only Wallet')}</span>
 
-          <i className={buildClassName(styles.iconChevronRight, 'icon-plus')} aria-hidden />
-        </div>
-
-        {!isViewMode && (
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={onOpenPermissions}>
-            <span className={styles.itemTitle}>{lang('Permissions')}</span>
-
-            <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+            <i className={buildClassName(styles.iconChevronRight, 'icon-plus')} aria-hidden />
           </div>
-        )}
 
-        <div
-          className={buildClassName(styles.item, styles.item_small, !canViewAllWalletVersions && styles.item_disabled)}
-          onClick={onShowAllWalletVersions}
-        >
-          <span className={styles.itemTitle}>{lang('All Wallet Versions')}</span>
+          {IS_PERPS_ENABLED && (
+            <div className={buildClassName(styles.item, styles.item_small)} onClick={openPerpsLab}>
+              <span className={styles.itemTitle}>Perps Lab</span>
 
-          <div className={styles.itemInfo}>
-            {canViewAllWalletVersions ? (
               <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+            </div>
+          )}
 
-            ) : (
-              <>
-                <span className={styles.small}>{lang('Multichain')}</span>
-                <i className={buildClassName(styles.iconChevronRight, 'icon-lock')} aria-hidden />
-              </>
+          {!isViewMode && (
+            <div className={buildClassName(styles.item, styles.item_small)} onClick={onOpenPermissions}>
+              <span className={styles.itemTitle}>{lang('Permissions')}</span>
+
+              <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+            </div>
+          )}
+
+          <div
+            className={buildClassName(
+              styles.item,
+              styles.item_small,
+              !canViewAllWalletVersions && styles.item_disabled,
             )}
+            onClick={onShowAllWalletVersions}
+          >
+            <span className={styles.itemTitle}>{lang('All Wallet Versions')}</span>
+
+            <div className={styles.itemInfo}>
+              {canViewAllWalletVersions ? (
+                <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
+
+              ) : (
+                <>
+                  <span className={styles.small}>{lang('Multichain')}</span>
+                  <i className={buildClassName(styles.iconChevronRight, 'icon-lock')} aria-hidden />
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <p className={styles.blockTitle}>{lang('Overrides')}</p>
-      <div className={styles.settingsBlock}>
-        <Dropdown
-          label={lang('Seasonal Theme Override')}
-          items={SEASONAL_THEME_OVERRIDE_OPTIONS}
-          selectedValue={seasonalThemeOverride ?? 'default'}
-          theme="light"
-          arrow="chevron"
-          className={buildClassName(styles.item, styles.item_small)}
-          onChange={handleSeasonalThemeOverrideChange}
-        />
+        <p className={styles.blockTitle}>{lang('Overrides')}</p>
+        <div className={styles.settingsBlock}>
+          <Dropdown
+            label={lang('Seasonal Theme Override')}
+            items={SEASONAL_THEME_OVERRIDE_OPTIONS}
+            selectedValue={seasonalThemeOverride ?? 'default'}
+            theme="light"
+            arrow="chevron"
+            className={buildClassName(styles.item, styles.item_small)}
+            onChange={handleSeasonalThemeOverrideChange}
+          />
 
-        {!IS_GRAM_WALLET && (
-          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleGramDiamondToggle}>
-            <span className={styles.itemTitle}>{lang('3D Gram Diamond')}</span>
+          {!IS_GRAM_WALLET && (
+            <div className={buildClassName(styles.item, styles.item_small)} onClick={handleGramDiamondToggle}>
+              <span className={styles.itemTitle}>{lang('3D Gram Diamond')}</span>
 
-            <Switcher
-              className={styles.menuSwitcher}
-              label={lang('3D Gram Diamond')}
-              checked={Boolean(isGramDiamondEnabled)}
-            />
-          </div>
-        )}
-      </div>
+              <Switcher
+                className={styles.menuSwitcher}
+                label={lang('3D Gram Diamond')}
+                checked={Boolean(isGramDiamondEnabled)}
+              />
+            </div>
+          )}
+        </div>
 
-      {(isCopyStorageEnabled || canRollbackMigration) && (
-        <>
-          <p className={styles.blockTitle}>{lang('Dangerous')}</p>
-          <div className={styles.settingsBlock}>
-            {isCopyStorageEnabled && (
-              <div className={buildClassName(styles.item, styles.item_small)} onClick={() => copyStorageData()}>
-                <span className={styles.itemTitle}>{lang('Copy Storage Data')}</span>
-
-                <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
-              </div>
-            )}
-            {canRollbackMigration && (
-              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleRollbackMigration}>
-                {lang('Rollback Migration')}
-
-                <i className={buildClassName(styles.iconChevronRight, 'icon-revert')} aria-hidden />
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className={buildClassName(styles.settingsBlock)}>
-        <div className={buildClassName(styles.item, styles.item_small)} onClick={handleDownloadLogs}>
-          {
-            !CAN_DOWNLOAD_LOGS
-              ? (
-                <>
-                  <span className={styles.itemTitle}>{lang('Copy Logs')}</span>
+        {(isCopyStorageEnabled || canRollbackMigration) && (
+          <>
+            <p className={styles.blockTitle}>{lang('Dangerous')}</p>
+            <div className={styles.settingsBlock}>
+              {isCopyStorageEnabled && (
+                <div className={buildClassName(styles.item, styles.item_small)} onClick={() => copyStorageData()}>
+                  <span className={styles.itemTitle}>{lang('Copy Storage Data')}</span>
 
                   <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
-                </>
-              ) : <span className={styles.itemTitle}>{lang('Download Logs')}</span>
-          }
-        </div>
-      </div>
+                </div>
+              )}
+              {canRollbackMigration && (
+                <div className={buildClassName(styles.item, styles.item_small)} onClick={handleRollbackMigration}>
+                  {lang('Rollback Migration')}
 
-      <Button
-        className={styles.developerCloseButton}
-        onClick={onClose}
-      >
-        {lang('Close')}
-      </Button>
-    </Modal>
+                  <i className={buildClassName(styles.iconChevronRight, 'icon-revert')} aria-hidden />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <div className={buildClassName(styles.settingsBlock)}>
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleDownloadLogs}>
+            {
+              !CAN_DOWNLOAD_LOGS
+                ? (
+                  <>
+                    <span className={styles.itemTitle}>{lang('Copy Logs')}</span>
+
+                    <i className={buildClassName(styles.iconChevronRight, 'icon-copy')} aria-hidden />
+                  </>
+                ) : <span className={styles.itemTitle}>{lang('Download Logs')}</span>
+            }
+          </div>
+        </div>
+
+        <Button
+          className={styles.developerCloseButton}
+          onClick={onClose}
+        >
+          {lang('Close')}
+        </Button>
+      </Modal>
+      {IS_PERPS_ENABLED && <PerpsLabModal isOpen={isPerpsLabOpen} onClose={closePerpsLab} />}
+    </>
   );
 }
 
@@ -314,44 +311,3 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isGramDiamondEnabled: selectDeveloperSettingsOverrides(global)?.isGramDiamondEnabled,
   };
 })(SettingsDeveloperOptions));
-
-async function getLogsString({
-  currentAccountId,
-  accountsById,
-}: Partial<StateProps>) {
-  const accountsInfo = accountsById && mapValues(accountsById, (account) => ({
-    type: account.type,
-    addressByChain: mapValues(account.byChain, (accountChain) => accountChain.address),
-  }));
-
-  const mainLogs = getLogs();
-  const apiLogs = await callApi('getLogs') ?? [];
-
-  const time = new Date();
-  const timezoneOffset = -time.getTimezoneOffset();
-
-  return JSON.stringify(
-    {
-      time,
-      timezone: `UTC${timezoneOffset < 0 ? '-' : '+'}${Math.abs(timezoneOffset) / 60}`,
-      environment: APP_ENV,
-      version: APP_VERSION,
-      commit: APP_COMMIT_HASH,
-      platform: getPlatform(),
-      navigatorPlatform: navigator.platform,
-      userAgent: navigator.userAgent,
-      build: getBuildPlatform(),
-      flags: getFlagsValue(),
-      currentAccountId,
-      accountsInfo,
-      logs: [
-        ...mainLogs.map((log: Log) => ({ ...log, context: 'main' })),
-        ...apiLogs.map((log: Log) => ({ ...log, context: 'api' })),
-      ]
-        .sort((a, b) => a.time - b.time)
-        .map((log) => ({ ...log, time: new Date(log.time).toISOString() })),
-    },
-    undefined,
-    2,
-  );
-}

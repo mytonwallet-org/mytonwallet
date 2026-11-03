@@ -36,6 +36,7 @@ struct AddressCell: View {
             .buttonStyle(.plain)
             .accessibilityLabel(address)
             .accessibilityHint(lang("Copy Address"))
+            .accessibilityIdentifier("receive_address")
 
             Button {
                 AppActions.openInBrowser(ExplorerHelper.addressUrl(chain: chain, address: address))
@@ -49,6 +50,7 @@ struct AddressCell: View {
             .buttonStyle(.plain)
             .foregroundStyle(Color.air.tint)
             .accessibilityLabel(lang("Open in Explorer"))
+            .accessibilityIdentifier("receive_open_explorer")
             .padding(.trailing, -10)
         }
     }

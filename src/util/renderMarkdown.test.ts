@@ -10,7 +10,8 @@ describe('renderMarkdown', () => {
     ];
 
     expect(renderMarkdown(markAnswerLinks(text, links).text, { areLinksEnabled: true }).html).toBe(
-      '<ul><li><a href="https://help.mywallet.io/a_(b)?x=*1*" target="_blank" rel="noopener noreferrer">'
+      '<ul><li><a href="https://help.mywallet.io/a_(b)?x=*1*" target="_blank"'
+      + ' rel="noopener noreferrer" class="agent-text-link">'
       + '<strong>Guide</strong></a> and Docs</li></ul>',
     );
     expect(renderMarkdown(markAnswerLinks('- **Gu', links).text, { areLinksEnabled: true }).html)
@@ -31,7 +32,8 @@ describe('renderMarkdown', () => {
     ];
 
     expect(renderMarkdown(markAnswerLinks(text, links).text, { areLinksEnabled: true }).html).toBe(
-      '<p>Open <a href="mtw://settings/appearance" target="_blank" rel="noopener noreferrer">Appearance</a>, '
+      '<p>Open <a href="mtw://settings/appearance" target="_blank"'
+      + ' rel="noopener noreferrer" class="agent-text-link">Appearance</a>, '
       + 'Send, Bonus or Gram</p>',
     );
   });
@@ -166,14 +168,14 @@ describe('renderMarkdown', () => {
     expect(result.html).toBe('<p>Daily changes: +1.62% and -2.01%.</p>');
   });
 
-  it('keeps a single Agent V2 prose line break inside one paragraph', () => {
+  it('keeps a single Agent V2 prose line break as a break inside one paragraph', () => {
     const result = renderMarkdown(
       'The transfer is ready for review.\nConfirm the address before signing.',
       { areLinksEnabled: false },
     );
 
     expect(result.html).toBe(
-      '<p>The transfer is ready for review. Confirm the address before signing.</p>',
+      '<p>The transfer is ready for review.<br>Confirm the address before signing.</p>',
     );
   });
 

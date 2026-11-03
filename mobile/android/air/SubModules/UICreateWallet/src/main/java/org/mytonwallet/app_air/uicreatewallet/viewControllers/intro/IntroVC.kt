@@ -7,8 +7,9 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
-import android.text.style.ImageSpan
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -17,48 +18,41 @@ import android.view.View.TEXT_ALIGNMENT_CENTER
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ScrollView
-import android.widget.TextView
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isGone
-import androidx.core.view.isVisible
-import androidx.core.view.updateLayoutParams
-import java.lang.ref.WeakReference
 import kotlin.math.max
-import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
-import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
+import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
-import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
-import org.mytonwallet.app_air.uicomponents.widgets.WSpeedingDiamondView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
-import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleConfig
-import org.mytonwallet.app_air.uicomponents.widgets.particles.ParticleView
-import org.mytonwallet.app_air.uicomponents.widgets.pulseView
+import org.mytonwallet.app_air.uicomponents.widgets.particles.WelcomeParticleView
+import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.uicomponents.widgets.shakeView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.backup.BackupVC
+import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
-import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -66,8 +60,13 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.SpanHelpers
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+
+private const val TITLE_TEXT_SIZE = 32f
 
 @SuppressLint("ViewConstructor")
 class IntroVC(context: Context, private val network: MBlockchainNetwork) :
@@ -84,38 +83,37 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
 
     private val isGramApp = ApplicationContextHolder.isGramApp
 
-    // Normal particle configuration
-    private val particleParams =
-        if (isGramApp) {
-            ParticleConfig(
-                particleCount = 35,
-                centerShift = floatArrayOf(0f, -36f),
-                distanceLimit = 0.45f,
-                colorPair = ParticleConfig.Companion.PARTICLE_COLORS.PURPLE_GRADIENT,
-                useStarShape = true
-            )
-        } else {
-            ParticleConfig(
-                particleCount = 35,
-                centerShift = floatArrayOf(0f, 32f),
-                distanceLimit = 0.45f,
-                color = ParticleConfig.Companion.PARTICLE_COLORS.TON
-            )
-        }
-
-    var particlesCleaner: (() -> Unit)? = null
-    val tonParticlesView = ParticleView(context).apply {
+    val tonParticlesView = WelcomeParticleView(context).apply {
         id = View.generateViewId()
-        isGone = true
     }
 
-    val diamondAnimationView: WSpeedingDiamondView? = if (isGramApp) {
-        WSpeedingDiamondView(view.context).apply {
+    val diamondAnimationView: WBlueDiamondView? = if (isGramApp) {
+        WBlueDiamondView(
+            view.context,
+            maxGrow = 1.15f,
+            hoverSpeed = 2f,
+            shouldRotateOnTap = true,
+            restingCanvasSize = 190.dp
+        ).apply {
             id = View.generateViewId()
-            bindParticleHost(tonParticlesView, centerShift = floatArrayOf(0f, -36f))
+            onParticleInteraction =
+                { pressed, hovered -> tonParticlesView.setInteraction(pressed, hovered) }
         }
     } else {
         null
+    }
+
+    private val diamondContainer = diamondAnimationView?.let { diamond ->
+        WView(context).apply {
+            translationZ = 1.dp.toFloat()
+            clipChildren = false
+            clipToPadding = false
+            addView(diamond, FrameLayout.LayoutParams(190.dp, 190.dp))
+            setConstraints {
+                toCenterX(diamond)
+                toCenterY(diamond)
+            }
+        }
     }
 
     val logoImageView = AppCompatImageView(view.context).apply {
@@ -129,21 +127,46 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
                     org.mytonwallet.app_air.uicomponents.R.drawable.img_logo
                 )
             )
-            setOnClickListener {
-                pulseView(0.98f, AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-                tonParticlesView.addParticleSystem(
-                    ParticleConfig.particleBurstParams(
-                        ParticleConfig.Companion.PARTICLE_COLORS.TON
-                    )
+            setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        Haptics.play(v, HapticType.LIGHT_TAP)
+                        v.animate().cancel()
+                        v.scaleIn(AnimationConstants.QUICK_ANIMATION, 0.96f, WInterpolator.smooth)
+                        tonParticlesView.setInteraction(true, v.isHovered)
+                    }
+
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.animate().cancel()
+                        v.scaleIn(
+                            AnimationConstants.VERY_QUICK_ANIMATION,
+                            interpolator = WInterpolator.smooth
+                        )
+                        tonParticlesView.setInteraction(false, v.isHovered)
+                    }
+                }
+                false
+            }
+            setOnHoverListener { v, event ->
+                tonParticlesView.setInteraction(
+                    v.isPressed,
+                    event.action != MotionEvent.ACTION_HOVER_EXIT
                 )
+                false
+            }
+            setOnClickListener {
+                tonParticlesView.boost()
             }
         }
     }
 
-    val titleLabel = WLabel(view.context).apply {
-        text = LocaleController.getString(context.getString(BaseR.string.app_locale_name_key))
-        setStyle(32f, WFont.Balance)
-        setTextColor(WColor.PrimaryText)
+    private val titleImageView = AppCompatImageView(view.context).apply {
+        id = View.generateViewId()
+        setImageResource(BaseR.drawable.img_welcome_title)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        contentDescription =
+            LocaleController.getString(context.getString(BaseR.string.app_locale_name_key))
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
 
     val subtitleLabel = WLabel(view.context).apply {
@@ -152,19 +175,18 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
             .toProcessedSpannableStringBuilder()
         gravity = Gravity.CENTER
         setStyle(17f, WFont.Regular)
+        setLineHeight(26f)
         setTextColor(WColor.PrimaryText)
     }
-
-    private val checkboxDrawable = CheckboxDrawable {
-        termsView.invalidate()
-    }
-    private var termsAccepted = false
 
     val moreInfoButton: WLabel by lazy {
         val btn = WLabel(context)
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
-        btn.setStyle(adaptiveFontSize())
-        btn.setPaddingDp(16, 8, 16, 8)
+        btn.setStyle(16f)
+        btn.setTextColor(WColor.SecondaryText)
+        btn.setLineHeight(24f)
+        btn.gravity = Gravity.CENTER
+        btn.setPaddingDp(24, 0, 24, 0)
         btn.setOnClickListener {
             push(AppInfoVC(context))
         }
@@ -175,8 +197,10 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
         val btn = WLabel(context)
         btn.id = UIComponentsR.id.intro_terms
         btn.textAlignment = TEXT_ALIGNMENT_CENTER
-        btn.setStyle(14f)
-        btn.setPaddingDp(16, 1, 16, 8)
+        btn.setStyle(13f, WFont.Regular)
+        btn.setLineHeight(18f)
+        btn.setTextColor(WColor.SecondaryText)
+        btn.movementMethod = LinkMovementMethod.getInstance()
         btn
     }
 
@@ -189,7 +213,6 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
             createNewWalletButton.isLoading = true
             introVM.createWallet()
         }
-        btn.isEnabled = termsAccepted
         btn
     }
 
@@ -198,10 +221,6 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
         btn.id = UIComponentsR.id.intro_import_wallet
         btn.text = LocaleController.getString("Import Existing Wallet")
         btn.setOnClickListener {
-            if (!termsAccepted) {
-                termsView.shakeView(AnimationConstants.INSTANT_ANIMATION)
-                return@setOnClickListener
-            }
             val window = window ?: return@setOnClickListener
             val nav = WNavigationController(
                 window,
@@ -216,17 +235,30 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
     }
 
     private val contentView = WView(context).apply {
-        addView(tonParticlesView, FrameLayout.LayoutParams(0, WRAP_CONTENT))
+        addView(tonParticlesView, FrameLayout.LayoutParams(386.dp, 268.dp))
         addView(logoImageView, FrameLayout.LayoutParams(124.dp, 124.dp))
-        diamondAnimationView?.let { dv ->
-            addView(dv, FrameLayout.LayoutParams(124.dp, 124.dp))
-            alpha = 0f
-            dv.start(onStart = { fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION) })
-        }
-        addView(titleLabel)
+        clipChildren = false
+        diamondContainer?.let { addView(it, FrameLayout.LayoutParams(124.dp, 124.dp)) }
+        val titleScale = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            TITLE_TEXT_SIZE,
+            resources.displayMetrics
+        ) / (TITLE_TEXT_SIZE * resources.displayMetrics.density)
+        addView(
+            titleImageView,
+            FrameLayout.LayoutParams(
+                0,
+                (titleImageView.drawable.intrinsicHeight * titleScale).roundToInt()
+            )
+        )
         addView(subtitleLabel, FrameLayout.LayoutParams(0, WRAP_CONTENT))
-        addView(moreInfoButton)
-        addView(termsView, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        addView(moreInfoButton, FrameLayout.LayoutParams(0, 50.dp))
+        addView(
+            termsView,
+            ConstraintLayout.LayoutParams(0, WRAP_CONTENT).apply {
+                matchConstraintMaxWidth = 370.dp
+            }
+        )
         addView(createNewWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
         addView(importExistingWalletButton, FrameLayout.LayoutParams(0, WRAP_CONTENT))
     }
@@ -244,9 +276,9 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
         val desiredHeight = 657.dp
 
         val logoTopMargin = if (screenHeight < desiredHeight) 40 else 80
-        val titleTopMargin = if (screenHeight < desiredHeight) 20f else 30f
-        val subtitleTopMargin = if (screenHeight < desiredHeight) 12f else 18f
-        val moreInfoTopMargin = if (screenHeight < desiredHeight) 22f else 43f
+        val titleTopMargin = if (screenHeight < desiredHeight) 20f else 32f
+        val subtitleTopMargin = if (screenHeight < desiredHeight) 12f else 20f
+        val moreInfoTopMargin = if (screenHeight < desiredHeight) 22f else 32f
 
         contentView.setConstraints {
             toTopPx(
@@ -254,7 +286,7 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
                 (
                     navigationController?.getSystemBars()?.top
                         ?: 0
-                    ) + (if (screenHeight < desiredHeight) -23 else 17).dp
+                    ) + (logoTopMargin - 82).dp
             )
             toCenterX(tonParticlesView)
             toTopPx(
@@ -262,31 +294,31 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
                 (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
             )
             toCenterX(logoImageView)
-            diamondAnimationView?.let {
+            diamondContainer?.let {
                 toTopPx(
                     it,
                     (navigationController?.getSystemBars()?.top ?: 0) + logoTopMargin.dp
                 )
                 toCenterX(it)
-                topToBottom(titleLabel, it, titleTopMargin)
+                topToBottom(titleImageView, it, titleTopMargin)
             } ?: run {
-                topToBottom(titleLabel, logoImageView, titleTopMargin)
+                topToBottom(titleImageView, logoImageView, titleTopMargin)
             }
-            toCenterX(titleLabel, 32f)
-            topToBottom(subtitleLabel, titleLabel, subtitleTopMargin)
-            toCenterX(subtitleLabel, 20f)
+            toCenterX(titleImageView, 32f)
+            topToBottom(subtitleLabel, titleImageView, subtitleTopMargin)
+            toCenterX(subtitleLabel, 24f)
             topToBottom(moreInfoButton, subtitleLabel, moreInfoTopMargin)
             toCenterX(moreInfoButton)
 
             toBottomPx(
-                importExistingWalletButton,
-                32.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                termsView,
+                8.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
             )
+            toCenterX(termsView, 16f)
+            bottomToTop(importExistingWalletButton, termsView, 24f)
             toCenterX(importExistingWalletButton, 32f)
             bottomToTop(createNewWalletButton, importExistingWalletButton, 16f)
             toCenterX(createNewWalletButton, 32f)
-            bottomToTop(termsView, createNewWalletButton, 20f)
-            toCenterX(termsView, 32f)
         }
 
         val minRequiredHeight = 580.dp + (navigationController?.getSystemBars()?.top ?: 0) -
@@ -323,44 +355,31 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
     override val isTinted = true
     override fun updateTheme() {
         super.updateTheme()
-        val backgroundColor = WColor.Background.color
+        val backgroundColor = if (ThemeManager.isDark) {
+            WColor.SecondaryBackground.color
+        } else {
+            WColor.Background.color
+        }
         view.setBackgroundColor(backgroundColor)
-        tonParticlesView.setParticleBackgroundColor(backgroundColor)
+        tonParticlesView.setBackgroundColor(backgroundColor)
+        tonParticlesView.particleColor = WColor.Tint.color
+        titleImageView.setColorFilter(WColor.PrimaryText.color)
         moreInfoButton.addRippleEffect(WColor.BackgroundRipple.color, ViewConstants.BLOCK_RADIUS.dp)
-        checkboxDrawable.checkedColor = WColor.Tint.color
-        checkboxDrawable.uncheckedColor = WColor.SecondaryText.color
-        termsView.addRippleEffect(WColor.BackgroundRipple.color, 16f.dp)
         updateMoreInfoLabel()
         updateTermsLabel()
     }
 
-    override fun viewDidAppear() {
-        super.viewDidAppear()
-
-        if (particlesCleaner == null) {
-            particlesCleaner = tonParticlesView.addParticleSystem(particleParams)
-            tonParticlesView.isGone = false
-        }
-        if (contentView.alpha == 0f) {
-            tonParticlesView.alpha = 0f
-            tonParticlesView.fadeIn(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
-        } else {
-            tonParticlesView.alpha = 1f
-        }
-    }
-
-    override fun viewWillDisappear() {
-        super.viewWillDisappear()
-        tonParticlesView.fadeOut(AnimationConstants.VERY_VERY_QUICK_ANIMATION) {
-            particlesCleaner?.invoke()
-            particlesCleaner = null
-            tonParticlesView.isGone = true
-        }
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        diamondAnimationView?.isRenderingEnabled = true
+        tonParticlesView.isRenderingEnabled = true
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        particlesCleaner?.invoke()
+        diamondAnimationView?.isRenderingEnabled = false
+        tonParticlesView.isRenderingEnabled = false
+        tonParticlesView.setInteraction(false, false)
     }
 
     private fun updateMoreInfoLabel() {
@@ -394,93 +413,46 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
         moreInfoButton.text = attr
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun updateTermsLabel() {
-        val attr = SpannableStringBuilder()
-        val termsString = LocaleController.getString("use the wallet responsibly")
-        checkboxDrawable.setBounds(
-            (-2).dp,
-            1,
-            checkboxDrawable.intrinsicWidth + 2.dp,
-            checkboxDrawable.intrinsicHeight + 1
-        )
-        val imageSpan = ImageSpan(checkboxDrawable, ImageSpan.ALIGN_BOTTOM)
-        attr.append(" ")
-        attr.setSpan(imageSpan, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        attr.append("  ")
-        attr.append(
-            LocaleController.getSpannableStringWithKeyValues(
-                "I agree to %term%",
-                listOf(
-                    Pair("%term%", termsString)
+        fun link(key: String, url: Int): CharSequence {
+            val title = LocaleController.getString(key)
+            return SpanHelpers.buildSpannable(
+                title,
+                object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        val window = window ?: return
+                        val nav = WNavigationController(window)
+                        nav.setRoot(
+                            InAppBrowserVC(
+                                context,
+                                InAppBrowserConfig(
+                                    context.getString(url),
+                                    injectDappConnect = false,
+                                    injectDarkModeStyles = false,
+                                    title = title.replace('\n', ' ')
+                                )
+                            )
+                        )
+                        window.present(nav)
+                    }
+
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        ds.color = WColor.Tint.color
+                        ds.isUnderlineText = false
+                    }
+                }
+            )
+        }
+        termsView.text = LocaleController.getSpannableStringWithKeyValues(
+            "By continuing, you agree to our %terms% and %privacy%.",
+            listOf(
+                Pair("%terms%", link("\$auth_terms_of_use", BaseR.string.app_terms_of_use_url)),
+                Pair(
+                    "%privacy%",
+                    link("\$auth_privacy_policy", BaseR.string.app_privacy_policy_url)
                 )
             )
         )
-        val start = attr.indexOf(termsString)
-        if (start >= 0) {
-            val end = start + termsString.length
-            val clickableSpan = object : ClickableSpan() {
-                override fun onClick(widget: View) {
-                    push(UserResponsibilityVC(context))
-                }
-
-                override fun updateDrawState(ds: android.text.TextPaint) {
-                    super.updateDrawState(ds)
-                    ds.isUnderlineText = false
-                    ds.color = WColor.Tint.color
-                }
-            }
-            attr.setSpan(
-                clickableSpan,
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        termsView.text = attr
-
-        termsView.setOnClickListener {
-            // This will be called only when not clicking on the terms link
-            termsAccepted = !termsAccepted
-            checkboxDrawable.setChecked(termsAccepted, animated = true)
-            createNewWalletButton.isEnabled = termsAccepted
-        }
-
-        termsView.setOnTouchListener { v, event ->
-            val widget = v as? TextView ?: return@setOnTouchListener false
-            val action = event.action
-
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_DOWN) {
-                var x = event.x.toInt()
-                var y = event.y.toInt()
-
-                x -= widget.totalPaddingLeft
-                y -= widget.totalPaddingTop
-
-                x += widget.scrollX
-                y += widget.scrollY
-
-                val layout = widget.layout
-                if (layout != null) {
-                    val line = layout.getLineForVertical(y)
-                    val off = layout.getOffsetForHorizontal(line, x.toFloat())
-
-                    val clickableSpans = attr.getSpans(
-                        off,
-                        off,
-                        ClickableSpan::class.java
-                    )
-
-                    if (clickableSpans.isNotEmpty()) {
-                        if (action == MotionEvent.ACTION_UP) {
-                            clickableSpans[0].onClick(widget)
-                        }
-                        return@setOnTouchListener true
-                    }
-                }
-            }
-            false
-        }
         termsView.highlightColor = Color.TRANSPARENT
     }
 

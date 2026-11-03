@@ -88,9 +88,7 @@ public final class ActivityDetailsVC: WViewController, WSensitiveDataProtocol, W
             onDecryptComment: decryptMessage,
             onTokenTapped: { [weak self] token in
                 guard let self else { return }
-                dismiss(animated: true) { [accountSource = viewModel.accountContext.source] in
-                    AppActions.showToken(accountSource: accountSource, token: token, isInModal: false)
-                }
+                AppActions.showToken(accountSource: viewModel.accountContext.source, token: token, isInModal: false)
             },
             decryptedComment: decryptedComment,
             isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden

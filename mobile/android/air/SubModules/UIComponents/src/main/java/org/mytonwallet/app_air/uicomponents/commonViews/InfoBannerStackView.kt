@@ -11,6 +11,7 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -64,7 +65,7 @@ class InfoBannerStackView(context: Context) :
     private var targetHeight = 0
     private var pendingAnimation = false
     private var isAppearing = false
-    private var measuredWidthForTransition = 0
+    private var layoutWidthForTransition = 0
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var touchCard: Card? = null
     private var downX = 0f
@@ -378,34 +379,6 @@ class InfoBannerStackView(context: Context) :
         targetHeight = cards.firstOrNull()?.view?.measuredHeight?.let {
             it + bottomSpacing
         } ?: 0
-        if (spring != null && measuredWidthForTransition != width) {
-            spring?.cancel()
-            spring = null
-            finishTransition()
-        }
-        if (pendingAnimation && isAttachedToWindow) {
-            pendingAnimation = false
-            measuredWidthForTransition = width
-            spring = SpringAnimation(FloatValueHolder()).apply {
-                setStartValue(0f)
-                setMinimumVisibleChange(0.001f)
-                spring = SpringForce(1f).apply {
-                    stiffness = 500f
-                    dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
-                }
-                addUpdateListener { _, value, _ ->
-                    progress = value.coerceIn(0f, 1f)
-                    requestLayout()
-                }
-                addEndListener { _, canceled, _, _ ->
-                    if (!canceled) {
-                        this@InfoBannerStackView.spring = null
-                        finishTransition()
-                    }
-                }
-                start()
-            }
-        }
         setMeasuredDimension(
             width,
             if (dragCard != null) {
@@ -428,6 +401,35 @@ class InfoBannerStackView(context: Context) :
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val width = right - left
+        if (spring != null && width > 0 && layoutWidthForTransition != width) {
+            spring?.cancel()
+            spring = null
+            finishTransition()
+            post { requestLayout() }
+        }
+        if (pendingAnimation && isAttachedToWindow && width > 0) {
+            pendingAnimation = false
+            layoutWidthForTransition = width
+            spring = SpringAnimation(FloatValueHolder()).apply {
+                setStartValue(0f)
+                setMinimumVisibleChange(0.001f)
+                spring = SpringForce(1f).apply {
+                    stiffness = 500f
+                    dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+                }
+                addUpdateListener { _, value, _ ->
+                    progress = value.coerceIn(0f, 1f)
+                    requestLayout()
+                }
+                addEndListener { _, canceled, _, _ ->
+                    if (!canceled) {
+                        this@InfoBannerStackView.spring = null
+                        finishTransition()
+                    }
+                }
+                start()
+            }
+        }
         val frontHeight = cards.firstOrNull()?.view?.measuredHeight ?: 0
         alpha = if (isAppearing) ((progress - 0.7f) / 0.3f).coerceIn(0f, 1f) else 1f
         if (dragCard != null) {
@@ -571,7 +573,8 @@ class InfoBannerStackView(context: Context) :
     }
 
     private val animationsEnabled: Boolean
-        get() = WGlobalStorage.getAreAnimationsActive() && ValueAnimator.areAnimatorsEnabled()
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
     private fun cardBackground() = GradientDrawable().apply {
         cornerRadius = 26f.dp

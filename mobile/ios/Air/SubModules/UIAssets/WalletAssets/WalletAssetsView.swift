@@ -30,7 +30,7 @@ final class WalletAssetsView: WTouchPassView {
         items: [
             WSegmentedPagerItem(
                 id: "nfts_placeholder",
-                title: lang("Collectibles"),
+                title: lang("All"),
                 viewController: walletCollectiblesView
             ),
         ],

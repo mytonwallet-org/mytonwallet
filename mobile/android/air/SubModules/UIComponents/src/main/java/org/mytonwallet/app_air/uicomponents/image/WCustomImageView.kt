@@ -20,6 +20,7 @@ import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
 import com.facebook.drawee.view.SimpleDraweeView
 import com.facebook.fresco.ui.common.OnFadeListener
+import com.facebook.imagepipeline.common.ResizeOptions
 import com.facebook.imagepipeline.image.ImageInfo
 import com.facebook.imagepipeline.request.BasePostprocessor
 import com.facebook.imagepipeline.request.ImageRequest
@@ -57,7 +58,8 @@ open class WCustomImageView @JvmOverloads constructor(
         drawable?.finishTransitionImmediately()
     }
 
-    private var isImageShown = false
+    var isImageShown = false
+        private set
 
     // Once an image is shown, its later changes wait until a reveal of the screen ends.
     override fun invalidateDrawable(dr: Drawable) {
@@ -239,10 +241,17 @@ open class WCustomImageView @JvmOverloads constructor(
                 .setOldController(controller)
                 .setImageRequest(
                     ImageRequest.fromUri(image.url)?.let { request ->
-                        if (content.withBlackBackground) {
-                            ImageRequestBuilder.fromRequest(request)
-                                .setPostprocessor(BlackBackgroundPostprocessor)
-                                .build()
+                        if (content.withBlackBackground || content.decodeSize > 0) {
+                            ImageRequestBuilder.fromRequest(request).apply {
+                                if (content.withBlackBackground) {
+                                    setPostprocessor(BlackBackgroundPostprocessor)
+                                }
+                                if (content.decodeSize > 0) {
+                                    setResizeOptions(
+                                        ResizeOptions(content.decodeSize, content.decodeSize)
+                                    )
+                                }
+                            }.build()
                         } else {
                             request
                         }

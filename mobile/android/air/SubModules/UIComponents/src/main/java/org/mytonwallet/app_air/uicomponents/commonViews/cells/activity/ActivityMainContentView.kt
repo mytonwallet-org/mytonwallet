@@ -429,7 +429,7 @@ class ActivityMainContentView(context: Context) :
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             if (addressToShow?.second == false) builder.styleDots(startIndex = addressStart)
-        } else if (transaction.type == ApiTransactionType.STAKE) {
+        } else if (transaction.shouldShowTransactionAnnualYield) {
             val stakingState =
                 StakingStore.getStakingState(accountId)?.states?.firstOrNull {
                     it?.tokenSlug == transaction.slug

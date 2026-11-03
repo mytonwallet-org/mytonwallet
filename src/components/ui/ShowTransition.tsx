@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import type { FC, TeactNode } from '../../lib/teact/teact';
+import type { ElementRef, FC, TeactNode } from '../../lib/teact/teact';
 import React, { useRef } from '../../lib/teact/teact';
 
 import usePrevious from '../../hooks/usePrevious';
@@ -16,7 +15,7 @@ type OwnProps = {
   shouldAnimateFirstRender?: boolean;
   style?: string;
   children: TeactNode;
-  ref?: RefObject<HTMLDivElement>;
+  ref?: ElementRef<HTMLDivElement>;
 };
 
 const ShowTransition: FC<OwnProps> = ({

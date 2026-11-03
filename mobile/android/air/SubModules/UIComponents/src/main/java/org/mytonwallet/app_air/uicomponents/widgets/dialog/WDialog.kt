@@ -17,6 +17,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -27,7 +28,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
-import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -68,6 +68,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     private val titleLabel: WLabel? =
         if (config.title != null) {
             WLabel(customView.context).apply {
+                id = UIComponentsR.id.dialog_title
                 setStyle(22f, WFont.Medium)
                 gravity = Gravity.START
                 text = config.title
@@ -85,6 +86,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
     private val subtitleLabel: WLabel? =
         if (config.subtitle != null) {
             WLabel(customView.context).apply {
+                id = UIComponentsR.id.dialog_message
                 setStyle(15f)
                 gravity = Gravity.START
                 text = config.subtitle
@@ -101,6 +103,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                 customView.context,
                 config.actionButton
             ).apply {
+                id = UIComponentsR.id.dialog_action
                 setOnClickListener {
                     config.actionButton.onTap?.invoke()
                     dismiss()
@@ -116,6 +119,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                 customView.context,
                 config.secondaryButton
             ).apply {
+                id = UIComponentsR.id.dialog_secondary
                 setOnClickListener {
                     config.secondaryButton.onTap?.invoke()
                     dismiss()
@@ -207,11 +211,10 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
 
     fun presentOn(viewController: WViewController): Boolean {
         if (isPresented) throw Exception("WDialog can't be presented more than once")
-        val navigationParent = viewController.navigationController?.parent
         if (viewController.isDisappeared) return false
-        val parentView = (navigationParent as? WView)
-            ?: (navigationParent?.parent as? WView)
-            ?: return false
+        // The window view also hosts the chrome of nested navigation (tab headers, search),
+        // so the overlay dims it together with the content.
+        val parentView = viewController.window?.windowView ?: return false
         isPresented = true
         viewController.addActiveDialog(this)
         PopupHelpers.popupShown(this)

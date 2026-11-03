@@ -24,6 +24,7 @@ import androidx.core.view.children
 import androidx.core.view.updateLayoutParams
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.drawable.WCutoutDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -107,7 +108,8 @@ class WNavigationPopup(
                     ?.lastOrNull { child ->
                         child is ViewGroup &&
                             child !is JSWebViewBridge &&
-                            child !is WPopupHost
+                            child !is WPopupHost &&
+                            !isMinimizedBrowser(child)
                     } as? ViewGroup
 
                 blurRootView?.let { viewGroup ->
@@ -287,8 +289,12 @@ class WNavigationPopup(
         ?.lastOrNull { child ->
             child is ViewGroup &&
                 child !is JSWebViewBridge &&
-                child !is WPopupHost
+                child !is WPopupHost &&
+                !isMinimizedBrowser(child)
         } as? ViewGroup ?: (host.windowView as? ViewGroup)
+
+    private fun isMinimizedBrowser(view: View) = view is WNavigationController &&
+        view.window.hasMinimizedBrowser && view.window.minimizedBrowser.hosts(view)
 
     private fun configureBlurBackdrop() {
         windowBlurBackground.post {

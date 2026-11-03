@@ -108,12 +108,13 @@ final class MarketScreenModel: ObservableObject {
 }
 
 struct MarketScreen: View {
-    @Environment(\.horizontalContentMargins) private var contentMargins
     @ObservedObject var model: MarketScreenModel
+    let pagingTint: WPagingBackgroundTint
     let onScrollOffsetChange: (CGFloat) -> Void
     let onSeeAll: (MarketSection) -> Void
     let onSelectToken: (MarketToken) -> Void
 
+    @Environment(\.horizontalContentMargins) private var contentMargins
     @Namespace private var scrollCoordinateSpace
 
     var body: some View {
@@ -126,10 +127,12 @@ struct MarketScreen: View {
                     LazyVStack(alignment: .leading, spacing: 24) {
                         ForEach(model.sections) { section in
                             MarketSectionView(
-                                section: section,
+                                section: section.presentation(columnCount: columnCount),
                                 columnCount: columnCount,
                                 onSeeAll: { onSeeAll(section) },
-                                onSelectToken: onSelectToken
+                                onSelectToken: { item in
+                                    if let token = section.tokens.first(where: { $0.id == item.id }) { onSelectToken(token) }
+                                }
                             )
                             .id(section.id)
                         }
@@ -140,7 +143,7 @@ struct MarketScreen: View {
                 }
                 .backportScrollClipDisabled()
                 .coordinateSpace(name: scrollCoordinateSpace)
-                .background(Color.air.groupedBackground)
+                .background(WPagingBackground(tint: pagingTint, base: Color.air.groupedBackground))
                 .onChange(of: model.scrollToTopRequest) { _ in
                     guard let firstSection = model.sections.first else { return }
                     withAnimation {
@@ -149,413 +152,24 @@ struct MarketScreen: View {
                 }
             }
         }
-        .background(Color.air.groupedBackground)
+        .background(WPagingBackground(tint: pagingTint, base: Color.air.groupedBackground))
     }
 }
 
-private struct MarketSectionView: View {
+/// The Market screen and Futures use the same UIKit section renderer.
+struct MarketSectionView: UIViewRepresentable {
     @Environment(\.horizontalContentMargins) private var contentMargins
-    let section: MarketSection
-    let columnCount: Int
+    let section: MarketSectionDisplayData
+    var columnCount = 4
     let onSeeAll: () -> Void
-    let onSelectToken: (MarketToken) -> Void
+    let onSelectToken: (MarketItemDisplayData) -> Void
 
-    var body: some View {
-        let visibleTokens = section.visibleTokens(columnCount: columnCount)
-        VStack(alignment: .leading, spacing: 0) {
-            MarketSectionHeader(
-                title: section.title,
-                showsSeeAll: section.showsSeeAll(columnCount: columnCount),
-                onSeeAll: onSeeAll
-            )
-
-            switch section.layout {
-            case .largeHorizontal:
-                MarketMoverCarousel(tokens: visibleTokens, onSelectToken: onSelectToken)
-
-            case .grid:
-                MarketGrid(tokens: visibleTokens, columnCount: columnCount, onSelectToken: onSelectToken)
-                    .padding(contentMargins)
-
-            case .rows:
-                MarketRows(tokens: visibleTokens, onSelectToken: onSelectToken)
-                    .padding(contentMargins)
-            }
-        }
+    func makeUIView(context: Context) -> MarketSectionContentView { MarketSectionContentView() }
+    func updateUIView(_ view: MarketSectionContentView, context: Context) {
+        view.configure(section, columnCount: columnCount, insets: .init(top: 0, leading: contentMargins.leading, bottom: 0, trailing: contentMargins.trailing),
+                       onSeeAll: onSeeAll, onSelect: onSelectToken)
     }
-}
-
-private struct MarketMoverCarousel: View {
-    @Environment(\.horizontalContentMargins) private var contentMargins
-    let tokens: [MarketToken]
-    let onSelectToken: (MarketToken) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                GlassEffectContainer(spacing: 16) {
-                    cards(usesLiquidGlass: true)
-                }
-            } else {
-                cards(usesLiquidGlass: false)
-            }
-        }
-        .backportScrollClipDisabled()
-    }
-
-    private func cards(usesLiquidGlass: Bool) -> some View {
-        LazyHStack(spacing: 16) {
-            ForEach(tokens) { token in
-                Button {
-                    onSelectToken(token)
-                } label: {
-                    MarketMoverCard(token: token, usesLiquidGlass: usesLiquidGlass)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(contentMargins)
-    }
-}
-
-private struct MarketSectionHeader: View {
-    @Environment(\.horizontalContentMargins) private var contentMargins
-    let title: String
-    let showsSeeAll: Bool
-    let onSeeAll: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .textStyle(.bodyStrong, scaling: .dynamic)
-                .foregroundStyle(Color.air.secondaryLabel)
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if showsSeeAll {
-                Button(action: onSeeAll) {
-                    Text(lang("See All"))
-                        .textStyle(.supporting, scaling: .dynamic)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.air.tint)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(contentMargins)
-        .frame(minHeight: 39)
-    }
-}
-
-private struct MarketMoverCard: View {
-    let token: MarketToken
-    let usesLiquidGlass: Bool
-
-    var body: some View {
-        Group {
-            if usesLiquidGlass, #available(iOS 26, iOSApplicationExtension 26, *) {
-                content
-                    .clipShape(.rect(cornerRadius: 32))
-                    .glassEffect(.regular.interactive(true), in: .rect(cornerRadius: 32))
-            } else {
-                content
-                    .background(Color.air.groupedItem)
-                    .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 32, style: .continuous)
-                            .stroke(Color.air.separator.opacity(0.55), lineWidth: 0.5)
-                    }
-                    .shadow(color: .black.opacity(0.02), radius: 7.5, y: 8)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(token.name), \(token.priceText ?? ""), \(token.changeText)")
-    }
-
-    private var content: some View {
-        ZStack(alignment: .top) {
-            if let chart = token.chart {
-                Color(rgb: chart.tint)
-                    .opacity(0.06)
-
-                VStack(spacing: 0) {
-                    Spacer()
-                    chartView(chart)
-                }
-            }
-
-            VStack(spacing: 0) {
-                MarketTokenIcon(token: token.token, size: 44, shouldShowChain: true)
-                    .frame(width: 44, height: 44)
-                    .allowsHitTesting(false)
-                    .padding(.top, 16)
-
-                Text(token.name)
-                    .textStyle(.calloutStrong, scaling: .dynamic)
-                    .foregroundStyle(Color.air.primaryLabel)
-                    .lineLimit(1)
-                    .frame(maxWidth: 144)
-                    .padding(.top, 8)
-
-                HStack(spacing: 4) {
-                    if let price = token.priceText {
-                        Text(price)
-                            .foregroundStyle(Color.air.secondaryLabel)
-                    }
-                    Text(token.changeText)
-                        .textStyle(.supporting, scaling: .dynamic)
-                        .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
-                }
-                .textStyle(.supporting, content: .technical, scaling: .dynamic)
-                .padding(.top, 1)
-            }
-        }
-        .frame(width: 160, height: 160)
-    }
-
-    @ViewBuilder
-    private func chartView(_ chart: MarketToken.Chart) -> some View {
-        switch chart {
-        case .bundled(let fillImageName, let lineImageName, _):
-            ZStack(alignment: .top) {
-                Image.airBundle(fillImageName)
-                    .resizable()
-                    .frame(width: 160, height: 40)
-                Image.airBundle(lineImageName)
-                    .resizable()
-                    .frame(width: 161.5, height: 24.5)
-            }
-            .frame(width: 160, height: 40, alignment: .top)
-            .clipped()
-
-        case .sparkline(let points, let tint):
-            MarketSparkline(points: points, tint: Color(rgb: tint))
-                .frame(width: 160, height: 40)
-        }
-    }
-}
-
-private struct MarketSparkline: View {
-    let points: [Double]
-    let tint: Color
-
-    var body: some View {
-        ZStack {
-            MarketSparklineShape(points: points, closesToBottom: true)
-                .fill(tint.opacity(0.09))
-            MarketSparklineShape(points: points, closesToBottom: false)
-                .stroke(
-                    tint,
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
-                )
-        }
-    }
-}
-
-private struct MarketSparklineShape: Shape {
-    let points: [Double]
-    let closesToBottom: Bool
-
-    func path(in rect: CGRect) -> Path {
-        guard points.count >= 2 else { return Path() }
-
-        // Match web: keep the curve in the upper 24 points while the fill reaches the card edge.
-        let curveHeight = min(rect.height, 24)
-        let curvePadding: CGFloat = 2
-        let chartHeight = max(0, curveHeight - curvePadding * 2)
-        var path = Path()
-        for (index, point) in points.enumerated() {
-            let progress = CGFloat(index) / CGFloat(points.count - 1)
-            let normalizedPoint = CGFloat(min(max(point, 0), 1))
-            let chartPoint = CGPoint(
-                x: rect.minX + progress * rect.width,
-                y: rect.minY + curvePadding + normalizedPoint * chartHeight
-            )
-            if index == 0 {
-                path.move(to: chartPoint)
-            } else {
-                path.addLine(to: chartPoint)
-            }
-        }
-
-        if closesToBottom {
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.closeSubpath()
-        }
-        return path
-    }
-}
-
-private struct MarketGrid: View {
-    let tokens: [MarketToken]
-    let columnCount: Int
-    let onSelectToken: (MarketToken) -> Void
-
-    private var columns: [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(minimum: 64), spacing: 0, alignment: .top),
-            count: columnCount
-        )
-    }
-
-    var body: some View {
-        LazyVGrid(columns: columns, alignment: .center, spacing: 16) {
-            ForEach(tokens) { token in
-                Button {
-                    onSelectToken(token)
-                } label: {
-                    MarketGridItem(token: token)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.vertical, 20)
-        .background(Color.air.groupedItem)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-    }
-}
-
-private struct MarketGridItem: View {
-    let token: MarketToken
-
-    var body: some View {
-        VStack(spacing: 0) {
-            MarketTokenIcon(token: token.token, size: 56, shouldShowChain: true, chainGeometry: .forIcon56)
-                .frame(width: 56, height: 56)
-                .allowsHitTesting(false)
-
-            Text(token.name)
-                .textStyle(.supportingEmphasized, scaling: .dynamic)
-                .foregroundStyle(Color.air.primaryLabel)
-                .lineLimit(1)
-                .frame(maxWidth: 88)
-                .padding(.top, 6)
-
-            Text(token.changeText)
-                .textStyle(.supporting, scaling: .dynamic)
-                .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 98, alignment: .top)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(token.name), \(token.changeText)")
-    }
-}
-
-private struct MarketRows: View {
-    let tokens: [MarketToken]
-    let onSelectToken: (MarketToken) -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(tokens.enumerated()), id: \.element.id) { index, token in
-                MarketRowButton(token: token) {
-                    onSelectToken(token)
-                }
-
-                if index < tokens.count - 1 {
-                    Divider()
-                        .padding(.leading, 62)
-                }
-            }
-        }
-        .background(Color.air.groupedItem)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-    }
-}
-
-private struct MarketRowButton: View {
-    let token: MarketToken
-    let action: () -> Void
-
-    @State private var isTouching = false
-
-    var body: some View {
-        Button(action: action) {
-            MarketTokenRow(token: token, showsChevron: true)
-        }
-        .buttonStyle(.plain)
-        .background {
-            CellBackgroundHighlight(isHighlighted: isTouching)
-        }
-        .touchGesture($isTouching)
-    }
-}
-
-struct MarketTokenRow: View {
-    let token: MarketToken
-    let showsChevron: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            MarketTokenIcon(token: token.token, size: 40, shouldShowChain: true)
-                .frame(width: 40, height: 40)
-                .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 4) {
-                    Text(token.token.symbol)
-                        .textStyle(.calloutEmphasized, content: .technical, scaling: .dynamic)
-                        .foregroundStyle(Color.air.primaryLabel)
-
-                    if let badge = token.token.label?.nilIfEmpty {
-                        Text(badge)
-                            .textStyle(.badge, scaling: .dynamic)
-                            .foregroundStyle(Color(red: 0.87, green: 0.55, blue: 0))
-                            .padding(.horizontal, 3)
-                            .frame(minHeight: 14)
-                            .background(Color(red: 0.87, green: 0.55, blue: 0).opacity(0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                }
-
-                HStack(spacing: 4) {
-                    if let price = token.priceText {
-                        Text(price)
-                            .foregroundStyle(Color.air.secondaryLabel)
-                    }
-                    Text(token.changeText)
-                        .textStyle(.supporting, scaling: .dynamic)
-                        .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
-                }
-                .textStyle(.supporting, content: .technical, scaling: .dynamic)
-            }
-
-            Spacer(minLength: 8)
-
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(UIColor.tertiaryLabel))
-                    .frame(width: 16)
-            }
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 60)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(token.token.symbol), \(token.name), \(token.priceText ?? ""), \(token.changeText)")
-    }
-}
-
-private struct MarketTokenIcon: UIViewRepresentable {
-    let token: ApiToken
-    let size: CGFloat
-    let shouldShowChain: Bool
-    var chainGeometry: IconAccessoryView.LayoutGeometry? = nil
-
-    func makeUIView(context: Context) -> IconView {
-        let iconView = IconView(size: size, accessoryGeometry: chainGeometry)
-        iconView.isUserInteractionEnabled = false
-        return iconView
-    }
-
-    func updateUIView(_ iconView: IconView, context: Context) {
-        iconView.setSize(size)
-        iconView.config(with: token, shouldShowChain: shouldShowChain)
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarketSectionContentView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 402, height: MarketSectionContentView.height(for: section, columnCount: columnCount))
     }
 }

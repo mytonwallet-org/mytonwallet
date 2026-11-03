@@ -12,6 +12,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -102,6 +103,7 @@ class NotificationSettingsVC(context: Context) :
 
         setNavTitle(LocaleController.getString("Notifications & Sounds"))
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.notifications_title
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         recyclerView.clipToPadding = false

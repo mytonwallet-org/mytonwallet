@@ -39,16 +39,6 @@ struct AddStakeView: View {
             .onTapGesture {
                 model.onBackgroundTapped()
             }
-            .onChange(of: model.amount) { amount in
-                if let amount, model.switchedToBaseCurrencyInput == false {
-                    model.updateBaseCurrencyAmount(amount)
-                }
-            }
-            .onChange(of: model.amountInBaseCurrency) { baseCurrencyAmount in
-                if let baseCurrencyAmount, model.switchedToBaseCurrencyInput == true {
-                    model.updateAmountFromBaseCurrency(baseCurrencyAmount)
-                }
-            }
         }
     }
 }
@@ -62,12 +52,12 @@ fileprivate struct AmountSection: View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
             TokenAmountEntrySection(
-                amount: $model.amount,
+                amount: Binding(get: { model.amount }, set: { model.updateAmount($0) }),
                 token: displayToken,
                 balance: model.maxAmount,
                 insufficientFunds: model.insufficientFunds,
                 isFeeError: model.insufficientFee,
-                amountInBaseCurrency: $model.amountInBaseCurrency,
+                amountInBaseCurrency: Binding(get: { model.amountInBaseCurrency }, set: { model.updateAmountFromBaseCurrency($0) }),
                 switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
                 fee: model.fee,
                 explainedFee: nil,

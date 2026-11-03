@@ -1,6 +1,9 @@
 @use "../../styles/mixins";
 
+// The suggestions of an empty chat rise into place over the composer and drop away as the chat starts, as on mobile
 .wrapper {
+  transform: translateY(1.625rem);
+
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -12,47 +15,33 @@
   opacity: 0;
 
   &:global(.open) {
+    transform: none;
     opacity: 1;
   }
 
-  @include mixins.transition(opacity 250ms ease);
+  @include mixins.transition("opacity 250ms ease-in-out, transform 250ms ease-in-out");
 }
 
+// The Agent's spinning top, at half its speed
 .icon {
-  --icon-gradient-start: rgba(0, 136, 255, 0.3);
-  --icon-gradient-middle: rgba(0, 190, 255, 0.6);
-  --icon-gradient-end: rgba(182, 86, 255, 0.3);
-
-  display: block;
-
   width: 2.625rem;
   height: 2.625rem;
   margin-bottom: 0.75rem;
-  margin-inline-start: 0.25rem;
+  margin-inline-start: 0.125rem;
+}
 
-  font-size: 2.625rem;
-  line-height: 1;
-  color: transparent;
+// The flat mark, where the 3D top is not drawn, leans slowly from side to side
+.iconMark {
+  transform-origin: 50% 85%;
+  animation: agent-hints-mark-wobble 2.1s ease-in-out infinite alternate;
 
-  // The gradient ends with its first color, so sliding it by one image width loops without a seam
-  background-image: linear-gradient(
-    97deg,
-    var(--icon-gradient-start) 0%,
-    var(--icon-gradient-middle) 25%,
-    var(--icon-gradient-end) 50%,
-    var(--icon-gradient-middle) 75%,
-    var(--icon-gradient-start) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-
-  :global(html.theme-dark) & {
-    --icon-gradient-start: rgba(109, 173, 230, 0.3);
-    --icon-gradient-middle: rgba(94, 182, 212, 0.6);
-    --icon-gradient-end: rgba(196, 140, 238, 0.3);
+  :global(html.animation-level-0) & {
+    animation: none;
   }
 
-  @include mixins.gradient-shimmer(5s);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 .list {
@@ -62,4 +51,14 @@
   align-items: flex-start;
 
   max-width: 100%;
+}
+
+@keyframes agent-hints-mark-wobble {
+  0% {
+    transform: rotate(-9deg);
+  }
+
+  100% {
+    transform: rotate(9deg);
+  }
 }

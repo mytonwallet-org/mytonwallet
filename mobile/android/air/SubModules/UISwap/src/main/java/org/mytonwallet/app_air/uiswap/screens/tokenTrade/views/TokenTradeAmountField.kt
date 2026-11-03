@@ -11,6 +11,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.drawable.LayerDrawable
+import android.os.Build
 import android.text.InputFilter
 import android.text.InputType
 import android.text.SpannableString
@@ -229,6 +230,9 @@ class TokenTradeAmountField(context: Context) :
             layoutDirection = LAYOUT_DIRECTION_LTR
             textDirection = TEXT_DIRECTION_LTR
             typeface = WFont.Balance.typeface
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                isLocalePreferredLineHeightForMinimumUsed = false
+            }
             setTextColor(Color.TRANSPARENT)
             setHintTextColor(Color.TRANSPARENT)
             showSoftInputOnFocus = false

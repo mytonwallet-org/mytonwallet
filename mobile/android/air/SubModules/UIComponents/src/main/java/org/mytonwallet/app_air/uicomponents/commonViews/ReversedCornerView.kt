@@ -330,6 +330,9 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
 
     override fun updateTheme() {
         syncBlurView()
+        if (blurryBackgroundView != null) {
+            initialConfig.overrideBackgroundColor?.let { setBlurOverlayColor(it) }
+        }
         updateRadius()
 
         val bgColor = overlayColor

@@ -1,11 +1,17 @@
 import type { ApiChain, OnApiUpdate } from '../types';
 import type { ClientTimingEvent } from './developmentTelemetry';
-import type { AgentAnswerFeedbackV2 } from './protocol/types';
+import type {
+  AgentAnswerFeedbackV2,
+  AgentThreadCreateRequestV2,
+  AgentThreadListRequestV2,
+} from './protocol/types';
 import type {
   AgentV2HostContextSnapshot,
   AgentV2ProblemReport,
   AgentV2RunCommand,
   AgentV2RuntimeStatus,
+  AgentV2ThreadUpdate,
+  AgentV2Transcription,
 } from './types';
 
 import { AGENT_API_URL } from '../../config';
@@ -210,6 +216,29 @@ export function getAgentV2DefaultThread() {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().getDefaultThread());
 }
 
+export function listAgentV2Threads(params: AgentThreadListRequestV2 = {}) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().listThreads(params));
+}
+
+export function getAgentV2NewsFeed(params: { lang: string; cursor?: string }) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().getNewsFeed(params));
+}
+
+/**
+ * News threads include a server-created post. Opening them does not require starting a run.
+ */
+export function createAgentV2Thread(params: Omit<AgentThreadCreateRequestV2, 'protocolVersion'> = {}) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().createThread(params));
+}
+
+export function updateAgentV2Thread(threadId: string, update: AgentV2ThreadUpdate) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().updateThread(threadId, update));
+}
+
+export function deleteAgentV2Thread(threadId: string) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().deleteThread(threadId));
+}
+
 export function getAgentV2Messages(threadId: string, cursor?: string, limit?: number) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().getMessages(threadId, cursor, limit));
 }
@@ -232,6 +261,10 @@ export function clearAgentV2Thread(threadId: string, expectedRevision: number) {
 
 export function reportAgentV2Problem(threadId: string, report: AgentV2ProblemReport) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().reportProblem(threadId, report));
+}
+
+export function transcribeAgentV2Audio(transcription: AgentV2Transcription) {
+  return runSafeAgentV2Operation(() => getAgentV2Runtime().transcribe(transcription));
 }
 
 export function setAgentV2MessageFeedback(threadId: string, messageId: string, feedback?: AgentAnswerFeedbackV2) {

@@ -7,11 +7,9 @@ import WalletCore
 @MainActor public func showDappOriginWarningTip(urlTrustStatus: ApiDappUrlTrustStatus = .unknown) {
     topWViewController()?.showTip(
         title: lang(urlTrustStatus.warningTitle),
+        message: urlTrustStatus.warningText,
         kind: urlTrustStatus == .dangerous ? .danger : .warning
-    ) {
-        Text(urlTrustStatus.warningText)
-            .multilineTextAlignment(.center)
-    }
+    )
 }
 
 public struct DappOriginWarning: View {
@@ -52,14 +50,14 @@ private extension ApiDappUrlTrustStatus {
         }
     }
 
-    var warningText: LocalizedStringKey {
+    var warningText: String {
         switch self {
         case .invalid:
-            LocalizedStringKey(lang("$DappurlTrustStatusInvalidHelp"))
+            lang("$DappurlTrustStatusInvalidHelp")
         case .dangerous:
-            LocalizedStringKey(lang("$DappurlTrustStatusDangerousHelp"))
+            lang("$DappurlTrustStatusDangerousHelp")
         case .verified, .unknown:
-            LocalizedStringKey(L10n.reopenInIabExplore(exploreTab: lang("Explore")))
+            L10n.reopenInIabExplore(exploreTab: lang("Explore"))
         }
     }
 

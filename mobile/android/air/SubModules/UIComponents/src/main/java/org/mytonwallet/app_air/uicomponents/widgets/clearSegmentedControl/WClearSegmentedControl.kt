@@ -35,6 +35,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.roundToInt
 import me.vkryl.core.fromTo
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -63,7 +64,11 @@ class WClearSegmentedControl(
     private val horizontalPaddingDp: Float = 11f,
     private val isTransparent: Boolean = false,
     private val thumbHeightDp: Float = THUMB_HEIGHT,
-    private val showActiveTabArrow: Boolean = true
+    private val showActiveTabArrow: Boolean = true,
+    private val itemHorizontalPaddingDp: Int = ITEM_HORIZONTAL_PADDING,
+    // Filled tabs that overflow narrow their padding down to this before they scroll
+    private val minItemHorizontalPaddingDp: Int = MIN_ITEM_HORIZONTAL_PADDING,
+    private val itemSpacingDp: Int = ITEM_SPACING
 ) : FrameLayout(context),
     WThemedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource {
@@ -122,6 +127,9 @@ class WClearSegmentedControl(
             requestLayout()
         }
     private var availableWidthForItems = 0
+
+    /** Tabs that overflow scroll to keep the thumb centred, following it as it moves between tabs */
+    var centersThumb = false
     private var currentPosition: Float = 0f
 
     // Used to animate dragMode enter/exit animations
@@ -493,7 +501,7 @@ class WClearSegmentedControl(
             orientation = RecyclerView.HORIZONTAL
         }
         setLayoutManager(layoutManager)
-        addItemDecoration(SpacesItemDecoration(ITEM_SPACING.dp, 0))
+        addItemDecoration(SpacesItemDecoration(itemSpacingDp.dp, 0))
         addOnItemTouchListener(recyclerViewTouchListener)
         setPaddingDp(horizontalPaddingDp, 0f, horizontalPaddingDp, 0f)
         clipToPadding = false
@@ -768,7 +776,7 @@ class WClearSegmentedControl(
     private fun availableItemsWidth() = availableWidthForItems -
         recyclerView.paddingStart -
         recyclerView.paddingEnd -
-        items.size * ITEM_SPACING.dp
+        items.size * itemSpacingDp.dp
 
     private fun itemTitleWidths() =
         items.map { ceil(titleMeasuringLabel.paint.measureText(it.title)).toInt() }
@@ -777,22 +785,22 @@ class WClearSegmentedControl(
     // plus an equal share of the leftover space. When natural widths overflow, the horizontal
     // padding shrinks to make them fit; tabs scroll only if even the minimum padding overflows.
     private fun itemHorizontalPadding(): Int {
-        if (!fillsAvailableWidth) return ITEM_HORIZONTAL_PADDING.dp
+        if (!fillsAvailableWidth) return itemHorizontalPaddingDp.dp
         val fittingPadding =
             (availableItemsWidth() - itemTitleWidths().sum()) / (2 * items.size)
         return if (fittingPadding in
-            MIN_ITEM_HORIZONTAL_PADDING.dp until ITEM_HORIZONTAL_PADDING.dp
+            minItemHorizontalPaddingDp.dp until itemHorizontalPaddingDp.dp
         ) {
             fittingPadding
         } else {
-            ITEM_HORIZONTAL_PADDING.dp
+            itemHorizontalPaddingDp.dp
         }
     }
 
     private fun itemMinimumWidth(naturalWidth: Int): Int {
         if (!fillsAvailableWidth) return 0
         val availableWidth = availableItemsWidth()
-        val naturalWidths = itemTitleWidths().map { it + 2 * ITEM_HORIZONTAL_PADDING.dp }
+        val naturalWidths = itemTitleWidths().map { it + 2 * itemHorizontalPaddingDp.dp }
         val equalWidth = availableWidth / items.size
         if (naturalWidths.all { it <= equalWidth }) return equalWidth
         val extraWidth = (availableWidth - naturalWidths.sum()) / items.size
@@ -940,12 +948,28 @@ class WClearSegmentedControl(
 
         val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
 
-        if (ensureVisibleThumb) ensureItemVisible(index, nextIndex, fraction, animateScroll)
+        if (ensureVisibleThumb) {
+            if (centersThumb && currentView != null) {
+                centerThumb(currentView, nextView.takeIf { index != nextIndex }, fraction)
+            } else {
+                ensureItemVisible(index, nextIndex, fraction, animateScroll)
+            }
+        }
 
         val thumbBounds = calculateThumbBounds(currentView, nextView, fraction, index, nextIndex)
         updatePaths(thumbBounds)
         updateItemArrowVisibility(index, nextIndex, fraction, visualTargetIndex)
         recyclerView.invalidate()
+    }
+
+    // The scroll stops at the tabs' ends, so the end tabs rest at the edges
+    private fun centerThumb(currentView: View, nextView: View?, fraction: Float) {
+        val currentCenter = (currentView.left + currentView.right) / 2f
+        val center = nextView?.let {
+            currentCenter + ((it.left + it.right) / 2f - currentCenter) * fraction
+        } ?: currentCenter
+        val delta = (center - recyclerView.width / 2f).roundToInt()
+        if (delta != 0) recyclerView.scrollBy(delta, 0)
     }
 
     private fun ensureItemVisible(

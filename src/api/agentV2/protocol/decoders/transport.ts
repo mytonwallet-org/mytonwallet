@@ -203,7 +203,7 @@ function validateAgentV2StreamEvent(
       integer(result.threadRevision, '$.threadRevision', 1);
       break;
     case 'thread':
-      threadSummary(result.thread, '$.thread');
+      result.thread = threadSummary(result.thread, '$.thread');
       break;
     case 'message_start':
       uuid(result.messageId, '$.messageId');

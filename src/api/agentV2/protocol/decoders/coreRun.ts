@@ -69,7 +69,9 @@ export function decodeAgentV2ApiError(value: unknown): AgentV2DecodedApiError {
   } else if (error.quota !== undefined) {
     fail('$.error.quota');
   }
-  validateErrorTiming(code, error, '$.error');
+  // An unavailable transcription may carry the delay its provider stated; the API error schema allows it on any
+  // code, while the timing binding below comes from run errors
+  if (code !== 'transcription_unavailable') validateErrorTiming(code, error, '$.error');
   return {
     protocolVersion: 3,
     error: {

@@ -1,5 +1,8 @@
 package org.mytonwallet.app_air.uicomponents.widgets.chart.extended
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.text.TextUtils
@@ -9,6 +12,7 @@ import android.widget.FrameLayout
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -25,14 +29,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-class ChartHeaderView(context: Context) :
+class ChartHeaderView(context: Context, private val showsControlsRow: Boolean = false) :
     FrameLayout(context),
     WThemedView {
-    private enum class LeadingContentMode {
-        TITLE,
-        ZOOM_OUT
-    }
-
     private enum class DatesAnimationDirection {
         TOP_TO_BOTTOM,
         BOTTOM_TO_TOP
@@ -44,6 +43,10 @@ class ChartHeaderView(context: Context) :
             setTextColor(WColor.SecondaryText)
             lineHeight = 24.dp
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            if (showsControlsRow) {
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
         }
     }
 
@@ -53,6 +56,10 @@ class ChartHeaderView(context: Context) :
             setTextColor(WColor.SecondaryText)
             lineHeight = 24.dp
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            if (showsControlsRow) {
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
             visibility = GONE
         }
     }
@@ -91,33 +98,58 @@ class ChartHeaderView(context: Context) :
         }.apply {
             lineHeight = 24.dp
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setStyle(16f, WFont.Medium)
+            setStyle(14f, WFont.Medium)
             setTextColor(WColor.Tint)
             text = zoomOutText
             setCompoundDrawablesWithIntrinsicBounds(zoomIcon, null, null, null)
             compoundDrawablePadding = 4.dp
             setPadding(8.dp, 2.dp, 8.dp, 2.dp)
             alpha = 0f
-            translationY = HEADER_TRANSITION_OFFSET.dp
             isInvisible = true
         }
     }
     val back: WLabel by backLazy
 
+    val today: WLabel = object : WLabel(context) {
+        private val ripple = WRippleDrawable.create(20f.dp)
+
+        init {
+            background = ripple
+        }
+
+        override fun updateTheme() {
+            super.updateTheme()
+            ripple.rippleColor = WColor.TintRipple.color
+        }
+    }.apply {
+        lineHeight = 24.dp
+        gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        setStyle(14f, WFont.Medium)
+        setTextColor(WColor.Tint)
+        text = LocaleController.getString("Today")
+        setPadding(8.dp, 2.dp, 8.dp, 2.dp)
+        alpha = 0f
+        isInvisible = true
+    }
+
     private val zoomIcon: Drawable? by lazy {
         context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_zoom_out_22)
     }
 
-    private var leadingContentMode = LeadingContentMode.TITLE
+    private var isZoomedIn = false
+    private var isTodayVisible = false
+    private var backFraction = 0f
+    private var backAnimator: ValueAnimator? = null
+    private var titleRowHeight = 0
     private var datesAnimationTarget: CharSequence? = null
     private var deferredDatesText: CharSequence? = null
     private var lastMeasuredTotalWidth = -1
 
     var datesSuppressed = false
 
-    init {
-        minimumHeight = 40.dp
+    var onDatesChanged: (() -> Unit)? = null
 
+    init {
         addView(
             title,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
@@ -129,7 +161,14 @@ class ChartHeaderView(context: Context) :
             back,
             LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.START
-                setMarginsDp(10, 14, 8, 0)
+                setMarginsDp(10, 0, 8, 0)
+            }
+        )
+        addView(
+            today,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.END
+                setMarginsDp(8, 0, 12, 0)
             }
         )
         addView(dates, datesLayoutParams())
@@ -149,6 +188,7 @@ class ChartHeaderView(context: Context) :
             val screenSizeChanged = total != lastMeasuredTotalWidth
             lastMeasuredTotalWidth = total
             val trailing = when {
+                showsControlsRow -> null
                 datesTmp.isVisible -> datesTmp
                 dates.isVisible -> dates
                 else -> null
@@ -171,6 +211,75 @@ class ChartHeaderView(context: Context) :
             }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        titleRowHeight = max(
+            TITLE_ROW_MIN_HEIGHT.dp,
+            (title.layoutParams as MarginLayoutParams).topMargin + title.measuredHeight + 2.dp
+        )
+        val height = titleRowHeight + if (showsControlsRow) CONTROLS_ROW_HEIGHT.dp else 0
+        setMeasuredDimension(measuredWidth, resolveSize(height, heightMeasureSpec))
+        if (showsControlsRow) measureControlsRowDates(heightMeasureSpec)
+    }
+
+    private fun measureControlsRowDates(heightMeasureSpec: Int) {
+        val inset = CONTROLS_ROW_INSET.dp
+        val minX = inset + ((controlsRowBackMaxX() - inset) * backFraction).toInt()
+        val available = (controlsRowMaxX(measuredWidth) - minX).coerceAtLeast(0)
+        listOf(dates, datesTmp).forEach { view ->
+            if (view.isGone || view.measuredWidth <= available) return@forEach
+            view.measure(
+                MeasureSpec.makeMeasureSpec(available, MeasureSpec.AT_MOST),
+                getChildMeasureSpec(heightMeasureSpec, 0, view.layoutParams.height)
+            )
+        }
+    }
+
+    private fun controlsRowTodayX(rowWidth: Int) =
+        rowWidth - CONTROLS_ROW_INSET.dp + today.paddingRight - today.measuredWidth
+
+    private fun controlsRowMaxX(rowWidth: Int) = if (isTodayVisible) {
+        controlsRowTodayX(rowWidth) + today.paddingLeft - CONTROLS_SPACING.dp
+    } else {
+        rowWidth - CONTROLS_ROW_INSET.dp
+    }
+
+    private fun controlsRowBackX() = CONTROLS_ROW_INSET.dp - back.paddingLeft
+
+    private fun controlsRowBackMaxX() =
+        controlsRowBackX() + back.measuredWidth - back.paddingRight + CONTROLS_SPACING.dp
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (showsControlsRow) layoutControlsRow()
+    }
+
+    private fun layoutControlsRow() {
+        val inset = CONTROLS_ROW_INSET.dp
+        place(back, controlsRowBackX())
+        place(today, controlsRowTodayX(width))
+        val maxX = controlsRowMaxX(width)
+        val backMaxX = controlsRowBackMaxX()
+        listOf(dates, datesTmp).forEach { view ->
+            val textWidth = view.measuredWidth
+            fun centered(lower: Int) =
+                (width / 2 - textWidth / 2).coerceAtMost(maxX - textWidth).coerceAtLeast(lower)
+            val withoutBack = if (isTodayVisible) inset else centered(inset)
+            val withBack = centered(backMaxX)
+            place(view, (withoutBack + (withBack - withoutBack) * backFraction).toInt())
+        }
+        back.alpha = backFraction
+        back.visibility = if (backFraction > 0f) VISIBLE else INVISIBLE
+    }
+
+    private fun place(view: View, x: Int) {
+        val rowTop = titleRowHeight + (CONTROLS_ROW_HEIGHT.dp - view.measuredHeight) / 2
+        val left = if (layoutDirection ==
+            LAYOUT_DIRECTION_RTL
+        ) {
+            width - x - view.measuredWidth
+        } else {
+            x
+        }
+        view.layout(left, rowTop, left + view.measuredWidth, rowTop + view.measuredHeight)
     }
 
     override fun updateTheme() {
@@ -178,19 +287,25 @@ class ChartHeaderView(context: Context) :
         datesTmp.updateTheme()
         title.updateTheme()
         back.updateTheme()
+        today.updateTheme()
     }
 
     fun setTitle(text: CharSequence) {
         title.text = text
-        if (leadingContentMode == LeadingContentMode.TITLE) {
-            title.visibility = VISIBLE
-            title.alpha = 1f
-            title.translationY = 0f
-        }
+    }
+
+    fun setTodayState(visible: Boolean, enabled: Boolean, animated: Boolean) {
+        today.isEnabled = enabled
+        today.setTextColor(if (enabled) WColor.Tint else WColor.SecondaryText)
+        if (isTodayVisible == visible) return
+        isTodayVisible = visible
+        setActionVisible(today, visible, animated)
+        requestLayout()
     }
 
     fun showTitleOnly() {
-        switchLeadingContent(LeadingContentMode.TITLE, animated = false)
+        setZoomedIn(false, animated = false)
+        setTodayState(visible = false, enabled = false, animated = false)
         dates.animate().cancel()
         datesTmp.animate().cancel()
         if (datesAnimationTarget != null) {
@@ -204,6 +319,7 @@ class ChartHeaderView(context: Context) :
 
     fun setDates(start: Long, end: Long, animated: Boolean = false) {
         setDates(start, end, animated, DatesAnimationDirection.BOTTOM_TO_TOP)
+        onDatesChanged?.invoke()
     }
 
     private fun setDates(
@@ -289,7 +405,7 @@ class ChartHeaderView(context: Context) :
             animated = animate,
             direction = DatesAnimationDirection.TOP_TO_BOTTOM
         )
-        switchLeadingContent(LeadingContentMode.ZOOM_OUT, animate)
+        setZoomedIn(true, animate)
     }
 
     fun zoomOut(chartView: BaseChartView<*, *>, animated: Boolean) {
@@ -303,7 +419,7 @@ class ChartHeaderView(context: Context) :
             animated = animated,
             direction = DatesAnimationDirection.BOTTOM_TO_TOP
         )
-        switchLeadingContent(LeadingContentMode.TITLE, animated)
+        setZoomedIn(false, animated)
     }
 
     private fun datesLayoutParams(): LayoutParams =
@@ -312,33 +428,45 @@ class ChartHeaderView(context: Context) :
             setMarginsDp(16, 14, 20, 0)
         }
 
-    private fun switchLeadingContent(mode: LeadingContentMode, animated: Boolean) {
-        val (incoming, outgoing, incomingOffset, outgoingOffset) = when (mode) {
-            LeadingContentMode.TITLE ->
-                LeadingTransition(
-                    title,
-                    back,
-                    -HEADER_TRANSITION_OFFSET.dp,
-                    HEADER_TRANSITION_OFFSET.dp
-                )
-
-            LeadingContentMode.ZOOM_OUT ->
-                LeadingTransition(
-                    back,
-                    title,
-                    HEADER_TRANSITION_OFFSET.dp,
-                    -HEADER_TRANSITION_OFFSET.dp
-                )
-        }
-
-        if (leadingContentMode == mode) {
-            incoming.showImmediately()
-            outgoing.hideImmediately()
+    private fun setZoomedIn(zoomedIn: Boolean, animated: Boolean) {
+        isZoomedIn = zoomedIn
+        val target = if (zoomedIn) 1f else 0f
+        if (backAnimator == null && backFraction == target) return
+        backAnimator?.cancel()
+        if (!shouldAnimate(animated)) {
+            backFraction = target
+            requestLayout()
             return
         }
+        backAnimator = ValueAnimator.ofFloat(backFraction, target).apply {
+            duration = AnimationConstants.QUICK_ANIMATION
+            interpolator = CubicBezierInterpolator.EASE_BOTH
+            addUpdateListener {
+                backFraction = it.animatedValue as Float
+                requestLayout()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (backAnimator === animation) backAnimator = null
+                }
+            })
+            start()
+        }
+    }
 
-        leadingContentMode = mode
-        transitionViews(incoming, outgoing, incomingOffset, outgoingOffset, animated)
+    private fun setActionVisible(view: View, visible: Boolean, animated: Boolean) {
+        if (!shouldAnimate(animated)) {
+            if (visible) view.showImmediately() else view.hideImmediately()
+            return
+        }
+        view.animate().cancel()
+        view.visibility = VISIBLE
+        view.animate()
+            .alpha(if (visible) 1f else 0f)
+            .setDuration(AnimationConstants.QUICK_ANIMATION)
+            .setInterpolator(CubicBezierInterpolator.EASE_BOTH)
+            .withEndAction { if (!visible) view.visibility = INVISIBLE }
+            .start()
     }
 
     private fun transitionViews(
@@ -412,12 +540,9 @@ class ChartHeaderView(context: Context) :
 
     private companion object {
         const val HEADER_TRANSITION_OFFSET = 8f
+        const val TITLE_ROW_MIN_HEIGHT = 40
+        const val CONTROLS_ROW_HEIGHT = 36
+        const val CONTROLS_ROW_INSET = 20
+        const val CONTROLS_SPACING = 8
     }
-
-    private data class LeadingTransition(
-        val incoming: View,
-        val outgoing: View,
-        val incomingOffset: Float,
-        val outgoingOffset: Float
-    )
 }

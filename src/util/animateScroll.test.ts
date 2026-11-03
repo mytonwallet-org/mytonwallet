@@ -1,7 +1,9 @@
 import {
   disableStrict, enableStrict, requestMutation, setHandler,
 } from '../lib/fasterdom/fasterdom';
-import animateScroll, { isAnimatingScroll, restartScrollAnimation } from './animateScroll';
+import animateScroll, {
+  cancelScrollAnimation, isAnimatingScroll, restartScrollAnimation, trackWheelInertia,
+} from './animateScroll';
 
 const FRAME_DURATION = 16;
 
@@ -66,6 +68,55 @@ describe('animateScroll', () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
+  it('lets go of a jump that waits for momentum when nothing moves the container', async () => {
+    const container = createContainer({ scrollHeight: 3000, clientHeight: 500 });
+
+    requestMutation(animateScroll(container, getBottomScrollTop, { forceDuration: 0, shouldWaitForMomentum: true }));
+    await runFrames(1);
+
+    expect(container.scrollTop).toBe(2500);
+    expect(isAnimatingScroll(container)).toBe(true);
+    await runFrames(10);
+    expect(isAnimatingScroll(container)).toBe(false);
+    expect(container.scrollTop).toBe(2500);
+  });
+
+  it('holds an instant jump against a fling or a trackpad\'s inertia from before it', async () => {
+    const container = createContainer({ scrollHeight: 3000, clientHeight: 500 });
+    const onEnd = jest.fn();
+    const wheel = (deltaY: number) => {
+      jest.advanceTimersByTime(FRAME_DURATION);
+      const event = new WheelEvent('wheel', { deltaY });
+      Object.defineProperty(event, 'timeStamp', { value: Date.now() });
+      return trackWheelInertia(container, event);
+    };
+    wheel(-30);
+    wheel(-28);
+
+    requestMutation(animateScroll(container, getBottomScrollTop, {
+      forceDuration: 0, shouldWaitForMomentum: true, onEnd,
+    }));
+    await runFrames(1);
+    expect(container.scrollTop).toBe(2500);
+    // The inertia of the swipe carries on after the jump
+    expect(wheel(-26)).toBe(true);
+
+    for (let i = 0; i < 15; i++) {
+      moveOnItsOwn(container, -6);
+      await runFrames(1);
+      expect(container.scrollTop).toBe(2500);
+    }
+    expect(isAnimatingScroll(container)).toBe(true);
+
+    const onScroll = jest.fn();
+    container.addEventListener('scroll', onScroll);
+    await runFrames(20);
+    expect(isAnimatingScroll(container)).toBe(false);
+    expect(container.scrollTop).toBe(2500);
+    expect(onScroll).toHaveBeenCalledTimes(1);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
   it('retargets a running animation after the content grows', async () => {
     const container = createContainer({ scrollHeight: 700, clientHeight: 500 });
     const onEnd = jest.fn();
@@ -97,6 +148,75 @@ describe('animateScroll', () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
     // The target moved away from its initial 200 px while the animation was running
     expect(container.scrollTop).toBeGreaterThan(200);
+  });
+
+  it('stays at the target while a fling from before goes on moving the container, and lets go once it rests',
+    async () => {
+      const container = createContainer({ scrollHeight: 700, clientHeight: 500 });
+      const onEnd = jest.fn();
+
+      requestMutation(animateScroll(container, getBottomScrollTop, { onEnd }));
+      // The fling pulls the container back up by a few pixels between the animation's frames
+      for (let i = 0; i < 40; i++) {
+        await runFrames(1);
+        moveOnItsOwn(container, -4);
+      }
+
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(isAnimatingScroll(container)).toBe(true);
+      await runFrames(1);
+      expect(container.scrollTop).toBe(200);
+
+      // At rest, the container is let go and stays at the target, and its listeners learn where it rests
+      const onScroll = jest.fn();
+      container.addEventListener('scroll', onScroll);
+      await runFrames(20);
+      expect(isAnimatingScroll(container)).toBe(false);
+      expect(container.scrollTop).toBe(200);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(onScroll).toHaveBeenCalledTimes(1);
+    });
+
+  it('lets go of the target at once when the scroll is cancelled', async () => {
+    const container = createContainer({ scrollHeight: 700, clientHeight: 500 });
+
+    requestMutation(animateScroll(container, getBottomScrollTop));
+    for (let i = 0; i < 30; i++) {
+      await runFrames(1);
+      moveOnItsOwn(container, -4);
+    }
+    expect(isAnimatingScroll(container)).toBe(true);
+
+    cancelScrollAnimation();
+    moveOnItsOwn(container, -50);
+    await runFrames(2);
+
+    expect(isAnimatingScroll(container)).toBe(false);
+    expect(container.scrollTop).toBe(146);
+  });
+
+  it('tells the inertia of a swipe from before the animation from a new swipe', async () => {
+    const container = createContainer({ scrollHeight: 3000, clientHeight: 500 });
+    const wheel = (deltaY: number, delay = FRAME_DURATION) => {
+      jest.advanceTimersByTime(delay);
+      // The event's own time is when the trackpad made it, which jsdom does not take from the fake clock
+      const event = new WheelEvent('wheel', { deltaY });
+      Object.defineProperty(event, 'timeStamp', { value: Date.now() });
+      return trackWheelInertia(container, event);
+    };
+
+    // A swipe up whose inertia dies down: nothing is animated yet, so none of it is left over
+    expect([-30, -40, -38, -35].map((deltaY) => wheel(deltaY))).toEqual([false, false, false, false]);
+
+    requestMutation(animateScroll(container, getBottomScrollTop));
+    await runFrames(1);
+
+    // The inertia carries on after the scroll button is pressed
+    expect([-33, -30, -30, -26].map((deltaY) => wheel(deltaY))).toEqual([true, true, true, true]);
+    // A swipe that speeds up, one the other way and one after a pause are new
+    expect(wheel(-60)).toBe(false);
+    expect(wheel(20)).toBe(false);
+    expect(wheel(-10, 150)).toBe(false);
   });
 
   it('reads the layout only in measure phases', async () => {
@@ -160,6 +280,12 @@ function createContainer({ scrollHeight, clientHeight }: { scrollHeight: number;
   });
 
   return container;
+}
+
+// A fling or a trackpad's inertia scrolls the container by itself, which the container reports with a scroll event
+function moveOnItsOwn(container: HTMLElement, distance: number) {
+  container.scrollTop += distance;
+  container.dispatchEvent(new Event('scroll'));
 }
 
 function getBottomScrollTop(container: HTMLElement) {

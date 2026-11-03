@@ -26,6 +26,8 @@ type OwnProps = {
   isDisabled?: boolean;
   isMultiline?: boolean;
   hasError?: boolean;
+  /** Paints the value red without the error frame and label that `hasError` and `error` add */
+  hasValueError?: boolean;
   error?: string;
   className?: string;
   wrapperClassName?: string;
@@ -55,6 +57,7 @@ function Input({
   isDisabled,
   isMultiline,
   hasError,
+  hasValueError,
   type = 'text',
   error,
   value = '',
@@ -119,9 +122,10 @@ function Input({
     className,
     type === 'password' && styles.input_password,
     (hasError || error) && styles.error,
+    hasValueError && styles.input_valueError,
     isDisabled && styles.disabled,
-    valueOverlay && styles.input_withvalueOverlay,
   );
+  const isInvalid = Boolean(hasError || error || hasValueError);
   const labelFullClass = buildClassName(
     styles.label,
     (hasError || error) && styles.error,
@@ -155,6 +159,7 @@ function Input({
             onBlur={handleBlur}
             tabIndex={0}
             required={isRequired}
+            aria-invalid={isInvalid || undefined}
             placeholder={valueOverlay ? undefined : placeholder}
           />
         ) : (
@@ -178,6 +183,7 @@ function Input({
             onBlur={handleBlur}
             tabIndex={0}
             required={isRequired}
+            aria-invalid={isInvalid || undefined}
             placeholder={valueOverlay ? undefined : placeholder}
             enterKeyHint={enterKeyHint}
           />

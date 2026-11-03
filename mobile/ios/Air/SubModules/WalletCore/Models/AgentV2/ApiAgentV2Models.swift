@@ -10,6 +10,116 @@ public struct ApiAgentV2HostContextUpdate: Codable, Equatable, Sendable {
     public let generation: Int
 }
 
+public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
+    public struct Source: Codable, Equatable, Hashable, Sendable {
+        public let name: String?
+        public let url: String
+
+        public init(name: String? = nil, url: String) {
+            self.name = name
+            self.url = url
+        }
+    }
+
+    public struct Discussion: Codable, Equatable, Hashable, Sendable {
+        public let threadId: String
+        public let icon: String?
+
+        public init(threadId: String, icon: String? = nil) {
+            self.threadId = threadId
+            self.icon = icon
+        }
+    }
+
+    public let eventId: Int
+    public let deliveredAt: String
+    public let headline: String
+    public let body: String
+    public let imageUrl: String?
+    public let sources: [Source]
+    public let discussion: Discussion?
+
+    public init(
+        eventId: Int,
+        deliveredAt: String,
+        headline: String,
+        body: String,
+        imageUrl: String? = nil,
+        sources: [Source] = [],
+        discussion: Discussion? = nil
+    ) {
+        self.eventId = eventId
+        self.deliveredAt = deliveredAt
+        self.headline = headline
+        self.body = body
+        self.imageUrl = imageUrl
+        self.sources = sources
+        self.discussion = discussion
+    }
+}
+
+public struct ApiAgentV2NewsFeedPage: Codable, Equatable, Sendable {
+    public let locale: String
+    public let items: [ApiAgentV2NewsFeedItem]
+    public let nextCursor: String?
+
+    public init(locale: String, items: [ApiAgentV2NewsFeedItem], nextCursor: String? = nil) {
+        self.locale = locale
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
+struct ApiAgentV2NewsFeedRequest: Encodable, Equatable, Sendable {
+    let lang: String
+    let cursor: String?
+}
+
+public struct ApiAgentV2ThreadNewsCard: Codable, Equatable, Hashable, Sendable {
+    public let eventId: Int
+    public let headline: String
+    public let excerpt: String?
+    public let imageUrl: String?
+    public let publishedAt: String
+    public let source: String?
+    public let body: String?
+    public let sources: [ApiAgentV2NewsFeedItem.Source]?
+
+    public init(
+        eventId: Int,
+        headline: String,
+        excerpt: String?,
+        imageUrl: String?,
+        publishedAt: String,
+        source: String?,
+        body: String? = nil,
+        sources: [ApiAgentV2NewsFeedItem.Source]? = nil
+    ) {
+        self.eventId = eventId
+        self.headline = headline
+        self.excerpt = excerpt
+        self.imageUrl = imageUrl
+        self.publishedAt = publishedAt
+        self.source = source
+        self.body = body
+        self.sources = sources
+    }
+}
+
+public struct ApiAgentV2ThreadNewsRequest: Encodable, Equatable, Sendable {
+    public let eventId: Int
+    public let locale: String
+
+    public init(eventId: Int, locale: String) {
+        self.eventId = eventId
+        self.locale = locale
+    }
+}
+
+struct ApiAgentV2ThreadCreateRequest: Encodable, Equatable, Sendable {
+    let news: ApiAgentV2ThreadNewsRequest?
+}
+
 public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
     public let id: String
     public let revision: Int
@@ -18,12 +128,110 @@ public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
     public let lastActivityAt: String
     public let clearedAt: String?
     public let messageCount: Int
+    public let title: String?
+    public let icon: String?
+    public let hasCustomTitle: Bool?
+    public let isPinned: Bool?
+    public let news: ApiAgentV2ThreadNewsCard?
+
+    /// The thread with `isPinned` changed, for a list that shows the change before the server confirms it
+    public func makeCopy(isPinned: Bool) -> ApiAgentV2ThreadSummary {
+        ApiAgentV2ThreadSummary(
+            id: id,
+            revision: revision,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            lastActivityAt: lastActivityAt,
+            clearedAt: clearedAt,
+            messageCount: messageCount,
+            title: title,
+            icon: icon,
+            hasCustomTitle: hasCustomTitle,
+            isPinned: isPinned,
+            news: news
+        )
+    }
 }
 
 public struct ApiAgentV2DefaultThreadResponse: Codable, Equatable, Sendable {
     public let protocolVersion: Int
     public let thread: ApiAgentV2ThreadSummary
     public let created: Bool
+}
+
+public struct ApiAgentV2ThreadListRequest: Encodable, Equatable, Sendable {
+    public let cursor: String?
+    public let limit: Int?
+    public let query: String?
+
+    public init(cursor: String? = nil, limit: Int? = nil, query: String? = nil) {
+        self.cursor = cursor
+        self.limit = limit
+        self.query = query
+    }
+}
+
+public struct ApiAgentV2ThreadListItem: Codable, Equatable, Sendable {
+    public let thread: ApiAgentV2ThreadSummary
+    public let preview: String?
+
+    public init(thread: ApiAgentV2ThreadSummary, preview: String? = nil) {
+        self.thread = thread
+        self.preview = preview
+    }
+}
+
+public struct ApiAgentV2ThreadListResponse: Codable, Equatable, Sendable {
+    public let protocolVersion: Int
+    public let threads: [ApiAgentV2ThreadListItem]
+    public let nextCursor: String?
+}
+
+public struct ApiAgentV2ThreadCreateResponse: Codable, Equatable, Sendable {
+    public let protocolVersion: Int
+    public let thread: ApiAgentV2ThreadSummary
+    public let created: Bool
+}
+
+public struct ApiAgentV2ThreadUpdate: Encodable, Equatable, Sendable {
+    public let title: String?
+    public let isPinned: Bool?
+    private let hasTitle: Bool
+
+    public init(title: String?, isPinned: Bool? = nil) {
+        self.title = title
+        self.isPinned = isPinned
+        self.hasTitle = true
+    }
+
+    public init(isPinned: Bool) {
+        self.title = nil
+        self.isPinned = isPinned
+        self.hasTitle = false
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title, isPinned
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if hasTitle {
+            try container.encode(title, forKey: .title)
+        }
+        try container.encodeIfPresent(isPinned, forKey: .isPinned)
+    }
+}
+
+public struct ApiAgentV2ThreadUpdateResponse: Codable, Equatable, Sendable {
+    public let protocolVersion: Int
+    public let thread: ApiAgentV2ThreadSummary
+}
+
+public struct ApiAgentV2ThreadDeleteResponse: Codable, Equatable, Sendable {
+    public let protocolVersion: Int
+    public let threadId: String
+    public let duplicate: Bool
 }
 
 public struct ApiAgentV2ThreadResponse: Codable, Equatable, Sendable {
@@ -52,6 +260,40 @@ public struct ApiAgentV2ProblemReport: Encodable, Equatable, Sendable {
 public struct ApiAgentV2ProblemReportResponse: Codable, Equatable, Sendable {
     public let reportId: String
     public let duplicate: Bool
+}
+
+public struct ApiAgentV2TranscriptionRequest: Encodable, Equatable, Sendable {
+    public enum Format: String, Encodable, Equatable, Sendable {
+        case webm, m4a
+        case oggOpus = "ogg_opus"
+    }
+
+    public let audio: String
+    public let format: Format
+    public let lang: String?
+
+    public init(audio: String, format: Format, lang: String? = nil) {
+        self.audio = audio
+        self.format = format
+        self.lang = lang
+    }
+}
+
+public struct ApiAgentV2TranscriptionResponse: Codable, Equatable, Sendable {
+    public enum Outcome: String, Codable, Equatable, Sendable {
+        case transcribed
+        case noSpeech = "no_speech"
+    }
+
+    public let protocolVersion: Int
+    public let outcome: Outcome
+    public let text: String?
+
+    public init(protocolVersion: Int = 3, outcome: Outcome, text: String? = nil) {
+        self.protocolVersion = protocolVersion
+        self.outcome = outcome
+        self.text = text
+    }
 }
 
 public enum ApiAgentV2ErrorCode: String, Codable, Equatable, Hashable, Sendable {
@@ -94,6 +336,10 @@ public enum ApiAgentV2ErrorCode: String, Codable, Equatable, Hashable, Sendable 
     case followupReferenceInvalid = "followup_reference_invalid"
     case feedbackTargetInvalid = "feedback_target_invalid"
     case feedbackRevisionConflict = "feedback_revision_conflict"
+    case recordingTooLarge = "recording_too_large"
+    case audioUnreadable = "audio_unreadable"
+    case transcriptionUnavailable = "transcription_unavailable"
+    case newsUnavailable = "news_unavailable"
     case providerTimeout = "provider_timeout"
     case providerUnavailable = "provider_unavailable"
     case providerCapabilityUnavailable = "provider_capability_unavailable"
@@ -474,9 +720,10 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
     public let actions: [ApiAgentV2PersistedAction]?
     public let followups: [ApiAgentV2FollowUp]?
     public let feedback: ApiAgentV2AnswerFeedback?
+    public let newsPost: Bool?
 
     private enum CodingKeys: String, CodingKey {
-        case id, threadId, role, status, content, createdAt, runId, responseLanguage, error, actions, followups, feedback
+        case id, threadId, role, status, content, createdAt, runId, responseLanguage, error, actions, followups, feedback, newsPost
         case text, textFormat, widget
     }
 
@@ -506,6 +753,7 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
         }
         // An unknown rating never fails the message: the answer shows as not rated
         feedback = try? container.decodeIfPresent(ApiAgentV2AnswerFeedback.self, forKey: .feedback)
+        newsPost = try container.decodeIfPresent(Bool.self, forKey: .newsPost)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -522,6 +770,7 @@ public struct ApiAgentV2PersistedMessage: Codable, Equatable, Hashable, Sendable
         try container.encodeIfPresent(actions, forKey: .actions)
         try container.encodeIfPresent(followups, forKey: .followups)
         try container.encodeIfPresent(feedback, forKey: .feedback)
+        try container.encodeIfPresent(newsPost, forKey: .newsPost)
     }
 }
 
@@ -866,10 +1115,11 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
     case portfolioChart(chartId: String, range: String, source: String?)
     case tokenScreen(asset: TokenAsset)
     case globalSearch(query: String)
+    case pulseNews(eventId: Int)
     case emptyState(hintId: String?, catalogVersion: String?)
 
     private enum CodingKeys: String, CodingKey {
-        case kind, chartId, range, accountScope, source, asset, query, surface, hintId, catalogVersion
+        case kind, chartId, range, accountScope, source, asset, query, eventId, surface, hintId, catalogVersion
     }
 
     public init(from decoder: Decoder) throws {
@@ -887,6 +1137,8 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
             self = try .tokenScreen(asset: container.decode(TokenAsset.self, forKey: .asset))
         case "globalSearch":
             self = try .globalSearch(query: container.decode(String.self, forKey: .query))
+        case "pulseNews":
+            self = try .pulseNews(eventId: container.decode(Int.self, forKey: .eventId))
         case "emptyState":
             guard try container.decode(String.self, forKey: .surface) == "agentTab" else {
                 throw DecodingError.dataCorruptedError(
@@ -925,6 +1177,9 @@ public enum ApiAgentV2EntryPoint: Codable, Equatable, Sendable {
         case .globalSearch(let query):
             try container.encode("globalSearch", forKey: .kind)
             try container.encode(query, forKey: .query)
+        case .pulseNews(let eventId):
+            try container.encode("pulseNews", forKey: .kind)
+            try container.encode(eventId, forKey: .eventId)
         case .emptyState(let hintId, let catalogVersion):
             try container.encode("emptyState", forKey: .kind)
             try container.encode("agentTab", forKey: .surface)

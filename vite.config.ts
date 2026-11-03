@@ -215,7 +215,6 @@ const ENV_DEFAULTS = {
   AGENT_API_URL: '',
   SDK_BUILD_STAMP: resolveBuildStamp(),
   AGENT_OVERRIDE: 'no_override',
-  AGENT_V2_QUOTA_STATUS_ENABLED: '0',
   MFA_BOT_URL: '',
   MFA_API_BASE_URL: '',
   MFA_MASTER_ADDRESS: '',
@@ -342,6 +341,10 @@ export default defineConfig(({ command, mode }) => {
         TITLE: APP_NAME,
         HOMEPAGE: IS_GRAM_WALLET ? 'https://wallet.ton.org' : 'https://mywallet.io',
         ASSETS_PREFIX: IS_GRAM_WALLET ? 'gramWallet/' : '',
+        GRAM_WELCOME_FONTS: IS_GRAM_WALLET && isWebApp
+          ? '<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@600'
+          + '&family=Nunito+Sans:wght@400;500&display=swap" rel="stylesheet">'
+          : '',
         CSP: csp,
         MANIFEST_LINK: IS_EXTENSION
           ? ''

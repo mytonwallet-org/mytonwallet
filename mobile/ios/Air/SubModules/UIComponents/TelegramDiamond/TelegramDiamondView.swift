@@ -9,14 +9,32 @@ public struct TelegramDiamondView: View {
     @State private var visible = false
     private let size: CGFloat
     private let renderingEnabled: Bool
+    private let stoneWidth: CGFloat?
+    private let maxGrow: CGFloat
+    private let hoverSpeed: Float
+    private let shouldRotateOnTap: Bool
+    private let onPressChange: (Bool) -> Void
+    private let onHoverChange: (Bool) -> Void
 
-    public init(size: CGFloat = 80, renderingEnabled: Bool = true) {
+    public init(size: CGFloat = 80, renderingEnabled: Bool = true, stoneWidth: CGFloat? = nil,
+                maxGrow: CGFloat = 3, hoverSpeed: Float = 1, shouldRotateOnTap: Bool = false,
+                onPressChange: @escaping (Bool) -> Void = { _ in },
+                onHoverChange: @escaping (Bool) -> Void = { _ in }) {
         self.size = size
         self.renderingEnabled = renderingEnabled
+        self.stoneWidth = stoneWidth
+        self.maxGrow = maxGrow
+        self.hoverSpeed = hoverSpeed
+        self.shouldRotateOnTap = shouldRotateOnTap
+        self.onPressChange = onPressChange
+        self.onHoverChange = onHoverChange
     }
 
     public var body: some View {
-        DiamondRepresentable(size: size, active: visible && renderingEnabled && environment.applicationActive,
+        DiamondRepresentable(size: size, stoneWidth: stoneWidth, maxGrow: maxGrow,
+            hoverSpeed: hoverSpeed, shouldRotateOnTap: shouldRotateOnTap,
+            onPressChange: onPressChange, onHoverChange: onHoverChange,
+            active: visible && renderingEnabled && environment.applicationActive,
             animated: environment.diamondAnimationsEnabled)
             .frame(width: size, height: size)
             .onAppear { visible = true }
@@ -26,14 +44,23 @@ public struct TelegramDiamondView: View {
 
 private struct DiamondRepresentable: UIViewRepresentable {
     let size: CGFloat
+    let stoneWidth: CGFloat?
+    let maxGrow: CGFloat
+    let hoverSpeed: Float
+    let shouldRotateOnTap: Bool
+    let onPressChange: (Bool) -> Void
+    let onHoverChange: (Bool) -> Void
     let active: Bool
     let animated: Bool
 
     func makeUIView(context: Context) -> TelegramDiamondContainerView {
-        TelegramDiamondContainerView(size: size)
+        TelegramDiamondContainerView(size: size, stoneWidth: stoneWidth, maxGrow: maxGrow,
+                                     hoverSpeed: hoverSpeed, shouldRotateOnTap: shouldRotateOnTap)
     }
 
     func updateUIView(_ view: TelegramDiamondContainerView, context: Context) {
+        view.onPressChange = onPressChange
+        view.onHoverChange = onHoverChange
         view.configure(active: active, animated: animated)
     }
 
@@ -44,15 +71,26 @@ private struct DiamondRepresentable: UIViewRepresentable {
 
 final class TelegramDiamondContainerView: UIView {
     private let size: CGFloat
+    private let stoneWidth: CGFloat?
+    var onPressChange: ((Bool) -> Void)?
+    var onHoverChange: ((Bool) -> Void)?
     private let diamond = TelegramDiamondMetalView(diamond: ())
     private var active = false
     private var texture: MTLTexture?
     private var captureRect = CGRect.zero
 
-    init(size: CGFloat) {
+    init(size: CGFloat, stoneWidth: CGFloat? = nil, maxGrow: CGFloat = 3,
+         hoverSpeed: Float = 1, shouldRotateOnTap: Bool = false) {
         self.size = size
+        self.stoneWidth = stoneWidth
         super.init(frame: .zero)
         guard let diamond else { return }
+        diamond.maxGrow = maxGrow
+        diamond.hoverSpeed = hoverSpeed
+        diamond.shouldRotateOnTap = shouldRotateOnTap
+        diamond.interactionSize = stoneWidth ?? 64
+        diamond.onPressChange = { [weak self] in self?.onPressChange?($0) }
+        diamond.onHoverChange = { [weak self] in self?.onHoverChange?($0) }
         addSubview(diamond)
         diamond.expansionHost = { [weak self] in
             var responder: UIResponder? = self
@@ -64,7 +102,9 @@ final class TelegramDiamondContainerView: UIView {
             }
             return nil
         }
-        diamond.onPressBegan = { [weak self] in self?.captureForeground() }
+        diamond.onPressBegan = { [weak self] in
+            if maxGrow > 1 && !shouldRotateOnTap { self?.captureForeground() }
+        }
         diamond.onExpansionChanged = { [weak self] expanded in
             if !expanded { self?.texture = nil }
         }
@@ -80,7 +120,7 @@ final class TelegramDiamondContainerView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        diamond?.setRestingFrame(bounds, width: size * 0.9)
+        diamond?.setRestingFrame(bounds, width: stoneWidth ?? size * 0.9)
     }
 
     func configure(active: Bool, animated: Bool = true) {

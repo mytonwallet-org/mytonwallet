@@ -28,6 +28,7 @@ import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -170,6 +171,7 @@ class TransactionVC(
 
     val titleLabel: WReplaceableLabel? by lazy {
         WReplaceableLabel(context).apply {
+            id = UIComponentsR.id.transaction_title
             isSelected = true
             isHorizontalFadingEdgeEnabled = true
             setGravity(Gravity.START)
@@ -178,6 +180,7 @@ class TransactionVC(
 
     val tagLabel: WLabel by lazy {
         WLabel(context).apply {
+            id = UIComponentsR.id.transaction_status
             setPaddingDp(4, 0, 4, 0)
             setStyle(14f, WFont.Medium)
         }
@@ -612,7 +615,8 @@ class TransactionVC(
             LocaleController.getString("Fee"),
             calcFee(transaction) ?: "",
             mode = KeyValueRowView.Mode.SECONDARY,
-            isLast = false
+            isLast = false,
+            viewId = UIComponentsR.id.transaction_fee_row
         ).apply {
             isSensitiveData = true
             useSkeletonIndicatorWithWidth = 80.dp
@@ -973,7 +977,7 @@ class TransactionVC(
             ConstraintLayout.LayoutParams(MATCH_PARENT, HeaderActionsView.HEIGHT.dp)
         )
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && shouldShowTransactionAddress(transaction)) {
+        if (transaction?.shouldShowTransactionAddress == true) {
             initTransactionAddress(transaction)
             displayTransactionAddress(transaction)
             updateTransactionAddressBackgroundColor()
@@ -1031,16 +1035,13 @@ class TransactionVC(
         }
     }
 
-    private fun shouldShowTransactionAddress(transaction: MApiTransaction.Transaction): Boolean =
-        transaction.shouldShowTransactionAddress ||
-            transaction.type == ApiTransactionType.STAKE
-
     private fun initTransactionAddress(transaction: MApiTransaction.Transaction) {
         val addressDetailsLabel = HeaderCell(context).apply {
             transactionAddressHeader = this
         }
 
         val addressView = WAddressActionView(context).apply {
+            id = UIComponentsR.id.transaction_address_row
             balanceShortAddressLine = true
             onTap = { view, _ ->
                 transactionAddress?.let { onAddressClicked(it, view, transaction) }
@@ -1508,7 +1509,7 @@ class TransactionVC(
 
     private fun reloadTransactionAddressView() {
         val transaction = transaction as? MApiTransaction.Transaction
-        if (transaction != null && shouldShowTransactionAddress(transaction)) {
+        if (transaction?.shouldShowTransactionAddress == true) {
             displayTransactionAddress(transaction)
         }
     }
@@ -1708,7 +1709,7 @@ class TransactionVC(
                                         txHash,
                                         isTraceId = txHash == transaction.traceId
                                     ) ?: return@Item
-                                    val browserVC = InAppBrowserVC(context, null, config)
+                                    val browserVC = InAppBrowserVC(context, config)
                                     val window = window ?: return@Item
                                     val nav = WNavigationController(window)
                                     nav.setRoot(browserVC)
@@ -1800,7 +1801,7 @@ class TransactionVC(
                                     transactionId.hash,
                                     isTraceId = transactionId.hash == transaction.traceId
                                 ) ?: return@Item
-                                val browserVC = InAppBrowserVC(context, null, config)
+                                val browserVC = InAppBrowserVC(context, config)
                                 val window = window ?: return@Item
                                 val nav = WNavigationController(window)
                                 nav.setRoot(browserVC)
@@ -1899,7 +1900,6 @@ class TransactionVC(
                                     nav.setRoot(
                                         InAppBrowserVC(
                                             context,
-                                            null,
                                             InAppBrowserConfig(url = url, injectDappConnect = true)
                                         )
                                     )

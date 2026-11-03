@@ -1,5 +1,7 @@
 import type { OnApiUpdate } from '../types';
 
+import { logDebugError } from '../../util/logs';
+import { fetchBackendReferrer } from '../common/backend';
 import { addHooks } from '../hooks';
 import init, { destroy } from './init';
 import { reportInstallMetadata } from './installMetadata';
@@ -9,6 +11,7 @@ import * as methods from '.';
 let mockUpdater: OnApiUpdate | undefined;
 const mockSetItem = jest.fn();
 const mockInitProtocolManager = jest.fn();
+jest.mock('../../util/logs', () => ({ logDebugError: jest.fn() }));
 jest.mock('../../util/windowProvider/connector', () => ({ initWindowConnector: jest.fn() }));
 jest.mock('../common/backend', () => ({ fetchBackendReferrer: jest.fn() }));
 jest.mock('../common/helpers', () => ({
@@ -33,7 +36,9 @@ jest.mock('./agentV2Lifecycle', () => ({ destroyAgentV2IfEnabled: jest.fn(), ini
 jest.mock('./attribution', () => ({ claimInstallAttribution: jest.fn() }));
 jest.mock('./webFunnel', () => ({ startWebFirstLaunchReporting: jest.fn(), stopWebFirstLaunchReporting: jest.fn() }));
 jest.mock('./installMetadata', () => ({ reportInstallMetadata: jest.fn() }));
-jest.mock('./extra', () => ({ initMfa: jest.fn(), initStaking: jest.fn(), initSwap: jest.fn() }));
+jest.mock('./extra', () => ({
+  initMfa: jest.fn(), initStaking: jest.fn(), initSwap: jest.fn(), initPerps: jest.fn(), initPerpsTrading: jest.fn(),
+}));
 jest.mock('./polling', () => ({ destroyPolling: jest.fn() }));
 jest.mock('.', () => ({
   initAccounts: jest.fn(), initAuth: jest.fn(), initPolling: jest.fn(), initTransfer: jest.fn(),
@@ -45,6 +50,7 @@ beforeEach(() => {
   process.env.NO_EXTRA_FEATURES = '1';
   mockUpdater = undefined;
   jest.clearAllMocks();
+  jest.mocked(fetchBackendReferrer).mockReset();
   mockSetItem.mockReset().mockResolvedValue(undefined);
   mockInitProtocolManager.mockReset().mockResolvedValue(undefined);
 });
@@ -110,4 +116,34 @@ it('completes the current init and installs its polling, dApp updater and hooks'
   expect(addHooks).toHaveBeenCalledTimes(1);
   expect(reportInstallMetadata).toHaveBeenCalledTimes(1);
   expect(startWebFirstLaunchReporting).toHaveBeenCalledTimes(1);
+});
+
+it('handles a referrer request failing after initialization without interrupting the wallet', async () => {
+  let rejectRequest!: (error: Error) => void;
+  jest.mocked(fetchBackendReferrer).mockReturnValueOnce(new Promise((_, reject) => {
+    rejectRequest = reject;
+  }));
+  const updater = jest.fn();
+  await expect(init(updater, {})).resolves.toBeUndefined();
+
+  const error = new Error('GET /referrer/get | attempts=3 | Load failed');
+  rejectRequest(error);
+  await new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
+  expect(logDebugError).toHaveBeenCalledWith('saveReferrer', error);
+  expect(mockSetItem).not.toHaveBeenCalledWith('referrer', expect.anything());
+  expect(mockUpdater).toBe(updater);
+  expect(methods.initPolling).toHaveBeenCalledWith(updater);
+});
+
+it('preserves an explicitly supplied referrer without a backend request', async () => {
+  await init(jest.fn(), { referrer: 'test-campaign' });
+  await new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
+  expect(fetchBackendReferrer).not.toHaveBeenCalled();
+  expect(mockSetItem).toHaveBeenCalledWith('referrer', 'test-campaign');
 });

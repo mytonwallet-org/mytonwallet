@@ -298,9 +298,7 @@ final class NftDetailsPagerView: UIView {
         pendingContentHeight = height
         if scrollView.isDragging { return }
         contentReturn = (CACurrentMediaTime(), scrollView.contentOffset.y, maximumOffset)
-        let link = CADisplayLink(target: NftContentReturnTarget(owner: self), selector: #selector(NftContentReturnTarget.tick))
-        link.add(to: .main, forMode: .common)
-        contentReturnLink = link
+        contentReturnLink = .makeWeak(owner: self) { owner, _ in owner.advanceContentReturn() }
     }
 
     private func applyContentHeight(_ height: CGFloat) {
@@ -809,15 +807,5 @@ extension NftDetailsPagerView {
             
             return false
         }
-    }
-}
-
-@MainActor
-private final class NftContentReturnTarget: NSObject {
-    weak var owner: NftDetailsPagerView?
-    init(owner: NftDetailsPagerView) { self.owner = owner }
-    @objc func tick(_ link: CADisplayLink) {
-        guard let owner else { link.invalidate(); return }
-        owner.advanceContentReturn()
     }
 }

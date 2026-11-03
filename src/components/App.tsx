@@ -1,4 +1,6 @@
-import React, { memo, useEffect, useLayoutEffect } from '../lib/teact/teact';
+import React, {
+  memo, useEffect, useLayoutEffect, useRef,
+} from '../lib/teact/teact';
 import { getActions, withGlobal } from '../global';
 
 import type { Theme } from '../global/types';
@@ -137,6 +139,11 @@ function App({
   } = getActions();
 
   const { isPortrait } = useDeviceScreen();
+  // Crossing the phone breakpoint swaps the portrait and landscape layouts at once: it is not a move to another screen,
+  // and the two layouts would show the same screen twice while one faded into the other
+  const isPortraitRef = useRef(isPortrait);
+  const isLayoutSwitch = isPortraitRef.current !== isPortrait;
+  isPortraitRef.current = isPortrait;
 
   const [isInactive, markInactive] = useFlag(false);
   const [canPrerenderMain, prerenderMain] = useFlag();
@@ -157,7 +164,7 @@ function App({
   // Screens sharing the bottom bar are sibling tabs, so they cross-fade into each other. The token
   // screen is the exception: the bar stays visible, but the transition slides in.
   const withSlide = isPortrait && (!withBottomBar || renderingKey === AppState.TokenInfo);
-  const transitionName = withSlide ? resolveSlideTransitionName() : 'semiFade';
+  const transitionName = isLayoutSwitch ? 'none' : withSlide ? resolveSlideTransitionName() : 'semiFade';
 
   useTimeout(
     prerenderMain,

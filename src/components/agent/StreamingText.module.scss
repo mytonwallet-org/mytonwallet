@@ -14,8 +14,21 @@
   unicode-bidi: plaintext;
 }
 
+// The app turns off the touch callout for the whole page (see `styles/index.scss`). Links turn it back on, so a long
+// press on a link shows the system's link menu.
+:global(.agent-text-link) {
+  -webkit-touch-callout: default;
+
+  &,
+  &:hover,
+  &:focus-visible {
+    text-decoration: var(--agent-link-decoration, none);
+  }
+}
+
 .markdownSegment + .markdownSegment {
-  margin-top: 1rem;
+  // The paragraphs of a streaming answer are as far apart as once it is complete, so nothing moves when it ends
+  margin-top: var(--agent-paragraph-gap, 1rem);
 }
 
 .revealEdgeText {

@@ -78,7 +78,12 @@ import { ApiServerError, handleServerError } from '../../errors';
 import { checkHasTransaction, fetchHasTransaction } from './activities';
 import { resolveAddress } from './address';
 import {
-  ATTEMPTS, FEE_FACTOR, JettonOpCode, LEDGER_VESTING_SUBWALLET_ID, TRANSFER_TIMEOUT_SEC,
+  ATTEMPTS,
+  FEE_FACTOR,
+  GASLESS_ROUTE_BY_WALLET_VERSION,
+  JettonOpCode,
+  LEDGER_VESTING_SUBWALLET_ID,
+  TRANSFER_TIMEOUT_SEC,
 } from './constants';
 import { emulateExternalMessage, emulateTransaction } from './emulation';
 import {
@@ -729,7 +734,7 @@ export async function submitGaslessTransfer(
         externalMsgHashNorm: result.msgHashNormalized,
         encryptedComment,
         extra: {
-          withW5Gasless: version === 'W5',
+          withW5Gasless: (version && GASLESS_ROUTE_BY_WALLET_VERSION[version]) === 'w5',
         },
       },
     };
@@ -1076,7 +1081,8 @@ async function submitMultiTransferInternal(
           'submitMultiTransfer',
         );
 
-        const gaslessType = isGasless ? version === 'W5' ? 'w5' : 'diesel' : undefined;
+        const gaslessType = isGasless && version ? GASLESS_ROUTE_BY_WALLET_VERSION[version] : undefined;
+        if (isGasless && !gaslessType) return { error: ApiCommonError.Unexpected };
         const withW5Gasless = gaslessType === 'w5';
 
         const signingResult = await signTransaction({
@@ -1605,6 +1611,9 @@ async function getDiesel({
   if (!token.isGaslessEnabled && !token.isStarsEnabled) return DIESEL_NOT_AVAILABLE;
 
   const { address, version } = storedTonWallet;
+  const gaslessRoute = version && GASLESS_ROUTE_BY_WALLET_VERSION[version];
+  if (!gaslessRoute) return DIESEL_NOT_AVAILABLE;
+
   toncoinBalance ??= await getWalletBalance(network, wallet, signal);
   const fee = getDieselToncoinFee(token);
   const toncoinNeeded = fee.amount - toncoinBalance;
@@ -1615,7 +1624,7 @@ async function getDiesel({
     address,
     tokenAddress,
     toDecimal(toncoinNeeded),
-    version === 'W5',
+    gaslessRoute === 'w5',
     fee.isStars,
     signal,
   );

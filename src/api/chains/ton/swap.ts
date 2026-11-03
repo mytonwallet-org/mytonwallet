@@ -21,7 +21,7 @@ import type { EmulationResponse } from './toncenter/emulation';
 import type { TonTransferParams } from './types';
 import { URANUS_PRICE_DRIFT_ERROR } from '../../types/swap';
 
-import { DEFAULT_OUR_SWAP_FEE, DIESEL_ADDRESS, SWAP_FEE_ADDRESS } from '../../../config';
+import { DEFAULT_OUR_SWAP_FEE, DIESEL_ADDRESSES, SWAP_FEE_ADDRESSES } from '../../../config';
 import { Big } from '../../../lib/big.js';
 import { parseAccountId } from '../../../util/account';
 import { assert as originalAssert } from '../../../util/assert';
@@ -54,7 +54,7 @@ async function getContractInfos(network: ApiNetwork, addresses: string[]) {
   return result;
 }
 
-const FEE_ADDRESSES = [SWAP_FEE_ADDRESS, DIESEL_ADDRESS];
+const FEE_ADDRESSES = [...SWAP_FEE_ADDRESSES, ...DIESEL_ADDRESSES];
 const MAX_NETWORK_FEE = 3600000000n; // 3.6 TON = 0.3 TON * 3 * 4 - when 4 splits with 3 hops per split on Stonfi
 const MAX_SPLITS = 4; // Backend configuration
 
@@ -78,6 +78,10 @@ type SwapTransferAssert = (condition: boolean, message: string) => void;
 
 function assertPayloadFullyRead(slice: Slice, assert: SwapTransferAssert) {
   assert(slice.remainingBits === 0 && slice.remainingRefs === 0, 'Unexpected extra data in swap payload');
+}
+
+function isSwapFeeAddress(address: Address | string) {
+  return SWAP_FEE_ADDRESSES.some((feeAddress) => areAddressesEqual(address, feeAddress));
 }
 
 function validateDedustUranusMemepadBuyTransfer(
@@ -213,7 +217,7 @@ function validateDedustUranusMemepadSellTransfer(
       assert(slice.loadUint(32) === 0x0f8a7ea5, 'Uranus sell fee opcode is invalid');
       slice.loadUintBig(64);
       assert(slice.loadCoins() === quotedFee, 'Uranus sell fee amount does not match quote');
-      assert(areAddressesEqual(slice.loadAddress(), SWAP_FEE_ADDRESS), 'Uranus sell fee destination is invalid');
+      assert(isSwapFeeAddress(slice.loadAddress()), 'Uranus sell fee destination is invalid');
       assert(areAddressesEqual(slice.loadAddress(), address), 'Uranus sell fee response address is invalid');
       assert(!slice.loadMaybeRef(), 'Uranus sell fee custom payload is not allowed');
       assert(slice.loadCoins() === 1n, 'Uranus sell fee forward amount is invalid');
@@ -308,10 +312,7 @@ export async function validateDexSwapTransfers(
         assert(feePayload.remainingBits >= 32 && feePayload.loadUint(32) === Number(OpCode.OurFee),
           'Uranus memepad fee transfer payload is invalid');
         assertPayloadFullyRead(feePayload, assert);
-        assert(
-          areAddressesEqual(feeTransfer!.toAddress, SWAP_FEE_ADDRESS),
-          'Uranus memepad fee destination is invalid',
-        );
+        assert(isSwapFeeAddress(feeTransfer!.toAddress), 'Uranus memepad fee destination is invalid');
         assert(feeTransfer!.amount === quotedFee, 'Uranus memepad fee does not match quote');
       }
       assert(uranusBuyAmount! > 0n && uranusBuyAmount! + quotedFee === grossAmount,

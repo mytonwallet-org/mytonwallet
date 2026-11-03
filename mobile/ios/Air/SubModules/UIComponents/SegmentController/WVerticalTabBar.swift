@@ -376,9 +376,7 @@ public final class WVerticalTabBar: UIView {
         displayLink?.invalidate()
         displayLink = nil
         if lifted, lens != nil {
-            let link = CADisplayLink(target: VerticalTabDisplayLink(self), selector: #selector(VerticalTabDisplayLink.tick))
-            link.add(to: .main, forMode: .common)
-            displayLink = link
+            displayLink = .makeWeak(owner: self) { bar, _ in bar.refreshLiftedPosition() }
         }
     }
 
@@ -405,12 +403,6 @@ public final class WVerticalTabBar: UIView {
 
 @available(iOS 26.0, *)
 @MainActor
-private final class VerticalTabDisplayLink {
-    weak var bar: WVerticalTabBar?
-    init(_ bar: WVerticalTabBar) { self.bar = bar }
-    @objc func tick() { bar?.refreshLiftedPosition() }
-}
-
 private final class VerticalTabScrubRecognizer: UIGestureRecognizer {
     private var initial = CGPoint.zero
     private(set) var current = CGPoint.zero

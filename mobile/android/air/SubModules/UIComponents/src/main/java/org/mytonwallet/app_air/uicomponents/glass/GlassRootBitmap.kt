@@ -144,6 +144,7 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
         mix(root.scrollX.toLong())
         mix(root.scrollY.toLong())
         mix(WColor.Background.color.toLong())
+        (root as? GlassCaptureHost)?.let { mix(it.glassDrawnStateHash()) }
         for (i in 0 until root.childCount) {
             val child = root.getChildAt(i)
             if (child.visibility != View.VISIBLE || child in excluded) continue
@@ -195,6 +196,7 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
                     canvas.restore()
                 }
             }
+            host?.glassDrawForeground(canvas)
         } finally {
             GlassCapture.capturing = false
         }

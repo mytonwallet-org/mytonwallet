@@ -51,6 +51,7 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.CardBackgroundArtworkView
 import org.mytonwallet.app_air.uicomponents.commonViews.UpdateStatusView
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardBadgeLightView
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardCarouselTransform
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPressInteraction
 import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPressSurfaceView
@@ -411,15 +412,16 @@ class WalletCardView(
         val content = object : FrameLayout(context) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-                balanceChangeBlurView.measure(
-                    MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
-                )
+                val widthSpec = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
+                val heightSpec = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+                balanceChangeBlurView.measure(widthSpec, heightSpec)
+                balanceChangeLightView.measure(widthSpec, heightSpec)
             }
         }.apply {
             minimumHeight = 28.dp
             addView(balanceChangeBlurView, FrameLayout.LayoutParams(0, 0))
             balanceChangeBlurView.setupWith(clippedContainer)
+            addView(balanceChangeLightView, FrameLayout.LayoutParams(0, 0))
             addView(
                 balanceChangeTextLabel,
                 FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
@@ -539,7 +541,7 @@ class WalletCardView(
         shineEnabled = true
         onSurfaceFrame = { x, y ->
             val enabled = !WGlobalStorage.getIs3dCardDisabled()
-            balanceChangeBlurView.setCardSurfaceLight(
+            balanceChangeLightView.setTilt(
                 if (enabled) x else null,
                 if (enabled) y else null
             )
@@ -571,6 +573,9 @@ class WalletCardView(
         setRadius(14f.dp)
         noBlurColor = Color.WHITE.colorWithAlpha(25)
         setProvider(GlassProviders.legacy(WColor.Transparent))
+    }
+    private val balanceChangeLightView = CardBadgeLightView(context).apply {
+        radius = 14f.dp
     }
 
     private val seasonalOverlayView = SeasonalOverlayView(context).apply {
@@ -885,7 +890,10 @@ class WalletCardView(
         isAttachedToWindow && isShown && hasWindowFocus() && isHomeVisible &&
             !areEffectsSuspended && isAccountScrolling && !isInGoneState &&
             WGlobalStorage.getAreAnimationsActive() && !WGlobalStorage.getIs3dCardDisabled() &&
-            android.animation.ValueAnimator.areAnimatorsEnabled() &&
+            (
+                android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                    android.animation.ValueAnimator.areAnimatorsEnabled()
+                ) &&
             context.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode != true
 
     private fun shouldFadeOnScroll(): Boolean = isAccountScrolling && isHomeVisible && !isOffScreen

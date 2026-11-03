@@ -1,6 +1,7 @@
 import type { Cell } from '@ton/core';
 import { Address, Builder } from '@ton/core';
 
+import type { NftSyncSnapshot } from '../../common/nftSync';
 import type {
   ApiCheckTransactionDraftResult,
   ApiNetwork,
@@ -9,11 +10,14 @@ import type {
   ApiNftTransfer,
   ApiNftUpdate,
   ApiSubmitNftTransferResult,
+  OnApiUpdate,
 } from '../../types';
+import type { MetadataMap } from './toncenter/types';
 import { ApiCommonError, ApiTransactionDraftError } from '../../types';
 
 import {
   BURN_ADDRESS,
+  IS_AIR_APP,
   NFT_BATCH_SIZE,
   NOTCOIN_EXCHANGERS,
   NOTCOIN_FORWARD_TON_AMOUNT,
@@ -32,6 +36,7 @@ import { getSigner } from './util/signer';
 import { commentToBytes, packBytesAsSnakeCell, storeInlineOrRefCell, toBase64Address } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
+import { createNftSync } from '../../common/nftSync';
 import { fetchAllPaginated, streamPaginated } from '../../common/pagination';
 import { parseToncenterNft } from './toncenter/actions';
 import { fetchNftItems, fetchNftTransfers, parseNftItem, parseNftItems } from './toncenter/nfts';
@@ -48,6 +53,100 @@ import {
 import { isActiveNonWalletContract } from './wallet';
 
 const NFT_TRANSFER_BATCH_SIZE = 100;
+const NFT_SYNC_MAX_INDIVIDUAL_UPDATES = 100;
+
+export function createTonNftSync(accountId: string, address: string, onUpdate: OnApiUpdate) {
+  const { network } = parseAccountId(accountId);
+  const sync = createNftSync(accountId, 'ton', network, address, (snapshot, changedAddresses) => {
+    validateTonNftSnapshot(snapshot, address, changedAddresses);
+  });
+
+  async function parseSnapshot(snapshot: NftSyncSnapshot, addresses?: readonly string[]) {
+    const superCollections = await getNftSuperCollectionsByCollectionAddress();
+    const metadata = snapshot.metadata as MetadataMap;
+    const items = addresses ? compact(addresses.map((rawAddress) => snapshot.items[rawAddress]))
+      : Object.values(snapshot.items);
+    return compact(items.map((item) => (
+      parseNftItem(network, item, metadata, superCollections)
+    )));
+  }
+
+  function emitFull(nfts: ApiNft[]) {
+    const batches = nfts.length ? split(nfts, getChainConfig('ton').nftBatchLimit ?? 500) : [nfts];
+    for (const batch of batches) {
+      onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: batch, isFullLoading: true });
+    }
+    onUpdate({
+      type: 'updateNfts', accountId, chain: 'ton', nfts: IS_AIR_APP ? [] : nfts, isFullLoading: false,
+      streamedAddresses: nfts.map((nft) => nft.address),
+    });
+  }
+
+  return {
+    getRetryAt: sync.getRetryAt,
+    async restore(signal?: AbortSignal) {
+      const snapshot = await sync.load();
+      if (!snapshot || signal?.aborted) return;
+      const nfts = await parseSnapshot(snapshot);
+      if (signal?.aborted) return;
+      emitFull(nfts);
+    },
+    async poll(signal?: AbortSignal, shouldEmitFull = false, onBeforeEmitFull?: NoneToVoidFunction) {
+      const result = await sync.sync(signal);
+      if (!result || signal?.aborted) return false;
+      const isFull = shouldEmitFull || result.reset
+        || result.changedAddresses.length > NFT_SYNC_MAX_INDIVIDUAL_UPDATES;
+      if (!isFull && !result.changedAddresses.length) return true;
+      const addresses = isFull ? undefined : result.changedAddresses;
+      const nfts = await parseSnapshot(result.snapshot, addresses);
+      if (signal?.aborted) return false;
+      if (isFull) {
+        onBeforeEmitFull?.();
+        emitFull(nfts);
+        return true;
+      }
+
+      const previousNfts = result.previous ? await parseSnapshot(result.previous, addresses) : [];
+      if (signal?.aborted) return false;
+      const previousByAddress = Object.fromEntries(previousNfts.map((nft) => [nft.address, nft]));
+      const byAddress = Object.fromEntries(nfts.map((nft) => [nft.address, nft]));
+      for (const nft of previousNfts) {
+        if (!byAddress[nft.address]) {
+          onUpdate({
+            type: 'nftSent', accountId, chain: 'ton', nftAddress: nft.address,
+            // The sync endpoint confirms removal without disclosing the new owner.
+            newOwnerAddress: '',
+          });
+        }
+      }
+      for (const nft of nfts) {
+        const previous = previousByAddress[nft.address];
+        if (previous) {
+          onUpdate({ type: 'nftChanged', accountId, chain: 'ton', nft });
+        } else if (!nft.isHidden) {
+          onUpdate({ type: 'nftReceived', accountId, nftAddress: nft.address, nft });
+        }
+      }
+      return true;
+    },
+  };
+}
+
+// Token metadata is minted by third parties and has no guaranteed shape. `parseNftItem` handles it the same way
+// on the direct path, so only the fields that tie an item to this owner are validated here.
+function validateTonNftSnapshot(snapshot: NftSyncSnapshot, owner: string, addresses?: readonly string[]) {
+  const items = addresses
+    ? compact(addresses.map((address) => snapshot.items[address])) : Object.values(snapshot.items);
+  for (const item of items) {
+    for (const address of [item.address, item.collection_address, item.owner_address, item.real_owner]) {
+      if (address && !Address.isRaw(address)) throw new Error('Invalid raw NFT sync address');
+    }
+    const itemOwner = item.real_owner ?? item.owner_address;
+    if (!itemOwner || !Address.parse(itemOwner).equals(Address.parse(owner))) {
+      throw new Error('NFT sync item belongs to another owner');
+    }
+  }
+}
 
 export async function getAccountNfts(accountId: string, options?: {
   collectionAddress?: string;

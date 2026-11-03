@@ -100,8 +100,12 @@ public struct SVGParserSupportedElements {
                     "x2": unown(returnElement, SVGLinearGradient.parseX2),
                     "y1": unown(returnElement, SVGLinearGradient.parseY1),
                     "y2": unown(returnElement, SVGLinearGradient.parseY2),
+                    "gradientUnits": unown(returnElement, SVGLinearGradient.parseUnits),
                 ]
                 return returnElement
+            },
+            SVGRadialGradient.elementName: {
+                return SVGRadialGradient(context: renderContext)
             },
             SVGStop.elementName: {
                 let returnElement = SVGStop()
@@ -184,13 +188,14 @@ public struct SVGParserSupportedElements {
                 return returnElement
             },
             SVGPath.elementName: {
-                let returnElement = SVGPath()
+                let returnElement = SVGPath(context: renderContext)
                 returnElement.supportedAttributes = [
                     "d": unown(returnElement, SVGPath.parseD),
                     "clip-rule": unown(returnElement, SVGPath.clipRule),
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = unown(returnElement, SVGPath.parseFill)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)

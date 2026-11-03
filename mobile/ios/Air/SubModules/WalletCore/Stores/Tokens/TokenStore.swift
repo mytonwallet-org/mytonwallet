@@ -12,13 +12,14 @@ import Dependencies
 import WalletCoreTypes
 
 public var TokenStore: _TokenStore { _TokenStore.shared }
-private let HISTORY_DATA_STALENESS = 120.0
+/// Price history by token slug and period raw value
+private typealias PriceHistoryCache = [String: [String: ApiHistoryList]]
 private let TOKEN_DETAILS_CACHE_VALIDITY: TimeInterval = 15 * 60
 private let TOKEN_DETAILS_PRELOAD_LIMIT = 20
 private let TOKEN_DETAILS_CACHE_LIMIT_PER_ACCOUNT = 50
 private let log = Log("TokenStore")
 
-private struct TokenDetailsRequest: Sendable {
+struct TokenDetailsRequest: Sendable {
     let id: UUID
     let task: Task<ApiTokenDetails?, Error>
 }
@@ -142,6 +143,7 @@ public final class _TokenStore: Sendable {
         loadTokensFromCache()
         loadSwapAssetsFromCache()
         loadTokenDetailsFromCache()
+        loadPriceHistoryFromCache()
         WalletCoreData.add(eventObserver: self)
         startTokenDetailsMaintenance()
         scheduleTokenDetailsPreload()
@@ -396,28 +398,55 @@ public final class _TokenStore: Sendable {
         ARC_SLUG: .ARC,
     ]
 
-    // MARK: - Cached history data
-    
-    public struct HistoryData: Equatable, Hashable, Codable, Sendable {
-        public var lastUpdated: Date
-        public var data: [ApiPriceHistoryPeriod : [[Double]]?]
+    // MARK: - Cached price history
+
+    private let _priceHistory: UnfairLock<PriceHistoryCache> = .init(initialState: [:])
+    private let priceHistoryDiskAccess: UnfairLock<Void> = .init(initialState: ())
+
+    public func cachedPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod) -> ApiHistoryList? {
+        guard let history = _priceHistory.withLock({ $0[tokenSlug]?[period.rawValue] }),
+              Self.isPriceHistoryFresh(history, period: period) else { return nil }
+        return history
     }
-    
-    private let _historyData: UnfairLock<[String: HistoryData]> = .init(initialState: [:])
-    public func historyData(tokenSlug: String) -> HistoryData? {
-        if let data = _historyData.withLock({ $0[tokenSlug] }), abs(data.lastUpdated.timeIntervalSinceNow) < HISTORY_DATA_STALENESS {
-            return data
+
+    public func setPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod, history: ApiHistoryList, baseCurrency: MBaseCurrency) -> Bool {
+        let accepted = _baseCurrency.withLock { currentCurrency in
+            guard (currentCurrency ?? DEFAULT_PRICE_CURRENCY) == baseCurrency else { return false }
+            _priceHistory.withLock { $0[tokenSlug, default: [:]][period.rawValue] = history.isEmpty ? nil : history }
+            return true
         }
-        return nil
+        guard accepted else { return false }
+        Task.detached(priority: .utility) { [self] in persistPriceHistory() }
+        return true
     }
-    public func setHistoryData(tokenSlug: String, data: [ApiPriceHistoryPeriod : [[Double]]?]) {
-        let historyData = HistoryData(lastUpdated: .now, data: data)
-        _historyData.withLock {
-            $0[tokenSlug] = historyData
-        }
-    }
+
     private func clearHistoryData() {
-        _historyData.withLock { $0 = [:] }
+        _priceHistory.withLock { $0 = [:] }
+        priceHistoryDiskAccess.withLock { _ in
+            AppStorageHelper.save(priceHistoryCache: [:])
+        }
+    }
+
+    private func loadPriceHistoryFromCache() {
+        guard let cache = AppStorageHelper.priceHistoryCache() else { return }
+        let freshCache = cache.compactMapValues { periods in
+            let freshPeriods = periods.filter { rawPeriod, history in
+                ApiPriceHistoryPeriod(rawValue: rawPeriod).map { Self.isPriceHistoryFresh(history, period: $0) } ?? false
+            }
+            return freshPeriods.isEmpty ? nil : freshPeriods
+        }
+        _priceHistory.withLock { $0 = freshCache }
+    }
+
+    private func persistPriceHistory() {
+        priceHistoryDiskAccess.withLock { _ in
+            AppStorageHelper.save(priceHistoryCache: _priceHistory.withLock { $0 })
+        }
+    }
+
+    private static func isPriceHistoryFresh(_ history: ApiHistoryList, period: ApiPriceHistoryPeriod) -> Bool {
+        guard let lastTimestamp = history.last?.first else { return false }
+        return Date.now.timeIntervalSince1970 - lastTimestamp <= period.maxCacheAge
     }
 
     // MARK: - Cached token details
@@ -488,28 +517,68 @@ public final class _TokenStore: Sendable {
     }
 
     private func requestTokenDetails(language: String, token: ApiToken) async throws -> ApiTokenDetails? {
-        let requestKey = "\(language):\(token.slug)"
         let request = tokenDetailsRequests.withLock { requests in
-            if let existingRequest = requests[requestKey] {
-                return existingRequest
-            }
-            let request = TokenDetailsRequest(
-                id: UUID(),
-                task: Task.detached(priority: .utility) {
-                    try await Api.fetchTokenDetails(asset: token.swapIdentifier, slug: token.slug)
-                }
-            )
-            requests[requestKey] = request
-            return request
+            Self.startTokenDetailsRequests(language: language, tokens: [token], requests: &requests)[token.slug]!
         }
+        return try await resolveTokenDetailsRequest(language: language, slug: token.slug, request: request)
+    }
 
+    private func requestTokenDetails(language: String, tokens: [ApiToken]) async throws {
+        let requests = tokenDetailsRequests.withLock { requests in
+            Self.startTokenDetailsRequests(language: language, tokens: tokens, requests: &requests)
+        }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (slug, request) in requests {
+                group.addTask {
+                    _ = try await self.resolveTokenDetailsRequest(language: language, slug: slug, request: request)
+                }
+            }
+            try await group.waitForAll()
+        }
+    }
+
+    static func startTokenDetailsRequests(
+        language: String,
+        tokens: [ApiToken],
+        requests: inout [String: TokenDetailsRequest],
+        fetch: @escaping @Sendable ([(asset: String, slug: String)]) async throws -> [String: ApiTokenDetails] = {
+            try await Api.fetchTokenDetails(tokens: $0)
+        }
+    ) -> [String: TokenDetailsRequest] {
+        var seenSlugs = Set<String>()
+        let uniqueTokens = tokens.filter { seenSlugs.insert($0.slug).inserted }
+        let newTokens = uniqueTokens.filter { requests["\(language):\($0.slug)"] == nil }
+        if !newTokens.isEmpty {
+            let batchTask = Task.detached(priority: .utility) {
+                try await fetch(newTokens.map { (asset: $0.swapIdentifier, slug: $0.slug) })
+            }
+            for token in newTokens {
+                requests["\(language):\(token.slug)"] = TokenDetailsRequest(
+                    id: UUID(),
+                    task: Task.detached(priority: .utility) {
+                        try await batchTask.value[token.slug]
+                    }
+                )
+            }
+        }
+        return Dictionary(uniqueKeysWithValues: uniqueTokens.map { token in
+            (token.slug, requests["\(language):\(token.slug)"]!)
+        })
+    }
+
+    private func resolveTokenDetailsRequest(
+        language: String,
+        slug: String,
+        request: TokenDetailsRequest
+    ) async throws -> ApiTokenDetails? {
+        let requestKey = "\(language):\(slug)"
         do {
             let details = try await request.task.value
             if finishTokenDetailsRequest(key: requestKey, id: request.id) {
                 updateTokenDetailsCache {
                     $0.storing(
                         language: language,
-                        slug: token.slug,
+                        slug: slug,
                         details: details,
                         fetchedAt: .now
                     )
@@ -613,21 +682,19 @@ public final class _TokenStore: Sendable {
             slugs: snapshot.tokens.map(\.slug),
             promoteExisting: false
         )
-        for token in snapshot.tokens {
-            guard !Task.isCancelled,
-                  isAppForeground.withLock({ $0 }),
-                  AccountStore.accountId == snapshot.accountId
-            else { return }
-            guard cachedTokenDetails(tokenSlug: token.slug) == nil else { continue }
-            do {
-                _ = try await requestTokenDetails(
-                    language: LocalizationSupport.shared.langCode,
-                    token: token
-                )
-            } catch is CancellationError {
-                if Task.isCancelled { return }
-            } catch {}
-        }
+        let uncachedTokens = snapshot.tokens.filter { cachedTokenDetails(tokenSlug: $0.slug) == nil }
+        guard !uncachedTokens.isEmpty,
+              !Task.isCancelled,
+              DebugTokenInfoMock.preset == .disabled,
+              isAppForeground.withLock({ $0 }),
+              AccountStore.accountId == snapshot.accountId
+        else { return }
+        do {
+            try await requestTokenDetails(
+                language: LocalizationSupport.shared.langCode,
+                tokens: uncachedTokens
+            )
+        } catch {}
     }
 
     @MainActor
@@ -866,6 +933,8 @@ extension AppStorageHelper {
     private static let currencyRatesKey = "cache.currencyRates"
     private static let tokenDetailsCacheURL = URL.cachesDirectory
         .appending(components: "air", "token-details-cache.json")
+    private static let priceHistoryCacheURL = URL.cachesDirectory
+        .appending(components: "air", "price-history-cache.json")
     
     fileprivate static func save(baseCurrency: MBaseCurrency, tokens: [String: ApiToken], currencyRates: [String: MDouble]) {
         UserDefaults.standard.set(baseCurrency.rawValue, forKey: tokensCurrencyKey)
@@ -929,6 +998,35 @@ extension AppStorageHelper {
         }
     }
     
+    fileprivate static func save(priceHistoryCache: PriceHistoryCache) {
+        guard !priceHistoryCache.isEmpty else {
+            try? FileManager.default.removeItem(at: priceHistoryCacheURL)
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(
+                at: priceHistoryCacheURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let data = try JSONEncoder().encode(priceHistoryCache)
+            try data.write(to: priceHistoryCacheURL, options: .atomic)
+        } catch {
+            log.error("failed to save price history cache \(error, .public)")
+        }
+    }
+
+    fileprivate static func priceHistoryCache() -> PriceHistoryCache? {
+        guard FileManager.default.fileExists(atPath: priceHistoryCacheURL.path()) else { return nil }
+        do {
+            let data = try Data(contentsOf: priceHistoryCacheURL)
+            return try JSONDecoder().decode(PriceHistoryCache.self, from: data)
+        } catch {
+            try? FileManager.default.removeItem(at: priceHistoryCacheURL)
+            log.error("failed to decode price history cache \(error, .public)")
+            return nil
+        }
+    }
+
     // MARK: - SwapAssets dict
     private static let swapAssetsArrayKey = "cache.swapAssets"
 

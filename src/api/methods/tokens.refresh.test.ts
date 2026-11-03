@@ -21,7 +21,10 @@ describe('refreshTokens', () => {
   };
 
   beforeEach(() => {
-    jest.mocked(callBackendGet).mockResolvedValue([token]);
+    const { priceUsd, percentChange24h, ...asset } = token;
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'refresh', prices: { [token.slug]: [priceUsd, percentChange24h] } }
+      : { version: 'refresh', assets: [asset] }));
     tokensPreload.resolve();
     resumeTokenUpdates();
   });
@@ -48,7 +51,10 @@ describe('refreshTokens', () => {
     initTokens(onUpdate);
     await refreshTokens();
     onUpdate.mockClear();
-    jest.mocked(callBackendGet).mockRejectedValueOnce(new Error('offline'));
+    const getBackendReply = jest.mocked(callBackendGet).getMockImplementation()!;
+    jest.mocked(callBackendGet).mockImplementation((path: string, ...args) => (path === '/assets/prices'
+      ? Promise.reject(new Error('offline'))
+      : getBackendReply(path, ...args)));
 
     await expect(refreshTokens()).rejects.toThrow('offline');
 

@@ -7,11 +7,17 @@ type Animation = {
   startTime: number;
   duration: number;
   isRepeated?: boolean;
+  getVelocity?: (progress: number) => number;
   onUpdate: (progress: number) => void;
   onEnd?: () => void;
 };
 
 type Options = {
+  hoverSpeed?: number;
+  shouldRotateOnTap?: boolean;
+  maxGrow?: number;
+  interactionTarget?: HTMLElement;
+  onPress?: () => void;
   // The first frame is on the canvas
   onReady?: () => void;
   // No WebGL 2, no usable GPU, a lost context or a failed model download; show a still or a Lottie instead
@@ -26,6 +32,15 @@ const MIN_FRAME_INTERVAL = 9.5;
 const IDLE_DELAY = 0.5;
 const RELEASE_DURATION = 0.6;
 const TAP_DURATION = 0.22;
+const FULL_TURN_DURATION = 1.8;
+const TAP_TURNS = 3;
+const MAX_TAP_DURATION_MS = 250;
+const HOVER_SMOOTHING_RATE = 10;
+const GROW_SPRING_STEP = 1 / 120;
+const GROW_SPRING_STIFFNESS = 196;
+const GROW_SPRING_DAMPING_RATIO = 0.42;
+const GROW_SPRING_FREQUENCY = 14;
+const GROW_SPRING_THRESHOLD = 0.0001;
 
 const FULL_TURN = 360;
 const OVERSHOOT_TENSION = 2;
@@ -41,8 +56,15 @@ const DRAG_PITCH_SPEED = 0.05;
 // Draws the diamond into a square canvas whose `width` and `height` are its size in device pixels.
 // Dragging turns the diamond, a tap tilts it towards the tapped point, and left alone it turns slowly.
 // Returns a function that stops rendering and releases the WebGL context.
-export function mountDiamond(canvas: HTMLCanvasElement, { onReady, onError }: Options = {}) {
-  const handleError = () => onError?.();
+export function mountDiamond(
+  canvas: HTMLCanvasElement,
+  {
+    onReady, onError, hoverSpeed = 1, shouldRotateOnTap = false, maxGrow = 1, interactionTarget, onPress,
+  }: Options = {},
+) {
+  function handleError() {
+    onError?.();
+  }
 
   // Without a usable GPU, the browser renders WebGL on the CPU, which is far too slow for these shaders
   const gl = canvas.getContext('webgl2', { failIfMajorPerformanceCaveat: true });
@@ -58,7 +80,8 @@ export function mountDiamond(canvas: HTMLCanvasElement, { onReady, onError }: Op
     .then((scene) => {
       if (isDestroyed) return;
 
-      stop = startRendering(canvas, scene, () => onReady?.());
+      stop = startRendering(canvas, scene, () => onReady?.(), hoverSpeed, shouldRotateOnTap,
+        maxGrow, interactionTarget ?? canvas, onPress);
     })
     .catch(() => {
       if (!isDestroyed) handleError();
@@ -74,7 +97,10 @@ export function mountDiamond(canvas: HTMLCanvasElement, { onReady, onError }: Op
   };
 }
 
-function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady: () => void) {
+function startRendering(
+  canvas: HTMLCanvasElement, scene: DiamondScene, onReady: () => void, hoverSpeed: number, shouldRotateOnTap: boolean,
+  maxGrow: number, target: HTMLElement, onPress?: () => void,
+) {
   const pixelRatio = window.devicePixelRatio || 1;
   const drawState: DiamondDrawState = {};
   // The canvas is square
@@ -90,9 +116,16 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
   let yaw = 0;
   let pitch = 0;
   let animation: Animation | undefined;
+  let interruptedTurnVelocity: number | undefined;
   let isIdleEnabled = false;
   let isPressed = false;
+  let pressStartedAt = 0;
+  let activePointerId: number | undefined;
   let isDragging = false;
+  let isHovered = false;
+  let idleSpeed = 1;
+  let grow = 1;
+  let growVelocity = 0;
   let startX = 0;
   let startY = 0;
   let lastX = 0;
@@ -114,7 +147,30 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
       startIdle();
     }
 
+    // Adjusting only the idle clock preserves the angle when hover speed changes
+    idleSpeed = lerp(idleSpeed, isHovered ? hoverSpeed : 1, 1 - Math.exp(-frameTime * HOVER_SMOOTHING_RATE));
+    if (animation?.isRepeated) {
+      animation.startTime -= frameTime * (idleSpeed - 1);
+    }
     updateAnimation();
+    if (maxGrow > 1) {
+      const targetGrow = isPressed ? maxGrow : 1;
+      let remaining = frameTime;
+      while (remaining > 0) {
+        const step = Math.min(remaining, GROW_SPRING_STEP);
+        growVelocity += ((targetGrow - grow) * GROW_SPRING_STIFFNESS
+          - 2 * GROW_SPRING_DAMPING_RATIO * GROW_SPRING_FREQUENCY * growVelocity) * step;
+        grow += growVelocity * step;
+        remaining -= step;
+      }
+      if (Math.abs(grow - targetGrow) < GROW_SPRING_THRESHOLD && Math.abs(growVelocity) < GROW_SPRING_THRESHOLD) {
+        grow = targetGrow;
+        growVelocity = 0;
+      }
+      canvas.style.transform = `scale(${Math.min(maxGrow, grow)})`;
+    }
+    // Ready-state renders can update the canvas density after moving between screens
+    viewport.size = canvas.width;
     scene.draw(drawState, viewport, time, frameTime, convertToRadians(yaw), convertToRadians(pitch));
 
     if (!isReady) {
@@ -155,6 +211,8 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
   }
 
   function release() {
+    interruptedTurnVelocity = undefined;
+    if (shouldRotateOnTap) yaw = ((yaw + 180) % FULL_TURN + FULL_TURN) % FULL_TURN - 180;
     const fromYaw = yaw;
     const fromPitch = pitch;
     animation = {
@@ -189,19 +247,54 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
     };
   }
 
+  function turnOnTap() {
+    const fromYaw = yaw;
+    pitch = 0;
+    const distance = FULL_TURN * TAP_TURNS;
+    const tangent = (interruptedTurnVelocity ?? 3 * distance / FULL_TURN_DURATION) * FULL_TURN_DURATION;
+    interruptedTurnVelocity = undefined;
+    animation = {
+      startTime: time,
+      duration: FULL_TURN_DURATION,
+      getVelocity: (progress) => (6 * distance * progress * (1 - progress)
+        + tangent * (3 * progress * progress - 4 * progress + 1))
+      / FULL_TURN_DURATION,
+      onUpdate: (progress) => {
+        yaw = fromYaw + distance * progress * progress * (3 - 2 * progress)
+          + tangent * progress * (1 - progress) ** 2;
+        pitch = 0;
+      },
+      onEnd: startIdle,
+    };
+  }
+
   function handlePointerDown(e: PointerEvent) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.isPrimary === false || isPressed) return;
 
     isPressed = true;
+    pressStartedAt = performance.now();
+    activePointerId = e.pointerId;
     isDragging = false;
+    interruptedTurnVelocity = animation?.getVelocity?.(
+      Math.min(1, Math.max(0, time - animation.startTime) / animation.duration),
+    );
     animation = undefined;
     startX = lastX = e.offsetX;
     startY = lastY = e.offsetY;
-    canvas.setPointerCapture(e.pointerId);
+    target.setPointerCapture(e.pointerId);
+    onPress?.();
+  }
+
+  function handlePointerEnter(e: PointerEvent) {
+    isHovered = e.pointerType === 'mouse';
+  }
+
+  function handlePointerLeave() {
+    isHovered = false;
   }
 
   function handlePointerMove(e: PointerEvent) {
-    if (!isPressed) return;
+    if (!isPressed || e.pointerId !== activePointerId) return;
 
     // On macOS, Ctrl+click opens a context menu that takes the button release, so `pointerup` never
     // reaches the canvas. Without this check, the diamond would keep following the mouse.
@@ -210,10 +303,11 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
       return;
     }
 
-    if (!isDragging) {
-      if (Math.hypot(e.offsetX - startX, e.offsetY - startY) <= TOUCH_SLOP) return;
+    if (!isDragging && Math.hypot(e.offsetX - startX, e.offsetY - startY) > TOUCH_SLOP) {
       isDragging = true;
+      animation = undefined;
     }
+    if (!isDragging && !shouldRotateOnTap) return;
 
     yaw += (e.offsetX - lastX) * pixelRatio * DRAG_YAW_SPEED;
     pitch += (e.offsetY - lastY) * pixelRatio * DRAG_PITCH_SPEED;
@@ -222,13 +316,33 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
   }
 
   function handlePointerUp(e: PointerEvent) {
-    if (!isPressed) return;
+    if (!isPressed || e.pointerId !== activePointerId) return;
 
     isPressed = false;
-    release();
-    if (!isDragging && e.type === 'pointerup') {
-      tiltTowards(e.offsetX, e.offsetY);
+    activePointerId = undefined;
+    if (shouldRotateOnTap) {
+      if (!isDragging && e.type === 'pointerup'
+        && Math.hypot(e.offsetX - startX, e.offsetY - startY) <= TOUCH_SLOP
+        && performance.now() - pressStartedAt <= MAX_TAP_DURATION_MS) {
+        turnOnTap();
+      } else {
+        release();
+      }
+      return;
     }
+    release();
+    if (!isDragging && e.type === 'pointerup') tiltTowards(e.offsetX, e.offsetY);
+  }
+
+  function handleInteractionLost(event?: Event) {
+    if (event?.type === 'lostpointercapture'
+      && (!isPressed || (event as PointerEvent).pointerId !== activePointerId)) return;
+    isHovered = false;
+    idleSpeed = 1;
+    if (!isPressed) return;
+    isPressed = false;
+    activePointerId = undefined;
+    release();
   }
 
   // A hidden tab or a canvas out of view, such as on an inactive modal slide with `display: none`, stops drawing
@@ -237,6 +351,7 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
     if (isInView && !document.hidden) {
       resume();
     } else {
+      handleInteractionLost();
       pause();
     }
   }
@@ -263,19 +378,28 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
 
   observer.observe(canvas);
   document.addEventListener('visibilitychange', updatePlayback);
-  canvas.addEventListener('pointerdown', handlePointerDown);
-  canvas.addEventListener('pointermove', handlePointerMove);
-  canvas.addEventListener('pointerup', handlePointerUp);
-  canvas.addEventListener('pointercancel', handlePointerUp);
+  target.addEventListener('pointerdown', handlePointerDown);
+  target.addEventListener('pointermove', handlePointerMove);
+  target.addEventListener('pointerup', handlePointerUp);
+  target.addEventListener('pointercancel', handlePointerUp);
+  target.addEventListener('lostpointercapture', handleInteractionLost);
+  window.addEventListener('blur', handleInteractionLost);
+  target.addEventListener('pointerenter', handlePointerEnter);
+  target.addEventListener('pointerleave', handlePointerLeave);
 
   return () => {
     pause();
+    if (maxGrow > 1) canvas.style.transform = '';
     observer.disconnect();
     document.removeEventListener('visibilitychange', updatePlayback);
-    canvas.removeEventListener('pointerdown', handlePointerDown);
-    canvas.removeEventListener('pointermove', handlePointerMove);
-    canvas.removeEventListener('pointerup', handlePointerUp);
-    canvas.removeEventListener('pointercancel', handlePointerUp);
+    target.removeEventListener('pointerdown', handlePointerDown);
+    target.removeEventListener('pointermove', handlePointerMove);
+    target.removeEventListener('pointerup', handlePointerUp);
+    target.removeEventListener('pointercancel', handlePointerUp);
+    target.removeEventListener('lostpointercapture', handleInteractionLost);
+    window.removeEventListener('blur', handleInteractionLost);
+    target.removeEventListener('pointerenter', handlePointerEnter);
+    target.removeEventListener('pointerleave', handlePointerLeave);
   };
 }
 

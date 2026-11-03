@@ -39,6 +39,12 @@
          <TestPlanReference
             reference = "container:../Tests/AirUIIntegrationTests.xctestplan">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:../Tests/AirSpotlightTests.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:../Tests/AirSearchTests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
    </TestAction>
    <LaunchAction

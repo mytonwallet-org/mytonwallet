@@ -321,6 +321,7 @@ export function createAgentV2StreamController(
       id: getMessageId(message.id),
       text,
       isOutgoing: message.role === 'user',
+      ...(message.newsPost ? { isNewsPost: true } : {}),
       timestamp: new Date(message.createdAt).getTime(),
       ...(message.responseLanguage ? { responseLanguage: message.responseLanguage } : {}),
       ...(semanticContent ? { semanticContent } : {}),

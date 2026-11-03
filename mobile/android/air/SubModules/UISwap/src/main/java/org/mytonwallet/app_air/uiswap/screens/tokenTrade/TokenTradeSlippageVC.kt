@@ -6,11 +6,14 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
+import android.os.Build
 import android.text.InputFilter
 import android.text.InputType
 import android.text.method.DigitsKeyListener
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
@@ -19,17 +22,26 @@ import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.widget.doAfterTextChanged
-import kotlin.math.ln
-import kotlin.math.pow
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setConstraints
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.MAX_VALUE
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.MIN_VALUE
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.POSITIONS
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.PRESETS
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.TINT_COLOR
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.formatSlippage
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.positionFor
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeSlippageScale.selection
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -51,6 +63,8 @@ class TokenTradeSlippageVC(
 
     override val shouldDisplayTopBar = false
 
+    override val wrapsContentInCenteredWindow = true
+
     private var draft: Float? = slippage
     private var isUpdatingText = false
 
@@ -65,9 +79,15 @@ class TokenTradeSlippageVC(
         setPadding(0, 0, 0, 0)
         includeFontPadding = false
         typeface = WFont.Balance.typeface
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            isLocalePreferredLineHeightForMinimumUsed = false
+        }
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
         gravity = Gravity.END or Gravity.CENTER_VERTICAL
         isSingleLine = true
+        minWidth = 24.dp
+        maxWidth = 100.dp
+        hint = "0"
         inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         keyListener = DigitsKeyListener.getInstance("0123456789.,")
         filters = arrayOf(
@@ -77,7 +97,7 @@ class TokenTradeSlippageVC(
                 if (parts.size > 2 || (parts.getOrNull(1)?.length ?: 0) > 1) "" else null
             }
         )
-        contentDescription = LocaleController.getString("Slippage")
+        contentDescription = LocaleController.getString("Slippage") + ", %"
         doAfterTextChanged { text ->
             if (isUpdatingText) return@doAfterTextChanged
             draft = text?.toString()?.replace(',', '.')?.toFloatOrNull()
@@ -87,31 +107,82 @@ class TokenTradeSlippageVC(
     }
     private val percentLabel = WLabel(context).apply {
         setStyle(32f, WFont.Balance)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            isLocalePreferredLineHeightForMinimumUsed = false
+        }
         text = "%"
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private val valueBox = LinearLayout(context).apply {
         id = View.generateViewId()
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.BOTTOM
-        setPadding(10.dp, 10.dp, 10.dp, 10.dp)
+        gravity = Gravity.CENTER
+        layoutDirection = View.LAYOUT_DIRECTION_LTR
+        minimumWidth = 92.dp
+        setPadding(10.dp, 0, 10.dp, 0)
         addView(valueInput, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(percentLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        setOnClickListener {
+            valueInput.requestFocus()
+            valueInput.setSelection(valueInput.text?.length ?: 0)
+        }
     }
 
-    private val slider = SeekBar(context).apply {
+    private var capturedPreset: Int? = null
+
+    private val slider = object : SeekBar(context) {
+        // Inside the sheet, AbsSeekBar defers the pressed state until the touch moves past the slop.
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN && isEnabled) {
+                drawableHotspotChanged(event.x, event.y)
+                isPressed = true
+            }
+            val handled = super.onTouchEvent(event)
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                isPressed = false
+            }
+            return handled
+        }
+    }.apply {
         id = View.generateViewId()
         max = SLIDER_STEPS
+        thumb = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setSize(24.dp, 24.dp)
+        }
+        setPadding(12.dp, 0, 12.dp, 0)
         contentDescription = LocaleController.getString("Slippage")
         setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                draft = valueAt(progress.toFloat() / SLIDER_STEPS)
-                valueInput.clearFocus()
+                val selection = selectionAt(seekBar, capturedPreset)
+                if (selection.presetIndex != null && selection.presetIndex != capturedPreset) {
+                    Haptics.play(seekBar, HapticType.SELECTION)
+                }
+                capturedPreset = selection.presetIndex
+                if (selection.presetIndex != null) seekBar.progress = progressFor(selection.value)
+                if (draft == selection.value) return
+                if (valueInput.hasFocus()) valueInput.hideKeyboard()
+                draft = selection.value
                 updateState(updateSlider = false)
             }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar) {
+                if (valueInput.hasFocus()) valueInput.hideKeyboard()
+                if (!isValid) {
+                    draft = selectionAt(seekBar, null).value
+                    updateState(updateSlider = false)
+                }
+                capturedPreset = draft?.let { PRESETS.indexOf(it) }?.takeIf { it >= 0 }
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar) {
+                capturedPreset = null
+                draft?.takeIf { isValid }?.let { seekBar.progress = progressFor(it) }
+            }
         })
     }
 
@@ -127,14 +198,25 @@ class TokenTradeSlippageVC(
             paint.color = WColor.SecondaryText.color.colorWithAlpha(89)
             val start = slider.paddingStart.toFloat()
             val track = width - slider.paddingStart - slider.paddingEnd
-            for (value in TICKS) {
-                canvas.drawCircle(start + track * positionFor(value), height / 2f, 1.5f.dp, paint)
+            for (index in PRESETS.indices) {
+                val position = POSITIONS[index + 1]
+                val x = if (layoutDirection == LAYOUT_DIRECTION_RTL) 1 - position else position
+                canvas.drawCircle(start + track * x, height / 2f, 1.5f.dp, paint)
             }
         }
     }
 
+    private val descriptionLabel = WLabel(context).apply {
+        setStyle(13f)
+        text = LocaleController.getString(
+            "Slippage is the difference between the expected and actual trade price caused by price changes during execution."
+        )
+    }
+
     private val doneButton = WButton(context).apply {
         text = LocaleController.getString("Done")
+        buttonHeight = 52.dp
+        customTint = TINT_COLOR
         setOnClickListener {
             val value = draft ?: return@setOnClickListener
             if (!isValid) return@setOnClickListener
@@ -150,24 +232,27 @@ class TokenTradeSlippageVC(
         setupNavBar(true)
         navigationBar?.addCloseButton()
 
-        view.addView(minButton, ConstraintLayout.LayoutParams(WRAP_CONTENT, 26.dp))
-        view.addView(valueBox, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        view.addView(maxButton, ConstraintLayout.LayoutParams(WRAP_CONTENT, 26.dp))
+        view.addView(minButton, ConstraintLayout.LayoutParams(64.dp, 44.dp))
+        view.addView(valueBox, ConstraintLayout.LayoutParams(WRAP_CONTENT, 60.dp))
+        view.addView(maxButton, ConstraintLayout.LayoutParams(64.dp, 44.dp))
         view.addView(slider, ConstraintLayout.LayoutParams(0, 44.dp))
         view.addView(ticks, ConstraintLayout.LayoutParams(0, 8.dp))
+        view.addView(descriptionLabel, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         view.addView(doneButton, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         view.setConstraints {
             navigationBar?.let { topToBottom(valueBox, it, 12f) }
             toCenterX(valueBox)
-            toStart(minButton, 30f)
+            toStart(minButton, 32f)
             centerYToCenterY(minButton, valueBox)
-            toEnd(maxButton, 30f)
+            toEnd(maxButton, 32f)
             centerYToCenterY(maxButton, valueBox)
             topToBottom(slider, valueBox, 16f)
-            toCenterX(slider, 30f)
-            topToBottom(ticks, slider)
-            toCenterX(ticks, 30f)
-            topToBottom(doneButton, ticks, 32f)
+            toCenterX(slider, 20f)
+            topToTop(ticks, slider, 28f)
+            toCenterX(ticks, 20f)
+            topToBottom(descriptionLabel, slider, 16f)
+            toCenterX(descriptionLabel, 32f)
+            topToBottom(doneButton, descriptionLabel, 18f)
             toCenterX(doneButton, 30f)
             toBottom(doneButton, 28f)
         }
@@ -190,16 +275,24 @@ class TokenTradeSlippageVC(
         )
         valueBox.setBackgroundColor(WColor.Background.color, 22f.dp)
         percentLabel.setTextColor(WColor.SecondaryText.color)
-        slider.progressTintList = ColorStateList.valueOf(WColor.Tint.color)
-        slider.thumbTintList = ColorStateList.valueOf(WColor.Tint.color)
+        valueInput.setHintTextColor(WColor.SecondaryText.color)
+        descriptionLabel.setTextColor(WColor.SecondaryText.color)
+        slider.progressTintList = ColorStateList.valueOf(TINT_COLOR)
+        slider.thumbTintList = ColorStateList.valueOf(TINT_COLOR)
+        ticks.invalidate()
         listOf(minButton, maxButton).forEach {
             it.setTextColor(WColor.PrimaryText.color)
-            it.background = GradientDrawable().apply {
-                cornerRadius = 13f.dp
-                setColor(WColor.SecondaryText.color.colorWithAlpha(31))
-            }
+            it.background = InsetDrawable(
+                GradientDrawable().apply {
+                    cornerRadius = 13f.dp
+                    setColor(WColor.SecondaryText.color.colorWithAlpha(31))
+                },
+                0,
+                9.dp,
+                0,
+                9.dp
+            )
         }
-        ticks.invalidate()
         updateState(updateText = false, updateSlider = false)
     }
 
@@ -207,11 +300,11 @@ class TokenTradeSlippageVC(
         setStyle(14f, WFont.Medium)
         text = LocaleController.getString(title)
         gravity = Gravity.CENTER
-        minWidth = 64.dp
-        setPadding(10.dp, 0, 10.dp, 0)
+        contentDescription = "$text, ${formatSlippage(value)}%"
         setOnClickListener {
-            valueInput.clearFocus()
+            if (valueInput.hasFocus()) valueInput.hideKeyboard()
             draft = value
+            Haptics.play(this, HapticType.SELECTION)
             updateState()
         }
     }
@@ -220,32 +313,26 @@ class TokenTradeSlippageVC(
         val value = draft
         if (updateText) {
             isUpdatingText = true
-            valueInput.setText(value?.let { format(it) } ?: "")
+            valueInput.setText(value?.let { formatSlippage(it) } ?: "")
             isUpdatingText = false
         }
-        if (updateSlider) {
-            slider.progress = (positionFor(value ?: DEFAULT_VALUE) * SLIDER_STEPS).roundToInt()
+        if (isValid && value != null) {
+            if (updateSlider) slider.progress = progressFor(value)
+            ViewCompat.setStateDescription(slider, formatSlippage(value) + "%")
         }
-        ViewCompat.setStateDescription(slider, format(value ?: DEFAULT_VALUE) + "%")
         valueInput.setTextColor(if (isValid) WColor.PrimaryText.color else WColor.Error.color)
         doneButton.isEnabled = isValid
     }
 
-    companion object {
-        private const val MIN_VALUE = 0.1f
-        private const val MAX_VALUE = 50f
-        private const val DEFAULT_VALUE = 5f
-        private const val SLIDER_STEPS = 1000
-        private val TICKS = listOf(0.1f, 0.5f, 1f, 5f, 10f, 50f)
+    private fun selectionAt(seekBar: SeekBar, capturedPreset: Int?) = selection(
+        seekBar.progress.toFloat() / SLIDER_STEPS,
+        (seekBar.width - seekBar.paddingStart - seekBar.paddingEnd).toFloat(),
+        capturedPreset
+    )
 
-        private fun format(value: Float): String =
-            if (value % 1f == 0f) value.toInt().toString() else value.toString()
+    private fun progressFor(value: Float): Int = (positionFor(value) * SLIDER_STEPS).roundToInt()
 
-        fun positionFor(value: Float): Float =
-            (ln(value.coerceIn(MIN_VALUE, MAX_VALUE) / MIN_VALUE) / ln(MAX_VALUE / MIN_VALUE))
-
-        fun valueAt(position: Float): Float =
-            ((MIN_VALUE * (MAX_VALUE / MIN_VALUE).pow(position.coerceIn(0f, 1f))) * 10)
-                .roundToInt() / 10f
+    private companion object {
+        const val SLIDER_STEPS = 1000
     }
 }

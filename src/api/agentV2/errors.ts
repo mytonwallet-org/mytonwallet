@@ -33,7 +33,8 @@ export function classifyAgentV2Error(error: unknown): AgentV2OperationError & { 
 
 export function safeAgentV2OperationError(error: unknown): AgentV2OperationError {
   const { code, retryable } = classifyAgentV2Error(error);
-  return { code, retryable };
+  const retryAfterMs = error instanceof AgentV2HttpError ? error.retryAfterMs : undefined;
+  return { code, retryable, ...(retryAfterMs !== undefined && { retryAfterMs }) };
 }
 
 // Run admission retries only transient HTTP statuses, even if an application error permits a new operation.

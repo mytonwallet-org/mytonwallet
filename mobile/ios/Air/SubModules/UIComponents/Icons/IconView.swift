@@ -12,7 +12,7 @@ import WalletContext
 import Kingfisher
 
 private let log = Log("IconView")
-private let stockTokenCornerRadiusRatio: CGFloat = 0.3
+public let stockTokenCornerRadiusRatio: CGFloat = 0.3
 
 public class IconView: UIView {
     @MainActor
@@ -34,13 +34,14 @@ public class IconView: UIView {
         public init(
             image: UIImage,
             shape: Shape = .circle,
+            foregroundColor: UIColor? = nil,
             backgroundColor: UIColor = .clear
         ) {
             self.image = image
             self.systemName = nil
             self.initials = nil
             self.shape = shape
-            self.foregroundColor = nil
+            self.foregroundColor = foregroundColor
             self.backgroundColor = backgroundColor
             self.initialsFont = nil
         }
@@ -607,6 +608,21 @@ public class IconView: UIView {
         chainAccessoryView.isHidden = true
     }
 
+    /// Centered glyph using the same gradient surface as transaction icons.
+    public func config(activityImage: UIImage, gradientColors: [UIColor], shape: Configuration.Shape = .circle) {
+        config(with: activityImage, tintColor: .white)
+        imageView.kf.cancelDownloadTask()
+        imageView.backgroundColor = .clear
+        switch shape {
+        case .circle: applyIconShape(.circle)
+        case .roundedSquare: applyIconShape(.roundedSquare)
+        case .square: applyIconShape(.rectangle)
+        }
+        resolveGradientColors = { gradientColors.map(\.cgColor) }
+        gradientLayer.colors = resolveGradientColors?()
+        gradientLayer.isHidden = false
+    }
+
     public func config(with configuration: Configuration) {
         switch configuration.shape {
         case .circle:
@@ -638,7 +654,7 @@ public class IconView: UIView {
         if let image = configuration.image {
             imageView.image = image
             imageView.contentMode = .scaleAspectFill
-            imageView.tintColor = nil
+            imageView.tintColor = configuration.foregroundColor
             largeLabel.text = nil
         } else if let systemName = configuration.systemName {
             imageView.image = UIImage(systemName: systemName)
@@ -848,6 +864,7 @@ public class IconView: UIView {
             placeholder: nil,
             options: [
                 .processor(SVGImageProcessor.default),
+                .cacheSerializer(SVGImageProcessor.cacheSerializer),
                 .transition(.fade(0.2)),
                 .keepCurrentImageWhileLoading,
                 .alsoPrefetchToMemory,
@@ -1018,6 +1035,7 @@ public class IconView: UIView {
         }
         if isSVGImageURL(url, originalString: tokenImageURL) {
             options.append(.processor(SVGImageProcessor.default))
+            options.append(.cacheSerializer(SVGImageProcessor.cacheSerializer))
         }
         return options
     }

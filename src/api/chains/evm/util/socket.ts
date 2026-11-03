@@ -221,9 +221,18 @@ class AlchemySocket extends AbstractWebsocketClient<
   }
 
   async #handleNativeNotification(sub: Subscription, result: MinedTransactionNotification) {
-    const balance = await getWalletBalance(this.#chain, this.#network, sub.address);
+    let blockNumber = parseBlockNumber(result.transaction.blockNumber);
+    let balance: bigint;
+    try {
+      balance = await getWalletBalance(this.#chain, this.#network, sub.address, blockNumber);
+    } catch (err) {
+      if (blockNumber === undefined) throw err;
 
-    this.#notifyBalanceUpdate(sub.watcherId, sub.address, undefined, balance);
+      blockNumber = undefined;
+      balance = await getWalletBalance(this.#chain, this.#network, sub.address, blockNumber);
+    }
+
+    this.#notifyBalanceUpdate(sub.watcherId, sub.address, undefined, balance, blockNumber);
   }
 
   async #handleTokenNotification(sub: Subscription, result: LogNotification) {
@@ -231,9 +240,18 @@ class AlchemySocket extends AbstractWebsocketClient<
     if (result.topics.length !== 3) return;
 
     const tokenAddress = result.address.toLowerCase();
-    const balance = await getErc20Balance(this.#network, this.#chain, sub.address, tokenAddress);
+    let blockNumber = parseBlockNumber(result.blockNumber);
+    let balance: bigint;
+    try {
+      balance = await getErc20Balance(this.#network, this.#chain, sub.address, tokenAddress, blockNumber);
+    } catch (err) {
+      if (blockNumber === undefined) throw err;
 
-    this.#notifyBalanceUpdate(sub.watcherId, sub.address, tokenAddress, balance);
+      blockNumber = undefined;
+      balance = await getErc20Balance(this.#network, this.#chain, sub.address, tokenAddress, blockNumber);
+    }
+
+    this.#notifyBalanceUpdate(sub.watcherId, sub.address, tokenAddress, balance, blockNumber);
   }
 
   #handleNftNotification(sub: Subscription, result: LogNotification) {
@@ -307,6 +325,7 @@ class AlchemySocket extends AbstractWebsocketClient<
     walletAddress: string,
     tokenAddress: string | undefined,
     balance: bigint,
+    blockNumber: number | undefined,
   ) {
     for (const watcher of this.walletWatchers) {
       const { onBalanceUpdate } = watcher;
@@ -327,10 +346,18 @@ class AlchemySocket extends AbstractWebsocketClient<
         address: matchedWallet.address,
         tokenAddress,
         balance,
+        blockNumber,
         finality: 'confirmed',
       }));
     }
   }
+}
+
+function parseBlockNumber(value: string | undefined) {
+  if (!value || !/^0x[0-9a-f]+$/i.test(value)) return undefined;
+
+  const blockNumber = Number(value);
+  return Number.isSafeInteger(blockNumber) ? blockNumber : undefined;
 }
 
 function buildSubscribeMessage(sub: Subscription): AlchemySocketClientMessage {

@@ -1,8 +1,11 @@
 import SwiftUI
 import UIKit
+import WalletContext
 
 public final class WSpeedingDiamondView: UIView {
     public var onMove: (() -> Void)?
+    public var onPressChange: ((Bool) -> Void)?
+    public var onHoverChange: ((Bool) -> Void)?
 
     private let animationSize: CGFloat
     private let stickerView = WAnimatedSticker()
@@ -52,6 +55,8 @@ public final class WSpeedingDiamondView: UIView {
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil {
+            onPressChange?(false)
+            onHoverChange?(false)
             stopSlowdown()
             NSObject.cancelPreviousPerformRequests(
                 withTarget: self,
@@ -68,6 +73,7 @@ public final class WSpeedingDiamondView: UIView {
         didMoveDuringTouch = false
         touchStartLocation = touches.first?.location(in: self)
         animatePressed(true)
+        onPressChange?(true)
         handleMove()
     }
 
@@ -85,6 +91,7 @@ public final class WSpeedingDiamondView: UIView {
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
         touchStartLocation = nil
+        onPressChange?(false)
         if didMoveDuringTouch {
             animatePressed(false)
         } else {
@@ -95,12 +102,14 @@ public final class WSpeedingDiamondView: UIView {
     public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
         touchStartLocation = nil
+        onPressChange?(false)
         animatePressed(false)
     }
 
     private func setup() {
         isUserInteractionEnabled = true
         backgroundColor = .clear
+        addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hoverChanged(_:))))
 
         stickerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stickerView)
@@ -110,6 +119,10 @@ public final class WSpeedingDiamondView: UIView {
             stickerView.widthAnchor.constraint(equalToConstant: animationSize),
             stickerView.heightAnchor.constraint(equalToConstant: animationSize),
         ])
+    }
+
+    @objc private func hoverChanged(_ gesture: UIHoverGestureRecognizer) {
+        onHoverChange?(gesture.state == .began || gesture.state == .changed)
     }
 
     private func handleMove() {
@@ -188,21 +201,30 @@ public final class WSpeedingDiamondView: UIView {
 public struct WUISpeedingDiamond: UIViewRepresentable {
     public var size: CGFloat
     public var onMove: () -> Void
+    public var onPressChange: (Bool) -> Void
+    public var onHoverChange: (Bool) -> Void
 
-    public init(size: CGFloat = 130, onMove: @escaping () -> Void = {}) {
+    public init(size: CGFloat = 130, onPressChange: @escaping (Bool) -> Void = { _ in },
+                onHoverChange: @escaping (Bool) -> Void = { _ in }, onMove: @escaping () -> Void = {}) {
         self.size = size
         self.onMove = onMove
+        self.onPressChange = onPressChange
+        self.onHoverChange = onHoverChange
     }
 
     public func makeUIView(context: Context) -> WSpeedingDiamondView {
         let view = WSpeedingDiamondView(size: size)
         view.onMove = onMove
+        view.onPressChange = onPressChange
+        view.onHoverChange = onHoverChange
         view.start()
         return view
     }
 
     public func updateUIView(_ uiView: WSpeedingDiamondView, context: Context) {
         uiView.onMove = onMove
+        uiView.onPressChange = onPressChange
+        uiView.onHoverChange = onHoverChange
     }
 
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView: WSpeedingDiamondView, context: Context) -> CGSize? {
@@ -213,28 +235,47 @@ public struct WUISpeedingDiamond: UIViewRepresentable {
 public struct WUISpeedingDiamondWithParticles: View {
     public var diamondSize: CGFloat
     public var particleSize: CGSize
+    public var isWelcome: Bool
 
     @State private var burstTrigger = 0
+    @State private var isPressed = false
+    @State private var isHovered = false
 
     public init(
         diamondSize: CGFloat = 130,
-        particleSize: CGSize = CGSize(width: 350, height: 230)
+        particleSize: CGSize = CGSize(width: 350, height: 230),
+        isWelcome: Bool = false
     ) {
         self.diamondSize = diamondSize
         self.particleSize = particleSize
+        self.isWelcome = isWelcome
     }
 
     public var body: some View {
         ZStack {
-            SparkleParticleBackground(canvasSize: particleSize, burstTrigger: $burstTrigger)
-                .frame(width: particleSize.width, height: particleSize.height)
+            SparkleParticleBackground(canvasSize: particleSize, burstTrigger: $burstTrigger,
+                                      isWelcome: isWelcome, welcomeColor: .tintColor,
+                                      isHovered: isHovered, isPressed: isPressed)
+                .frame(width: isWelcome ? 386 : particleSize.width, height: isWelcome ? 268 : particleSize.height)
+                .offset(y: isWelcome ? -10 : 0)
                 .allowsHitTesting(false)
-            WUISpeedingDiamond(size: diamondSize) {
-                burstTrigger += 1
+            if isWelcome && TelegramDiamondView.isAvailable {
+                TelegramDiamondView(size: diamondSize * 1.5, stoneWidth: diamondSize,
+                    maxGrow: 1.15, hoverSpeed: 2, shouldRotateOnTap: true,
+                    onPressChange: { isPressed = $0 }, onHoverChange: { isHovered = $0 })
+                    .frame(width: diamondSize, height: diamondSize)
+            } else {
+                WUISpeedingDiamond(size: diamondSize, onPressChange: { isPressed = $0 }, onHoverChange: { isHovered = $0 }, onMove: {
+                    if !isWelcome { burstTrigger += 1 }
+                })
+                .frame(width: diamondSize, height: diamondSize)
             }
-            .frame(width: diamondSize, height: diamondSize)
         }
         .frame(width: diamondSize, height: diamondSize)
         .accessibilityHidden(true)
+        .onDisappear {
+            isPressed = false
+            isHovered = false
+        }
     }
 }

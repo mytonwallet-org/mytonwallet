@@ -27,7 +27,6 @@ import {
   submitForeignUnstakeTransaction,
 } from './foreignStakingUnstakeBuilders';
 import { publishSignedMfaRequest, registerMfaConfirmationHandler } from './mfa';
-import { pollForeignStakingPromotion } from './polling';
 import { createLocalTransactions } from './transfer';
 
 export function initStaking() {}
@@ -236,14 +235,10 @@ export async function submitForeignUnstake(
   ));
   if ('mfaRequest' in result) {
     const { mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
-    registerMfaConfirmationHandler(mfaRequestHash, (txHash) => {
-      createActivities(txHash);
-      pollForeignStakingPromotion();
-    });
+    registerMfaConfirmationHandler(mfaRequestHash, createActivities);
     return { mfaRequestHash };
   }
   const activities = createActivities(result.msgHashNormalized);
-  pollForeignStakingPromotion();
   return { activityIds: activities.map(({ id }) => id) };
 }
 

@@ -39,6 +39,21 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     private var expandedView: MTKView?
     var onPressBegan: (() -> Void)?
     var onExpansionChanged: ((Bool) -> Void)?
+    var onPressChange: ((Bool) -> Void)?
+    var onHoverChange: ((Bool) -> Void)?
+    var maxGrow: CGFloat = 3
+    var hoverSpeed: Float = 1
+    var shouldRotateOnTap = false {
+        didSet {
+            motion.swayScale = shouldRotateOnTap ? 0 : style.swayScale
+            motion.releaseTilt = shouldRotateOnTap ? 0 : style.releaseTilt
+        }
+    }
+    var interactionSize: CGFloat = 64
+    private var isHovered = false
+    private var idleSpeed: Float = 1
+    private var pressOrigin: CGPoint?
+    private var pressStartedAt: CFTimeInterval = 0
 
     var expandedCanvasSize: CGSize {
         let side = max(220, ceil(CGFloat(style.widthPoints) * 3.6))
@@ -47,6 +62,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     private var appliedHighlightBoost: Float = 0
     private var isHighDynamicRange = false
     private(set) var grip = CGFloat.zero
+    private var gripVelocity = CGFloat.zero
     private var holding = false
     private var expanded = false
     private var expansion: Expansion?
@@ -93,6 +109,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         enableSetNeedsDisplay = false
         delegate = self
         addGestureRecognizer(pressGesture)
+        addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hoverChanged(_:))))
         isAccessibilityElement = true
         accessibilityLabel = lang("3D Gram Diamond")
         accessibilityHint = lang("Hold to enlarge. Drag to rotate.")
@@ -140,6 +157,11 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     }
 
     @objc private func suspend() {
+        isHovered = false
+        idleSpeed = 1
+        pressOrigin = nil
+        onPressChange?(false)
+        onHoverChange?(false)
         landingFeedback?.cancel()
         landingFeedback = nil
         motion.end(at: CACurrentMediaTime(), cancelled: true)
@@ -149,6 +171,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         holding = false
         expansion = nil
         grip = 0
+        gripVelocity = 0
         lastTime = nil
         appliedHighlightBoost = 0
         renderTargets.clear()
@@ -183,17 +206,19 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         guard self.holding != holding else { return }
         updateExpansion(at: now)
         self.holding = holding
+        onPressChange?(holding)
         if UIAccessibility.isReduceMotionEnabled {
             expansion = nil
             grip = holding ? 1 : 0
         } else {
-            expansion = Expansion(start: now, from: grip, holding: holding)
+            expansion = shouldRotateOnTap ? nil : Expansion(start: now, from: grip, holding: holding)
         }
         updateCanvas()
     }
 
     private func updateCanvas() {
-        let expanded = holding || expansion != nil
+        // The welcome hold fits its resting canvas; keep its render cost unchanged on press.
+        let expanded = !shouldRotateOnTap && maxGrow > 1 && (holding || expansion != nil)
         if self.expanded != expanded {
             self.expanded = expanded
             onExpansionChanged?(expanded)
@@ -262,8 +287,25 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         lastTime = now
         let reduceMotion = !animated || UIAccessibility.isReduceMotionEnabled
         if !reduceMotion { elapsed += dt }
-        motion.step(dt: dt, speed: style.rotationSpeed, reduceMotion: reduceMotion, mode: style.animationMode, time: elapsed)
-        updateExpansion(at: now)
+        let targetSpeed = isHovered ? hoverSpeed : 1
+        idleSpeed += (targetSpeed - idleSpeed) * (1 - exp(-dt * 10))
+        motion.step(dt: dt, speed: style.rotationSpeed * idleSpeed, reduceMotion: reduceMotion, mode: style.animationMode, time: elapsed)
+        if shouldRotateOnTap {
+            let target: CGFloat = holding ? 1 : 0
+            var remaining = CGFloat(dt)
+            while remaining > 0 {
+                let step = min(remaining, 1 / 120)
+                gripVelocity += ((target - grip) * 196 - 2 * 0.42 * 14 * gripVelocity) * step
+                grip += gripVelocity * step
+                remaining -= step
+            }
+            if abs(grip - target) < 0.0001 && abs(gripVelocity) < 0.0001 {
+                grip = target
+                gripVelocity = 0
+            }
+        } else {
+            updateExpansion(at: now)
+        }
         updateCanvas()
         let target = 0.4 * Float(min(1, max(0, grip)))
         appliedHighlightBoost += (target - appliedHighlightBoost) * (1 - exp(-dt / 0.25))
@@ -281,7 +323,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let strength = Float(min(1, max(0, grip)))
         let boost = UIAccessibility.isReduceMotionEnabled ? 0.4 * strength : appliedHighlightBoost
         var hdr = false
-        if #available(iOS 17, *) {
+        if #available(iOS 17, *), !shouldRotateOnTap {
             hdr = (window?.screen.potentialEDRHeadroom ?? 1) > 1 && (boost > 0.001 || 0.4 * strength > 0.001)
         }
         let pixelFormat: MTLPixelFormat = hdr ? .rgba16Float : .bgra8Unorm
@@ -312,9 +354,8 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let texture = drawable.texture
         let renderSize = CGSize(width: texture.width, height: texture.height)
         let pixelsPerPoint = Float(texture.width) / Float(bounds.width)
-        // All heroes use the receive diamond’s threefold hold expansion.
         renderer.encode(encoder: encoder, size: renderSize, time: elapsed, starBursts: [], starOffset: .zero,
-            motion: motion, style: style, grow: Float(1 + 2 * grip),
+            motion: motion, style: style, grow: Float(1 + (maxGrow - 1) * (shouldRotateOnTap ? min(1, grip) : grip)),
             pixelsPerPoint: pixelsPerPoint, reduceMotion: !animated || UIAccessibility.isReduceMotionEnabled,
             lightBackground: traitCollection.userInterfaceStyle != .dark, refractionSource: source,
             refractionStrength: strength, highlightBoost: hdr && texture.pixelFormat == .rgba16Float ? boost : 0,
@@ -323,6 +364,11 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         command.present(drawable)
         command.addCompletedHandler { [inFlight] _ in inFlight.signal() }
         command.commit()
+    }
+
+    @objc private func hoverChanged(_ gesture: UIHoverGestureRecognizer) {
+        isHovered = gesture.state == .began || gesture.state == .changed
+        onHoverChange?(isHovered)
     }
 
     @objc private func handlePress(_ gesture: UILongPressGestureRecognizer) {
@@ -336,14 +382,20 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
             onPressBegan?()
             // Snapshot preparation must not consume the scale-up animation's duration.
             now = CACurrentMediaTime()
+            pressOrigin = shouldRotateOnTap ? point : nil
+            pressStartedAt = now
             landingFeedback?.cancel()
             TelegramDiamondResources.haptic.prepare()
+            if shouldRotateOnTap { TelegramDiamondResources.haptic.impactOccurred(intensity: 0.7) }
             dragPosition = point
             dragSamples = [(point.x, now)]
             motion.begin(at: now)
             setHolding(true, at: now)
         case .changed, .ended:
-            guard let previous = dragPosition, motion.isDragging else { return }
+            guard let previous = dragPosition, shouldRotateOnTap || motion.isDragging else { return }
+            if let origin = pressOrigin, hypot(point.x - origin.x, point.y - origin.y) > 8 {
+                pressOrigin = nil
+            }
             let releasePower = grip
             let translation = CGPoint(x: point.x - previous.x, y: point.y - previous.y)
             dragSamples.append((point.x, now))
@@ -352,20 +404,27 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
             let interval = CGFloat(max(now - sample.time, 1 / 240.0))
             let velocity = (point.x - sample.x) / interval
             dragPosition = gesture.state == .ended ? nil : point
-            if translation != .zero {
+            if translation != .zero && motion.isDragging {
                 motion.drag(dx: Float(translation.x), dy: Float(translation.y), scale: 220, at: now)
             }
             if gesture.state == .ended {
                 dragSamples.removeAll(keepingCapacity: true)
                 motion.step(dt: 0, speed: style.rotationSpeed, reduceMotion: UIAccessibility.isReduceMotionEnabled, time: elapsed)
-                motion.end(at: now)
-                if abs(velocity) > 600 && !UIAccessibility.isReduceMotionEnabled {
-                    motion.fling(direction: velocity < 0 ? -1 : 1, impulse: 3 * 6.5)
+                if motion.isDragging {
+                    motion.end(at: now)
+                    if shouldRotateOnTap && pressOrigin != nil && now - pressStartedAt <= 0.25 {
+                        motion.turnOnTap()
+                    } else if (!shouldRotateOnTap || pressOrigin == nil) && abs(velocity) > 600 && !UIAccessibility.isReduceMotionEnabled {
+                        motion.fling(direction: velocity < 0 ? -1 : 1, impulse: 3 * 6.5)
+                    }
                 }
+                pressOrigin = nil
                 setHolding(false, at: now)
-                scheduleLanding(power: releasePower)
+                if !shouldRotateOnTap { scheduleLanding(power: releasePower) }
             }
         case .cancelled, .failed:
+            pressOrigin = nil
+            if shouldRotateOnTap { motion.stopSpin() }
             landingFeedback?.cancel()
             dragPosition = nil
             dragSamples.removeAll(keepingCapacity: true)
@@ -390,13 +449,24 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        CGRect(x: bounds.midX - 32, y: bounds.midY - 32, width: 64, height: 64).contains(point)
+        CGRect(x: bounds.midX - interactionSize / 2, y: bounds.midY - interactionSize / 2,
+               width: interactionSize, height: interactionSize).contains(point)
     }
 
     override func accessibilityActivate() -> Bool {
         guard active, isUserInteractionEnabled, window != nil, !holding else { return false }
         let now = CACurrentMediaTime()
         updateMotion(at: now)
+        if shouldRotateOnTap {
+            TelegramDiamondResources.haptic.impactOccurred(intensity: 0.7)
+            setHolding(true, at: now)
+            motion.turnOnTap()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                guard let self, self.dragPosition == nil else { return }
+                self.setHolding(false, at: CACurrentMediaTime())
+            }
+            return true
+        }
         onPressBegan?()
         let start = CACurrentMediaTime()
         motion.begin(at: start)

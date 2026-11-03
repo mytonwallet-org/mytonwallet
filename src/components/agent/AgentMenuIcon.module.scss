@@ -1,0 +1,34 @@
+// The Agent's outlined menu icons: as large as a menu's font icon, 22 px and 24 px for touch, and as gray, with
+// strokes as thick as the icon font's. A button that shows one outside a menu sets the custom properties.
+.icon {
+  flex-shrink: 0;
+
+  width: var(--agent-menu-icon-size, 1.375rem);
+  height: var(--agent-menu-icon-size, 1.375rem);
+  margin-inline-end: var(--agent-menu-icon-gap, 0.625rem);
+
+  color: var(--agent-menu-icon-color, var(--color-gray-3));
+
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  @media (pointer: coarse) {
+    width: var(--agent-menu-icon-size, 1.5rem);
+    height: var(--agent-menu-icon-size, 1.5rem);
+  }
+}
+
+.ring {
+  stroke-width: 48px;
+}
+
+.bar {
+  stroke-width: 52px;
+}
+
+.dot {
+  fill: currentColor;
+  stroke: none;
+}

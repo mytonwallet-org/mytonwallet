@@ -13,7 +13,7 @@ protocol RootContainerRouting {
     func isHomeRootSelected() -> Bool
     func pushOnHome(_ viewController: UIViewController) -> Bool
     func showAddWallet(network: ApiNetwork, sourceView: UIView?)
-    func showAgent()
+    func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?)
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     func showExplore()
     func showHome(popToRoot: Bool)
@@ -74,11 +74,8 @@ struct TopTabsRootContainerRouter: RootContainerRouting {
         presentAddWalletModally(network: network, sourceView: sourceView)
     }
 
-    func showAgent() {
-        topTabsVC?.navigationController?.pushViewController(
-            AgentEntryPoint.makeRootViewController(),
-            animated: true
-        )
+    func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
+        topTabsVC?.showAgent(query: query, entryPoint: entryPoint)
     }
 
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {
@@ -148,8 +145,8 @@ struct SplitRootContainerRouter: RootContainerRouting {
         presentAddWalletModally(network: network, sourceView: sourceView)
     }
 
-    func showAgent() {
-        splitVC?.showAgent()
+    func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
+        splitVC?.showAgent(query: query, entryPoint: entryPoint)
     }
 
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {

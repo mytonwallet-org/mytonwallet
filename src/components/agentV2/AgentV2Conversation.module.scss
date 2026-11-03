@@ -1,17 +1,42 @@
 @use "../../styles/mixins";
 
+@use "../agent/agentBubble";
+
+@use "../agent/agentHeader";
+
+@use "../agent/agentSkeleton";
+
+.consentPage {
+  @include agentHeader.variables;
+
+  position: absolute;
+  // Over the list's field, under the app's tab bar, which comes later at the same level
+  z-index: 2;
+  inset: 0;
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  @include mixins.transition(opacity 250ms ease);
+
+  // Once allowed, it fades into the chat list under it
+  &:global(.closing) {
+    pointer-events: none;
+    opacity: 0;
+  }
+}
+
 .consent {
+  position: relative;
+
   display: flex;
   flex: 1;
   flex-direction: column;
 
   min-height: 0;
 
-  background: var(--color-background-first);
-}
-
-:global(html.theme-dark) .consent {
-  background: var(--color-background-window);
+  background: var(--agent-background);
 }
 
 .consentScroll {
@@ -22,7 +47,7 @@
   min-height: 0;
   padding: calc(
     var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 2rem
-  ) 1rem 1.5rem;
+  ) 1rem calc(6rem + var(--bottombar-height) + var(--safe-area-bottom));
 }
 
 .consentContent {
@@ -45,27 +70,16 @@
 }
 
 .consentIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
   width: 4.625rem;
   height: 4.625rem;
-  border-radius: 50%;
-
-  font-size: 2.125rem;
-  line-height: 1;
-  color: var(--color-accent);
-
-  background: var(--color-accent-10o);
 }
 
 .consentTitle {
   margin: 0;
 
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1.875rem;
+  line-height: 1.625rem;
   color: var(--color-black);
 }
 
@@ -135,19 +149,20 @@
 
 .disclosureText {
   margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--color-gray-1);
 }
 
 .consentFooter {
-  flex: 0 0 auto;
-  padding: 0.75rem 1rem calc(0.75rem + var(--safe-area-bottom));
-  background: inherit;
-}
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
 
-:global(html.with-bottombar) .consentFooter {
-  padding-bottom: calc(0.75rem + var(--bottombar-height) + var(--safe-area-bottom));
+  padding: 0.75rem 1rem calc(0.75rem + var(--bottombar-height) + var(--safe-area-bottom));
+
+  background: linear-gradient(transparent, var(--agent-background) 25%);
 }
 
 .consentButton {
@@ -160,14 +175,27 @@
   min-width: 0;
 }
 
+// Action buttons hang 3 px under the bubble and from each other; suggestions follow 12 px under them
 .richContent {
   display: flex;
   flex-direction: column;
-  gap: 0.4375rem;
+  gap: 0.1875rem;
 
   width: 100%;
   max-width: 100%;
   margin-top: 0.1875rem;
+}
+
+.followupSkeleton {
+  max-width: 100%;
+  height: 2.5rem;
+  border-radius: 1.125rem;
+
+  @include agentSkeleton.shimmer;
+
+  animation:
+    followup-appear 260ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--followup-delay, 0ms) backwards,
+    skeleton-bubble-shimmer 1.6s ease-out infinite;
 }
 
 .followupRow {
@@ -176,8 +204,9 @@
   gap: 0.75rem;
   align-items: flex-start;
 
-  max-width: 100%;
-  margin-top: 0.8125rem;
+  // A suggestion is no wider than the widest bubble, whose start it lines up with
+  max-width: agentBubble.$maxWidth;
+  margin-top: 0.5625rem;
   // The answer wrapper starts at the bubble tail, while the buttons line up with the bubble body
   margin-inline-start: 0.5rem;
 
@@ -206,8 +235,7 @@
     rgba(0, 136, 255, 0.6) 360deg
   );
   --followup-icon: linear-gradient(97deg, rgba(0, 136, 255, 0.6) 0%, rgba(0, 190, 255, 0.6) 48%, rgba(182, 86, 255, 0.6) 100%);
-  // The label gradient mirrors itself so the shimmer can loop over it
-  --followup-label: linear-gradient(90deg, #005DAF 0%, #007BA5 20%, #7D2EBA 50%, #007BA5 80%, #005DAF 100%);
+  --followup-label: linear-gradient(90deg, #005DAF 0%, #007BA5 40%, #7D2EBA 100%);
 
   cursor: var(--custom-cursor, pointer);
 
@@ -222,22 +250,25 @@
   border: 0;
   border-radius: 5rem;
 
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.25rem;
   text-align: start;
 
+  // The layers below let the screen show through, as in the design, rather than the button's default fill
+  background-color: transparent;
   background-image:
     var(--followup-sheen),
     var(--followup-glow),
     linear-gradient(var(--followup-base), var(--followup-base));
 
   animation: followup-appear 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: var(--followup-delay, 0ms);
 
-  @include mixins.transition(opacity 200ms);
+  @include mixins.transition("opacity 200ms, filter 200ms");
 
-  @include mixins.respond-above(xs) {
-    font-size: 0.9375rem;
+  @include mixins.is-mobile() {
+    font-size: 1rem;
   }
 
   // Trims the conic gradient down to the border ring
@@ -295,13 +326,7 @@
     rgba(0, 190, 255, 0.5) 360deg
   );
   --followup-icon: linear-gradient(97deg, rgba(109, 173, 230, 0.6) 0%, rgba(94, 182, 212, 0.6) 48%, rgba(196, 140, 238, 0.6) 100%);
-  --followup-label: linear-gradient(90deg, #6DADE6 0%, #5EB6D4 20%, #C48CEE 50%, #5EB6D4 80%, #6DADE6 100%);
-}
-
-@for $i from 2 through 6 {
-  .followupButton:nth-child(#{$i}) {
-    animation-delay: #{($i - 1) * 60}ms;
-  }
+  --followup-label: linear-gradient(90deg, #6DADE6 0%, #5EB6D4 40%, #C48CEE 100%);
 }
 
 @keyframes followup-appear {
@@ -316,7 +341,8 @@
   }
 }
 
-:global(html.animation-level-0) .followupButton {
+:global(html.animation-level-0) .followupButton,
+:global(html.animation-level-0) .followupSkeleton {
   animation: none;
 }
 
@@ -336,11 +362,14 @@
   background-image: var(--followup-label);
   -webkit-background-clip: text;
   background-clip: text;
-
-  @include mixins.gradient-shimmer(5s);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .followupButton,
+  .followupSkeleton {
+    animation: none;
+  }
+
   .followupRow {
     transition: none;
   }

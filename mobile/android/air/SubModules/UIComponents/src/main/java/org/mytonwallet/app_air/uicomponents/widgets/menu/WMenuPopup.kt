@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletbasecontext.utils.y
 
@@ -54,6 +55,9 @@ class WMenuPopup {
             hasSeparator = hasSeparator,
             onTap = onTap
         )
+
+        // Stable resource id of the item view, for UI automation
+        var testViewId: Int? = null
 
         sealed class Config {
             data object Back : Config()
@@ -260,6 +264,8 @@ class WMenuPopup {
              */
             aboveFallbackYOffset: Int? = null,
             centerHorizontally: Boolean = false,
+            /** Lines the menu up with [view]'s trailing edge, in either layout direction */
+            isAlignedToEnd: Boolean = false,
             windowBackgroundStyle: BackgroundStyle =
                 BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
             backdropStyle: BackdropStyle = BackdropStyle.Transparent,
@@ -267,7 +273,12 @@ class WMenuPopup {
             onWillDismiss: (() -> Unit)? = null,
             onDidDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
-            cancelsAncestorTouches: Boolean = true
+            cancelsAncestorTouches: Boolean = true,
+            /**
+             * Places the menu itself: given its measured width and height, the window position of its top-left corner.
+             * It then opens downward from there, and [positioning] and the offsets don't apply.
+             */
+            placement: ((width: Int, height: Int) -> Vec2i)? = null
         ): INavigationPopup {
             if (cancelsAncestorTouches) view.cancelAncestorTouches()
             view.lockView()
@@ -311,8 +322,16 @@ class WMenuPopup {
             }
             val offset = xOffset + when {
                 centerHorizontally -> (view.width - popupMeasuredWidth) / 2
+                isAlignedToEnd -> if (isRtl) 0 else view.width - popupMeasuredWidth
                 isRtl && xOffset == 0 -> view.width - popupMeasuredWidth
                 else -> 0
+            }
+
+            placement?.let { place ->
+                initialPopupView.measure(screenWidth.atMost, 0.unspecified)
+                val position = place(popupMeasuredWidth, initialPopupView.measuredHeight)
+                popupWindow.showAtLocation(x = position.x, y = position.y, fromTop = true)
+                return popupWindow
             }
 
             val belowY = location.y + yOffset + (view.height + 8.dp)
@@ -399,6 +418,8 @@ class WMenuPopup {
 
     sealed interface BackdropStyle {
         object BlurDimmed : BackdropStyle
+
+        object Dimmed : BackdropStyle
         object Transparent : BackdropStyle
     }
 }

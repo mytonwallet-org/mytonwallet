@@ -12,14 +12,6 @@ addActionHandler('closeAbout', (global) => {
   return resetAuthToStartScreen(global);
 });
 
-addActionHandler('openDisclaimer', (global) => {
-  setGlobal(updateAuth(global, { state: AuthState.disclaimer, error: undefined }));
-});
-
-addActionHandler('closeDisclaimer', (global) => {
-  return resetAuthToStartScreen(global);
-});
-
 addActionHandler('startImportViewAccount', (global) => {
   setGlobal(updateAuth(global, { state: AuthState.importViewAccount, error: undefined }));
 });

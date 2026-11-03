@@ -12,7 +12,9 @@ import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.net.URLEncoder
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uiagent.search.AgentThreadSearchResult
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
@@ -82,7 +84,7 @@ enum class SearchBestMatchOutcome {
 class SearchVC(
     context: Context,
     internal val usesGlobalSearchOverlay: Boolean = false,
-    private val onDestroyed: (() -> Unit)? = null
+    private val onDestroyed: ((SearchVC) -> Unit)? = null
 ) : WViewController(context) {
     @Suppress("PropertyName")
     override val TAG = "Search"
@@ -202,16 +204,20 @@ class SearchVC(
     override fun setupViews() {
         super.setupViews()
 
-        setupNavBar(true)
+        setupNavBar(
+            true,
+            navigationBarHeight,
+            navigationController?.searchOverlayHost?.searchNavigationBarContentMarginTop ?: 0
+        )
 
-        if (usesGlobalSearchOverlay) {
+        if (usesGlobalSearchOverlay && !isRootTopGradientEnabled) {
             navigationBar?.addLeadingView(
                 WImageButton(context).apply {
                     setPadding(8.dp)
                     setImageDrawable(context.getDrawableCompat(R.drawable.ic_nav_back))
                     updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
                     setOnClickListener {
-                        navigationController?.tabBarController?.clearSearchFocus()
+                        navigationController?.searchOverlayHost?.clearSearchFocus()
                     }
                 },
                 ConstraintLayout.LayoutParams(40.dp, 40.dp)
@@ -236,13 +242,18 @@ class SearchVC(
 
         recyclerView.setPaddingRelative(
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
-            (navigationController?.getSystemBars()?.top ?: 0) + WNavigationBar.DEFAULT_HEIGHT.dp,
+            (navigationController?.getSystemBars()?.top ?: 0) +
+                if (isRootTopGradientEnabled) 0 else navigationBarHeight.dp,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-            if (usesGlobalSearchOverlay) {
+            if (usesGlobalSearchOverlay && shouldDisplayBottomBar) {
+                // Clears the wide-layout bottom fade.
+                (navigationController?.bottomInset ?: 0) +
+                    if (isRootTopGradientEnabled) ViewConstants.GAP.dp else 0
+            } else if (usesGlobalSearchOverlay) {
                 // The overlay stack sits outside the tab container, so its own bottomInset would
                 // miss the keyboard and the floating search field. Ask the host for the same
                 // reserved height the tab stacks get.
-                navigationController?.tabBarController?.getBottomNavigationHeight()
+                navigationController?.searchOverlayHost?.getBottomNavigationHeight()
                     ?: navigationController?.getSystemBars()?.bottom
                     ?: 0
             } else {
@@ -251,6 +262,10 @@ class SearchVC(
         )
     }
 
+    private val navigationBarHeight: Int
+        get() = navigationController?.searchOverlayHost?.searchNavigationBarHeight
+            ?: WNavigationBar.DEFAULT_HEIGHT
+
     var keepKeyboardOpenOnDismiss = false
     override val shouldHideKeyboardOnDisappear: Boolean
         get() = !keepKeyboardOpenOnDismiss
@@ -258,8 +273,10 @@ class SearchVC(
     override fun onDestroy() {
         pendingBestMatchRequest = null
         super.onDestroy()
-        navigationController?.tabBarController?.clearSearchFocus()
-        onDestroyed?.invoke()
+        navigationController?.let {
+            (it.searchOverlayHost ?: it.tabBarController)?.clearSearchFocus()
+        }
+        onDestroyed?.invoke(this)
     }
 
     internal var searchResult: ExploreVM.SearchResult? = null
@@ -304,6 +321,29 @@ class SearchVC(
             rvAdapter.updateVisibleCells()
         } else {
             rvAdapter.reloadData()
+        }
+    }
+
+    internal var isSwitchingSectionMode = false
+        private set
+
+    /** A switch that changes the rows' layout reloads them instead. */
+    internal fun switchSectionMode(mutate: () -> Unit) {
+        val previousSectionItemCounts = sectionItemCounts()
+        val previousCellTypes = cellTypes(previousSectionItemCounts)
+        mutate()
+        val currentSectionItemCounts = sectionItemCounts()
+        val layoutUnchanged = previousSectionItemCounts.contentEquals(currentSectionItemCounts) &&
+            previousCellTypes.contentEquals(cellTypes(currentSectionItemCounts))
+        if (!layoutUnchanged) {
+            rvAdapter.reloadData()
+            return
+        }
+        isSwitchingSectionMode = true
+        try {
+            rvAdapter.updateVisibleCells()
+        } finally {
+            isSwitchingSectionMode = false
         }
     }
 
@@ -410,8 +450,7 @@ class SearchVC(
     internal fun openOwnWallet(match: ExploreVM.MyWalletMatch) {
         val accountId = match.account.accountId
         if (accountId == org.mytonwallet.app_air.walletcore.stores.AccountStore.activeAccountId) {
-            navigationController?.tabBarController?.switchToFirstTab()
-            navigationController?.popToRoot(false)
+            returnToWalletHome()
             return
         }
         WalletCore.activateAccount(
@@ -423,9 +462,19 @@ class SearchVC(
             WalletCore.notifyEvent(
                 WalletEvent.AccountChangedInApp(persistedAccountsModified = false)
             )
-            navigationController?.tabBarController?.switchToFirstTab()
-            navigationController?.popToRoot(false)
+            returnToWalletHome()
         }
+    }
+
+    private fun returnToWalletHome() {
+        val navigationController = navigationController ?: return
+        navigationController.tabBarController?.switchToFirstTab()
+        if (navigationController.searchOverlayHost?.searchResultNavigationController == null) {
+            navigationController.popToRoot(false)
+            return
+        }
+        window?.dismissToRoot()
+        navigationController.tabBarController?.mainNavigationController?.popToRoot(false)
     }
 
     internal fun openWalletInfo(match: ExploreVM.WalletInfoMatch) {
@@ -437,6 +486,18 @@ class SearchVC(
         )
     }
 
+    // The search stack itself is torn down once the search loses focus, so results never go there.
+    private val resultNavigationController: WNavigationController?
+        get() = navigationController?.searchOverlayHost?.searchResultNavigationController
+            ?: navigationController?.tabBarController?.mainNavigationController
+            ?: navigationController
+
+    // Switching to the Agent tab pops the main stack, so a chat opened from a host screen's search
+    // (the token screen) is pushed onto that screen's stack instead, and Back returns to it.
+    private val hostResultNavigationController: WNavigationController?
+        get() = navigationController?.searchOverlayHost?.searchResultNavigationController
+            ?.takeIf { window?.isWideLayout != true }
+
     internal fun openCollectible(match: ExploreVM.CollectibleMatch) {
         val accountId = AccountStore.activeAccountId ?: return
         when (match) {
@@ -447,13 +508,13 @@ class SearchVC(
                     ?.filterNot { NftStore.shouldHide(accountId, it) }
                     ?.takeIf { nfts -> nfts.any { it.address == match.nft.address } }
                     ?: listOf(match.nft)
-                navigationController?.push(
+                resultNavigationController?.push(
                     NftVC(context, accountId, match.nft, visibleNfts)
                 )
             }
 
             is ExploreVM.CollectibleMatch.Collection -> {
-                navigationController?.push(
+                resultNavigationController?.push(
                     AssetsVC(
                         context,
                         accountId,
@@ -482,10 +543,7 @@ class SearchVC(
                 )
             )
         }
-        val targetNavigationController =
-            navigationController?.tabBarController?.mainNavigationController
-                ?: navigationController
-        targetNavigationController?.push(TokenVC(context, account, token))
+        resultNavigationController?.push(TokenVC(context, account, token))
     }
 
     internal fun openAgent(prompt: String) {
@@ -503,37 +561,49 @@ class SearchVC(
     }
 
     private fun openAgent(prompt: String, entryPoint: AgentV2EntryPoint) {
-        val navigationController = navigationController ?: return
-        if (navigationController.tabBarController?.switchToAgent(
-                prompt,
-                entryPoint = entryPoint
-            ) == true
-        ) {
+        hostResultNavigationController?.let {
+            it.push(AgentNavigation.newChatViewController(context, prompt, entryPoint))
             return
         }
-        navigationController.push(
-            AgentVC(
+        openInAgentTab { navigationController ->
+            AgentNavigation.openNewChat(
                 context,
-                initialPrompt = prompt,
-                initialEntryPoint = entryPoint
+                navigationController,
+                prompt,
+                entryPoint,
+                fallbackNavigationController = resultNavigationController
             )
-        )
+        }
     }
 
-    private fun openRecentChat(messageId: String) {
-        val navigationController = navigationController ?: return
-        if (navigationController.tabBarController?.switchToAgent(
-                pinnedMessageId = messageId
-            ) == true
-        ) {
+    private fun openRecentChat(result: AgentThreadSearchResult) {
+        hostResultNavigationController?.let {
+            it.push(AgentVC(context, result.thread))
             return
         }
-        navigationController.push(
-            AgentVC(
+        openInAgentTab { navigationController ->
+            AgentNavigation.openThread(
                 context,
-                initialPinnedMessageId = messageId
+                navigationController,
+                result.thread,
+                fallbackNavigationController = resultNavigationController
             )
+        }
+    }
+
+    private fun openInAgentTab(open: (WNavigationController) -> Boolean) {
+        val navigationController = navigationController ?: return
+        if (!open(navigationController)) return
+        (navigationController.searchOverlayHost ?: navigationController.tabBarController)
+            ?.clearSearchFocus()
+        navigationController.tabBarController?.searchExplore(
+            query = null,
+            focused = false,
+            targetNavigationController = navigationController
         )
+        if (usesGlobalSearchOverlay) {
+            navigationController.searchOverlayHost?.hideSearchOverlay()
+        }
     }
 
     private fun searchInGoogle(keyword: String) {
@@ -565,7 +635,6 @@ class SearchVC(
     internal fun openInAppBrowser(config: InAppBrowserConfig) {
         val inAppBrowserVC = InAppBrowserVC(
             context,
-            navigationController?.tabBarController,
             config
         )
         val window = window ?: return
@@ -583,7 +652,7 @@ class SearchVC(
             SearchChatHintCell(context, onTap = { hint -> openAgent(hint) })
 
         SEARCH_RECENT_CHAT_CELL ->
-            SearchRecentChatCell(context, onTap = { hint -> openRecentChat(hint.id) })
+            SearchRecentChatCell(context, onTap = ::openRecentChat, onStart = { openAgent("") })
 
         SEARCH_COLLECTIBLE_CELL -> SearchCollectibleCell(context, onTap = { match ->
             openCollectible(match)
@@ -595,7 +664,7 @@ class SearchVC(
 
         SEARCH_AGENT_CELL -> SearchItemCell(
             context,
-            iconRes = org.mytonwallet.app_air.icons.R.drawable.ic_agent_filled,
+            iconRes = org.mytonwallet.app_air.icons.R.drawable.ic_agent_search,
             iconColor = WColor.PrimaryText,
             onTap = { prompt -> openAgent(prompt) }
         )
@@ -648,7 +717,7 @@ class SearchVC(
             context,
             SearchItemCell(
                 context,
-                iconRes = R.drawable.ic_agent_filled,
+                iconRes = R.drawable.ic_agent_search,
                 iconColor = WColor.PrimaryText,
                 onTap = { prompt -> openAgent(prompt) }
             )

@@ -30,7 +30,8 @@ class SwapAssetInputView(
     context: Context,
     // Stable resource ids of the token selector and amount field, for UI automation
     assetViewId: Int? = null,
-    amountEditTextId: Int? = null
+    amountEditTextId: Int? = null,
+    maxButtonId: Int? = null
 ) : WCell(context),
     WThemedView {
     private val leftTopLabel = WLabel(context).apply {
@@ -44,7 +45,7 @@ class SwapAssetInputView(
     }
 
     private val rightTopButton = WTokenMaxButton(context).apply {
-        id = generateViewId()
+        id = maxButtonId ?: generateViewId()
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, 24.dp)
     }
 

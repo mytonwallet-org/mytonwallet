@@ -1,29 +1,34 @@
+import type { ElementRef } from '../../lib/teact/teact';
 import React, {
-  useEffect, useState,
+  memo, useEffect, useState,
 } from '../../lib/teact/teact';
 
 import type { AnswerTableProps } from '../agent/AnswerMessageContent';
 import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentation';
 
-import { APP_NAME } from '../../config';
+import { APP_NAME, APP_PRIVACY_POLICY_URL } from '../../config';
+import buildClassName from '../../util/buildClassName';
+import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
+import AgentHeader from '../agent/AgentHeader';
+import AgentSpinningTop from '../agent/AgentSpinningTop';
 import StaticText from '../agent/StaticText';
 import StreamingText from '../agent/StreamingText';
 import Button from '../ui/Button';
 
 import styles from './AgentV2Conversation.module.scss';
 
-export function AgentV2ConsentScreen({ onAccept }: { onAccept: NoneToVoidFunction }) {
+export const AgentV2ConsentScreen = memo(({ onAccept }: { onAccept: NoneToVoidFunction }) => {
   const lang = useLang();
   return (
     <div className={styles.consent}>
       <div className={styles.consentScroll}>
         <div className={styles.consentContent}>
           <div className={styles.consentIntro}>
-            <div className={styles.consentIcon}><i className="icon-agent" aria-hidden /></div>
+            <AgentSpinningTop className={styles.consentIcon} speed={0.5} isTouchInteractive />
             <h2 className={styles.consentTitle}>{lang('Data shared with Agent')}</h2>
             <p className={styles.consentSubtitle}>{lang('$agent_consent_subtitle')}</p>
           </div>
@@ -55,7 +60,12 @@ export function AgentV2ConsentScreen({ onAccept }: { onAccept: NoneToVoidFunctio
             <p className={styles.disclosureText}>
               {lang('$agent_consent_disclosure_text', { app_name: APP_NAME })}
             </p>
-            <p className={styles.disclosureText}>{lang('$agent_consent_search_disclosure_text')}</p>
+            <p className={styles.disclosureText}>
+              {lang('$agent_consent_search_disclosure_text')}{' '}
+              <a href={APP_PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer">
+                {lang('Learn more')}
+              </a>
+            </p>
           </div>
         </div>
       </div>
@@ -67,7 +77,23 @@ export function AgentV2ConsentScreen({ onAccept }: { onAccept: NoneToVoidFunctio
       </div>
     </div>
   );
-}
+});
+
+/**
+ * The screen the agent opens with until the user allows it the data it needs, under the plain "Agent" header. It lies
+ * over the chat list, which shows through as it fades out.
+ */
+export const AgentV2ConsentPage = memo(({ pageRef, onAccept }: {
+  pageRef?: ElementRef<HTMLDivElement>;
+  onAccept: NoneToVoidFunction;
+}) => {
+  return (
+    <div ref={pageRef} className={buildClassName(styles.consentPage, SWIPE_DISABLED_CLASS_NAME)}>
+      <AgentHeader />
+      <AgentV2ConsentScreen onAccept={onAccept} />
+    </div>
+  );
+});
 
 export function AgentV2AssistantText({
   messageId,

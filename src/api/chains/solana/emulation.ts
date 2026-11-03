@@ -6,14 +6,27 @@ import {
 } from '@solana/kit';
 
 import type { ApiActivity, ApiDappTransfer, ApiEmulationResult, ApiNetwork } from '../../types';
-import type { SolanaCompiledTransaction, SolanaTransactionEmulationResultRaw } from './types';
+import type { SolanaCompiledTransaction } from './types';
 
 import { SOLANA } from '../../../config';
-import { getTransferSolInstructionDataDecoder } from '../../../lib/solana-program/system';
-import { fetchJson } from '../../../util/fetch';
-import { parseTokenOperation, parseUserPaidTokenAccountRent } from './util/programParsers';
+import {
+  ComputeBudgetInstruction,
+  identifyComputeBudgetInstruction,
+  parseSetComputeUnitPriceInstruction,
+} from '../../../lib/solana-program/computeBudget';
+import { getTransferSolInstructionDataDecoder, TRANSFER_SOL_DISCRIMINATOR } from '../../../lib/solana-program/system';
+import {
+  emulateTransaction,
+  hasHiddenStakeAuthorityChanges,
+  hasHiddenSystemAccountChanges,
+  hasHiddenTokenAuthorityChanges,
+  parseTokenOperation,
+  parseUserPaidTokenAccountRent,
+} from './util/programParsers';
 import { updateActivityMetadata } from '../../common/helpers';
-import { DEFAULT_FEE, NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
+import { DEFAULT_FEE, SOLANA_PROGRAM_IDS } from './constants';
+
+export { emulateTransaction };
 
 const SIMPLE_PROGRAMS = new Set([
   ...SOLANA_PROGRAM_IDS.system,
@@ -48,6 +61,12 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
 
   if (isComplexTransaction(decompiled)) {
     const emulated = await emulateTransaction(rawTx, network);
+
+    if (hasHiddenSystemAccountChanges(decompiled, emulated?.innerInstructions, address)
+      || await hasHiddenTokenAuthorityChanges(decompiled, emulated, address, rawTx, network)
+      || await hasHiddenStakeAuthorityChanges(decompiled, emulated?.innerInstructions, address, network)) {
+      return { transfers: [getFakeTransfer(rawTx, true)], emulation };
+    }
 
     const tokenOperation = await parseTokenOperation(
       network,
@@ -125,6 +144,21 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
 
   const decompiledMessage = decompileTransactionMessage(decompiled);
   const activities: ApiActivity[] = [];
+  let networkFee = DEFAULT_FEE;
+  const hasPriorityFee = decompiledMessage.instructions.some(({ programAddress, data }) => {
+    if (!SOLANA_PROGRAM_IDS.computeBudget.includes(programAddress) || !data) return false;
+
+    return identifyComputeBudgetInstruction(data) === ComputeBudgetInstruction.SetComputeUnitPrice
+      && parseSetComputeUnitPriceInstruction({ programAddress, data }).data.microLamports > 0n;
+  });
+
+  if (hasPriorityFee) {
+    const simulatedFee = await emulateTransaction(rawTx, network).then((result) => result?.fee, () => undefined);
+    if (simulatedFee === undefined || !Number.isFinite(simulatedFee) || simulatedFee < 0) {
+      return { transfers: [getFakeTransfer(rawTx, true)], emulation: undefined };
+    }
+    networkFee = BigInt(simulatedFee);
+  }
 
   for (const instruction of decompiledMessage.instructions) {
     // Simple transfer
@@ -141,7 +175,10 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
 
       const isIncoming = address === destination;
 
-      transfers.push(getFakeTransfer(rawTx, false));
+      // Signing signs every transfer's raw payload, so the transaction gets one transfer however many it moves
+      if (!transfers.length) {
+        transfers.push(getFakeTransfer(rawTx, false));
+      }
 
       activities.push(updateActivityMetadata({
         id: String(activities.length),
@@ -156,16 +193,16 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
         slug: SOLANA.slug,
         isIncoming,
         normalizedAddress: isIncoming ? source : destination,
-        fee: DEFAULT_FEE,
+        fee: networkFee,
         status: 'completed',
       }));
 
       emulation = {
-        networkFee: DEFAULT_FEE,
+        networkFee,
         received: 1n,
         traceOutputs: [],
         activities,
-        realFee: DEFAULT_FEE,
+        realFee: networkFee,
       };
     }
     // Comment instruction
@@ -231,36 +268,32 @@ export function isComplexTransaction(
     const programAddress = compiled.staticAccounts[inst.programAddressIndex];
     const programIdString = programAddress.toString();
 
+    if (SOLANA_PROGRAM_IDS.system.includes(programIdString)) {
+      const transferDecoder = getTransferSolInstructionDataDecoder();
+
+      return !inst.data
+        || inst.data.length !== transferDecoder.fixedSize
+        || (inst.accountIndices?.length ?? 0) < 2
+        || transferDecoder.decode(inst.data).discriminator !== TRANSFER_SOL_DISCRIMINATOR;
+    }
+
+    if (SOLANA_PROGRAM_IDS.computeBudget.includes(programIdString)) {
+      try {
+        if (!inst.data) return true;
+
+        const instruction = { programAddress, data: inst.data };
+
+        if (identifyComputeBudgetInstruction(instruction) === ComputeBudgetInstruction.SetComputeUnitPrice) {
+          parseSetComputeUnitPriceInstruction(instruction);
+        }
+        return false;
+      } catch {
+        return true;
+      }
+    }
+
     return !SIMPLE_PROGRAMS.has(programIdString);
   });
 
   return isComplex;
-}
-
-export async function emulateTransaction(transaction: string, network: ApiNetwork, signal?: AbortSignal) {
-  const options = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: '1',
-      method: 'simulateTransaction',
-      params: [
-        transaction,
-        {
-          encoding: 'base64',
-          replaceRecentBlockhash: true,
-          innerInstructions: true,
-        },
-      ],
-    }),
-  };
-
-  const response = await fetchJson<SolanaTransactionEmulationResultRaw>(
-    NETWORK_CONFIG[network].rpcUrl,
-    undefined,
-    { ...options, signal },
-  );
-
-  return response.result.value;
 }

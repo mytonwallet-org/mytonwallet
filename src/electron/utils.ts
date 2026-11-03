@@ -6,6 +6,7 @@ import fs from 'fs';
 import { BASE_URL, BETA_URL, PRODUCTION_URL } from '../config';
 
 const ALLOWED_URL_ORIGINS = [BASE_URL, BETA_URL, PRODUCTION_URL].map((url) => new URL(url).origin);
+const EXTERNAL_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
 export let mainWindow: BrowserWindow;
 export const store = new Conf();
@@ -30,11 +31,20 @@ export function checkIsWebContentsUrlAllowed(url: string): boolean {
     ? encodeURI(`/${__dirname.replace(/\\/g, '/')}/index.html`)
     : encodeURI(`${__dirname}/index.html`);
 
-  if (parsedUrl.pathname === localContentsPathname) {
+  if (parsedUrl.protocol === 'file:' && parsedUrl.pathname === localContentsPathname) {
     return true;
   }
 
   return ALLOWED_URL_ORIGINS.includes(parsedUrl.origin);
+}
+
+// The system opens any other scheme with its registered protocol handler, which can run local programs
+export function checkIsExternalUrlAllowed(url: string): boolean {
+  try {
+    return EXTERNAL_URL_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 export function setMainWindow(window: BrowserWindow) {

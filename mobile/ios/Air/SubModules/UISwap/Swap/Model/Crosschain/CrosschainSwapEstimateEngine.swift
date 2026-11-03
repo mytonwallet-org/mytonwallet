@@ -235,12 +235,14 @@ func crosschainAdjustedNativeMaxAmount(
             swapEstimate.fromAmount.bigintAmount(decimals: selling.token.decimals),
             selling.token
         )
-        let nativeFee = swapEstimate.networkFee.flatMap {
-            FeeEstimationHelpers.networkFeeBigInt(
-                sellToken: selling.token,
-                swapType: swapType,
-                networkFee: $0.value
-            )?.fee
+        let nativeFee = swapEstimate.networkFee.flatMap { fee in
+            fee.value > 0
+                ? fee.bigintAmount(decimals: selling.token.chain.nativeToken.decimals)
+                : FeeEstimationHelpers.networkFeeBigInt(
+                    sellToken: selling.token,
+                    swapType: swapType,
+                    networkFee: fee.value
+                )?.fee
         }
         swapEstimate.isEnoughNative = isEnoughNativeForCrosschain(
             selling: resolvedSelling,

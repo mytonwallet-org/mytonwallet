@@ -31,6 +31,9 @@ export const SOLANA_PROGRAM_IDS = {
     'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // classic SPL
     'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', // token-2022
   ],
+  stake: [
+    'Stake11111111111111111111111111111111111111',
+  ],
   ata: [
     'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
   ],

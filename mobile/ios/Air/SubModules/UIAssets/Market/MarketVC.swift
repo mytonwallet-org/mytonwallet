@@ -8,6 +8,7 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
     private let showsLargeTitle: Bool
     private let usesTopTabsChrome: Bool
     private let model = MarketScreenModel()
+    private let pagingTint = WPagingBackgroundTint()
     private let navigationHeader = NavigationHeader2()
     private let largeTitleLabel = UILabel()
     private var navigationBarBlurView: UIView?
@@ -30,12 +31,14 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
     public override func viewDidLoad() {
         super.viewDidLoad()
         title = lang("Market")
+        MarketSectionContentView.prepareForUse()
         WalletCoreData.add(eventObserver: self)
         model.start()
         view.backgroundColor = .air.groupedBackground
 
         let screen = MarketScreen(
             model: model,
+            pagingTint: pagingTint,
             onScrollOffsetChange: { [weak self] offset in
                 self?.scrollOffsetDidChange(offset)
             },
@@ -168,5 +171,12 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
     private func showAllTokens(in section: MarketSection) {
         let viewController = MarketTokenListVC(title: section.title, tokens: section.tokens)
         navigationController?.pushViewController(viewController, animated: true)
+    }
+}
+
+extension MarketVC: WPagingBackgroundTinting {
+    public func setPagingBackgroundColor(_ color: UIColor?) {
+        pagingTint.color = color
+        view.backgroundColor = color ?? .air.groupedBackground
     }
 }

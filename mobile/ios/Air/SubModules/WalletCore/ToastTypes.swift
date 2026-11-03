@@ -2,6 +2,8 @@ import Foundation
 
 public enum ToastStyle: Equatable {
     case standard, large
+    /// Telegram's undo overlay: 12 pt from the screen's edges, 14 pt text on up to two lines
+    case overlay
 }
 
 public enum ToastIcon: Equatable {
@@ -13,6 +15,8 @@ public enum ToastIcon: Equatable {
 public enum ToastTransition {
     case fadeIn
     case floatUp
+    /// Telegram's undo overlay: fades in as it grows from 96% on a spring, and fades out as it shrinks back
+    case scale
 }
 
 public struct ToastConfig {

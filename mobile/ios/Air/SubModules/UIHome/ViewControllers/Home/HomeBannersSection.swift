@@ -43,10 +43,14 @@ public final class HomeBannersSection {
     }
 }
 
-private struct HomeAccountBannersView: View {
-    let accountContext: AccountContext
+public struct HomeAccountBannersView: View {
+    private let accountContext: AccountContext
 
-    var body: some View {
+    public init(accountContext: AccountContext) {
+        self.accountContext = accountContext
+    }
+
+    public var body: some View {
         WithPerceptionTracking {
             let banners = accountContext.config.banners
             HomePromotionStack(

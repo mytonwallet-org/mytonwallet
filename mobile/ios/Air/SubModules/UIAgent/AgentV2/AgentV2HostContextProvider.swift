@@ -336,7 +336,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 supportsRunActivity: true,
                 supportsWalletDirectory: true,
                 supportsMessageEdit: false,
-                supportsRegenerate: false,
+                supportsRegenerate: true,
                 supportsSendRecipientWithoutAsset: true
             ),
             lang: input.lang,

@@ -6,7 +6,7 @@ import WalletCore
 private enum AgentConsentMetrics {
     static let maxContentWidth: CGFloat = 580
     static let horizontalInset: CGFloat = 24
-    static let topInset: CGFloat = -16
+    static let topInset: CGFloat = 24
     static let bottomInset: CGFloat = 24
     static let buttonHorizontalInset: CGFloat = 16
     static let rowIconSize: CGFloat = 32
@@ -44,11 +44,17 @@ private enum AgentConsentCopy {
 final class AgentConsentView: UIView {
     var onContinue: (() -> Void)?
     var onLearnMore: (() -> Void)?
+    var isActive = true {
+        didSet { iconView.isActive = isActive }
+    }
 
+    private let iconView = AgentSpinningTopView(speedMultiplier: 0.5, expandedScale: 2, centersExpandedTop: true)
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let contentStack = UIStackView()
+    private let disclosureTextView = UITextView()
     private let bottomContainerView = UIView()
+    private let bottomFade = CAGradientLayer()
     private let continueButton = WButton(style: .primary)
     private let contentWidthGuide = UILayoutGuide()
     private let buttonWidthGuide = UILayoutGuide()
@@ -71,7 +77,9 @@ final class AgentConsentView: UIView {
     private func setupViews() {
         backgroundColor = UIColor.air.background
 
+        iconView.backdropSourceView = scrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = UIColor.air.background
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .automatic
@@ -85,10 +93,11 @@ final class AgentConsentView: UIView {
         contentStack.alignment = .fill
 
         bottomContainerView.translatesAutoresizingMaskIntoConstraints = false
-        bottomContainerView.backgroundColor = UIColor.air.background
+        bottomContainerView.layer.insertSublayer(bottomFade, at: 0)
 
         continueButton.translatesAutoresizingMaskIntoConstraints = false
         continueButton.setTitle(AgentConsentCopy.allowButton, for: .normal)
+        continueButton.accessibilityIdentifier = "agent_consent_allow"
         continueButton.addTarget(self, action: #selector(continueButtonPressed), for: .touchUpInside)
 
         addLayoutGuide(contentWidthGuide)
@@ -122,7 +131,7 @@ final class AgentConsentView: UIView {
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomContainerView.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
@@ -146,6 +155,22 @@ final class AgentConsentView: UIView {
         ])
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        bottomFade.frame = bottomContainerView.bounds
+        bottomFade.colors = [
+            UIColor.air.background.withAlphaComponent(0).cgColor,
+            UIColor.air.background.cgColor,
+        ]
+        bottomFade.locations = [0, 0.35]
+        scrollView.contentInset.bottom = max(0, bottomContainerView.bounds.height - safeAreaInsets.bottom)
+    }
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        disclosureTextView.linkTextAttributes = AgentMessageTextRenderer.linkTextAttributes(color: tintColor)
+    }
+
     private func buildContent() {
         contentStack.addArrangedSubview(makeHeaderView())
         contentStack.setCustomSpacing(34, after: contentStack.arrangedSubviews.last!)
@@ -158,8 +183,6 @@ final class AgentConsentView: UIView {
         contentStack.setCustomSpacing(28, after: contentStack.arrangedSubviews.last!)
 
         contentStack.addArrangedSubview(makeDisclosureView())
-        contentStack.setCustomSpacing(6, after: contentStack.arrangedSubviews.last!)
-        contentStack.addArrangedSubview(makeLearnMoreButtonContainer())
     }
 
     private func makeHeaderView() -> UIView {
@@ -168,24 +191,10 @@ final class AgentConsentView: UIView {
         container.alignment = .center
         container.spacing = 14
 
-        let iconContainer = UIView()
-        iconContainer.translatesAutoresizingMaskIntoConstraints = false
-        iconContainer.backgroundColor = tintColor.withAlphaComponent(0.12)
-        iconContainer.layer.cornerRadius = AgentConsentMetrics.heroIconSize / 2
-        iconContainer.layer.cornerCurve = .continuous
-
-        let iconView = UIImageView(image: UIImage(systemName: "sparkles"))
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.tintColor = .tintColor
-        iconView.contentMode = .scaleAspectFit
-
-        iconContainer.addSubview(iconView)
+        iconView.isAccessibilityElement = false
         NSLayoutConstraint.activate([
-            iconContainer.widthAnchor.constraint(equalToConstant: AgentConsentMetrics.heroIconSize),
-            iconContainer.heightAnchor.constraint(equalTo: iconContainer.widthAnchor),
-            iconView.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 34),
+            iconView.widthAnchor.constraint(equalToConstant: AgentConsentMetrics.heroIconSize),
             iconView.heightAnchor.constraint(equalTo: iconView.widthAnchor)
         ])
 
@@ -204,7 +213,7 @@ final class AgentConsentView: UIView {
         subtitleLabel.numberOfLines = 0
         subtitleLabel.text = AgentConsentCopy.subtitle
 
-        container.addArrangedSubview(iconContainer)
+        container.addArrangedSubview(iconView)
         container.addArrangedSubview(titleLabel)
         container.addArrangedSubview(subtitleLabel)
         return container
@@ -261,21 +270,42 @@ final class AgentConsentView: UIView {
         stack.spacing = 8
 
         let titleLabel = UILabel()
-        titleLabel.font = UIFont.preferredFont(forTextStyle: .headline)
+        titleLabel.font = UIFont.preferredFont(forTextStyle: .subheadline).withWeight(.semibold)
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.textColor = .label
         titleLabel.numberOfLines = 0
         titleLabel.text = AgentConsentCopy.disclosureTitle
+        titleLabel.accessibilityIdentifier = "agent_consent_title"
 
-        let bodyLabel = UILabel()
-        bodyLabel.font = UIFont.preferredFont(forTextStyle: .subheadline)
-        bodyLabel.adjustsFontForContentSizeCategory = true
-        bodyLabel.textColor = .air.secondaryLabel
-        bodyLabel.numberOfLines = 0
-        bodyLabel.text = AgentConsentCopy.disclosureText
+        let font = UIFont.preferredFont(forTextStyle: .footnote)
+        let disclosure = NSMutableAttributedString(
+            string: AgentConsentCopy.disclosureText + " ",
+            attributes: [.font: font, .foregroundColor: UIColor.air.secondaryLabel]
+        )
+        disclosure.append(NSAttributedString(
+            string: AgentConsentCopy.learnMore,
+            attributes: [.font: font, .link: APP_PRIVACY_POLICY_URL]
+        ))
+        disclosureTextView.backgroundColor = .clear
+        disclosureTextView.isEditable = false
+        disclosureTextView.isScrollEnabled = false
+        disclosureTextView.isSelectable = true
+        disclosureTextView.textContainerInset = .zero
+        disclosureTextView.textContainer.lineFragmentPadding = 0
+        disclosureTextView.textContainer.lineBreakMode = .byWordWrapping
+        disclosureTextView.textDragInteraction?.isEnabled = false
+        disclosureTextView.font = font
+        disclosureTextView.adjustsFontForContentSizeCategory = true
+        disclosureTextView.attributedText = disclosure
+        disclosureTextView.linkTextAttributes = AgentMessageTextRenderer.linkTextAttributes(color: tintColor)
+        disclosureTextView.delegate = self
+        disclosureTextView.accessibilityIdentifier = "agent_consent_learn_more"
+        disclosureTextView.setContentHuggingPriority(UILayoutPriority(999), for: .vertical)
+        disclosureTextView.setContentCompressionResistancePriority(UILayoutPriority(999), for: .vertical)
+        disclosureTextView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         stack.addArrangedSubview(titleLabel)
-        stack.addArrangedSubview(bodyLabel)
+        stack.addArrangedSubview(disclosureTextView)
         container.addSubview(stack)
 
         NSLayoutConstraint.activate([
@@ -288,52 +318,16 @@ final class AgentConsentView: UIView {
         return container
     }
 
-    private func makeLearnMoreButtonContainer() -> UIView {
-        let container = UIView()
-        let button = makeLearnMoreButton()
-        button.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(button)
-        NSLayoutConstraint.activate([
-            button.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
-            button.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -16),
-            button.topAnchor.constraint(equalTo: container.topAnchor),
-            button.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 24)
-        ])
-        return container
-    }
-
-    private func makeLearnMoreButton() -> UIButton {
-        let font = UIFont.preferredFont(forTextStyle: .subheadline)
-        var configuration = UIButton.Configuration.plain()
-        configuration.contentInsets = .zero
-        configuration.image = UIImage(systemName: "chevron.forward")
-        configuration.imagePlacement = .trailing
-        configuration.imagePadding = 4
-        configuration.title = AgentConsentCopy.learnMore
-        configuration.baseForegroundColor = .tintColor
-        configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(font: font, scale: .small)
-        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = font
-            return outgoing
-        }
-
-        let button = UIButton(type: .system)
-        button.configuration = configuration
-        button.contentHorizontalAlignment = .leading
-        button.titleLabel?.font = font
-        button.titleLabel?.adjustsFontForContentSizeCategory = true
-        button.addTarget(self, action: #selector(learnMoreButtonPressed), for: .touchUpInside)
-        return button
-    }
-
     @objc private func continueButtonPressed() {
         onContinue?()
     }
+}
 
-    @objc private func learnMoreButtonPressed() {
+extension AgentConsentView: UITextViewDelegate {
+    func textView(_ textView: UITextView, shouldInteractWith url: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
+        guard interaction == .invokeDefaultAction else { return false }
         onLearnMore?()
+        return false
     }
 }
 

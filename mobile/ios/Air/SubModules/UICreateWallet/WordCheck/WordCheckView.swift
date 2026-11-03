@@ -165,6 +165,7 @@ struct WordCheckView: View {
             .multilineTextAlignment(.center)
             .textStyle(.onboardingTitle)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("word_check_title")
     }
     
     @ViewBuilder
@@ -177,6 +178,7 @@ struct WordCheckView: View {
             .textStyle(.body)
             .contentTransition(.numericText())
             .animation(.default, value: tests.map(\.id))
+            .accessibilityIdentifier("word_check_prompt")
     }
 
     private func grid(tests: [Test], revealCorrect: Bool, isChecking: Bool, isEnabled: Bool) -> some View {
@@ -215,6 +217,8 @@ struct WordCheckView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textStyle(.calloutEmphasized, content: .technical)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("word_check_row_\(testIndex + 1)")
                 }
             }
         }
@@ -300,6 +304,7 @@ private struct Item: View {
             .accessibilityAddTraits(isEnabled ? .isButton : [])
             .accessibilityAddTraits(state != .none ? .isSelected : [])
             .accessibilityLabel(Text(verbatim: "\(localizedIntegerString(questionNumber)). \(word)"))
+            .accessibilityIdentifier("word_check_option")
             .accessibilityAction {
                 guard isEnabled else { return }
                 withAnimation(.spring(duration: 0.2, bounce: 0)) {

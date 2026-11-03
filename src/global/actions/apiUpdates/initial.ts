@@ -1,4 +1,5 @@
 import type { ApiLiquidStakingState, ApiNft, ApiStakingState } from '../../../api/types';
+import type { getActions } from '../../index';
 import type { AccountChain, GlobalState } from '../../types';
 import { AppState } from '../../types';
 
@@ -26,6 +27,7 @@ import {
   applyOutgoingNftFromActivity,
   createAccount,
   removeNft,
+  replaceNft,
   updateAccount,
   updateAccountBanners,
   updateAccountChain,
@@ -64,6 +66,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     case 'updateBalances': {
       global = updateBalances(global, update.accountId, update.chain, update.balances);
       setGlobal(global);
+      actions.preloadTokenDetails();
       break;
     }
 
@@ -144,6 +147,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       const { tokens, kind, removedSlugs } = update;
       global = updateTokens(global, tokens, kind, removedSlugs, true);
       setGlobal(global);
+      actions.preloadTokenDetails();
       break;
     }
 
@@ -174,7 +178,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       if (streamedAddresses) {
         // Streaming complete - prune NFTs not seen during the session for this chain
         const streamed = new Set(streamedAddresses);
-        const prunedByAddress = { ...currentNfts?.byAddress };
+        const prunedByAddress = { ...currentNfts?.byAddress, ...nfts };
         for (const addr of Object.keys(prunedByAddress)) {
           if (prunedByAddress[addr].chain === chain && !streamed.has(addr)) {
             delete prunedByAddress[addr];
@@ -253,13 +257,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
       const hasTelegramGifts = update.nfts.some((nft) => nft.isTelegramGift);
       if (hasTelegramGifts) {
-        actions.addCollectionTab({
-          collection: {
-            address: TELEGRAM_GIFTS_SUPER_COLLECTION,
-            chain: 'ton',
-          },
-          isAuto: true,
-        });
+        addTelegramGiftsTab(actions);
       }
 
       setGlobal(global);
@@ -319,12 +317,26 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       global = applyIncomingNftFromActivity(global, accountId, nft);
       setGlobal(global);
 
+      if (nft.isTelegramGift) addTelegramGiftsTab(actions);
       actions.checkCardNftOwnership({ accountId });
       const settings = selectAccountSettings(global, accountId);
       if (nft.collectionAddress === MW_CARDS_COLLECTION && !settings?.cardBackgroundNft) {
         actions.setCardBackgroundNft({ nft, accountId });
         actions.installAccentColorFromNft({ nft, accountId });
       }
+      break;
+    }
+
+    case 'nftChanged': {
+      const { accountId, nft } = update;
+      global = selectAccountNftByAddress(global, accountId, nft.address)
+        ? replaceNft(global, accountId, nft)
+        : applyIncomingNftFromActivity(global, accountId, nft);
+      if (nft.collectionAddress === MW_CARDS_COLLECTION) {
+        global = updateAccountSettingsBackgroundNft(global, nft);
+      }
+      setGlobal(global);
+      if (nft.isTelegramGift) addTelegramGiftsTab(actions);
       break;
     }
 
@@ -634,3 +646,13 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
   }
 });
+
+function addTelegramGiftsTab(actions: Pick<ReturnType<typeof getActions>, 'addCollectionTab'>) {
+  actions.addCollectionTab({
+    collection: {
+      address: TELEGRAM_GIFTS_SUPER_COLLECTION,
+      chain: 'ton',
+    },
+    isAuto: true,
+  });
+}

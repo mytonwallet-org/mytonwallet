@@ -116,13 +116,13 @@ final class TokenTradeView: UIView {
         hasFee = displayedFee != nil && sellingToken != nil && nativeToken != nil
         fee.update(fee: displayedFee, sellingToken: sellingToken, nativeToken: nativeToken,
                    currency: TokenStore.baseCurrency, isError: model.hasInsufficientFee, animated: animated)
-        feePresence.setVisible(hasFee, animated: animated)
+        feePresence.setContentVisible(hasFee, animated: animated)
         let impactValue = model.displayImpactWarning
         hasImpact = impactValue != nil
         if let impactValue {
             impact.update(.init(title: SwapWarning.title(impact: impactValue), message: SwapWarning.message, isWarning: true), animated: animated)
         }
-        impactPresence.setVisible(hasImpact, animated: animated)
+        impactPresence.setContentVisible(hasImpact, animated: animated)
         let hintValue = model.hint
         hasHint = hintValue != nil
         if let hintValue {
@@ -130,7 +130,7 @@ final class TokenTradeView: UIView {
             hint.update(.init(title: content.title, message: content.message, actionTitle: content.actionTitle), animated: animated)
             hint.onAction = { [weak model] in model?.performHintAction(hintValue) }
         }
-        hintPresence.setVisible(hasHint, animated: animated)
+        hintPresence.setContentVisible(hasHint, animated: animated)
         rendered = true
         updateLayout(animated: animated)
     }
@@ -215,104 +215,37 @@ final class TokenTradeView: UIView {
     }
 }
 
-/// Footer measurement and placement happen together, with no geometry-to-state feedback pass.
-struct TokenTradeLayout {
-    let scroll: CGRect
-    let card: CGRect
-    let method: CGRect
-    let controls: CGRect
-    let contentHeight: CGFloat
-    let keypadHeight: CGFloat
-    let maximumAmountHeight: CGFloat
-    let amountTop: CGFloat
-    let footerTop: CGFloat
-
-    init(size: CGSize, bottomSafeArea: CGFloat, navigationBarSpace: CGFloat,
-         feeHeight: CGFloat, impactHeight: CGFloat, hintHeight: CGFloat) {
-        let bottomInset = max(32, bottomSafeArea)
-        keypadHeight = min(256, max(176, size.height - (256 + navigationBarSpace + 84) - 88 - bottomInset))
-        let controlsHeight = 88 + keypadHeight + bottomInset
-        let available = max(0, size.height - controlsHeight)
-        let preferredCardHeight = max(136 + navigationBarSpace, available - 84)
-        let heights = [feeHeight, impactHeight, hintHeight].filter { $0 > 0 }
-        let footerHeight = heights.reduce(0, +) + CGFloat(max(0, heights.count - 1)) * 8
-        let hasNotice = impactHeight > 0 || hintHeight > 0
-        let compact = preferredCardHeight - footerHeight - (hasNotice ? 16 : 22) < 240
-        let bottomPadding: CGFloat = hasNotice ? 16 : compact ? 12 : 22
-        maximumAmountHeight = compact ? 64 : 86
-        let amountHeight = 26 + maximumAmountHeight
-        let minimumTop = max(16, navigationBarSpace)
-        let cardHeight = max(preferredCardHeight, minimumTop + amountHeight + 18 + footerHeight + bottomPadding)
-        amountTop = max(minimumTop, min(54 + navigationBarSpace, cardHeight - amountHeight - 18 - footerHeight - bottomPadding))
-        footerTop = cardHeight - bottomPadding - footerHeight
-        scroll = CGRect(x: 0, y: 0, width: size.width, height: available)
-        card = CGRect(x: 0, y: 0, width: size.width, height: cardHeight)
-        method = CGRect(x: 16, y: cardHeight + 16, width: max(0, size.width - 32), height: 52)
-        controls = CGRect(x: 0, y: available, width: size.width, height: controlsHeight)
-        contentHeight = max(available, cardHeight + 84)
-    }
-}
+typealias TokenTradeLayout = NativeTradeLayout
 
 final class TokenTradeInputControls: UIView {
     private let model: TokenTradeModel
-    private let continueButton: TokenTradeContinueButton
-    private let fractions = UIView()
-    private var fractionButtons: [TokenTradePressButton] = []
-    private lazy var continuePresence = TokenTradePresenceView(continueButton)
-    private lazy var fractionsPresence = TokenTradePresenceView(fractions)
+    private let controls: NativeTradeInputControls
     private var rendered = false
 
     init(model: TokenTradeModel, continueAction: @escaping () -> Void) {
         self.model = model
-        continueButton = TokenTradeContinueButton(action: continueAction)
+        controls = NativeTradeInputControls(percentages: [25, 50, 100], accessibilityPrefix: "tokenTrade",
+            onFraction: { [weak model] in model?.useFraction($0) }, onContinue: continueAction)
         super.init(frame: .zero)
-        addSubview(continuePresence)
-        addSubview(fractionsPresence)
-        for percentage in [25, 50, 100] {
-            let button = TokenTradePressButton(frame: .zero)
-            let label = UILabel()
-            label.text = percentage.formatted(.percent.scale(1).locale(.forNumberFormatters))
-            label.font = .systemFont(ofSize: 17, weight: .medium)
-            label.textColor = .label
-            label.textAlignment = .center
-            label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            button.content.addSubview(label)
-            button.content.backgroundColor = .air.headerBackground
-            button.content.layer.cornerRadius = 26
-            button.content.layer.cornerCurve = .continuous
-            button.accessibilityLabel = label.text
-            button.accessibilityIdentifier = "tokenTrade.fraction.\(percentage)"
-            button.addAction(UIAction { [weak model] _ in model?.useFraction(percentage) }, for: .touchUpInside)
-            fractions.addSubview(button)
-            fractionButtons.append(button)
-        }
+        controls.continueButton.button.accessibilityIdentifier = "tokenTrade.continue"
+        addSubview(controls)
         observe { [weak self] in self?.update() }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func update() {
-        let animated = rendered && window != nil && TokenTradeMotion.enabled
-        let showsContinue = model.hasAmount || (model.cardCurrency != nil && model.isBuying)
-        continueButton.update(configuration: model.buttonConfiguration,
-                              tintColor: UIColor(hex: model.isBuying ? "#34C759" : "#FF383C"),
-                              diagnostics: model.swap.quoteDiagnostics, animated: animated)
-        let enabled = (model.maximumTokenAmount?.amount ?? 0) > 0
-        fractionButtons.forEach { $0.isEnabled = enabled }
-        continuePresence.setVisible(showsContinue, animated: animated)
-        fractionsPresence.setVisible(!showsContinue, animated: animated)
+        let animated = rendered && window != nil && TradeMotion.enabled
+        controls.update(configuration: model.buttonConfiguration,
+            tintColor: UIColor(hex: model.isBuying ? "#34C759" : "#FF383C"),
+            showsContinue: model.hasAmount || (model.cardCurrency != nil && model.isBuying),
+            fractionsEnabled: (model.maximumTokenAmount?.amount ?? 0) > 0, animated: animated,
+            onRender: { [weak model] in model?.swap.quoteDiagnostics.rendered($0, button: $1, renderedTitle: $2) })
         rendered = true
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        TokenTradeMotion.place(continuePresence, in: bounds)
-        TokenTradeMotion.place(fractionsPresence, in: bounds)
-        let width = max(0, (bounds.width - 20) / 3)
-        let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
-        for (index, button) in fractionButtons.enumerated() {
-            let x = CGFloat(rtl ? 2 - index : index) * (width + 10)
-            TokenTradeMotion.place(button, in: CGRect(x: x, y: 0, width: width, height: bounds.height))
-        }
+        TradeMotion.place(controls, in: bounds)
     }
 }

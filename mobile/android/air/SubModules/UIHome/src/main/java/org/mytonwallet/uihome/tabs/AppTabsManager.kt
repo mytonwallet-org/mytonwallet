@@ -58,7 +58,8 @@ object AppTabsManager {
             R.drawable.ic_agent_thin,
             R.drawable.ic_agent_filled,
             "Agent",
-            isRequired = false
+            isRequired = false,
+            testViewId = UIComponentsR.id.tab_agent
         ),
         AppTab(
             TAB_EXPLORE,

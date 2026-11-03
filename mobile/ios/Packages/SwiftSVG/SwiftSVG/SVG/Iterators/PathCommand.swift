@@ -476,7 +476,6 @@ internal struct SmoothQuadraticCurveTo: PathCommand {
 
 /**
  The `PathCommand` that corresponds to the SVG `A` or `a` command
- - TODO: Still needs an implementation
  */
 internal struct EllipticalArc: PathCommand {
 
@@ -484,7 +483,7 @@ internal struct EllipticalArc: PathCommand {
     internal var coordinateBuffer = [Double]()
 
     /// :nodoc:
-    internal let numberOfRequiredParameters = 2
+    internal let numberOfRequiredParameters = 7
 
     /// :nodoc:
     internal let pathType: PathType
@@ -496,6 +495,46 @@ internal struct EllipticalArc: PathCommand {
 
     /// :nodoc:
     internal func execute(on path: UIBezierPath, previousCommand: PreviousCommand? = nil) {
-        assert(false, "Needs Implementation")
+        guard coordinateBuffer.count == 7 else { return }
+        let start = path.currentPoint
+        let end = pointForPathType(CGPoint(x: coordinateBuffer[5], y: coordinateBuffer[6]), relativeTo: start)
+        guard start != end else { return }
+        var rx = abs(CGFloat(coordinateBuffer[0]))
+        var ry = abs(CGFloat(coordinateBuffer[1]))
+        guard rx > 0, ry > 0 else {
+            path.addLine(to: end)
+            return
+        }
+
+        // SVG endpoint-to-center conversion, including out-of-range radii correction:
+        // https://www.w3.org/TR/SVG/implnote.html#ArcConversionEndpointToCenter
+        let rotation = CGFloat(coordinateBuffer[2]) * .pi / 180
+        let cosine = cos(rotation), sine = sin(rotation)
+        let dx = (start.x - end.x) / 2, dy = (start.y - end.y) / 2
+        let x = cosine * dx + sine * dy
+        let y = -sine * dx + cosine * dy
+        let radiusScale = x * x / (rx * rx) + y * y / (ry * ry)
+        if radiusScale > 1 {
+            rx *= sqrt(radiusScale)
+            ry *= sqrt(radiusScale)
+        }
+        let large = coordinateBuffer[3] != 0
+        let sweep = coordinateBuffer[4] != 0
+        let denominator = rx * rx * y * y + ry * ry * x * x
+        let factor = (large == sweep ? CGFloat(-1) : 1)
+            * sqrt(max(0, (rx * rx * ry * ry - denominator) / denominator))
+        let cx = factor * rx * y / ry, cy = -factor * ry * x / rx
+        let center = CGPoint(x: cosine * cx - sine * cy + (start.x + end.x) / 2,
+                             y: sine * cx + cosine * cy + (start.y + end.y) / 2)
+        let startAngle = atan2((y - cy) / ry, (x - cx) / rx)
+        var delta = atan2((-y - cy) / ry, (-x - cx) / rx) - startAngle
+        if sweep && delta < 0 { delta += 2 * .pi }
+        if !sweep && delta > 0 { delta -= 2 * .pi }
+        let transform = CGAffineTransform(a: rx * cosine, b: rx * sine,
+                                          c: -ry * sine, d: ry * cosine, tx: center.x, ty: center.y)
+        let result = CGMutablePath()
+        result.addPath(path.cgPath)
+        result.addRelativeArc(center: .zero, radius: 1, startAngle: startAngle, delta: delta, transform: transform)
+        path.cgPath = result
     }
 }

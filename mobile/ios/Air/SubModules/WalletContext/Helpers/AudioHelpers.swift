@@ -24,14 +24,31 @@ import AVFoundation
     }
     
     private static var player: AVAudioPlayer? = nil
+    private static var soundSuspensions: Set<UUID> = []
+
+    public static func suspendSounds() -> @MainActor @Sendable () -> Void {
+        let id = UUID()
+        soundSuspensions.insert(id)
+        player?.stop()
+        player = nil
+        return { soundSuspensions.remove(id) }
+    }
+
     public static func play(sound: Sound) {
-        guard let url = sound.url else {return}
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.ambient, options: .mixWithOthers)
-            try AVAudioSession.sharedInstance().setActive(true)
-            player = try AVAudioPlayer(contentsOf: url)
-            player?.play()
-        } catch {
+        play(sound: sound) { sound in
+            guard let url = sound.url else {return}
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.ambient, options: .mixWithOthers)
+                try AVAudioSession.sharedInstance().setActive(true)
+                player = try AVAudioPlayer(contentsOf: url)
+                player?.play()
+            } catch {
+            }
         }
+    }
+
+    static func play(sound: Sound, using playback: (Sound) -> Void) {
+        guard soundSuspensions.isEmpty else { return }
+        playback(sound)
     }
 }

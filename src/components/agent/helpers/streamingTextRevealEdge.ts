@@ -15,10 +15,22 @@ const SAME_LINE_TOLERANCE_PX = 0.5;
 interface RevealEdgeFragmentState {
   coverElement: HTMLSpanElement;
   animation: Animation;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 export interface RevealEdgeGroupState {
   fragments: RevealEdgeFragmentState[];
+  // Where the revealed text lies in the content, so that its covers can follow it when the lines wrap anew
+  startOffset: number;
+  text: string;
+}
+
+interface RelaidRevealEdgeGroup {
+  group: RevealEdgeGroupState;
+  fragments: PreparedRevealEdgeFragment[];
 }
 
 interface RevealEdgeVisualFragment {
@@ -76,74 +88,24 @@ export function animateRevealEdges(
     return;
   }
 
-  const preparedFragments = measureStreamingTextDom(() => prepareRevealEdgeFragments(
-    container,
-    content,
-    previousTextContent,
-    currentTextContent,
-  ));
-  if (!preparedFragments.length) return;
+  const { prepared, relaidGroups } = measureStreamingTextDom(() => ({
+    prepared: prepareRevealEdgeFragments(container, content, previousTextContent, currentTextContent),
+    relaidGroups: measureRelaidRevealEdgeGroups(container, content, currentTextContent, groupsRef.current),
+  }));
+  if (!prepared && !relaidGroups.length) return;
 
   const lifecycleGeneration = lifecycleGenerationRef.current;
   mutateStreamingTextDom(() => {
     if (lifecycleGenerationRef.current !== lifecycleGeneration) return;
 
-    const group: RevealEdgeGroupState = { fragments: [] };
-    preparedFragments.forEach((fragment) => {
-      const coverElement = document.createElement('span');
-      const textElement = document.createElement('span');
-      coverElement.className = styles.revealEdgeFragment;
-      textElement.className = styles.revealEdgeText;
-      coverElement.dataset.agentStreamingRevealEdgeCover = '';
-      textElement.dataset.agentStreamingRevealEdgeText = '';
-      textElement.textContent = fragment.text;
-      coverElement.style.left = `${fragment.left}px`;
-      coverElement.style.top = `${fragment.top}px`;
-      coverElement.style.width = `${fragment.width}px`;
-      coverElement.style.height = `${fragment.height}px`;
-      coverElement.style.backgroundColor = fragment.backgroundColor;
-      coverElement.style.direction = fragment.direction;
-      copyRevealEdgeTypography(textElement, fragment.typography);
-      coverElement.appendChild(textElement);
-      layer.appendChild(coverElement);
+    const startFragment = (
+      group: RevealEdgeGroupState, fragment: PreparedRevealEdgeFragment, currentTime?: CSSNumberish,
+    ) => {
+      const state = startRevealEdgeFragment(layer, fragment, currentTime);
+      if (!state) return;
 
-      let animation: Animation;
-      try {
-        animation = textElement.animate(
-          [
-            {
-              offset: 0,
-              opacity: 0.16,
-              filter: 'blur(0.3rem)',
-              transform: 'translateY(0.08rem)',
-            },
-            {
-              offset: 0.45,
-              opacity: 0.72,
-              filter: 'blur(0.08rem)',
-              transform: 'translateY(0.02rem)',
-            },
-            {
-              offset: 1,
-              opacity: 1,
-              filter: 'blur(0)',
-              transform: 'translateY(0)',
-            },
-          ],
-          {
-            duration: REVEAL_EDGE_ANIMATION_DURATION_MS,
-            easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-            fill: 'forwards',
-          },
-        );
-      } catch {
-        coverElement.remove();
-        return;
-      }
-
-      const state = { coverElement, animation };
       group.fragments.push(state);
-      animation.onfinish = () => removeRevealEdge(
+      state.animation.onfinish = () => removeRevealEdge(
         group,
         state,
         groupsRef,
@@ -151,7 +113,26 @@ export function animateRevealEdges(
         lifecycleGeneration,
         onSettled,
       );
+    };
+
+    // A word that no longer fits its line moves to the next one, and the covers of its revealed letters go with it
+    // at the point of their animation they had reached
+    relaidGroups.forEach(({ group, fragments }) => {
+      if (!groupsRef.current.includes(group)) return;
+
+      const currentTime = group.fragments[0]?.animation.currentTime ?? undefined;
+      clearRevealEdgeGroup(group);
+      fragments.forEach((fragment) => startFragment(group, fragment, currentTime));
+      if (group.fragments.length) return;
+
+      groupsRef.current.splice(groupsRef.current.indexOf(group), 1);
+      onSettled();
     });
+
+    if (!prepared) return;
+
+    const group: RevealEdgeGroupState = { fragments: [], startOffset: prepared.startOffset, text: prepared.text };
+    prepared.fragments.forEach((fragment) => startFragment(group, fragment));
 
     if (!group.fragments.length) return;
 
@@ -186,6 +167,73 @@ export function clearRevealEdges(groupsRef: RefObject<RevealEdgeGroupState[]>) {
   });
 }
 
+function startRevealEdgeFragment(
+  layer: HTMLSpanElement,
+  fragment: PreparedRevealEdgeFragment,
+  currentTime?: CSSNumberish,
+): RevealEdgeFragmentState | undefined {
+  const coverElement = document.createElement('span');
+  const textElement = document.createElement('span');
+  coverElement.className = styles.revealEdgeFragment;
+  textElement.className = styles.revealEdgeText;
+  coverElement.dataset.agentStreamingRevealEdgeCover = '';
+  textElement.dataset.agentStreamingRevealEdgeText = '';
+  textElement.textContent = fragment.text;
+  coverElement.style.left = `${fragment.left}px`;
+  coverElement.style.top = `${fragment.top}px`;
+  coverElement.style.width = `${fragment.width}px`;
+  coverElement.style.height = `${fragment.height}px`;
+  coverElement.style.backgroundColor = fragment.backgroundColor;
+  coverElement.style.direction = fragment.direction;
+  copyRevealEdgeTypography(textElement, fragment.typography);
+  coverElement.appendChild(textElement);
+  layer.appendChild(coverElement);
+
+  let animation: Animation;
+  try {
+    animation = textElement.animate(
+      [
+        {
+          offset: 0,
+          opacity: 0.16,
+          filter: 'blur(0.3rem)',
+          transform: 'translateY(0.08rem)',
+        },
+        {
+          offset: 0.45,
+          opacity: 0.72,
+          filter: 'blur(0.08rem)',
+          transform: 'translateY(0.02rem)',
+        },
+        {
+          offset: 1,
+          opacity: 1,
+          filter: 'blur(0)',
+          transform: 'translateY(0)',
+        },
+      ],
+      {
+        duration: REVEAL_EDGE_ANIMATION_DURATION_MS,
+        easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
+        fill: 'forwards',
+      },
+    );
+    if (currentTime !== undefined) animation.currentTime = currentTime;
+  } catch {
+    coverElement.remove();
+    return undefined;
+  }
+
+  return {
+    coverElement,
+    animation,
+    left: fragment.left,
+    top: fragment.top,
+    width: fragment.width,
+    height: fragment.height,
+  };
+}
+
 function prepareRevealEdgeFragments(
   container: HTMLElement,
   content: HTMLElement,
@@ -193,18 +241,62 @@ function prepareRevealEdgeFragments(
   currentTextContent: string,
 ) {
   const commonPrefixLength = getCommonStringPrefixLength(previousTextContent, currentTextContent);
-  if (commonPrefixLength >= currentTextContent.length) return [];
+  if (commonPrefixLength >= currentTextContent.length) return undefined;
 
   const changedGraphemes = segmentGraphemes(currentTextContent.slice(commonPrefixLength));
   const edgeText = changedGraphemes
     .slice(-MAXIMUM_INITIAL_REVEAL_GRAPHEMES)
     .join('');
   const edgeStartOffset = currentTextContent.length - edgeText.length;
-  const fragments = getRevealEdgeVisualFragments(content, edgeStartOffset);
-  if (!fragments.length) return [];
+  const visualFragments = getRevealEdgeVisualFragments(content, edgeStartOffset, currentTextContent.length);
+  const fragments = prepareVisualFragments(container.getBoundingClientRect(), visualFragments);
+  if (!fragments.length) return undefined;
+
+  return { fragments, startOffset: edgeStartOffset, text: edgeText };
+}
+
+// The groups whose text now lies elsewhere, with where it lies. A group whose text has changed under it is relaid
+// with no fragments, which removes it.
+function measureRelaidRevealEdgeGroups(
+  container: HTMLElement,
+  content: HTMLElement,
+  currentTextContent: string,
+  groups: RevealEdgeGroupState[],
+) {
+  if (!groups.length) return [];
 
   const containerRect = container.getBoundingClientRect();
 
+  return groups.reduce<RelaidRevealEdgeGroup[]>((result, group) => {
+    const endOffset = group.startOffset + group.text.length;
+    if (currentTextContent.slice(group.startOffset, endOffset) !== group.text) {
+      result.push({ group, fragments: [] });
+      return result;
+    }
+
+    const visualFragments = getRevealEdgeVisualFragments(content, group.startOffset, endOffset);
+    if (getIsSameLayout(group.fragments, visualFragments, containerRect)) return result;
+
+    result.push({ group, fragments: prepareVisualFragments(containerRect, visualFragments) });
+    return result;
+  }, []);
+}
+
+function getIsSameLayout(
+  states: RevealEdgeFragmentState[],
+  fragments: RevealEdgeVisualFragment[],
+  containerRect: DOMRect,
+) {
+  return states.length === fragments.length && states.every((state, index) => {
+    const { rectangle } = fragments[index];
+    return Math.abs(state.left - (rectangle.left - containerRect.left)) <= SAME_LINE_TOLERANCE_PX
+      && Math.abs(state.top - (rectangle.top - containerRect.top)) <= SAME_LINE_TOLERANCE_PX
+      && Math.abs(state.width - rectangle.width) <= SAME_LINE_TOLERANCE_PX
+      && Math.abs(state.height - rectangle.height) <= SAME_LINE_TOLERANCE_PX;
+  });
+}
+
+function prepareVisualFragments(containerRect: DOMRect, fragments: RevealEdgeVisualFragment[]) {
   return fragments.reduce<PreparedRevealEdgeFragment[]>((result, fragment) => {
     const computedStyle = getComputedStyle(fragment.sourceElement);
     const backgroundColor = getOpaqueBackgroundColor(fragment.sourceElement);
@@ -225,7 +317,7 @@ function prepareRevealEdgeFragments(
   }, []);
 }
 
-function getRevealEdgeVisualFragments(content: HTMLElement, startOffset: number) {
+function getRevealEdgeVisualFragments(content: HTMLElement, startOffset: number, endOffset: number) {
   const fragments: RevealEdgeVisualFragment[] = [];
   const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
@@ -245,9 +337,10 @@ function getRevealEdgeVisualFragments(content: HTMLElement, startOffset: number)
     currentNode = walker.nextNode();
 
     if (nodeEndOffset <= startOffset || !textNode.parentElement) continue;
+    if (nodeStartOffset >= endOffset) break;
 
     const localStartOffset = Math.max(0, startOffset - nodeStartOffset);
-    const suffix = text.slice(localStartOffset);
+    const suffix = text.slice(localStartOffset, Math.max(0, endOffset - nodeStartOffset));
     const graphemes = segmentGraphemes(suffix);
     let graphemeStartOffset = localStartOffset;
 

@@ -12,14 +12,17 @@ export async function fetchTransaction(hash: string, initData?: string) {
   return response as ApiTransaction;
 }
 
-export async function confirmTransaction(hash: string, txHash: string) {
+export async function confirmTransaction(hash: string, txHash: string, initData: string) {
   const response = await fetchJson(
     `${MFA_API_URL}/transaction/${hash}/confirm`,
     undefined,
     {
       method: 'POST',
       body: JSON.stringify({ txHash }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': initData,
+      },
     },
   );
 

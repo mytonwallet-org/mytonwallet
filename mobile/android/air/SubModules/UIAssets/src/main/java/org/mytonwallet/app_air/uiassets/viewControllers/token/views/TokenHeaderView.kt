@@ -1,8 +1,11 @@
 package org.mytonwallet.app_air.uiassets.viewControllers.token.views
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isInvisible
 import androidx.core.view.setPadding
 import java.math.BigInteger
 import java.net.URI
@@ -13,6 +16,7 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -33,11 +37,14 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -57,13 +64,74 @@ class TokenHeaderView(
     WThemedView {
 
     companion object {
-        private const val NAV_SIZE_OFFSET_DP = 8
-        const val NAV_DEFAULT_HEIGHT_DP = WNavigationBar.DEFAULT_HEIGHT - NAV_SIZE_OFFSET_DP
+        const val NAV_DEFAULT_HEIGHT_DP = WNavigationBar.DEFAULT_HEIGHT
         val navDefaultHeight = NAV_DEFAULT_HEIGHT_DP.dp
+        val navContentMarginTop = 2.dp
         private const val FULL_BALANCE_MORPH_DURATION = AnimationConstants.SUPER_QUICK_ANIMATION
+        private const val DIAMOND_SIZE = 126
+        private const val DIAMOND_MAX_GROW = 1.5f
+        const val REVEAL_OFFSET = 10
+
+        // Starts once the growing area fully uncovers the view.
+        fun revealFraction(
+            revealedBottom: Int,
+            viewBottom: Int,
+            fullBottom: Int,
+            progress: Float
+        ): Float {
+            val start = viewBottom + REVEAL_OFFSET.dp
+            if (start >= fullBottom) return progress
+            return ((revealedBottom - start).toFloat() / (fullBottom - start)).coerceIn(0f, 1f)
+        }
     }
 
-    val contentHeight = 244.dp
+    private val fullContentHeight = 244.dp
+
+    val contentHeight: Int
+        get() = (fullContentHeight * contentProgress).roundToInt()
+
+    var contentProgress = 1f
+        set(value) {
+            if (field == value) return
+            field = value
+            updateContentAlpha()
+        }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        updateContentAlpha()
+    }
+
+    private var scrollDy = 0
+
+    private fun updateContentAlpha() {
+        val revealedBottom = calculatedMinHeight + max(0, contentHeight - scrollDy)
+        val fullBottom = calculatedMinHeight + max(0, fullContentHeight - scrollDy)
+        reveal(iconView, revealedBottom, fullBottom, hidesUnderNav = true)
+        reveal(balanceView, revealedBottom, fullBottom)
+        reveal(equivalentLabel, revealedBottom, fullBottom)
+        diamondView?.apply {
+            alpha = iconView.alpha
+            translationY = iconView.translationY
+            isRenderingEnabled = alpha > 0.01f && iconView.bottom > 0
+        }
+    }
+
+    private fun reveal(
+        view: View,
+        revealedBottom: Int,
+        fullBottom: Int,
+        hidesUnderNav: Boolean = false
+    ) {
+        val fraction = when {
+            contentProgress >= 1f -> 1f
+            contentProgress <= 0f || view.height <= 0 -> 0f
+            view.top < calculatedMinHeight -> if (hidesUnderNav) 0f else contentProgress
+            else -> revealFraction(revealedBottom, view.bottom, fullBottom, contentProgress)
+        }
+        view.alpha = fraction
+        view.translationY = (1f - fraction) * REVEAL_OFFSET.dp
+    }
 
     init {
         id = generateViewId()
@@ -87,6 +155,10 @@ class TokenHeaderView(
             )
         }
         btn
+    }
+
+    init {
+        navigationBar.addTrailingView(moreButton, LayoutParams(40.dp, 40.dp))
     }
 
     private fun buildMoreMenuItems(): List<WMenuPopup.Item> {
@@ -118,20 +190,25 @@ class TokenHeaderView(
             groups.add(tokenInfoItems)
         }
 
+        val lastGroupItems = mutableListOf<WMenuPopup.Item>()
         token.explorerUrl(MBlockchainNetwork.ofAccountId(accountId))
             .validTokenMenuUrlOrNull()
             ?.let { url ->
-                groups.add(
-                    listOf(
-                        WMenuPopup.Item(
-                            R.drawable.ic_world,
-                            LocaleController.getString("Open in Explorer")
-                        ) {
-                            open(url)
-                        }
-                    )
+                lastGroupItems.add(
+                    WMenuPopup.Item(
+                        R.drawable.ic_world,
+                        LocaleController.getString("Open in Explorer")
+                    ) {
+                        open(url)
+                    }
                 )
             }
+        lastGroupItems.add(
+            WMenuPopup.Item(R.drawable.ic_share, LocaleController.getString("Share")) {
+                shareLink()
+            }
+        )
+        groups.add(lastGroupItems)
 
         return groups.flatMapIndexed { index, group ->
             if (index < groups.lastIndex) {
@@ -139,6 +216,25 @@ class TokenHeaderView(
             }
             group
         }
+    }
+
+    private fun shareLink() {
+        val uriBuilder = Uri.Builder()
+            .scheme("https")
+            .authority(ApplicationContextHolder.universalShortUrlHost)
+            .appendPath("token")
+        val chain = token.chain
+        val tokenAddress = token.tokenAddress
+        if (chain.isNotEmpty() && !tokenAddress.isNullOrEmpty()) {
+            uriBuilder.appendPath(chain).appendPath(tokenAddress)
+        } else {
+            uriBuilder.appendPath(token.slug)
+        }
+        ShareHelpers.shareText(
+            context,
+            uriBuilder.build().toString(),
+            LocaleController.getString("Share")
+        )
     }
 
     private fun String?.validTokenMenuUrlOrNull(): String? {
@@ -153,6 +249,14 @@ class TokenHeaderView(
     private val iconView = WCustomImageView(context).apply {
         chainSize = 30.dp
         chainSizeGap = 2f.dp
+    }
+
+    private val diamondView = if (ApplicationContextHolder.isGramApp &&
+        token.slug == TONCOIN_SLUG
+    ) {
+        WBlueDiamondView(context, DIAMOND_MAX_GROW)
+    } else {
+        null
     }
 
     private val balanceContentView = WBalanceView(context).apply {
@@ -205,6 +309,11 @@ class TokenHeaderView(
         super.setupViews()
 
         addView(iconView, LayoutParams(80.dp, 80.dp))
+        diamondView?.let {
+            val canvasSize = (DIAMOND_SIZE * DIAMOND_MAX_GROW).dp.toInt()
+            addView(it, LayoutParams(canvasSize, canvasSize))
+            iconView.isInvisible = true
+        }
         addView(balanceView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(equivalentLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
@@ -213,6 +322,7 @@ class TokenHeaderView(
         setConstraints {
             toTopPx(iconView, navDefaultHeight + 24.dp)
             toCenterX(iconView)
+            diamondView?.let { centerToCenter(it, iconView) }
             toTopPx(balanceView, navDefaultHeight + 125.dp)
             toCenterX(balanceView, 16f)
             constrainedWidth(balanceView.id, true)
@@ -229,7 +339,6 @@ class TokenHeaderView(
                 WalletCore.notifyEvent(WalletEvent.TokensChanged)
             }
         }
-        navigationBar.addTrailingView(moreButton, LayoutParams(40.dp, 40.dp))
 
         updateTheme()
 
@@ -238,6 +347,7 @@ class TokenHeaderView(
     }
 
     override fun updateTheme() {
+        diamondView?.updatePlayback()
         balanceContentView.updateTheme()
         balanceContentView.apply {
             typeface = WFont.Balance.typeface
@@ -256,21 +366,28 @@ class TokenHeaderView(
             navDefaultHeight
 
     fun updateScroll(dy: Int) {
+        scrollDy = dy
         val iconViewLayoutParams = iconView.layoutParams as LayoutParams
         iconViewLayoutParams.topMargin = calculatedMinHeight + 24.dp - dy
         iconView.layoutParams = iconViewLayoutParams
         layoutParams.height = calculatedMinHeight + max(0, contentHeight - dy)
 
-        val collapseProgress = max(0f, min(1f, dy.toFloat() / 232.dp))
-
-        navigationBar.titleLabel.translationY =
-            min(0f, -dy.toFloat())
+        updateTitle(dy)
+        val scrollCollapseProgress = max(0f, min(1f, dy.toFloat() / 232.dp))
+        // While the title crossfades, keep the balance in the nav so both move alike.
+        val collapseProgress = if (isTitleCrossfading) {
+            val fullHeaderWeight =
+                contentProgress * contentProgress * contentProgress * contentProgress
+            1f - (1f - scrollCollapseProgress) * fullHeaderWeight
+        } else {
+            scrollCollapseProgress
+        }
         val balanceLayoutParams = balanceView.layoutParams as LayoutParams
         balanceLayoutParams.topMargin = calculatedMinHeight +
             if (dy < 0) {
                 124.dp - dy
             } else {
-                ((-70.5f).dp + (1 - collapseProgress) * 194.5f.dp).roundToInt()
+                ((-74.5f).dp + (1 - collapseProgress) * 198.5f.dp).roundToInt()
             }
         balanceView.layoutParams = balanceLayoutParams
         balanceContentView.setScale(
@@ -287,6 +404,25 @@ class TokenHeaderView(
         equivalentLabel.scaleY = equivalentLabel.scaleX
         equivalentLabel.setMaskPivotYPercent(0f)
         equivalentLabel.setMaskScale(0.5f + (1 - collapseProgress) / 2f)
+    }
+
+    private var isTitleCrossfading = false
+
+    private fun updateTitle(dy: Int) {
+        val titleLabel = navigationBar.titleLabel
+        val scrolledOffset = min(0f, -dy.toFloat())
+        // A scrolled-away title crossfades instead of sliding through its clip.
+        if (contentProgress < 1f && titleLabel.height > 0 && -scrolledOffset >= titleLabel.bottom) {
+            isTitleCrossfading = true
+            titleLabel.alpha = 1f - contentProgress
+            titleLabel.translationY = -contentProgress * REVEAL_OFFSET.dp
+            return
+        }
+        if (isTitleCrossfading) {
+            isTitleCrossfading = false
+            titleLabel.alpha = 1f
+        }
+        titleLabel.translationY = scrolledOffset * contentProgress
     }
 
     private var prevBalance: BigInteger? = null
@@ -339,7 +475,6 @@ class TokenHeaderView(
         nav.setRoot(
             InAppBrowserVC(
                 context,
-                null,
                 InAppBrowserConfig(url, injectDappConnect = true)
             )
         )

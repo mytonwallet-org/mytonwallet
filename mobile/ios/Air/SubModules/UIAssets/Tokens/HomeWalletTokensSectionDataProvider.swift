@@ -279,6 +279,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         }
         let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
         if let topSpacing { section.contentInsets.top = topSpacing }
+        section.contentInsets.bottom = 0
         return section
     }
 

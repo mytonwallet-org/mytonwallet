@@ -14,6 +14,7 @@ import { formatChartDate, formatShortDay, formatTime, SECOND } from '../../../ut
 import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { vibrate } from '../../../util/haptics';
 import { TIME_RANGES } from '../../../util/portfolio/timeRange';
+import { DEFAULT_PRICE_HISTORY_PERIOD } from '../../../util/priceHistory';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../../util/swipeController';
 import { IS_IOS } from '../../../util/windowEnvironment';
 import { resolveBalanceChange } from '../helpers/resolveBalanceChange';
@@ -45,11 +46,10 @@ interface StateProps {
   baseCurrency: ApiBaseCurrency;
   backendPercentChange24h?: number;
   historyPeriods?: PriceHistoryPeriods;
+  restoredHistoryPeriods?: PriceHistoryPeriods;
   netWorthHistoryPeriods?: PriceHistoryPeriods;
   hasTokenChainWallet: boolean;
 }
-
-const DEFAULT_PERIOD: ApiPriceHistoryPeriod = '1D';
 
 // An open chart keeps polling the price, at the same cadence as the native apps
 const REFRESH_INTERVAL = 15 * SECOND;
@@ -71,6 +71,7 @@ function Chart({
   baseCurrency,
   backendPercentChange24h,
   historyPeriods,
+  restoredHistoryPeriods,
   netWorthHistoryPeriods,
   hasTokenChainWallet,
   onChartModeChange,
@@ -91,7 +92,11 @@ function Chart({
   // token's network
   const canSwitchMode = hasTokenChainWallet && isNetWorthChartAvailable(token);
   const isNetWorthMode = chartMode === 'netWorth' && canSwitchMode;
-  const history = isNetWorthMode ? netWorthHistoryPeriods?.[period] : historyPeriods?.[period];
+  const sessionHistory = isNetWorthMode ? netWorthHistoryPeriods?.[period] : historyPeriods?.[period];
+  const restoredHistory = isNetWorthMode ? undefined : restoredHistoryPeriods?.[period];
+  // A restored series ends with an old price, so the price, change and balance wait until this session loads one
+  const isRestored = !sessionHistory?.length && Boolean(restoredHistory?.length);
+  const history = isRestored ? restoredHistory : sessionHistory;
   const isLoading = !history;
 
   const refreshHistory = useLastCallback(() => {
@@ -102,9 +107,10 @@ function Chart({
     }
   });
 
+  // Any base currency change clears the stored series, even when `chartCurrency` stays the same
   useEffect(() => {
     if (isActive) refreshHistory();
-  }, [isActive, slug, period, chartCurrency, isNetWorthMode, refreshHistory]);
+  }, [isActive, slug, period, baseCurrency, isNetWorthMode, refreshHistory]);
 
   useInterval(refreshHistory, isActive ? REFRESH_INTERVAL : undefined, true);
 
@@ -117,7 +123,7 @@ function Chart({
     if (IS_IOS && prevSelectedIndex !== undefined) vibrate();
   }, [selectedIndex]);
 
-  const lastPoint = history?.length ? history[history.length - 1] : undefined;
+  const lastPoint = history?.length && !isRestored ? history[history.length - 1] : undefined;
   const selectedPoint = selectedIndex >= 0 ? history?.[selectedIndex] : undefined;
   const shownPoint = selectedPoint ?? lastPoint;
 
@@ -143,17 +149,26 @@ function Chart({
   useEffect(() => {
     onBalanceChangeUpdate(resolveBalanceChange({
       shouldUseChange24h: shouldUseTokenChange24h || !isBalanceFollowingChart,
-      isLoading,
+      isLoading: isLoading || isRestored,
       price: shownPrice,
       initialPrice,
     }));
-  }, [shouldUseTokenChange24h, isBalanceFollowingChart, isLoading, shownPrice, initialPrice, onBalanceChangeUpdate]);
+  }, [
+    shouldUseTokenChange24h, isBalanceFollowingChart, isLoading, isRestored, shownPrice, initialPrice,
+    onBalanceChangeUpdate,
+  ]);
 
   const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, history), [lang.code, period, history]);
 
   // The new period reaches the effect above through the global state, which loads the series
   const handlePeriodChange = useLastCallback((newPeriod: ApiPriceHistoryPeriod) => {
     setCurrentTokenPeriod({ period: newPeriod });
+  });
+
+  const handleSelectIndex = useLastCallback((index: number) => {
+    if (isRestored) return;
+
+    setSelectedIndex(index);
   });
 
   const modeTabs = useMemo<TabWithProperties[]>(() => [
@@ -232,7 +247,7 @@ function Chart({
               prices={history}
               selectedIndex={selectedIndex}
               className={styles.plot}
-              onSelectIndex={setSelectedIndex}
+              onSelectIndex={handleSelectIndex}
             />
           ) : isLoading ? (
             <div className={styles.plotLoading}>
@@ -278,10 +293,11 @@ export default memo(
       : undefined;
 
     return {
-      period: accountState?.currentTokenPeriod ?? DEFAULT_PERIOD,
+      period: accountState?.currentTokenPeriod ?? DEFAULT_PRICE_HISTORY_PERIOD,
       baseCurrency: global.settings.baseCurrency,
       backendPercentChange24h,
       historyPeriods: global.tokenPriceHistory.bySlug[token.slug],
+      restoredHistoryPeriods: global.tokenPriceHistory.restoredBySlug[token.slug],
       netWorthHistoryPeriods: accountState?.tokenNetWorthHistory?.[token.slug],
       hasTokenChainWallet: Boolean(selectCurrentAccount(global)?.byChain[token.chain]),
     };

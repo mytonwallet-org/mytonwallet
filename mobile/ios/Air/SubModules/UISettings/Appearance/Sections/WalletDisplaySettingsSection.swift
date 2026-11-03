@@ -12,7 +12,7 @@ struct WalletCardSettingsSection: View {
     private var hidesActionButtonsRow = false
 
     var body: some View {
-        InsetSection {
+        InsetSection(dividersTrailingInset: IOS_26_MODE_ENABLED ? 16 : 0) {
             InsetPickerCell(
                 lang("Show on Card"),
                 selection: $cardTopLineRawValue,
@@ -59,7 +59,7 @@ struct WalletDisplaySettingsSection: View {
     }
 
     var body: some View {
-        InsetSection {
+        InsetSection(dividersTrailingInset: IOS_26_MODE_ENABLED ? 16 : 0) {
             InsetPickerCell(
                 lang("Tokens"),
                 selection: $walletTokensLimit,

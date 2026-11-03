@@ -900,7 +900,8 @@ export function initConnector(
           return Promise.reject({ code: -32602, message: 'Invalid typed data' });
         }
 
-        const { chain } = this.resolveChainForAddress(address);
+        // Typed data is bound to a chain by its domain, so it goes out with the chain the dApp selected
+        const { chain } = this.resolveChainForAddress(address, this.selectedCaip2);
 
         const id = ++this.lastGeneratedId;
 

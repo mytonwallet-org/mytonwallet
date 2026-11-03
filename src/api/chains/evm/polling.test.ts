@@ -3,12 +3,35 @@ import type { ApiAccountWithChain, ApiActivity, ApiNft, OnApiUpdate, OnUpdatingS
 import { getChainConfig } from '../../../util/chain';
 import { fetchEvmWallet } from './util/account';
 import { NftStream } from './util/nftStream';
+import { fetchStoredAddress } from '../../common/accounts';
+import { applyPendingBalances, clearPendingBalances } from '../../common/pendingBalances';
+import { balanceRefreshRequests } from '../../common/polling/balanceRefresh';
 import { swapReplaceActivities } from '../../common/swap';
 import { BalanceStream } from '../../common/websocket/balanceStream';
 import { MINUTE } from '../../constants';
+import { initTransfer, submitTransfer } from '../../methods/transfer';
+import chains from '../index';
 import { getTokenActivitySlice } from './activities';
 import { setupActivePolling } from './polling';
 import { getIsWalletActive } from './wallet';
+
+jest.mock('../index', () => ({
+  __esModule: true,
+  default: {
+    arbitrum: {
+      submitGasfullTransfer: jest.fn(),
+      normalizeAddress: jest.fn((address: string) => address),
+    },
+  },
+}));
+
+jest.mock('../../common/accounts', () => ({
+  fetchStoredAddress: jest.fn(),
+}));
+
+jest.mock('../../methods/tokens', () => ({
+  buildTokenSlug: jest.fn(),
+}));
 
 jest.mock('./util/account', () => ({
   fetchEvmWallet: jest.fn(),
@@ -48,6 +71,7 @@ jest.mock('./util/nftStream', () => ({
   NftStream: jest.fn().mockImplementation(() => ({
     onUpdate: jest.fn(),
     destroy: jest.fn(),
+    activate: jest.fn(),
   })),
 }));
 
@@ -88,6 +112,7 @@ function getNftStreamInstance() {
   return MockedNftStream.mock.results[0].value as jest.Mocked<{
     onUpdate: jest.Mock;
     destroy: jest.Mock;
+    activate: jest.Mock;
   }>;
 }
 
@@ -109,12 +134,81 @@ async function flushPromises(count = 10) {
 }
 
 describe('EVM polling', () => {
+  it('refreshes the requested wallet and stops listening when its stream is removed', () => {
+    const account = { type: 'view', byChain: { bnb: { address: ADDRESS, index: 0 } } } as ApiAccountWithChain<'bnb'>;
+    const stop = setupActivePolling('bnb', 'perps-refresh-mainnet', account, jest.fn(), jest.fn(), {});
+    const stream = getBalanceStreamInstance();
+    balanceRefreshRequests.runCallbacks('other-mainnet', 'bnb');
+    balanceRefreshRequests.runCallbacks('perps-refresh-mainnet', 'arbitrum');
+    expect(stream.markWalletActiveAndForcePoll).not.toHaveBeenCalled();
+    balanceRefreshRequests.runCallbacks('perps-refresh-mainnet', 'bnb');
+    expect(stream.markWalletActiveAndForcePoll).toHaveBeenCalledTimes(1);
+    stop();
+    balanceRefreshRequests.runCallbacks('perps-refresh-mainnet', 'bnb');
+    expect(stream.markWalletActiveAndForcePoll).toHaveBeenCalledTimes(1);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFetchEvmWallet.mockResolvedValue({ address: ADDRESS, index: 0 });
     // The cases below all describe an address that has history to load, so the cheap
     // has-anything-happened-here probe answers yes; the case that answers no is its own test.
     mockedGetIsWalletActive.mockResolvedValue(true);
+  });
+
+  it('keeps a sent cross-chain balance deducted through stale socket and poll snapshots', async () => {
+    jest.useFakeTimers();
+    const accountId = 'pending-stream-mainnet';
+    const ethereumSlug = getChainConfig('ethereum').nativeToken.slug;
+    const arbitrumSlug = getChainConfig('arbitrum').nativeToken.slug;
+    const onUpdate = jest.fn<void, Parameters<OnApiUpdate>>();
+    const account: ApiAccountWithChain<'ethereum'> = {
+      type: 'bip39', byChain: { ethereum: { address: ADDRESS, index: 0 } },
+    };
+    jest.mocked(fetchStoredAddress).mockResolvedValue(ADDRESS);
+    jest.mocked(chains.arbitrum.submitGasfullTransfer).mockResolvedValue({ txId: '0xsent' });
+    mockedGetTokenActivitySlice.mockResolvedValue({ activities: [], hasMore: false });
+    initTransfer(onUpdate);
+    const stop = setupActivePolling('ethereum', accountId, account, (update) => {
+      onUpdate(update.type === 'updateBalances' ? applyPendingBalances(update) : update);
+    }, jest.fn(), { [ethereumSlug]: 1000 });
+    const emit = getBalanceStreamInstance().onUpdate.mock.calls[0][0] as (
+      balances: Record<string, bigint>, source: 'poll' | 'socket',
+    ) => void;
+    const observed = { [ethereumSlug]: 5000n, [arbitrumSlug]: 1000n };
+
+    try {
+      emit(observed, 'poll');
+      await submitTransfer('arbitrum', {
+        accountId, toAddress: '0x0000000000000000000000000000000000000001', amount: 200n, realFee: 10n,
+      });
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'updateBalances', accountId, chain: 'arbitrum', balances: { [arbitrumSlug]: 790n },
+      });
+
+      for (const source of ['socket', 'poll'] as const) {
+        onUpdate.mockClear();
+        emit(observed, source);
+        await flushPromises();
+        expect(onUpdate).toHaveBeenCalledWith({
+          type: 'updateBalances', accountId, chain: 'arbitrum', balances: { [arbitrumSlug]: 790n },
+        });
+        expect(onUpdate).toHaveBeenCalledWith({
+          type: 'updateBalances', accountId, chain: 'ethereum', balances: { [ethereumSlug]: 5000n },
+        });
+      }
+
+      onUpdate.mockClear();
+      emit({ [arbitrumSlug]: 950n }, 'socket');
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'updateBalances', accountId, chain: 'arbitrum', balances: { [arbitrumSlug]: 950n },
+      });
+    } finally {
+      stop();
+      clearPendingBalances(accountId);
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('keeps active forced polling at 3 minutes focused and 10 minutes unfocused', async () => {
@@ -574,6 +668,22 @@ describe('EVM polling', () => {
       accountId: '0-mainnet',
       activities: [activity],
     }));
+  });
+
+  it('wakes the NFT stream when initial activity catch-up finds an EVM transaction', async () => {
+    const activity = {
+      id: '0xactivity',
+      timestamp: 1_773_000_000_000,
+      kind: 'transaction',
+      slug: getChainConfig('bnb').nativeToken.slug,
+    } as ApiActivity;
+    mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [activity], hasMore: false });
+    const account = { type: 'view', byChain: { bnb: { address: ADDRESS, index: 0 } } } as ApiAccountWithChain<'bnb'>;
+
+    setupActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
+    await flushPromises();
+
+    expect(getNftStreamInstance().activate).toHaveBeenCalledTimes(1);
   });
 
   it('forces balance polling when an NFT arrives on a skipped chain', async () => {

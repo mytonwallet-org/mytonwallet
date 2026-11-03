@@ -66,7 +66,7 @@ class WNavigationBar(
         get() = if (navigationController.isBottomSheet && !viewController.isExpandable) {
             0
         } else {
-            navigationController.getSystemBars().top
+            navigationController.getSystemBars(viewController).top
         }
 
     val calculatedMinHeight: Int

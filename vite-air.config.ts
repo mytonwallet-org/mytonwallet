@@ -36,7 +36,6 @@ export default defineConfig(({ mode }) => mergeConfig(createBaseConfig({
     IS_AIR_APP: '1',
     IS_ANDROID_DIRECT: '0',
     AGENT_OVERRIDE: 'no_override',
-    AGENT_V2_QUOTA_STATUS_ENABLED: '0',
     AGENT_API_URL: '',
     SDK_BUILD_STAMP: resolveBuildStamp(),
     TONCENTER_MAINNET_URL: '',

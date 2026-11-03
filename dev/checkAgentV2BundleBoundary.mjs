@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Agent V2 reaches the app only through these dynamic imports
 const LAZY_ENTRIES = [
-  'src/components/agentV2/AgentV2Classic.tsx',
+  'src/components/agentV2/AgentV2Chats.tsx',
   'src/global/agentV2/hostContextSync.ts',
 ];
 const AGENT_V2_RUNTIME_PATTERNS = [

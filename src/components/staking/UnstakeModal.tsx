@@ -25,7 +25,7 @@ import {
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { formatRelativeHumanDateTime } from '../../util/dateFormat';
-import { toBig, toDecimal } from '../../util/decimals';
+import { toDecimal } from '../../util/decimals';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
 import { getIsViewAccountDisabled } from '../../util/isViewAccount';
@@ -148,11 +148,12 @@ function UnstakeModal({
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
 
-  const hasAmountError = unstakeAmount !== undefined
-    && (unstakeAmount < 0 || !stakingBalance || unstakeAmount > stakingBalance);
+  const isAmountGreaterThanBalance = unstakeAmount !== undefined && (!stakingBalance || unstakeAmount > stakingBalance);
+  const hasAmountError = isAmountGreaterThanBalance || (unstakeAmount !== undefined && unstakeAmount < 0);
 
-  const isInsufficientBalance = error === ApiTransactionDraftError.InsufficientBalance
-    || (unstakeAmount !== undefined && (!stakingBalance || unstakeAmount > stakingBalance));
+  const isInsufficientBalance = error === ApiTransactionDraftError.InsufficientBalance || isAmountGreaterThanBalance;
+  // `isNativeEnough` is `undefined` until the tokens load, which must not look like a fee shortage
+  const isInsufficientFee = isNativeEnough === false;
 
   const isUnstakeDisabled = !isNativeEnough || isInsufficientBalance || !unstakeAmount;
 
@@ -246,36 +247,36 @@ function UnstakeModal({
 
   // It is necessary to use useCallback instead of useLastCallback here
   const renderBottomRight = useCallback((className?: string) => {
-    const activeKey = isInsufficientBalance ? 0
-      : !isNativeEnough ? 1
-        : instantAvailable ? 2
-          : 3;
+    const activeKey = isInsufficientFee ? 0
+      : instantAvailable ? 1
+        : 2;
 
-    let content: string | React.JSX.Element | TeactNode[] = token ? lang('$fee_value', {
-      fee: <Fee terms={{ native: realFee }} precision="approximate" token={token} />,
-    }) : '';
+    let content: string | React.JSX.Element | TeactNode[] = '';
 
     if (token) {
-      if (isInsufficientBalance) {
-        content = <span className={styles.balanceError}>{lang('Insufficient balance')}</span>;
-      } else if (!isNativeEnough) {
-        content = (
-          <span className={styles.balanceError}>
-            {lang('$insufficient_fee', {
-              fee: formatCurrency(toBig(networkFee), nativeToken?.symbol ?? ''),
-            })}
-          </span>
-        );
+      if (isInsufficientFee) {
+        // The real fee is smaller than the amount the request must be sent with, so a shortage shows the latter
+        content = lang('$fee_value', {
+          fee: <Fee terms={{ native: networkFee }} precision="exact" token={token} />,
+        });
       } else if (instantAvailable) {
         content = lang('$unstake_up_to_information', {
           value: formatCurrency(toDecimal(instantAvailable, token.decimals), token.symbol),
+        });
+      } else {
+        content = lang('$fee_value', {
+          fee: <Fee terms={{ native: realFee }} precision="approximate" token={token} />,
         });
       }
     }
 
     return (
       <Transition
-        className={buildClassName(styles.amountBottomRight, className)}
+        className={buildClassName(
+          styles.amountBottomRight,
+          isInsufficientFee && styles.amountBottomRight_error,
+          className,
+        )}
         slideClassName={styles.amountBottomRight_slide}
         name="semiFade"
         activeKey={activeKey}
@@ -283,7 +284,7 @@ function UnstakeModal({
         {content}
       </Transition>
     );
-  }, [instantAvailable, isInsufficientBalance, isNativeEnough, lang, nativeToken?.symbol, networkFee, realFee, token]);
+  }, [instantAvailable, isInsufficientFee, lang, networkFee, realFee, token]);
 
   function renderUnstakeTimer() {
     const unstakeDateText = stakingType === 'ethena'
@@ -357,6 +358,7 @@ function UnstakeModal({
             token={token}
             allTokens={selectableTokens}
             hasError={hasAmountError}
+            hasMaxAmountError={isAmountGreaterThanBalance}
             isMaxAmountLoading={stakingBalance === undefined || !token}
             isMaxAmountAllMode
             isSensitiveDataHidden={isSensitiveDataHidden}
@@ -373,7 +375,11 @@ function UnstakeModal({
                 isDisabled={isUnstakeDisabled}
                 onClick={handleStartUnstakeClick}
               >
-                {lang('Unstake')}
+                {isInsufficientBalance
+                  ? lang('Insufficient Balance')
+                  : isInsufficientFee
+                    ? lang('Insufficient Fee')
+                    : lang('Unstake')}
               </Button>
             </div>
           )}

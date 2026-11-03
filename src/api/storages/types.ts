@@ -40,6 +40,7 @@ export type StorageKey = 'accounts'
   | 'webFunnelHandoff'
   | 'referrer'
   | 'langCode'
+  | 'tonDnsCache'
   // For install attribution
   | 'attributionClaimed'
   | 'attributionChannel'

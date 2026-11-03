@@ -179,9 +179,9 @@ function DappTransactionPayload({ transaction, tokensBySlug }: OwnProps) {
       >
         {payloadElement}
         {!isPayloadExpanded && (
-          <div className={styles.payloadFieldExpand} onClick={expandPayload}>
+          <button type="button" className={styles.payloadFieldExpand} onClick={expandPayload}>
             {lang('View')}
-          </div>
+          </button>
         )}
       </div>
     </>

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CoreSpotlightContinuation</key>
+	<true/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AirModules_WalletResources.bundle/CalSans-Regular.ttf</string>
@@ -17,7 +19,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>My Wallet Preview</string>
+	<string>My Wallet β</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,6 +43,7 @@
 				<string>tc</string>
 				<string>mytonwallet-tc</string>
 				<string>mtw</string>
+				<string>mtw-preview</string>
 				<string>mw</string>
 				<string>mywallet-wc</string>
 				<string>wc</string>
@@ -64,7 +67,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>The app enables the scanning of various barcodes.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is requested by the website opened in the built-in browser.</string>
+	<string>The microphone is used to dictate messages to the agent and by websites opened in the built-in browser.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>For an easier and faster operation verification.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

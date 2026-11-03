@@ -12,6 +12,9 @@ public struct ContextMenuConfiguration {
     /// A view over the source's top edge, which only the overlay presentation shows. With one, the panel attaches
     /// clear of the source and the accessory, so `style.verticalPlacementBehavior` does not apply.
     public var accessory: ContextMenuAccessory?
+    /// Moves the source's portal replica into view, as Telegram moves a message for its menu. Applies to the overlay
+    /// presentation of a source portal.
+    public var sourceRelocation: ContextMenuSourceRelocation?
     /// An optional navigation host for handing the sheet over to another flow.
     public var sheetNavigationControllerProvider: (@MainActor (UIViewController) -> UINavigationController)?
 
@@ -24,6 +27,7 @@ public struct ContextMenuConfiguration {
         popoverVerticalAlignment: ContextMenuPopoverVerticalAlignment = .automatic,
         style: ContextMenuStyle = .default,
         accessory: ContextMenuAccessory? = nil,
+        sourceRelocation: ContextMenuSourceRelocation? = nil,
         sheetNavigationControllerProvider: (@MainActor (UIViewController) -> UINavigationController)? = nil
     ) {
         self.rootPage = rootPage
@@ -34,6 +38,7 @@ public struct ContextMenuConfiguration {
         self.popoverVerticalAlignment = popoverVerticalAlignment
         self.style = style
         self.accessory = accessory
+        self.sourceRelocation = sourceRelocation
         self.sheetNavigationControllerProvider = sheetNavigationControllerProvider
     }
 
@@ -238,10 +243,40 @@ private extension UIView {
     }
 }
 
+/// Telegram's placement of a message under its menu. The source's replica and the panel hanging below it fit between
+/// the safe area's edges inset by `topInset` and `bottomInset`, moving the replica no further than they must, and scroll
+/// when they are taller than that, starting at the panel. The source itself hides while its replica shows.
+///
+/// The panel always hangs below the source and its accessory, so `style.verticalPlacementBehavior` does not apply.
+public struct ContextMenuSourceRelocation: Sendable {
+    public var topInset: CGFloat
+    public var bottomInset: CGFloat
+    /// The window rect where the source is visible under the screen's own bars, such as a chat between its navigation
+    /// bar and input panel. The replica is clipped to it as the menu opens and closes, so a source partly under a bar
+    /// slides out from behind it and back.
+    public var contentAreaInWindow: CGRect?
+
+    public init(topInset: CGFloat = 8.0, bottomInset: CGFloat = 10.0, contentAreaInWindow: CGRect? = nil) {
+        self.topInset = topInset
+        self.bottomInset = bottomInset
+        self.contentAreaInWindow = contentAreaInWindow
+    }
+}
+
 public enum ContextMenuVerticalPlacementBehavior: Sendable {
     case screenBalanced
     case sourceAttached
     case screenBottom
+}
+
+/// Where a panel sits horizontally relative to its source
+public enum ContextMenuHorizontalAlignment: Equatable, Sendable {
+    /// Centred on the source
+    case center
+    /// The panel's leading edge on the source's, as Telegram aligns a message's menu with an incoming bubble
+    case leading
+    /// The panel's trailing edge on the source's, as for an outgoing bubble
+    case trailing
 }
 
 /// Tint presets for native menu glass on iOS 26 and later.
@@ -272,6 +307,7 @@ public struct ContextMenuStyle: Sendable {
     public var separatorHeight: CGFloat
     public var containerSpacing: CGFloat
     public var screenInsets: UIEdgeInsets
+    public var horizontalAlignment: ContextMenuHorizontalAlignment
 
     public init(
         minWidth: CGFloat = 220.0,
@@ -292,7 +328,8 @@ public struct ContextMenuStyle: Sendable {
         iconSpacing: CGFloat = 8.0,
         separatorHeight: CGFloat = 20.0,
         containerSpacing: CGFloat = 7.0,
-        screenInsets: UIEdgeInsets = .init(top: 16.0, left: 16.0, bottom: 0.0, right: 16.0)
+        screenInsets: UIEdgeInsets = .init(top: 16.0, left: 16.0, bottom: 0.0, right: 16.0),
+        horizontalAlignment: ContextMenuHorizontalAlignment = .center
     ) {
         self.minWidth = minWidth
         self.maxWidth = maxWidth
@@ -313,6 +350,7 @@ public struct ContextMenuStyle: Sendable {
         self.separatorHeight = separatorHeight
         self.containerSpacing = containerSpacing
         self.screenInsets = screenInsets
+        self.horizontalAlignment = horizontalAlignment
     }
 
     public static let `default` = ContextMenuStyle()

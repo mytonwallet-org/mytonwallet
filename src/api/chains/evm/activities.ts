@@ -1,6 +1,13 @@
-import type { ApiActivity, ApiFetchActivitySliceOptions, ApiNetwork, EVMChain } from '../../types';
+import type {
+  ApiActivity,
+  ApiFetchActivitySliceOptions,
+  ApiNetwork,
+  ApiTransactionType,
+  EVMChain,
+} from '../../types';
 import type { ZerionNftTransfer, ZerionTokenTransfer, ZerionTransaction, ZerionTransactionsResponse } from './types';
 
+import { ARBITRUM_USDC_MAINNET, IS_PERPS_ENABLED } from '../../../config';
 import { throwIfAborted } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
 import { getChainConfig, getIsSupportedChain } from '../../../util/chain';
@@ -18,6 +25,12 @@ import { collectZerionTxTokenAddresses, getZerionFungibleTokenSlug } from './uti
 import { untrackableRegistry } from './util/untrackable';
 import { getIsNegVerdictCacheEnabled } from '../../common/cache';
 import { updateActivityMetadata } from '../../common/helpers';
+import {
+  PERPS_CCTP_DEPOSIT_CHAIN,
+  PERPS_CCTP_EXTENSION_ADDRESS,
+  PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS,
+  PERPS_HYPERCORE_BRIDGE_RELAYER,
+} from '../../common/perps';
 import { getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
 import { ApiServerError } from '../../errors';
@@ -421,6 +434,141 @@ function transformEvmTransfer(
   });
 }
 
+function transformEvmTokenMint(
+  chain: EVMChain,
+  tx: ZerionTransaction,
+  address: string,
+): ApiActivity | undefined {
+  const mintAct = tx.attributes.acts?.find((act) => act.type === 'mint');
+  if (tx.attributes.operation_type !== 'mint' && !mintAct) {
+    return undefined;
+  }
+
+  const fungibleTransfers = tx.attributes.transfers.filter((transfer): transfer is ZerionTokenTransfer => (
+    'fungible_info' in transfer
+  ));
+
+  const mintedByAct = mintAct
+    ? fungibleTransfers.find((transfer) => (
+      transfer.act_id === mintAct.id
+      && transfer.direction === 'in'
+      && normalizeAddress(transfer.recipient) === address
+    ))
+    : undefined;
+
+  const mintedTransfer = mintedByAct ?? (
+    tx.attributes.operation_type === 'mint'
+      ? fungibleTransfers.find((transfer) => (
+        transfer.direction === 'in' && normalizeAddress(transfer.recipient) === address
+      ))
+      : undefined
+  );
+
+  if (!mintedTransfer) {
+    return undefined;
+  }
+
+  const slug = getZerionFungibleTokenSlug(
+    chain,
+    getZerionChainByApiChain(chain),
+    mintedTransfer.fungible_info,
+  );
+  if (!slug) {
+    return undefined;
+  }
+
+  const type = getEvmMintTransactionType(slug);
+  const relayerAddress = normalizeAddress(PERPS_HYPERCORE_BRIDGE_RELAYER);
+
+  return updateActivityMetadata({
+    id: tx.attributes.hash,
+    kind: 'transaction',
+    timestamp: new Date(tx.attributes.mined_at).getTime(),
+    comment: undefined,
+    fromAddress: normalizeAddress(tx.attributes.sent_from),
+    toAddress: normalizeAddress(mintedTransfer.recipient),
+    amount: BigInt(mintedTransfer.quantity.int),
+    slug,
+    isIncoming: true,
+    normalizedAddress: type === 'perps_withdraw' ? relayerAddress : normalizeAddress(address),
+    fee: BigInt(tx.attributes.fee.quantity.int),
+    type,
+    status: 'completed',
+    isScam: tx.attributes.flags.is_trash,
+  });
+}
+
+// TODO: make moere reliable detection of perps withdraws
+function getEvmMintTransactionType(slug: string): ApiTransactionType {
+  if (IS_PERPS_ENABLED && slug === ARBITRUM_USDC_MAINNET.slug) {
+    return 'perps_withdraw';
+  }
+
+  return 'mint';
+}
+
+/**
+ * CCTP deposit into HyperCore: outgoing Arbitrum USDC to the extension contract. Gross USDC out
+ * includes a fixed bridge fee; the activity amount is the credited deposit (gross − fee).
+ */
+function transformEvmPerpsDeposit(
+  chain: EVMChain,
+  tx: ZerionTransaction,
+  address: string,
+): ApiActivity | undefined {
+  if (chain !== PERPS_CCTP_DEPOSIT_CHAIN) {
+    return undefined;
+  }
+
+  const zerionChain = getZerionChainByApiChain(chain);
+  const bridgeAddress = normalizeAddress(PERPS_CCTP_EXTENSION_ADDRESS);
+  let grossUsdcOut = 0n;
+
+  for (const transfer of tx.attributes.transfers) {
+    if (!('fungible_info' in transfer)) {
+      continue;
+    }
+
+    if (
+      transfer.direction !== 'out'
+      || normalizeAddress(transfer.sender) !== address
+      || normalizeAddress(transfer.recipient) !== bridgeAddress
+    ) {
+      continue;
+    }
+
+    const slug = getZerionFungibleTokenSlug(chain, zerionChain, transfer.fungible_info);
+    if (slug !== ARBITRUM_USDC_MAINNET.slug) {
+      continue;
+    }
+
+    grossUsdcOut += BigInt(transfer.quantity.int);
+  }
+
+  if (grossUsdcOut <= PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS) {
+    return undefined;
+  }
+
+  const depositAmount = grossUsdcOut - PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS;
+
+  return updateActivityMetadata({
+    id: tx.attributes.hash,
+    kind: 'transaction',
+    timestamp: new Date(tx.attributes.mined_at).getTime(),
+    comment: undefined,
+    fromAddress: normalizeAddress(address),
+    toAddress: bridgeAddress,
+    amount: -depositAmount,
+    slug: ARBITRUM_USDC_MAINNET.slug,
+    isIncoming: false,
+    normalizedAddress: bridgeAddress,
+    fee: BigInt(tx.attributes.fee.quantity.int),
+    type: 'perps_deposit',
+    status: 'completed',
+    isScam: tx.attributes.flags.is_trash,
+  });
+}
+
 function transformEvmNftTransfer(
   chain: EVMChain,
   transfer: ZerionNftTransfer,
@@ -471,6 +619,16 @@ export function transformEvmTxToUnified(
   address: string,
 ): ApiActivity {
   address = normalizeAddress(address);
+
+  const tokenMint = transformEvmTokenMint(chain, tx, address);
+  if (tokenMint) {
+    return tokenMint;
+  }
+
+  const perpsDeposit = IS_PERPS_ENABLED ? transformEvmPerpsDeposit(chain, tx, address) : undefined;
+  if (perpsDeposit) {
+    return perpsDeposit;
+  }
 
   if (tx.attributes.transfers.length > 1) {
     try {

@@ -9,6 +9,7 @@ let exploreHistoryTag = "explore"
 
 public final class ExploreVC: WViewController {
     let exploreVM: ExploreVM = .init()
+    private let pagingTint = WPagingBackgroundTint()
     var onSelectAny: () -> () = {}
     var onSubmitSearch: (String) -> () = { _ in }
     var onGoogleSearch: (String) -> () = { _ in }
@@ -67,7 +68,12 @@ public final class ExploreVC: WViewController {
     }
 
     private func initialSetup() {
-        let rootView = ScreenView(viewState: observedViewState, viewOutput: viewOutput, contentBottomSpacing: contentBottomSpacing)
+        let rootView = ScreenView(
+            viewState: observedViewState,
+            viewOutput: viewOutput,
+            contentBottomSpacing: contentBottomSpacing,
+            pagingTint: pagingTint
+        )
         let hostingController = LayoutMarginsHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
 
@@ -306,5 +312,11 @@ extension ExploreVC {
     private struct ExternalEvents {
         let searchStringDidChange = PassthroughSubject<String, Never>()
         let searchActiveDidChange = PassthroughSubject<Bool, Never>()
+    }
+}
+
+extension ExploreVC: WPagingBackgroundTinting {
+    public func setPagingBackgroundColor(_ color: UIColor?) {
+        pagingTint.color = color
     }
 }

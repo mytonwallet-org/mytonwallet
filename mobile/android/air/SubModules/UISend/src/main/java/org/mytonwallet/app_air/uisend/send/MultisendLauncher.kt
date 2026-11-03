@@ -21,7 +21,6 @@ object MultisendLauncher {
         )
         val browserVC = InAppBrowserVC(
             caller.view.context,
-            null,
             InAppBrowserConfig(
                 url = url,
                 title = LocaleController.getString("Multisend"),

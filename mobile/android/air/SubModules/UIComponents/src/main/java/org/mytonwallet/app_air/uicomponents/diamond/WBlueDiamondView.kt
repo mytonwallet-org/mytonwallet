@@ -12,6 +12,8 @@ import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.view.MotionEvent
 import android.view.TextureView
@@ -29,20 +31,36 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
-class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WView(context) {
+class WBlueDiamondView(
+    context: Context,
+    private val maxGrow: Float = 1f,
+    private val hoverSpeed: Float = 1f,
+    private val shouldRotateOnTap: Boolean = false,
+    private val restingCanvasSize: Int? = null
+) : WView(context) {
+    var onParticleInteraction: ((pressed: Boolean, hovered: Boolean) -> Unit)? = null
+    private var particlePointerId = MotionEvent.INVALID_POINTER_ID
     private var renderer: BlueDiamondRenderer? = null
+    private val motionState = BlueDiamondRenderer.State()
     private val pixelsPerPoint = resources.displayMetrics.density
     private var lensMask: Bitmap? = null
     private val lensRect = RectF()
     private var hasFailed = false
+    private var retainedSurface: SurfaceTexture? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val releaseRetainedSurface = Runnable {
+        retainedSurface = null
+        renderer?.stop()
+        renderer = null
+    }
     private val preview = ImageView(context).apply {
         id = generateViewId()
         context.assets.open("blue_diamond/preview.webp").use {
             setImageDrawable(Drawable.createFromStream(it, null))
         }
         scaleType = ImageView.ScaleType.FIT_CENTER
-        scaleX = 1 / maxGrow
-        scaleY = 1 / maxGrow
+        scaleX = if (restingCanvasSize != null) 1f else 1 / maxGrow
+        scaleY = scaleX
     }
     private val textureView = TextureView(context).apply {
         id = generateViewId()
@@ -63,7 +81,10 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
                         surface,
                         min(width, height),
                         maxGrow,
-                        pixelsPerPoint
+                        pixelsPerPoint,
+                        hoverSpeed,
+                        restingCanvasSize,
+                        motionState
                     ) {
                         post {
                             if (surfaceTexture !== surface) return@post
@@ -86,10 +107,19 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
             }
 
             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                val current = renderer
-                renderer = null
-                current?.stop()
-                return current == null
+                if (renderer == null) return true
+                // Capture before TextureView clears its surface.
+                // Returning then shows the same size and angle.
+                if (alpha > 0f) {
+                    bitmap?.let {
+                        preview.setImageBitmap(it)
+                        preview.scaleX = 1f
+                        preview.scaleY = 1f
+                    }
+                }
+                // Kept for a re-attach in the same main-loop turn; released otherwise.
+                retainedSurface = surface
+                return false
             }
 
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
@@ -159,7 +189,10 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
         set(value) {
             if (field == value) return
             field = value
-            if (!value) cancelTouch()
+            if (!value) {
+                cancelTouch()
+                resetParticleInteraction()
+            }
             updatePlayback()
         }
 
@@ -177,29 +210,67 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        mainHandler.removeCallbacks(releaseRetainedSurface)
+        retainedSurface?.let {
+            retainedSurface = null
+            textureView.setSurfaceTexture(it)
+        }
         updatePlayback()
     }
 
     override fun onDetachedFromWindow() {
+        resetParticleInteraction()
         cancelTouch()
         removeCallbacks(landingFeedback)
         renderer?.setPlayback(false, false)
+        if (retainedSurface != null) mainHandler.post(releaseRetainedSurface)
         super.onDetachedFromWindow()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
+        if (visibility != VISIBLE) resetParticleInteraction()
         updatePlayback()
     }
 
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        if (!hasWindowFocus) cancelTouch()
+        if (!hasWindowFocus) {
+            cancelTouch()
+            resetParticleInteraction()
+        }
         updatePlayback()
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> particlePointerId = event.getPointerId(0)
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                particlePointerId =
+                    MotionEvent.INVALID_POINTER_ID
+
+            MotionEvent.ACTION_POINTER_UP -> if (event.getPointerId(event.actionIndex) ==
+                particlePointerId
+            ) {
+                particlePointerId = MotionEvent.INVALID_POINTER_ID
+            }
+        }
+        onParticleInteraction?.invoke(
+            particlePointerId != MotionEvent.INVALID_POINTER_ID,
+            isHovered
+        )
+        return super.dispatchTouchEvent(event) || onParticleInteraction != null
+    }
+
+    private fun resetParticleInteraction() {
+        particlePointerId = MotionEvent.INVALID_POINTER_ID
+        renderer?.setHovered(false)
+        onParticleInteraction?.invoke(false, false)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val restingHalfSize = width / maxGrow / 2
+        val restingHalfSize = (restingCanvasSize?.toFloat() ?: (width / maxGrow)) / 2
         if (event.actionMasked == MotionEvent.ACTION_DOWN &&
             (
                 renderer == null || hasFailed || !isRenderingEnabled || !areAnimationsAllowed() ||
@@ -217,15 +288,17 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 pointerId = event.getPointerId(0)
-                startX = event.x
-                startY = event.y
+                startX = event.x + left
+                startY = event.y + top
                 lastX = startX
                 lastY = startY
                 isDragging = false
                 removeCallbacks(landingFeedback)
-                velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
+                velocityTracker = VelocityTracker.obtain()
+                trackMovement(event)
                 parent?.requestDisallowInterceptTouchEvent(true)
-                renderer?.press()
+                renderer?.press(shouldRotateOnTap)
+                if (shouldRotateOnTap) Haptics.play(this, HapticType.LIGHT_TAP)
             }
 
             MotionEvent.ACTION_MOVE -> {
@@ -234,11 +307,11 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
                     cancelTouch()
                     return true
                 }
-                velocityTracker?.addMovement(event)
-                val x = event.getX(index)
-                val y = event.getY(index)
+                trackMovement(event)
+                val x = event.getX(index) + left
+                val y = event.getY(index) + top
                 if (!isDragging && hypot(x - startX, y - startY) > touchSlop) isDragging = true
-                if (isDragging) {
+                if (isDragging || shouldRotateOnTap) {
                     renderer?.drag(x - lastX, y - lastY)
                     lastX = x
                     lastY = y
@@ -247,9 +320,19 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
 
             MotionEvent.ACTION_UP -> {
                 if (pointerId != MotionEvent.INVALID_POINTER_ID) {
-                    if (isDragging) {
+                    if (hypot(event.x + left - startX, event.y + top - startY) >
+                        touchSlop
+                    ) {
+                        isDragging = true
+                    }
+                    if (shouldRotateOnTap && !isDragging) {
+                        renderer?.release(
+                            fullTurn =
+                                event.eventTime - event.downTime <= MAX_TAP_DURATION_MS
+                        )
+                    } else if (isDragging) {
+                        trackMovement(event)
                         val velocity = velocityTracker?.let {
-                            it.addMovement(event)
                             it.computeCurrentVelocity(1000)
                             it.getXVelocity(pointerId) / pixelsPerPoint
                         } ?: 0f
@@ -272,7 +355,11 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
                     pointerId = MotionEvent.INVALID_POINTER_ID
                     recycleVelocityTracker()
                     parent?.requestDisallowInterceptTouchEvent(false)
-                    if (maxGrow > 1 && power > 0.2f) postDelayed(landingFeedback, 200)
+                    if (!shouldRotateOnTap && maxGrow > 1 &&
+                        power > 0.2f
+                    ) {
+                        postDelayed(landingFeedback, 200)
+                    }
                 }
             }
 
@@ -295,6 +382,21 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
         parent?.requestDisallowInterceptTouchEvent(false)
     }
 
+    private fun trackMovement(event: MotionEvent) {
+        val sample = MotionEvent.obtain(event)
+        sample.offsetLocation(left.toFloat(), top.toFloat())
+        velocityTracker?.addMovement(sample)
+        sample.recycle()
+    }
+
+    override fun onHoverEvent(event: MotionEvent): Boolean {
+        val hovered = event.action != MotionEvent.ACTION_HOVER_EXIT
+        isHovered = hovered
+        renderer?.setHovered(hovered)
+        onParticleInteraction?.invoke(particlePointerId != MotionEvent.INVALID_POINTER_ID, hovered)
+        return super.onHoverEvent(event) || onParticleInteraction != null
+    }
+
     private fun recycleVelocityTracker() {
         velocityTracker?.recycle()
         velocityTracker = null
@@ -302,5 +404,6 @@ class WBlueDiamondView(context: Context, private val maxGrow: Float = 1f) : WVie
 
     private companion object {
         const val FLING_VELOCITY = 600f
+        const val MAX_TAP_DURATION_MS = 250L
     }
 }

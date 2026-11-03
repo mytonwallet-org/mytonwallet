@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import org.mytonwallet.app_air.uiagent.R
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentAnswerFeedback
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -20,11 +21,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 private const val BODY_HEIGHT_DP = 56
-private const val BODY_PADDING_DP = 6
-private const val BUTTON_WIDTH_DP = 48
 
-// The thumb fills 600 of its icon's 768 units, so this box draws it as large as the design's 30 pt symbol
-private const val ICON_SIZE_DP = 37
+// The design's 40 dp thumbs at 12 and 56 in the 108 dp body
+private const val BODY_PADDING_DP = 10
+private const val BUTTON_WIDTH_DP = 44
 
 // The tail: a bump that grows out of the middle of the pill, and a dot below it towards the answer's start
 private const val BUMP_SIZE_DP = 16
@@ -61,6 +61,9 @@ class AgentFeedbackPillView(
 
     /** The pill without its tail, which the answer's menu places relative to the answer */
     val bodyWidth = (BODY_PADDING_DP * 2 + BUTTON_WIDTH_DP * buttons.size).dp
+
+    /** How far below the pill's top its tail's dot ends */
+    val tailBottom = bodyHeight + (DOT_GAP_DP + DOT_SIZE_DP).dp
 
     init {
         clipChildren = false
@@ -110,7 +113,7 @@ class AgentFeedbackPillView(
                 it.outlineSpotShadowColor = WColor.PopupSpotShadow.color
             }
         }
-        // Both thumbs are filled; the chosen one takes the accent color
+        // Both thumbs are outlines; the chosen one takes the accent color
         AgentAnswerFeedback.entries.zip(buttons).forEach { (option, button) ->
             val isSelected = option == feedback
             button.setColorFilter(if (isSelected) WColor.Tint.color else WColor.PrimaryText.color)
@@ -122,18 +125,12 @@ class AgentFeedbackPillView(
 
     private fun createButton(option: AgentAnswerFeedback): ImageView {
         val isSelected = option == feedback
-        val horizontalInset = (BUTTON_WIDTH_DP - ICON_SIZE_DP).dp / 2
-        val verticalInset = (BODY_HEIGHT_DP - ICON_SIZE_DP).dp / 2
         return ImageView(context).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(horizontalInset, verticalInset, horizontalInset, verticalInset)
+            scaleType = ImageView.ScaleType.CENTER
             setImageResource(
                 when (option) {
-                    AgentAnswerFeedback.LIKE ->
-                        org.mytonwallet.app_air.icons.R.drawable.ic_thumb_up_filled_30
-
-                    AgentAnswerFeedback.DISLIKE ->
-                        org.mytonwallet.app_air.icons.R.drawable.ic_thumb_down_filled_30
+                    AgentAnswerFeedback.LIKE -> R.drawable.ic_agent_thumb_up_outline
+                    AgentAnswerFeedback.DISLIKE -> R.drawable.ic_agent_thumb_down_outline
                 }
             )
             contentDescription = LocaleController.getString(

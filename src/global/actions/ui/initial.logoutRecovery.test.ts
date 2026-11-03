@@ -32,6 +32,7 @@ jest.mock('../../../enclave', () => ({
 jest.mock('../../../api/chains', () => ({ __esModule: true, default: {} }));
 jest.mock('../../../api/chains/ton', () => ({}));
 jest.mock('../../../api/common/mnemonic', () => ({}));
+jest.mock('../../../api/common/nftSync', () => ({ removeNftSyncSnapshots: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../../api/common/tokens', () => ({ sendUpdateTokens: jest.fn() }));
 jest.mock('../../../api/db', () => ({ tokenRepository: { clear: jest.fn() } }));
 jest.mock('../../../api/environment', () => ({ getEnvironment: () => ({ isDappSupported: true }) }));

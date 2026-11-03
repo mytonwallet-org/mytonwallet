@@ -167,7 +167,7 @@ import UIKit
     }
 }
 
-private struct SpringCurve {
+struct SpringCurve {
     private let mass: CGFloat
     private let stiffness: CGFloat
     private let damping: CGFloat
@@ -270,30 +270,10 @@ private struct SpringCurve {
         guard mass > 0, stiffness > 0 else {
             return max(0, 1 - time)
         }
-
-        let y0: CGFloat = 1
-        let yPrime0 = -initialVelocity
-        let naturalFrequency = sqrt(stiffness / mass)
-        let dampingRatio = damping / (2 * sqrt(stiffness * mass))
-
-        if dampingRatio > 1.0001 {
-            let sqrtTerm = sqrt(dampingRatio * dampingRatio - 1)
-            let r1 = -naturalFrequency * (dampingRatio - sqrtTerm)
-            let r2 = -naturalFrequency * (dampingRatio + sqrtTerm)
-            let c1 = (yPrime0 - r2 * y0) / (r1 - r2)
-            let c2 = y0 - c1
-            return c1 * exp(r1 * time) + c2 * exp(r2 * time)
-        }
-
-        if dampingRatio < 0.9999 {
-            let dampedFrequency = naturalFrequency * sqrt(1 - dampingRatio * dampingRatio)
-            let coefficient = (yPrime0 + dampingRatio * naturalFrequency * y0) / dampedFrequency
-            return exp(-dampingRatio * naturalFrequency * time) * (
-                y0 * cos(dampedFrequency * time) + coefficient * sin(dampedFrequency * time)
-            )
-        }
-
-        let coefficient = yPrime0 + naturalFrequency * y0
-        return (y0 + coefficient * time) * exp(-naturalFrequency * time)
+        let spring = GlassSpring(
+            dampingRatio: damping / (2 * (stiffness * mass).squareRoot()),
+            response: 2 * .pi * (mass / stiffness).squareRoot()
+        )
+        return spring.advance(value: 1, velocity: -initialVelocity, target: 0, time: time).value
     }
 }

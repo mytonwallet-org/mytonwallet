@@ -138,6 +138,29 @@ private final class SparkleParticleSystem {
 }
 
 public final class SparkleParticleBackgroundView: UIView {
+    public var isWelcome = false {
+        didSet {
+            if isWelcome != oldValue { restartIdleSystem() }
+        }
+    }
+    public var welcomeColor: UIColor = .systemBlue {
+        didSet { setNeedsDisplay() }
+    }
+    public var isHovered = false
+    public var isMotionEnabled = true {
+        didSet {
+            if isMotionEnabled != oldValue { environmentChanged() }
+        }
+    }
+    public var isPressed = false {
+        didSet {
+            if isPressed && !oldValue { welcomeBoostUntil = CACurrentMediaTime() + 0.18 }
+        }
+    }
+
+    private var welcomeStream = WelcomeParticleStream()
+    private var lastWelcomeTime: CFTimeInterval?
+    private var welcomeBoostUntil: CFTimeInterval = 0
     private var color: SparkleColorPair = defaultSparkleGradient {
         didSet {
             guard color != oldValue else {
@@ -180,6 +203,7 @@ public final class SparkleParticleBackgroundView: UIView {
 
     deinit {
         displayLink?.invalidate()
+        NotificationCenter.default.removeObserver(self)
     }
 
     public override func didMoveToWindow() {
@@ -192,7 +216,12 @@ public final class SparkleParticleBackgroundView: UIView {
     }
 
     public override func draw(_ rect: CGRect) {
-        guard let context = UIGraphicsGetCurrentContext(), !systems.isEmpty else {
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return
+        }
+        if isWelcome {
+            welcomeStream.draw(in: context, bounds: bounds, color: welcomeColor,
+                               isStatic: !isMotionEnabled || UIAccessibility.isReduceMotionEnabled)
             return
         }
 
@@ -218,11 +247,28 @@ public final class SparkleParticleBackgroundView: UIView {
         backgroundColor = .clear
         isOpaque = false
         isUserInteractionEnabled = false
+        for name in [UIApplication.willResignActiveNotification, UIApplication.didBecomeActiveNotification,
+                     UIAccessibility.reduceMotionStatusDidChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(environmentChanged), name: name, object: nil)
+        }
         restartIdleSystem()
     }
 
+    @objc private func environmentChanged() {
+        guard isWelcome else { return }
+        isHovered = false
+        isPressed = false
+        welcomeStream.resetInteraction()
+        welcomeBoostUntil = 0
+        stopDisplayLink()
+        if window != nil { ensureDisplayLink() }
+        setNeedsDisplay()
+    }
+
     private func restartIdleSystem() {
-        systems = [SparkleParticleSystem(config: idleConfig())]
+        systems = isWelcome ? [] : [SparkleParticleSystem(config: idleConfig())]
+        welcomeStream = WelcomeParticleStream()
+        lastWelcomeTime = nil
         setNeedsDisplay()
         if window != nil {
             ensureDisplayLink()
@@ -239,6 +285,9 @@ public final class SparkleParticleBackgroundView: UIView {
     }
 
     private func ensureDisplayLink() {
+        if isWelcome && (!isMotionEnabled || UIAccessibility.isReduceMotionEnabled || UIApplication.shared.applicationState != .active) {
+            return
+        }
         guard displayLink == nil else {
             return
         }
@@ -255,10 +304,16 @@ public final class SparkleParticleBackgroundView: UIView {
     private func stopDisplayLink() {
         displayLink?.invalidate()
         displayLink = nil
+        lastWelcomeTime = nil
     }
 
     @objc private func tick() {
         let now = CACurrentMediaTime()
+        if isWelcome {
+            let elapsed = lastWelcomeTime.map { min(0.05, max(0, now - $0)) } ?? 0
+            lastWelcomeTime = now
+            welcomeStream.advance(elapsed: CGFloat(elapsed), isHovered: isHovered, isPressed: isPressed || now < welcomeBoostUntil)
+        }
         systems.removeAll { system in
             system.config.selfDestroyTime > 0 && now - system.startTime >= system.config.selfDestroyTime
         }
@@ -336,18 +391,31 @@ public final class SparkleParticleBackgroundView: UIView {
 }
 
 public struct SparkleParticleBackground: UIViewRepresentable {
+    @ObservedObject private var environment = CardBackgroundAnimationEnvironment.shared
     public var centerShift: CGPoint
     public var canvasSize: CGSize
+    public var isWelcome: Bool
+    public var welcomeColor: UIColor
+    public var isHovered: Bool
+    public var isPressed: Bool
     @Binding public var burstTrigger: Int
 
     public init(
         centerShift: CGPoint = .zero,
         canvasSize: CGSize = CGSize(width: 350, height: 230),
-        burstTrigger: Binding<Int> = .constant(0)
+        burstTrigger: Binding<Int> = .constant(0),
+        isWelcome: Bool = false,
+        welcomeColor: UIColor = .systemBlue,
+        isHovered: Bool = false,
+        isPressed: Bool = false
     ) {
         self.centerShift = centerShift
         self.canvasSize = canvasSize
         self._burstTrigger = burstTrigger
+        self.isWelcome = isWelcome
+        self.welcomeColor = welcomeColor
+        self.isHovered = isHovered
+        self.isPressed = isPressed
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -356,15 +424,25 @@ public struct SparkleParticleBackground: UIViewRepresentable {
 
     public func makeUIView(context: Context) -> SparkleParticleBackgroundView {
         let view = SparkleParticleBackgroundView()
+        view.isWelcome = isWelcome
+        view.isMotionEnabled = environment.diamondAnimationsEnabled
         view.centerShift = centerShift
         view.canvasSize = canvasSize
+        view.welcomeColor = welcomeColor
+        view.isHovered = isHovered
+        view.isPressed = isPressed
         return view
     }
 
     public func updateUIView(_ uiView: SparkleParticleBackgroundView, context: Context) {
         uiView.centerShift = centerShift
         uiView.canvasSize = canvasSize
-        if burstTrigger != context.coordinator.burstTrigger {
+        uiView.isWelcome = isWelcome
+        uiView.isMotionEnabled = environment.diamondAnimationsEnabled
+        uiView.welcomeColor = welcomeColor
+        uiView.isHovered = isHovered
+        uiView.isPressed = isPressed
+        if !isWelcome && burstTrigger != context.coordinator.burstTrigger {
             context.coordinator.burstTrigger = burstTrigger
             uiView.burst()
         }

@@ -45,6 +45,8 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     private var lastLayoutWidth: CGFloat = 0
     private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
     private var autoScrollWorkItem: DispatchWorkItem?
+    /// A tapped tab's scroll: it runs from the offset at the tap to the tab's centered offset, in step with paging
+    private var selectionScroll: (fromOffset: CGFloat, toOffset: CGFloat, fromProgress: CGFloat, toProgress: CGFloat)?
     private var replacementCrossfadeCount = 0
     private var isLayingOutContent = false
     private var liftWorkItem: DispatchWorkItem?
@@ -78,6 +80,8 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         super.didMoveToWindow()
         if window == nil { endLensLift(animated: false) }
         applyColors()
+        // The appearance may have changed while the tabs were off screen, behind another screen
+        if window != nil { lensView.refreshAppearance() }
     }
 
     public override func didMoveToSuperview() {
@@ -107,6 +111,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
         applyColors()
         updateLens(animated: false)
+        lensView.refreshAppearance()
     }
 
     private func setupViews() {
@@ -215,7 +220,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             autoScrollWorkItem?.cancel()
             autoScrollToSelected(animated: false)
         } else if isInteractiveProgress {
-            // Keep the capsule centered while pager/swipe progress updates in real time.
+            // Keep the strip in step with pager/swipe progress as it updates in real time.
             autoScrollWorkItem?.cancel()
             autoScrollToSelected(animated: false)
         } else if selectionChanged {
@@ -252,6 +257,32 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         }
         lastSelectedItemID = model.selectedItem?.id
         appliedPagingSelection = model.selection
+    }
+
+    /// Scrolls the tabs toward `itemId` in step with the paging progress that follows a tap, starting from the
+    /// current offset. Without it, paging would center each intermediate selection and jump at the start.
+    public func beginSelectionScroll(toItemId itemId: String) {
+        guard scrollView.isScrollEnabled, !scrollView.isDragging, !scrollView.isTracking,
+              let fromProgress = model.rawProgress, let index = model.getItemIndexById(itemId: itemId),
+              let layout = model.itemLayouts()?.first(where: { $0.id == itemId }) else {
+            selectionScroll = nil
+            return
+        }
+        let viewportWidth = scrollView.bounds.width
+        guard viewportWidth > 0, abs(CGFloat(index) - fromProgress) > 0.001 else {
+            selectionScroll = nil
+            return
+        }
+        autoScrollWorkItem?.cancel()
+        let frame = resolvedFrame(for: layout.labelFrame)
+        let maxOffset = max(0, scrollView.contentSize.width - viewportWidth)
+        let target = clamp(contentView.frame.minX + frame.midX - viewportWidth / 2, to: 0 ... maxOffset)
+        selectionScroll = (scrollView.contentOffset.x, target, fromProgress, CGFloat(index))
+    }
+
+    /// Returns the tabs to following the selection, once paging has settled
+    public func endSelectionScroll() {
+        selectionScroll = nil
     }
 
     internal func applyPendingModelChangesWithoutAnimation() {
@@ -404,29 +435,19 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         let c = model.constants
         let availableWidth = max(0, bounds.width - 2 * c.backgroundPadding)
         let availableHeight = c.height
-        let naturalWidth = model.calculateContentWidth(includeBackground: false)
-        let distributesItemsEvenly = model.style == .compactRootHeader && !renderedItems.isEmpty
-            && naturalWidth <= availableWidth
-        let inner: CGFloat
-        if distributesItemsEvenly {
-            let spacingWidth = CGFloat(renderedItems.count - 1) * c.spacing
-            let slotWidth = max(0, (availableWidth - spacingWidth) / CGFloat(renderedItems.count))
-            for item in renderedItems {
-                model.setSize(
-                    itemId: item.id,
-                    size: CGSize(width: slotWidth, height: availableHeight)
-                )
-            }
-            inner = availableWidth
-        } else {
-            // Restore measured widths after a compact header stops fitting (rotation/localization).
-            let attributes: [NSAttributedString.Key: Any] = [.font: model.font]
-            for item in renderedItems {
-                let width = (item.title as NSString).size(withAttributes: attributes).width + 2 * c.innerPadding
-                model.setSize(itemId: item.id, size: CGSize(width: width, height: availableHeight))
-            }
-            inner = naturalWidth
+        let measuredWidth = model.measureContentWidth(includeBackground: false)
+        let naturalWidth = ceil(measuredWidth)
+        // Root header tabs are sized by their titles and scroll when they do not fit. The compact root header's tabs
+        // that fit share the room left over, so they span the whole capsule. The room is what the measured titles
+        // leave, before rounding, so the last tab ends at the capsule's edge.
+        let shouldSpreadTabs = model.style == .compactRootHeader && measuredWidth < availableWidth && !renderedItems.isEmpty
+        let extraWidth = shouldSpreadTabs ? (availableWidth - measuredWidth) / CGFloat(renderedItems.count) : 0
+        let attributes: [NSAttributedString.Key: Any] = [.font: model.font]
+        for item in renderedItems {
+            let width = (item.title as NSString).size(withAttributes: attributes).width + 2 * c.innerPadding + extraWidth
+            model.setSize(itemId: item.id, size: CGSize(width: width, height: availableHeight))
         }
+        let inner = shouldSpreadTabs ? availableWidth : naturalWidth
 
         backgroundContainer.frame = bounds
         backgroundView?.frame = backgroundContainer.bounds
@@ -612,15 +633,38 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     private func autoScrollToSelected(animated: Bool) {
         guard !isReorderingApplied else { return }
         guard scrollView.isScrollEnabled else { return }
-        if scrollView.isDragging || scrollView.isTracking { return }
-        guard let frame = resolvedSelectionFrame else { return }
+        if scrollView.isDragging || scrollView.isTracking {
+            selectionScroll = nil
+            return
+        }
+        if let scroll = selectionScroll, let rawProgress = model.rawProgress {
+            let fraction = clamp(
+                (rawProgress - scroll.fromProgress) / (scroll.toProgress - scroll.fromProgress),
+                to: 0 ... 1
+            )
+            UIView.performWithoutAnimation {
+                self.scrollView.contentOffset = CGPoint(
+                    x: scroll.fromOffset + (scroll.toOffset - scroll.fromOffset) * fraction,
+                    y: 0
+                )
+            }
+            if fraction >= 1 { selectionScroll = nil }
+            return
+        }
+        guard let ends = model.selectionEndFrames else { return }
 
         let viewportWidth = scrollView.bounds.width
         guard viewportWidth > 0 else { return }
 
-        let selectionMidX = contentView.frame.minX + frame.midX
+        // At rest the selected tab is centred as far as the strip scrolls. Between two tabs the strip moves from one's
+        // resting offset to the other's in step with the selection, so it follows the pager over the whole swipe.
         let maxOffset = max(0, scrollView.contentSize.width - viewportWidth)
-        let target = clamp(selectionMidX - viewportWidth / 2, to: 0 ... maxOffset)
+        func getRestingOffset(of frame: CGRect) -> CGFloat {
+            clamp(contentView.frame.minX + resolvedFrame(for: frame).midX - viewportWidth / 2, to: 0 ... maxOffset)
+        }
+        let progress = clamp(model.selection?.progress ?? 0, to: 0 ... 1)
+        let fromOffset = getRestingOffset(of: ends.from)
+        let target = fromOffset + (getRestingOffset(of: ends.to) - fromOffset) * progress
         guard abs(scrollView.contentOffset.x - target) > 0.5 else { return }
 
         if animated {
@@ -720,6 +764,90 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             width: model.calculateContentWidth(includeBackground: true),
             height: model.constants.fullHeightWithBackground
         )
+    }
+
+    /// The tabs without their glass, for a transition that draws the glass itself: copies of the items where they are,
+    /// and the selection capsule with the selected items inside it, as the lens draws them at rest. Copies show while
+    /// the control is hidden or not yet drawn, where a snapshot of the lens, which draws outside the layer tree, is
+    /// empty; taking them leaves the screen as it is.
+    ///
+    /// At rest the lens tints what lies under its selection, the glass and the selected items alike, which the copy's
+    /// capsule does the same way over the copied selected items, so the copy looks like the tabs wherever the
+    /// transition's glass looks like theirs.
+    public func makeContentSnapshot() -> UIView? {
+        let lensFrame = lensView.frame
+        guard lensFrame.width > 0, lensFrame.height > 0 else { return nil }
+        layoutIfNeeded()
+        let container = UIView(frame: bounds)
+        container.isUserInteractionEnabled = false
+        let content = UIView(frame: lensFrame)
+        content.clipsToBounds = true
+        content.layer.cornerRadius = lensFrame.height / 2
+        content.layer.cornerCurve = .continuous
+        container.addSubview(content)
+
+        let normal = UIView(frame: content.bounds)
+        let selected = UIView(frame: content.bounds)
+        for views in itemViews {
+            normal.addSubview(makeCopy(of: views.secondaryLabel))
+            selected.addSubview(makeCopy(of: views.primaryLabel))
+            if let arrow = views.arrow {
+                selected.addSubview(makeCopy(of: arrow))
+            }
+        }
+        content.addSubview(normal)
+        guard let selection = lensView.selectionFrame, selection.width > 0, selection.height > 0 else {
+            return container
+        }
+        let capsulePath = UIBezierPath(roundedRect: selection, cornerRadius: selection.height / 2)
+        let normalPath = UIBezierPath(rect: content.bounds)
+        normalPath.append(capsulePath)
+        let normalMask = CAShapeLayer()
+        normalMask.fillRule = .evenOdd
+        normalMask.path = normalPath.cgPath
+        normal.layer.mask = normalMask
+
+        let capsule = UIView(frame: selection)
+        capsule.layer.cornerRadius = selection.height / 2
+        capsule.layer.cornerCurve = .continuous
+        let selectedMask = CAShapeLayer()
+        selectedMask.path = capsulePath.cgPath
+        selected.layer.mask = selectedMask
+        if lensView.usesNativeLens {
+            let tint = WSegmentedControlLensView.makeRestingBackgroundCopy()
+            tint.frame = capsule.bounds
+            capsule.clipsToBounds = true
+            capsule.addSubview(tint)
+            content.addSubview(selected)
+            content.addSubview(capsule)
+        } else {
+            capsule.backgroundColor = model.capsuleColor
+            content.addSubview(capsule)
+            content.addSubview(selected)
+        }
+        return container
+    }
+
+    /// A copy of one of the items' labels or glyphs, placed where it shows in the lens
+    private func makeCopy(of view: UIView) -> UIView {
+        let copy: UIView
+        if let label = view as? UILabel {
+            let labelCopy = makeLabel(title: label.text ?? "", color: label.textColor, font: label.font)
+            labelCopy.textAlignment = label.textAlignment
+            copy = labelCopy
+        } else if let imageView = view as? UIImageView {
+            let imageCopy = UIImageView(image: imageView.image)
+            imageCopy.contentMode = imageView.contentMode
+            imageCopy.tintColor = imageView.tintColor
+            copy = imageCopy
+        } else {
+            copy = UIView()
+        }
+        copy.isUserInteractionEnabled = false
+        copy.frame = view.convert(view.bounds, to: lensView)
+        copy.alpha = view.alpha
+        copy.isHidden = view.isHidden
+        return copy
     }
 
     public func embed(in navigationItem: UINavigationItem) {

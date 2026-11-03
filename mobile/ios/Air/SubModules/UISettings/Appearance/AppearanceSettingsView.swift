@@ -15,6 +15,7 @@ struct AppearanceSettingsView: View {
                 PaletteAndCardSection()
                 WalletCardSettingsSection()
                 WalletDisplaySettingsSection()
+                ToolbarSettingsSection()
                 OtherAppearanceSettingsSection()
                     .padding(.bottom, 48)
             }

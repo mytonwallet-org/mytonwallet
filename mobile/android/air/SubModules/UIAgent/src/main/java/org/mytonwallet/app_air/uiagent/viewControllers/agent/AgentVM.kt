@@ -5,6 +5,7 @@ import java.lang.ref.WeakReference
 import java.util.Date
 import java.util.UUID
 import kotlin.coroutines.resume
+import kotlin.math.max
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
@@ -27,9 +29,13 @@ import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2SemanticText
 import org.mytonwallet.app_air.uiagent.agentV2.buildAgentActionUrl
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentAnalyzingRequestText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentV2RunActivityText
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentWritingAnswerText
 import org.mytonwallet.app_air.uiagent.agentV2.hasVisibleFailure
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
 import org.mytonwallet.app_air.uiagent.agentV2.mapAgentV2Message
+import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.uiagent.agentV2.requiresAgentV2ThreadResync
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
@@ -38,31 +44,64 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.loadExploreSites
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Action
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-class AgentVM(
+class AgentVM internal constructor(
     initialScrollPosition: ScrollPosition? = null,
-    private val client: AgentV2Client = LiveAgentV2Client()
+    private val client: AgentV2Client = LiveAgentV2Client(),
+    initialThread: AgentV2ThreadSummary,
+    initialMessages: List<AgentMessage> = emptyList(),
+    private var initialOpeningEntryPoint: AgentV2EntryPoint? = null,
+    private val scope: CoroutineScope,
+    contextProvider: AgentV2HostContextProvider? = null,
+    private val now: () -> Long = System::currentTimeMillis
 ) : WalletCore.UpdatesObserver,
     WalletCore.EventObserver {
+    constructor(
+        initialScrollPosition: ScrollPosition? = null,
+        client: AgentV2Client = LiveAgentV2Client(),
+        initialThread: AgentV2ThreadSummary,
+        initialMessages: List<AgentMessage> = emptyList(),
+        initialOpeningEntryPoint: AgentV2EntryPoint? = null
+    ) : this(
+        initialScrollPosition,
+        client,
+        initialThread,
+        initialMessages,
+        initialOpeningEntryPoint,
+        CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    )
+
     // A rating that settles while the clear hides the timeline updates [fallbackMessages]
     private class ClearIntent(
         var fallbackMessages: List<AgentMessage>,
         val fallbackScrollPosition: ScrollPosition?
-    )
+    ) {
+        var chatOpening: Pair<List<AgentMessage>, AgentV2EntryPoint>? = null
+            private set
+
+        fun reopenChat(messages: List<AgentMessage>, entryPoint: AgentV2EntryPoint): Boolean {
+            if (chatOpening != null) return false
+            chatOpening = messages to entryPoint
+            return true
+        }
+    }
 
     interface Delegate {
-        fun onMessageAcceptanceChanged()
         fun onStateChanged(state: State)
         fun onMessageAdded(message: AgentMessage, animated: Boolean = true)
         fun onMessageRemoved(messageId: String)
@@ -78,6 +117,12 @@ class AgentVM(
         fun onOpenDapp(site: MExploreSite)
         fun onError()
         fun onHintsUpdated(hints: List<AgentHint>)
+        fun onThreadChanged(thread: AgentV2ThreadSummary)
+
+        /** A limit started or stopped blocking new questions ([AgentVM.isInputBlockedByLimit]) */
+        fun onInputLimitChanged() {}
+
+        fun onOlderMessagesLoadingChanged() {}
     }
 
     enum class State {
@@ -105,22 +150,33 @@ class AgentVM(
 
     private val delegates = mutableListOf<WeakReference<Delegate>>()
     private val activeDelegates = mutableListOf<WeakReference<Delegate>>()
-    private val supervisorJob = SupervisorJob()
-    private val scope = CoroutineScope(supervisorJob + Dispatchers.Main)
-    private val hostContextProvider = AgentV2HostContextProvider(client, scope)
+    private val hostContextProvider =
+        contextProvider ?: AgentV2HostContextProvider(client, scope)
 
     // Its own scope lets the inactive state reach the SDK after onDestroy cancels [scope].
     private val chatActivity = AgentV2ChatActivity(
-        CoroutineScope(SupervisorJob() + Dispatchers.Main),
+        CoroutineScope(scope.coroutineContext + SupervisorJob()),
+        AgentSession.chatActivityGroup,
         client::setChatActive
     )
 
     private val actionAvailability = AgentActionAvailability(client::actionPresentation)
     private val pendingMessages = mutableListOf<AgentPendingMessage>()
-    private val _messages = mutableListOf<AgentMessage>()
+    private val _messages = initialMessages.toMutableList()
+    private var initialOpeningMessageId = initialMessages
+        .firstOrNull { it.role == AgentMessageRole.USER }?.id
+    private val initialOpeningPrompts = AgentPromptQueue().apply {
+        if (initialOpeningEntryPoint != null) {
+            initialMessages.firstOrNull { it.role == AgentMessageRole.USER }?.let {
+                enqueue(initialMessages, checkNotNull(initialOpeningEntryPoint))
+            }
+        }
+    }
+    private var initialAssistantMessageId = initialMessages
+        .firstOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
     private var availableHints = emptyList<AgentHint>()
     private var hintsCatalogVersion: String? = null
-    private var acceptanceNotificationJob: Job? = null
+    private var followupsAndHintsNotificationJob: Job? = null
     private var startupJob: Job? = null
     private var hintsJob: Job? = null
     private var operationJob: Job? = null
@@ -128,6 +184,11 @@ class AgentVM(
     private var historyJob: Job? = null
     private var cancellationJob: Job? = null
     private var hostContextRecoveryJob: Job? = null
+    private var isDeletingChat = false
+    private var availability: AgentV2Availability? = null
+    private var userQuota: AgentV2UserQuota? = null
+    private var limitRetry: AgentLimitRetry? = null
+    private var limitExpiryJob: Job? = null
     private val problemReportJobs = mutableSetOf<Job>()
 
     // The rating requests of each answer that have not all settled yet, by its server id: history
@@ -135,16 +196,54 @@ class AgentVM(
     private val feedbackRequests = mutableMapOf<String, FeedbackRequests>()
     private var problemReportAvailabilityJob: Job? = null
     private var isProblemReportAvailable = false
-    private var thread: AgentV2ThreadSummary? = null
-    private var historyCursor: String? = null
+    private var thread: AgentV2ThreadSummary = initialThread
+    internal var historyCursor: String? = null
+        private set
+    private var hasLoadedHistoryMessages = false
+
+    // Until stored messages load, the chat's counts can't be compared with the thread's
+    private var hasHydratedMessages = false
     private val seenHistoryCursors = mutableSetOf<String>()
-    private var revision = 1
+    private var revision = initialThread.revision
     private var clearIntent: ClearIntent? = null
     private var currentAccountId = AccountStore.activeAccountId
     private var activeRun: AgentActiveRun? = null
     internal var onSessionIdle: (() -> Unit)? = null
 
     val messages: List<AgentMessage> get() = _messages
+    val currentThread: AgentV2ThreadSummary get() = thread
+
+    /** Settled messages, including unloaded older ones; null until stored messages load. */
+    internal val seenMessageCount: Int?
+        get() = if (hasHydratedMessages) unloadedMessageCount + settledMessages().size else null
+
+    /** Null until hydrated; the first loaded message when the seen ones go past the loaded pages. */
+    internal fun findFirstUnseenMessageId(seenMessageCount: Int): String? {
+        if (!hasHydratedMessages) return null
+        return settledMessages().getOrNull(max(0, seenMessageCount - unloadedMessageCount))?.id
+    }
+
+    private fun settledMessages(): List<AgentMessage> =
+        _messages.filter { it.sdkMessageId != null && !it.isStreaming }
+
+    private val unloadedMessageCount: Int
+        get() = max(0, thread.messageCount - _messages.count { it.sdkMessageId != null })
+
+    /**
+     * The status the chat shows while it answers: that it is writing while the answer streams, else the step the
+     * Agent is on, or that it is analyzing the question; null when it isn't answering
+     */
+    internal val answeringText: String?
+        get() {
+            if (state != State.RUNNING) return null
+            val last = _messages.lastOrNull { it.role != AgentMessageRole.SYSTEM }
+            val answer = last?.takeIf { it.role == AgentMessageRole.ASSISTANT && it.isStreaming }
+            return when {
+                answer?.hasText == true -> getAgentWritingAnswerText()
+                else -> answer?.activityText ?: getAgentAnalyzingRequestText()
+            }
+        }
+    internal val hasUnsentOpening: Boolean get() = initialOpeningPrompts.isNotEmpty
 
     /**
      * Whether the server has sent answer links in this session. From then on an answer carries its links and keeps
@@ -155,34 +254,85 @@ class AgentVM(
     var scrollPosition: ScrollPosition? = initialScrollPosition
         private set
     val visibleHints: List<AgentHint>
-        get() = if (state == State.READY && clearIntent == null && _messages.isEmpty()) {
+        get() = if (state == State.READY && clearIntent == null && _messages.isEmpty() &&
+            thread.news == null
+        ) {
             availableHints
         } else {
             emptyList()
         }
     val canSendFollowup: Boolean
-        get() = clearIntent == null && thread != null && pendingMessages.isEmpty() && canSendNow()
+        get() = clearIntent == null && pendingMessages.isEmpty() && canSendNow() &&
+            !isInputBlockedByLimit
+
+    /**
+     * No question can be sent while the Agent's capacity is exhausted, the user's quota is used up, or a question a
+     * limit held back waits for it, until the limit resets
+     */
+    val isInputBlockedByLimit: Boolean
+        get() {
+            val now = now()
+            val capacity = availability?.takeIf { it.state == CAPACITY_EXHAUSTED }
+            if ((capacity?.resetAt ?: 0L) > now) return true
+            // A question the quota held back waits for its own reset rather than the quota's
+            val quota = userQuota?.takeIf { it.remaining == 0 && limitRetry?.isRateLimit != false }
+            if ((quota?.resetAt?.let(::parseAgentV2Timestamp)?.time ?: 0L) > now) return true
+            return (limitRetry?.resetAt ?: 0L) > now
+        }
+
+    /** Retry can send the question a limit held back, which it can once the limit resets */
+    private val canRetryLimit: Boolean
+        get() {
+            val retry = limitRetry ?: return false
+            if (retry.expiresAt <= now()) return false
+            return !isInputBlockedByLimit && clearIntent == null &&
+                pendingMessages.isEmpty() && canSendNow()
+        }
+
+    /**
+     * What Retry under the chat's latest failure does now, if anything: start the chat again after its startup
+     * failed, or send the question a limit held back. Neither shows while a limit blocks sending.
+     */
+    val failureRetry: (() -> Unit)?
+        get() = when {
+            isInputBlockedByLimit -> null
+            state == State.ERROR -> ::retry
+            canRetryLimit -> ::retryLimit
+            else -> null
+        }
     val canReportProblem: Boolean
-        get() = isProblemReportAvailable && thread != null && _messages.isNotEmpty()
+        get() = isProblemReportAvailable && _messages.isNotEmpty()
     var state = State.LOADING
         private set
+    internal var startupErrorCode: String? = null
+        private set
     internal val shouldRetainSession: Boolean
-        get() = state == State.RUNNING ||
-            state == State.CLEARING ||
-            clearIntent != null ||
-            operationJob?.isActive == true ||
-            historyJob?.isActive == true ||
-            hostContextRecoveryJob?.isActive == true ||
-            problemReportJobs.isNotEmpty()
+        get() = !isDeletingChat && (
+            state == State.RUNNING ||
+                state == State.CLEARING ||
+                clearIntent != null ||
+                operationJob?.isActive == true ||
+                historyJob?.isActive == true ||
+                hostContextRecoveryJob?.isActive == true ||
+                (
+                    initialOpeningPrompts.isNotEmpty &&
+                        (startupJob?.isActive == true || state == State.READY)
+                    ) ||
+                problemReportJobs.isNotEmpty()
+            )
 
     init {
         hostContextProvider.isRunActive = { operationJob?.isActive == true }
         hostContextProvider.onAuthorityContextInvalidated = ::invalidateWalletAuthority
         hostContextProvider.onAuthorityContextPublished = {
+            enqueueInitialOpeningPrompt()
             sendNextPending()
-            notifyMessageAcceptanceChanged()
+            notifyFollowupsAndHints()
         }
-        hostContextProvider.onMessageAuthorityChanged = ::notifyMessageAcceptanceChanged
+        hostContextProvider.onMessageAuthorityChanged = {
+            enqueueInitialOpeningPrompt()
+            notifyFollowupsAndHints()
+        }
         WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
         WalletCore.registerObserver(this)
         start()
@@ -193,6 +343,7 @@ class AgentVM(
             delegates.add(WeakReference(delegate))
         }
         delegate.onMessagesLoaded(_messages.toList())
+        delegate.onThreadChanged(thread)
         delegate.onHintsUpdated(visibleHints)
         delegate.onStateChanged(state)
     }
@@ -235,14 +386,19 @@ class AgentVM(
         if (clearIntent != null) return
         val clearAction = agentClearAction(
             state,
-            hasThread = thread != null,
             operationInFlight = operationJob?.isActive == true
         )
         if (clearAction == AgentClearAction.IGNORE) return
 
+        initialOpeningEntryPoint = null
+        initialOpeningPrompts.clear()
+        initialAssistantMessageId = null
+        limitRetry = null
         clearIntent = ClearIntent(
             fallbackMessages = safeAgentClearFallback(
-                _messages,
+                _messages.filterNot { message ->
+                    pendingMessages.any { it.assistantMessageId == message.id }
+                },
                 pendingMessages.map { it.message }
             ),
             fallbackScrollPosition = scrollPosition
@@ -253,26 +409,63 @@ class AgentVM(
         setState(State.CLEARING)
         when (clearAction) {
             AgentClearAction.CANCEL_RUN -> requestRunCancellation()
-
             AgentClearAction.START -> launchPendingClear()
-
-            AgentClearAction.QUEUE -> {
-                if (
-                    startupJob?.isActive != true &&
-                    operationJob?.isActive != true &&
-                    thread == null
-                ) {
-                    start()
-                }
-            }
-
+            AgentClearAction.QUEUE -> Unit
             AgentClearAction.IGNORE -> Unit
         }
     }
 
+    /** Stops local work now; server deletion outlives the screen and its session. */
+    fun deleteChat(onFailure: (Throwable) -> Unit) {
+        if (isDeletingChat) return
+        isDeletingChat = true
+        val threadId = thread.id
+        initialOpeningPrompts.clear()
+        pendingMessages.clear()
+        val deletionScope = CoroutineScope(scope.coroutineContext + SupervisorJob())
+        onDestroy()
+        deletionScope.launch {
+            try {
+                client.deleteThread(threadId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                onFailure(error)
+            } finally {
+                deletionScope.cancel()
+            }
+        }
+    }
+
+    internal fun reopenOpeningAfterClear(
+        messages: List<AgentMessage>,
+        entryPoint: AgentV2EntryPoint
+    ) {
+        if (messages.isEmpty()) return
+        val intent = clearIntent ?: return
+        if (!intent.reopenChat(messages, entryPoint)) return
+        _messages.addAll(messages)
+        notifyLoaded()
+    }
+
+    internal fun acceptOpening(messages: List<AgentMessage>, entryPoint: AgentV2EntryPoint) {
+        if (isDeletingChat || messages.isEmpty()) return
+        if (clearIntent != null) {
+            reopenOpeningAfterClear(messages, entryPoint)
+            return
+        }
+        val user = messages.first { it.role == AgentMessageRole.USER }
+        if (_messages.any { it.id == user.id }) return
+        _messages.addAll(messages)
+        initialOpeningPrompts.enqueue(messages, entryPoint)
+        notifyLoaded()
+        sendNextPending()
+    }
+
     private fun launchPendingClear() {
-        val currentThread = thread ?: return
-        if (clearIntent == null || operationJob?.isActive == true) return
+        val currentThread = thread
+        val intent = clearIntent ?: return
+        if (operationJob?.isActive == true) return
         resetActiveRunState()
         setState(State.CLEARING)
         operationJob = scope.launch {
@@ -287,6 +480,7 @@ class AgentVM(
                     }
                 )
                 check(response.thread.id == currentThread.id) { "Unexpected Agent thread" }
+                hasLoadedHistoryMessages = false
                 bindThread(response.thread)
             } catch (e: CancellationException) {
                 throw e
@@ -294,12 +488,25 @@ class AgentVM(
                 hasFailed = true
             } finally {
                 if (operationJob === currentCoroutineContext().job) operationJob = null
-                notifyMessageAcceptanceChanged()
+                notifyFollowupsAndHints()
             }
 
             if (!hasFailed) {
                 clearIntent = null
+                intent.chatOpening?.let { (messages, entryPoint) ->
+                    val user = messages.first { it.role == AgentMessageRole.USER }
+                    initialOpeningMessageId = user.id
+                    initialAssistantMessageId = messages
+                        .firstOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
+                    initialOpeningEntryPoint = entryPoint
+                    initialOpeningPrompts.enqueue(messages, entryPoint)
+                    _messages.clear()
+                    _messages.addAll(messages)
+                    notifyLoaded()
+                }
                 setState(State.READY)
+                enqueueInitialOpeningPrompt()
+                sendNextPending()
                 hintsJob?.cancel()
                 hintsJob = scope.launch { loadHints() }
             } else {
@@ -309,9 +516,42 @@ class AgentVM(
         }
     }
 
-    /** Asks whether the server takes problem reports; a loaded thread means the consent the SDK requires */
+    // The limits arrive as updates
+    private fun loadLimits() {
+        scope.launch {
+            try {
+                client.loadAvailability()
+                client.loadUserQuota()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Without them, questions go out and the server tells about any limit
+            }
+        }
+    }
+
+    // Lets the screen block or unblock the composer, and again when the nearest limit resets
+    private fun onLimitsChanged() {
+        limitExpiryJob?.cancel()
+        val now = now()
+        if (limitRetry?.expiresAt?.let { it <= now } == true) limitRetry = null
+        notifyDelegates { it.onInputLimitChanged() }
+        notifyFollowupsAndHints()
+        val nextReset = listOfNotNull(
+            availability?.resetAt,
+            userQuota?.resetAt?.let(::parseAgentV2Timestamp)?.time,
+            limitRetry?.resetAt,
+            limitRetry?.expiresAt
+        ).filter { it > now }.minOrNull() ?: return
+        limitExpiryJob = scope.launch {
+            delay(nextReset - now)
+            limitExpiryJob = null
+            onLimitsChanged()
+        }
+    }
+
+    /** Asks whether the server takes problem reports */
     private fun refreshProblemReportAvailability() {
-        if (thread == null) return
         problemReportAvailabilityJob?.cancel()
         problemReportAvailabilityJob = scope.launch {
             isProblemReportAvailable = try {
@@ -326,9 +566,9 @@ class AgentVM(
 
     /** Reports the answer shown as [presentationId], or the whole conversation when it is null */
     fun reportProblem(presentationId: String?, comment: String?, onResult: (Boolean) -> Unit) {
-        val threadId = thread?.id
+        val threadId = thread.id
         val messageId = presentationId?.let { resolveAgentReportMessageId(_messages, it) }
-        if (threadId == null || (presentationId != null && messageId == null)) {
+        if (presentationId != null && messageId == null) {
             onResult(false)
             return
         }
@@ -360,10 +600,10 @@ class AgentVM(
      * The rating shows at once; a failed save shows the rating the server keeps again and calls [onFailure].
      */
     fun rateMessage(presentationId: String, feedback: AgentAnswerFeedback?, onFailure: () -> Unit) {
-        val threadId = thread?.id ?: return
+        val threadId = thread.id
         val message = _messages.firstOrNull { it.matchesMessageId(presentationId) } ?: return
         val messageId = message.sdkMessageId ?: return
-        if (!message.isComplete) return
+        if (!message.isComplete || message.newsPost) return
         val request = FeedbackRequest(feedback)
         val requests = feedbackRequests.getOrPut(messageId) {
             FeedbackRequests(latest = request, saved = message.feedback)
@@ -420,7 +660,8 @@ class AgentVM(
     }
 
     fun sendMessage(text: String, entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()): Boolean {
-        val normalized = text.trim()
+        if (isDeletingChat || hasUnsentOpening || isInputBlockedByLimit) return false
+        val normalized = normalizeAgentMessageText(text)
         if (normalized.isEmpty()) return false
         val authority = hostContextProvider.captureMessageAuthority() ?: return false
         val shouldSendNow = canSendNow()
@@ -435,20 +676,28 @@ class AgentVM(
         ) {
             return false
         }
-        acceptMessage(normalized, entryPoint, null, authority, shouldSendNow)
+        acceptMessage(
+            normalized,
+            entryPoint.takeUnless {
+                thread.news != null
+            },
+            null,
+            authority,
+            shouldSendNow
+        )
         return true
     }
 
     fun canEditMessage(messageId: String): Boolean = canSendFollowup &&
         _messages.any {
             it.matchesMessageId(messageId) && it.role == AgentMessageRole.USER &&
-                it.sdkMessageId != null
+                it.sdkMessageId != null && !it.newsPost
         }
 
     fun canRegenerateMessage(messageId: String): Boolean = canSendFollowup &&
         _messages.any {
             it.matchesMessageId(messageId) && it.role == AgentMessageRole.ASSISTANT &&
-                it.sdkMessageId != null && !it.isStreaming
+                it.sdkMessageId != null && !it.isStreaming && !it.newsPost
         }
 
     fun regenerateMessage(messageId: String): Boolean {
@@ -502,7 +751,9 @@ class AgentVM(
 
     fun visibleFollowups(messageId: String): List<AgentV2FollowUp> = _messages
         .findFollowupOwner()
-        ?.takeIf { it.matchesMessageId(messageId) }
+        ?.takeIf {
+            it.matchesMessageId(messageId) && (!it.newsPost || state == State.READY)
+        }
         ?.followups
         .orEmpty()
 
@@ -609,29 +860,72 @@ class AgentVM(
                 notifyActionUnavailable()
             } finally {
                 if (actionJob === currentCoroutineContext().job) actionJob = null
-                notifyMessageAcceptanceChanged()
+                notifyFollowupsAndHints()
             }
         }
-        notifyMessageAcceptanceChanged()
+        notifyFollowupsAndHints()
     }
+
+    val isLoadingOlderMessages: Boolean get() = historyJob?.isActive == true
 
     fun loadOlderMessages() {
-        loadOlderMessagesUntil()
+        if (activeRun?.editedMessage != null || activeRun?.regenerationTargetId != null) return
+        if (historyJob?.isActive == true) return
+        val currentThread = thread
+        val cursor = historyCursor ?: return
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            val owner = currentCoroutineContext().job
+            try {
+                val hydration = client.messages(currentThread.id, cursor, MESSAGE_PAGE_SIZE)
+                currentCoroutineContext().ensureActive()
+                if (historyJob !== owner) return@launch
+                check(hydration.thread.id == currentThread.id) { "Unexpected Agent thread" }
+                val nextCursor = hydration.nextCursor
+                check(nextCursor == null || seenHistoryCursors.add(nextCursor)) {
+                    "Repeated Agent message cursor"
+                }
+                hasLoadedHistoryMessages = hasLoadedHistoryMessages || hasAgentThreadHistory(
+                    hydration.thread,
+                    emptyList(),
+                    hydration.messages
+                )
+                bindThread(hydration.thread)
+                if (historyJob !== owner) return@launch
+                historyCursor = nextCursor
+
+                val existingIds = _messages.mapTo(mutableSetOf()) {
+                    it.sdkMessageId ?: it.id
+                }
+                val olderMessages = nativeMessages(hydration.messages).filter { message ->
+                    val sdkMessageId = message.sdkMessageId ?: message.id
+                    existingIds.add(sdkMessageId)
+                }
+                currentCoroutineContext().ensureActive()
+                if (historyJob !== owner) return@launch
+                if (olderMessages.isNotEmpty()) {
+                    _messages.addAll(0, olderMessages)
+                    notifyPrepended()
+                } else if (thread.news != null && nextCursor == null) {
+                    notifyLoaded()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                if (historyJob === owner) notifyErrorEvent()
+            } finally {
+                if (historyJob === owner) historyJob = null
+                notifyDelegates { it.onOlderMessagesLoadingChanged() }
+                notifySessionIdle()
+            }
+        }
+        historyJob = job
+        job.start()
+        notifyDelegates { it.onOlderMessagesLoadingChanged() }
     }
 
-    fun loadMessageHistoryUntil(messageId: String, completion: (Boolean) -> Unit) {
-        if (_messages.any { it.matchesMessageId(messageId) }) {
-            completion(true)
-            return
-        }
-        historyJob?.takeIf { it.isActive }?.let { activeJob ->
-            activeJob.invokeOnCompletion {
-                scope.launch { loadMessageHistoryUntil(messageId, completion) }
-            }
-            return
-        }
-        loadOlderMessagesUntil(messageId, completion)
-    }
+    internal suspend fun transcribeAudio(audio: String) = client.transcribe(
+        AgentV2TranscriptionRequest(audio = audio, lang = LocaleController.activeLanguage.langCode)
+    )
 
     override fun onBridgeUpdate(update: ApiUpdate) {
         val agentUpdate = (update as? ApiUpdate.ApiUpdateAgentV2)?.update ?: return
@@ -657,6 +951,7 @@ class AgentVM(
         chatActivity.stop()
         cancelPendingAction()
         historyJob?.cancel()
+        historyJob = null
         cancelHostContextRecovery()
         hostContextProvider.stop()
         scope.cancel()
@@ -665,7 +960,9 @@ class AgentVM(
     }
 
     private fun start() {
-        if (startupJob?.isActive == true) return
+        if (isDeletingChat || startupJob?.isActive == true) return
+        startupErrorCode = null
+        limitRetry = null
         actionAvailability.invalidate()
         setState(State.LOADING)
         startupJob = scope.launch {
@@ -698,15 +995,15 @@ class AgentVM(
     private suspend fun initializeConversation() {
         chatActivity.setConsentAccepted(true)
         check(hostContextProvider.start()) { "Host context is unavailable" }
-        val defaultThread = client.defaultThread()
-        bindThread(defaultThread.thread)
-        refreshProblemReportAvailability()
         hydrate()
+        refreshProblemReportAvailability()
+        loadLimits()
         if (clearIntent != null) {
             launchPendingClear()
             return
         }
         setState(State.READY)
+        enqueueInitialOpeningPrompt()
         hintsJob?.cancel()
         hintsJob = scope.launch { loadHints() }
         sendNextPending()
@@ -714,9 +1011,29 @@ class AgentVM(
     }
 
     private suspend fun hydrate() {
-        val currentThread = checkNotNull(thread)
-        val hydration = client.messages(currentThread.id, null, MESSAGE_PAGE_SIZE)
-        check(hydration.thread.id == currentThread.id) { "Unexpected Agent thread" }
+        val loadMessages: suspend (String) -> AgentV2ThreadHydration = { threadId ->
+            client.messages(threadId, null, MESSAGE_PAGE_SIZE)
+        }
+        val hydration = if (initialOpeningEntryPoint != null) {
+            hydrateAgentOpeningThread(thread, loadMessages)
+        } else {
+            hydrateAgentThread(thread, loadMessages)
+        }
+        historyJob?.cancel()
+        historyJob = null
+        hasLoadedHistoryMessages = hasAgentThreadHistory(
+            hydration.thread,
+            emptyList(),
+            hydration.messages
+        )
+        if (initialOpeningEntryPoint != null && hasLoadedHistoryMessages) {
+            initialOpeningEntryPoint = null
+            initialOpeningPrompts.clear()
+            _messages.removeAll {
+                it.id == initialOpeningMessageId || it.id == initialAssistantMessageId
+            }
+            initialAssistantMessageId = null
+        }
         bindThread(hydration.thread)
         historyCursor = hydration.nextCursor
         seenHistoryCursors.clear()
@@ -727,70 +1044,40 @@ class AgentVM(
             withPendingFeedback(reconcileAgentMessages(_messages, hydratedMessages))
         _messages.clear()
         _messages.addAll(reconciledMessages)
+        hasHydratedMessages = true
         if (_messages.isEmpty()) scrollPosition = ScrollPosition(ScrollAnchor.Bottom)
         notifyLoaded()
     }
 
-    private fun loadOlderMessagesUntil(
-        targetMessageId: String? = null,
-        completion: ((Boolean) -> Unit)? = null
-    ) {
-        if (activeRun?.editedMessage != null || activeRun?.regenerationTargetId != null) {
-            completion?.invoke(false)
+    private fun enqueueInitialOpeningPrompt() {
+        if (isDeletingChat || (state != State.READY && state != State.RUNNING) ||
+            clearIntent != null
+        ) {
             return
         }
-        if (historyJob?.isActive == true) return
-        val currentThread = thread ?: return
-        if (targetMessageId != null && _messages.any { it.matchesMessageId(targetMessageId) }) {
-            completion?.invoke(true)
-            return
-        }
-        if (historyCursor == null) {
-            completion?.invoke(false)
-            return
-        }
-        historyJob = scope.launch {
-            var foundTarget = false
-            try {
-                do {
-                    val cursor = historyCursor ?: break
-                    val hydration = client.messages(currentThread.id, cursor, MESSAGE_PAGE_SIZE)
-                    check(hydration.thread.id == currentThread.id) { "Unexpected Agent thread" }
-                    val nextCursor = hydration.nextCursor
-                    check(nextCursor == null || seenHistoryCursors.add(nextCursor)) {
-                        "Repeated Agent message cursor"
-                    }
-                    bindThread(hydration.thread)
-                    historyCursor = nextCursor
-
-                    val existingIds = _messages.mapTo(mutableSetOf()) {
-                        it.sdkMessageId ?: it.id
-                    }
-                    val olderMessages = nativeMessages(hydration.messages).filter { message ->
-                        val sdkMessageId = message.sdkMessageId ?: message.id
-                        existingIds.add(sdkMessageId)
-                    }
-                    if (olderMessages.isNotEmpty()) {
-                        _messages.addAll(0, olderMessages)
-                        notifyPrepended()
-                    }
-                    foundTarget = targetMessageId != null && _messages.any {
-                        it.matchesMessageId(targetMessageId)
-                    }
-                } while (targetMessageId != null && !foundTarget && historyCursor != null)
-                completion?.invoke(foundTarget)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Throwable) {
-                notifyErrorEvent()
-            } finally {
-                if (historyJob === currentCoroutineContext().job) historyJob = null
-                notifySessionIdle()
-            }
-        }
+        initialOpeningPrompts.submit(
+            { messages, entryPoint ->
+                val message = messages.first { it.role == AgentMessageRole.USER }
+                val assistant = messages.first { it.role == AgentMessageRole.ASSISTANT }
+                val authority = hostContextProvider.captureMessageAuthority()
+                    ?: return@submit false
+                initialOpeningEntryPoint = null
+                pendingMessages.add(
+                    AgentPendingMessage(
+                        message,
+                        entryPoint,
+                        authority,
+                        assistantMessageId = assistant.id
+                    )
+                )
+                true
+            },
+            state
+        )
     }
 
     private suspend fun loadHints() {
+        if (thread.news != null) return
         availableHints = try {
             val response = client.hints(LocaleController.activeLanguage.langCode)
             hintsCatalogVersion = response.catalogVersion
@@ -811,7 +1098,15 @@ class AgentVM(
             finishClearFailure(canReturnToReady = false)
             return
         }
-        appendUnavailable((error as? AgentV2OperationException)?.error?.code)
+        startupErrorCode = (error as? AgentV2OperationException)?.error?.code
+        val text = when (startupErrorCode) {
+            "client_update_required", "device_token_missing", "device_token_invalid",
+            "device_token_expired", "profile_id_invalid", "profile_deleted", "network_error",
+            "invalid_event" -> agentV2ErrorText(startupErrorCode)
+
+            else -> LocaleController.getString("Failed to load chat")
+        }
+        appendUnavailable(text = text)
         setState(State.ERROR)
     }
 
@@ -822,10 +1117,7 @@ class AgentVM(
             sendNextPending()
             return
         }
-        val currentThread = thread ?: run {
-            pendingMessages.add(0, pendingMessage)
-            return
-        }
+        val currentThread = thread
         if (!canSendNow()) {
             pendingMessages.add(0, pendingMessage)
             requestHostContextRecovery()
@@ -841,10 +1133,55 @@ class AgentVM(
         )
         activeRun = run
         if (run.regenerationTargetId == null) {
+            run.assistantPresentationId = pendingMessage.assistantMessageId
+                ?.takeIf { id -> _messages.any { it.id == id } }
+                ?: addAssistantPlaceholder()
+            initialAssistantMessageId = null
+        }
+        // A new question takes the place of one a limit held back
+        limitRetry = null
+        setState(State.RUNNING)
+        launchRun(run) {
+            client.startRun(
+                threadId = currentThread.id,
+                revision = currentRevision(),
+                text = localMessage.text,
+                entryPoint = pendingMessage.entryPoint,
+                followupOf = pendingMessage.followupOf,
+                targetUserMessageId = pendingMessage.targetUserMessageId,
+                targetAssistantMessageId = pendingMessage.targetAssistantMessageId
+            )
+        }
+    }
+
+    /** Sends again the question a limit held back, as the same run, once the limit has reset */
+    fun retryLimit() {
+        val retry = limitRetry ?: return
+        if (!canRetryLimit) return
+        val authority = hostContextProvider.captureMessageAuthority() ?: return
+        val inputPresentationId = retry.inputPresentationId ?: return
+        limitRetry = null
+        retry.failureMessageId?.let(::removeMessage)
+        val run = AgentActiveRun(
+            inputPresentationId,
+            authority,
+            editedMessage = retry.editedMessage,
+            editFallbackMessages = retry.editFallbackMessages,
+            regenerationTargetId = retry.regenerationTargetId
+        )
+        // The failed edit restored server history, so its local question needs the canonical replacement
+        run.shouldResyncThread = run.editedMessage != null
+        activeRun = run
+        if (run.regenerationTargetId == null) {
             run.assistantPresentationId = addAssistantPlaceholder()
         }
         setState(State.RUNNING)
+        // Without the held run, the question fails as a plain failure
+        launchRun(run) { client.retryRun(retry.clientRunId) }
+    }
 
+    /** Follows [run], which [start] starts, and shows how it ends */
+    private fun launchRun(run: AgentActiveRun, start: suspend () -> AgentV2RunResult?) {
         operationJob = scope.launch {
             var hasFailed = false
             try {
@@ -852,23 +1189,17 @@ class AgentVM(
                     "agent_host_context_update_failed"
                 }
                 if (activeRun !== run) return@launch
-                check(hostContextProvider.isMessageAuthorityCurrent(pendingMessage.authority)) {
+                check(hostContextProvider.isMessageAuthorityCurrent(run.authority)) {
                     "agent_wallet_authority_changed"
                 }
-                val result = client.startRun(
-                    threadId = currentThread.id,
-                    revision = currentRevision(),
-                    text = localMessage.text,
-                    entryPoint = pendingMessage.entryPoint,
-                    followupOf = pendingMessage.followupOf,
-                    targetUserMessageId = pendingMessage.targetUserMessageId,
-                    targetAssistantMessageId = pendingMessage.targetAssistantMessageId
-                )
+                currentCoroutineContext().ensureActive()
+                if (isDeletingChat) return@launch
+                val result = start()
                 if (activeRun !== run) return@launch
-                if (run.bind(result.clientRunId, result.runId)) {
+                if (result != null && run.bind(result.clientRunId, result.runId)) {
                     if (result.runId != null) admitRun(run)
                     if (run.regenerationTargetId == null) {
-                        bindInputSdkId(localMessage.id, result.inputMessageId)
+                        bindInputSdkId(run.inputPresentationId, result.inputMessageId)
                     }
                     requestRunCancellation()
                     hasFailed = run.hasFailed || result.hasVisibleFailure
@@ -883,7 +1214,7 @@ class AgentVM(
             } finally {
                 if (operationJob === currentCoroutineContext().job) {
                     operationJob = null
-                    notifyMessageAcceptanceChanged()
+                    notifyFollowupsAndHints()
                 }
             }
 
@@ -897,10 +1228,18 @@ class AgentVM(
             if (activeRun !== run) return@launch
             if (continuePendingClearAfterRun(run)) return@launch
             if (hasFailed || !run.hasStartedAssistant) {
-                notifyDelegates { it.onOutgoingMessageFailed(localMessage.id) }
+                notifyDelegates { it.onOutgoingMessageFailed(run.inputPresentationId) }
             }
-            if (hasFailed) {
-                appendUnavailable(run.failureCode)
+            val failure = if (hasFailed) appendUnavailable(run.failureCode) else null
+            run.limitRetry?.takeIf { hasFailed }?.let { retry ->
+                limitRetry = retry.copy(
+                    inputPresentationId = run.inputPresentationId,
+                    failureMessageId = failure?.id,
+                    editedMessage = run.editedMessage,
+                    editFallbackMessages = run.editFallbackMessages,
+                    regenerationTargetId = run.regenerationTargetId
+                )
+                onLimitsChanged()
             }
             if (hasFailed && (
                     run.editedMessage != null ||
@@ -909,7 +1248,7 @@ class AgentVM(
             ) {
                 run.shouldResyncThread = true
             }
-            val didRecoverThread = !run.shouldResyncThread || resyncThread(run)
+            val didRecoverThread = !run.shouldResyncThread || resyncThread(run, failure)
             if (activeRun !== run) return@launch
             if (continuePendingClearAfterRun(run)) return@launch
             if (!didRecoverThread) {
@@ -937,6 +1276,7 @@ class AgentVM(
     }
 
     private fun sendNextPending() {
+        enqueueInitialOpeningPrompt()
         val message = activateNextAgentPendingMessage(
             pendingMessages = pendingMessages,
             canStart = canSendNow(),
@@ -987,7 +1327,7 @@ class AgentVM(
         }
     }
 
-    private fun canSendNow() = state == State.READY &&
+    private fun canSendNow() = !isDeletingChat && state == State.READY &&
         operationJob?.isActive != true &&
         actionJob?.isActive != true &&
         hasCurrentAuthority()
@@ -996,14 +1336,14 @@ class AgentVM(
 
     private fun bindActiveRun(clientRunId: String, runId: String?, threadId: String?): Boolean {
         if (!hasActiveRunOperation()) return false
-        val currentThreadId = thread?.id ?: return false
+        val currentThreadId = thread.id
         if (threadId != null && threadId != currentThreadId) return false
         return activeRun?.bind(clientRunId, runId) == true
     }
 
     private fun matchesActiveRun(clientRunId: String, runId: String, threadId: String): Boolean =
         hasActiveRunOperation() &&
-            thread?.id == threadId &&
+            thread.id == threadId &&
             activeRun?.matches(clientRunId, runId) == true
 
     private fun hasActiveRunOperation() = activeRun?.inputPresentationId != null &&
@@ -1021,12 +1361,14 @@ class AgentVM(
     }
 
     private fun handle(update: AgentV2Update) {
-        val currentThreadId = thread?.id
+        val currentThreadId = thread.id
         when (update) {
             is AgentV2Update.RunStarted -> {
                 if (!bindActiveRun(update.clientRunId, update.runId, update.threadId)) return
                 revision = update.threadRevision
                 activeRun?.let { run ->
+                    // The SDK requires `run_start` before all other sequenced stream events
+                    run.hasReceivedStreamEvent = true
                     admitRun(run)
                     if (run.regenerationTargetId == null) {
                         bindInputSdkId(run.inputPresentationId, update.inputMessageId)
@@ -1175,6 +1517,9 @@ class AgentVM(
                 if (activeRun?.hasStartedAssistant == true) finalizeStreamingMessages()
                 activeRun?.hasFailed = true
                 activeRun?.failureCode = update.code
+                activeRun?.let { run ->
+                    run.limitRetry = update.toLimitRetry(run.hasReceivedStreamEvent, now())
+                }
                 activeRun?.shouldResyncThread = (activeRun?.shouldResyncThread == true) ||
                     requiresAgentV2ThreadResync(update.code)
             }
@@ -1197,12 +1542,48 @@ class AgentVM(
             }
 
             is AgentV2Update.RuntimeReady -> chatActivity.onRuntimeReady()
+
+            is AgentV2Update.RunActivityChanged -> {
+                if (!matchesActiveRun(update.clientRunId, update.runId, update.threadId) ||
+                    update.event.runId != update.runId ||
+                    clearIntent != null
+                ) {
+                    return
+                }
+                val text = getAgentV2RunActivityText(update.event) ?: return
+                val presentationId = activeRun?.assistantPresentationId ?: return
+                val message = _messages.firstOrNull { it.matchesMessageId(presentationId) }
+                    ?.takeIf { it.isStreaming && it.activityText != text }
+                    ?: return
+                replaceMessage(message.copy(activityText = text))
+                notifyDelegates { it.onStreamingUpdate(message.id) }
+            }
+
+            is AgentV2Update.AvailabilityChanged -> {
+                availability = update.availability
+                onLimitsChanged()
+            }
+
+            is AgentV2Update.UserQuotaChanged -> {
+                userQuota = update.quota
+                onLimitsChanged()
+            }
+
+            is AgentV2Update.ToolActivityChanged,
+            is AgentV2Update.WalletContextChanged -> Unit
         }
     }
 
     private fun admitRun(run: AgentActiveRun) {
         if (run.isEditAdmitted) return
         run.isEditAdmitted = true
+        run.inputPresentationId?.let { id ->
+            val message = _messages.firstOrNull { it.id == id }
+            if (message?.role == AgentMessageRole.USER && message.isStreaming) {
+                replaceMessage(message.copy(isStreaming = false))
+                notifyDelegates { it.onStreamingUpdate(id) }
+            }
+        }
         val targetId = run.regenerationTargetId ?: return
         val retained = agentMessagesBeforeRegeneration(
             _messages,
@@ -1255,6 +1636,13 @@ class AgentVM(
         _messages.add(index, message)
         notifyDelegates { it.onMessageAdded(message) }
         return message.id
+    }
+
+    private fun removeMessage(id: String) {
+        val index = _messages.indexOfFirst { it.id == id }
+        if (index < 0) return
+        _messages.removeAt(index)
+        notifyDelegates { it.onMessageRemoved(id) }
     }
 
     private fun removeUnboundAssistantPlaceholder() {
@@ -1318,7 +1706,7 @@ class AgentVM(
     }
 
     private fun addAvailableAction(update: AgentV2Update.ActionAvailable) {
-        if (update.threadId != thread?.id || clearIntent != null) return
+        if (update.threadId != thread.id || clearIntent != null) return
         val message = updateMessage(update.messageId) { message ->
             val action = AgentDeeplink(
                 title = update.action.title,
@@ -1383,12 +1771,22 @@ class AgentVM(
     }
 
     private fun bindThread(nextThread: AgentV2ThreadSummary) {
-        if (thread != null && thread?.id != nextThread.id) return
-        thread = nextThread
-        revision = nextThread.revision
+        if (thread.id != nextThread.id) return
+        val nextNews = nextThread.news
+        val updatedThread = nextThread.copy(
+            news = nextNews?.copy(
+                body = nextNews.body ?: thread.news?.body,
+                sources = nextNews.sources ?: thread.news?.sources
+            ) ?: thread.news
+        )
+        val hasChanged = thread != updatedThread
+        thread = updatedThread
+        revision = updatedThread.revision
+        if (hasChanged) notifyDelegates { it.onThreadChanged(updatedThread) }
     }
 
-    private suspend fun resyncThread(run: AgentActiveRun): Boolean {
+    /** Replaces the history with the server's; the [failure] shown for an edit or a regeneration stays after it */
+    private suspend fun resyncThread(run: AgentActiveRun, failure: AgentMessage? = null): Boolean {
         val history = fetchCanonicalHistory()
         if (activeRun !== run) return false
         if (history == null) {
@@ -1401,14 +1799,14 @@ class AgentVM(
             }
             return false
         }
-        applyCanonicalHistoryPosition(history.thread)
+        applyCanonicalHistoryPosition(history)
         val reconciledMessages = withPendingFeedback(
             if (run.editedMessage != null || run.regenerationTargetId != null) {
                 val existingBySdkId = _messages.associateBy { it.sdkMessageId ?: it.id }
                 history.messages.map { message ->
                     val existing = existingBySdkId[message.sdkMessageId ?: message.id]
                     message.copy(id = existing?.id ?: message.id)
-                } + pendingMessages.map { it.message }
+                } + listOfNotNull(failure) + pendingMessages.map { it.message }
             } else {
                 reconcileAgentMessages(_messages, history.messages)
             }
@@ -1422,7 +1820,7 @@ class AgentVM(
     }
 
     private suspend fun refreshThreadRevisionForClear(threadId: String): Boolean {
-        val refreshedThread = client.defaultThread().thread
+        val refreshedThread = client.messages(threadId, null, 1).thread
         if (refreshedThread.id != threadId) return false
         bindThread(refreshedThread)
         return true
@@ -1459,19 +1857,19 @@ class AgentVM(
 
     private suspend fun restoreCanonicalHistory(): List<AgentMessage>? {
         val history = fetchCanonicalHistory() ?: return null
-        applyCanonicalHistoryPosition(history.thread)
+        applyCanonicalHistoryPosition(history)
         return history.messages
     }
 
     private data class CanonicalHistory(
         val thread: AgentV2ThreadSummary,
-        val messages: List<AgentMessage>
+        val messages: List<AgentMessage>,
+        val hasMessages: Boolean
     )
 
     private suspend fun fetchCanonicalHistory(): CanonicalHistory? {
-        val threadId = thread?.id ?: return null
+        val threadId = thread.id
         return try {
-            if (client.defaultThread().thread.id != threadId) return null
             val pages = mutableListOf<List<AgentV2PersistedMessage>>()
             val cursors = mutableSetOf<String>()
             var cursor: String? = null
@@ -1483,7 +1881,12 @@ class AgentVM(
                 cursor = hydration.nextCursor
                 check(cursor == null || cursors.add(cursor)) { "Repeated Agent message cursor" }
             } while (cursor != null)
-            CanonicalHistory(hydration.thread, nativeMessages(pages.asReversed().flatten()))
+            val messages = pages.asReversed().flatten()
+            CanonicalHistory(
+                hydration.thread,
+                nativeMessages(messages),
+                hasAgentThreadHistory(hydration.thread, emptyList(), messages)
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
@@ -1491,13 +1894,16 @@ class AgentVM(
         }
     }
 
-    private fun applyCanonicalHistoryPosition(canonicalThread: AgentV2ThreadSummary) {
-        bindThread(canonicalThread)
+    private fun applyCanonicalHistoryPosition(history: CanonicalHistory) {
+        historyJob?.cancel()
+        historyJob = null
+        hasLoadedHistoryMessages = history.hasMessages
+        bindThread(history.thread)
         historyCursor = null
         seenHistoryCursors.clear()
     }
 
-    private fun currentRevision() = maxOf(revision, thread?.revision ?: 1)
+    private fun currentRevision() = maxOf(revision, thread.revision)
 
     private fun updateMessage(
         messageId: String,
@@ -1540,7 +1946,12 @@ class AgentVM(
 
     private fun finalizeStreamingMessages() {
         for (index in _messages.indices) {
-            if (_messages[index].isStreaming) {
+            val current = _messages[index]
+            if (current.isStreaming && !initialOpeningPrompts.containsMessage(current.id) &&
+                pendingMessages.none {
+                    it.message.id == current.id || it.assistantMessageId == current.id
+                }
+            ) {
                 val message = _messages[index].copy(
                     isStreaming = false,
                     isAwaitingSemanticContent = false
@@ -1562,11 +1973,16 @@ class AgentVM(
         pendingMessages.removeAll(invalidatedMessages.toSet())
         invalidatedMessages.forEach(::notifyPendingMessageFailed)
         invalidateAuthorityBoundActions()
-        notifyMessageAcceptanceChanged()
+        notifyFollowupsAndHints()
     }
 
     private fun invalidateAuthorityBoundActions() {
         cancelPendingAction()
+        // The SDK sends a held question only for the wallet it was asked for
+        if (limitRetry != null) {
+            limitRetry = null
+            onLimitsChanged()
+        }
         for (index in _messages.indices) {
             val message = _messages[index]
             val deeplinks = message.deeplinks.filter { it.actionId == null }
@@ -1580,7 +1996,7 @@ class AgentVM(
         actionAvailability.invalidate()
         actionJob?.cancel()
         actionJob = null
-        notifyMessageAcceptanceChanged()
+        notifyFollowupsAndHints()
     }
 
     private fun cancelHostContextRecovery() {
@@ -1595,6 +2011,14 @@ class AgentVM(
     }
 
     private fun notifyPendingMessageFailed(pendingMessage: AgentPendingMessage) {
+        pendingMessage.assistantMessageId?.let { messageId ->
+            val index = _messages.indexOfFirst { it.id == messageId && it.sdkMessageId == null }
+            if (index >= 0) {
+                _messages.removeAt(index)
+                notifyDelegates { it.onMessageRemoved(messageId) }
+            }
+        }
+        finishMessageContent(pendingMessage.message.id)
         notifyDelegates { it.onOutgoingMessageFailed(pendingMessage.message.id) }
     }
 
@@ -1616,34 +2040,43 @@ class AgentVM(
         }
     }
 
-    private fun appendUnavailable(code: String? = null) {
-        val text = agentV2ErrorText(code)
+    /** Shows the failure after the active run's output and returns the row that shows it */
+    private fun appendUnavailable(
+        code: String? = null,
+        text: String = agentV2ErrorText(code)
+    ): AgentMessage {
         val index = activeRunOutputInsertionIndex(
             _messages,
             activeRun?.inputPresentationId,
             pendingMessages.map { it.message }
         )
         val previousMessage = _messages.getOrNull(index - 1)
-        if (previousMessage?.role != AgentMessageRole.SYSTEM || previousMessage.text != text) {
-            val message = AgentMessage(role = AgentMessageRole.SYSTEM, text = text)
+        val isShown = previousMessage?.role == AgentMessageRole.SYSTEM &&
+            previousMessage.text == text
+        val failure = if (isShown && previousMessage != null) {
+            previousMessage
+        } else {
+            val message =
+                AgentMessage(role = AgentMessageRole.SYSTEM, text = text, isFailure = true)
             _messages.add(index, message)
             notifyDelegates { it.onMessageAdded(message) }
+            message
         }
         notifyErrorEvent()
+        return failure
     }
 
     private fun setState(nextState: State) {
         if (state == nextState) return
         state = nextState
         notifyDelegates { it.onStateChanged(nextState) }
-        notifyMessageAcceptanceChanged()
+        notifyFollowupsAndHints()
     }
 
-    private fun notifyMessageAcceptanceChanged() {
-        if (acceptanceNotificationJob != null) return
-        acceptanceNotificationJob = scope.launch {
-            acceptanceNotificationJob = null
-            notifyDelegates { it.onMessageAcceptanceChanged() }
+    private fun notifyFollowupsAndHints() {
+        if (followupsAndHintsNotificationJob != null) return
+        followupsAndHintsNotificationJob = scope.launch {
+            followupsAndHintsNotificationJob = null
             _messages.findFollowupOwner()?.takeIf { it.followups.isNotEmpty() }?.let { message ->
                 notifyDelegates { it.onFollowupsChanged(message.id) }
             }
@@ -1682,6 +2115,8 @@ class AgentVM(
     }
 
     private fun clearPresentation() {
+        historyJob?.cancel()
+        historyJob = null
         historyCursor = null
         seenHistoryCursors.clear()
         pendingMessages.clear()
@@ -1747,8 +2182,11 @@ class AgentVM(
 
     private companion object {
         const val MESSAGE_PAGE_SIZE = 100
+        const val CAPACITY_EXHAUSTED = "capacity_exhausted"
     }
 }
+
+internal fun normalizeAgentMessageText(text: String): String = text.trim()
 
 private data class AgentPendingMessage(
     val message: AgentMessage,
@@ -1757,7 +2195,8 @@ private data class AgentPendingMessage(
     val followupOf: AgentV2FollowUpReference? = null,
     val targetUserMessageId: String? = null,
     val targetAssistantMessageId: String? = null,
-    val editFallbackMessages: List<AgentMessage>? = null
+    val editFallbackMessages: List<AgentMessage>? = null,
+    val assistantMessageId: String? = null
 )
 
 private fun activateNextAgentPendingMessage(
@@ -1797,23 +2236,22 @@ private fun agentConsentLoadAction(hasConsent: Boolean, hasClearIntent: Boolean)
     else -> AgentConsentLoadAction.REQUIRE_CONSENT
 }
 
-private fun agentClearAction(state: AgentVM.State, hasThread: Boolean, operationInFlight: Boolean) =
-    when (state) {
-        AgentVM.State.LOADING,
-        AgentVM.State.ACCEPTING_CONSENT -> AgentClearAction.QUEUE
+private fun agentClearAction(state: AgentVM.State, operationInFlight: Boolean) = when (state) {
+    AgentVM.State.LOADING,
+    AgentVM.State.ACCEPTING_CONSENT -> AgentClearAction.QUEUE
 
-        AgentVM.State.READY,
-        AgentVM.State.ERROR -> if (hasThread && !operationInFlight) {
-            AgentClearAction.START
-        } else {
-            AgentClearAction.QUEUE
-        }
-
-        AgentVM.State.RUNNING -> AgentClearAction.CANCEL_RUN
-
-        AgentVM.State.CONSENT_REQUIRED,
-        AgentVM.State.CLEARING -> AgentClearAction.IGNORE
+    AgentVM.State.READY,
+    AgentVM.State.ERROR -> if (!operationInFlight) {
+        AgentClearAction.START
+    } else {
+        AgentClearAction.QUEUE
     }
+
+    AgentVM.State.RUNNING -> AgentClearAction.CANCEL_RUN
+
+    AgentVM.State.CONSENT_REQUIRED,
+    AgentVM.State.CLEARING -> AgentClearAction.IGNORE
+}
 
 /** The server id of a reported message; a message the server has not bound yet has none */
 internal fun resolveAgentReportMessageId(
@@ -1937,6 +2375,21 @@ private fun reconcileAgentMessages(
 }
 
 private const val AGENT_THREAD_REVISION_CONFLICT = "thread_revision_conflict"
+
+internal fun hasAgentThreadHistory(
+    thread: AgentV2ThreadSummary,
+    messages: List<AgentMessage>,
+    historyMessages: List<AgentV2PersistedMessage> = emptyList()
+): Boolean = thread.messageCount > 0 || historyMessages.isNotEmpty() || messages.any {
+    it.role == AgentMessageRole.USER || it.sdkMessageId != null
+}
+
+internal suspend fun hydrateAgentThread(
+    thread: AgentV2ThreadSummary,
+    loadMessages: suspend (String) -> AgentV2ThreadHydration
+): AgentV2ThreadHydration = loadMessages(thread.id).also { hydration ->
+    check(hydration.thread.id == thread.id) { "Unexpected Agent thread" }
+}
 
 internal fun agentMessagesBeforeRegeneration(
     messages: List<AgentMessage>,

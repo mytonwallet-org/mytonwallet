@@ -33,6 +33,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         surface: .systemPresentation
     )
 
+    var onWillDismiss: (() -> Void)?
     var onDidDismiss: (() -> Void)?
 
     init(
@@ -321,6 +322,9 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         self.dismissalReadinessWorkItem?.cancel()
         self.dismissalReadinessWorkItem = nil
         self.didNotifyDismissal = true
+        let onWillDismiss = self.onWillDismiss
+        self.onWillDismiss = nil
+        onWillDismiss?()
         let onDidDismiss = self.onDidDismiss
         self.onDidDismiss = nil
         onDidDismiss?()

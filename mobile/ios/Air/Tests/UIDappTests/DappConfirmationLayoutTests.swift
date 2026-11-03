@@ -55,13 +55,21 @@ final class DappConfirmationLayoutTests: XCTestCase {
         navigation.beginAppearanceTransition(true, animated: false)
         navigation.endAppearanceTransition()
         await settleLayout(window)
-        navigation.additionalSafeAreaInsets.top = 70 - unlock.view.safeAreaInsets.top
-        navigation.additionalSafeAreaInsets.bottom = 34 - unlock.view.safeAreaInsets.bottom
-        await settleLayout(window)
+        // The device's own insets and bars differ between simulators, and UIKit does not always add the extra insets
+        // one to one, so correct them until the sheet's insets are the 14 Pro's.
+        for _ in 0..<3 {
+            let insets = unlock.view.safeAreaInsets
+            guard abs(insets.top - 70) > 0.5 || abs(insets.bottom - 34) > 0.5 else { break }
+            navigation.additionalSafeAreaInsets.top += 70 - insets.top
+            navigation.additionalSafeAreaInsets.bottom += 34 - insets.bottom
+            await settleLayout(window)
+        }
         XCTAssertEqual(unlock.view.bounds.width, 393)
         XCTAssertEqual(unlock.view.bounds.height, 793)
-        XCTAssertEqual(unlock.view.safeAreaInsets.top, 70)
-        XCTAssertEqual(unlock.view.safeAreaInsets.bottom, 34)
+        let insetsContext = "window \(window.safeAreaInsets), navigation extra \(navigation.additionalSafeAreaInsets), "
+            + "bar \(navigation.navigationBar.frame)"
+        XCTAssertEqual(unlock.view.safeAreaInsets.top, 70, insetsContext)
+        XCTAssertEqual(unlock.view.safeAreaInsets.bottom, 34, insetsContext)
 
         XCTAssertFalse(full.view.isHidden, "Use the full header when the keypad fits")
         XCTAssertTrue(compact.view.isHidden)

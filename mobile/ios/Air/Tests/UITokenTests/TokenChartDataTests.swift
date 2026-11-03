@@ -81,7 +81,7 @@ struct TokenChartDataTests {
 
         let result = tokenChartPercentChange(
             historyData: data,
-            range: 0.25...0.75,
+            range: (1.0 / 3)...(2.0 / 3),
             tokenPercentChange24h: 4.3,
             shouldUseTokenPercentChange: true,
             fallbackPrice: 110.0

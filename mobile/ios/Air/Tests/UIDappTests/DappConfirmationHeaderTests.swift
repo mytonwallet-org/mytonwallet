@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import UIDapp
+import WalletContext
 @testable import WalletCore
 
 @Suite("Dapp confirmation summary")
@@ -49,31 +50,21 @@ struct DappConfirmationHeaderTests {
         #expect(header.assets.count == 15)
     }
 
-    @Test
-    func validatedSwapAndGasRefundUseTheEstimatedExchange() throws {
-        let header = makeHeader(transactions: [try swapTransfer()], activities: try swapActivities())
-        let swap = try #require(header.swap)
-        #expect(swap.fromAmount.value == 1)
-        #expect(swap.toAmount.value == 2.61)
-        #expect(swap.to == "ton-dust")
+    @Test(arguments: [nil, "completed", "failed"])
+    func swapSummaryShowsOnlyTheSignedInput(status: String?) throws {
+        let activities = try status.map { try swapActivities(status: $0) }
+        let header = makeHeader(transactions: [try swapTransfer()], activities: activities)
+        let from = TokenAmount(1_000_000_000, TokenStore.getNativeToken(chain: .ton)).formatted(.defaultAdaptive)
+        #expect(header.compactSummary == "\(lang("Swap")) · \(from)")
     }
 
     @Test
-    func swapDoesNotHideOtherTransfersEvenWhenTheyAreHiddenFromPreview() throws {
-        var activities = try swapActivities()
-        activities.append(try JSONDecoder().decode(ApiActivity.self, from: Data(
-            #"{"id":"extra","kind":"transaction","timestamp":0,"amount":"-1000000000","fee":"0","slug":"toncoin","isIncoming":false,"status":"completed","shouldHide":true}"#.utf8
-        )))
-        #expect(makeHeader(transactions: [try swapTransfer()], activities: activities).swap == nil)
-        #expect(makeHeader(transactions: [try swapTransfer(), transfer()], activities: try swapActivities()).swap == nil)
-    }
-
-    @Test
-    func failedOrDangerousSwapDoesNotBecomeAConfirmationSummary() throws {
+    func hiddenDangerousOrMultipleTransfersDoNotBecomeASwapSummary() throws {
         var transaction = try swapTransfer()
         transaction.isDangerous = true
-        #expect(makeHeader(transactions: [transaction], activities: try swapActivities()).swap == nil)
-        #expect(makeHeader(transactions: [try swapTransfer()], activities: try swapActivities(status: "failed")).swap == nil)
+        #expect(makeHeader(transactions: [transaction], activities: try swapActivities()).swapPayload == nil)
+        #expect(makeHeader(transactions: [try swapTransfer()], hidden: true).swapPayload == nil)
+        #expect(makeHeader(transactions: [try swapTransfer(), transfer()]).swapPayload == nil)
     }
 
     @Test
@@ -83,7 +74,6 @@ struct DappConfirmationHeaderTests {
         ))
         let header = makeHeader(transactions: [transfer(payload: unknown)], activities: try swapActivities())
         #expect(header.swapPayload == nil)
-        #expect(header.swap == nil)
     }
 
     @Test
@@ -91,38 +81,6 @@ struct DappConfirmationHeaderTests {
         let header = makeHeader(transactions: [try swapTransfer()])
         #expect(header.swapPayload?.amount == 1_000_000_000)
         #expect(header.swapPayload?.minimumAmountOut == 2_580_000_000)
-        #expect(header.swap == nil)
-    }
-
-    @Test
-    func mismatchedEmulationCannotReplaceSignedSwapAmounts() throws {
-        var transaction = try swapTransfer()
-        guard case .dedustNativeSwap(var payload) = transaction.payload else { return }
-        payload.amount = 2_000_000_000
-        transaction.payload = .dedustNativeSwap(payload)
-        #expect(makeHeader(transactions: [transaction], activities: try swapActivities()).swap == nil)
-        payload.amount = 1_000_000_000
-        payload.toSlug = "another-token"
-        transaction.payload = .dedustNativeSwap(payload)
-        #expect(makeHeader(transactions: [transaction], activities: try swapActivities()).swap == nil)
-    }
-
-    @Test
-    func uncachedOutputUsesPayloadDecimalsForMinimumAndEstimate() throws {
-        var transaction = try swapTransfer()
-        guard case .dedustNativeSwap(var payload) = transaction.payload else { return }
-        payload.toToken.decimals = 18
-        payload.minimumAmountOut = 1_000_000_000_000_000_000
-        transaction.payload = .dedustNativeSwap(payload)
-        let header = makeHeader(transactions: [transaction], activities: try swapActivities())
-        #expect(payload.minimumReceived.doubleValue == 1)
-        let output = try #require(header.swapOutputAmount)
-        #expect(output.token.decimals == 18)
-        #expect(abs(output.doubleValue - 2.61) < 0.000000001)
-
-        payload.minimumAmountOut = 3_000_000_000_000_000_000
-        transaction.payload = .dedustNativeSwap(payload)
-        #expect(makeHeader(transactions: [transaction], activities: try swapActivities()).swap == nil)
     }
 
     private func swapTransfer() throws -> ApiDappTransfer {

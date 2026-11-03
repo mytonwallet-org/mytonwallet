@@ -1,27 +1,25 @@
 import type { ElementRef } from '../../lib/teact/teact';
 import React, {
-  memo, useEffect, useState,
+  memo, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
 
 import type {
-  AgentAnswerFeedbackV2,
   AgentPersistedActionV2,
   AgentPublicFollowUpV2,
   AgentV2LiveAction,
 } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
-import type { AgentRunActivityType } from '../agent/AgentRunActivity';
+import type { AgentRunActivityHandoff, AgentRunActivityType } from '../agent/AgentRunActivity';
 import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentation';
 
 import buildClassName from '../../util/buildClassName';
-import { getAgentV2NoticeTexts } from './agentV2Copy';
+import { getAgentV2ErrorText, getAgentV2NoticeTexts } from './agentV2Copy';
 
 import { LangProvider, useLangForCode } from '../../hooks/useLang';
 
 import AgentRunActivity from '../agent/AgentRunActivity';
-import AgentAnswerFeedback from './AgentAnswerFeedback';
 import AgentMessageControls from './AgentMessageControls';
-import { AgentRunFailure } from './AgentStatusNotice';
+import { AgentFailureCaption } from './AgentStatusNotice';
 import { AgentV2AssistantText } from './AgentV2Conversation';
 
 import styles from '../agent/MessageBubble.module.scss';
@@ -34,7 +32,11 @@ interface OwnProps {
   shouldAnimateTextStreaming: boolean;
   shouldAnimateAppearance?: boolean;
   isLatest?: boolean;
+  areFollowupsHeld?: boolean;
+  /** The answer's menu is open over the chat's tint */
+  isMenuOpen?: boolean;
   activity?: AgentRunActivityType;
+  activityHandoff?: AgentRunActivityHandoff;
   textRevealPresentation?: TextRevealPresentation;
   onMouseDown: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -44,7 +46,8 @@ interface OwnProps {
     action: AgentV2LiveAction | AgentPersistedActionV2,
   ) => void;
   onRetry?: (messageId: number) => void;
-  onRate?: (messageId: number, feedback?: AgentAnswerFeedbackV2) => void;
+  /** The chat's status tells the failure in place of its caption */
+  noFailureCaption?: boolean;
   onTextRevealSessionConsumed?: (messageId: number, key: string) => void;
   onTextRevealSessionSettled?: (messageId: number, key: string) => void;
   onTextRevealProgress?: NoneToVoidFunction;
@@ -61,14 +64,17 @@ function AgentV2IncomingMessage({
   shouldAnimateTextStreaming,
   shouldAnimateAppearance = false,
   isLatest = false,
+  areFollowupsHeld = false,
+  isMenuOpen = false,
   activity,
+  activityHandoff,
   textRevealPresentation,
   onMouseDown,
   onContextMenu,
   onFollowup,
   onAction,
   onRetry,
-  onRate,
+  noFailureCaption = false,
   onTextRevealSessionConsumed,
   onTextRevealSessionSettled,
   onTextRevealProgress,
@@ -76,7 +82,7 @@ function AgentV2IncomingMessage({
 }: OwnProps) {
   const {
     id, text, shouldCommitMarkdownTail, isTyping, isStreaming, semanticContent,
-    actions, actionPresentations, followups, error, responseLanguage, isComplete, feedback,
+    actions, actionPresentations, followups, error, failureText, responseLanguage,
   } = message;
   const lang = useLangForCode(responseLanguage);
   const noticeContent = semanticContent?.kind === 'notice' ? semanticContent : undefined;
@@ -87,9 +93,13 @@ function AgentV2IncomingMessage({
   const hasActionButtons = Boolean(actions?.length);
   const shouldRenderIncomingBubble = Boolean(isTyping || incomingText || message.tableReferences?.length);
   const isTextRevealActive = textRevealPresentation?.status === 'active' && Boolean(incomingText);
-  const isRatable = Boolean(isComplete && onRate);
-  const areControlsVisible = (hasRichContent || isRatable) && !isTextRevealActive;
-  const hasPartialResponse = Boolean(incomingText.trim() || hasRichContent || message.tableReferences?.length);
+  const areControlsVisible = hasRichContent && !isTextRevealActive;
+  // Suggestions hang from the bubble, which has no tail over them, as on mobile; action buttons keep it
+  const isTailless = areControlsVisible && isLatest && Boolean(followups?.length) && !hasActionButtons;
+  // Suggestions that arrive while the chat is open grow into place; an answer from the history has them already
+  const hadFollowupsAtMountRef = useRef(Boolean(followups?.length));
+  // A failure of the answer tells its code in words; a failure of the chat brings words of its own
+  const captionText = noFailureCaption ? undefined : error ? getAgentV2ErrorText(error.code, lang) : failureText;
 
   return (
     <LangProvider value={{ lang }}>
@@ -100,13 +110,22 @@ function AgentV2IncomingMessage({
         onContextMenu={onContextMenu}
         className={buildClassName(
           styles.wrapper,
-          v2styles.answer,
           hasRichContent && styles.wrapperRich,
           hasActionButtons && styles.wrapperRichActions,
+          // Action buttons keep the width of the answer, and the failure is centered under them
+          captionText && !hasActionButtons && styles.wrapperWithFailure,
+          isMenuOpen && styles.wrapperMenuOpen,
         )}
       >
         {shouldRenderIncomingBubble && (
-          <div className={buildClassName(styles.bubble, styles.incoming, shouldAnimateAppearance && styles.appearing)}>
+          <div
+            className={buildClassName(
+              styles.bubble,
+              styles.incoming,
+              isTailless && styles.tailless,
+              shouldAnimateAppearance && styles.appearing,
+            )}
+          >
             {!isTyping && (
               <AgentV2AssistantText
                 key={getIncomingMessageKey(textRevealPresentation)}
@@ -127,12 +146,17 @@ function AgentV2IncomingMessage({
             )}
           </div>
         )}
-        {isLatest && <AgentRunActivity activity={activity} isAnswerPlaceholder />}
+        {/* The failure takes the activity's place at once rather than after it fades */}
+        {isLatest && !captionText && (
+          <AgentRunActivity activity={activity} isAnswerPlaceholder handoff={activityHandoff} />
+        )}
         {areControlsVisible && (
           <AgentMessageControls
             followups={followups}
             isDisabled={isDisabled}
-            shouldShowFollowups={isLatest}
+            shouldShowFollowups={isLatest && !areFollowupsHeld}
+            shouldAnimateGrowth={shouldAnimateTextStreaming && !hadFollowupsAtMountRef.current}
+            onGrowthFrame={onTextRevealProgress}
             onFollowup={(followup) => onFollowup?.(id, followup)}
           >
             {actions?.map((action) => {
@@ -154,20 +178,12 @@ function AgentV2IncomingMessage({
                 />
               );
             })}
-            {isRatable && (
-              <AgentAnswerFeedback
-                feedback={feedback}
-                isShownOnHover={!isLatest}
-                onChange={(value) => onRate!(id, value)}
-              />
-            )}
           </AgentMessageControls>
         )}
-        {error && (
+        {captionText && (
           <div className={styles.failure}>
-            <AgentRunFailure
-              error={error}
-              hasPartialResponse={hasPartialResponse}
+            <AgentFailureCaption
+              text={captionText}
               isRetryDisabled={isDisabled}
               onRetry={onRetry ? () => onRetry(id) : undefined}
             />
@@ -215,7 +231,12 @@ function AgentV2ActionButton({
     <button
       type="button"
       data-agent-action-kind={actionKind}
-      className={buildClassName(styles.actionButton, v2styles.button)}
+      className={buildClassName(
+        styles.actionButton,
+        v2styles.button,
+        // A transfer to confirm stands out from the buttons that only open a screen
+        actionKind === 'send' && v2styles.confirmButton,
+      )}
       disabled={isDisabled}
       aria-disabled={isUnavailable || undefined}
       onClick={onClick}

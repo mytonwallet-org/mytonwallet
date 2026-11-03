@@ -1,9 +1,15 @@
 @use "../../styles/mixins";
 
+@use "agentHeader";
+
+@use "agentMenu";
+
+@use "agentSurface";
+
 .root {
-  --header-padding-top: calc(var(--safe-area-top) + 0.75rem);
-  --header-title-height: 1.0625rem;
-  --header-padding-bottom: 0.75rem;
+  @include agentHeader.variables;
+
+  @include agentSurface.variables;
 
   position: relative;
 
@@ -14,21 +20,19 @@
   width: 100%;
   height: 100%;
 
-  @include mixins.respond-below(xs) {
-    // Fix for Opera, dead zone of 37 pixels in extension window on Windows
-    :global(html.is-windows.is-opera.is-extension) & {
-      --header-padding-top: 2.3125rem;
-    }
-  }
+  // The chat's own background shows while its messages are hidden until they load
+  background-color: var(--agent-background);
 
-  @include mixins.respond-above(xs) {
-    border-radius: var(--border-radius-default);
-    background-color: var(--color-background-first);
-  }
+  @include agentSurface.card-corners;
 }
 
+// Positioned, so that it lies over the loading bubbles that come before it
 .messages {
+  --agent-messages-background: var(--agent-background);
+
   overflow-anchor: none;
+
+  position: relative;
 
   overflow-y: auto;
   display: flex;
@@ -41,7 +45,7 @@
     0.5rem
     calc(var(--agent-input-bar-height, 3.5rem) + 1rem);
 
-  background-color: var(--color-background-first);
+  background-color: var(--agent-messages-background);
 
   :global(html.with-bottombar) & {
     padding-bottom: calc(var(--agent-input-bar-height, calc(3.5rem + var(--bottombar-height))) + 1rem);
@@ -50,14 +54,37 @@
   &.hidden {
     visibility: hidden;
   }
+}
 
-  :global(html.theme-dark) & {
-    background-color: var(--color-background-window);
+// Without a field, the last message ends 16 px above the bottom or the tab bar
+.messagesWithoutComposer {
+  padding-bottom: 1rem;
+
+  :global(html.with-bottombar) & {
+    padding-bottom: calc(1rem + var(--bottombar-height));
   }
+}
+
+.messagesOverPlaceholder {
+  background-color: transparent;
 }
 
 .spacer {
   flex-grow: 1;
+}
+
+// Under the header, while older messages load
+.historySpinner {
+  --spinner-size: 1.5rem;
+
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--header-padding-top) + var(--header-title-height) + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: var(--spinner-size) !important;
+  height: var(--spinner-size) !important;
 }
 
 .turn {
@@ -76,32 +103,124 @@
   padding-top: 1rem;
 }
 
-// In landscape a tail that follows another turn is shorter, so the end of that turn stays visible under
-// the header. The first question in a chat has nothing above it and keeps its place at the top.
-.turn + .liveTail {
-  @include mixins.respond-above(xs) {
-    min-height: calc(100% - 2.5rem);
-  }
+// A message turning to dust is drawn by its ghost until the list lets it go
+.dissolved {
+  visibility: hidden;
 }
 
+// The space dissolved messages leave, which closes as they go
+.dissolveGap {
+  flex-shrink: 0;
+}
+
+// The typing indicator comes into the space once the dust has gone
+.messagesDissolving [data-agent-run-activity] {
+  opacity: 0 !important;
+}
+
+// The button stands 12 px above the field, as in the design, and as far above the bottom or the tab bar without one
 .scrollToBottom {
   bottom: calc(var(--agent-input-bar-height, 3.5rem) + 0.75rem);
 }
 
+.scrollToBottomWithoutComposer {
+  bottom: calc(0.75rem + var(--bottombar-height));
+}
+
+// Without a field, the messages fade out under the tab bar from its edge, as they do under a field
+.bottomFade {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  display: none;
+
+  height: var(--bottombar-height);
+
+  background: linear-gradient(180deg, transparent 0%, var(--agent-background-fade) 31%);
+
+  :global(html.with-bottombar) & {
+    display: block;
+  }
+}
+
+// The day in bold, then the time
 .dateSeparator {
-  display: flex;
-  align-items: center;
+  unicode-bidi: plaintext;
   align-self: center;
-  justify-content: center;
 
   margin-top: 0.625rem;
   padding: 0.25rem 0.5rem;
   border-radius: 6.25rem;
 
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.125rem;
   color: var(--color-gray-1);
+  white-space: nowrap;
 
-  background: var(--color-background-second);
+  background: var(--color-activity-gray-background);
+}
+
+.dateSeparatorDay {
+  font-weight: 700;
+}
+
+.dateSeparatorMenu {
+  @include agentMenu.contextMenu;
+}
+
+// A chat or the news feed with nothing to show after its load failed
+.loadFailure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+
+  margin: auto;
+  padding: 0 2rem;
+
+  font-size: 0.9375rem;
+  color: var(--color-gray-2);
+  text-align: center;
+}
+
+.loadFailureRetry {
+  min-width: 8rem;
+  min-height: 2.75rem;
+}
+
+// A failed load under the messages already shown follows the gap after the last one, as an answer's failure does
+.loadFailureLine {
+  margin-top: 0.625rem;
+}
+
+// The line before the first message the user has not seen
+.unreadDivider {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  margin-top: 0.625rem;
+  padding-inline: 0.5rem;
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+
+  &::before,
+  &::after {
+    content: "";
+
+    flex: 1;
+
+    height: 0.0625rem;
+
+    opacity: 0.2;
+    background-color: var(--color-accent);
+  }
 }

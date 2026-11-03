@@ -111,6 +111,23 @@ export const LEDGER_MAX_MESSAGES = 1;
 export const W5_MAX_MESSAGES = 255;
 export const TELEGRAM_WALLET_MAX_MESSAGES = 255;
 
+/**
+ * The backend gasless route that reads each wallet version's transfers, or `undefined` where none does.
+ * A full `Record`, so a new wallet version does not compile until its route is decided.
+ */
+export const GASLESS_ROUTE_BY_WALLET_VERSION: Record<ApiTonWalletVersion, 'w5' | 'diesel' | undefined> = {
+  simpleR1: undefined,
+  simpleR2: undefined,
+  simpleR3: undefined,
+  v2R1: undefined,
+  v2R2: undefined,
+  v3R1: 'diesel',
+  v3R2: 'diesel',
+  v4R2: 'diesel',
+  telegram: 'diesel',
+  W5: 'w5',
+};
+
 export const LEDGER_WALLET_VERSIONS = {
   v3R2: 'v3r2',
   v4R2: 'v4',

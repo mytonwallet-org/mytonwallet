@@ -1,5 +1,7 @@
 import '../../util/bigintPatch';
 
+import { IS_PERPS_ENABLED } from '../../config';
+
 export { destroy } from './init';
 export * from './activities';
 export * from './analytics';
@@ -32,3 +34,8 @@ export * from './preload';
 export { captureInstallAttribution } from './attribution';
 
 export { retryWebFirstLaunch } from './webFunnel';
+
+/** Available even in stripped builds so clients can check before calling optional Perps methods. */
+export function isPerpsSupported(): boolean {
+  return IS_PERPS_ENABLED && process.env.NO_EXTRA_FEATURES !== '1';
+}

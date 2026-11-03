@@ -1,6 +1,8 @@
 import ContextMenuKit
 import SwiftUI
+import SwiftNavigation
 import UIKit
+import UIAgent
 import UIAssets
 import UIComponents
 import UIHome
@@ -34,6 +36,8 @@ protocol RootSearchToolbarHost: AnyObject {
     var searchToolbarVerticalEdge: UIRectEdge? { get }
     func searchToolbarWillDetach()
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?)
+    /// The Agent list's question field gained or lost focus
+    func agentQuestionEditingDidChange(_ isEditing: Bool)
 }
 
 extension RootSearchToolbarHost {
@@ -48,6 +52,7 @@ extension RootSearchToolbarHost {
     }
     func searchToolbarWillDetach() {}
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?) {}
+    func agentQuestionEditingDidChange(_ isEditing: Bool) {}
 }
 
 /// Owns the same field, result controller and return deadline across root layout changes.
@@ -57,6 +62,7 @@ final class RootSearchToolbarController: NSObject {
     private weak var sharedMainNavigationController: WNavigationController?
     private var hostConstraints: [NSLayoutConstraint] = []
     private var searchToolbarWidthConstraint: NSLayoutConstraint?
+    private var searchToolbarMaxWidthConstraint: NSLayoutConstraint?
     private var sideBarEdge: UIRectEdge?
     private var viewportHorizontalConstraints: [NSLayoutConstraint] = []
     private var searchToolbarCenterXConstraint: NSLayoutConstraint?
@@ -65,12 +71,38 @@ final class RootSearchToolbarController: NSObject {
     private var isMigrating = false
     private weak var overlayAppearanceController: UIViewController?
     private var overlayAppearanceTransitionID: UUID?
+    private var pendingSystemQuery: String?
+    private(set) lazy var agentBar = RootAgentBarController(
+        host: self,
+        searchToolbar: searchToolbar,
+        containerView: searchToolbarContainerView
+    )
+    private var toolbarSettingsObservation: NSObjectProtocol?
+    private var accountObservation: ObserveToken?
+    private var accountsMenuInteraction: ContextMenuInteraction?
     private var traitCollection: UITraitCollection { searchToolbarHostView.traitCollection }
 
     override init() {
         super.init()
         installSearchToolbar()
         configureBottomBar()
+        searchToolbar.onHomeConfigurationLayoutChange = { [weak self] in
+            guard let self else { return }
+            self.updateSearchToolbarGeometry(for: self.searchToolbar.presentation)
+            self.searchToolbarHostView.layoutIfNeeded()
+        }
+        searchToolbar.setHomeConfiguration(ToolbarSettings.configuration(), animated: false)
+        toolbarSettingsObservation = NotificationCenter.default.addObserver(
+            forName: ToolbarSettings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.searchToolbar.setHomeConfiguration(ToolbarSettings.configuration(), animated: true)
+            }
+        }
+        accountObservation = observe { [weak self] in
+            let accountID = AccountStore.currentAccountId
+            self?.searchToolbar.accountsButton.configure(account: AccountStore.accountsById[accountID])
+        }
         if #available(iOS 27.1, *) {
             searchToolbarViewportView.registerForTraitChanges(
                 UITraitCollection.systemTraitsAffectingVerticalBarEdge + [UITraitLayoutDirection.self]
@@ -84,6 +116,14 @@ final class RootSearchToolbarController: NSObject {
             self.updateSearchToolbarGeometry(for: self.searchToolbar.presentation)
             self.refreshContentOverlayAppearance(animated: false)
         }
+        searchToolbarViewportView.onLayout = { [weak self] in
+            // Minimizing the browser resizes the viewport but may only move the fixed-height toolbar.
+            self?.searchToolbarContainerView.setNeedsLayout()
+        }
+    }
+
+    deinit {
+        if let toolbarSettingsObservation { NotificationCenter.default.removeObserver(toolbarSettingsObservation) }
     }
 
     func attach(to host: any RootSearchToolbarHost) {
@@ -102,6 +142,7 @@ final class RootSearchToolbarController: NSObject {
         host.searchRootContentControllers.forEach(applyChromeInsets)
         navigation.viewControllers.forEach(applyChromeInsets)
         updatePresentation()
+        fulfillSystemSearch()
     }
 
     func prepareForLayoutChange() {
@@ -118,6 +159,7 @@ final class RootSearchToolbarController: NSObject {
         updatePresentation()
         guard let top = sharedMainNavigationController?.topViewController else { return }
         searchNavigationDidShow(top)
+        fulfillSystemSearch()
     }
 
     private func detach() {
@@ -131,6 +173,7 @@ final class RootSearchToolbarController: NSObject {
         sharedMainNavigationController?.onWillShowViewController = nil
         sharedMainNavigationController?.onDidShowViewController = nil
         searchToolbarKeyboardAnimationID = nil
+        isToolbarKeyboardShown = false
         searchToolbarKeyboardConstraint?.isActive = false
         searchToolbarKeyboardConstraint = nil
         NSLayoutConstraint.deactivate(viewportHorizontalConstraints)
@@ -144,6 +187,7 @@ final class RootSearchToolbarController: NSObject {
         activeSharedBottomToolbarProvider?.onSharedBottomToolbarActionsChange = nil
         activeSharedBottomToolbarProvider?.setSharedBottomToolbarHosted(false)
         activeSharedBottomToolbarProvider = nil
+        searchToolbar.compactAccessibilityIdentifier = nil
         for inset in contentInsets.values {
             inset.controller?.additionalSafeAreaInsets.bottom -= inset.bottom
         }
@@ -160,10 +204,11 @@ final class RootSearchToolbarController: NSObject {
     }
 
     private let bottomGradientView = RootBottomGradientView()
-    private let searchToolbarViewportView = WTouchPassView()
+    private let searchToolbarViewportView = RootSearchToolbarContainerView()
     private let searchToolbarContainerView = RootSearchToolbarContainerView()
     let searchToolbar = UniversalSearchFieldView(configuration: .init(
         placeholder: lang("Search or Ask"),
+        shortPlaceholder: lang("Search"),
         showsMicrophone: false
     ))
     private var searchToolbarLeadingConstraint: NSLayoutConstraint?
@@ -171,9 +216,16 @@ final class RootSearchToolbarController: NSObject {
     private var bottomBarBottomConstraint: NSLayoutConstraint?
     private var searchToolbarKeyboardConstraint: NSLayoutConstraint?
     private var searchToolbarKeyboardAnimationID: UUID?
+    /// Whether a docked keyboard lifts the toolbar for its own field or the Agent list's question field
+    private var isToolbarKeyboardShown = false
     private var actionsMenuInteraction: ContextMenuInteraction?
     private(set) var universalSearchViewController: RootSearchViewController?
     private var searchSheetObservation: MinimizableSheetObservation?
+
+    /// Whether the toolbar's field or the Agent list's question field owns the keyboard
+    private var isToolbarEditing: Bool {
+        searchToolbar.isEditing || agentBar.isEditing
+    }
 
     var isSearchVisible: Bool {
         guard let universalSearchViewController else { return false }
@@ -224,6 +276,11 @@ final class RootSearchToolbarController: NSObject {
                 for: sharedMainNavigationController,
                 showing: viewController
             )
+            if let coordinator = sharedMainNavigationController.transitionCoordinator, coordinator.isAnimated {
+                NavigationOvershootFollower.follow(coordinator) { [weak self] offset, cornerRadius in
+                    self?.applyNavigationOvershoot(offset, cornerRadius: cornerRadius)
+                }
+            }
         }
         sharedMainNavigationController?.onDidShowViewController = { [weak self] viewController in
             guard let self else { return }
@@ -234,6 +291,38 @@ final class RootSearchToolbarController: NSObject {
             }
         }
     }
+
+    /// Screens that spring past the edge, as the one under a fast swipe back does, carry the toolbar and its
+    /// gradient along, so neither shows over the background they bare. While the transition rounds the screens, both
+    /// are clipped as they are, so neither the gradient nor a search circle flying in reaches past a screen's corner.
+    private func applyNavigationOvershoot(_ offset: CGFloat, cornerRadius: CGFloat) {
+        let transform = offset == 0 ? CGAffineTransform.identity : CGAffineTransform(translationX: offset, y: 0)
+        searchToolbarViewportView.transform = transform
+        searchToolbarViewportView.layer.cornerRadius = cornerRadius
+        searchToolbarViewportView.layer.cornerCurve = .continuous
+        // Only the corners change: the viewport always clips the toolbar sliding through it
+        searchToolbarViewportView.layer.masksToBounds = true
+        bottomGradientView.transform = transform
+        guard cornerRadius > 0 else {
+            bottomGradientView.mask = nil
+            return
+        }
+        // The gradient is shorter than twice the screen's corner radius, which its own rounding would be cut down to:
+        // it is masked by the screen's whole rounded shape instead
+        let screenHeight = searchToolbarHostView.bounds.height
+        bottomGradientMaskView.backgroundColor = .black
+        bottomGradientMaskView.layer.cornerRadius = cornerRadius
+        bottomGradientMaskView.layer.cornerCurve = .continuous
+        bottomGradientMaskView.frame = CGRect(
+            x: 0,
+            y: bottomGradientView.bounds.height - screenHeight,
+            width: bottomGradientView.bounds.width,
+            height: screenHeight
+        )
+        bottomGradientView.mask = bottomGradientMaskView
+    }
+
+    private let bottomGradientMaskView = UIView()
 
     private func updateRootChromeVisibility(
         for navigationController: WNavigationController,
@@ -247,6 +336,7 @@ final class RootSearchToolbarController: NSObject {
             coordinator: navigationController.transitionCoordinator
         )
         let isShowingRoot = navigationController.viewControllers.first === viewController
+        agentBar.updateForNavigation(showing: viewController, isShowingRoot: isShowingRoot, in: navigationController)
         if isShowingRoot, installHomeNftSelectionToolbarIfNeeded(in: navigationController) {
             return
         }
@@ -325,6 +415,12 @@ final class RootSearchToolbarController: NSObject {
         }
         // Presented sheets do not change the navigation stack's toolbar.
         updateRootChromeVisibility(for: navigationController, showing: viewController)
+    }
+
+    var isAgentConsentVisible = false {
+        didSet {
+            if isAgentConsentVisible != oldValue { updatePresentation() }
+        }
     }
 
     private func updateSharedBottomToolbar(
@@ -485,7 +581,7 @@ final class RootSearchToolbarController: NSObject {
         searchToolbarLeadingConstraint?.isActive = !isSideToolbar
         searchToolbarTrailingConstraint?.isActive = !isSideToolbar
         searchToolbarWidthConstraint?.isActive = !isSideToolbar
-        searchToolbarHeightConstraint?.constant = isSideToolbar ? 108 : 48
+        searchToolbarHeightConstraint?.constant = isSideToolbar ? searchToolbar.sideToolbarHeight : 48
         if #available(iOS 27.1, *), isSideToolbar {
             let hostView = searchToolbarHostView
             guard let buttonFrame = hostView.verticalToolbarBottomButtonFrame else { return }
@@ -503,11 +599,22 @@ final class RootSearchToolbarController: NSObject {
                 insets.left = max(0, insets.left - max(0, windowSafeArea.minX - hostView.bounds.minX))
                 insets.right = max(0, insets.right - max(0, hostView.bounds.maxX - windowSafeArea.maxX))
             }
+            // Search rests on the home toolbar's insets and widens above a docked keyboard; so does the Agent list's
+            // question field, which the toolbar carries, as far as a chat's field does there
+            let isAgentEditing = agentBar.isEditing
+            let shouldUseKeyboardInsets = (isSearch || isAgentEditing) && isToolbarKeyboardShown
+            let sideInset: CGFloat = shouldUseKeyboardInsets ? (isSearch ? 8 : 16) : 28
             searchToolbarCenterXConstraint?.constant = (insets.left - insets.right) / 2
-            searchToolbarLeadingConstraint?.constant = isSearch ? 8 : 28
-            searchToolbarTrailingConstraint?.constant = isSearch ? -8 : -28
-            searchToolbarWidthConstraint?.constant = -(isSearch ? 16 : 56) - insets.left - insets.right
-            bottomBarBottomConstraint?.constant = isSearch ? -10 : homeToolbarBottomInset
+            searchToolbarLeadingConstraint?.constant = sideInset
+            searchToolbarTrailingConstraint?.constant = -sideInset
+            searchToolbarWidthConstraint?.constant = -2 * sideInset - insets.left - insets.right
+            bottomBarBottomConstraint?.constant = shouldUseKeyboardInsets ? -10 : homeToolbarBottomInset
+            // The toolbar is as wide on every tab as on the Agent's, where the question field lands on a chat's
+            // composer at its width. Only wide screens reach it.
+            let maxWidth = AgentListBottomBar.getMaximumToolbarWidth(sideInset: sideInset)
+            if searchToolbarMaxWidthConstraint?.constant != maxWidth {
+                searchToolbarMaxWidthConstraint?.constant = maxWidth
+            }
         }
     }
 
@@ -515,7 +622,9 @@ final class RootSearchToolbarController: NSObject {
         isShowingRoot: Bool,
         provider: (any SharedBottomToolbarContentProviding)?
     ) -> UniversalSearchFieldPresentation {
-        if sideBarEdge != nil {
+        if isAgentConsentVisible, isShowingRoot, sideBarEdge == nil {
+            .empty
+        } else if sideBarEdge != nil, !isShowingRoot || host?.showsRootSearchToolbar == true {
             .sideToolbar
         } else if isShowingRoot, host?.showsRootSearchToolbar == true {
             .homeToolbar
@@ -562,6 +671,7 @@ final class RootSearchToolbarController: NSObject {
             }
         }
         activeSharedBottomToolbarProvider = provider
+        searchToolbar.compactAccessibilityIdentifier = provider.sharedBottomToolbarSearchAccessibilityIdentifier
         provider.setSharedBottomToolbarHosted(true)
         provider.onSharedBottomToolbarActionsChange = { [weak self, weak provider] in
             guard let self, let provider,
@@ -584,6 +694,10 @@ final class RootSearchToolbarController: NSObject {
             activeSharedBottomToolbarProvider?.onSharedBottomToolbarActionsChange = nil
             activeSharedBottomToolbarProvider?.setSharedBottomToolbarHosted(false)
             activeSharedBottomToolbarProvider = nil
+            // Search restores the field id of the screen it was opened from
+            if presentation != .search {
+                searchToolbar.compactAccessibilityIdentifier = nil
+            }
             searchToolbar.setCompactActions([])
             if presentation == .homeToolbar || presentation == .sideToolbar {
                 actionsMenuInteraction?.attach(to: searchToolbar.trailingButtonView)
@@ -619,7 +733,8 @@ final class RootSearchToolbarController: NSObject {
         let previous = contentInsets[identifier].flatMap { $0.controller === controller ? $0.bottom : nil } ?? 0
         let isRoot = host?.searchRootContentControllers.contains { $0 === controller } == true
         let usesToolbar = (controller as? any SharedBottomToolbarContentProviding)?.isSharedBottomToolbarEnabled == true
-        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) ? rootBottomChromeHeight : 0
+        let needsConsent = (controller as? AgentThreadListVC)?.isConsentRequired == true
+        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) && !needsConsent ? rootBottomChromeHeight : 0
         if bottom != previous {
             controller.additionalSafeAreaInsets.bottom += bottom - previous
         }
@@ -660,6 +775,19 @@ final class RootSearchToolbarController: NSObject {
         searchToolbar.onToolbarActionTap = { [weak self] id in
             self?.activeSharedBottomToolbarProvider?.performSharedBottomToolbarAction(id: id)
         }
+        searchToolbar.onAccountsTap = {
+            AppActions.showSettings(section: nil)
+        }
+        searchToolbar.onScanTap = { [weak self] in
+            AppActions.scanAndHandleQR(accountContext: AccountContext(source: .current), sourceViewProvider: { [weak self] in
+                self?.searchToolbar.scanButtonPresentationSourceView
+            })
+        }
+        let accountsInteraction = ContextMenuInteraction(triggers: [.longPress]) { sourceView in
+            SwitchAccountMenu.makeConfiguration(sourceView: sourceView)
+        }
+        accountsInteraction.attach(to: searchToolbar.accountsButton)
+        accountsMenuInteraction = accountsInteraction
 
         let interaction = ContextMenuInteraction(
             triggers: [.tap, .longPress],
@@ -696,7 +824,7 @@ final class RootSearchToolbarController: NSObject {
         // Keep unfocused Search at the bottom even if another field owns the keyboard.
         UIView.performWithoutAnimation {
             searchToolbarKeyboardConstraint?.constant = 0
-            searchToolbarKeyboardConstraint?.isActive = !searchToolbar.isEditing
+            searchToolbarKeyboardConstraint?.isActive = !isToolbarEditing
             searchToolbarHostView.layoutIfNeeded()
         }
     }
@@ -713,7 +841,7 @@ final class RootSearchToolbarController: NSObject {
     @objc private func updateToolbarKeyboard(_ notification: Notification) {
         let hostView = searchToolbarHostView
         let overlap: CGFloat
-        if !searchToolbar.isEditing || notification.name == UIResponder.keyboardWillHideNotification {
+        if !isToolbarEditing || notification.name == UIResponder.keyboardWillHideNotification {
             overlap = 0
         } else {
             guard let window = hostView.window,
@@ -737,7 +865,9 @@ final class RootSearchToolbarController: NSObject {
     private func animateToolbarKeyboard(overlap: CGFloat, duration: TimeInterval, options: UIView.AnimationOptions) {
         let hostView = searchToolbarHostView
         guard let constraint = searchToolbarKeyboardConstraint else { return }
-        guard !constraint.isActive || constraint.constant != -overlap else { return }
+        let isKeyboardShown = overlap > 0
+        guard !constraint.isActive || constraint.constant != -overlap
+            || isKeyboardShown != isToolbarKeyboardShown else { return }
         let animationID = UUID()
         searchToolbarKeyboardAnimationID = animationID
         if !constraint.isActive {
@@ -748,6 +878,8 @@ final class RootSearchToolbarController: NSObject {
         }
         hostView.layoutIfNeeded()
         constraint.constant = -overlap
+        isToolbarKeyboardShown = isKeyboardShown
+        updateSearchToolbarGeometry(for: searchToolbar.presentation)
         UIView.animate(
             withDuration: duration,
             delay: 0,
@@ -778,9 +910,12 @@ final class RootSearchToolbarController: NSObject {
         searchToolbarCenterXConstraint = center
         searchToolbarHeightConstraint = height
         searchToolbarSideWidthConstraint = searchToolbar.widthAnchor.constraint(equalToConstant: 48)
+        let maxWidth = searchToolbar.widthAnchor.constraint(
+            lessThanOrEqualToConstant: AgentListBottomBar.getMaximumToolbarWidth(sideInset: 28)
+        )
+        searchToolbarMaxWidthConstraint = maxWidth
         NSLayoutConstraint.activate([
-            leading, trailing, width, bottom, center, height,
-            searchToolbar.widthAnchor.constraint(lessThanOrEqualToConstant: 600),
+            leading, trailing, width, bottom, center, height, maxWidth,
         ])
         searchToolbarLeadingConstraint = leading
         searchToolbarTrailingConstraint = trailing
@@ -862,16 +997,69 @@ final class RootSearchToolbarController: NSObject {
         )
     }
 
+    func showSearch(query: String) {
+        pendingSystemQuery = query
+        fulfillSystemSearch()
+    }
+
+    private func fulfillSystemSearch() {
+        guard let query = pendingSystemQuery, !isMigrating,
+              let navigationController = sharedMainNavigationController else { return }
+        // A full-screen presentation can detach the navigation view from its
+        // window. Its controller ancestry still identifies the presenting root.
+        var root: UIViewController = navigationController
+        while let parent = root.parent { root = parent }
+        if let presented = root.presentedViewController {
+            if presented.isBeingPresented || presented.isBeingDismissed,
+               let coordinator = presented.transitionCoordinator,
+               coordinator.animate(alongsideTransition: nil, completion: { [weak self] _ in
+                   Task { @MainActor [weak self] in self?.fulfillSystemSearch() }
+               }) { return }
+            root.dismiss(animated: true) { [weak self] in self?.fulfillSystemSearch() }
+            return
+        }
+        if let coordinator = navigationController.transitionCoordinator,
+           coordinator.animate(alongsideTransition: nil, completion: { [weak self] _ in
+               Task { @MainActor [weak self] in self?.fulfillSystemSearch() }
+           }) { return }
+        if let sheet = root.descendantViewController(of: MinimizableSheetContainerViewController.self)?.sheetController,
+           sheet.state == .expanded {
+            sheet.minimize(animated: false)
+        }
+        pendingSystemQuery = nil
+        if let search = universalSearchViewController,
+           navigationController.viewControllers.contains(where: { $0 === search }) {
+            search.expirationTask?.cancel()
+            search.returnDeadline = nil
+            search.restoresKeyboard = false
+            search.fieldConfiguration.text = query
+            search.fieldConfiguration.autocomplete = nil
+            search.session.updateQuery(query)
+            navigationController.popToViewController(search, animated: false)
+            searchToolbar.configuration = search.fieldConfiguration
+            searchToolbar.endEditing()
+            searchDidReturn(search)
+        } else {
+            openSearch(initialQuery: query, focusKeyboard: false)
+        }
+    }
+
     func openSearch() {
+        guard sharedMainNavigationController?.transitionCoordinator == nil else { return }
+        openSearch(initialQuery: "", focusKeyboard: true)
+    }
+
+    private func openSearch(initialQuery: String, focusKeyboard: Bool) {
         guard !isMigrating, !isSearchVisible,
               sharedMainNavigationController?.presentedViewController == nil,
-              let navigationController = sharedMainNavigationController,
-              navigationController.transitionCoordinator == nil else { return }
+              let navigationController = sharedMainNavigationController else { return }
         discardSearch()
         var configuration = searchToolbar.configuration
-        configuration.text = ""
+        configuration.text = initialQuery
         configuration.autocomplete = nil
         let search = RootSearchViewController(configuration: configuration)
+        search.restoresKeyboard = focusKeyboard
+        search.fieldAccessibilityIdentifier = searchToolbar.compactAccessibilityIdentifier
         search.screen.onClose = { [weak self] in self?.closeSearch() }
         search.session.onSelectRoute = { [weak self] route in
             self?.handleUniversalSearchRoute(route)
@@ -889,7 +1077,7 @@ final class RootSearchToolbarController: NSObject {
         }
         universalSearchViewController = search
         actionsMenuInteraction?.detach()
-        search.session.start()
+        search.session.start(initialQuery: initialQuery)
         navigationController.withCrossfade(
             duration: rootSearchAnimationDuration,
             keepingAboveTransition: [bottomGradientView, searchToolbarViewportView]
@@ -931,6 +1119,7 @@ final class RootSearchToolbarController: NSObject {
         guard !isMigrating, let search = universalSearchViewController else { return }
         if viewController === search {
             searchToolbar.configuration = search.fieldConfiguration
+            searchToolbar.compactAccessibilityIdentifier = search.fieldAccessibilityIdentifier
         } else if navigationController.transitionCoordinator?.viewController(forKey: .from) === search {
             if searchToolbar.isEditing { search.restoresKeyboard = true }
             searchToolbar.endEditing()
@@ -973,6 +1162,7 @@ final class RootSearchToolbarController: NSObject {
         search.expirationTask = nil
         search.returnDeadline = nil
         searchToolbar.configuration = search.fieldConfiguration
+        searchToolbar.compactAccessibilityIdentifier = search.fieldAccessibilityIdentifier
         if search.restoresKeyboard { _ = searchToolbar.focus() }
     }
 
@@ -1117,6 +1307,12 @@ final class RootSearchToolbarController: NSObject {
                 entryPoint: query.map { _ in entryPoint }
             )
 
+        case .agentThread(let thread):
+            sharedMainNavigationController?.pushViewController(
+                AgentEntryPoint.makeRootViewController(thread: thread),
+                animated: true
+            )
+
         case .website(let url, let title):
             AppActions.openInBrowser(
                 url,
@@ -1184,6 +1380,31 @@ final class RootSearchToolbarController: NSObject {
     }
 }
 
+extension RootSearchToolbarController: RootAgentBarHost {
+    var agentBarHostView: UIView { searchToolbarHostView }
+    var agentBarNavigationController: WNavigationController? { sharedMainNavigationController }
+    var agentBarSideEdge: UIRectEdge? { sideBarEdge }
+    var agentBarSearchViewController: UIViewController? { universalSearchViewController }
+
+    func agentBarMorphProgressDidChange(_ progress: CGFloat) {
+        bottomGradientView.agentProgress = progress
+    }
+
+    func agentBarEditingDidChange(_ isEditing: Bool) {
+        updateToolbarKeyboardFocus(isEditing: isEditing)
+        host?.agentQuestionEditingDidChange(isEditing)
+    }
+
+    func agentBarDidHandOffEditingToComposedChat() {
+        host?.agentQuestionEditingDidChange(false)
+        DispatchQueue.main.async { [weak self] in
+            // No keyboard went down, such as with a hardware keyboard
+            guard let self, searchToolbarKeyboardConstraint?.isActive == false, !isToolbarEditing else { return }
+            updateToolbarKeyboardFocus(isEditing: false)
+        }
+    }
+}
+
 @MainActor
 private final class RootBottomGradientView: UIView {
     weak var toolbarView: UIView?
@@ -1222,13 +1443,25 @@ private final class RootBottomGradientView: UIView {
         updateColors()
     }
 
+    /// 0 on the grouped tabs, 1 on the Agent list, whose white background has a stronger fade under its bar
+    var agentProgress: CGFloat = 0 {
+        didSet {
+            if agentProgress != oldValue { updateColors() }
+        }
+    }
+
     private func updateColors() {
-        let color = UIColor.air.groupedBackground
+        let grouped = UIColor.air.groupedBackground.resolvedColor(with: traitCollection)
+        let plain = UIColor.air.background.resolvedColor(with: traitCollection)
+        let color = grouped.interpolate(to: plain, progress: agentProgress)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         gradientLayer.colors = [
             color.withAlphaComponent(0).cgColor,
-            color.withAlphaComponent(0.6).cgColor,
+            color.withAlphaComponent(0.6 + 0.2 * agentProgress).cgColor,
         ]
         gradientLayer.locations = [0, 1]
+        CATransaction.commit()
     }
 }
 

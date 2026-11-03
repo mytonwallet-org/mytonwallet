@@ -48,6 +48,7 @@ The main public entry points are:
 - `ContextMenuIconRenderingMode`
 - `ContextMenuBackdropStyle`
 - `ContextMenuVerticalPlacementBehavior`
+- `ContextMenuSourceRelocation`
 - `ContextMenuStyle`
 - `ContextMenuPresentationMode`
 - `ContextMenuInteraction`
@@ -181,6 +182,15 @@ ContextMenuConfiguration(
             context.dismiss()
         })
     }
+)
+```
+
+A portal-backed overlay menu can move its source into view, as Telegram moves a message for its menu. With `sourceRelocation`, the portal replica stands in for the hidden source and, together with the accessory and the panel hanging below it, fits between the safe area's edges inset by `topInset` and `bottomInset`, moving no further than it must on Telegram's spring. A replica and panel taller than that scroll, opening at the panel. `contentAreaInWindow` clips the replica to where the source shows under the screen's bars as the menu opens and closes:
+
+```swift
+ContextMenuConfiguration(
+    rootPage: page,
+    sourceRelocation: ContextMenuSourceRelocation(contentAreaInWindow: chatAreaBetweenHeaderAndComposer)
 )
 ```
 

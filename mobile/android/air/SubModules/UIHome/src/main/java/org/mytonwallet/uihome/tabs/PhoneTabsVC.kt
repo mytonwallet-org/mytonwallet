@@ -3,41 +3,32 @@ package org.mytonwallet.uihome.tabs
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Rect
 import android.graphics.drawable.InsetDrawable
 import android.net.Uri
-import android.text.InputType
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.view.inputmethod.EditorInfo
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.net.toUri
 import androidx.core.view.children
 import androidx.core.view.doOnLayout
-import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
-import androidx.core.widget.doAfterTextChanged
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.roundToInt
 import me.vkryl.android.AnimatorUtils
-import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentListBarHost
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
-import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchAction
-import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchOutcome
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -53,7 +44,6 @@ import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.StickyBottomGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setupSpringFling
 import org.mytonwallet.app_air.uicomponents.extensions.springToItem
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
@@ -79,7 +69,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
-import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
@@ -88,25 +78,23 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
-import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.actions.HomeActionsSheetVC
+import org.mytonwallet.uihome.tabs.views.HomeSearchField
 
 class PhoneTabsVC(context: Context) :
     BaseTabsVC(context),
@@ -129,12 +117,13 @@ class PhoneTabsVC(context: Context) :
         private const val TOAST_HOST_BOTTOM_MARGIN = 12
 
         private const val BOTTOM_EXTRA_GAP = 7
-        private const val SEARCH_HINT_KEY = "Search or Ask"
 
-        private const val SEARCH_OVERLAY_ANIMATION = AnimationConstants.VERY_VERY_QUICK_ANIMATION
+        internal const val SEARCH_OVERLAY_ANIMATION = AnimationConstants.VERY_VERY_QUICK_ANIMATION
         internal const val TOP_TABS_HEIGHT = 44
         internal const val TOP_TABS_ROOT_INSET = WNavigationBar.DEFAULT_HEIGHT + 2
         private const val TOP_TABS_THUMB_HEIGHT = 36f
+        private const val TOP_TABS_INSET = 4f
+        private const val TOP_TAB_HORIZONTAL_PADDING = 20
         internal const val TOP_TABS_TOP_MARGIN = 8
         private const val TOP_TABS_START_MARGIN = 16
         private const val TOP_TABS_END_MARGIN = 70
@@ -150,17 +139,23 @@ class PhoneTabsVC(context: Context) :
         // Distance from the tab bar's top margin to its bottom edge, offset included.
         internal const val TOP_TABS_BOTTOM_EDGE = TOP_TABS_CENTERING_OFFSET + TOP_TABS_HEIGHT
 
-        private val PUSHED_TAB_IDS = setOf(
-            AppTabsManager.ID_AGENT,
-            AppTabsManager.ID_SETTINGS
-        )
-
         private val UPDATE_BUTTON_AVAILABLE_TABS = setOf(
             AppTabsManager.ID_HOME,
             AppTabsManager.ID_SETTINGS
         )
 
         private const val GRADIENT_ALPHA = 229
+        private const val AGENT_CHROME_SCALE = 0.9f
+
+        // The search field's magnifier: 22 dp, 14 dp in from its leading edge
+        // The design's "Android / Search" glyph in its 26 dp box, centred in the circle
+        private const val CIRCLE_ICON_SIZE = 26
+        private const val CIRCLE_ICON_START = 11
+
+        // The field's own 22 dp magnifier, which the circle's grows out of
+        private const val FIELD_ICON_SCALE = 22f / CIRCLE_ICON_SIZE
+        private const val AGENT_CHROME_SHOW_MS = 300L
+        private const val AGENT_CHROME_HIDE_MS = 300L
     }
 
     override val isSwipeBackAllowed = false
@@ -169,7 +164,7 @@ class PhoneTabsVC(context: Context) :
     override var currentTabId: Int
         get() = selectedTabId
         set(value) {
-            if (value in PUSHED_TAB_IDS) {
+            if (value in PHONE_PUSHED_TAB_IDS) {
                 pendingSelectedTab = AppTabsManager.ID_HOME
                 pendingTabToPresentOverMain = value
             } else {
@@ -179,17 +174,29 @@ class PhoneTabsVC(context: Context) :
     private var pendingSelectedTab: Int? = null
     private var pendingTabToPresentOverMain: Int? = null
 
-    override fun exportSearchText(): String = searchEditText.typedText()
+    override fun exportSearchText(): String = searchView.currentText()
 
     override fun restoreSearchText(text: String) {
-        searchEditText.setText(text)
+        searchView.restoreText(text)
     }
 
     override fun detachMountedStacks() {
+        // The Agent list's search closes with this container, which the tablet layout does not take over
+        finishAgentSearch()
+        releaseAgentBar()
         // The stacks live inside the pager's pages rather than directly in contentView;
         // exportStacks() removes each nav from its own parent.
         contentView.removeAllViews()
     }
+
+    // The Agent list goes on without this toolbar, as when the tablet layout takes the stacks over
+    private fun releaseAgentBar() {
+        isAgentBarReleased = true
+        if (agentBarMorphDelegate.isInitialized()) agentBarMorph.stop()
+        findAgentList()?.takeIf { it.barHost === agentBarHost }?.barHost = null
+    }
+
+    private var isAgentBarReleased = false
 
     private val contentView = WView(context)
 
@@ -204,7 +211,13 @@ class PhoneTabsVC(context: Context) :
             TabPageHolder(TabPageView(context, tabPager))
 
         override fun onBindViewHolder(holder: TabPageHolder, position: Int) {
-            holder.page.bind(getNavigationStack(topTabIds[position]))
+            val id = topTabIds[position]
+            if (id == selectedTabId) revealedTabIds.add(id)
+            if (id in revealedTabIds) {
+                holder.page.bind(getNavigationStack(id))
+            } else {
+                holder.page.unbind()
+            }
         }
 
         override fun onViewRecycled(holder: TabPageHolder) {
@@ -227,6 +240,9 @@ class PhoneTabsVC(context: Context) :
             return (window?.systemBars?.bottom ?: 0) + (-2).dp
         }
 
+    override val minimizedBrowserBottomInset: Int
+        get() = bottomBarHeight + bottomOverlayExtraGap
+
     override fun rootTopInsetForTab(id: Int): Int {
         if (id == AppTabsManager.ID_SETTINGS) return 0
         return TOP_TABS_ROOT_INSET.dp
@@ -244,12 +260,15 @@ class PhoneTabsVC(context: Context) :
         }
 
         selectingTabId = itemId
+        committedTabId = itemId
+        isAgentTopChromeShown = null
+        finishAgentSearch()
         updateTopChromeVisibility(itemId)
         checkForUpdate(itemId)
         val isAgent = itemId == AppTabsManager.ID_AGENT
         ignoreSideGuttering = isAgent
         val wasAgent = selectedTabId == AppTabsManager.ID_AGENT
-        if (wasAgent != isAgent) updateStickyBottomGradient(itemId)
+        if (wasAgent != isAgent) updateStickyBottomGradient()
         bottomReversedCornerView?.setHorizontalPadding(
             if (ignoreSideGuttering) 0f else ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
         )
@@ -263,22 +282,74 @@ class PhoneTabsVC(context: Context) :
         switchTab(itemId, oldNav, newNav)
         selectingTabId = null
         selectedTabId = itemId
+        updateAgentChrome()
+        updateAgentBar()
     }
 
     private var topTabIds = emptyList<Int>()
+
+    // Every page stays mounted once its tab has shown, so paging over it doesn't mount and lay out its screen
+    // mid-slide; a tab not shown yet gets its screen when paging first reaches it
+    private val revealedTabIds = HashSet<Int>()
+
+    private fun revealPage(index: Int) {
+        val id = topTabIds.getOrNull(index) ?: return
+        if (!revealedTabIds.add(id)) return
+        val pages = tabPager.getChildAt(0) as? RecyclerView ?: return
+        val holder = pages.findViewHolderForAdapterPosition(index) as? TabPageHolder ?: return
+        holder.page.bind(getNavigationStack(id))
+    }
+
+    // The pages not shown yet mount while the app idles once the selected one has appeared, so a tab's first visit
+    // finds its screen laid out
+    private var pagePreloader: TabPagePreloader? = null
+    private var hasSelectedPageAppeared = false
+
+    private fun createPagePreloader() = TabPagePreloader(
+        view,
+        isActive = { hasSelectedPageAppeared && !isDisappeared && window?.isPaused == false },
+        isIdle = {
+            tabPager.scrollState == ViewPager2.SCROLL_STATE_IDLE && !tabPager.isFakeDragging &&
+                springingTabId == null && pendingTabAppearance == null &&
+                (tabPager.getChildAt(0) as? ViewGroup)?.children
+                    ?.none { (it as? TabPageView)?.isTouched == true } != false
+        },
+        nextPage = { topTabIds.indexOfFirst { it !in revealedTabIds }.takeIf { it >= 0 } },
+        mount = ::revealPage,
+        unmountInactive = ::unmountInactivePages
+    )
+
+    // Under memory pressure only the pages on screen stay mounted; the others mount again as paging reaches them
+    private fun unmountInactivePages() {
+        val pages = tabPager.getChildAt(0) as? RecyclerView ?: return
+        val keptIds = setOfNotNull(
+            selectedTabId,
+            selectingTabId,
+            topTabIds.getOrNull(tabPager.currentItem)
+        )
+        topTabIds.forEachIndexed { index, id ->
+            if (id in keptIds || !revealedTabIds.remove(id)) return@forEachIndexed
+            (pages.findViewHolderForAdapterPosition(index) as? TabPageHolder)?.page?.unbind()
+        }
+    }
+
     private val tabPagerAdapter = TabPagerAdapter()
     private var pendingTabAppearance: WNavigationController? = null
     private val tabPager by lazy {
         ViewPager2(context).apply {
             id = View.generateViewId()
             adapter = tabPagerAdapter
-            offscreenPageLimit = ViewPager2.OFFSCREEN_PAGE_LIMIT_DEFAULT
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageScrolled(
                     position: Int,
                     positionOffset: Float,
                     positionOffsetPixels: Int
                 ) {
+                    revealPage(position)
+                    if (positionOffset > 0f) revealPage(position + 1)
+                    // The Agent list's bar is hosted as soon as its page can show
+                    val list = findAgentList()
+                    if (list != null && list.barHost == null) updateAgentBar(isInstant = true)
                     topTabsControl.updateThumbPosition(
                         index = position,
                         offset = position + positionOffset,
@@ -286,9 +357,16 @@ class PhoneTabsVC(context: Context) :
                         force = false,
                         isAnimatingToPosition = false
                     )
+                    keepAgentBarOnToolbar()
+                }
+
+                override fun onPageSelected(position: Int) {
+                    commitPage(position)
                 }
 
                 override fun onPageScrollStateChanged(state: Int) {
+                    // The finger or the pager took over from a tapped tab's slide
+                    springingTabId = null
                     if (state != ViewPager2.SCROLL_STATE_IDLE) return
                     val index = currentItem
                     topTabsControl.updateThumbPosition(
@@ -298,6 +376,7 @@ class PhoneTabsVC(context: Context) :
                         force = true,
                         isAnimatingToPosition = false
                     )
+                    commitPage(index)
                     val tabId = topTabIds.getOrNull(index)
                     if (selectingTabId == null &&
                         tabId != null &&
@@ -308,8 +387,17 @@ class PhoneTabsVC(context: Context) :
                     completePendingTabAppearance()
                 }
             })
-            (getChildAt(0) as? RecyclerView)?.itemAnimator = null
-            setupSpringFling { target -> target.coerceIn(currentItem - 1, currentItem + 1) }
+            (getChildAt(0) as? RecyclerView)?.apply {
+                itemAnimator = null
+                // The Agent page draws over its neighbours, so its bar stays on the toolbar as the page slides
+                clipChildren = false
+                setChildDrawingOrderCallback { childCount, i ->
+                    orderAgentPageLast(this, childCount, i)
+                }
+            }
+            setupSpringFling { target ->
+                target.coerceIn(currentItem - 1, currentItem + 1).also(::commitPage)
+            }
         }
     }
 
@@ -329,9 +417,13 @@ class PhoneTabsVC(context: Context) :
             pendingTabAppearance = newNav
         }
         val previousIndex = tabPager.currentItem
+        // The pages the slide passes over are mounted before it starts, so it runs without a pause
+        for (page in minOf(previousIndex, index)..maxOf(previousIndex, index)) revealPage(page)
         val animated = WGlobalStorage.getAreAnimationsActive()
         if (animated && previousIndex != index && tabPager.width > 0) {
+            springingTabId = itemId
             tabPager.springToItem(index) {
+                if (springingTabId == itemId) springingTabId = null
                 completePendingTabAppearance()
             }
         } else {
@@ -347,6 +439,7 @@ class PhoneTabsVC(context: Context) :
             }
         }
         pendingTabAppearance = null
+        pagePreloader?.schedule()
     }
 
     private val topTabsDelegate = object : WClearSegmentedControl.Delegate {
@@ -361,9 +454,14 @@ class PhoneTabsVC(context: Context) :
     private val topTabsControl by lazy {
         WClearSegmentedControl(
             context,
-            horizontalPaddingDp = 1f,
-            thumbHeightDp = TOP_TABS_THUMB_HEIGHT
+            horizontalPaddingDp = TOP_TABS_INSET,
+            thumbHeightDp = TOP_TABS_THUMB_HEIGHT,
+            // Tabs keep the design's padding and scroll when they don't fit, rather than narrowing
+            itemHorizontalPaddingDp = TOP_TAB_HORIZONTAL_PADDING,
+            minItemHorizontalPaddingDp = TOP_TAB_HORIZONTAL_PADDING,
+            itemSpacingDp = 0
         ).apply {
+            centersThumb = true
             paintColor = WColor.Tint.color.colorWithAlpha(31)
             primaryTextColorOverride = WColor.Tint.color
             fillAvailableWidth = true
@@ -438,13 +536,14 @@ class PhoneTabsVC(context: Context) :
 
     private fun reloadTopTabs(selectedItemId: Int = selectedTabId) {
         val tabs = AppTabsManager.orderedTabs.filter {
-            it.intId !in PUSHED_TAB_IDS
+            it.intId !in PHONE_PUSHED_TAB_IDS
         }
         topTabIds = tabs.map { it.intId }
+        tabPager.offscreenPageLimit = (topTabIds.size - 1).coerceAtLeast(1)
         val requestedIndex = topTabIds.indexOf(selectedItemId)
         val selectedIndex = requestedIndex.coerceAtLeast(0)
         if (requestedIndex < 0) {
-            // The requested tab has no page (e.g. Agent/Settings, which are pushed instead), so
+            // The requested tab has no page (e.g. Settings, which is pushed instead), so
             // keep the selected id in sync with the page the pager actually shows.
             topTabIds.getOrNull(selectedIndex)?.let {
                 if (selectedTabId != it) selectTab(it)
@@ -469,16 +568,147 @@ class PhoneTabsVC(context: Context) :
         updateTopChromeVisibility(selectedItemId)
     }
 
+    // Whether the Agent list's tabs showed, when they come and go as chats cover the list
+    private var isAgentTopChromeShown: Boolean? = null
+
+    // Whether a screen pushed over the Agent list covers its tabs, and whether they wait for it to finish coming
+    private var isAgentChromeCovered = false
+    private var isAgentChromeAwaitingCover = false
+
+    private val agentCoverGroup = AgentListCoverGroup()
+
+    private val agentCoverView by lazy {
+        AgentListCoverView(context, agentCoverGroup) {
+            navForOrNull(AppTabsManager.ID_AGENT)?.takeIf {
+                selectedTabId == AppTabsManager.ID_AGENT && topTabsControl.isVisible
+            }
+        }.apply { onFrame = ::followAgentCover }
+    }
+
+    // The screens pushed over the Agent list come over the toolbar's circle there, and dim it, as they do the list's
+    // own bar beside it
+    private val agentBarCoverView by lazy {
+        AgentListCoverView(context, agentCoverGroup) {
+            navForOrNull(AppTabsManager.ID_AGENT)?.takeIf {
+                selectedTabId == AppTabsManager.ID_AGENT && agentBarMorphDelegate.isInitialized() &&
+                    agentBarMorph.shouldKeepToolbar
+            }
+        }
+    }
+
     private fun updateTopChromeVisibility(selectedItemId: Int) {
-        val shouldShowTabs =
-            !isTopChromeHidden && selectedItemId != AppTabsManager.ID_SETTINGS
+        val isAgent = selectedItemId == AppTabsManager.ID_AGENT
+        // The tabs come back as a chat starts to leave the list, not once it has gone
+        val depth = if (isAgent && findAgentList()?.isBarCovered == false) {
+            1
+        } else {
+            navForOrNull(selectedItemId)?.viewControllers?.size ?: 1
+        }
+        // A question written in the list gives the header to a new chat
+        val isComposing = isAgent && findAgentList()?.isComposing == true
+        val shouldShowTabs = !isTopChromeHidden && !isComposing &&
+            shouldShowPhoneTopTabs(selectedItemId, depth)
         val shouldShowAvatar = shouldShowTabs && AccountStore.permanentActiveAccount != null
+        val shouldFade = isAgent && !isTopChromeHidden && isAgentTopChromeShown != null &&
+            isAgentTopChromeShown != shouldShowTabs && WGlobalStorage.getAreAnimationsActive()
+        isAgentTopChromeShown = if (isAgent) shouldShowTabs else null
+        val isCovered = isAgent && depth > 1
+        val isCoverChange = isCovered != isAgentChromeCovered
+        isAgentChromeCovered = isCovered
+        if (shouldFade && isCoverChange) {
+            coverAgentTopChrome(shouldShowTabs, shouldShowAvatar)
+            return
+        }
+        if (shouldFade) {
+            fadeAgentTopChrome(topTabsControl, shouldShowTabs)
+            fadeAgentTopChrome(topAvatarView, shouldShowAvatar)
+            return
+        }
+        if (isAgent && isAgentTopChromeFadingIn == shouldShowTabs) return
+        // The tabs under a screen still coming over the list stay until it has come
+        if (isAgentChromeAwaitingCover && isCovered && !shouldShowTabs) return
+        cancelAgentTopChromeFade()
+        isAgentChromeAwaitingCover = false
         topTabsControl.isVisible = shouldShowTabs
         topAvatarView.isVisible = shouldShowAvatar
         if (!isTopChromeHidden) {
             topTabsControl.alpha = 1f
             topAvatarView.alpha = 1f
         }
+    }
+
+    private var isAgentTopChromeFadingIn: Boolean? = null
+
+    // The tabs lie on the list's layer: a screen pushed over it comes over them, drawn there by the cover view, and
+    // they go once it has come; one going away leaves them shown under it from its start
+    private fun coverAgentTopChrome(shouldShowTabs: Boolean, shouldShowAvatar: Boolean) {
+        cancelAgentTopChromeFade()
+        isAgentChromeAwaitingCover = !shouldShowTabs
+        if (!shouldShowTabs) return
+        topTabsControl.alpha = 1f
+        topTabsControl.isVisible = true
+        topAvatarView.alpha = 1f
+        topAvatarView.isVisible = shouldShowAvatar
+    }
+
+    // Once the screen pushed over the list has come, the list leaves the stack and the tabs go with it
+    private fun followAgentCover() {
+        if (!isAgentChromeAwaitingCover) return
+        val navigation = navForOrNull(AppTabsManager.ID_AGENT)
+        val listView = navigation?.viewControllers?.firstOrNull()?.view
+        if (listView != null && listView.parent === navigation) return
+        isAgentChromeAwaitingCover = false
+        if (isAgentTopChromeShown != false) return
+        topTabsControl.isVisible = false
+        topAvatarView.isVisible = false
+        // The halos synced before this ran, so they go in the same frame only when hidden here
+        topTabsGlass?.isVisible = false
+        topAvatarGlass?.isVisible = false
+    }
+
+    private fun cancelAgentTopChromeFade() {
+        if (isAgentTopChromeFadingIn == null) return
+        isAgentTopChromeFadingIn = null
+        listOf(topTabsControl, topAvatarView).forEach {
+            it.animate().cancel()
+            it.scaleX = 1f
+            it.scaleY = 1f
+        }
+    }
+
+    // The tabs and the avatar give way to a chat's header and come back with the list
+    private fun fadeAgentTopChrome(view: View, shouldShow: Boolean) {
+        view.animate().cancel()
+        isAgentTopChromeFadingIn = shouldShow
+        if (shouldShow) {
+            if (!view.isVisible) {
+                view.alpha = 0f
+                view.scaleX = AGENT_CHROME_SCALE
+                view.scaleY = AGENT_CHROME_SCALE
+            }
+            view.isVisible = true
+        }
+        view.animate()
+            .alpha(if (shouldShow) 1f else 0f)
+            .scaleX(if (shouldShow) 1f else AGENT_CHROME_SCALE)
+            .scaleY(if (shouldShow) 1f else AGENT_CHROME_SCALE)
+            .setDuration(if (shouldShow) AGENT_CHROME_SHOW_MS else AGENT_CHROME_HIDE_MS)
+            // Going, they cross-fade with the new chat's header, which comes in on this curve
+            .setInterpolator(
+                if (shouldShow) {
+                    WInterpolator.emphasizedDecelerate
+                } else {
+                    AccelerateDecelerateInterpolator()
+                }
+            )
+            .withEndAction {
+                isAgentTopChromeFadingIn = null
+                if (!shouldShow) view.isVisible = false
+                view.scaleX = 1f
+                view.scaleY = 1f
+                if (!shouldShow) view.alpha = 1f
+            }
+            .start()
     }
 
     private fun hideTopChromeView(view: View?) {
@@ -587,6 +817,11 @@ class PhoneTabsVC(context: Context) :
             systemBars?.right ?: 0
         }
         val top = (systemBars?.top ?: 0) + TOP_TABS_TOP_MARGIN.dp
+        if (agentCoverView.parent != null) {
+            agentCoverView.updateLayoutParams {
+                height = top + TOP_AVATAR_SIZE.dp + WGlassView.GLASS_PADDING_DP.dp
+            }
+        }
         view.setConstraints {
             toTopPx(topAvatarView, top)
             toEndPx(
@@ -611,160 +846,23 @@ class PhoneTabsVC(context: Context) :
         }
     }
 
-    var isProcessingSearchKeyword = false
     private val topChromeBlurViews
         get() = listOfNotNull(searchGlass, actionsButtonGlass, topTabsGlass, topAvatarGlass)
-    private val searchEditText by lazy {
-        object : WSearchEditText(context) {
-            override fun onFocusChanged(
-                focused: Boolean,
-                direction: Int,
-                previouslyFocusedRect: Rect?
-            ) {
-                super.onFocusChanged(focused, direction, previouslyFocusedRect)
-                searchFocused.animatedValue = focused
-            }
-
-            override fun onSelectionChanged(selStart: Int, selEnd: Int) {
-                super.onSelectionChanged(selStart, selEnd)
-                if (isProcessingSearchKeyword ||
-                    autoCompleteSuffixStart() < 0 ||
-                    !isSelectionChangeFromTouch()
-                ) {
-                    return
-                }
-
-                val keyword = searchKeyword
-                val autoCompleteText = text?.toString()
-                doOnPreDraw {
-                    if (isProcessingSearchKeyword ||
-                        autoCompleteSuffixStart() < 0 ||
-                        searchKeyword != keyword ||
-                        text?.toString() != autoCompleteText
-                    ) {
-                        return@doOnPreDraw
-                    }
-                    isProcessingSearchKeyword = true
-                    removeAutoCompleteSuffix()
-                    isProcessingSearchKeyword = false
-                }
-            }
-        }.apply {
-            hint = LocaleController.getString(SEARCH_HINT_KEY)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            doAfterTextChanged {
-                if (isProcessingSearchKeyword) return@doAfterTextChanged
-                val suffixStart = autoCompleteSuffixStart()
-                val keyword = typedText()
-                if (keyword == searchKeyword) return@doAfterTextChanged
-                if (suffixStart >= 0) {
-                    isProcessingSearchKeyword = true
-                    removeAutoCompleteSuffix()
-                    isProcessingSearchKeyword = false
-                }
-                val shouldCheckForMatchingUrl = keyword.length > searchKeyword.length
-                searchKeyword = keyword
-                autoCompleteKeyword = keyword.takeIf { shouldCheckForMatchingUrl }
-                updateSearch(searchKeyword, hasFocus())
-                if (shouldCheckForMatchingUrl) {
-                    post {
-                        if (searchKeyword == keyword && this@apply.text?.toString() == keyword) {
-                            checkForMatchingUrl(keyword)
-                        }
-                    }
-                }
-            }
-            onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
-                if (isProcessingSearchKeyword) return@OnFocusChangeListener
-                if (!hasFocus &&
-                    (context as? android.app.Activity)?.isChangingConfigurations == true
-                ) {
-                    return@OnFocusChangeListener
-                }
-                if (!hasFocus) {
-                    isProcessingSearchKeyword = true
-                    removeAutoCompleteSuffix()
-                    isProcessingSearchKeyword = false
-                }
-                val query = if (hasFocus) typedText() else null
-                autoCompleteKeyword = query
-                updateSearch(query, hasFocus)
-                checkForMatchingUrl(query ?: "")
-            }
-            setOnEditorActionListener { _, actionId, event ->
-                if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    (
-                        event?.action == KeyEvent.ACTION_DOWN &&
-                            event.keyCode == KeyEvent.KEYCODE_ENTER
-                        )
-                ) {
-                    val submittedText = typedText()
-                    if (submittedText.isBlank()) {
-                        clearFocus()
-                        hideKeyboard()
-                        return@setOnEditorActionListener true
-                    }
-                    if (WalletContextManager.delegate?.get()
-                            ?.handleDeeplink(submittedText, DeeplinkOpenSource.SEARCH) == true
-                    ) {
-                        setText("")
-                        clearFocus()
-                        hideKeyboard()
-                        return@setOnEditorActionListener true
-                    }
-                    val onBestMatchResolved: (SearchBestMatchOutcome) -> Unit = { outcome ->
-                        if (outcome == SearchBestMatchOutcome.IGNORED) {
-                            hideKeyboard(clearFocus = false)
-                        } else if (outcome == SearchBestMatchOutcome.OPENED) {
-                            setText("")
-                            clearFocus()
-                            hideKeyboard()
-                        } else {
-                            val (isValidUrl, uri) = InAppBrowserVC.convertToUri(submittedText)
-                            if (!isValidUrl) {
-                                ExploreHistoryStore.saveSearchHistory(submittedText)
-                            }
-                            val config = InAppBrowserConfig(
-                                url = uri.toString(),
-                                injectDappConnect = true,
-                                saveInVisitedHistory = isValidUrl
-                            )
-                            val inAppBrowserVC = InAppBrowserVC(
-                                context,
-                                this@PhoneTabsVC,
-                                config
-                            )
-                            window?.let { window ->
-                                val nav = WNavigationController(window)
-                                nav.setRoot(inAppBrowserVC)
-                                window.present(nav, onCompletion = {
-                                    setText("")
-                                })
-                            }
-                            clearFocus()
-                            hideKeyboard()
-                        }
-                    }
-                    if (cachedExploreVC?.openBestSearchMatch(onBestMatchResolved) == true) {
-                        return@setOnEditorActionListener true
-                    }
-                    onBestMatchResolved(SearchBestMatchOutcome.NOT_FOUND)
-                    return@setOnEditorActionListener true
-                }
-                false
-            }
-        }
-    }
     private var searchGlass: WGlassView? = null
     private val searchView by lazy {
-        WFrameLayout(context).apply {
+        HomeSearchField(
+            context,
+            onSearch = { query, focused -> updateSearch(query, focused) },
+            onSubmit = { field -> submitExploreSearch(field) },
+            onFocusProgressChanged = { updateActionsButtonMorph() }
+        ).apply {
             alpha = 0f
             visibility = View.INVISIBLE
             translationY = -SEARCH_BOTTOM_MARGIN.dp.toFloat()
-            setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
-            addView(searchEditText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }
     }
+    private val searchEditText: WSearchEditText
+        get() = searchView.editText
 
     // Round "+" button beside the search field; opens the actions sheet,
     // or morphs into an "X" that closes the search while it has focus.
@@ -805,12 +903,13 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun updateActionsButtonMorph() {
-        val fraction = searchFocused.floatValue
+        val fraction = searchView.focusProgress
         actionsButton.contentDescription = LocaleController.getString(
             if (searchEditText.hasFocus()) "Close" else "More actions"
         )
         actionsButtonIcon.rotation = 45f * fraction
         actionsButtonIcon.setColorFilter(WColor.SecondaryText.color)
+        agentBarMorph.apply()
     }
 
     private fun presentActionsSheet() {
@@ -840,11 +939,197 @@ class PhoneTabsVC(context: Context) :
         )
     }
 
+    // The Agent tab shows the global search only while its own search is open
+    private var agentSearchOnClose: (() -> Unit)? = null
+
+    private val isPhoneSearchShown: Boolean
+        get() = shouldShowPhoneSearch(selectedTabId) || agentSearchOnClose != null ||
+            isAgentBarHosted
+
+    override val isAgentSearchSupported = true
+
+    override fun openAgentSearch(onClose: () -> Unit): Boolean {
+        if (selectedTabId != AppTabsManager.ID_AGENT || isTopChromeHidden) return false
+        finishAgentSearch()
+        agentSearchOnClose = onClose
+        updateAgentChrome()
+        updateAgentBar()
+        searchEditText.requestFocus()
+        searchEditText.showKeyboard()
+        return true
+    }
+
+    private fun finishAgentSearch() {
+        val onClose = agentSearchOnClose ?: return
+        agentSearchOnClose = null
+        updateAgentChrome()
+        updateAgentBar()
+        onClose()
+    }
+
     private fun showSearchChrome() {
+        val shouldShow = isPhoneSearchShown || agentBarMorph.shouldKeepToolbar
         searchView.alpha = 1f
-        searchView.visibility = View.VISIBLE
+        searchView.isVisible = shouldShow
         actionsButton.alpha = 1f
-        actionsButton.visibility = View.VISIBLE
+        actionsButton.isVisible = shouldShow
+        agentBarMorph.apply()
+    }
+
+    // The Agent tab: the page paging has committed to, or will land on, while the finger is up
+    private var committedTabId = AppTabsManager.ID_HOME
+
+    // The order the pager draws its pages in, the Agent page last
+    private fun orderAgentPageLast(pages: RecyclerView, childCount: Int, i: Int): Int {
+        var page: View? = navForOrNull(AppTabsManager.ID_AGENT)
+        while (page != null && page.parent !== pages) page = page.parent as? View
+        val agentIndex = page?.let(pages::indexOfChild) ?: -1
+        return when {
+            agentIndex < 0 || i < agentIndex -> i
+            i == childCount - 1 -> agentIndex
+            else -> i + 1
+        }
+    }
+
+    /** Holds the Agent list's bar where the toolbar is while the Agent page slides under it */
+    private fun keepAgentBarOnToolbar() {
+        val list = findAgentList() ?: return
+        val page = navForOrNull(AppTabsManager.ID_AGENT) ?: return
+        if (!page.isAttachedToWindow) return
+        page.clipChildren = false
+        val pageLocation = IntArray(2).also(page::getLocationInWindow)
+        val pagerLocation = IntArray(2).also(tabPager::getLocationInWindow)
+        list.setHostedBarShift((pagerLocation[0] - pageLocation[0]).toFloat())
+    }
+
+    // A tapped tab commits at once, and the pages its slide passes over don't
+    private var springingTabId: Int? = null
+
+    private fun commitPage(index: Int) {
+        val tabId = topTabIds.getOrNull(index) ?: return
+        springingTabId?.let { if (tabId != it) return }
+        if (committedTabId == tabId) return
+        committedTabId = tabId
+        updateAgentBar()
+    }
+
+    private fun findAgentList(): AgentThreadListVC? =
+        navForOrNull(AppTabsManager.ID_AGENT)?.viewControllers?.firstOrNull() as? AgentThreadListVC
+
+    // The Agent list's bar grows out of the toolbar while the list is the tab's root screen on top and shows its
+    // bar; without one (the consent screen) the tab has no toolbar
+    private val isAgentBarHosted: Boolean
+        get() = selectedTabId == AppTabsManager.ID_AGENT && agentSearchOnClose == null &&
+            (navForOrNull(AppTabsManager.ID_AGENT)?.viewControllers?.size ?: 1) <= 1 &&
+            findAgentList()?.isBarShown == true
+
+    // The search circle's magnifier, where the field draws its own
+    private val agentCircleIcon by lazy {
+        AppCompatImageView(context).apply {
+            setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_search_24)
+            setColorFilter(WColor.SecondaryText.color)
+            alpha = 0f
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+    }
+
+    private val agentCircleButton by lazy {
+        WFrameLayout(context).apply {
+            id = View.generateViewId()
+            isClickable = true
+            isFocusable = true
+            contentDescription = LocaleController.getString("Search")
+            visibility = View.INVISIBLE
+            setOnClickListener { findAgentList()?.openSearchFromBar() }
+        }
+    }
+
+    private val agentBarMorphDelegate = lazy {
+        AgentRootBarMorph(
+            searchView = searchView,
+            actionsButton = actionsButton,
+            actionsIcon = actionsButtonIcon,
+            circleButton = agentCircleButton,
+            fullSearchWidth = {
+                val margin = (ViewConstants.HORIZONTAL_PADDINGS + 6).dp
+                view.width - 2 * margin - SEARCH_HEIGHT.dp - ACTIONS_BUTTON_GAP.dp
+            },
+            onProgress = { progress ->
+                agentBarProgress = progress.coerceIn(0f, 1f)
+                applyStickyGradientAlpha()
+                findAgentList()?.setHostedBarProgress(progress)
+            },
+            applyTextAlpha = { alpha ->
+                // The field's text and magnifier fade; the circle's own magnifier takes the place of its,
+                // growing from its size to the design's
+                if (searchEditText.alpha != alpha) searchEditText.alpha = alpha
+                agentCircleIcon.alpha = 1 - alpha
+                val iconScale = FIELD_ICON_SCALE + (1 - FIELD_ICON_SCALE) * (1 - alpha)
+                agentCircleIcon.scaleX = iconScale
+                agentCircleIcon.scaleY = iconScale
+            },
+            onSettled = { showSearchChrome() }
+        )
+    }
+    private val agentBarMorph by agentBarMorphDelegate
+
+    // The Agent list keeps its own fade under its bar, in its own colour: the toolbar's gives way as the bar grows
+    private var agentBarProgress = 0f
+
+    private fun applyStickyGradientAlpha() {
+        stickyBottomGradientView?.alpha = 1 - agentBarProgress
+    }
+
+    // The toolbar the Agent list's bar grows out of
+    private val agentBarHost = object : AgentListBarHost {
+        // The bar keeps the line of the shown toolbar while a chat covers it and the toolbar has gone
+        override val agentBarBottomInset: Int
+            get() = (searchTopOffset(shownToolbarExtraGap) - SEARCH_HEIGHT.dp).roundToInt()
+
+        override fun onAgentBarStateChanged() = updateAgentBar()
+    }
+
+    private fun updateAgentBar(isInstant: Boolean = false) {
+        if (isAgentBarReleased) return
+        val list = findAgentList()
+        list?.barHost = agentBarHost
+        val agentDepth = navForOrNull(AppTabsManager.ID_AGENT)?.viewControllers?.size ?: 1
+        val isAgent = committedTabId == AppTabsManager.ID_AGENT && agentSearchOnClose == null &&
+            list != null
+        val isUnderChat = list?.isBarCovered ?: (agentDepth > 1)
+        // A list without its bar sends the circle away as a chat over it does
+        val isCovered = isUnderChat || list?.isBarShown != true
+        // A tab opened onto a chat finds the toolbar already away
+        val shouldJump = isInstant || (selectedTabId != AppTabsManager.ID_AGENT && isUnderChat)
+        agentBarMorph.setTargets(isAgent, isCovered, list?.isComposing == true, !shouldJump)
+        // Whether the toolbar shows decides its line
+        updateSearchPosition()
+        showSearchChrome()
+        if (selectedTabId == AppTabsManager.ID_AGENT) {
+            updateTopChromeVisibility(selectedTabId)
+            // Paging waits while a question is written
+            tabPager.isUserInputEnabled = !isTopChromeHidden && list?.isComposing != true &&
+                shouldShowPhoneTopTabs(AppTabsManager.ID_AGENT, agentDepth)
+        }
+    }
+
+    private fun updateAgentChrome() {
+        tabPager.isUserInputEnabled = !isTopChromeHidden && shouldShowPhoneTopTabs(
+            selectedTabId,
+            activeNavigationController?.viewControllers?.size ?: 1
+        )
+        updateTopChromeVisibility(selectedTabId)
+        showSearchChrome()
+        updateStickyBottomGradient()
+        activeNavigationController?.insetsUpdated()
+    }
+
+    override fun navStackUpdated(nav: WNavigationController) {
+        if (nav === navForOrNull(AppTabsManager.ID_AGENT) && nav.viewControllers.size > 1) {
+            findAgentList()?.setBarCovered(true)
+        }
+        if (nav === activeNavigationController) updateAgentChrome()
+        updateAgentBar()
     }
 
     private var stickyBottomGradientView: View? = null
@@ -853,16 +1138,6 @@ class PhoneTabsVC(context: Context) :
     private val keyboardVisible = FloatAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, 0f) {
         render()
     }
-
-    private var searchFocused =
-        BoolAnimator(
-            AnimationConstants.VERY_QUICK_ANIMATION,
-            CubicBezierInterpolator.EASE_BOTH,
-            false
-        ) { _, _, _, _ ->
-            updateSearchPadding()
-            updateActionsButtonMorph()
-        }
 
     private fun render() {
         syncToastHostPosition()
@@ -873,23 +1148,24 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun updateSearchPosition() {
-        searchView.translationY = -(searchTopOffset() - SEARCH_HEIGHT.dp)
+        // The toolbar keeps the line it has while shown, also as the Agent list's bar, whatever covers the list
+        searchView.translationY = -(searchTopOffset(shownToolbarExtraGap) - SEARCH_HEIGHT.dp)
         actionsButton.translationY = searchView.translationY
+        agentCircleButton.translationY = searchView.translationY
+        if (agentBarCoverView.parent != null) {
+            // From the circle's halo, swollen mid-morph, down to the screen's bottom edge
+            val haloMargin = 2 * WGlassView.GLASS_PADDING_DP.dp
+            val height = (searchTopOffset(shownToolbarExtraGap) + haloMargin).roundToInt()
+            if (agentBarCoverView.layoutParams.height != height) {
+                agentBarCoverView.updateLayoutParams { this.height = height }
+            }
+        }
     }
 
     private fun onUpdateAdditionalHeight() {
         activeNavigationController?.insetsUpdated()
         // The search overlay reserves the same bottom height, so it has to follow the keyboard too.
         searchOverlayNav?.insetsUpdated()
-    }
-
-    private fun updateSearchPadding() {
-        searchEditText.setPaddingDpLocalized(
-            lerp(22f, 16f, searchFocused.floatValue).ceilToInt(),
-            0,
-            lerp(0f, 48f, searchFocused.floatValue).ceilToInt(),
-            0
-        )
     }
 
     override fun setupViews() {
@@ -905,6 +1181,14 @@ class PhoneTabsVC(context: Context) :
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(toastHostView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(searchView, ConstraintLayout.LayoutParams(0, SEARCH_HEIGHT.dp))
+        searchView.addView(
+            agentCircleIcon,
+            FrameLayout.LayoutParams(
+                CIRCLE_ICON_SIZE.dp,
+                CIRCLE_ICON_SIZE.dp,
+                Gravity.START or Gravity.CENTER_VERTICAL
+            ).apply { marginStart = CIRCLE_ICON_START.dp }
+        )
         searchGlass = WGlassView.attachTo(
             searchView,
             24f.dp,
@@ -920,6 +1204,10 @@ class PhoneTabsVC(context: Context) :
             SEARCH_HEIGHT.dp / 2f,
             GlassProviders.pill(WColor.SearchFieldBackground),
             root = contentView
+        )
+        view.addView(
+            agentCircleButton,
+            ConstraintLayout.LayoutParams(SEARCH_HEIGHT.dp, SEARCH_HEIGHT.dp)
         )
         ensureStickyBottomGradientView()
         view.addView(
@@ -942,6 +1230,8 @@ class PhoneTabsVC(context: Context) :
             GlassProviders.pill(WColor.Background),
             contentView
         )
+        view.addView(agentCoverView, ConstraintLayout.LayoutParams(0, 0))
+        view.addView(agentBarCoverView, ConstraintLayout.LayoutParams(0, 0))
         HomeStatusController.addListener(topAvatarStatusListener)
         view.setConstraints {
             val searchHorizontalMargin =
@@ -949,10 +1239,20 @@ class PhoneTabsVC(context: Context) :
             toStart(searchView, searchHorizontalMargin)
             endToStart(searchView, actionsButton, ACTIONS_BUTTON_GAP.toFloat())
             toBottom(searchView)
+            // Shrunk into the Agent bar's search circle, the field keeps to its leading edge
+            setHorizontalBias(searchView.id, 0f)
+            toStart(agentCircleButton, searchHorizontalMargin)
+            toBottom(agentCircleButton)
             toEnd(actionsButton, searchHorizontalMargin)
             toBottom(actionsButton)
             toCenterX(toastHostView)
             toBottom(toastHostView)
+            toTop(agentCoverView)
+            toStart(agentCoverView)
+            toEnd(agentCoverView)
+            toBottom(agentBarCoverView)
+            toStart(agentBarCoverView)
+            toEnd(agentBarCoverView)
             stickyBottomGradientView?.let {
                 toBottom(it)
             }
@@ -984,6 +1284,7 @@ class PhoneTabsVC(context: Context) :
         checkForUpdate()
         updateTheme()
         precacheReceiveBackground()
+        pagePreloader = createPagePreloader().also { it.start() }
     }
 
     private fun presentWalletSwitcherPopup(anchorView: View): Boolean {
@@ -1159,6 +1460,8 @@ class PhoneTabsVC(context: Context) :
         topAvatarGlass?.updateTheme()
         actionsButtonGlass?.updateTheme()
         actionsButtonRipple.rippleColor = WColor.BackgroundRipple.color
+        agentCircleIcon.setColorFilter(WColor.SecondaryText.color)
+        agentBarMorph.apply()
         topTabsControl.paintColor = WColor.Tint.color.colorWithAlpha(31)
         topTabsControl.primaryTextColorOverride = WColor.Tint.color
         topTabsControl.updateTheme()
@@ -1173,11 +1476,7 @@ class PhoneTabsVC(context: Context) :
         updateStickyBottomGradient()
         updateSearchPosition()
 
-        searchEditText.highlightColor = tintColor.colorWithAlpha(51)
-        isProcessingSearchKeyword = true
-        searchEditText.removeAutoCompleteSuffix()
-        checkForMatchingUrl(searchKeyword)
-        isProcessingSearchKeyword = false
+        searchView.updateTheme()
 
         render()
     }
@@ -1193,6 +1492,8 @@ class PhoneTabsVC(context: Context) :
     override fun viewDidAppear() {
         super.viewDidAppear()
         activeNavigationController?.viewDidAppear()
+        hasSelectedPageAppeared = true
+        pagePreloader?.schedule()
         updateToastAvailability()
         // Re-host any full-screen VCs carried over from the tablet container, now that this VC is the
         // root of the window nav (which is the phone's main navigation controller).
@@ -1201,10 +1502,7 @@ class PhoneTabsVC(context: Context) :
             pendingTabToPresentOverMain = null
             val stack = detachNavigationStack(tabToPresentOverMain).ifEmpty {
                 listOf(
-                    when (tabToPresentOverMain) {
-                        AppTabsManager.ID_AGENT -> AgentVC(context)
-                        else -> SettingsVC(context)
-                    }
+                    SettingsVC(context)
                 )
             }
             adoptPushedOverMain(stack + takePendingPushedOverMain())
@@ -1217,7 +1515,6 @@ class PhoneTabsVC(context: Context) :
         val pushedRoot = navigationController?.viewControllers?.getOrNull(1)
         return when (pushedRoot) {
             is SettingsVC -> AppTabsManager.ID_SETTINGS
-            is AgentVC -> AppTabsManager.ID_AGENT
             else -> selectedItemId
         }
     }
@@ -1227,7 +1524,6 @@ class PhoneTabsVC(context: Context) :
         val pushed = navigationController?.detachAboveRoot() ?: return emptyList()
         val tabId = when (pushed.firstOrNull()) {
             is SettingsVC -> AppTabsManager.ID_SETTINGS
-            is AgentVC -> AppTabsManager.ID_AGENT
             else -> null
         }
         if (tabId != null) {
@@ -1244,13 +1540,14 @@ class PhoneTabsVC(context: Context) :
     override fun viewDidEnterForeground() {
         super.viewDidEnterForeground()
         updateToastAvailability()
+        pagePreloader?.resume()
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
         activeNavigationController?.viewWillDisappear()
         toastHostView.setToastEnabled(false)
-        clearSearchAutoComplete()
+        searchView.clearAutoComplete()
     }
 
     override fun updateProtectedView() {
@@ -1269,7 +1566,7 @@ class PhoneTabsVC(context: Context) :
         get() {
             val height = (window?.imeInsets?.bottom ?: 0) -
                 (window?.systemBars?.bottom ?: 0) -
-                (if (minimizedBrowser.hasNavigation) 56.dp else 0)
+                (if (window?.hasMinimizedBrowser == true) 56.dp else 0)
             if (height <= 0) return 0f
             return (height + searchKeyboardLift).toFloat()
         }
@@ -1291,15 +1588,22 @@ class PhoneTabsVC(context: Context) :
         ) {
             searchEditText.clearFocus()
         }
-        updateSearchPadding()
         updateStickyGradientHeight()
     }
 
     private val shouldShowStickyBottomGradientView: Boolean
-        get() = WGlobalStorage.isGradientNavigationBarActive()
+        get() = WGlobalStorage.isGradientNavigationBarActive() && isPhoneSearchShown
 
+    // The toolbar keeps its line on every tab, the Agent tab's bar included
     private val bottomOverlayExtraGap: Int
-        get() = if (shouldShowStickyBottomGradientView) 0 else BOTTOM_EXTRA_GAP.dp
+        get() = if (WGlobalStorage.isGradientNavigationBarActive() && isPhoneSearchShown) {
+            0
+        } else {
+            BOTTOM_EXTRA_GAP.dp
+        }
+
+    private val shownToolbarExtraGap: Int
+        get() = if (WGlobalStorage.isGradientNavigationBarActive()) 0 else BOTTOM_EXTRA_GAP.dp
 
     private fun ensureStickyBottomGradientView(): View {
         stickyBottomGradientView?.let { return it }
@@ -1307,6 +1611,7 @@ class PhoneTabsVC(context: Context) :
             id = View.generateViewId()
         }
         stickyBottomGradientView = gradientView
+        gradientView.alpha = 1 - agentBarProgress
         view.addView(
             gradientView,
             ViewGroup.LayoutParams(
@@ -1324,20 +1629,22 @@ class PhoneTabsVC(context: Context) :
             topAvatarView.bringToFront()
             topTabsGlass?.bringToFront()
             topTabsControl.bringToFront()
+            agentCoverView.bringToFront()
         }
         searchOverlayNav?.bringToFront()
         bottomReversedCornerView?.bringToFront()
         stickyBottomGradientView?.bringToFront()
-        minimizedBrowser.bringToFront()
         searchGlass?.bringToFront()
         searchView.bringToFront()
         actionsButtonGlass?.bringToFront()
         actionsButton.bringToFront()
+        agentCircleButton.bringToFront()
+        if (agentBarCoverView.parent != null) agentBarCoverView.bringToFront()
         toastHostView.bringToFront()
     }
 
     private fun stickyGradientFullHeight(): Int = bottomBarHeight +
-        minimizedBrowser.height.roundToInt() +
+        (window?.minimizedBrowserHeight ?: 0f).roundToInt() +
         (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT).dp +
         stickyGradientKeyboardHeight.roundToInt()
 
@@ -1365,7 +1672,7 @@ class PhoneTabsVC(context: Context) :
         return floatArrayOf(0f, 1f - insetRatio, 1f)
     }
 
-    private fun updateStickyBottomGradient(selectedItemId: Int = selectedTabId) {
+    private fun updateStickyBottomGradient() {
         if (shouldShowStickyBottomGradientView) {
             if (stickyBottomGradientView == null) {
                 val gradientView = ensureStickyBottomGradientView()
@@ -1373,12 +1680,8 @@ class PhoneTabsVC(context: Context) :
                     toBottom(gradientView)
                 }
             }
-            stickyBackgroundColor =
-                if (selectedItemId == AppTabsManager.ID_AGENT) {
-                    WColor.Background.color
-                } else {
-                    WColor.SecondaryBackground.color
-                }
+            // The page colour of every tab; on the Agent list it has faded for the list's own
+            stickyBackgroundColor = WColor.SecondaryBackground.color
             val drawable = StickyBottomGradientDrawable(
                 intArrayOf(
                     stickyBackgroundColor.colorWithAlpha(0),
@@ -1426,19 +1729,14 @@ class PhoneTabsVC(context: Context) :
 
     override fun switchToAgent(
         prompt: String?,
-        pinnedMessageId: String?,
-        entryPoint: AgentV2EntryPoint
+        entryPoint: AgentV2EntryPoint,
+        thread: AgentV2ThreadSummary?
     ): Boolean {
+        if (!AppTabsManager.contains(AppTabsManager.ID_AGENT)) return false
         navigationController?.popToRoot(false)
+        if (selectedTabId != AppTabsManager.ID_AGENT) selectTab(AppTabsManager.ID_AGENT)
         window?.dismissToRoot()
-        navigationController?.push(
-            AgentVC(
-                context,
-                initialPrompt = prompt,
-                initialPinnedMessageId = pinnedMessageId,
-                initialEntryPoint = entryPoint
-            )
-        )
+        openAgentChat(prompt, entryPoint, thread)
         return true
     }
 
@@ -1553,52 +1851,8 @@ class PhoneTabsVC(context: Context) :
         }
     }
 
-    var searchKeyword = ""
-
-    private var autoCompleteKeyword: String? = null
-    private var bestSearchMatchAction: Pair<String, SearchBestMatchAction?>? = null
-
     override fun onExploreCreated(exploreVC: ExploreVC) {
-        exploreVC.onBestSearchMatchActionChanged = { query, action ->
-            bestSearchMatchAction = query to action
-            if (query == searchKeyword) checkForMatchingUrl(query)
-        }
-    }
-
-    private fun checkForMatchingUrl(keyword: String) {
-        searchKeyword = keyword
-        if (keyword.isEmpty()) return
-        val action = bestSearchMatchAction
-            ?.takeIf { it.first == keyword && autoCompleteKeyword == keyword }
-            ?.second
-            ?.takeIf { searchEditText.typedText() == keyword }
-        val completion = action?.suggestion?.drop(keyword.length)
-        val suffixText = action?.let { "$completion — ${it.title}" }
-        if (suffixText != null && searchEditText.autoCompleteSuffixText() == suffixText) return
-        val wasProcessingSearchKeyword = isProcessingSearchKeyword
-        isProcessingSearchKeyword = true
-        searchEditText.removeAutoCompleteSuffix()
-        if (action != null && completion != null && suffixText != null) {
-            val suffix = SpannableString(suffixText)
-            suffix.setSpan(
-                ForegroundColorSpan(
-                    (if (action.isAgent) WColor.PrimaryText else WColor.Tint).color
-                ),
-                completion.length,
-                suffix.length,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            searchEditText.appendAutoCompleteSuffix(suffix)
-            searchView.post {
-                searchView.scrollTo(0, 0)
-            }
-        }
-        isProcessingSearchKeyword = wasProcessingSearchKeyword
-    }
-
-    private fun clearSearchAutoComplete() {
-        searchEditText.removeAutoCompleteSuffix()
-        checkForMatchingUrl(searchKeyword)
+        exploreVC.onBestSearchMatchActionChanged = searchView::setBestMatchAction
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
@@ -1621,7 +1875,7 @@ class PhoneTabsVC(context: Context) :
                 if (selectedTabId != AppTabsManager.ID_HOME) {
                     selectTab(AppTabsManager.ID_HOME)
                 }
-                dismissMinimized(false)
+                window?.minimizedBrowser?.dismissAll()
             }
 
             is WalletEvent.ConfigReceived -> {
@@ -1655,10 +1909,14 @@ class PhoneTabsVC(context: Context) :
     }
 
     override fun getBottomNavigationHeight(): Int {
+        if (!isPhoneSearchShown) {
+            return (window?.systemBars?.bottom ?: 0) +
+                (window?.minimizedBrowserHeight ?: 0f).roundToInt()
+        }
         val additionalHeight = (
             (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT + SEARCH_TOP_MARGIN).dp +
                 keyboardHeight +
-                minimizedBrowser.height
+                (window?.minimizedBrowserHeight ?: 0f)
             ).roundToInt()
         return additionalHeight + bottomBarHeight + bottomOverlayExtraGap
     }
@@ -1679,6 +1937,7 @@ class PhoneTabsVC(context: Context) :
             val window = window ?: return null
             val nav = WNavigationController(window)
             nav.tabBarController = this
+            nav.searchOverlayHost = this
             nav.alpha = 0f
             searchOverlayNav = nav
             view.addView(nav, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -1701,6 +1960,7 @@ class PhoneTabsVC(context: Context) :
     }
 
     override fun hideSearchOverlay() {
+        finishAgentSearch()
         val nav = searchOverlayNav ?: return
         searchOverlayNav = null
         topChromeBlurViews.forEach {
@@ -1713,7 +1973,10 @@ class PhoneTabsVC(context: Context) :
             return
         }
         if (!isTopChromeHidden) {
-            tabPager.isUserInputEnabled = true
+            tabPager.isUserInputEnabled = shouldShowPhoneTopTabs(
+                selectedTabId,
+                activeNavigationController?.viewControllers?.size ?: 1
+            )
             topTabsControl.isEnabled = true
             topAvatarView.isEnabled = true
         }
@@ -1722,6 +1985,9 @@ class PhoneTabsVC(context: Context) :
         nav.blockTouches()
         nav.fadeOut(SEARCH_OVERLAY_ANIMATION) {
             nav.viewControllers.forEach { it.viewWillDisappear() }
+            // Detached so the outgoing search cannot clear focus of a replacement session.
+            nav.searchOverlayHost = null
+            nav.tabBarController = null
             nav.onDestroy()
             view.removeView(nav)
         }
@@ -1731,7 +1997,10 @@ class PhoneTabsVC(context: Context) :
     private fun fadeTopChromeForSearch(visible: Boolean) {
         val showTabs = visible &&
             !isTopChromeHidden &&
-            selectedTabId != AppTabsManager.ID_SETTINGS
+            shouldShowPhoneTopTabs(
+                selectedTabId,
+                activeNavigationController?.viewControllers?.size ?: 1
+            )
         val showAvatar = showTabs && AccountStore.permanentActiveAccount != null
         fadeTopChromeView(topTabsControl, showTabs)
         fadeTopChromeView(topAvatarView, showAvatar)
@@ -1751,64 +2020,20 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun updateSearch(query: String?, focused: Boolean) {
-        if (cachedExploreVC == null) getNavigationStack(AppTabsManager.ID_EXPLORE)
-        val exploreVC = cachedExploreVC ?: return
-        exploreVC.search(
-            query,
-            focused,
-            targetNavigationController = searchOverlayNavigationController,
-            isGlobalSearch = true
-        )
+        searchExplore(query, focused, searchOverlayNavigationController ?: return)
     }
-
-    private val minimizedBrowser by lazy {
-        MinimizedBrowserPresenter(object : MinimizedBrowserPresenter.Host {
-            override val container get() = view
-            override val availableHeight
-                get() = view.height.takeIf { it > 0 }
-                    ?: (window?.windowView?.height ?: 0)
-            override val animationsEnabled get() = WGlobalStorage.getAreAnimationsActive()
-            override val bottomInset get() = bottomBarHeight + bottomOverlayExtraGap
-            override fun canMinimize(nav: WNavigationController) =
-                window?.navigationControllers?.lastOrNull() === nav
-
-            override fun detach(nav: WNavigationController) {
-                nav.window.detachLastNav()
-            }
-
-            override fun attach(nav: WNavigationController) {
-                window?.attachNavigationController(nav)
-            }
-
-            override fun destroy(nav: WNavigationController) {
-                nav.willBeDismissed()
-                view.removeView(nav)
-                nav.onDestroy()
-            }
-
-            override fun render() = this@PhoneTabsVC.render()
-            override fun restack() = restackChromeAboveGradient()
-        })
-    }
-
-    override fun minimize(
-        nav: WNavigationController,
-        onProgress: (Float) -> Unit,
-        onMaximizeProgress: (Float) -> Unit
-    ) = minimizedBrowser.minimize(nav, onProgress, onMaximizeProgress)
-
-    override fun maximize() = minimizedBrowser.maximize(WGlobalStorage.getAreAnimationsActive())
-
-    fun maximize(animated: Boolean) = minimizedBrowser.maximize(animated)
-
-    override fun dismissMinimized(animated: Boolean) = minimizedBrowser.dismissMinimized(animated)
 
     override fun setSearchText(text: String) {
-        searchView.requestFocus()
-        searchEditText.setText(text)
+        searchView.setSearchText(text)
     }
 
     override fun clearSearchFocus() {
+        // Keep the IME up for another screen's focused field.
+        val focusedView = searchEditText.rootView.findFocus()
+        if (focusedView != null && focusedView !== searchEditText) {
+            searchEditText.clearFocus()
+            return
+        }
         // hideKeyboard() drops focus too. Clearing focus alone would leave the IME up, so the
         // search screen popped out from behind a keyboard with nothing left to type into.
         searchEditText.hideKeyboard()
@@ -1835,10 +2060,16 @@ class PhoneTabsVC(context: Context) :
     override fun showTabBar() {
         if (!isTopChromeHidden) return
         isTopChromeHidden = false
-        tabPager.isUserInputEnabled = true
+        tabPager.isUserInputEnabled = shouldShowPhoneTopTabs(
+            selectedTabId,
+            activeNavigationController?.viewControllers?.size ?: 1
+        )
         topTabsControl.isEnabled = true
         topAvatarView.isEnabled = true
-        val shouldShowTabs = selectedTabId != AppTabsManager.ID_SETTINGS
+        val shouldShowTabs = shouldShowPhoneTopTabs(
+            selectedTabId,
+            activeNavigationController?.viewControllers?.size ?: 1
+        )
         val shouldShowAvatar = shouldShowTabs && AccountStore.permanentActiveAccount != null
         showTopChromeView(topTabsControl, shouldShowTabs)
         showTopChromeView(topAvatarView, shouldShowAvatar)
@@ -1860,16 +2091,18 @@ class PhoneTabsVC(context: Context) :
     }
 
     // Distance from the container bottom to the top edge of the search bar.
-    private fun searchTopOffset(): Float = bottomBarHeight +
+    private fun searchTopOffset(extraGap: Int = bottomOverlayExtraGap): Float = bottomBarHeight +
         keyboardVisible.value.coerceAtLeast(0f) +
-        minimizedBrowser.height +
-        3.dp + bottomOverlayExtraGap +
+        (window?.minimizedBrowserHeight ?: 0f) +
+        3.dp + extraGap +
         SEARCH_HEIGHT.dp
 
     override fun onDestroy() {
+        releaseAgentBar()
+        pagePreloader?.destroy()
+        pagePreloader = null
         super.onDestroy()
         HomeStatusController.removeListener(topAvatarStatusListener)
-        minimizedBrowser.dispose()
         searchOverlayNav?.let { nav ->
             nav.viewControllers.forEach { it.viewWillDisappear() }
             view.removeView(nav)

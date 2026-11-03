@@ -12,7 +12,11 @@ public final class AgentSuggestionButton: UIButton {
     private static let minimumPressScale: CGFloat = 0.7
     private static let pressAnimationDuration: TimeInterval = 0.2
 
-    private let capsuleView = AgentSuggestionBackgroundView(cornerRadius: AgentSuggestionButton.height / 2)
+    /// Rounded as the glass under it is, also once a wrapped title makes it taller than a capsule
+    private let capsuleView = AgentSuggestionBackgroundView(cornerRadius: AgentSuggestionButton.height / 2, cornerCurve: .continuous)
+    /// Interactive Liquid Glass under the pill, which takes the touch: the pill swells and stretches toward the finger
+    /// and springs back as the system's glass does. Nil before iOS 26, where the pill shrinks under the finger.
+    private let glassView: UIVisualEffectView?
     private let labelMask = UILabel()
     private let titleGradient = CAGradientLayer()
     private let arrowView = UIImageView()
@@ -47,9 +51,25 @@ public final class AgentSuggestionButton: UIButton {
     }
 
     public init() {
+        if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
+            let effect = UIGlassEffect(style: .clear)
+            effect.isInteractive = true
+            let glassView = UIVisualEffectView(effect: effect)
+            glassView.cornerConfiguration = .corners(radius: .init(floatLiteral: Self.height / 2))
+            self.glassView = glassView
+        } else {
+            glassView = nil
+        }
         super.init(frame: .zero)
         capsuleView.isUserInteractionEnabled = false
-        addSubview(capsuleView)
+        if let glassView {
+            // The glass is the touch target, so a tap on it stands in for the button's own tracking
+            glassView.contentView.addSubview(capsuleView)
+            glassView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleGlassTap)))
+            addSubview(glassView)
+        } else {
+            addSubview(capsuleView)
+        }
         labelMask.textColor = .black
         labelMask.lineBreakMode = .byTruncatingTail
         titleGradient.startPoint = CGPoint(x: 0, y: 0.5)
@@ -94,8 +114,16 @@ public final class AgentSuggestionButton: UIButton {
         guard maximumNumberOfLines != 1, preferredMaxLayoutWidth > 0, width > preferredMaxLayoutWidth else {
             return CGSize(width: width, height: Self.height)
         }
-        let titleHeight = titleHeight(forWidth: preferredMaxLayoutWidth)
-        return CGSize(width: preferredMaxLayoutWidth, height: Self.height - Self.singleLineTitleHeight + titleHeight)
+        // A wrapped title keeps the pill as wide as its longest line, as a single line does
+        let chrome = Self.horizontalInset * 2 + (showsArrow ? Self.arrowWidth : 0)
+        let textWidth = labelMask.textRect(
+            forBounds: CGRect(x: 0, y: 0, width: max(0, preferredMaxLayoutWidth - chrome), height: .greatestFiniteMagnitude),
+            limitedToNumberOfLines: maximumNumberOfLines
+        ).width
+        let scale = window?.screen.scale ?? UIScreen.main.scale
+        let fittedWidth = min(preferredMaxLayoutWidth, ceil((textWidth + chrome) * scale) / scale + 1 / scale)
+        let titleHeight = titleHeight(forWidth: fittedWidth)
+        return CGSize(width: fittedWidth, height: Self.height - Self.singleLineTitleHeight + titleHeight)
     }
 
     private func titleHeight(forWidth width: CGFloat) -> CGFloat {
@@ -110,6 +138,7 @@ public final class AgentSuggestionButton: UIButton {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        glassView?.frame = bounds
         capsuleView.bounds = CGRect(origin: .zero, size: bounds.size)
         capsuleView.center = CGPoint(x: bounds.midX, y: bounds.midY)
         let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
@@ -144,6 +173,11 @@ public final class AgentSuggestionButton: UIButton {
 
     private func updateColors() {
         AgentSuggestionAppearance.configureTitleGradient(titleGradient, for: traitCollection)
+    }
+
+    @objc private func handleGlassTap() {
+        guard isEnabled else { return }
+        sendActions(for: [.touchUpInside, .primaryActionTriggered])
     }
 
     private func updatePressedAppearance() {
@@ -242,15 +276,17 @@ public final class AgentSuggestionBackgroundView: UIView {
     private let backgroundSheenLayer = CAGradientLayer()
     private let borderGradientLayer = CAGradientLayer()
     private let borderContainerLayer = CALayer()
-    private let borderMaskLayer = CAShapeLayer()
+    /// Draws the border as its own ring, so it follows the fill's corners whatever their curve
+    private let borderMaskLayer = CALayer()
+    private static let borderWidth: CGFloat = 0.6
     private let fixedCornerRadius: CGFloat?
 
-    public init(cornerRadius: CGFloat? = nil) {
+    public init(cornerRadius: CGFloat? = nil, cornerCurve: CALayerCornerCurve = .circular) {
         fixedCornerRadius = cornerRadius
         super.init(frame: .zero)
 
         backgroundColor = .clear
-        fillLayer.cornerCurve = .circular
+        fillLayer.cornerCurve = cornerCurve
         fillLayer.masksToBounds = true
         layer.addSublayer(fillLayer)
 
@@ -267,9 +303,9 @@ public final class AgentSuggestionBackgroundView: UIView {
         borderGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
         borderGradientLayer.locations = [0, 0.14425, 0.38464, 0.75, 1]
         borderGradientLayer.colors = AgentSuggestionAppearance.borderGradientColors
-        borderMaskLayer.fillColor = UIColor.clear.cgColor
-        borderMaskLayer.strokeColor = UIColor.black.cgColor
-        borderMaskLayer.lineWidth = 0.6
+        borderMaskLayer.borderColor = UIColor.black.cgColor
+        borderMaskLayer.borderWidth = Self.borderWidth
+        borderMaskLayer.cornerCurve = cornerCurve
         borderContainerLayer.mask = borderMaskLayer
         borderContainerLayer.addSublayer(borderGradientLayer)
         layer.addSublayer(borderContainerLayer)
@@ -279,7 +315,7 @@ public final class AgentSuggestionBackgroundView: UIView {
             "position": NSNull(),
             "frame": NSNull(),
             "colors": NSNull(),
-            "path": NSNull(),
+            "borderWidth": NSNull(),
             "endPoint": NSNull(),
             "transform": NSNull(),
             "cornerRadius": NSNull(),
@@ -306,12 +342,10 @@ public final class AgentSuggestionBackgroundView: UIView {
         backgroundColorLayer.frame = bounds
         backgroundGradientLayer.frame = bounds
         backgroundSheenLayer.frame = bounds
-        borderContainerLayer.frame = bounds.insetBy(dx: -0.6, dy: -0.6)
+        // The border lies just outside the fill
+        borderContainerLayer.frame = bounds.insetBy(dx: -Self.borderWidth, dy: -Self.borderWidth)
         borderMaskLayer.frame = borderContainerLayer.bounds
-        borderMaskLayer.path = UIBezierPath(
-            roundedRect: borderContainerLayer.bounds.insetBy(dx: 0.3, dy: 0.3),
-            cornerRadius: cornerRadius + 0.3
-        ).cgPath
+        borderMaskLayer.cornerRadius = cornerRadius + Self.borderWidth
         if traitCollection.userInterfaceStyle == .dark {
             backgroundGradientLayer.endPoint = CGPoint(x: 1, y: 1)
             borderGradientLayer.setAffineTransform(.identity)

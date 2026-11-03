@@ -34,6 +34,7 @@ export function useAccentColor(
     setExtraStyles(element, {
       '--color-accent': accentColor || 'inherit',
       '--color-accent-10o': accentColor ? `${accentColor}${HEX_10_PERCENT}` : 'inherit',
+      '--agent-link-decoration': accentColorIndex === ACCENT_BNW_INDEX ? 'underline' : 'none',
       '--color-accent-button-background': accentColor || 'inherit',
       '--color-accent-button-background-hover': accentColor ? `${accentColor}${HEX_80_PERCENT}` : 'inherit',
       '--color-accent-button-text': accentColor === '#FFFFFF' ? '#000000' : 'inherit',
@@ -41,7 +42,7 @@ export function useAccentColor(
     });
 
     toggleExtraClass(document.documentElement, 'is-white-accent', accentColor === '#FFFFFF');
-  }, [elementRefOrBody, accentColor]);
+  }, [elementRefOrBody, accentColor, accentColorIndex]);
 }
 
 export async function getAccentColorIndexFromNft(nft: ApiNft) {

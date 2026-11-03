@@ -8,6 +8,10 @@ import {
 } from './agent/answerLinkMarkers';
 import { SELF_PROTOCOL } from './deeplink/constants';
 
+// Bold and italics stay within a line, so a marker the text never closes cannot reach into the next one
+export const MARKDOWN_BOLD_PATTERN = /\*\*(\S(?:[^*\n]|\*(?!\*))*?)\*\*/gu;
+export const MARKDOWN_ITALIC_PATTERN = /(^|[^\w*])\*(\S(?:[^*\n]|\*(?!\*))*?)\*(?!\*)/gu;
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -89,7 +93,7 @@ export default function renderMarkdown(
 
   const flushParagraph = () => {
     if (paragraphLines.length === 0) return;
-    html.push(`<p>${renderAgentV2Inline(paragraphLines.join(' '), areLinksEnabled)}</p>`);
+    html.push(`<p>${renderAgentV2Inline(paragraphLines.join('\n'), areLinksEnabled)}</p>`);
     paragraphLines = [];
   };
 
@@ -224,8 +228,11 @@ function renderAgentV2Inline(text: string, areLinksEnabled: boolean): string {
       escapedCharacters.push(character);
       return `${tokenPrefix}ESCAPED_${escapedCharacters.length - 1}%%`;
     })
-    .replace(/`([^`\n]+)`/gu, (_match, code: string) => {
-      const literalCode = code.replace(escapedPattern, (_token, index: string) => escapedCharacters[Number(index)]);
+    // A code span may run over a line break, which it shows as a space
+    .replace(/`([^`]+)`/gu, (_match, code: string) => {
+      const literalCode = code
+        .replace(/\n/gu, ' ')
+        .replace(escapedPattern, (_token, index: string) => escapedCharacters[Number(index)]);
       protectedContent.push(`<code>${escapeHtml(removeAnswerLinkMarkers(literalCode))}</code>`);
       return `${tokenPrefix}CONTENT_${protectedContent.length - 1}%%`;
     })
@@ -249,16 +256,18 @@ function renderAgentV2Inline(text: string, areLinksEnabled: boolean): string {
     })
     .replace(STRAY_ANSWER_LINK_MARKER_PATTERN, '');
 
-  return formatInline(processed);
+  // The lines of a paragraph keep their breaks, as on mobile and in the design
+  return formatInline(processed).replace(/\n/gu, '<br>');
 
   function renderLink(url: string, label: string) {
-    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${formatInline(label)}</a>`;
+    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="agent-text-link">`
+      + `${formatInline(label)}</a>`;
   }
 
   function formatInline(value: string) {
     return escapeHtml(value)
-      .replace(/\*\*(\S(?:[^*\n]|\*(?!\*))*?)\*\*/gu, '<strong>$1</strong>')
-      .replace(/(^|[^\w*])\*(\S(?:[^*\n]|\*(?!\*))*?)\*(?!\*)/gu, '$1<em>$2</em>')
+      .replace(MARKDOWN_BOLD_PATTERN, '<strong>$1</strong>')
+      .replace(MARKDOWN_ITALIC_PATTERN, '$1<em>$2</em>')
       .replace(escapedPattern, (_match, index: string) => escapeHtml(escapedCharacters[Number(index)]))
       .replace(contentPattern, (_match, index: string) => protectedContent[Number(index)]);
   }

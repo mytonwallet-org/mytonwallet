@@ -26,12 +26,16 @@ describe('completeForeignUnstake', () => {
     expect(result.currentStaking).toEqual({ state: StakingState.None });
   });
 
-  it('returns to the stake form after an instant unstake', () => {
+  it('returns to the stake form with the withdrawn amount after an instant unstake', () => {
     const foreignUnstake = buildForeignUnstake({ ...DRAFT, isInstant: true });
+    const global = buildGlobal(foreignUnstake);
+    global.currentStaking.initialAmount = 'all';
 
-    const result = completeForeignUnstake(buildGlobal(foreignUnstake), foreignUnstake);
+    const result = completeForeignUnstake(global, foreignUnstake);
 
     expect(result.currentStaking.state).toBe(StakingState.StakeInitial);
+    expect(result.currentStaking.restakeAmount).toBe(DRAFT.amountNative);
+    expect(result.currentStaking.initialAmount).toBeUndefined();
     expect(result.currentStaking.foreignUnstake).toBeUndefined();
   });
 

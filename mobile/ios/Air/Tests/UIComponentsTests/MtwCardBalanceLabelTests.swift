@@ -218,6 +218,42 @@ struct MtwCardBalanceLabelTests {
     }
 
     @Test
+    func loadingBalanceCrossfadeDoesNotAnimateTextFromAZeroFrame() async throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let host = UIViewController()
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        let animationsWereEnabled = AppStorageHelper.animations
+        AppStorageHelper.animations = true
+        defer {
+            window.isHidden = true
+            AppStorageHelper.animations = animationsWereEnabled
+        }
+        let balance = MtwCardBalanceLabelView()
+        balance.frame = CGRect(x: 16, y: 170, width: 370, height: 58)
+        host.view.addSubview(balance)
+        balance.configure(balance: nil, style: .homeNavigationBarCollapsed, nft: nil,
+                          usesCardGradient: false, isHidden: false, isScrolling: false, animates: false)
+        host.view.layoutIfNeeded()
+        let amount = BaseCurrencyAmount.fromDouble(1234.56, .USD)
+        // Collection self-sizing also animates when the change row appears.
+        UIView.animate(withDuration: 0.4) {
+            balance.configure(balance: amount, style: .homeNavigationBarCollapsed, nft: nil,
+                              usesCardGradient: false, isHidden: false, isScrolling: false, animates: true)
+            host.view.layoutIfNeeded()
+        }
+        CATransaction.flush()
+        try await Task.sleep(for: .milliseconds(60))
+        let label = try #require(descendants(of: balance).first { $0 is HostingView })
+        let presented = try #require(label.layer.presentation())
+        #expect(abs(presented.position.x - balance.bounds.midX) < 0.5)
+        #expect(abs(presented.position.x - label.layer.position.x) < 0.5)
+        #expect(abs(presented.bounds.width - label.bounds.width) < 0.5)
+        #expect(abs(presented.bounds.height - label.bounds.height) < 0.5)
+        #expect(balance.numericTransitionCount == 0)
+    }
+
+    @Test
     func cardActionsYieldToScrollingAndSupportAccessibilityActivation() {
         let content = MtwCardContentView(mode: .expanded)
         let scrollView = UIScrollView()

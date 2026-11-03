@@ -7,7 +7,6 @@ struct AgentBackendEditContext {
 
 enum AgentBackendSendSource {
     case composer
-    case entryPoint(ApiAgentV2EntryPoint)
     case hint(id: String, catalogVersion: String?)
     case followup(messageID: String, followupID: String)
 }
@@ -41,6 +40,14 @@ protocol AgentBackend: AnyObject {
     /// saving failed and the rating the server keeps shows again.
     func rateMessage(messageID: AgentItemID, feedback: ApiAgentV2AnswerFeedback?) async -> Bool
     func loadOlderMessages() async -> Bool
+    /// Older messages are on their way, which the chat shows with its spinner under the header
+    var isLoadingOlderMessages: Bool { get }
+    /// The answer `messageID` can be written again in its place
+    func canRegenerateMessage(messageID: AgentItemID) -> Bool
+    /// The items `regenerateMessage(messageID:)` takes out of the chat: the answer and the messages after it
+    func getItemIDsRemovedByRegenerating(messageID: AgentItemID) -> [AgentItemID]
+    /// Asks for the answer `messageID` again: it and the messages after it give way to the new answer
+    func regenerateMessage(messageID: AgentItemID)
     func performControl(messageID: AgentItemID, controlID: String)
     func refreshPresentation()
     /// The chat is on screen, so the backend keeps its wallet data current.
@@ -62,6 +69,14 @@ extension AgentBackend {
     func rateMessage(messageID: AgentItemID, feedback: ApiAgentV2AnswerFeedback?) async -> Bool { false }
 
     func loadOlderMessages() async -> Bool { false }
+
+    var isLoadingOlderMessages: Bool { false }
+
+    func canRegenerateMessage(messageID: AgentItemID) -> Bool { false }
+
+    func getItemIDsRemovedByRegenerating(messageID: AgentItemID) -> [AgentItemID] { [] }
+
+    func regenerateMessage(messageID: AgentItemID) {}
 
     func performControl(messageID: AgentItemID, controlID: String) {}
 

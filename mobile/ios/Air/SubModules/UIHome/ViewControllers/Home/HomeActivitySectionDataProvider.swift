@@ -74,10 +74,10 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
         }
     }
 
-    private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<ActivityDateCell>(
+    private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<InsetSectionHeaderCell>(
         elementKind: UICollectionView.elementKindSectionHeader
     ) { cell, _, _ in
-        cell.configure(title: lang("$home_activity"))
+        cell.configure(title: lang("$home_activity"), topSpacing: 16)
     }
 
     init(id: String = "activity") {
@@ -150,6 +150,8 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
             using: configuration,
             layoutEnvironment: layoutEnvironment
         )
+        section.contentInsets.top = configuration.headerMode == .none ? 16 : 0
+        section.contentInsets.bottom = 0
         return section
     }
 

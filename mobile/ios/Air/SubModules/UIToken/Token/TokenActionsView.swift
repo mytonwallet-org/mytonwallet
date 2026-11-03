@@ -65,9 +65,9 @@ class TokenActionsView: WTouchPassStackView {
         addButton = makeButton(
             title: lang("Fund"),
             image: .airBundle("DepositIconLarge"),
-            imageSize: CGSize(width: 26, height: 26),
             onTap: { [weak self] in self?.addPressed() },
         )
+        addButton.accessibilityIdentifier = "header_action_fund"
         buttons += addButton
         
         sendButton = makeButton(
@@ -75,6 +75,7 @@ class TokenActionsView: WTouchPassStackView {
             image: .airBundle(usesSplitHomeActionStyle ? "SendIconLarge" : "SendIconBold"),
             onTap: { [weak self] in self?.sendPressed() },
         )
+        sendButton.accessibilityIdentifier = "header_action_send"
         buttons += sendButton
 
         swapButton = makeButton(
@@ -82,6 +83,7 @@ class TokenActionsView: WTouchPassStackView {
             image: .airBundle(usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
             onTap: { [weak self] in self?.swapPressed() },
         )
+        swapButton.accessibilityIdentifier = "header_action_swap"
         buttons += swapButton
 
         earnButton = makeButton(
@@ -89,6 +91,7 @@ class TokenActionsView: WTouchPassStackView {
             image: .airBundle(usesSplitHomeActionStyle ? "EarnIconLarge" : "EarnIconBold"),
             onTap: { [weak self] in self?.earnPressed() },
         )
+        earnButton.accessibilityIdentifier = "header_action_earn"
         buttons += earnButton
 
         if usesSplitHomeActionStyle {
@@ -110,7 +113,7 @@ class TokenActionsView: WTouchPassStackView {
         }
     }
     
-    private func makeButton(title: String, image: UIImage?, imageSize: CGSize? = nil, onTap: @escaping () -> Void) -> UIView {
+    private func makeButton(title: String, image: UIImage?, onTap: @escaping () -> Void) -> UIView {
         if usesSplitHomeActionStyle {
             let button = WActionTileButton(title: title, image: image, onTap: onTap)
             NSLayoutConstraint.activate([
@@ -119,7 +122,7 @@ class TokenActionsView: WTouchPassStackView {
             return button
         }
 
-        return WScalableButton(title: title, image: image, imageSize: imageSize, onTap: onTap)
+        return WScalableButton(title: title, image: image, onTap: onTap)
     }
     
     private func updateSpacing() {

@@ -1,4 +1,5 @@
 import UIKit
+import UIAgent
 import UIHome
 import UIAssets
 import UIBrowser
@@ -21,11 +22,12 @@ struct AppTabRegistration {
 @MainActor
 final class AppTabManager {
     static let shared = AppTabManager()
-    static let defaultTabIds: [AppTabId] = [.wallet, .market, .explore, .settings]
+    static let defaultTabIds: [AppTabId] = [.wallet, .market, .agent, .explore, .settings]
 
     private var registrations: [AppTabId: AppTabRegistration] = [:]
     private var registrationOrder: [AppTabId] = []
     private(set) var orderedTabIds: [AppTabId] = defaultTabIds
+    var toolbarTabIds: [AppTabId] { orderedTabIds.filter { $0 != .settings } }
     private var observers: [ObjectIdentifier: ([AppTabId]) -> Void] = [:]
 
     private init() {
@@ -146,6 +148,17 @@ final class AppTabManager {
             sidebarIcon: marketIcon,
             makeNavigationController: { layout in
                 AppTabLazyNavigationController { MarketVC(usesTopTabsChrome: layout == .split) }
+            },
+            sidebarEdgeCoverColor: .air.background
+        ))
+        register(AppTabRegistration(
+            id: .agent,
+            titleProvider: { lang("Agent") },
+            // The Agent's mark, 90% as tall as the other tabs' glyphs on their canvases
+            compactIcon: AgentSpinningTopIcon.makeTemplateImage(canvas: CGSize(width: 40, height: 32), markHeight: 24 * 0.9),
+            sidebarIcon: AgentSpinningTopIcon.makeTemplateImage(canvas: CGSize(width: 34, height: 34), markHeight: 22 * 0.9),
+            makeNavigationController: { _ in
+                AppTabLazyNavigationController { AgentThreadListVC(userDefaults: .standard) }
             },
             sidebarEdgeCoverColor: .air.background
         ))

@@ -1,0 +1,318 @@
+import SwiftUI
+import UIKit
+import WalletContext
+
+public struct TradeAmountField: UIViewRepresentable {
+    @ObservedObject private var environment = CardBackgroundAnimationEnvironment.shared
+    let input: TradeAmountInput
+    let editor: TradeEditor
+    let decimals: Int
+    let prefix: String
+    let suffix: String
+    let hasAmount: Bool
+    let maximumHeight: CGFloat
+    let accessibilityLabel: String
+    let accessibilityPrefix: String
+    let showsClearButton: Bool
+    let isError: Bool
+    let onChange: (TradeAmountInput) -> Void
+
+    public init(input: TradeAmountInput, editor: TradeEditor, decimals: Int, prefix: String, suffix: String,
+                hasAmount: Bool, maximumHeight: CGFloat, accessibilityLabel: String,
+                accessibilityPrefix: String = "tokenTrade", showsClearButton: Bool = true, isError: Bool = false,
+                onChange: @escaping (TradeAmountInput) -> Void) {
+        self.input = input
+        self.editor = editor
+        self.decimals = decimals
+        self.prefix = prefix
+        self.suffix = suffix
+        self.hasAmount = hasAmount
+        self.maximumHeight = maximumHeight
+        self.accessibilityLabel = accessibilityLabel
+        self.accessibilityPrefix = accessibilityPrefix
+        self.isError = isError
+        self.showsClearButton = showsClearButton
+        self.onChange = onChange
+    }
+
+    public func makeUIView(context: Context) -> TradeTextField {
+        let field = TradeTextField()
+        editor.field = field
+        return field
+    }
+
+    public func updateUIView(_ field: TradeTextField, context: Context) {
+        field.onChange = onChange
+        field.maximumHeight = maximumHeight
+        field.caretColor = AirTintColor
+        field.isError = isError
+        field.accessibilityLabel = accessibilityLabel
+        field.accessibilityIdentifier = accessibilityPrefix + ".amount"
+        field.clearAccessibilityIdentifier = accessibilityPrefix + ".clear"
+        field.showsClearButton = showsClearButton
+        field.configure(input: input, decimals: decimals, prefix: prefix, suffix: suffix, hasAmount: hasAmount)
+        field.configureAnimation(active: environment.applicationActive,
+            animated: CardBackgroundMotionPolicy(requested: true, animationsEnabled: environment.animationsEnabled,
+                lowPowerMode: environment.lowPowerMode, reduceMotion: environment.reduceMotion,
+                applicationActive: environment.applicationActive, visible: true).canAnimate)
+    }
+
+    public func sizeThatFits(_ proposal: ProposedViewSize, uiView: TradeTextField, context: Context) -> CGSize? {
+        let width = proposal.width ?? uiView.intrinsicContentSize.width
+        return CGSize(width: width, height: uiView.fittingHeight(forWidth: width))
+    }
+
+    public static func dismantleUIView(_ field: TradeTextField, coordinator: ()) {
+        field.amountPresentation.cancelInteraction()
+        field.resignFirstResponder()
+    }
+}
+
+@MainActor public final class TradeEditor {
+    public weak var field: TradeTextField?
+
+    public init() {}
+
+    public func insert(_ text: String) {
+        field?.becomeFirstResponder()
+        field?.insertText(text)
+    }
+
+    public func deleteBackward() {
+        field?.becomeFirstResponder()
+        field?.deleteBackward()
+    }
+}
+
+/// Decimal validation shared by trade forms; HeroAmountField owns editing and motion.
+public final class TradeTextField: HeroAmountField {
+    public var onChange: ((TradeAmountInput) -> Void)?
+    public var amountInput: TradeAmountInput { TradeAmountInput(text: inputText) }
+    private var decimals = 2
+
+    public override init() {
+        super.init()
+        accessibilityIdentifier = "tokenTrade.amount"
+        clearAccessibilityIdentifier = "tokenTrade.clear"
+        edit = { [weak self] text, range, replacement in
+            guard let self,
+                  let edit = TradeAmountInput(text: text).replacing(range, with: replacement, decimals: decimals) else { return nil }
+            return Edit(text: edit.input.text, caret: edit.caret)
+        }
+        onTextChange = { [weak self] text in self?.onChange?(TradeAmountInput(text: text)) }
+    }
+
+    public required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    public func configure(input: TradeAmountInput, decimals: Int, prefix: String, suffix: String, hasAmount: Bool) {
+        self.decimals = decimals
+        configure(text: input.text, prefix: prefix, suffix: suffix, hasAmount: hasAmount)
+    }
+}
+
+public struct TradeKeypadView: UIViewRepresentable {
+    let editor: TradeEditor
+    let hasText: Bool
+    let accessibilityPrefix: String
+
+    public init(editor: TradeEditor, hasText: Bool, accessibilityPrefix: String = "tokenTrade") {
+        self.editor = editor
+        self.hasText = hasText
+        self.accessibilityPrefix = accessibilityPrefix
+    }
+
+    public func makeUIView(context: Context) -> TradeKeypad { TradeKeypad(editor: editor, accessibilityPrefix: accessibilityPrefix) }
+    public func updateUIView(_ view: TradeKeypad, context: Context) { view.updateDelete(isEnabled: hasText) }
+}
+
+public final class TradeKeypad: UIView {
+    private let deleteButton = TradeKeyButton(
+        image: UIImage(systemName: "delete.left.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 23)),
+        repeatsOnHold: true
+    )
+
+    public init(editor: TradeEditor, accessibilityPrefix: String = "tokenTrade") {
+        super.init(frame: .zero)
+        backgroundColor = .air.pickerBackground
+        autoresizingMask = [.flexibleWidth]
+        let rows = UIStackView()
+        rows.axis = .vertical
+        rows.spacing = 0
+        rows.distribution = .fillEqually
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rows)
+        let preferredWidth = rows.widthAnchor.constraint(equalTo: widthAnchor, constant: -32)
+        preferredWidth.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            rows.centerXAnchor.constraint(equalTo: centerXAnchor),
+            rows.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
+            rows.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 16),
+            preferredWidth,
+            rows.topAnchor.constraint(equalTo: topAnchor),
+            rows.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        for row in 0..<4 {
+            let columns = UIStackView()
+            columns.spacing = 0
+            columns.distribution = .fillEqually
+            rows.addArrangedSubview(columns)
+            for column in 0..<3 {
+                let isDelete = row == 3 && column == 2
+                let key = row < 3 ? String(row * 3 + column + 1) : column == 0 ? (Locale.forNumberFormatters.decimalSeparator ?? ".") : "0"
+                let button = isDelete ? deleteButton : TradeKeyButton(title: key)
+                button.accessibilityTraits.insert(.keyboardKey)
+                button.accessibilityLabel = isDelete ? lang("Delete") : key
+                button.accessibilityIdentifier = isDelete ? accessibilityPrefix + ".delete" : accessibilityPrefix + ".key." + key
+                button.onPress = { [weak editor] in
+                    if isDelete { editor?.deleteBackward() } else { editor?.insert(key) }
+                    Haptics.play(.lightTap)
+                }
+                columns.addArrangedSubview(button)
+            }
+        }
+        updateDelete(isEnabled: false)
+    }
+
+    public required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    public func updateDelete(isEnabled: Bool) {
+        guard deleteButton.isEnabled != isEnabled else { return }
+        deleteButton.isEnabled = isEnabled
+        deleteButton.accessibilityElementsHidden = !isEnabled
+        let environment = CardBackgroundAnimationEnvironment.shared
+        let animated = window != nil && environment.animationsEnabled && environment.applicationActive
+            && !environment.lowPowerMode && !environment.reduceMotion
+        let changes = {
+            self.deleteButton.alpha = isEnabled ? 1 : 0
+            self.deleteButton.transform = isEnabled || !animated ? .identity : CGAffineTransform(scaleX: 0.8, y: 0.8)
+        }
+        if animated {
+            if isEnabled, deleteButton.alpha == 0 { deleteButton.transform = CGAffineTransform(scaleX: 0.8, y: 0.8) }
+            UIView.animate(withDuration: 0.24, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseOut], animations: changes)
+        } else {
+            deleteButton.layer.removeAllAnimations()
+            UIView.performWithoutAnimation(changes)
+        }
+    }
+}
+
+/// Animate the visible key without shrinking its touch target.
+private final class TradeKeyButton: UIButton {
+    public var onPress: (() -> Void)?
+    private let contentView = UIView()
+    private let pressedBackground = UIView()
+    private let keyLabel = UILabel()
+    private let keyImageView = UIImageView()
+    private let repeatsOnHold: Bool
+    private var repeatTask: Task<Void, Never>?
+    private var didRepeat = false
+
+    public init(title: String? = nil, image: UIImage? = nil, repeatsOnHold: Bool = false) {
+        self.repeatsOnHold = repeatsOnHold
+        super.init(frame: .zero)
+        contentView.isUserInteractionEnabled = false
+        contentView.accessibilityElementsHidden = true
+        addSubview(contentView)
+        pressedBackground.backgroundColor = .air.secondaryFill
+        pressedBackground.layer.cornerRadius = 16
+        pressedBackground.layer.cornerCurve = .continuous
+        pressedBackground.alpha = 0
+        contentView.addSubview(pressedBackground)
+        keyLabel.text = title
+        keyLabel.font = .systemFont(ofSize: 26)
+        keyLabel.textColor = .label
+        keyLabel.textAlignment = .center
+        contentView.addSubview(keyLabel)
+        keyImageView.image = image
+        keyImageView.tintColor = .label
+        keyImageView.contentMode = .center
+        contentView.addSubview(keyImageView)
+        addAction(UIAction { [weak self] _ in
+            self?.didRepeat = false
+            self?.startRepeating()
+        }, for: .touchDown)
+        addAction(UIAction { [weak self] _ in self?.startRepeating() }, for: .touchDragEnter)
+        addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            stopRepeating()
+            if !didRepeat { onPress?() }
+        }, for: .touchUpInside)
+        addAction(UIAction { [weak self] _ in self?.stopRepeating() }, for: [.touchUpOutside, .touchCancel, .touchDragExit])
+    }
+
+    public required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    deinit { repeatTask?.cancel() }
+
+    private func startRepeating() {
+        stopRepeating()
+        guard repeatsOnHold, isEnabled else { return }
+        repeatTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            while !Task.isCancelled {
+                if let self {
+                    didRepeat = true
+                    onPress?()
+                } else {
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+
+    private func stopRepeating() {
+        repeatTask?.cancel()
+        repeatTask = nil
+    }
+
+    public override var isEnabled: Bool {
+        didSet { if !isEnabled { stopRepeating() } }
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { stopRepeating() }
+    }
+
+    public override func accessibilityActivate() -> Bool {
+        guard isEnabled else { return false }
+        onPress?()
+        return true
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        // UIKit relayouts its own title/image views when highlighted; animate our container instead.
+        contentView.bounds = bounds
+        contentView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        pressedBackground.frame = contentView.bounds.insetBy(dx: 4, dy: 4)
+        keyLabel.frame = contentView.bounds
+        keyImageView.frame = contentView.bounds
+    }
+
+    public override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            let pressed = isHighlighted
+            let environment = CardBackgroundAnimationEnvironment.shared
+            let animated = environment.animationsEnabled && environment.applicationActive
+                && !environment.lowPowerMode && !environment.reduceMotion
+            let transform = pressed && animated
+                ? CGAffineTransform(translationX: 0, y: 2).scaledBy(x: 0.88, y: 0.88)
+                : .identity
+            let changes = {
+                self.contentView.transform = transform
+                self.pressedBackground.alpha = pressed ? 1 : 0
+            }
+            if animated {
+                UIView.animate(withDuration: pressed ? 0.1 : 0.2, delay: 0,
+                               options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseOut], animations: changes)
+            } else {
+                contentView.layer.removeAllAnimations()
+                pressedBackground.layer.removeAllAnimations()
+                UIView.performWithoutAnimation(changes)
+            }
+        }
+    }
+}

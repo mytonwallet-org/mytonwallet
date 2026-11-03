@@ -26,14 +26,6 @@ struct BridgeInjectionScript {
                     args: args
                 }));
             };
-            const mtwOriginalWindowOpen = window.open.bind(window);
-            window.open = function(url, target, features) {
-                const openedWindow = mtwOriginalWindowOpen(url, target, features);
-                if (!openedWindow && url) {
-                    window._mtwAir_invokeFunc('window:open', { url: url });
-                }
-                return openedWindow;
-            };
             window.close = function() {
                 window._mtwAir_invokeFunc('window:close');
             };

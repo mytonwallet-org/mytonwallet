@@ -122,6 +122,7 @@ sealed class WalletEvent {
     data object ConfigReceived : WalletEvent()
     data object AccountConfigReceived : WalletEvent()
     data object SeasonalThemeChanged : WalletEvent()
+    data object AgentThreadCreated : WalletEvent()
 
     data object NftsReordered : WalletEvent()
     data object HomeNftCollectionsUpdated : WalletEvent()
@@ -130,4 +131,6 @@ sealed class WalletEvent {
 
     data object AppForeground : WalletEvent()
     data object AppBackground : WalletEvent()
+
+    data class AgentThreadDeleted(val threadId: String) : WalletEvent()
 }

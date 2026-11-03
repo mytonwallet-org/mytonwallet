@@ -416,10 +416,7 @@ public final class CardSurfaceMotionDriver {
             if deviceSampleProvider == nil { motion.startDeviceMotionUpdates(using: .xArbitraryZVertical) }
         }
         previousTime = 0
-        let link = CADisplayLink(target: DisplayLinkTarget(driver: self), selector: #selector(DisplayLinkTarget.tick(_:)))
-        link.preferredFrameRateRange = frameRateRange
-        link.add(to: .main, forMode: .common)
-        displayLink = link
+        displayLink = .makeWeak(owner: self, frameRateRange: frameRateRange) { driver, link in driver.tick(link) }
     }
 
     private func stop() {
@@ -616,18 +613,5 @@ public final class CardSurfaceMotionDriver {
 
     private func clamp(_ value: CGFloat) -> CGFloat {
         min(1, max(-1, value))
-    }
-}
-
-@MainActor
-private final class DisplayLinkTarget: NSObject {
-    weak var driver: CardSurfaceMotionDriver?
-
-    init(driver: CardSurfaceMotionDriver) {
-        self.driver = driver
-    }
-
-    @objc func tick(_ link: CADisplayLink) {
-        driver?.tick(link)
     }
 }

@@ -3,6 +3,36 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 test.describe('Agent V2 answer links', () => {
+  for (const [accentColorIndex, theme] of [[0, 'light'], [16, 'light'], [16, 'dark']] as const) {
+    test(`uses link underlines for accent ${accentColorIndex} in ${theme} theme`, async ({ agentV2, page }) => {
+      await agentV2.reset('answer-links');
+      await agentV2.seedWallet();
+      await page.evaluate(({ accent, selectedTheme }) => {
+        const key = 'mytonwallet-global-state';
+        const state = JSON.parse(localStorage.getItem(key)!);
+        state.settings.theme = selectedTheme;
+        state.settings.byAccountId = { '0-mainnet': { accentColorIndex: accent } };
+        localStorage.setItem(key, JSON.stringify(state));
+      }, { accent: accentColorIndex, selectedTheme: theme });
+      await agentV2.open();
+      await agentV2.acceptConsent();
+      await agentV2.send('Where are the TON docs?');
+      await agentV2.completeRun();
+      const link = getAnswer(page).getByRole('link', { name: 'TON docs', exact: true });
+      await expect(link).toHaveCSS('text-decoration-line', accentColorIndex === 16 ? 'underline' : 'none');
+      await link.hover();
+      await expect(link).toHaveCSS('text-decoration-line', accentColorIndex === 16 ? 'underline' : 'none');
+      // The browser owns a link's menu; the surrounding bubble must not cancel it
+      expect(await link.evaluate((element) => {
+        const label = document.createElement('span');
+        label.textContent = element.textContent;
+        element.replaceChildren(label);
+        return label.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      })).toBe(true);
+      await expect(page.getByRole('menu')).toHaveCount(0);
+    });
+  }
+
   test('shows an answer link over its label from the first revealed character and from history', async ({
     agentV2,
     page,
@@ -23,6 +53,7 @@ test.describe('Agent V2 answer links', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Agent', exact: true }).last().click();
+    await agentV2.openThread();
     await expectDocsLink(page);
   });
 
@@ -43,11 +74,12 @@ test.describe('Agent V2 answer links', () => {
 
     await agentV2.send('Where can I read about TON?');
     await expectSiteLinkOnly(page);
-    await expect(page.getByText('Response interrupted', { exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-agent-v2-message-status="error"]')).toHaveCount(0);
     await expect(page.getByRole('textbox', { name: 'Ask anything' })).toBeEnabled();
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Agent', exact: true }).last().click();
+    await agentV2.openThread();
     await expectSiteLinkOnly(page);
     expect(agentErrors).toEqual([]);
   });

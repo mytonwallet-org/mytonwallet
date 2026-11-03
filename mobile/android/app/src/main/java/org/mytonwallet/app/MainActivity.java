@@ -39,12 +39,13 @@ public class MainActivity extends BaseActivity {
 
     LaunchConfig.recordAppOpened(this);
     Activity activity = this;
+    boolean isLaunchedByOwnPackage = AirLauncher.isLaunchedByOwnPackage(activity);
 
     AirLauncher airLauncher = AirLauncher.getInstance();
 
     // Do not let MainActivity open again if MTW Air is already on, just pass deeplink to handle, if required.
     if (airLauncher != null && airLauncher.getIsOnTheAir()) {
-      airLauncher.handle(activity, getIntent());
+      airLauncher.handle(activity, getIntent(), isLaunchedByOwnPackage);
       finish();
       return;
     }
@@ -54,7 +55,7 @@ public class MainActivity extends BaseActivity {
 
     airLauncher = new AirLauncher(this);
     AirLauncher.setInstance(airLauncher);
-    airLauncher.handle(getIntent());
+    airLauncher.handle(getIntent(), isLaunchedByOwnPackage);
     if (splashScreen != null) {
       splashScreen.setKeepOnScreenCondition(() -> !AirLauncher.getInstance().getIsOnTheAir());
     }
@@ -67,7 +68,7 @@ public class MainActivity extends BaseActivity {
     setIntent(intent);
     AirLauncher airLauncher = AirLauncher.getInstance();
     if (airLauncher != null) {
-      airLauncher.handle(this, intent);
+      airLauncher.handle(this, intent, AirLauncher.isLaunchedByOwnPackage(this));
     }
   }
 

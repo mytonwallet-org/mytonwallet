@@ -1,0 +1,699 @@
+@use "../../styles/mixins";
+
+@use "../agent/agentHeader";
+
+@use "../agent/agentMark";
+
+@use "../agent/agentSurface";
+
+@use "../agent/agentMenu";
+
+$rowHeight: 4.75rem;
+$avatarSize: var(--agent-avatar-size);
+// The text column starts after the avatar, and so does the line under a row
+$separatorInset: calc(1.375rem + var(--agent-avatar-size));
+$shimmerHeight: 15.625rem;
+$swipeActionSize: 3.125rem;
+$swipeActionSpacing: 0.625rem;
+$swipeCardRadius: 1.625rem;
+
+.root {
+  @include agentHeader.variables;
+
+  // The chats' avatars are as large as the tokens' in the wallet: 36 px, 42 px on a phone and 40 px in the wide layout
+  --agent-avatar-size: 2.25rem;
+
+  position: relative;
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+
+  background-color: var(--agent-background);
+
+  @include mixins.is-mobile() {
+    --agent-avatar-size: 2.625rem;
+  }
+
+  @include agentSurface.card-corners;
+
+  @include mixins.respond-above(xs) {
+    &,
+    :global(html.is-mobile) & {
+      --agent-avatar-size: 2.5rem;
+    }
+  }
+
+  // Under an open chat the list stays laid out, so that it comes back where the user left it
+  &:global(.Transition_slide-inactive) {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+
+    display: flex !important;
+
+    visibility: hidden;
+
+    // Nothing moves on the hidden list
+    .activityMarkFlat,
+    .activityText,
+    .skeletonShape {
+      animation-play-state: paused;
+    }
+  }
+}
+
+// The rows keep their place on screen themselves (see `useAgentThreadListMotion`), and measure from here
+.body {
+  overflow-anchor: none;
+
+  position: relative;
+
+  overflow-y: auto;
+  flex: 1;
+
+  min-height: 0;
+  // Room for the header and for the input bar, which float over the ends of the list
+  padding: calc(var(--header-padding-top) + var(--header-title-height)) 0 6rem;
+
+  :global(html.with-bottombar) & {
+    padding-bottom: calc(6rem + var(--bottombar-height));
+  }
+
+  @include mixins.transition(opacity 300ms ease-out);
+}
+
+// The chats give way to a new chat's suggestions while the user composes one, as on mobile
+.bodyComposing {
+  pointer-events: none;
+  opacity: 0;
+}
+
+// The suggestions stand 16 px above the field, as on an empty chat
+.compose {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--header-padding-top) + var(--header-title-height));
+  right: 0;
+  bottom: var(--agent-input-bar-height, 3.5rem);
+  left: 0;
+
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+
+  padding: 0 0.5rem 1rem;
+}
+
+// Pushes the suggestions down to the field
+.composeSpacer {
+  flex-grow: 1;
+}
+
+.composeActive {
+  pointer-events: auto;
+}
+
+.composeEmpty {
+  top: calc(var(--header-padding-top) + var(--header-title-height) + #{$rowHeight});
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionTitle {
+  padding: 0.5rem 1rem 0.25rem;
+
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.125rem;
+  color: var(--color-gray-2);
+}
+
+.item {
+  position: relative;
+
+  @include mixins.transition(background-color 500ms);
+
+  @include mixins.separatorList($separatorInset);
+
+  &::after {
+    @include mixins.transition(opacity 150ms);
+  }
+
+  &:active,
+  &.menuOpen {
+    background-color: var(--color-interactive-item-hover);
+    transition-duration: 100ms;
+  }
+
+  // A browser without `:has()` drops the whole rule that uses it, so it stays out of the rule above
+  &:has(:focus-visible) {
+    background-color: var(--color-interactive-item-hover);
+    transition-duration: 100ms;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--color-interactive-item-hover);
+      transition-duration: 100ms;
+    }
+  }
+
+  @include mixins.respond-below(xs) {
+    // The row lifted over the menu's tint keeps the list's background
+    &.menuOpen {
+      background-color: var(--agent-background);
+    }
+  }
+}
+
+// The line gives way next to a highlighted row, as the system lists do
+.item:active::after,
+.item.menuOpen::after {
+  opacity: 0;
+}
+
+// A browser without `:has()` drops the whole rule that uses it, so it stays out of the rule above
+// stylelint-disable-next-line plugin/stylelint-group-selectors
+.item:has(+ .item:active)::after,
+.item:has(+ .item.menuOpen)::after,
+.item:has(.swiped)::after {
+  opacity: 0;
+}
+
+@media (hover: hover) {
+  .item:hover::after {
+    opacity: 0;
+  }
+
+  .item:has(+ .item:hover)::after {
+    opacity: 0;
+  }
+}
+
+// The News row is a section of its own, with no line under it
+.item.newsItem::after {
+  display: none;
+}
+
+// Vertical drags scroll the list; horizontal ones reveal the actions under the row
+.swipeArea {
+  touch-action: pan-y;
+  position: relative;
+  overflow: hidden;
+}
+
+// The row becomes a card that slides over its actions
+.swiped .itemButton {
+  position: relative;
+  z-index: 1;
+  transform: translateX(calc(var(--swipe-offset) * -1));
+
+  border-start-end-radius: $swipeCardRadius;
+  border-end-end-radius: $swipeCardRadius;
+
+  background-color: var(--color-activity-gray-background);
+
+  :global(html[dir="rtl"]) & {
+    transform: translateX(var(--swipe-offset));
+  }
+}
+
+// Delete lies at the trailing edge, over the other actions as it stretches with a full swipe
+.swipeActions {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 0;
+
+  display: flex;
+  flex-direction: row-reverse;
+  gap: $swipeActionSpacing;
+  align-items: center;
+
+  padding-inline-end: calc(2 * #{$swipeActionSpacing} + #{$swipeActionSize});
+
+  visibility: hidden;
+}
+
+.swiped .swipeActions {
+  visibility: visible;
+}
+
+.swipeAction {
+  pointer-events: auto;
+
+  transform: scale(0);
+
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: $swipeActionSize;
+  height: $swipeActionSize;
+  padding: 0;
+  border: none;
+  border-radius: calc(#{$swipeActionSize} / 2);
+
+  font-size: 1.1875rem;
+  color: #FFFFFF;
+
+  opacity: 0;
+
+  @include mixins.transition('transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 250ms');
+
+  &:active {
+    filter: brightness(0.9);
+  }
+}
+
+// Each action pops in as the row uncovers its place, and the others fade under a stretching Delete
+.swipeActionShown {
+  transform: scale(1);
+  opacity: var(--swipe-faded-opacity, 1);
+}
+
+.swipeRename {
+  background-color: var(--color-accent);
+}
+
+.swipePin {
+  background-color: var(--color-yellow);
+}
+
+.swipeDelete {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  inset-inline-end: $swipeActionSpacing;
+
+  justify-content: flex-end;
+
+  width: var(--swipe-pill-width, #{$swipeActionSize});
+  margin-top: calc(#{$swipeActionSize} / -2);
+
+  background-color: var(--color-red);
+
+  &.swipeActionShown {
+    opacity: 1;
+  }
+}
+
+// Armed, the trash moves to the end the finger is at
+.swipeDeleteIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: $swipeActionSize;
+
+  @include mixins.transition(transform 300ms ease-out);
+
+  .swipeArmed & {
+    transform: translateX(calc(#{$swipeActionSize} - var(--swipe-pill-width)));
+  }
+
+  :global(html[dir="rtl"]) .swipeArmed & {
+    transform: translateX(calc(var(--swipe-pill-width) - #{$swipeActionSize}));
+  }
+}
+
+.itemButton {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  height: $rowHeight;
+  padding: 0 0.75rem;
+
+  outline: none;
+}
+
+.avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: $avatarSize;
+  height: $avatarSize;
+  border-radius: 50%;
+
+  // An emoji takes four sevenths of the avatar, as on mobile
+  font-size: calc(var(--agent-avatar-size) * 4 / 7);
+  line-height: 1;
+  color: #FFFFFF;
+
+  background: linear-gradient(to bottom, var(--start-color) 0%, var(--end-color) 100%);
+}
+
+.newsAvatar {
+  width: $avatarSize;
+  height: $avatarSize;
+}
+
+// The mark's design box is 0.6 of the avatar, as on mobile
+.avatarMark {
+  width: calc(var(--agent-avatar-size) * 0.6);
+  height: calc(var(--agent-avatar-size) * 0.6);
+}
+
+.itemText,
+.skeletonText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  min-width: 0;
+}
+
+.itemTop {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.pinIcon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: var(--color-gray-2);
+}
+
+.itemTitle {
+  overflow: hidden;
+  flex: 1;
+
+  min-width: 0;
+
+  // A size smaller off a phone, as the wallet's token names
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.25rem;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include mixins.is-mobile() {
+    font-size: 1rem;
+  }
+}
+
+.itemTime {
+  flex-shrink: 0;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+}
+
+// Two lines are kept for the preview, so that every row is as tall
+.itemBottom {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  height: 2.5rem;
+}
+
+// The preview and the Agent's status share the place under the title
+.itemStatus {
+  display: grid;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.itemPreview {
+  overflow: hidden;
+  grid-area: 1 / 1;
+  align-self: flex-start;
+
+  min-width: 0;
+  max-height: 2.5rem;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  overflow-wrap: anywhere;
+
+  @include mixins.is-mobile() {
+    font-size: 0.875rem;
+  }
+
+  @supports (-webkit-line-clamp: 2) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+// A line high and 4 px before the text, with Telegram's 2 px corners; the text runs on after it and wraps under it
+.previewThumbnail {
+  display: inline-block;
+
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline-end: 0.25rem;
+  border-radius: 0.125rem;
+
+  vertical-align: top;
+
+  opacity: 0;
+  object-fit: cover;
+
+  @include mixins.transition(opacity 150ms);
+}
+
+.previewThumbnailLoaded {
+  opacity: 1;
+}
+
+.activity {
+  display: flex;
+  grid-area: 1 / 1;
+  gap: 0.25rem;
+  align-items: center;
+  align-self: flex-start;
+
+  min-width: 0;
+  height: 1.25rem;
+}
+
+.activityMark {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline-start: -0.1875rem;
+}
+
+// The flat mark, where the 3D top is not drawn, leans from side to side as it spins
+.activityMarkFlat {
+  transform-origin: 50% 85%;
+  animation: activityMarkWobble 1.05s ease-in-out infinite alternate;
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.activityTransition {
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  height: 1.25rem;
+}
+
+// The Agent gradient sweeps along the text, as on mobile
+.activityText {
+  overflow: hidden;
+  display: block;
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include mixins.is-mobile() {
+    font-size: 0.875rem;
+  }
+
+  background-image: linear-gradient(
+    90deg,
+    agentMark.$blue 0%,
+    agentMark.$cyan 19.77%,
+    agentMark.$purple 50%,
+    agentMark.$cyan 80.23%,
+    agentMark.$blue 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  @include mixins.gradient-shimmer(2s);
+}
+
+@keyframes activityMarkWobble {
+  0% {
+    transform: rotate(-9deg);
+  }
+
+  100% {
+    transform: rotate(9deg);
+  }
+}
+
+.unreadDot {
+  flex-shrink: 0;
+
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+
+  background: agentMark.$radialGradient;
+}
+
+// The News row counts its unread news in Telegram's 20 px counter, 5 px either side of the digits, in the colors of
+// the dot, as on mobile
+.unreadCount {
+  flex-shrink: 0;
+
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3125rem;
+  border-radius: 0.625rem;
+
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25rem;
+  color: #FFFFFF;
+  text-align: center;
+
+  background: agentMark.$radialGradient;
+}
+
+// Every row, including News, is a placeholder until the first page is ready
+.skeleton {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--header-padding-top) + var(--header-title-height));
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  overflow: hidden;
+}
+
+.skeletonRow {
+  position: relative;
+
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  height: $rowHeight;
+  padding: 0 0.75rem;
+
+  @include mixins.separatorList($separatorInset);
+}
+
+// A band of light runs down across every shape at once
+.skeletonShape {
+  flex-shrink: 0;
+
+  background-color: var(--color-activity-gray-background);
+  background-image: linear-gradient(180deg, transparent 0%, var(--color-skeleton-shimmer) 50%, transparent 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: 0 (-$shimmerHeight);
+  background-size: 100% $shimmerHeight;
+
+  animation: skeletonShimmer 1.3s ease-out infinite;
+
+  :global(html.animation-level-0) & {
+    background-image: none;
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    background-image: none;
+    animation: none;
+  }
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 0 (-$shimmerHeight);
+  }
+
+  100% {
+    background-position: 0 100vh;
+  }
+}
+
+.skeletonAvatar {
+  width: $avatarSize;
+  height: $avatarSize;
+  border-radius: 50%;
+}
+
+// Each line is as tall as the text line it stands for, with its bar in the middle
+.skeletonLine {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  height: 1.25rem;
+}
+
+.skeletonBar {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.skeletonTitle,
+.skeletonPreviewShort {
+  width: 3.75rem;
+}
+
+.skeletonTime {
+  width: 1.875rem;
+  margin-inline-start: auto;
+}
+
+.skeletonPreviewLong {
+  width: 7.5rem;
+}
+
+.rowMenu {
+  // The menu stands exactly where the row places it
+  --offset-x-value: 0;
+  --offset-y-value: 0;
+  --offset-y-bottom-value: 0;
+
+  @include agentMenu.contextMenu;
+}

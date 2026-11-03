@@ -74,7 +74,9 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
     private val imageView = WImageView(context, 20.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
-    private val artworkView = CardBackgroundArtworkView(context)
+    private val artworkView = CardBackgroundArtworkView(context).apply {
+        surfaceRadius = 20f.dp
+    }
 
     private val titleLabel = WLabel(context).apply {
         setStyle(17f, WFont.Medium)

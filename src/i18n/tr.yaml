@@ -247,9 +247,9 @@ Dark: Koyu
 System: Sistem
 $stake_asset: "%symbol% stake et"
 Add Stake: Stake ekle
-"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% başka bir staking işleminde kilitli"
-"Unstake them to restake with **higher returns**.": "Onları **daha yüksek getiriyle** yeniden stake etmek için unstake edin."
-"💎 More profitable staking available": "💎 Daha yüksek getirili staking mevcut"
+"🔒 %amount% %symbol% staked elsewhere": "🔒 %amount% %symbol% başka bir staking'de"
+"Unlock your %symbol% to access higher-yield staking.": "Daha yüksek getirili staking'e erişmek için %symbol% varlıklarınızın kilidini açın."
+"💎 Higher-yield staking available": "💎 Daha yüksek getirili staking mevcut"
 "Tap to restake your %symbol% with higher returns.": "%symbol% varlıklarınızı daha yüksek getiriyle yeniden stake etmek için dokunun."
 "Restake Now": "Şimdi yeniden stake et"
 Earn from your tokens while holding them: "%symbol% tutarak pasif gelir elde edin"
@@ -680,6 +680,9 @@ Data Copied: Veri kopyalandı
 URL Copied: URL Copied
 Private Key Copied: Private Key Copied
 Contract Initialization Data Copied: Contract Initialization Data Copied
+$state_init_deploys_wallet: Alıcının adresinde henüz bir şey yoksa orada bir %version% cüzdanı oluşturur.
+$state_init_deploys_contract: Alıcının adresinde henüz bir şey yoksa orada bir akıllı sözleşme oluşturur.
+$state_init_not_deployable: Ağ bu verileri yok sayacak, hiçbir şey oluşturulmayacak.
 Open NFT Collection: NFT Koleksiyonunu Aç
 Previous: Önceki
 Next: Sonraki
@@ -908,6 +911,10 @@ $mint_action: Mint
 Burning: Yakma
 Burned: Yakıldı
 $burn_action: Yakma
+Perps Deposit: Perps yatırma
+$perps_deposit_action: Perps yatırma
+Perps Withdrawal: Perps çekme
+$perps_withdraw_action: Perps çekme
 Updating Address: Adres güncelleniyor
 Updated Address: Adres güncellendi
 $update_address_action: Adres güncelleme
@@ -1036,6 +1043,10 @@ $iab_more_tabs_count:
   oneValue: "+ %count% sekme"
   otherValue: "+ %count% sekme"
 Close Tab: Sekmeyi Kapat
+Close All: "Tümünü Kapat"
+$browser_more_tabs:
+  oneValue: "%title% ve %count% tane daha"
+  otherValue: "%title% ve %count% tane daha"
 $domains_amount %count%:
   zeroValue: Alan adı yok
   oneValue: "%count% alan adı"
@@ -1156,6 +1167,7 @@ Without it, you won't be able to access your wallet.: Onsuz cüzdanınıza eriş
 $ledger_connection_broken: Ledger bağlantısı kesildi. Lütfen yeniden bağlanıp tekrar deneyin.
 $ledger_wrong_device: Mevcut hesap farklı Ledger gizli kelimeleri veya parola ile kuruldu ya da başka bir Ledger cihazında saklanıyor
 Show More: Daha fazla göster
+Show Less: Daha az göster
 Search app or enter address: Uygulama ara veya adres gir
 Search or Ask: Ara veya sor
 Connected Apps: Bağlı Uygulamalar
@@ -1386,6 +1398,21 @@ $agent_error_limit: Asistan sınırına ulaşıldığı için istek tamamlanamı
 $agent_error_tool: Cüzdan işlemi tamamlanamadı. Lütfen tekrar deneyin.
 $agent_error_conversation_updated: Konuşma güncellendi. Lütfen isteği tekrar deneyin.
 $agent_error_generic: Asistan isteği tamamlayamadı. Lütfen tekrar deneyin.
+$agent_error_recording_too_large: "Kayıt çok uzun. Tek seferde en fazla bir dakika dikte edin."
+$agent_error_audio_unreadable: "Kayıt işlenemedi. Lütfen yeniden kaydedin."
+$agent_error_transcription_unavailable: "Sesli giriş şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+$agent_dictation_start: "Dikte et"
+$agent_dictation_finish: "Dikteyi bitir"
+$agent_dictation_recognizing: "Tanınıyor…"
+$agent_dictation_no_speech: "Konuşma duyulmadı. Mikrofona daha yakın konuşup tekrar deneyin."
+$agent_dictation_time_left: "%seconds% sn kaldı"
+$agent_dictation_time_left_short: "%seconds% sn"
+$agent_dictation_limit_reached: "Dikte bir dakika sonra durduruldu; izin verilen en uzun kayıt süresi bu."
+$agent_dictation_microphone_denied: "Dikte etmek için mikrofon erişimine izin verin."
+$agent_dictation_hold_hint: "Dikte etmek için basılı tutun. Eller serbest kayıt için yukarı kaydırın."
+$agent_dictation_too_short: "Çok kısa. Konuşurken basılı tutun."
+$agent_dictation_slide_to_cancel: "İptal etmek için sola kaydırın"
+$agent_dictation_deleted: "Kayıt silindi"
 $agent_error_invalid_response: Ajanın yanıtı okunamadı. Lütfen tekrar deneyin.
 $agent_error_update_required: Devam etmek için uygulamayı güncelleyin.
 $agent_wallet_page_navigation: Cüzdan veri sayfaları
@@ -1569,6 +1596,8 @@ Edit Wallet Name: Cüzdan adını düzenle
 Wallet Name: Cüzdan adı
 App Icon: Uygulama simgesi
 Rounded Toolbars: Yuvarlatılmış araç çubukları
+Toolbar: Araç çubuğu
+Shared Background: Ortak arka plan
 Side Gutters: Yan boşluklar
 Gradient Navigation Bar: Gradyan gezinme çubuğu
 Tokens on Home Screen: Ana ekrandaki tokenlar
@@ -1968,13 +1997,9 @@ $agent_capacity_limit_title: Agent geçici olarak kullanılamıyor
 $agent_capacity_limit_known: Yeni istekler %duration% sonra gönderilebilir.
 $agent_capacity_degraded_title: Agent kararsız yanıt verebilir
 $agent_capacity_limit_unknown: Tekrar deneyebilirsiniz, ancak yanıt yüklenmeyebilir.
-$agent_response_failed_title: Yanıt alınamadı
-$agent_response_interrupted_title: Yanıt kesildi
 $agent_retry_request: İsteği yeniden dene
 $agent_rate_limit_title: Çok fazla Agent isteği
 $agent_rate_limit_body: "%duration% sonra tekrar deneyin."
-$agent_user_quota_meter: "Agent kotası: %remaining%/%limit% birim kaldı"
-$agent_user_quota_reset: "Günlük kota %duration% sonra sıfırlanır."
 $agent_user_quota_exhausted_title: Agent kotası yetersiz
 $agent_user_quota_exhausted_body: "Bu istek için yeterli kota yok. Günlük kota %limit% birimdir ve %duration% sonra sıfırlanır."
 $agent_time_hours: "%value% sa"
@@ -2052,7 +2077,6 @@ Search token or stock: Token veya hisse ara
 Unknown Transfer: Bilinmeyen Transfer
 $dapp_sign_data_for_prefix: için
 
-# Token Buy / Sell
 "Pay %value%": "%value% öde"
 "Receive %value%": "%value% al"
 "Buy %token% via %provider%": "%provider% ile %token% al"
@@ -2069,7 +2093,6 @@ Successfully Signed: Başarıyla imzalandı
 Coming soon: Yakında
 $dapp_identity_not_confirmed: Uygulamanın kimliği **doğrulanmadı**.
 
-# Token trade asset browser and details
 "Choose Asset": "Varlık Seç"
 "Asset to Buy": "Alınacak Varlık"
 "Asset to Sell": "Satılacak Varlık"
@@ -2084,11 +2107,266 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: Bu 
 3D Gram Diamond: 3B Gram Elması
 Hold to enlarge. Drag to rotate.: Büyütmek için basılı tutun. Döndürmek için sürükleyin.
 "Max": "Maks."
+
+or use web version: "veya web sürümünü kullanın"
+By continuing, you agree to our %terms% and %privacy%.: "Devam ederek\n%terms% ve %privacy% hükümlerini kabul etmiş olursunuz."
+$auth_privacy_policy: "Gizlilik Politikası"
+$auth_more: "Daha Fazla"
+$auth_terms_of_use: "Kullanım Şartları"
+
+"Pinned": "Sabitlenenler"
+"New Chat": "Yeni sohbet"
+"Search chats": "Sohbetlerde ara"
+"Ask a question to start a new chat.": "Yeni bir sohbet başlatmak için bir soru sorun."
+"No chats found": "Sohbet bulunamadı"
+"Rename Chat": "Sohbeti yeniden adlandır"
+"Delete Chat?": "Sohbet silinsin mi?"
+"$agent_delete_chat_confirmation": "Bu sohbetteki mesajlar kalıcı olarak silinecek. Gönderilen sorun raporları ekibimizde kalacak."
+
+Invalid Address: Geçersiz adres
+Domain Not Found: Alan adı bulunamadı
+Multisig Sending Disabled: Multisig'den olmaz
+Insufficient Liquidity: Yetersiz likidite
+Too Small Amount: Çok küçük miktar
+
+News: "Haberler"
+Crypto Market News: "Kripto piyasası haberleri"
+$agent_news_new: "Yeni"
+$agent_news_open_source: "Kaynağı Aç"
+$agent_news_unavailable: "Haberler şu anda kullanılamıyor"
+$agent_news_read_more: "Devamını oku"
+$agent_news_discuss: "Tartış"
+$agent_news_continue_discussion: "Tartışmaya devam et"
+$agent_news_read_more_accessibility: "%headline% hakkında devamını oku"
+$agent_news_continue_discussion_accessibility: "%headline% hakkındaki tartışmaya devam et"
+$agent_news_ask_placeholder: "Bu haber hakkında sor"
+$agent_news_quote_accessibility: "MyPulse haberi: %headline%"
+$agent_news_unread_count:
+  oneValue: "%count% okunmamış haber"
+  otherValue: "%count% okunmamış haber"
 Explorer mode: Kaşif modu
 Open a link to a wallet, transfer, token or collectible to see its details here.: Detaylarını burada görmek için bir cüzdan, transfer, token veya koleksiyon öğesi bağlantısını açın.
+
+# Perps
+Long: "Uzun"
+Short: "Kısa"
+Funding Rate: "Fonlama oranı"
+Max Leverage: "Maks. kaldıraç"
+24h Volume: "24 saatlik hacim"
+Open Interest: "Açık pozisyon değeri"
+$perps_funding_rate_hint: "Uzun ve kısa pozisyon sahipleri arasındaki fonlama ödemelerini hesaplamak için kullanılan oran. Oran pozitifken uzun pozisyonlar kısa pozisyonlara ödeme yapar. Negatifken kısa pozisyonlar uzun pozisyonlara ödeme yapar."
+$perps_max_leverage_hint: "Bu piyasada kullanılabilecek en yüksek kaldıraç."
+$perps_volume_24h_hint: "Bu vadeli işlem piyasasında son 24 saatte yapılan işlemlerin toplam değeri. Hem açılış hem de kapanış işlemlerini içerir."
+$perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan sözleşmelerin toplam değeri. 24 saatlik hacmin aksine, daha önce kapatılmış pozisyonları içermez."
+
+# Perps order entry
+"Leverage": "Kaldıraç"
+"Position Size": "Pozisyon büyüklüğü"
+"Liquidation Price": "Likidasyon fiyatı"
+"Trading Fee": "İşlem ücreti"
+"Funding Payments": "Fonlama ödemeleri"
+"Swap Fee": "Takas ücreti"
+"Review": "İncele"
+"$perps_order_long": "%asset% Uzun"
+"$perps_order_short": "%asset% Kısa"
+"$perps_swap_fee_hint": "Bu işlem kapsamında bir tokenı başka bir tokena dönüştürme ücreti."
+"$perps_trading_fee_hint": "Bu pozisyonu açma ücreti."
+"$perps_position_size_hint": "Pozisyon büyüklüğü — kaldıraçlı pozisyonunuzun toplam değeri."
+"$perps_position_size_details_hint": "Kaldıraç dikkate alındığında pozisyonunuzun toplam değeri.\n\nÖrneğin, 5x kaldıraçla $100 yatırırsanız pozisyon büyüklüğünüz $500 olur."
+"$perps_position_size_change_hint": "Kaldıraç dikkate alındığında pozisyonunuzun toplam değeri.\nDeğerler, değişiklikten önceki ve sonraki pozisyon büyüklüğünüzü gösterir."
+"$perps_profit_hint": "Pozisyonunuzun bir kısmını kapatmaktan elde ettiğiniz kâr.\n\nÖrneğin, pozisyonunuzun yarısını kapatırsanız burada kapattığınız kısmın kârı gösterilir."
+"$perps_loss_hint": "Pozisyonunuzun bir kısmını kapatmaktan kaynaklanan zarar.\n\nÖrneğin, pozisyonunuzun yarısını kapatırsanız burada kapattığınız kısmın zararı gösterilir."
+"$perps_closing_value_hint": "Pozisyonunuz likide edildikten sonra kalan tutar. Likidasyonun sonucuna bağlı olarak bu tutar yatırdığınızdan daha az veya sıfır olabilir."
+"$perps_fees_hint": "Bu işlem için alınan toplam ücretler. İşleme bağlı olarak alım satım, takas ve ağ ücretlerini içerebilir."
+"$perps_liquidation_price_hint": "Pozisyonunuzu açık tutmaya yetecek fon bulunmadığı için otomatik olarak kapatılabileceği tahmini fiyat."
+"$perps_high_leverage_warning": "Yüksek kaldıraç: küçük bir fiyat hareketi likidasyonu tetikler."
+"$perps_leverage_disclaimer": "Daha yüksek kaldıraç, olası kâr ve zararları artırır. Pozisyonunuzun aleyhine küçük bir fiyat değişikliği bile pozisyonun otomatik olarak kapanmasına neden olabilir."
+
+# Perps order review
+"Open Position": "Pozisyon aç"
+"$perps_asset_price": "%asset% fiyatı"
+"$perps_leverage_direction": "%leverage%x %direction%"
+"$perps_liquidation_acknowledgment": "Onaylayarak bu pozisyonun likide edilebileceğini ve yatırdığım parayı kaybedebileceğimi anlıyorum."
+
+# Perps position receipt
+"Position Opened": "Pozisyon açıldı"
+"Fees": "Ücretler"
+"Transfer ID": "Transfer kimliği"
+
+# Perps active position
+"Equity": "Pozisyon değeri"
+"Profit and Loss": "Kâr ve zarar"
+"Invested": "Yatırılan"
+"Entry Price": "Giriş fiyatı"
+"Edit Position": "Pozisyonu düzenle"
+"Close Position": "Pozisyonu kapat"
+"PerpsEditPositionAction": "Düzenle"
+"PerpsClosePositionAction": "Kapat"
+"$perps_invested_hint": "Bu pozisyon için kullanılan kendi paranızın tutarı. Örneğin, 5x kaldıraçla $100 yatırırsanız yatırdığınız tutar $100, pozisyon büyüklüğünüz ise $500 olur."
+"$perps_entry_price_hint": "Bu pozisyonun açıldığı ortalama fiyat."
+"$perps_funding_payments_hint": "Uzun ve kısa pozisyon sahipleri arasındaki dönemsel ödemeler. Fonlama oranına bağlı olarak pozisyonunuz açıkken fonlama ödeyebilir veya alabilirsiniz."
+
+# Perps edit position
+"$perps_edit_long": "%asset% uzun pozisyonunu düzenle"
+"$perps_edit_short": "%asset% kısa pozisyonunu düzenle"
+"Current:": "Mevcut:"
+"Liquidation": "Likidasyon"
+"You Pay or Receive": "Ödersiniz veya alırsınız"
+"Reset to Current Amount": "Mevcut tutara sıfırla"
+"Network Fee": "Ağ ücreti"
+"$perps_network_fee_hint": "Bu işlemin blokzincirde gerçekleştirilmesi için alınan ücret."
+"$perps_edit_liquidation_hint": "Likidasyon — pozisyonunuzun otomatik olarak kapatıldığı fiyat."
+
+# Perps position lifecycle
+"Increase Position": "Pozisyonu artır"
+"Reduce Position": "Pozisyonu azalt"
+"Current Value": "Mevcut değer"
+"Closing Value": "Kapanış değeri"
+"Entry / Exit Price": "Giriş / çıkış fiyatı"
+"Entry / Liquidation Price": "Giriş / likidasyon fiyatı"
+"You Paid": "Ödediniz"
+"You Received": "Aldınız"
+"Position Increased": "Pozisyon artırıldı"
+"Position Reduced": "Pozisyon azaltıldı"
+"Position Closed": "Pozisyon kapatıldı"
+"Position Liquidated": "Pozisyon likide edildi"
+"Profit": "Kâr"
+"Loss": "Zarar"
+"$perps_current_value_hint": "Pozisyonunuzun kâr veya zararı dâhil olmak üzere yatırdığınız tutarın güncel değeri."
+"$perps_price_when_opened": "Açılıştaki %asset% fiyatı"
+"$perps_price_now": "Şimdiki %asset% fiyatı"
+"$perps_held": "Pozisyon süresi: %duration%"
+"$perps_liquidated_title": "Pozisyon otomatik olarak kapatıldı."
+"$perps_liquidated_message": "Piyasa fiyatı likidasyon fiyatına ulaştı ve zarara yol açtı."
+
+# Perps home
+"Open Positions": "Açık pozisyonlar"
+"Show All Positions": "Tüm pozisyonları göster"
+"Futures": "Vadeli işlemler"
+"Futures Market": "Vadeli işlem piyasası"
+"Liquidation Risk": "Likidasyon riski"
+"Refresh": "Yenile"
+"More Actions": "Diğer işlemler"
+"$perps_no_positions": "Henüz açık pozisyon yok. Başlamak için vadeli işlem piyasasını keşfedin."
+"$perps_explore_market": "Kripto ve gerçek dünya varlıklarıyla işlem yapın"
+"PerpsExploreAgentDescription": "Yapay zekâ asistanınız"
+"$perps_explore_futures": "Kısa ve uzun pozisyonlar açın"
+"$perps_explore_apps": "Merkeziyetsiz interneti keşfedin"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "Fiyatlar veya pozisyonunuz değişti. Geri dönüp emri tekrar inceleyin."
+"PerpsReviewChanged": "Emir değişti. Geri dönüp tekrar inceleyin."
+"PerpsInsufficientUsdc": "Köprü ücreti dahil, Arbitrum üzerinde yeterli USDC yok."
+"PerpsAmountTooSmall": "Bu tutar piyasanın alt sınırının altında."
+"PerpsUnchanged": "Pozisyonu güncellemek için farklı bir tutar girin."
+"PerpsPositionChanged": "Bu pozisyon değişti. Yenileyip tekrar deneyin."
+"PerpsPositionExists": "Bu piyasada zaten bir pozisyonunuz var. Mevcut pozisyonu düzenleyin."
+"PerpsOperationPending": "Bir işlem hâlâ bekliyor. Tekrar işlem yapmadan önce durumunu kontrol edin."
+"PerpsUnsupportedAccount": "Vadeli işlem yapmak için Arbitrum ana ağ adresi olan bir yazılım cüzdanı gerekir."
+"PerpsTradingUnavailable": "Bu piyasada işlem yapmak henüz mümkün değil."
+"PerpsInvalidLeverage": "Bu piyasanın desteklediği bir kaldıraç seçin."
+"PerpsInvalidAmount": "Geçerli bir tutar girin."
+"PerpsChangeLeverage": "Kaldıracı Değiştir"
+"PerpsChangeLeverageSeparately": "Kaldıracı pozisyon tutarından ayrı olarak değiştirin."
+"PerpsUnavailable": "Vadeli işlemler kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+"PerpsIncompleteData": "Bazı pozisyonlar yüklenemedi. Tam bakiyeyi görmek için yenileyin."
+"PerpsFeesAtExecution": "Ücretler gerçekleşme anında kesinleşir"
+"PerpsWithdrawalPending": "Pozisyon güncellendi ancak USDC çekimi tamamlanmadı. Emri tekrar göndermeyin."
+"PerpsOperationStatus": "Emir durumu"
+"PerpsExecutionUnknown": "Sonuç henüz doğrulanmadı. Başka bir işlem yapmadan önce yenileyip pozisyonunuzu ve transferi kontrol edin."
+"PerpsProcessing": "Emriniz işleniyor. Köprü transferi ve mutabakat birkaç dakika sürebilir."
+"PerpsCompleted": "Emir tamamlandı"
+"PerpsReconciled": "Hesabınız yenilendi. Gerçekleşme kaydı hazır olduğunda işlem ayrıntıları görünecek."
+
+PerpsWithdrawReleased: "Serbest kalan fonları çek"
+PerpsWithdrawDescription: "Kullanılabilir USDC’yi Hyperliquid’den Arbitrum üzerindeki bu cüzdana aktarın. 0,20 USDC yönlendirme ücreti uygulanır."
+PerpsPartialFill: "Emir kısmen gerçekleşti. Gerçekleşen tutar aşağıdadır; başka bir emir vermeden önce mevcut pozisyonunuzu inceleyin."
+
 Receiver %blockchain% Address: Alıcı %blockchain% Adresi
+
 
 Save to Photos: Fotoğraflar’a Kaydet
 Image Saved: Görsel Kaydedildi
 Allow access to Photos in Settings to save NFT images.: NFT görsellerini kaydetmek için Ayarlar’dan Fotoğraflar erişimine izin verin.
 Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekrar deneyin.
+
+"$perps_activity_opened": "%asset% açıldı"
+"$perps_activity_increased": "%asset% artırıldı"
+"$perps_activity_reduced": "%asset% azaltıldı"
+"$perps_activity_closed": "%asset% kapatıldı"
+"$perps_activity_liquidated": "%asset% likide edildi"
+
+# Perps
+"PerpsInsufficientGas": "Ağ ücretini karşılamak için Arbitrum üzerinde yeterli ETH yok. Pozisyon için ayrılan USDC bu ücretten ayrıdır."
+"PerpsFundingMissingTitle": "Arbitrum’da USDC veya ETH yok"
+"$perps_funding_missing": "En az %minUSDC% USDC ve ücretler için %feeETH% ETH alın."
+"$perps_funding_usdc": "Pozisyon açmak için Arbitrum’da en az %minUSDC% USDC gerekir."
+"$perps_funding_usdc_increase": "Bu pozisyonu artırmak için Arbitrum’da en az %minUSDC% USDC gerekir."
+"PerpsFundingGasTitle": "Ücret için yeterli ETH yok"
+"$perps_funding_gas": "Arbitrum’daki ücretler ETH ile ödenir. %feeETH% ETH (~%feeFiat%) alın."
+"PerpsFundingTokenTitle": "Arbitrum’da USDC ile ödeyin"
+"PerpsFundingTokenDescription": "Diğer tokenlar henüz desteklenmiyor. Devam etmek için USDC alın."
+"Not Enough Funds": "Yetersiz bakiye"
+"Unsupported Token": "Desteklenmeyen token"
+"PerpsReviewUpdated": "Fiyatlar güncellendi. Onaylamadan önce emri tekrar inceleyin."
+"PerpsOrderTooSmall": "Minimum emir değeri 10 USD’dir."
+"PerpsOrderNotFilled": "Emir, incelenen fiyattan gerçekleşemedi. Yenileyip tekrar deneyin."
+"PerpsInsufficientMargin": "Bu emir için yeterli teminat yok. Pozisyonunuzu yenileyip tutarı ayarlayın."
+"PerpsOrderRejected": "Borsa bu emri reddetti. Pozisyonunuzu yenileyip emri tekrar inceleyin."
+"Order": "Emir"
+"Order ID": "Emir kimliği"
+"Date": "Tarih"
+"PerpsAllowNewOrders": "Yeni emirlere izin ver"
+"PerpsAcknowledgeUnknown": "İlk emir hâlâ gerçekleşebilir. Önce pozisyonlarınızı ve transferlerinizi kontrol edin. Yeni emirlere izin vermek ilk emri iptal etmez."
+"$perps_market_title": "%asset% vadeli işlemleri"
+"Recent Market Activity": "Son piyasa hareketleri"
+"Trade Size": "İşlem büyüklüğü"
+"PerpsExchangeFee": "Borsa ücreti"
+"PerpsServiceFee": "Cüzdan ücreti"
+"PerpsBridgeFee": "Köprü ücreti"
+"PerpsTotalFees": "Toplam USDC ücretleri"
+"PerpsFeeEstimateHint": "≈ ile işaretli ücretler tahminidir ve gerçekleşme anında değişebilir. Arbitrum ağ ücreti ayrıca ETH olarak ödenir."
+"PerpsUnallocatedCollateral": "Ayrılmamış teminat"
+"PerpsUnallocatedCollateralHint": "Piyasanın işlem büyüklüğüne yuvarlama, bir miktar USDC’yi pozisyon dışında bırakabilir. Bu fonlar vadeli işlem hesabınızda kalır; ücret değildir."
+"PerpsOnboardingTitle": "Vadeli işlemlerde yeni misiniz?"
+"PerpsOnboardingDescription": "Nasıl çalıştığını 1 dakikadan kısa sürede öğrenin."
+"PerpsOnboardingOpen": "Tanıtımı Aç"
+"PerpsStoryIntroTitle": "Sürekli vadeli işlemlerle tanışın"
+"PerpsStoryIntroBody": "Varlık fiyatının hem yükselişine hem de düşüşüne pozisyon açın."
+"PerpsStoryLongTitle": "Yükseliş mi bekliyorsunuz? Uzun pozisyon açın"
+"PerpsStoryLongBody": "Fiyat yükselirse kâr, düşerse zarar edersiniz."
+"PerpsStoryShortTitle": "Düşüş mü bekliyorsunuz? Kısa pozisyon açın"
+"PerpsStoryShortBody": "Fiyat düşerse kâr, yükselirse zarar edersiniz."
+"PerpsStoryLeverageTitle": "Kaldıraç sonucu büyütür"
+"PerpsStoryLeverageBody": "Teminat, pozisyondaki kendi paranızdır. 5× kaldıraçla $10, $50 değerinde bir pozisyonu kontrol eder — kâr ve zararlar da 5 kat büyür."
+"PerpsStoryLiquidationTitle": "Pozisyonunuz otomatik olarak kapanabilir"
+"PerpsStoryLiquidationBody": "Buna likidasyon denir: zararlar nedeniyle teminat yetersiz kalırsa pozisyonunuz kapatılabilir. Likidasyon fiyatını takip edin."
+"PerpsStoryFundingTitle": "Fonlama, yatırımcılar arasındaki bir ödemedir"
+"PerpsStoryFundingBody": "Fonlama oranı pozitif olduğunda Uzun pozisyondakiler Kısa pozisyondakilere ödeme yapar. Negatif olduğunda Kısa pozisyondakiler Uzun pozisyondakilere ödeme yapar."
+"PerpsStoryStart": "Başla"
+
+"Funding Payment": "Fonlama ödemesi"
+"Withdrawal": "Çekim"
+"Transfer": "Transfer"
+"Spot Balance": "Spot bakiye"
+"From": "Kaynak"
+"To": "Hedef"
+
+Delete Chat: Sohbeti sil
+Unread: Okunmadı
+$agent_connection_lost: Asistan bağlantısı kesildi.
+$agent_daily_limit_reached: Günlük Asistan sınırına ulaşıldı
+$media_viewer_date_at_time: "%date%, %time%"
+Picture: Görsel
+
+Add to Reading List: Okuma Listesine Ekle
+
+$enclave_data_missing_title: Cüzdan Verileri Bulunamadı
+$enclave_data_missing_message: |
+  Bu bir şifre sorunu değil. Uygulamanın bu cihazda şifrenizi doğrulamak ve cüzdanlarınızı açmak için kullandığı veriler eksik, bu yüzden burada hiçbir şifre onların kilidini açamaz.
+
+  Uygulamayı yeniden yüklemeyin ve verilerini sistem ayarlarından temizlemeyin. Aşağıdaki düğmeyle kayıtları dışa aktarın ve %support_link% adresine gönderin: bu cihazda ne olduğunu onlardan göreceğiz.
+
+  Cüzdanlarınızın gizli kelimeleri sizdeyse tüm cüzdanlardan çıkıp onları yeniden içe aktarabilirsiniz.
+
+Install the TON App on your Ledger and try again.: TON Uygulamasını Ledger'ınıza yükleyin ve tekrar deneyin.

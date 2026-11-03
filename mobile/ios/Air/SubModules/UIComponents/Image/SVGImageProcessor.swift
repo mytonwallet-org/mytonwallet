@@ -5,8 +5,9 @@ import UIKit
 
 public struct SVGImageProcessor: ImageProcessor {
     public static let `default` = SVGImageProcessor()
+    public static let cacheSerializer = SVGImageCacheSerializer()
 
-    public let identifier = "org.mytonwallet.air.svg-image-processor.v1"
+    public let identifier = "org.mytonwallet.air.svg-image-processor.v4"
 
     public init() {}
 
@@ -35,9 +36,20 @@ public struct SVGImageProcessor: ImageProcessor {
         let state = SVGRenderState()
         let semaphore = DispatchSemaphore(value: 0)
 
-        _ = CALayer(SVGData: data) { svgLayer in
-            state.finish(renderedImage(from: svgLayer, scale: scale))
-            semaphore.signal()
+        // Kingfisher owns the image cache. Parse and rasterize on one thread rather
+        // than copying SwiftSVG's asynchronously mutated Core Animation layers.
+        let parse = {
+            let parser = NSXMLSVGParser(SVGData: data) { svgLayer in
+                state.finish(renderedImage(from: svgLayer, scale: scale))
+                semaphore.signal()
+            }
+            parser.shouldParsePathsAsynchronously = false
+            parser.startParsing()
+        }
+        if Thread.isMainThread {
+            parse()
+        } else {
+            DispatchQueue.main.async(execute: parse)
         }
 
         waitForRender(state: state, semaphore: semaphore)
@@ -65,14 +77,19 @@ public struct SVGImageProcessor: ImageProcessor {
         format.opaque = false
         format.scale = scale > 0 ? scale : 1
 
-        return UIGraphicsImageRenderer(size: bounds.size, format: format).image { context in
+        let resize = min(1, 256 / max(bounds.width, bounds.height))
+        let size = CGSize(width: bounds.width * resize, height: bounds.height * resize)
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            context.cgContext.scaleBy(x: resize, y: resize)
             context.cgContext.translateBy(x: -bounds.minX, y: -bounds.minY)
             svgLayer.render(in: context.cgContext)
         }
     }
 
     private static func renderBounds(for svgLayer: SVGLayer) -> CGRect {
-        for bounds in [svgLayer.bounds, CGRect(origin: .zero, size: svgLayer.frame.size), svgLayer.boundingBox] {
+        // SwiftSVG wraps the SVG viewport in a zero-sized layer. Cropping to the
+        // paths' bounding box discards intentional padding and stretches logos.
+        for bounds in [svgLayer.sublayers?.first?.frame ?? .zero, svgLayer.bounds, svgLayer.boundingBox] {
             let standardized = bounds.standardized
             if standardized.width > 0, standardized.height > 0, !standardized.isNull, !standardized.isInfinite {
                 return standardized
@@ -80,6 +97,18 @@ public struct SVGImageProcessor: ImageProcessor {
         }
 
         return .zero
+    }
+}
+
+/// The original cache can contain SVG bytes, which UIImage cannot decode.
+/// Keep processed entries as bitmaps, while allowing original entries to be reprocessed.
+public struct SVGImageCacheSerializer: CacheSerializer {
+    public func data(with image: KFCrossPlatformImage, original: Data?) -> Data? {
+        DefaultCacheSerializer.default.data(with: image, original: nil)
+    }
+
+    public func image(with data: Data, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
+        SVGImageProcessor.default.process(item: .data(data), options: options)
     }
 }
 

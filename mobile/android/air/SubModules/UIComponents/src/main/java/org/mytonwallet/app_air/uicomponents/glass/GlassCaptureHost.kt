@@ -14,4 +14,10 @@ interface GlassCaptureHost {
     fun glassDrawBackground(canvas: Canvas) {}
 
     fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean
+
+    /** Draws what lies over the children, after them */
+    fun glassDrawForeground(canvas: Canvas) {}
+
+    /** The state of what the background and the foreground draw, which a capture has to record anew when it changes */
+    fun glassDrawnStateHash(): Long = 0
 }

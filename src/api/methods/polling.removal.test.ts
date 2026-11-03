@@ -25,6 +25,7 @@ jest.mock('../chains', () => ({
 }));
 jest.mock('../chains/ton', () => ({}));
 jest.mock('../common/mnemonic', () => ({}));
+jest.mock('../common/nftSync', () => ({ removeNftSyncSnapshots: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../common/addresses', () => ({ tryUpdateKnownAddresses: jest.fn() }));
 jest.mock('../common/backend', () => ({ callBackendGet: jest.fn(), callBackendPost: jest.fn() }));
 jest.mock('../common/cache', () => ({ setBackendConfigCache: jest.fn() }));

@@ -6,6 +6,7 @@ open class WHighlightCollectionViewCell: UICollectionViewCell {
     
     open var highlightingTime: Double = 0.1
     open var unhighlightingTime: Double = 0.5
+    open var highlightedContentAlpha: CGFloat?
 
     open var baseBackgroundColor: UIColor? = nil {
         didSet {
@@ -34,8 +35,11 @@ open class WHighlightCollectionViewCell: UICollectionViewCell {
                 }
                 UIView.animate(withDuration: isHighlighted ? highlightingTime : unhighlightingTime,
                                delay: 0,
-                               options: UIView.AnimationOptions.allowUserInteraction) {
+                               options: [.beginFromCurrentState, .allowUserInteraction]) {
                     self.backgroundColor = self.isHighlighted ? self.highlightBackgroundColor : defaultColor
+                    if let highlightedContentAlpha = self.highlightedContentAlpha {
+                        self.contentView.alpha = self.isHighlighted ? highlightedContentAlpha : 1
+                    }
                 }
                 if !isHighlighted {
                     oldBackground = nil

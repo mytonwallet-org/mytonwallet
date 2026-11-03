@@ -1,14 +1,9 @@
-// Reveals the rating buttons of an older answer while the pointer or the keyboard focus is on it
-.answer {
-  @media (hover: hover) {
-    &:hover,
-    &:focus-within {
-      --agent-answer-hover-opacity: 1;
-    }
-  }
-}
-
 .button {
   width: calc(100% - 0.5rem);
   margin-inline-start: 0.5rem;
+}
+
+.confirmButton {
+  --agent-action-text: var(--color-activity-green-text);
+  --agent-action-background: var(--color-activity-green-background);
 }

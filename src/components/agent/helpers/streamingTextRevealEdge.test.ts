@@ -61,4 +61,54 @@ describe('streaming reveal edge pool', () => {
       }
     }
   });
+
+  it('moves the covers of a word that wraps to the next line, at the point of their animation', () => {
+    const originalAnimate = Object.getOwnPropertyDescriptor(Element.prototype, 'animate');
+    const animate = jest.fn(() => ({ cancel: jest.fn(), currentTime: 0 }) as unknown as Animation);
+    Object.defineProperty(Element.prototype, 'animate', { configurable: true, value: animate });
+    let lineTop = 0;
+    jest.spyOn(document, 'createRange').mockImplementation(() => ({
+      setStart: jest.fn(),
+      setEnd: jest.fn(),
+      getClientRects: () => [new DOMRect(200, lineTop, 10, 20)],
+    }) as unknown as Range);
+    const container = document.createElement('div');
+    container.style.backgroundColor = 'rgb(30, 30, 30)';
+    const content = document.createElement('div');
+    const layer = document.createElement('span');
+    container.append(content, layer);
+    document.body.appendChild(container);
+    const groupsRef = { current: [] as RevealEdgeGroupState[] };
+    const lifecycleRef = { current: 0 };
+    setPhase('mutate');
+
+    try {
+      content.textContent = 'Ether';
+      animateRevealEdges(container, content, layer, '', 'Ether', groupsRef, lifecycleRef, jest.fn());
+      const firstCover = layer.querySelector<HTMLElement>('[data-agent-streaming-reveal-edge-cover]')!;
+      expect(firstCover.style.top).toBe('0px');
+      (animate.mock.results[0].value as { currentTime: number }).currentTime = 120;
+
+      lineTop = 20;
+      content.textContent = 'Ethereum';
+      animateRevealEdges(container, content, layer, 'Ether', 'Ethereum', groupsRef, lifecycleRef, jest.fn());
+
+      const covers = Array.from(layer.querySelectorAll<HTMLElement>('[data-agent-streaming-reveal-edge-cover]'));
+      expect(firstCover.isConnected).toBe(false);
+      expect(covers.map(({ style }) => style.top)).toEqual(['20px', '20px']);
+      expect(covers.map(({ textContent }) => textContent)).toEqual(['Ether', 'eum']);
+      expect(animate.mock.results[0].value.cancel).toHaveBeenCalled();
+      expect((animate.mock.results[1].value as { currentTime: number }).currentTime).toBe(120);
+    } finally {
+      clearRevealEdges(groupsRef);
+      setPhase('measure');
+      container.remove();
+      jest.restoreAllMocks();
+      if (originalAnimate) {
+        Object.defineProperty(Element.prototype, 'animate', originalAnimate);
+      } else {
+        Reflect.deleteProperty(Element.prototype, 'animate');
+      }
+    }
+  });
 });

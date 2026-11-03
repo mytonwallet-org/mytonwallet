@@ -17,7 +17,6 @@ import org.mytonwallet.app_air.blur3.drawable.BlurredBackgroundDrawable
 import org.mytonwallet.app_air.blur3.drawable.BlurredBackgroundDrawableRenderNode
 import org.mytonwallet.app_air.blur3.drawable.color.BlurredBackgroundColorProvider
 import org.mytonwallet.app_air.blur3.source.BlurredBackgroundSourceColor
-import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardBadgeLight
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -403,21 +402,11 @@ class WGlassView(context: Context) :
         super.onDetachedFromWindow()
     }
 
-    private var cardSurfaceLight: CardBadgeLight? = null
-    fun setCardSurfaceLight(x: Float?, y: Float?) {
-        if (x == null || y == null) {
-            if (cardSurfaceLight != null) {
-                cardSurfaceLight = null
-                invalidate()
-            }
-            return
-        }
-        val light = cardSurfaceLight ?: CardBadgeLight().also { cardSurfaceLight = it }
-        if (light.setTilt(x, y)) invalidate()
-    }
-
     override fun onDraw(canvas: Canvas) {
-        if (GlassCapture.capturing) {
+        // Another root's capture records this glass as the frame shows it, since the frame draws what the capture
+        // records; leaving it out there would leave it out of the frame
+        val captureRoot = GlassCapture.root
+        if (GlassCapture.capturing && (captureRoot == null || captureRoot === root)) {
             postInvalidateOnAnimation()
             return
         }
@@ -435,12 +424,6 @@ class WGlassView(context: Context) :
             canvas.restore()
         } else {
             drawn.draw(canvas)
-            cardSurfaceLight?.let { light ->
-                val save = canvas.save()
-                pill?.path?.let { canvas.clipPath(it) }
-                light.draw(canvas, width, height)
-                canvas.restoreToCount(save)
-            }
         }
     }
 

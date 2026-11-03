@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -33,6 +35,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.graphics.toColorInt
+import androidx.core.graphics.withTranslation
 import androidx.core.net.toUri
 import java.net.URL
 import java.net.URLEncoder
@@ -40,24 +43,31 @@ import java.util.Locale
 import java.util.regex.Pattern
 import kotlin.math.max
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
+import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.asImage
+import org.mytonwallet.app_air.uicomponents.extensions.captureHardwareImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uiinappbrowser.helpers.IABDarkModeStyleHelpers
 import org.mytonwallet.app_air.uiinappbrowser.views.InAppBrowserTopBarView
+import org.mytonwallet.app_air.uiinappbrowser.views.TitleSnapshot
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.isBrightColor
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
 import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.EvmConnectHelper
@@ -176,19 +186,10 @@ private const val ORIGIN_PERMISSION_MICROPHONE = "microphone"
 private const val ORIGIN_PERMISSION_GEOLOCATION = "geolocation"
 
 @SuppressLint("ViewConstructor")
-class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: InAppBrowserConfig) :
+class InAppBrowserVC(context: Context, val config: InAppBrowserConfig) :
     WViewController(context),
     IInAppBrowser,
     WalletCore.EventObserver {
-
-    private val isMinimizationSupported = tabBarController != null
-
-    val tabBarController: ITabsVC?
-        get() {
-            if (!isMinimizationSupported) return null
-            return window?.navigationControllers?.firstOrNull()
-                ?.viewControllers?.firstOrNull() as? ITabsVC
-        }
 
     @Suppress("PropertyName")
     override val TAG = "InAppBrowser"
@@ -197,12 +198,37 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
 
     override val isSwipeBackAllowed = false
 
+    var tabPreview: Bitmap? = null
+        private set
+
+    var tabHeader: Bitmap? = null
+        private set
+    var tabHeaderActions: Bitmap? = null
+        private set
+    var tabTitleSnapshot: TitleSnapshot? = null
+        private set
+    val tabTitle: String get() = topBar.displayTitle ?: lastTitle
+    val tabIcon: Bitmap? get() = topBar.iconSnapshot()
+    val tabBarColor: Int get() = topBackgroundColor ?: WColor.SecondaryBackground.color
+    val tabBarIsDark: Boolean? get() = topBar.overrideThemeIsDark
+    val tabBarHeight: Int
+        get() = (
+            if (config.options.isNullOrEmpty()) {
+                WNavigationBar.DEFAULT_HEIGHT_TINY
+            } else {
+                WNavigationBar.DEFAULT_HEIGHT
+            }
+            ).dp
+
+    override val coversMinimizedBrowser = true
+
     override val topBarConfiguration = super.topBarConfiguration.copy(blurRootView = null)
     override val topBlurViewGuideline: View
         get() = topBar
     override val ignoreSideGuttering = true
 
     private var savedInExploreVisitedHistory = false
+    private var hasPageIcon = false
     private var shouldClearHistoryOnLoad = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private val grantedPermissionsByOrigin = mutableMapOf<String, MutableSet<String>>()
@@ -220,13 +246,25 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             options = config.options,
             selectedOption = config.selectedOption,
             optionsOnTitle = config.optionsOnTitle,
-            minimizeStarted = {
-                barBackgroundAnimator?.cancel()
+            minimizeStarted = { onReady ->
+                barBackgroundAnimator?.end()
                 barBackgroundAnimator = null
                 updateSystemBarColors()
-                webViewScreenShot.setImageBitmap(webViewContainer.asImage())
-                webViewScreenShot.visibility = View.VISIBLE
-                webView.visibility = View.GONE
+                pendingWebViewReveal = null
+                topBar.withTitleHidden {
+                    tabHeader = topBar.withActionsHidden { captureTopBar() }
+                    tabHeaderActions = captureTopBar()
+                }
+                tabTitleSnapshot = topBar.titleSnapshot()?.let {
+                    it.copy(top = it.top - topBarCaptureInset)
+                }
+                webViewContainer.captureHardwareImage { bitmap ->
+                    tabPreview = bitmap
+                    webViewScreenShot.setImageBitmap(bitmap ?: webViewContainer.asImage())
+                    showWebViewScreenShot()
+                    webView.visibility = View.GONE
+                    onReady()
+                }
             },
             minimizeFinished = {
                 topReversedCornerView?.setBlurOverlayColor(null)
@@ -237,14 +275,12 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
                 bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor)
             },
             maximizeFinished = {
-                updateSystemBarColors()
-                view.post {
-                    webView.visibility = View.VISIBLE
-                    webView.post {
-                        // prevents web-view flickers from being visible
-                        webViewScreenShot.visibility = View.GONE
-                    }
+                pendingBarColor?.let {
+                    pendingBarColor = null
+                    animateBarBackground(it.color)
                 }
+                updateSystemBarColors()
+                view.post { revealWebView() }
             }
         ).apply {
             updateTitle(lastTitle, animated = false)
@@ -258,7 +294,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
     override val forceBlurBottomView = true
 
     private val webViewScreenShot: AppCompatImageView by lazy {
-        AppCompatImageView(context).apply {
+        ScreenshotImageView(context).apply {
             id = View.generateViewId()
         }
     }
@@ -323,6 +359,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
                 // Prev method call may not work sometimes, so let's reset dark mode styles.
                 if (config.injectDarkModeStyles) IABDarkModeStyleHelpers.applyOn(webView)
 
+                if (config.thumbnail == null && !hasPageIcon) loadPageIconUrl()
                 if (config.saveInVisitedHistory && !savedInExploreVisitedHistory) {
                     savedInExploreVisitedHistory = true
                     saveInExploreVisitedHistory()
@@ -400,7 +437,9 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
 
             override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
                 super.onReceivedIcon(view, icon)
-                if (config.thumbnail == null) topBar.setIconBitmap(icon)
+                if (config.thumbnail != null) return
+                hasPageIcon = icon != null
+                topBar.setIconBitmap(icon)
             }
         })
         wv.alpha = 0f
@@ -410,17 +449,17 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
 
     val injectedInterface: TonConnectInjectedInterface? by lazy {
         try {
-            if (config.injectDappConnect) {
+            if (config.injectDappConnect && TonConnectInjectedInterface.isSupported) {
                 TonConnectInjectedInterface(
                     webView = webView,
                     accountId = AccountStore.activeAccountId ?: return@lazy null,
-                    uri = config.url.toUri(),
                     showError = { error ->
                         showAlert(
                             LocaleController.getString("Error"),
                             error
                         )
-                    }
+                    },
+                    openNonWebUrl = { url -> shouldOverride(url) }
                 )
             } else {
                 null
@@ -524,12 +563,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
 
         applyTopBarColorInitial()
 
-        injectedInterface?.let {
-            webView.addJavascriptInterface(
-                it,
-                TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE
-            )
-        }
+        injectedInterface?.install()
 
         if (config.topBarColorMode == InAppBrowserConfig.TopBarColorMode.CONTENT_BASED) {
             webView.addJavascriptInterface(themeColorBridge, THEME_BRIDGE_INTERFACE)
@@ -545,6 +579,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
     override fun navigate(url: String) {
         shouldClearHistoryOnLoad = true
         topBar.setIconBitmap(null)
+        hasPageIcon = false
         config.thumbnail = null
         webView.loadUrl(url)
     }
@@ -552,6 +587,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
     private var isFirstAppearance = true
     override fun viewDidAppear() {
         super.viewDidAppear()
+        updateSystemBarColors()
 
         if (isFirstAppearance) {
             isFirstAppearance = false
@@ -563,18 +599,61 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
     override fun viewDidEnterForeground() {
         super.viewDidEnterForeground()
 
-        webView.visibility = View.VISIBLE
-        webView.post {
-            webViewScreenShot.visibility = View.GONE
-        }
+        revealWebView()
         updateSystemBarColors()
+    }
+
+    // Status bar height cropped from header captures.
+    private val topBarCaptureInset get() = navigationController?.getSystemBars()?.top ?: 0
+
+    private fun captureTopBar(): Bitmap? {
+        val full = topBar.asImage() ?: return null
+        val topInset = topBarCaptureInset.coerceIn(0, full.height - 1)
+        if (topInset == 0) return full
+        val cropped = Bitmap.createBitmap(full, 0, topInset, full.width, full.height - topInset)
+        full.recycle()
+        return cropped
+    }
+
+    private var pendingWebViewReveal: Any? = null
+
+    // Keeps the screenshot until the WebView has drawn.
+    private fun revealWebView() {
+        webView.visibility = View.VISIBLE
+        val reveal = Any()
+        pendingWebViewReveal = reveal
+        webView.postVisualStateCallback(
+            0,
+            object : WebView.VisualStateCallback() {
+                override fun onComplete(requestId: Long) {
+                    if (pendingWebViewReveal !== reveal) return
+                    webView.postOnAnimation {
+                        if (pendingWebViewReveal !== reveal) return@postOnAnimation
+                        pendingWebViewReveal = null
+                        webViewScreenShot.fadeOut(AnimationConstants.QUICK_ANIMATION) {
+                            webViewScreenShot.visibility = View.GONE
+                            webViewScreenShot.alpha = 1f
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private fun showWebViewScreenShot() {
+        webViewScreenShot.animate().cancel()
+        webViewScreenShot.alpha = 1f
+        webViewScreenShot.visibility = View.VISIBLE
     }
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        pendingWebViewReveal = null
         updateSystemBarColors()
+        // A hidden WebView already has its screenshot; recapturing it now would draw blank.
+        if (webView.visibility != View.VISIBLE) return
         webViewScreenShot.setImageBitmap(webViewContainer.asImage())
-        webViewScreenShot.visibility = View.VISIBLE
+        showWebViewScreenShot()
         webView.visibility = View.GONE
     }
 
@@ -609,9 +688,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             webViewClient = WebViewClient()
             webChromeClient = null
             setDownloadListener(null)
-            if (injectedInterface != null) {
-                removeJavascriptInterface(TonConnectHelper.TON_CONNECT_WALLET_JS_BRIDGE_INTERFACE)
-            }
+            injectedInterface?.uninstall()
             removeJavascriptInterface(THEME_BRIDGE_INTERFACE)
             clearHistory()
             (parent as? ViewGroup)?.removeView(this)
@@ -651,9 +728,23 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
         return false
     }
 
-    private fun saveInExploreVisitedHistory() {
+    private fun fetchFaviconUrl(onResult: (String?) -> Unit) {
         webView.evaluateJavascript(FETCH_FAV_ICON_URL_JS) { result ->
-            val faviconUrl = result?.trim('"')?.takeIf { it.isNotEmpty() && it != "null" }
+            onResult(result?.trim('"')?.takeIf { it.isNotEmpty() && it != "null" })
+        }
+    }
+
+    // WebView skips onReceivedIcon for many pages, so the icon falls back to the page's link tags.
+    private fun loadPageIconUrl() {
+        fetchFaviconUrl { faviconUrl ->
+            if (faviconUrl != null && !hasPageIcon && config.thumbnail == null) {
+                topBar.setIconUrl(faviconUrl)
+            }
+        }
+    }
+
+    private fun saveInExploreVisitedHistory() {
+        fetchFaviconUrl { faviconUrl ->
             if (!isDisappeared && faviconUrl != null) {
                 ExploreHistoryStore.saveSiteVisit(
                     MExploreHistory.VisitedSite(
@@ -667,13 +758,19 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
         }
     }
 
+    private var ownsSystemBars = false
+
     private fun updateSystemBarColors() {
         if (isDisappeared || topBar.isMinimizing || topBar.isMinimized) {
+            // Only clear the style this browser set.
+            if (!ownsSystemBars) return
+            ownsSystemBars = false
             window?.forceStatusBarLight = null
             window?.forceBottomBarLight = null
             return
         }
         topBar.overrideThemeIsDark?.let { overrideThemeIsDark ->
+            ownsSystemBars = true
             window?.forceStatusBarLight = overrideThemeIsDark
             window?.forceBottomBarLight = overrideThemeIsDark
         }
@@ -708,10 +805,25 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
         }
     }
 
+    // The tab switcher's opening card has square corners; grow the bar corners from there.
+    fun revealCorners() {
+        topReversedCornerView?.animateRadius(0f, ViewConstants.TOOLBAR_RADIUS.dp)
+        bottomReversedCornerView?.animateRadius(0f, ViewConstants.TOOLBAR_RADIUS.dp)
+    }
+
     private var topBackgroundColor: Int? = null
     private var barBackgroundAnimator: ValueAnimator? = null
+
+    private class PendingBarColor(val color: Int?)
+
+    // Tab previews are captured on minimize, so the bar keeps that state until maximized.
+    private var pendingBarColor: PendingBarColor? = null
+
     private fun animateBarBackground(newColor: Int?) {
-        val isMinimized = topBar.isMinimizing || topBar.isMinimized
+        if (topBar.isMinimizing || topBar.isMinimized) {
+            pendingBarColor = PendingBarColor(newColor)
+            return
+        }
         newColor?.let { newColor ->
             val isDark = !newColor.isBrightColor()
             topBar.overrideThemeIsDark = isDark
@@ -719,12 +831,6 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             topBar.overrideThemeIsDark = null
         }
         updateSystemBarColors()
-        if (isMinimized) {
-            topBackgroundColor = newColor
-            topReversedCornerView?.setBlurOverlayColor(null)
-            bottomReversedCornerView?.setBlurOverlayColor(null)
-            return
-        }
         barBackgroundAnimator = ValueAnimator.ofArgb(
             topBackgroundColor ?: WColor.SecondaryBackground.color,
             newColor ?: WColor.SecondaryBackground.color
@@ -1094,9 +1200,29 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
         }
     }
 
+    private val currentUrl get() = webView.url ?: config.url
+
     companion object {
         const val GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
         const val THEME_BRIDGE_INTERFACE = "_mtwThemeBridge"
+
+        // Maximizes a minimized tab already showing the page instead of opening a new one.
+        fun open(window: WWindow, config: InAppBrowserConfig, isKnownDapp: Boolean = false) {
+            if (window.hasMinimizedBrowser) {
+                val presenter = window.minimizedBrowser
+                presenter.navigations.firstOrNull { nav ->
+                    val browser = nav.viewControllers.firstOrNull() as? InAppBrowserVC
+                    browser != null &&
+                        inAppBrowserTabMatchesUrl(browser.currentUrl, config.url, isKnownDapp)
+                }?.let {
+                    presenter.maximize(WGlobalStorage.getAreAnimationsActive(), it)
+                    return
+                }
+            }
+            val nav = WNavigationController(window)
+            nav.setRoot(InAppBrowserVC(window, config))
+            window.present(nav)
+        }
 
         fun convertToUri(input: String): Pair<Boolean, Uri?> {
             try {
@@ -1142,5 +1268,25 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
 
             else -> {}
         }
+    }
+}
+
+// Software canvases can't draw hardware bitmaps.
+private class ScreenshotImageView(context: Context) : AppCompatImageView(context) {
+    override fun onDraw(canvas: Canvas) {
+        val bitmap = (drawable as? BitmapDrawable)?.bitmap
+        if (canvas.isHardwareAccelerated ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            bitmap?.config != Bitmap.Config.HARDWARE
+        ) {
+            super.onDraw(canvas)
+            return
+        }
+        val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return
+        canvas.withTranslation(paddingLeft.toFloat(), paddingTop.toFloat()) {
+            canvas.concat(imageMatrix)
+            canvas.drawBitmap(copy, null, drawable.bounds, null)
+        }
+        copy.recycle()
     }
 }

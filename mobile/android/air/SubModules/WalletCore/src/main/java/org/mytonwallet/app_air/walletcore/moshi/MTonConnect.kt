@@ -99,12 +99,21 @@ data class ApiTransferToSign(
 )
 
 @JsonClass(generateAdapter = true)
+data class ApiParsedStateInit(
+    /** The known wallet whose code the StateInit carries */
+    val walletName: String? = null,
+    /** Whether the StateInit belongs to the message recipient. The network deploys nothing from one that does not. */
+    val isDeployable: Boolean
+)
+
+@JsonClass(generateAdapter = true)
 data class ApiDappTransfer(
     val toAddress: String,
     val amount: BigInteger,
     val rawPayload: String? = null,
     val payload: ApiParsedPayload? = null,
     val stateInit: String? = null,
+    val parsedStateInit: ApiParsedStateInit? = null,
     val isScam: Boolean? = null,
     val isDangerous: Boolean = false,
     val normalizedAddress: String,

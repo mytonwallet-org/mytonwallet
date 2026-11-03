@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import WalletCore
 
@@ -73,6 +74,14 @@ struct ApiDappTransferTests {
     @Test
     func `request without a state init is not flagged`() {
         #expect(!makeRequest([makeTransfer(), makeTransfer(stateInit: "")]).combinedInfo.hasStateInit)
+    }
+
+    @Test
+    func `transfer decodes the state init summary the SDK attaches`() throws {
+        let json = #"{"toAddress":"message-address","amount":"bigint:0","stateInit":"te6cckEBAQEAAgAAAEysuc0=","parsedStateInit":{"walletName":"W5","isDeployable":true},"isDangerous":false,"normalizedAddress":"message-address","displayedToAddress":"message-address","networkFee":"bigint:0"}"#
+        let transfer = try JSONDecoder().decode(ApiDappTransfer.self, from: Data(json.utf8))
+
+        #expect(transfer.parsedStateInit == ApiParsedStateInit(walletName: "W5", isDeployable: true))
     }
 
     private func makeRequest(_ transactions: [ApiDappTransfer]) -> ApiUpdate.DappSendTransactions {

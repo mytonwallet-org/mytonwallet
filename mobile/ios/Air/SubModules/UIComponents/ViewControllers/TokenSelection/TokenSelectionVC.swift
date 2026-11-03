@@ -99,6 +99,7 @@ public class TokenSelectionVC: WViewController {
     
     private weak var delegate: TokenSelectionVCDelegate?
     private var forceAvailable: String?
+    private let disabledTokenSlug: String?
     private let extraWalletTokenSlugs: [String]
     private var otherSymbolOrMinterAddress: String?
     private let showMyAssets: Bool
@@ -147,6 +148,7 @@ public class TokenSelectionVC: WViewController {
     // MARK: - Init
     
     public init(forceAvailable: String? = nil,
+                disabledTokenSlug: String? = nil,
                 extraWalletTokenSlugs: [String] = [],
                 otherSymbolOrMinterAddress: String? = nil,
                 showMyAssets: Bool = true,
@@ -160,6 +162,7 @@ public class TokenSelectionVC: WViewController {
                 fiatOptions: [FiatOption] = [],
                 showsAssetCategories: Bool = false) {
         self.forceAvailable = forceAvailable
+        self.disabledTokenSlug = disabledTokenSlug
         self.extraWalletTokenSlugs = extraWalletTokenSlugs
         self.otherSymbolOrMinterAddress = otherSymbolOrMinterAddress
         self.showMyAssets = showMyAssets
@@ -330,13 +333,7 @@ public class TokenSelectionVC: WViewController {
             categoryControl.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             categoryControl.heightAnchor.constraint(equalToConstant: 40),
         ])
-        if let cls = NSClassFromString("ettelaPraBnoitagivaNIU_".reverse) as? UIView.Type {
-            let palette = cls.perform(NSSelectorFromString("alloc"))
-                .takeUnretainedValue()
-                .perform(NSSelectorFromString("initWithContentView:"), with: contentView)
-                .takeUnretainedValue()
-            navigationItem.perform(NSSelectorFromString(":ettelaPmottoBtes_".reverse), with: palette)
-        }
+        PrivateAPI.setBottomPalette(of: navigationItem, contentView: contentView)
     }
 
     private func configureDataSource() {
@@ -422,6 +419,9 @@ public class TokenSelectionVC: WViewController {
     }
     
     private func isTokenAvailable(slug: String) -> Bool {
+        if slug == disabledTokenSlug {
+            return false
+        }
         if slug == forceAvailable {
             return true
         }

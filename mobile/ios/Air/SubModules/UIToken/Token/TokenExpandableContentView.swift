@@ -105,6 +105,21 @@ final class TokenExpandableContentView: WTouchPassView {
         if balanceModel.baseCurrencyAmount != baseCurrencyAmount {
             balanceModel.baseCurrencyAmount = baseCurrencyAmount
         }
+        let tokenBalance = MTokenBalance(tokenSlug: token.slug, balance: balance, isStaking: false)
+        if let current = tokenBalance.toBaseCurrency,
+           let previous = tokenBalance.toBaseCurrency24h,
+           let percent = tokenBalance.tokenPriceChange,
+           current.isFinite, previous.isFinite, percent.isFinite, previous > 0 {
+            balanceModel.change24h = BaseCurrencyAmount.fromDouble(current - previous, TokenStore.baseCurrency)
+            balanceModel.percentChange24h = percent / 100
+        } else {
+            balanceModel.change24h = nil
+            balanceModel.percentChange24h = nil
+        }
+    }
+
+    func setRenderingVisible(_ visible: Bool) {
+        iconView.setRenderingVisible(visible && iconView.alpha > 0.01)
     }
 
     func update(scrollOffset: CGFloat, navBarShift: CGFloat) {
@@ -163,6 +178,8 @@ private final class TokenHeaderBalanceModel {
     var token: ApiToken?
     var balance: BigInt?
     var baseCurrencyAmount: BaseCurrencyAmount?
+    var change24h: BaseCurrencyAmount?
+    var percentChange24h: Double?
     var expansionProgress: CGFloat = 1
     
     var amount: TokenAmount? {
@@ -251,14 +268,51 @@ private struct TokenHeaderBalanceView: View {
     @ViewBuilder
     private var equivalentView: some View {
         if let baseCurrencyAmount = model.baseCurrencyAmount {
-            Text(baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
-                .textStyle(.body, content: .technical)
-                .foregroundStyle(Color.air.secondaryLabel)
-                .lineLimit(1)
-                .heroSensitiveData(color: .air.secondaryLabel, maskSize: CGSize(width: 182, height: 26))
+            TokenHeaderEquivalentView(
+                amount: baseCurrencyAmount,
+                change: model.change24h,
+                percent: model.percentChange24h,
+                expansionProgress: model.expansionProgress
+            )
+            .heroSensitiveData(color: .air.secondaryLabel, maskSize: CGSize(width: 182, height: 26))
         } else {
             Color.clear
                 .frame(height: 17)
         }
+    }
+}
+
+struct TokenHeaderEquivalentView: View {
+    let amount: BaseCurrencyAmount
+    let change: BaseCurrencyAmount?
+    let percent: Double?
+    let expansionProgress: CGFloat
+
+    var body: some View {
+        ZStack {
+            if let change, let percent, expansionProgress > 0 {
+                equivalent
+                    .opacity(1 - expansionProgress)
+                    .accessibilityHidden(expansionProgress >= 0.5)
+                HStack(spacing: 6) {
+                    equivalent
+                    Text("\(change.formatted(.baseCurrencyEquivalent, showPlus: true)) (\(formatPercent(percent, showPlus: false)))")
+                        .textStyle(.supporting, content: .technical)
+                        .foregroundStyle(percent > 0 ? Color.air.positiveAmount : percent < 0 ? Color.air.negativeAmount : Color.air.secondaryLabel)
+                        .accessibilityLabel(lang("Daily P&L") + ": " + change.formatted(.baseCurrencyEquivalent, showPlus: true) + ", " + formatPercent(percent))
+                }
+                .opacity(expansionProgress)
+                .accessibilityHidden(expansionProgress < 0.5)
+            } else {
+                equivalent
+            }
+        }
+        .lineLimit(1)
+    }
+
+    private var equivalent: some View {
+        Text(amount.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
+            .textStyle(.body, content: .technical)
+            .foregroundStyle(Color.air.secondaryLabel)
     }
 }

@@ -1,9 +1,181 @@
 import XCTest
 import UIKit
+import WalletCore
 @testable import UIAgent
 
 @MainActor
 final class AgentStreamingTextTests: XCTestCase {
+    func testRenderedLinksKeepTheirExplicitColorAndUnderline() throws {
+        let marked = AgentV2AnswerTables.text("Источник", tables: [], references: [], links: [
+            ApiAgentV2AnswerLink(textOffset: 0, textLength: 8, url: "https://example.com")
+        ])
+        for (name, color) in [("pink", UIColor.systemPink), ("black", .black), ("white", .white)] {
+            let text = AgentMessageTextRenderer.makeAttributedText(
+                marked, textColor: .label, rendersMarkdown: true,
+                markdownProfile: .agentMarkdownV1, linkColor: color
+            )
+            let expected = NSMutableAttributedString(attributedString: text)
+            expected.removeAttribute(.link, range: NSRange(location: 0, length: expected.length))
+            let reference = try XCTUnwrap(AgentStreamingTextLayout.make(attributedString: expected, maxWidth: 280).renderedImage)
+            for measuresCharacters in [true, false] {
+                let layout = AgentStreamingTextLayout.make(
+                    attributedString: text, maxWidth: 280, measuresCharacters: measuresCharacters
+                )
+                let rendered = try XCTUnwrap(layout.renderedImage)
+                XCTAssertEqual(UIImage(cgImage: rendered).pngData(), UIImage(cgImage: reference).pngData(),
+                    "TextKit must not replace the explicit link style with its default blue underline")
+                if !measuresCharacters {
+                    let attachment = XCTAttachment(image: UIImage(cgImage: rendered))
+                    attachment.name = "Answer link — \(name)"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+                let region = try XCTUnwrap(layout.linkRegions.first)
+                XCTAssertEqual(layout.link(at: CGPoint(x: region.rect.midX, y: region.rect.midY)), URL(string: "https://example.com"))
+            }
+        }
+    }
+
+    func testRenderedLinksFollowInheritedTintAndAccentChanges() throws {
+        let marked = AgentV2AnswerTables.text("Источник", tables: [], references: [], links: [
+            ApiAgentV2AnswerLink(textOffset: 0, textLength: 8, url: "https://example.com")
+        ])
+        let view = AgentStreamingTextView()
+        defer { view.prepareForReuse() }
+        view.configure(
+            text: marked, textColor: .label, isStreaming: false, hadStreaming: false,
+            rendersMarkdown: true, markdownProfile: .agentMarkdownV1, allowsLinks: false, layoutMaxWidth: 280
+        )
+        let parent = UIView()
+        parent.tintColor = .systemPink
+        parent.addSubview(view)
+        let imageView = try XCTUnwrap(view.subviews.first?.subviews.first as? UIImageView)
+        for color: UIColor in [.systemPink, .black, .white, .systemGreen] {
+            parent.tintColor = color
+            let expected = NSMutableAttributedString(attributedString: AgentMessageTextRenderer.makeAttributedText(
+                "Источник", textColor: color, rendersMarkdown: true,
+                detectsLinks: false, markdownProfile: .agentMarkdownV1
+            ))
+            expected.addAttribute(.underlineStyle, value: color == .black || color == .white ? 1 : 0,
+                range: NSRange(location: 0, length: expected.length))
+            let reference = try XCTUnwrap(AgentStreamingTextLayout.make(attributedString: expected, maxWidth: 280).renderedImage)
+            let rendered = try XCTUnwrap(imageView.image?.cgImage)
+            XCTAssertEqual(UIImage(cgImage: rendered).pngData(), UIImage(cgImage: reference).pngData(),
+                "Already rendered answers must pick up their parent's accent after attachment and when it changes")
+        }
+    }
+
+    func testRichAnswerLinksFollowInheritedTintAndAccentChanges() throws {
+        let marked = AgentV2AnswerTables.text("Источник", tables: [], references: [], links: [
+            ApiAgentV2AnswerLink(textOffset: 0, textLength: 8, url: "https://example.com")
+        ])
+        let view = AgentRichMessageView()
+        view.configure(
+            blocks: [.text(marked), .table(AgentMessageTable(rows: [[AgentMessageTableCell(text: marked, isPlainText: true)]]))],
+            textColor: .label, maximumContentWidth: 280, detectsLinks: false,
+            markdownProfile: .agentMarkdownV1, onURLTap: nil
+        )
+        let parent = UIView()
+        parent.tintColor = .systemPink
+        parent.addSubview(view)
+        func textViews(in view: UIView) -> [UITextView] {
+            view.subviews.flatMap { subview in
+                (subview as? UITextView).map { [$0] } ?? textViews(in: subview)
+            }
+        }
+        let links = textViews(in: view)
+        XCTAssertEqual(links.count, 2)
+        for color: UIColor in [.systemPink, .black, .white, .systemGreen] {
+            parent.tintColor = color
+            for textView in links {
+                XCTAssertEqual(textView.linkTextAttributes[.foregroundColor] as? UIColor, color)
+                XCTAssertEqual(textView.linkTextAttributes[.underlineStyle] as? Int, color == .black || color == .white ? 1 : 0)
+            }
+        }
+    }
+
+    func testMessageLinksUnderlineOnlyAMonochromeAccent() throws {
+        let marked = AgentV2AnswerTables.text("Docs", tables: [], references: [], links: [
+            ApiAgentV2AnswerLink(textOffset: 0, textLength: 4, url: "https://example.com")
+        ])
+        for color: UIColor in [.systemBlue, .black, .white, UIColor(red: 0, green: 0, blue: 0, alpha: 1)] {
+            let text = AgentMessageTextRenderer.makeAttributedText(
+                marked, textColor: .label, rendersMarkdown: true,
+                markdownProfile: .agentMarkdownV1, linkColor: color
+            )
+            let attributes = text.attributes(at: 0, effectiveRange: nil)
+            XCTAssertNotNil(attributes[.link])
+            XCTAssertEqual(attributes[.foregroundColor] as? UIColor, color)
+            XCTAssertEqual(attributes[.underlineStyle] as? Int, color == .systemBlue ? 0 : NSUnderlineStyle.single.rawValue)
+        }
+    }
+
+    func testStatusGradientSweepsInTheReadingDirection() {
+        let width: CGFloat = 120
+        let phases: [CGFloat] = [0, 0.25, 0.5, 0.75, 0.999]
+        for isRightToLeft in [false, true] {
+            let offsets = phases.map {
+                AgentGradientLabel.getSweepOffset(phase: $0, width: width, isRightToLeft: isRightToLeft)
+            }
+            for (offset, next) in zip(offsets, offsets.dropFirst()) {
+                if isRightToLeft {
+                    XCTAssertLessThan(next, offset)
+                } else {
+                    XCTAssertGreaterThan(next, offset)
+                }
+            }
+            // The two tiles, each two widths long, always cover the label
+            for offset in offsets {
+                XCTAssertLessThanOrEqual(offset, 0)
+                XCTAssertGreaterThanOrEqual(offset + width * 4, width)
+            }
+            // A full sweep moves by one tile, so the loop has no seam
+            let start = AgentGradientLabel.getSweepOffset(phase: 0, width: width, isRightToLeft: isRightToLeft)
+            let end = AgentGradientLabel.getSweepOffset(phase: 1, width: width, isRightToLeft: isRightToLeft)
+            XCTAssertEqual(abs(end - start), width * 2, accuracy: 0.001)
+        }
+    }
+
+    func testTypingStatusKeepsItsMinimumDurationAndCoalescesUpdates() throws {
+        var time: TimeInterval = 0
+        var scheduled: [(delay: TimeInterval, update: DispatchWorkItem)] = []
+        var updateCount = 0
+        let pacing = AgentTypingStatusPacing(
+            minimumDuration: 1.2,
+            now: { time },
+            schedule: { scheduled.append(($0, $1)) },
+            onUpdate: { updateCount += 1 }
+        )
+
+        XCTAssertNil(pacing.typingStatusText(nil))
+        XCTAssertEqual(pacing.typingStatusText("Searching"), "Searching")
+        time = 0.3
+        XCTAssertEqual(pacing.typingStatusText("Found sources"), "Searching")
+        time = 0.6
+        XCTAssertEqual(pacing.typingStatusText("Reading sources"), "Searching")
+        XCTAssertEqual(pacing.typingStatusText(nil), "Searching")
+        XCTAssertEqual(scheduled.count, 1)
+        XCTAssertEqual(try XCTUnwrap(scheduled.first?.delay), 0.9, accuracy: 0.0001)
+        XCTAssertEqual(updateCount, 0)
+
+        time = 1.2
+        try XCTUnwrap(scheduled.first?.update).perform()
+        XCTAssertEqual(updateCount, 1)
+        XCTAssertEqual(pacing.typingStatusText("Reading sources"), "Reading sources")
+        XCTAssertEqual(pacing.typingStatusText("Reading sources"), "Reading sources")
+        XCTAssertEqual(scheduled.count, 1)
+
+        time = 1.5
+        XCTAssertEqual(pacing.typingStatusText(nil), "Reading sources")
+        XCTAssertEqual(scheduled.count, 2)
+        time = 2.4
+        scheduled[1].update.perform()
+        XCTAssertEqual(updateCount, 2)
+        XCTAssertNil(pacing.typingStatusText(nil))
+        XCTAssertEqual(pacing.typingStatusText("Answering"), "Answering")
+        XCTAssertEqual(scheduled.count, 2)
+    }
+
     func testAnimatedCharactersHideTheirStaticCopies() async throws {
         try await checkStreamingMask(text: "Your wallet, at a glance")
     }
@@ -106,6 +278,7 @@ final class AgentStreamingTextTests: XCTestCase {
 
     private func checkLeadingMargin(layoutDirection: UISemanticContentAttribute) throws {
         let host = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let leadingInset: CGFloat = 14
         host.semanticContentAttribute = layoutDirection
         let view = AgentStreamingTextView()
         view.semanticContentAttribute = layoutDirection
@@ -114,7 +287,7 @@ final class AgentStreamingTextTests: XCTestCase {
         let widthConstraint = view.widthAnchor.constraint(equalToConstant: 240)
         NSLayoutConstraint.activate([
             view.topAnchor.constraint(equalTo: host.topAnchor),
-            view.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: 14),
+            view.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: leadingInset),
             widthConstraint
         ])
         defer { view.prepareForReuse() }
@@ -140,7 +313,7 @@ final class AgentStreamingTextTests: XCTestCase {
             let leadingMargin = layoutDirection == .forceRightToLeft
                 ? host.bounds.maxX - imageRect.maxX
                 : imageRect.minX - host.bounds.minX
-            XCTAssertEqual(leadingMargin, 14, accuracy: 0.5, "The leading margin must not depend on text or bubble width")
+            XCTAssertEqual(leadingMargin, leadingInset, accuracy: 0.5, "The leading margin must not depend on text or bubble width")
         }
     }
 

@@ -78,6 +78,7 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
 
     var onCardChanged: ((accountId: String, nft: ApiNft?) -> Unit)? = null
     var onEmptyViewTap: (() -> Unit)? = null
+    var onLayoutWidthChanged: (() -> Unit)? = null
     var tintColor = 0
 
     private val topDrawable = context.getDrawableCompat(
@@ -210,6 +211,7 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
             }
         }
         rvAdapter.reloadData()
+        onLayoutWidthChanged?.invoke()
     }
 
     private val contentView: FrameLayout by lazy {

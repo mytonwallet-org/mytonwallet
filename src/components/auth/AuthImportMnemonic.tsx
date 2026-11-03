@@ -31,6 +31,7 @@ import { HEADER_HEIGHT_REM } from '../main/sections/Header/Header';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
 import TabList from '../ui/TabList';
+import TextDivider from '../ui/TextDivider';
 import Header from './Header';
 
 import styles from './Auth.module.scss';
@@ -300,7 +301,7 @@ const AuthImportMnemonic = ({ isActive, isLoading, error }: OwnProps & StateProp
                 <i className={buildClassName(styles.pasteButtonIcon, 'icon-paste')} aria-hidden />
                 <span className={styles.pasteButtonText}>{lang('Paste from Clipboard')}</span>
               </Button>
-              <div className={styles.divider}>{lang('or enter manually')}</div>
+              <TextDivider className={styles.divider}>{lang('or enter manually')}</TextDivider>
             </div>
           )}
         </div>

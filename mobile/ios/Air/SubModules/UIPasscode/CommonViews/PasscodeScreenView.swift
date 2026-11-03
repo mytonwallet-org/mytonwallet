@@ -213,6 +213,7 @@ public class PasscodeScreenView: UIView {
         enterPasscodeLabel = WReplacableLabel()
         enterPasscodeLabel.translatesAutoresizingMaskIntoConstraints = false
         enterPasscodeLabel.label.textAlignment = .center
+        enterPasscodeLabel.label.accessibilityIdentifier = "passcode_title"
         if compactLayout {
             enterPasscodeLabel.label.applyTextStyle(.body)
             let hintText: String

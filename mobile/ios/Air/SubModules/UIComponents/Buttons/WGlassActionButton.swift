@@ -3,8 +3,8 @@ import WalletContext
 
 @available(iOS 26, *)
 public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
-    private static let iconSize = CGSize(width: 26, height: 26)
-    private let baseFont = WTypography.uiFont(.footnoteEmphasized)
+    private static let iconSize = WScalableButton.preferredImageSize
+    private let baseFont = WScalableButton.preferredTitleFont
     private var configuredTitleFont: UIFont?
 
     public init(title: String, image: UIImage?, onTap: (() -> Void)? = nil) {
@@ -18,10 +18,10 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
                 : image
         }
         config.imagePlacement = .top
-        config.imagePadding = 4
-        config.contentInsets = .init(top: 9, leading: 8, bottom: 9, trailing: 8)
-        config.cornerStyle = .fixed
-        config.background.cornerRadius = WScalableButton.preferredCornerRadius
+        let titleVerticalOffset = WScalableButton.preferredTitleVerticalOffset
+        config.imagePadding = 4 + titleVerticalOffset
+        config.contentInsets = .init(top: 11, leading: 8, bottom: 9 - titleVerticalOffset, trailing: 8)
+        config.cornerStyle = .capsule
         config.titleLineBreakMode = .byTruncatingTail
         configuration = config
         setTitleFont(baseFont)
@@ -50,8 +50,7 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
         menuReturnGeneration += 1
         let generation = menuReturnGeneration
         menuReturnOrigin = convert(CGPoint(x: bounds.midX, y: bounds.midY), to: window)
-        let link = CADisplayLink(target: MenuReturnTarget(button: self), selector: #selector(MenuReturnTarget.tick))
-        link.add(to: .main, forMode: .common)
+        let link = CADisplayLink.makeWeak(owner: self) { button, _ in button.updateMenuReturn() }
         menuReturnDisplayLink = link
         animator.addCompletion { [weak self] in
             guard let self, menuReturnGeneration == generation else { return }
@@ -123,16 +122,5 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
             return outgoing
         }
         configuration = config
-    }
-}
-
-@available(iOS 26, *)
-@MainActor
-private final class MenuReturnTarget: NSObject {
-    weak var button: WGlassActionButton?
-    init(button: WGlassActionButton) { self.button = button }
-    @objc func tick(_ link: CADisplayLink) {
-        guard let button else { link.invalidate(); return }
-        button.updateMenuReturn()
     }
 }

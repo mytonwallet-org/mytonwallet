@@ -163,7 +163,6 @@ function RichNumberInput({
   const inputWrapperFullClass = buildClassName(
     styles.input__wrapper,
     size === 'large' && styles.input__wrapper_large,
-    hasError && styles.error,
     hasFocus && styles.input__wrapper_hasFocus,
     inputClassName,
   );
@@ -177,13 +176,11 @@ function RichNumberInput({
   );
   const labelTextClassName = buildClassName(
     styles.label,
-    hasError && styles.error,
     labelClassName,
   );
   const cornerFullClass = buildClassName(
     cornerClassName,
     hasFocus && styles.swapCorner,
-    hasError && styles.swapCorner_error,
   );
 
   return (
@@ -205,11 +202,12 @@ function RichNumberInput({
             id={id}
             role="textbox"
             aria-required
+            aria-invalid={hasError || undefined}
             aria-placeholder={lang('Amount value')}
             aria-labelledby={labelText ? `${id}Label` : undefined}
             tabIndex={0}
             inputMode="decimal"
-            className={buildClassName(inputFullClass, styles.rich__value)}
+            className={buildClassName(inputFullClass, styles.rich__value, hasError && styles.rich__value_error)}
             onKeyDown={handleKeyDown}
             onChange={handleChange}
             onFocus={handleFocus}

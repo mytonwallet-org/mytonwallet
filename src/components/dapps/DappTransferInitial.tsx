@@ -252,11 +252,6 @@ function DappTransferInitial({
   function renderFooter() {
     return (
       <ModalFooter>
-        {!hasSufficientBalance && (
-          <div className={styles.balanceError}>
-            {lang('Not Enough %symbol%', { symbol: insufficientTokens })}
-          </div>
-        )}
         <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>
           <Button className={modalStyles.button} onClick={onClose}>{lang('Cancel')}</Button>
           <Button
@@ -266,7 +261,7 @@ function DappTransferInitial({
             className={modalStyles.button}
             onClick={canSubmit ? submitDappTransferConfirm : undefined}
           >
-            {lang('Send')}
+            {hasSufficientBalance ? lang('Send') : lang('Insufficient Balance')}
           </Button>
         </div>
       </ModalFooter>

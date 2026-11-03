@@ -74,6 +74,7 @@ public struct AccountIcon: View {
                 let requestKey = avatarRetryKey
                 KFImage(avatarUrl)
                     .setProcessor(SVGImageProcessor.default)
+                    .serialize(by: SVGImageProcessor.cacheSerializer)
                     .resizable()
                     .onSuccess { result in
                         guard activeAvatarUrl == avatarUrl, avatarRetryKey == requestKey else { return }

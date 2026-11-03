@@ -187,7 +187,7 @@ final class PagerSelectionProgressTests: XCTestCase {
 
     private func checkMovement(_ control: WSegmentedControl, source: Int, target: Int, rtl: Bool) async throws {
         let lens = try XCTUnwrap(descendants(control).compactMap { $0 as? WSegmentedControlLensView }.first)
-        let native = descendants(lens).first { String(describing: type(of: $0)) == String("weiVsneLdiuqiLIU_".reversed()) }
+        let native = descendants(lens).first { String(describing: type(of: $0)) == PrivateAPI.liquidLensView.string }
         var previous = CGFloat(source)
         var intermediateCount = 0
         for _ in 0..<24 {

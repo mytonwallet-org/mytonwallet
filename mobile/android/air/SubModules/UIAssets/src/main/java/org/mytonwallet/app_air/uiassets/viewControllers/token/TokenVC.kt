@@ -3,9 +3,12 @@ package org.mytonwallet.app_air.uiassets.viewControllers.token
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.GONE
@@ -14,12 +17,15 @@ import android.view.View.VISIBLE
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.inputmethod.EditorInfo
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
+import androidx.core.widget.doAfterTextChanged
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -31,11 +37,18 @@ import java.util.Date
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
+import me.vkryl.android.AnimatorUtils
+import me.vkryl.android.animatorx.BoolAnimator
+import me.vkryl.android.animatorx.FloatAnimator
+import org.mytonwallet.app_air.blur3.drawable.color.BlurredBackgroundColorProvider
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
 import org.mytonwallet.app_air.uiassets.viewControllers.token.cells.TokenChartCell
 import org.mytonwallet.app_air.uiassets.viewControllers.token.cells.TokenInfoCell
 import org.mytonwallet.app_air.uiassets.viewControllers.token.views.TokenHeaderView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
+import org.mytonwallet.app_air.uicomponents.base.ISearchOverlayHost
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -54,16 +67,26 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonContainer
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.ActivitySectionBackgroundDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uireceive.ReceiveVC
@@ -81,11 +104,14 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
 import org.mytonwallet.app_air.walletbasecontext.utils.isSameDayAs
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.WalletCreationVM
@@ -112,7 +138,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     TokenVM.Delegate,
     WThemedView,
     WProtectedView,
-    WalletCreationVM.Delegate {
+    WalletCreationVM.Delegate,
+    ISearchOverlayHost {
     @Suppress("PropertyName")
     override val TAG = "Token"
 
@@ -128,8 +155,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override val displayedAccount =
         DisplayedAccount(account.accountId, AccountStore.isPushedTemporary)
 
-    private val px232 = 232.dp
-    private val px116 = 116.dp
+    private val headerCollapseDistance: Int
+        get() = (232.dp * balanceModeProgress).roundToInt()
 
     companion object {
         val HEADER_CELL = WCell.Type(1)
@@ -152,6 +179,11 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         const val LARGE_INT = 10000
 
         private const val REMOVE_ANIMATION_FALLBACK_MS = 1500L
+
+        private const val BOTTOM_BAR_HEIGHT = 48
+        private const val SEARCH_GAP = 12
+        private const val SEARCH_KEYBOARD_GAP = 12
+        private const val SEARCH_OVERLAY_ANIMATION = AnimationConstants.VERY_VERY_QUICK_ANIMATION
     }
 
     private var tokenChartCell: TokenChartCell? = null
@@ -169,6 +201,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     private val areTradeActionsAvailable: Boolean
         get() = account.supportsSwap && !isLpToken
+
+    private val isReceiveAvailable: Boolean
+        get() = account.accountType != MAccount.AccountType.VIEW
 
     private fun isSellAllowed(): Boolean =
         account.supportsBuyWithCard && ConfigStore.isLimited != true
@@ -405,15 +440,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private val scrollListener = object : RecyclerView.OnScrollListener() {
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             if (showingTransactions == null) return
-            val layoutManager =
-                recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return
-            updateScroll(
-                if (layoutManager.findFirstVisibleItemPosition() < 2) {
-                    recyclerView.computeVerticalScrollOffset()
-                } else {
-                    LARGE_INT
-                }
-            )
+            updateScroll(currentScrollDy() ?: return)
         }
 
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
@@ -432,13 +459,14 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     }
 
     private var headerCell: HeaderSpaceCell? = null
+    private var actionsCell: WCell? = null
 
     private val activitySectionBackgroundDecoration = ActivitySectionBackgroundDecoration(
         firstPosition = { tokenInfoRow + 1 },
         rowCount = {
             recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
-                if (showingTransactions != null && tokenVM.activityLoader?.loadedAll != true) {
+                if (showingTransactions != null && tokenVM.activityLoader?.loadedAll == false) {
                     1
                 } else {
                     0
@@ -490,9 +518,10 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             val navBar = WNavigationBar(
                 this,
                 defaultHeight = TokenHeaderView.NAV_DEFAULT_HEIGHT_DP,
-                contentMarginTop = 2.dp
+                contentMarginTop = TokenHeaderView.navContentMarginTop
             )
             navBar.setTitleGravity(Gravity.CENTER)
+            navBar.titleLabel.id = UIComponentsR.id.token_title
             navBar
         }
         TokenHeaderView(
@@ -510,6 +539,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private var actionsView: HeaderActionsView? = null
 
     private val buyButton = WButton(context, WButton.Type.PRIMARY).apply {
+        id = UIComponentsR.id.token_buy
         text = LocaleController.getString("Buy")
         customTint = WColor.Buy.color
         setOnClickListener {
@@ -519,6 +549,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     }
 
     private val sellButton = WButton(context, WButton.Type.PRIMARY).apply {
+        id = UIComponentsR.id.token_sell
         text = LocaleController.getString("Sell")
         customTint = WColor.Sell.color
         setOnClickListener {
@@ -527,77 +558,360 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         }
     }
 
+    private val receiveButton = WButton(context, WButton.Type.SECONDARY_NEUTRAL).apply {
+        id = UIComponentsR.id.token_receive
+        text = LocaleController.getString("Receive")
+        setOnClickListener {
+            onClick(HeaderActionsView.Identifier.RECEIVE)
+        }
+    }
+
+    private val tradeButtonGlasses = mutableListOf<WGlassView>()
+
+    private fun tradeButtonCell(button: WButton) = FrameLayout(context).apply {
+        clipChildren = false
+        button.buttonHeight = BOTTOM_BAR_HEIGHT.dp
+        addView(button, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    }
+
+    private fun attachTradeButtonGlass(
+        button: WButton,
+        provider: BlurredBackgroundColorProvider,
+        root: ViewGroup?
+    ) {
+        tradeButtonGlasses += WGlassView.attachTo(button, BOTTOM_BAR_HEIGHT.dp / 2f, provider, root)
+    }
+
+    private val receiveCell = tradeButtonCell(receiveButton)
+    private val sellCell by lazy { tradeButtonCell(sellButton) }
+
     private val tradeButtonsView = LinearLayout(context).apply {
         id = View.generateViewId()
         orientation = LinearLayout.HORIZONTAL
-        addView(
-            buyButton,
-            LinearLayout.LayoutParams(0, 50.dp, 1f)
-        )
-        addView(
-            sellButton,
-            LinearLayout.LayoutParams(0, 50.dp, 1f).apply {
-                marginStart = 12.dp
-            }
-        )
+        clipChildren = false
+        clipToPadding = false
+        // Room for the button shadows, which the parent would otherwise clip.
+        val shadowPadding = WGlassView.GLASS_PADDING_DP.dp
+        setPadding(shadowPadding, shadowPadding, shadowPadding, shadowPadding)
+        addView(receiveCell, LinearLayout.LayoutParams(0, BOTTOM_BAR_HEIGHT.dp, 1f))
+        if (areTradeActionsAvailable) {
+            addView(
+                tradeButtonCell(buyButton),
+                LinearLayout.LayoutParams(0, BOTTOM_BAR_HEIGHT.dp, 1f)
+            )
+            addView(sellCell, LinearLayout.LayoutParams(0, BOTTOM_BAR_HEIGHT.dp, 1f))
+        }
     }
 
-    private fun tradeButtonsBottomMargin(): Int = 10.dp + (window?.systemBars?.bottom ?: 0)
+    private val exploreSearchTabs: ITabsVC?
+        get() = navigationController?.tabBarController
+            ?: window?.navigationControllers?.firstOrNull()
+                ?.viewControllers?.firstOrNull() as? ITabsVC
+
+    private val isSearchAvailable by lazy { exploreSearchTabs != null }
+
+    private val isBottomBarVisible: Boolean
+        get() = isReceiveAvailable || isSearchAvailable
+
+    private val searchExpanded = BoolAnimator(
+        AnimationConstants.VERY_QUICK_ANIMATION,
+        CubicBezierInterpolator.EASE_BOTH,
+        false
+    ) { _, _, _, _ ->
+        updateSearchWidth()
+    }
+
+    private val searchEditText by lazy {
+        WSearchEditText(context, multilinePaste = false).apply {
+            id = UIComponentsR.id.token_search_input
+            isSaveEnabled = false
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            doAfterTextChanged {
+                if (hasFocus()) showSearchResults()
+                updateSearchExpanded()
+            }
+            onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    showSearchResults()
+                    post { if (hasFocus()) showKeyboard() }
+                } else {
+                    dismissSearchResults()
+                }
+                updateSearchExpanded()
+            }
+            setOnEditorActionListener { _, actionId, event ->
+                val isSubmit = actionId == EditorInfo.IME_ACTION_DONE ||
+                    (
+                        event?.action == KeyEvent.ACTION_DOWN &&
+                            event.keyCode == KeyEvent.KEYCODE_ENTER
+                        )
+                if (isSubmit) exploreSearchTabs?.submitExploreSearch(this)
+                isSubmit
+            }
+        }
+    }
+
+    private var searchGlass: WGlassView? = null
+    private val searchView by lazy {
+        WFrameLayout(context).apply {
+            setBackgroundColor(Color.TRANSPARENT, BOTTOM_BAR_HEIGHT.dp / 2f, clipToBounds = true)
+            addView(searchEditText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        }
+    }
+
+    private val keyboardLift = FloatAnimator(220L, AnimatorUtils.DECELERATE_INTERPOLATOR, 0f) {
+        applyKeyboardLift()
+    }
+
+    private fun tradeButtonsBottomMargin(): Int =
+        10.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
 
     override val additionalBottomGradientHeight: Int
-        get() = if (areTradeActionsAvailable) 60.dp else 0
+        get() = if (isBottomBarVisible) 60.dp else 0
+
+    private val bottomBarStartMargin: Int
+        get() = ViewConstants.HORIZONTAL_PADDINGS.dp + 10.dp +
+            additionalTabletPadding + systemBarStartInset
+
+    private val bottomBarEndMargin: Int
+        get() = ViewConstants.HORIZONTAL_PADDINGS.dp + 10.dp + systemBarEndInset
 
     private fun updateTradeButtonsLayout() {
-        if (tradeButtonsView.parent == null) return
-        val horizontalMargin = ViewConstants.HORIZONTAL_PADDINGS.dp + 10.dp
+        if (!isBottomBarVisible) return
+        val bottomMargin = tradeButtonsBottomMargin()
         view.setConstraints {
-            toStartPx(
-                tradeButtonsView,
-                horizontalMargin + additionalTabletPadding + systemBarStartInset
-            )
-            toEndPx(tradeButtonsView, horizontalMargin + systemBarEndInset)
-            toBottomPx(tradeButtonsView, tradeButtonsBottomMargin())
+            if (isSearchAvailable) {
+                toStartPx(searchView, bottomBarStartMargin)
+                toBottomPx(searchView, bottomMargin)
+            }
+            if (isReceiveAvailable) {
+                val shadowPadding = WGlassView.GLASS_PADDING_DP.dp
+                if (isSearchAvailable) {
+                    startToEndPx(tradeButtonsView, searchView, SEARCH_GAP.dp - shadowPadding)
+                } else {
+                    toStartPx(tradeButtonsView, bottomBarStartMargin - shadowPadding)
+                }
+                toEndPx(tradeButtonsView, bottomBarEndMargin - shadowPadding)
+                toBottomPx(tradeButtonsView, bottomMargin - shadowPadding)
+            }
         }
+        if (isSearchAvailable) updateSearchWidth()
     }
 
-    private var sellButtonShown = true
-    private var sellButtonProgress = 1f
-    private var sellButtonAnimator: ValueAnimator? = null
-
-    private fun applySellButtonProgress(progress: Float) {
-        sellButtonProgress = progress
-        sellButton.alpha = progress
-        sellButton.updateLayoutParams<LinearLayout.LayoutParams> {
-            weight = progress
-            marginStart = (12.dp * progress).roundToInt()
+    private fun bringBottomBarToFront() {
+        if (isSearchAvailable) {
+            searchGlass?.bringToFront()
+            searchView.bringToFront()
         }
+        if (isReceiveAvailable) tradeButtonsView.bringToFront()
     }
 
-    private fun updateTradeButtons() {
-        val shouldShow =
-            (
-                BalanceStore.getBalances(account.accountId)?.get(token.slug)
-                    ?: BigInteger.ZERO
-                ) > BigInteger.ZERO
-        if (shouldShow == sellButtonShown) return
-        sellButtonShown = shouldShow
-        sellButtonAnimator?.cancel()
-        if (!tradeButtonsView.isLaidOut || !WGlobalStorage.getAreAnimationsActive()) {
-            sellButton.isVisible = shouldShow
-            applySellButtonProgress(if (shouldShow) 1f else 0f)
+    private fun updateSearchExpanded() {
+        val expanded = searchEditText.hasFocus() || !searchEditText.text.isNullOrEmpty()
+        searchExpanded.animatedValue = expanded
+    }
+
+    private var isSearchHintShown = false
+
+    private fun updateSearchWidth() {
+        val progress = searchExpanded.floatValue
+        val expandedWidth = (
+            view.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+            ) - bottomBarStartMargin - bottomBarEndMargin
+        val width = lerp(
+            BOTTOM_BAR_HEIGHT.dp.toFloat(),
+            expandedWidth.toFloat(),
+            progress
+        ).roundToInt()
+        if (searchView.layoutParams.width != width) {
+            searchView.updateLayoutParams { this.width = width }
+        }
+        searchEditText.setPaddingDpLocalized(
+            lerp(22f, 16f, progress).ceilToInt(),
+            0,
+            lerp(0f, 48f, progress).ceilToInt(),
+            0
+        )
+        val showsHint = progress >= 0.5f
+        if (isSearchHintShown != showsHint) {
+            isSearchHintShown = showsHint
+            searchEditText.hint = if (showsHint) LocaleController.getString("Search or Ask") else ""
+        }
+        tradeButtonsView.alpha = (1f - progress * 2f).coerceAtLeast(0f)
+        tradeButtonsView.isVisible = tradeButtonsView.alpha > 0f
+    }
+
+    private fun targetKeyboardLift(): Float {
+        val imeBottom = navigationController?.imeInsetBottom ?: 0
+        if (imeBottom <= 0 || !searchEditText.hasFocus()) return 0f
+        return (imeBottom + SEARCH_KEYBOARD_GAP.dp - tradeButtonsBottomMargin())
+            .coerceAtLeast(0).toFloat()
+    }
+
+    private fun applyKeyboardLift() {
+        val translation = -keyboardLift.value
+        searchView.translationY = translation
+        tradeButtonsView.translationY = translation
+        searchOverlayNav?.insetsUpdated()
+    }
+
+    private var searchOverlayNav: WNavigationController? = null
+
+    private fun obtainSearchOverlayNav(): WNavigationController? {
+        searchOverlayNav?.let { return it }
+        val window = window ?: return null
+        val nav = WNavigationController(window)
+        nav.tabBarController = exploreSearchTabs
+        nav.searchOverlayHost = this
+        nav.alpha = 0f
+        searchOverlayNav = nav
+        view.addView(
+            nav,
+            view.indexOfChild(searchGlass ?: searchView),
+            ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        )
+        nav.insetsUpdated()
+        return nav
+    }
+
+    private fun showSearchResults() {
+        if (isDestroyed) return
+        val nav = obtainSearchOverlayNav() ?: return
+        exploreSearchTabs?.searchExplore(searchEditText.typedText(), true, nav)
+    }
+
+    private fun dismissSearchResults() {
+        val nav = searchOverlayNav?.takeIf { it.viewControllers.isNotEmpty() } ?: return
+        exploreSearchTabs?.searchExplore(null, false, nav)
+    }
+
+    override fun getBottomNavigationHeight(): Int =
+        tradeButtonsBottomMargin() + BOTTOM_BAR_HEIGHT.dp + 10.dp +
+            keyboardLift.value.roundToInt()
+
+    override fun clearSearchFocus() {
+        searchEditText.hideKeyboard()
+    }
+
+    override val searchNavigationBarHeight = TokenHeaderView.NAV_DEFAULT_HEIGHT_DP
+    override val searchNavigationBarContentMarginTop = TokenHeaderView.navContentMarginTop
+
+    override val searchResultNavigationController: WNavigationController?
+        get() = navigationController
+
+    override fun revealSearchOverlay() {
+        val nav = searchOverlayNav?.takeIf { it.viewControllers.isNotEmpty() } ?: return
+        nav.fadeIn(SEARCH_OVERLAY_ANIMATION)
+    }
+
+    override fun hideSearchOverlay() {
+        val nav = searchOverlayNav ?: return
+        searchOverlayNav = null
+        if (nav.viewControllers.isEmpty()) {
+            view.removeView(nav)
             return
         }
-        sellButton.isVisible = true
-        sellButtonAnimator =
-            ValueAnimator.ofFloat(sellButtonProgress, if (shouldShow) 1f else 0f).apply {
+        nav.blockTouches()
+        nav.fadeOut(SEARCH_OVERLAY_ANIMATION) {
+            nav.viewControllers.forEach { it.viewWillDisappear() }
+            // Detached so the outgoing search cannot clear focus of a replacement session.
+            nav.searchOverlayHost = null
+            nav.tabBarController = null
+            nav.onDestroy()
+            view.removeView(nav)
+        }
+    }
+
+    private fun shouldShowBalanceHeader(): Boolean =
+        (BalanceStore.getBalances(account.accountId)?.get(token.slug) ?: BigInteger.ZERO) >
+            BigInteger.ZERO
+
+    private var isBalanceModeShown = shouldShowBalanceHeader()
+
+    // 1: balance header and Sell; 0: chart icon and Receive.
+    private var balanceModeProgress = if (isBalanceModeShown) 1f else 0f
+    private var balanceModeAnimator: ValueAnimator? = null
+
+    private val actionsFullHeight: Int
+        get() =
+            if (account.accountType == MAccount.AccountType.VIEW) 0 else HeaderActionsView.HEIGHT.dp
+
+    private val actionsRowHeight: Int
+        get() = (actionsFullHeight * balanceModeProgress).roundToInt()
+
+    private fun applyBalanceModeProgress(progress: Float) {
+        balanceModeProgress = progress
+        headerView.contentProgress = progress
+        tokenChartCell?.iconProgress = 1f - progress
+        receiveButton.alpha = 1f - progress
+        receiveButton.isVisible = progress < 1f
+        receiveCell.updateLayoutParams<LinearLayout.LayoutParams> { weight = 1f - progress }
+        if (areTradeActionsAvailable) {
+            receiveCell.updateLayoutParams<LinearLayout.LayoutParams> {
+                marginEnd = (12.dp * (1f - progress)).roundToInt()
+            }
+            sellButton.alpha = progress
+            sellButton.isVisible = progress > 0f
+            sellCell.updateLayoutParams<LinearLayout.LayoutParams> {
+                weight = progress
+                marginStart = (12.dp * progress).roundToInt()
+            }
+        }
+        val headerRowHeight = (navigationController?.getSystemBars()?.top ?: 0) +
+            TokenHeaderView.navDefaultHeight +
+            headerView.contentHeight
+        headerCell?.takeIf { it.layoutParams != null }?.updateLayoutParams {
+            height = headerRowHeight
+        }
+        actionsCell?.takeIf { it.layoutParams != null }?.updateLayoutParams {
+            height = actionsRowHeight
+        }
+        // Off-screen rows keep stale cached heights, which skews the scroll offset.
+        (recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset)?.apply {
+            setItemHeight(0, headerRowHeight)
+            setItemHeight(1, actionsRowHeight)
+        }
+        if (!headerView.isAttachedToWindow) return
+        val dy = if (showingTransactions == null) 0 else currentScrollDy() ?: 0
+        lastDy = -1
+        updateScroll(dy)
+    }
+
+    private fun currentScrollDy(): Int? {
+        val layoutManager =
+            recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return null
+        return if (layoutManager.findFirstVisibleItemPosition() < 2) {
+            recyclerView.computeVerticalScrollOffset()
+        } else {
+            LARGE_INT
+        }
+    }
+
+    private fun updateBalanceMode() {
+        val shouldShow = shouldShowBalanceHeader()
+        if (shouldShow == isBalanceModeShown) return
+        isBalanceModeShown = shouldShow
+        balanceModeAnimator?.cancel()
+        tokenInfoCell?.setHasBalance(shouldShow, animated = view.isLaidOut)
+        val target = if (shouldShow) 1f else 0f
+        if (!view.isLaidOut || !WGlobalStorage.getAreAnimationsActive()) {
+            applyBalanceModeProgress(target)
+            rvSkeletonAdapter.notifyItemChanged(0)
+            return
+        }
+        balanceModeAnimator =
+            ValueAnimator.ofFloat(balanceModeProgress, target).apply {
                 duration = AnimationConstants.QUICK_ANIMATION
-                addUpdateListener { applySellButtonProgress(it.animatedValue as Float) }
+                interpolator = CubicBezierInterpolator.EASE_BOTH
+                addUpdateListener { applyBalanceModeProgress(it.animatedValue as Float) }
                 doOnEnd {
-                    sellButtonAnimator = null
-                    if (!shouldShow) sellButton.isVisible = false
+                    balanceModeAnimator = null
+                    rvSkeletonAdapter.notifyItemChanged(0)
+                    updateCollapseGap()
                 }
                 start()
             }
+        updateCollapseGap()
     }
 
     override fun setupViews() {
@@ -623,8 +937,32 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         }
         view.addView(navigationBar, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(skeletonView)
-        if (areTradeActionsAvailable) {
-            view.addView(tradeButtonsView, ViewGroup.LayoutParams(0, 50.dp))
+        if (isSearchAvailable) {
+            view.addView(
+                searchView,
+                ViewGroup.LayoutParams(BOTTOM_BAR_HEIGHT.dp, BOTTOM_BAR_HEIGHT.dp)
+            )
+            searchGlass = WGlassView.attachTo(
+                searchView,
+                BOTTOM_BAR_HEIGHT.dp / 2f,
+                GlassProviders.pill(WColor.SearchFieldBackground),
+                view
+            )
+        }
+        if (isReceiveAvailable) {
+            view.addView(
+                tradeButtonsView,
+                ViewGroup.LayoutParams(0, (BOTTOM_BAR_HEIGHT + WGlassView.GLASS_PADDING_DP * 2).dp)
+            )
+            attachTradeButtonGlass(
+                receiveButton,
+                GlassProviders.pill(WColor.SearchFieldBackground),
+                view
+            )
+            if (areTradeActionsAvailable) {
+                attachTradeButtonGlass(buyButton, GlassProviders.shadowOnly(), null)
+                attachTradeButtonGlass(sellButton, GlassProviders.shadowOnly(), null)
+            }
         }
         view.setConstraints {
             allEdges(recyclerView)
@@ -633,7 +971,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             toTop(topBlurReversedCornerView)
         }
         updateTradeButtonsLayout()
-        updateTradeButtons()
+        applyBalanceModeProgress(balanceModeProgress)
 
         tokenVM.refreshTransactions()
         topBlurReversedCornerView.alpha = 0f
@@ -644,7 +982,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     override fun didSetupViews() {
         super.didSetupViews()
-        if (tradeButtonsView.parent != null) tradeButtonsView.bringToFront()
+        bringBottomBarToFront()
     }
 
     override fun viewDidAppear() {
@@ -660,11 +998,16 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     private fun adjustScrollingPosition(): Boolean {
         val scrollOffset = recyclerView.computeVerticalScrollOffset()
-        if (scrollOffset in 0..px232) {
+        val collapseDistance = headerCollapseDistance
+        if (scrollOffset in 0..collapseDistance) {
             val canGoDown = recyclerView.canScrollVertically(1)
             if (!canGoDown) return true
             val adjustment =
-                if (scrollOffset < px116) -scrollOffset else px232 - scrollOffset
+                if (scrollOffset < collapseDistance / 2) {
+                    -scrollOffset
+                } else {
+                    collapseDistance - scrollOffset
+                }
             if (adjustment != 0) {
                 recyclerView.smoothScrollBy(0, adjustment)
                 return true
@@ -768,10 +1111,13 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private fun presentSwap(isBuying: Boolean) {
         val window = window ?: return
         val selectedAsset = MApiSwapAsset.from(token)
-        val navVC = WNavigationController(
+        val navVC = object : WNavigationController(
             window,
-            WNavigationController.PresentationConfig.PreferredFullScreen
-        )
+            PresentationConfig.PreferredFullScreen
+        ) {
+            override val centeredWindowMinHeight: Int
+                get() = TokenTradeVC.centeredWindowMinHeight
+        }
         navVC.setRoot(
             TokenTradeVC(
                 context,
@@ -791,19 +1137,31 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         headerView.updateScroll(dy)
         val actionsLayoutFadeOutPercent =
             max(0f, min(1f, 1 + (headerView.contentHeight - dy.toFloat() - 12.dp) / 92.dp))
+        val actionsReveal = if (balanceModeProgress >= 1f) {
+            1f
+        } else {
+            TokenHeaderView.revealFraction(
+                actionsRowHeight,
+                actionsFullHeight - 16.dp,
+                actionsFullHeight,
+                balanceModeProgress
+            )
+        }
         actionsView?.fadeInPercent = actionsLayoutFadeOutPercent
+        actionsView?.translationY = (1f - actionsReveal) * TokenHeaderView.REVEAL_OFFSET.dp
+        actionsCell?.alpha = actionsReveal
         val alpha = min(
             1f,
             max(
                 0f,
                 (
-                    244.dp - dy + (
+                    headerView.contentHeight - dy + (
                         if (account.accountType ==
                             MAccount.AccountType.VIEW
                         ) {
                             0
                         } else {
-                            92.dp
+                            (92.dp * balanceModeProgress).roundToInt()
                         }
                         )
                     ) /
@@ -942,12 +1300,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 this.actionsView = actionsView
                 actionsView.setPadding(0, 0, 0, 16.dp)
                 actionsView.updateActions(account, token.slug)
-                if (account.accountType == MAccount.AccountType.VIEW) {
-                    actionsView.updateLayoutParams {
-                        height = 0
-                    }
-                }
-                actionsView
+                WCell(context, ViewGroup.LayoutParams(MATCH_PARENT, actionsRowHeight)).apply {
+                    addView(actionsView, ViewGroup.LayoutParams(MATCH_PARENT, actionsFullHeight))
+                }.also { actionsCell = it }
             }
 
             CHART_CELL -> {
@@ -964,8 +1319,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     },
                     onHeightChange = { isExpanding, _ ->
                         onHeightChange(isExpanding)
-                    }
-                ).also { tokenChartCell = it }
+                    },
+                    viewId = UIComponentsR.id.token_price_card
+                ).also {
+                    tokenChartCell = it
+                    it.iconProgress = 1f - balanceModeProgress
+                }
             }
 
             INFO_CELL -> {
@@ -976,8 +1335,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     },
                     onShowInfo = { title, text ->
                         showAlert(title, text)
-                    }
-                ).also { tokenInfoCell = it }
+                    },
+                    viewId = UIComponentsR.id.token_info_card
+                ).also {
+                    tokenInfoCell = it
+                    it.setHasBalance(isBalanceModeShown, animated = false)
+                }
             }
 
             TRANSACTION_CELL -> {
@@ -1137,7 +1500,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     configure(indexPath.row, false, isLast = true)
                     updateTheme()
                     val isHidden = showingTransactions == null ||
-                        tokenVM.activityLoader?.loadedAll == true
+                        tokenVM.activityLoader?.loadedAll != false
                     visibility = if (isHidden) INVISIBLE else VISIBLE
                     layoutParams = layoutParams.apply {
                         height = if (isHidden) 0 else SkeletonCell.HEIGHT
@@ -1164,6 +1527,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         headerView.updateTheme()
         actionsView?.updateTheme()
         tokenInfoCell?.updateTheme()
+        tradeButtonGlasses.forEach { it.updateTheme() }
+        if (isSearchAvailable) {
+            searchGlass?.updateTheme()
+            searchEditText.updateTheme()
+            searchEditText.highlightColor = WColor.Tint.color.colorWithAlpha(51)
+        }
         rvAdapter.reloadData()
     }
 
@@ -1218,6 +1587,10 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         removalFallback?.let { removalFallbackHandler.removeCallbacks(it) }
         removalFallback = null
         if (!removingEmptyCell) return
+        if (recyclerView.isComputingLayout) {
+            recyclerView.post { if (!isDestroyed) finishRemovingEmptyCell() }
+            return
+        }
         removingEmptyCell = false
         rvAdapter.reloadData()
     }
@@ -1227,7 +1600,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         val occupiedHeight =
             (navigationController?.getSystemBars()?.top ?: 0) +
                 TokenHeaderView.navDefaultHeight +
-                headerView.contentHeight - px232 +
+                headerView.contentHeight - headerCollapseDistance +
                 (layoutManager?.getItemHeight(1) ?: 0) +
                 (tokenChartCell?.height ?: 0) +
                 (tokenInfoCell?.height?.takeIf { it > 0 } ?: TokenInfoCell.collapsedCellHeight) +
@@ -1260,6 +1633,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return 0
         val itemCount = rvAdapter.itemCount
         if (itemCount == 0 || recyclerView.height <= 0) return 0
+        // Rows shrink during the balance transition; keep the scroll position reachable.
+        if (balanceModeAnimator != null) return recyclerView.height
         var contentBottom = layoutManager.findViewByPosition(itemCount - 1)?.let {
             layoutManager.getDecoratedBottom(it)
         } ?: layoutManager.estimateContentBottom(itemCount) ?: return 0
@@ -1273,14 +1648,21 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         val contentTop = recyclerView.paddingTop - currentOffset
         val scrollable = contentBottom - contentTop +
             recyclerView.paddingTop + baseBottomPadding - recyclerView.height
-        val collapseOffset = recyclerView.paddingTop + px232
+        val collapseOffset = recyclerView.paddingTop + headerCollapseDistance
         return (max(collapseOffset, currentOffset) - scrollable).coerceAtLeast(0)
     }
 
     override fun insetsUpdated() {
         super.insetsUpdated()
-        baseBottomPadding = (navigationController?.bottomInset ?: 0) +
-            if (areTradeActionsAvailable) 60.dp else 0
+        val navBottomPadding = navigationController?.bottomInset ?: 0
+        baseBottomPadding = if (isBottomBarVisible) {
+            maxOf(
+                navBottomPadding + 60.dp,
+                tradeButtonsBottomMargin() + (BOTTOM_BAR_HEIGHT + ViewConstants.GAP).dp
+            )
+        } else {
+            navBottomPadding
+        }
         recyclerView.setPaddingLocalized(
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             0,
@@ -1322,7 +1704,28 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         rvSkeletonAdapter.notifyItemChanged(0)
         actionsView?.insetsUpdated()
         updateTradeButtonsLayout()
-        if (tradeButtonsView.parent != null) tradeButtonsView.bringToFront()
+        bringBottomBarToFront()
+        if (isSearchAvailable) {
+            keyboardLift.animatedValue = targetKeyboardLift()
+            searchOverlayNav?.insetsUpdated()
+        }
+    }
+
+    override fun onBackPressed(): Boolean {
+        searchOverlayNav?.takeIf { it.viewControllers.size > 1 }?.let {
+            return it.onBackPressed()
+        }
+        if (isSearchAvailable) {
+            if (searchEditText.hasFocus()) {
+                clearSearchFocus()
+                return false
+            }
+            if (!searchEditText.text.isNullOrEmpty()) {
+                searchEditText.setText("")
+                return false
+            }
+        }
+        return super.onBackPressed()
     }
 
     private fun onTransactionTap(transaction: MApiTransaction) {
@@ -1352,20 +1755,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 tokenAddress = token.tokenAddress
             )
         )
-        if (navigationController.tabBarController?.switchToAgent(
-                prompt,
-                entryPoint = entryPoint
-            ) == true
-        ) {
-            return
-        }
-        navigationController.push(
-            AgentVC(
-                context,
-                initialPrompt = prompt,
-                initialEntryPoint = entryPoint
-            )
-        )
+        AgentNavigation.openNewChat(context, navigationController, prompt, entryPoint)
     }
 
     private var emptyView: WEmptyView? = null
@@ -1413,7 +1803,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override fun priceDataUpdated() {
         token = TokenStore.getToken(token.slug) ?: token
         updateSkeletonState()
-        updateTradeButtons()
+        updateBalanceMode()
         headerView.reloadData()
         if (!isLpToken) {
             recyclerView.post {
@@ -1476,9 +1866,17 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override fun onDestroy() {
         buyButton.setOnClickListener(null)
         sellButton.setOnClickListener(null)
+        receiveButton.setOnClickListener(null)
         removalFallbackHandler.removeCallbacksAndMessages(null)
         emptyCellCollapseAnimation?.cancel()
-        sellButtonAnimator?.cancel()
+        balanceModeAnimator?.cancel()
+        dismissSearchResults()
+        searchOverlayNav?.let { nav ->
+            searchOverlayNav = null
+            nav.viewControllers.forEach { it.viewWillDisappear() }
+            view.removeView(nav)
+            nav.onDestroy()
+        }
         super.onDestroy()
         dataSource = null
         recyclerView.removeOnScrollListener(scrollListener)

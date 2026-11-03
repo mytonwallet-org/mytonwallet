@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.mytonwallet.app_air.uiagent.search.AgentSearchSuggestions
+import org.mytonwallet.app_air.uiagent.search.AgentThreadSearchResult
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntries
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntry
@@ -50,7 +51,9 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.moshi.MApiAnyDisplayError
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -59,7 +62,9 @@ import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
+class ExploreVM(delegate: Delegate) :
+    WalletCore.EventObserver,
+    WalletCore.UpdatesObserver {
     companion object {
         private const val SEARCH_SECTION_ITEMS_LIMIT = 9
         private const val SEARCH_REFRESH_DEBOUNCE_MS = 400L
@@ -107,10 +112,33 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val recentTokenSlugs: List<String>
     )
 
-    private data class ActiveSearchRequest(
+    internal class ActiveSearchRequest(
         val keyword: String,
-        val onResult: (SearchResult) -> Unit
-    )
+        val onResult: (SearchResult) -> Unit,
+        previous: ActiveSearchRequest? = null,
+        cachedRecent: List<AgentThreadSearchResult> = emptyList()
+    ) {
+        private val previousResult = previous?.takeIf { it.keyword == keyword }?.result
+        private val previousConsumerResult = previousResult?.takeIf {
+            previous?.onResult === onResult
+        }
+        private val recentChats = previousResult?.recentChats
+            ?: if (keyword.isEmpty()) cachedRecent else emptyList()
+        var result: SearchResult? = null
+
+        fun publishLocalResult(localResult: SearchResult) {
+            publishResult(localResult.withRecentChats(recentChats))
+        }
+
+        fun publishResult(updated: SearchResult) {
+            val previousCompletedResult = previousConsumerResult?.takeUnless {
+                it.isWalletInfoLookupPending
+            }
+            val unchanged = (result ?: previousCompletedResult) == updated
+            result = updated
+            if (!unchanged) onResult(updated)
+        }
+    }
 
     private data class WalletInfoSearchRequest(
         val pendingChains: MutableSet<MBlockchain>,
@@ -126,11 +154,13 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
     private var activeSearchRequest: ActiveSearchRequest? = null
     private var searchRefreshJob: Job? = null
+    private var refreshChatsOnNextSearch = false
     private var walletInfoSearchRequest: WalletInfoSearchRequest? = null
     private var completedWalletInfoLookup: CompletedWalletInfoLookup? = null
 
     fun delegateIsReady() {
         WalletCore.registerObserver(this)
+        WalletCore.subscribeToApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
         if (!WalletCore.isConnected()) {
             waitingForNetwork = true
         }
@@ -222,6 +252,25 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         cancelSearch()
         searchScope.cancel()
         WalletCore.unregisterObserver(this)
+        WalletCore.unsubscribeFromApiUpdates(ApiUpdate.ApiUpdateAgentV2::class.java, this)
+    }
+
+    override fun onBridgeUpdate(update: ApiUpdate) {
+        when ((update as? ApiUpdate.ApiUpdateAgentV2)?.update) {
+            is AgentV2Update.ThreadChanged -> {
+                searchScope.launch { scheduleSearchRefresh(refreshChats = true) }
+            }
+
+            is AgentV2Update.RuntimeReady -> {
+                searchScope.launch {
+                    val request = activeSearchRequest
+                    cancelSearch()
+                    if (request != null) search(request.keyword, request.onResult)
+                }
+            }
+
+            else -> Unit
+        }
     }
 
     private fun refresh() {
@@ -276,8 +325,15 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             }
 
             is WalletEvent.AccountChangedInApp -> {
+                cancelSearch()
                 delegate.get()?.accountChanged()
             }
+
+            is WalletEvent.AccountChanged,
+            WalletEvent.AccountsReset -> cancelSearch()
+
+            WalletEvent.AgentThreadCreated,
+            is WalletEvent.AgentThreadDeleted -> scheduleSearchRefresh(refreshChats = true)
 
             WalletEvent.TokensChanged -> {
                 // Mostly price updates: rebuild the match caches only when searchable fields
@@ -329,7 +385,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
     data class SearchResult(
         val keyword: String,
-        val recentChats: List<AgentHint>? = null,
+        val recentChats: List<AgentThreadSearchResult>? = null,
         val suggestedChats: List<AgentHint>? = null,
         val matchedVisitedSite: MExploreHistory.VisitedSite? = null,
         val recentSearches: List<MExploreHistory.HistoryItem>? = null,
@@ -347,19 +403,54 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val walletInfo: WalletInfoMatch? = null,
         val isWalletInfoLookupPending: Boolean = false,
         val noResultsFound: Boolean = false
-    )
+    ) {
+        internal fun withRecentChats(chats: List<AgentThreadSearchResult>) = copy(
+            recentChats = chats,
+            recentSearches = if (noResultsFound && chats.isNotEmpty()) {
+                emptyList()
+            } else {
+                recentSearches
+            },
+            noResultsFound = noResultsFound && chats.isEmpty()
+        )
+    }
 
-    fun search(keyword: String, onResult: (SearchResult) -> Unit) {
+    fun search(keyword: String, onResult: (SearchResult) -> Unit) =
+        search(keyword, refreshChats = true, onResult)
+
+    private fun search(keyword: String, refreshChats: Boolean, onResult: (SearchResult) -> Unit) {
         searchRefreshJob?.cancel()
         searchRefreshJob = null
+        refreshChatsOnNextSearch = false
         searchJob?.cancel()
         walletInfoSearchRequest = null
         if (currentSearchKeyword != keyword) completedWalletInfoLookup = null
         currentSearchKeyword = keyword
-        activeSearchRequest = ActiveSearchRequest(keyword, onResult)
+        val request = ActiveSearchRequest(
+            keyword,
+            onResult,
+            previous = activeSearchRequest,
+            cachedRecent = if (keyword.isEmpty()) {
+                AgentSearchSuggestions.cachedRecent()
+            } else {
+                emptyList()
+            }
+        )
+        activeSearchRequest = request
 
         val job = searchScope.launch(start = CoroutineStart.LAZY) {
             val currentJob = currentCoroutineContext()[Job]
+            val agentChats = if (refreshChats) {
+                async {
+                    if (keyword.isBlank()) {
+                        AgentSearchSuggestions.recent()
+                    } else {
+                        AgentSearchSuggestions.search(keyword)
+                    }
+                }
+            } else {
+                null
+            }
             val history = ExploreHistoryStore.exploreHistory
             val historySnapshot = ExploreHistorySnapshot(
                 searchHistory = history?.searchHistory?.toList().orEmpty(),
@@ -367,32 +458,53 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 recentTokenSlugs = history?.recentTokenSlugs().orEmpty()
             )
             val suggestedChatsSnapshot = lastSuggestedChats
-            val baseResult = withContext(Dispatchers.Default) {
+            val localResult = withContext(Dispatchers.Default) {
                 buildSearchResult(keyword, historySnapshot, suggestedChatsSnapshot)
             }
             if (searchJob !== currentJob) return@launch
-
             val completedLookup = completedWalletInfoLookup?.takeIf {
                 it.keyword == keyword &&
                     it.accountId == AccountStore.activeAccountId &&
                     it.network == AccountStore.activeAccount?.network
             }
-            val result = if (baseResult.isWalletInfoLookupPending && completedLookup != null) {
-                baseResult.withWalletInfo(completedLookup.match)
+            val result = if (localResult.isWalletInfoLookupPending && completedLookup != null) {
+                localResult.withWalletInfo(completedLookup.match)
             } else {
-                baseResult
+                localResult
             }
+            request.publishLocalResult(result)
 
-            onResult(result)
-
-            if (keyword.isEmpty()) {
-                val suggestedChats = AgentSearchSuggestions.suggested()
-                if (searchJob !== currentJob) return@launch
-                lastSuggestedChats = suggestedChats
-                if (suggestedChats != result.suggestedChats) {
-                    onResult(result.copy(suggestedChats = suggestedChats))
+            val suggestedChatsJob = if (keyword.isEmpty() && refreshChats) {
+                launch suggestions@{
+                    val suggestedChats = AgentSearchSuggestions.suggested()
+                    if (searchJob !== currentJob) return@suggestions
+                    lastSuggestedChats = suggestedChats
+                    val currentResult = request.result ?: return@suggestions
+                    if (suggestedChats != currentResult.suggestedChats) {
+                        val updated = currentResult.copy(suggestedChats = suggestedChats)
+                        request.publishResult(updated)
+                    }
                 }
+            } else {
+                null
             }
+
+            if (agentChats != null) {
+                val refreshedChats = agentChats.await()
+                if (searchJob !== currentJob) return@launch
+                val currentResult = request.result ?: return@launch
+                val noLocalResults = result.noResultsFound && currentResult.walletInfo == null
+                val updated = currentResult.copy(
+                    noResultsFound = noLocalResults,
+                    recentSearches = if (noLocalResults) {
+                        result.recentSearches
+                    } else {
+                        currentResult.recentSearches
+                    }
+                ).withRecentChats(refreshedChats)
+                request.publishResult(updated)
+            }
+            suggestedChatsJob?.join()
 
             if (searchJob === currentJob) searchJob = null
         }
@@ -403,6 +515,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     fun cancelSearch() {
         searchRefreshJob?.cancel()
         searchRefreshJob = null
+        refreshChatsOnNextSearch = false
         searchJob?.cancel()
         searchJob = null
         activeSearchRequest = null
@@ -415,8 +528,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
      * Wallet data updates arrive in bursts while polling runs, so collapse them into a single
      * rebuild instead of restarting the search (and its address lookups) on every event.
      */
-    private fun scheduleSearchRefresh() {
+    private fun scheduleSearchRefresh(refreshChats: Boolean = false) {
         if (activeSearchRequest == null) return
+        refreshChatsOnNextSearch = refreshChatsOnNextSearch || refreshChats
         if (searchRefreshJob?.isActive == true) return
         searchRefreshJob = searchScope.launch {
             delay(SEARCH_REFRESH_DEBOUNCE_MS.milliseconds)
@@ -429,7 +543,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             if (walletInfoSearchRequest != null) return@launch
             val request = activeSearchRequest ?: return@launch
             searchRefreshJob = null
-            search(request.keyword, request.onResult)
+            val shouldRefreshChats = refreshChatsOnNextSearch
+            refreshChatsOnNextSearch = false
+            search(request.keyword, shouldRefreshChats, request.onResult)
         }
     }
 
@@ -439,11 +555,6 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         suggestedChats: List<AgentHint>
     ): SearchResult {
         val searchContext = currentCoroutineContext()
-        val recentChats = if (keyword.isEmpty()) {
-            AgentSearchSuggestions.recent()
-        } else {
-            emptyList()
-        }
         val matchedVisitedSite = exactMatch(keyword, historySnapshot.visitedSites, searchContext)
         val recentSearches = recentSearches(keyword, historySnapshot.searchHistory, searchContext)
         val recentVisitedSites = visitedSites(
@@ -491,7 +602,6 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             settings.isEmpty()
         return SearchResult(
             keyword = keyword,
-            recentChats = recentChats,
             suggestedChats = if (keyword.isEmpty()) suggestedChats else emptyList(),
             matchedVisitedSite = matchedVisitedSite,
             recentSearches = if (noResultsFound) {
@@ -602,16 +712,23 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     fun searchWalletInfo(result: SearchResult, onResult: (SearchResult) -> Unit) {
         val keyword = result.keyword
         currentSearchKeyword = keyword
-        walletInfoSearchRequest = null
 
-        if (!result.isWalletInfoLookupPending) return
+        if (!result.isWalletInfoLookupPending || walletInfoSearchRequest != null) return
+
+        val searchRequest = activeSearchRequest?.takeIf { it.keyword == keyword }
+        fun publishWalletInfo(match: WalletInfoMatch?) {
+            val updated = (searchRequest?.result ?: result).withWalletInfo(match)
+            searchRequest?.result = updated
+            onResult(updated)
+            if (refreshChatsOnNextSearch) scheduleSearchRefresh(refreshChats = true)
+        }
 
         val account = AccountStore.activeAccount
-            ?: return onResult(result.copy(isWalletInfoLookupPending = false))
+            ?: return publishWalletInfo(null)
         val network = account.network
         val compatibleChains = compatibleWalletChains(keyword)
         if (compatibleChains.isEmpty()) {
-            onResult(result.copy(isWalletInfoLookupPending = false))
+            publishWalletInfo(null)
             return
         }
 
@@ -658,7 +775,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                         network,
                         match
                     )
-                    onResult(result.withWalletInfo(match))
+                    publishWalletInfo(match)
                 } else if (request.pendingChains.isEmpty()) {
                     walletInfoSearchRequest = null
                     if (!request.hadRetriableFailure) {
@@ -669,7 +786,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                             null
                         )
                     }
-                    onResult(result.withWalletInfo(null))
+                    publishWalletInfo(null)
                 }
             }
         }

@@ -108,11 +108,23 @@ describe('swap estimate hints', () => {
     getSwapItemSlug.mockReturnValue('sol');
   });
 
-  it('returns an expected router outage for clients to display', async () => {
-    callBackendPost.mockRejectedValueOnce(new ApiServerError('Swap routers are unavailable', 503));
+  it.each([
+    'Swap routers are unavailable',
+    'Exchange providers are unavailable',
+  ])('returns an expected outage for clients to display: %s', async (message) => {
+    callBackendPost.mockRejectedValueOnce(new ApiServerError(message, 503));
 
     await expect(swapEstimate('account', { from: 'eth', to: 'wct', fromAmount: '3' }))
       .resolves.toEqual({ error: 'Swap routers are unavailable' });
+  });
+
+  it('hands a request the backend validator rejected to clients as a refusal', async () => {
+    callBackendPost.mockResolvedValueOnce({
+      errors: [{ value: '0', msg: 'Invalid value', param: 'fromAmount', location: 'body' }],
+    });
+
+    await expect(swapEstimate('account', { from: 'sol', to: 'usdc', fromAmount: '0' }))
+      .resolves.toEqual({ error: 'Invalid value' });
   });
 
   it.each([

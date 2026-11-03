@@ -1,11 +1,13 @@
 import React, { memo, useRef } from '../../../lib/teact/teact';
 
 import type { DieselStatus, UserSwapToken } from '../../../global/types';
+import type { SwapError } from '../helpers/resolveSwapError';
 import { SwapErrorType, SwapType } from '../../../global/types';
 
 import { ANIMATION_END_DELAY } from '../../../config';
 import buildClassName from '../../../util/buildClassName';
 import { formatCurrencySimple } from '../../../util/formatNumber';
+import { resolveSwapError } from '../helpers/resolveSwapError';
 
 import { useThrottledSignal } from '../../../hooks/useAsyncResolvers';
 import useDerivedSignal from '../../../hooks/useDerivedSignal';
@@ -26,7 +28,8 @@ interface OwnProps {
   isEstimating?: boolean;
   isSending?: boolean;
   isNotEnoughNative?: boolean;
-  nativeToken?: UserSwapToken;
+  isAmountGreaterThanBalance?: boolean;
+  hasInsufficientFeeError?: boolean;
   dieselStatus?: DieselStatus;
   isPriceImpactError?: boolean;
   canSubmit?: boolean;
@@ -37,9 +40,9 @@ interface OwnProps {
   };
   /** The resting caption. The swap form captions the button with "from → to" when it is absent */
   label?: string;
-  /** Replaces the caption and paints the button red while a check outside the swap estimate fails */
+  /** Replaces the caption while a check outside the swap estimate fails */
   errorText?: string;
-  /** The resting color. Errors paint the button red regardless */
+  /** The button keeps this color while disabled by an error. A bad exchange rate paints the button red regardless */
   kind?: 'green' | 'red';
 }
 
@@ -54,7 +57,8 @@ function SwapSubmitButton({
   isEstimating,
   isSending,
   isNotEnoughNative,
-  nativeToken,
+  isAmountGreaterThanBalance = false,
+  hasInsufficientFeeError = false,
   dieselStatus,
   isPriceImpactError,
   canSubmit,
@@ -66,42 +70,22 @@ function SwapSubmitButton({
 }: OwnProps) {
   const lang = useLang();
 
-  const isErrorExist = errorType !== undefined;
   const shouldSendingBeVisible = isSending && swapType === SwapType.CrosschainToWallet;
   const isDisabled = !canSubmit || shouldSendingBeVisible;
   const isLoading = isEstimating || shouldSendingBeVisible;
 
-  const errorMsgByType = {
-    [SwapErrorType.UnexpectedError]: lang('Unexpected Error'),
-    [SwapErrorType.QuoteUnavailable]: lang('$swap_quote_unavailable'),
-    [SwapErrorType.ServiceUnavailable]: lang('$swap_service_unavailable'),
-    [SwapErrorType.InvalidPair]: lang('Invalid Pair'),
-    [SwapErrorType.NotEnoughLiquidity]: lang('Insufficient liquidity'),
-    [SwapErrorType.ChangellyMinSwap]: lang('Minimum amount', {
-      value: formatCurrencySimple(limits?.fromMin ?? '0', tokenIn?.symbol ?? '', tokenIn?.decimals),
-    }),
-    [SwapErrorType.ChangellyMaxSwap]: lang('Maximum amount', {
-      value: formatCurrencySimple(limits?.fromMax ?? '0', tokenIn?.symbol ?? '', tokenIn?.decimals),
-    }),
-    [SwapErrorType.NotEnoughForFee]: lang('Not Enough %symbol%', {
-      symbol: tokenIn?.symbol,
-    }),
-    [SwapErrorType.TooSmallAmount]: lang('$swap_too_small_amount'),
-  };
-
   const isTouched = Boolean(amountIn || amountOut);
+  const error = resolveSwapError({ errorType, isAmountGreaterThanBalance, hasInsufficientFeeError });
 
   let text: string | string[] = label ?? '$swap_from_to';
 
   if (errorText) {
     text = errorText;
   } else if (isTouched) {
-    if (isErrorExist) {
-      text = errorMsgByType[errorType] as string;
+    if (error !== undefined) {
+      text = getErrorText(error) as string;
     } else if (tokenIn?.tokenAddress && isNotEnoughNative) {
-      if (dieselStatus === 'not-available') {
-        text = lang('Not Enough %symbol%', { symbol: nativeToken?.symbol }) as string;
-      } else if (dieselStatus === 'pending-previous') {
+      if (dieselStatus === 'pending-previous') {
         text = lang('Awaiting Previous Fee');
       } else if (dieselStatus === 'not-authorized') {
         text = lang('$authorize_token_fee_capitalized', { token: tokenIn?.symbol }) as string;
@@ -111,18 +95,39 @@ function SwapSubmitButton({
 
   const textStr = Array.isArray(text) ? text.join('') : text;
 
-  const shouldShowError = !isEstimating && (
-    isPriceImpactError
-    || isErrorExist
-    || (nativeToken && isNotEnoughNative && (
-      !dieselStatus
-      || dieselStatus === 'not-available'
-      || dieselStatus === 'pending-previous'
-    ))
-  );
-
-  const isDestructive = Boolean(errorText) || kind === 'red' || (isTouched && shouldShowError);
+  // A bad exchange rate is a warning: the button stays enabled, and the red color asks the user to think twice
+  const isDestructive = kind === 'red' || (isTouched && !isEstimating && isPriceImpactError);
   const buttonKind = kind === 'green' && !isDestructive ? 'green' : undefined;
+
+  function getErrorText(swapError: SwapError) {
+    switch (swapError) {
+      case 'insufficientBalance':
+        return lang('Insufficient Balance');
+      case 'insufficientFee':
+      case SwapErrorType.NotEnoughForFee:
+        return lang('Insufficient Fee');
+      case SwapErrorType.UnexpectedError:
+        return lang('Unexpected Error');
+      case SwapErrorType.QuoteUnavailable:
+        return lang('$swap_quote_unavailable');
+      case SwapErrorType.ServiceUnavailable:
+        return lang('$swap_service_unavailable');
+      case SwapErrorType.InvalidPair:
+        return lang('Unsupported Pair');
+      case SwapErrorType.NotEnoughLiquidity:
+        return lang('Insufficient Liquidity');
+      case SwapErrorType.TooSmallAmount:
+        return lang('Too Small Amount');
+      case SwapErrorType.ChangellyMinSwap:
+        return lang('Minimum amount', {
+          value: formatCurrencySimple(limits?.fromMin ?? '0', tokenIn?.symbol ?? '', tokenIn?.decimals),
+        });
+      case SwapErrorType.ChangellyMaxSwap:
+        return lang('Maximum amount', {
+          value: formatCurrencySimple(limits?.fromMax ?? '0', tokenIn?.symbol ?? '', tokenIn?.decimals),
+        });
+    }
+  }
 
   const transitionKeyRef = useRef(0);
   const render = useDerivedSignal(() => {

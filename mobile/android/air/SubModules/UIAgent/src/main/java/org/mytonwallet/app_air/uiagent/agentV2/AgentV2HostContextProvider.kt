@@ -38,10 +38,16 @@ private class AgentV2AuthorityState {
         binding === expected && expected.accountId == activeAccountId
 }
 
-class AgentV2HostContextProvider(
+class AgentV2HostContextProvider internal constructor(
     private val client: AgentV2Client,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope: CoroutineScope,
+    private val buildSnapshot: suspend () -> AgentHostContextSnapshot
 ) : WalletCore.EventObserver {
+    constructor(
+        client: AgentV2Client,
+        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    ) : this(client, scope, AgentHostContextBuilder::build)
+
     private val authorityState = AgentV2AuthorityState()
     private val messageAuthorityState = AgentV2AuthorityState().apply {
         publish(AccountStore.activeAccountId)
@@ -163,7 +169,7 @@ class AgentV2HostContextProvider(
         if (shouldPublishAuthority) onMessageAuthorityChanged()
     }
 
-    internal fun makeSnapshot() = AgentHostContextBuilder.build()
+    internal suspend fun makeSnapshot() = buildSnapshot()
 
     private fun scheduleUpdate(immediately: Boolean, shouldPublishAuthority: Boolean) {
         publicationState.request(shouldPublishAuthority)

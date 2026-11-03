@@ -4,6 +4,9 @@ import UIKit
 final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, ContextMenuPresentationSession {
     private static let externalSelectionActivationDistance: CGFloat = 4.0
     private static let panelDismissalSafetyMargin: CGFloat = 8.0
+    private static let relocationTravelAnimationKey = "position.y.contextMenuSpring"
+    private static let relocationClipDuration: CFTimeInterval = 0.2
+    private static let backdropFadeDuration: CFTimeInterval = 0.2
 
     private enum VerticalDirection {
         case above
@@ -42,6 +45,15 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     private var frozenNavigationFrame: CGRect?
     private var currentPanelPlacement: PanelPlacement?
     private var presentationVerticalDirection: VerticalDirection?
+    /// Set when the menu moves its source's replica, which then scrolls with the panel and the accessory
+    private var relocation: ContextMenuSourceRelocation?
+    private let relocationClipView = UIView()
+    let relocationScrollView = UIScrollView()
+    private let relocationContentView = UIView()
+    /// How far the replica moves from the source, fixed by the first layout
+    private(set) var relocationOffset: CGFloat?
+    /// The portal source's frame as the menu opens, which the replica keeps while the menu is open
+    private var relocationPortalFrame: CGRect?
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
     })
@@ -53,6 +65,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         customRowContext: self.customRowContext
     )
 
+    var onWillDismiss: (() -> Void)?
     var onDidDismiss: (() -> Void)?
 
     init(
@@ -135,11 +148,16 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
            ) {
             portalView.alpha = 0.0
             self.portalView = portalView
-            self.addSubview(portalView)
+            if let sourceRelocation = self.configuration.sourceRelocation {
+                portalView.detachFromSourcePosition()
+                self.relocation = sourceRelocation
+                self.setupRelocationViews()
+            }
+            self.contentHostView.addSubview(portalView)
         }
 
         self.navigationView.alpha = 0.0
-        self.addSubview(self.navigationView)
+        self.contentHostView.addSubview(self.navigationView)
 
         if let accessory = self.configuration.accessory {
             let accessoryContext = ContextMenuAccessoryContext(dismissHandler: { [weak self] in
@@ -148,11 +166,13 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             let accessoryView = ContextMenuAccessoryView(
                 capsules: accessory.backgroundCapsules,
                 contentView: accessory.makeContentView(accessoryContext),
-                glassTint: self.configuration.style.glassTint,
+                glassTint: accessory.glassTint ?? self.configuration.style.glassTint,
+                shadow: accessory.shadow,
+                isGlassInteractive: accessory.isGlassInteractive,
                 sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
             )
             accessoryView.alpha = 0.0
-            self.addSubview(accessoryView)
+            self.contentHostView.addSubview(accessoryView)
             self.accessoryView = accessoryView
         }
 
@@ -165,6 +185,31 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.portalView?.accessibilityElementsHidden = true
     }
 
+    /// The view that holds the replica, the panel and the accessory: a scrolling one while the menu moves the replica
+    private var contentHostView: UIView {
+        self.relocation == nil ? self : self.relocationContentView
+    }
+
+    private func setupRelocationViews() {
+        self.relocationClipView.frame = self.bounds
+        self.relocationClipView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.relocationScrollView.frame = self.relocationClipView.bounds
+        self.relocationScrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.relocationScrollView.backgroundColor = .clear
+        self.relocationScrollView.showsVerticalScrollIndicator = false
+        self.relocationScrollView.showsHorizontalScrollIndicator = false
+        self.relocationScrollView.contentInsetAdjustmentBehavior = .never
+        self.relocationScrollView.delaysContentTouches = false
+        self.relocationScrollView.isScrollEnabled = false
+        if #available(iOS 26.0, *) {
+            self.relocationScrollView.topEdgeEffect.isHidden = true
+            self.relocationScrollView.bottomEdgeEffect.isHidden = true
+        }
+        self.addSubview(self.relocationClipView)
+        self.relocationClipView.addSubview(self.relocationScrollView)
+        self.relocationScrollView.addSubview(self.relocationContentView)
+    }
+
     override func accessibilityPerformEscape() -> Bool {
         self.dismissMenu()
         return true
@@ -173,8 +218,8 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     override func layoutSubviews() {
         super.layoutSubviews()
         self.updateBackdropMask()
-        self.layoutPortalView()
         self.layoutMenu()
+        self.layoutPortalView()
     }
 
     func activatePresentationIfNeeded() {
@@ -184,6 +229,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.hasAnimatedIn = true
 
         self.layoutMenu()
+        self.layoutPortalView()
         self.animateIn()
         UIAccessibility.post(notification: .screenChanged, argument: nil)
     }
@@ -288,6 +334,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         guard let panelFrame else {
             return true
         }
+        let point = self.relocation == nil ? point : self.relocationContentView.convert(point, from: self)
         let isInsidePanel = panelFrame
             .insetBy(dx: -Self.panelDismissalSafetyMargin, dy: -Self.panelDismissalSafetyMargin)
             .contains(point)
@@ -300,6 +347,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     private func layoutMenu() {
         if self.isDismissingMenu, let frozenNavigationFrame {
             self.navigationView.frame = frozenNavigationFrame
+            return
+        }
+        if let relocation {
+            self.layoutRelocatedMenu(relocation)
             return
         }
 
@@ -319,6 +370,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         } else {
             placement = self.panelPlacement(in: safeFrame)
         }
+        self.applyPanelPlacement(placement)
+    }
+
+    private func applyPanelPlacement(_ placement: PanelPlacement) {
         let navigationFrame = CGRect(
             x: placement.panelOrigin.x - self.configuration.style.panelInset,
             y: placement.panelOrigin.y - self.configuration.style.panelInset,
@@ -333,6 +388,109 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             self.updateNavigationAnchor(for: placement)
         }
         self.frozenNavigationFrame = self.navigationView.frame
+    }
+
+    /// Lays out the replica, its accessory and the panel below them in the scrolling content, whose coordinates match
+    /// the overlay's while it is not scrolled. The panel keeps its usual attachment, width and alignment.
+    private func layoutRelocatedMenu(_ relocation: ContextMenuSourceRelocation) {
+        let style = self.configuration.style
+        let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
+        let horizontalFrame = self.bounds.inset(by: UIEdgeInsets(
+            top: 0.0,
+            left: style.screenInsets.left,
+            bottom: 0.0,
+            right: style.screenInsets.right
+        ))
+        let topLimit = self.safeAreaInsets.top + relocation.topInset
+        let bottomLimit = self.bounds.maxY - self.safeAreaInsets.bottom - relocation.bottomInset
+        let panelSize = self.navigationView.preferredPanelSize(constrainedTo: CGSize(
+            width: min(style.maxWidth, horizontalFrame.width),
+            height: max(1.0, bottomLimit - topLimit)
+        ))
+        let sourceAccessoryFrame = self.configuration.accessory.map {
+            self.getRelocatedAccessoryFrame(for: $0, sourceRect: sourceRect)
+        }
+        let attachmentRect = sourceAccessoryFrame.map { sourceRect.union($0) } ?? sourceRect
+        let isFirstLayout = self.relocationOffset == nil
+        let offset = self.relocationOffset ?? Self.getMinimalRelocationOffset(
+            attachmentRect: attachmentRect,
+            panelHeight: panelSize.height,
+            sourceSpacing: style.sourceSpacing,
+            topLimit: topLimit,
+            bottomLimit: bottomLimit
+        )
+        self.relocationOffset = offset
+
+        let relocatedSourceRect = sourceRect.offsetBy(dx: 0.0, dy: offset)
+        let relocatedAttachmentRect = attachmentRect.offsetBy(dx: 0.0, dy: offset)
+        if let accessoryView, let sourceAccessoryFrame {
+            let accessoryFrame = sourceAccessoryFrame.offsetBy(dx: 0.0, dy: offset)
+            accessoryView.frame = accessoryFrame
+            self.accessoryFrame = accessoryFrame
+        }
+        let placement = PanelPlacement(
+            panelSize: panelSize,
+            panelOrigin: CGPoint(
+                x: self.getPanelOriginX(for: panelSize, safeFrame: horizontalFrame, sourceRect: relocatedSourceRect),
+                y: relocatedAttachmentRect.maxY + style.sourceSpacing
+            ),
+            verticalDirection: .below,
+            attachmentRect: relocatedAttachmentRect
+        )
+        self.applyPanelPlacement(placement)
+
+        let contentHeight = placement.panelOrigin.y + panelSize.height + relocation.bottomInset + self.safeAreaInsets.bottom
+        let isScrollable = contentHeight > self.bounds.height + 0.5
+        self.relocationClipView.frame = self.bounds
+        self.relocationScrollView.frame = self.relocationClipView.bounds
+        self.relocationContentView.frame = CGRect(
+            x: 0.0,
+            y: 0.0,
+            width: self.bounds.width,
+            height: max(self.bounds.height, contentHeight)
+        )
+        self.relocationScrollView.contentSize = self.relocationContentView.bounds.size
+        self.relocationScrollView.isScrollEnabled = isScrollable
+        self.relocationScrollView.alwaysBounceVertical = isScrollable
+        if isFirstLayout {
+            // A replica and panel taller than the screen open scrolled to the panel
+            self.relocationScrollView.contentOffset = CGPoint(x: 0.0, y: max(0.0, contentHeight - self.bounds.height))
+        }
+    }
+
+    /// The offset that moves a source's attachment rect, and the panel `sourceSpacing` below it, between `topLimit` and
+    /// `bottomLimit` as little as possible; a pair taller than that starts at `topLimit`
+    static func getMinimalRelocationOffset(
+        attachmentRect: CGRect,
+        panelHeight: CGFloat,
+        sourceSpacing: CGFloat,
+        topLimit: CGFloat,
+        bottomLimit: CGFloat
+    ) -> CGFloat {
+        var minY = max(attachmentRect.minY, topLimit)
+        let combinedHeight = attachmentRect.height + sourceSpacing + panelHeight
+        if minY + combinedHeight > bottomLimit {
+            minY = bottomLimit - combinedHeight
+        }
+        minY = max(minY, topLimit)
+        return minY - attachmentRect.minY
+    }
+
+    /// The accessory over the source's top trailing corner, kept inside the screen insets and the safe area horizontally;
+    /// vertically it moves with the replica
+    private func getRelocatedAccessoryFrame(for accessory: ContextMenuAccessory, sourceRect: CGRect) -> CGRect {
+        let minX = self.configuration.style.screenInsets.left + self.safeAreaInsets.left
+        let maxX = self.bounds.maxX - self.configuration.style.screenInsets.right - self.safeAreaInsets.right
+        let size = accessory.size
+        let x = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
+            ? sourceRect.minX - accessory.topTrailingOffset.dx
+            : sourceRect.maxX + accessory.topTrailingOffset.dx - size.width
+        return CGRect(
+            x: min(max(x, minX), maxX - size.width),
+            y: sourceRect.minY + accessory.topTrailingOffset.dy,
+            width: size.width,
+            height: size.height
+        )
     }
 
     private func panelPlacement(in safeFrame: CGRect) -> PanelPlacement {
@@ -375,10 +533,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
                 constrainedTo: CGSize(width: maxPanelWidth, height: availableHeight)
             )
             let panelOrigin = CGPoint(
-                x: min(
-                    max(sourceRect.midX - panelSize.width * 0.5, safeFrame.minX),
-                    safeFrame.maxX - panelSize.width
-                ),
+                x: self.getPanelOriginX(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect),
                 y: self.bounds.maxY
                     - self.configuration.style.screenInsets.bottom
                     - panelSize.height
@@ -439,7 +594,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         let panelSize = self.navigationView.preferredPanelSize(
             constrainedTo: CGSize(width: maxPanelWidth, height: max(1.0, maxPanelHeight))
         )
-        let x = min(max(sourceRect.midX - panelSize.width * 0.5, safeFrame.minX), safeFrame.maxX - panelSize.width)
+        let x = self.getPanelOriginX(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
         let y: CGFloat
         switch direction {
         case .below:
@@ -498,13 +653,27 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         return wantsBelow ? .below : .above
     }
 
+    private func getPanelOriginX(for panelSize: CGSize, safeFrame: CGRect, sourceRect: CGRect) -> CGFloat {
+        let isRightToLeft = self.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let x: CGFloat
+        switch self.configuration.style.horizontalAlignment {
+        case .center:
+            x = sourceRect.midX - panelSize.width * 0.5
+        case .leading:
+            x = isRightToLeft ? sourceRect.maxX - panelSize.width : sourceRect.minX
+        case .trailing:
+            x = isRightToLeft ? sourceRect.minX : sourceRect.maxX - panelSize.width
+        }
+        return min(max(x, safeFrame.minX), safeFrame.maxX - panelSize.width)
+    }
+
     private func panelOriginScreenBalanced(
         for panelSize: CGSize,
         direction: VerticalDirection,
         safeFrame: CGRect,
         sourceRect: CGRect
     ) -> CGPoint {
-        let x = min(max(sourceRect.midX - panelSize.width * 0.5, safeFrame.minX), safeFrame.maxX - panelSize.width)
+        let x = self.getPanelOriginX(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
         let y: CGFloat
         switch direction {
         case .below:
@@ -521,7 +690,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         safeFrame: CGRect,
         sourceRect: CGRect
     ) -> CGPoint {
-        let x = min(max(sourceRect.midX - panelSize.width * 0.5, safeFrame.minX), safeFrame.maxX - panelSize.width)
+        let x = self.getPanelOriginX(for: panelSize, safeFrame: safeFrame, sourceRect: sourceRect)
         let y: CGFloat
         switch direction {
         case .below:
@@ -644,6 +813,11 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.dimmingView.alpha = targetBackdropAlpha
         self.blurView?.alpha = 1.0
         self.portalView?.alpha = 1.0
+        if self.relocation != nil {
+            self.animateRelocationIn()
+        } else {
+            self.portalView?.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.2)
+        }
 
         self.navigationView.layer.addContextMenuAlphaAnimation(
             from: 0.0,
@@ -669,7 +843,6 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
 
         self.blurView?.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.2)
         self.dimmingView.layer.addContextMenuAlphaAnimation(from: 0.0, to: targetBackdropAlpha, duration: 0.2)
-        self.portalView?.layer.addContextMenuAlphaAnimation(from: 0.0, to: 1.0, duration: 0.2)
 
         if let accessoryView {
             accessoryView.alpha = 1.0
@@ -695,6 +868,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         }
 
         self.isDismissingMenu = true
+        let onWillDismiss = self.onWillDismiss
+        self.onWillDismiss = nil
+        onWillDismiss?()
         self.pendingExternalSelectionPoint = nil
         self.initialExternalSelectionPoint = nil
         self.didMoveFromInitialExternalSelectionPoint = false
@@ -751,7 +927,11 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             removeOnCompletion: false
         )
         self.blurView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
-        self.portalView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
+        if self.relocation != nil {
+            self.animateRelocationOut()
+        } else {
+            self.portalView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
+        }
         self.dimmingView.layer.addContextMenuAlphaAnimation(
             from: self.targetBackdropAlpha(),
             to: 0.0,
@@ -761,7 +941,136 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         CATransaction.commit()
     }
 
+    /// The replica stands in for the hidden source from the first frame and travels to its place on Telegram's spring,
+    /// while the clip around it grows from the source's visible area to the screen
+    private func animateRelocationIn() {
+        guard let relocationOffset else {
+            return
+        }
+        let travel = relocationOffset - self.relocationScrollView.contentOffset.y
+        if self.isSourceBehindBars, abs(travel) <= 0.5 {
+            self.portalView?.setSourceViewHidden(false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.backdropFadeDuration) { [weak self] in
+                guard let self, !self.isDismissingMenu else {
+                    return
+                }
+                self.portalView?.setSourceViewHidden(true)
+            }
+        }
+        if abs(travel) > 0.5 {
+            self.relocationContentView.layer.addContextMenuSpringAnimation(
+                keyPath: "position.y",
+                from: -travel as NSNumber,
+                to: 0.0 as NSNumber,
+                duration: ContextMenuAnimationSupport.appearDuration,
+                damping: ContextMenuAnimationSupport.appearDamping,
+                additive: true
+            )
+        }
+        if let relocationContentArea {
+            self.animateRelocationClip(
+                from: relocationContentArea,
+                to: self.relocationClipView.bounds,
+                shouldRemoveMaskOnCompletion: true
+            )
+        }
+    }
+
+    /// The replica travels back from where it shows, including a scroll or an unfinished arrival, onto the source, which
+    /// shows again as the overlay goes. A source that left the screen fades out instead.
+    private func animateRelocationOut() {
+        self.relocationScrollView.setContentOffset(self.relocationScrollView.contentOffset, animated: false)
+        let contentLayer = self.relocationContentView.layer
+        let currentTravel = (contentLayer.presentation()?.position.y ?? contentLayer.position.y) - contentLayer.position.y
+        contentLayer.removeAnimation(forKey: Self.relocationTravelAnimationKey)
+        if let portalView, let portalSourceView, portalSourceView.window != nil {
+            let replicaFrame = portalView.convert(portalView.bounds, to: self)
+            let sourceFrame = portalSourceView.convert(portalSourceView.bounds, to: self)
+            let returnTravel = sourceFrame.minY - replicaFrame.minY
+            if self.isSourceBehindBars, abs(returnTravel - currentTravel) <= 0.5 {
+                portalView.setSourceViewHidden(false)
+            }
+            contentLayer.addContextMenuBasicAnimation(
+                keyPath: "position.y",
+                from: currentTravel as NSNumber,
+                to: returnTravel as NSNumber,
+                duration: ContextMenuAnimationSupport.disappearDuration,
+                timingFunction: .easeInEaseOut,
+                additive: true,
+                removeOnCompletion: false
+            )
+        } else {
+            self.portalView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
+        }
+        if let relocationContentArea {
+            self.animateRelocationClip(
+                from: self.relocationClipView.bounds,
+                to: relocationContentArea,
+                shouldRemoveMaskOnCompletion: false
+            )
+        }
+    }
+
+    /// The source reaches under the header or the bottom bar around the content area, where it shows through the bars'
+    /// own blur. Hiding it at once would change the bars' backdrop in a blink, so a source under a replica that stays on
+    /// it shows until the menu's backdrop covers it, and again as the menu starts to go. A replica that moves away would
+    /// show the source beside it, so that source stays hidden until the replica is back on it and the overlay goes.
+    private var isSourceBehindBars: Bool {
+        guard let contentArea = self.relocationContentArea, let portalSourceView, portalSourceView.window != nil else {
+            return false
+        }
+        let sourceFrame = portalSourceView.convert(portalSourceView.bounds, to: self)
+        return !contentArea.insetBy(dx: -0.5, dy: -0.5).contains(sourceFrame)
+    }
+
+    /// `relocation.contentAreaInWindow` in the overlay's coordinates
+    private var relocationContentArea: CGRect? {
+        guard let contentAreaInWindow = self.relocation?.contentAreaInWindow else {
+            return nil
+        }
+        let contentArea = self.convert(contentAreaInWindow, from: nil).intersection(self.bounds)
+        return contentArea.isNull || contentArea.isEmpty ? nil : contentArea
+    }
+
+    private func animateRelocationClip(from fromRect: CGRect, to toRect: CGRect, shouldRemoveMaskOnCompletion: Bool) {
+        let maskLayer = CALayer()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        maskLayer.backgroundColor = UIColor.black.cgColor
+        maskLayer.frame = toRect
+        self.relocationClipView.layer.mask = maskLayer
+        CATransaction.commit()
+
+        CATransaction.begin()
+        if shouldRemoveMaskOnCompletion {
+            CATransaction.setCompletionBlock { [weak self, weak maskLayer] in
+                guard let self, let maskLayer, self.relocationClipView.layer.mask === maskLayer else {
+                    return
+                }
+                self.relocationClipView.layer.mask = nil
+            }
+        }
+        maskLayer.addContextMenuBasicAnimation(
+            keyPath: "bounds",
+            from: NSValue(cgRect: CGRect(origin: .zero, size: fromRect.size)),
+            to: NSValue(cgRect: CGRect(origin: .zero, size: toRect.size)),
+            duration: Self.relocationClipDuration,
+            timingFunction: .easeInEaseOut
+        )
+        maskLayer.addContextMenuBasicAnimation(
+            keyPath: "position",
+            from: NSValue(cgPoint: CGPoint(x: fromRect.midX, y: fromRect.midY)),
+            to: NSValue(cgPoint: CGPoint(x: toRect.midX, y: toRect.midY)),
+            duration: Self.relocationClipDuration,
+            timingFunction: .easeInEaseOut
+        )
+        CATransaction.commit()
+    }
+
     private func removeFromPresentationHost(completion: (() -> Void)? = nil) {
+        if self.relocation != nil {
+            self.portalView?.setSourceViewHidden(false)
+        }
         self.removeFromSuperview()
         // VoiceOver returns to the source; a screen that the chosen action presents takes it on afterwards
         if let sourceView = self.appearanceSourceView, sourceView.window != nil,
@@ -787,6 +1096,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         guard let portalView, let portalSourceView else {
             return
         }
+        if self.relocation != nil {
+            self.layoutRelocatedPortalView(portalView, sourceView: portalSourceView)
+            return
+        }
 
         portalView.frame = portalSourceView.convert(portalSourceView.bounds, to: self)
 
@@ -798,8 +1111,27 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         }
     }
 
+    /// The replica keeps the source's frame from when the menu opened, moved by `relocationOffset` in the scrolling
+    /// content
+    private func layoutRelocatedPortalView(_ portalView: ContextMenuPortalView, sourceView: UIView) {
+        guard let relocationOffset else {
+            return
+        }
+        let sourceFrame = self.relocationPortalFrame ?? sourceView.convert(sourceView.bounds, to: self)
+        self.relocationPortalFrame = sourceFrame
+        portalView.frame = sourceFrame.offsetBy(dx: 0.0, dy: relocationOffset)
+        if let portalMaskRectInWindow, let portalMask {
+            let maskRect = self.convert(portalMaskRectInWindow, from: nil)
+                .offsetBy(dx: -sourceFrame.minX, dy: -sourceFrame.minY)
+            portalView.updateMask(portalMask, rect: maskRect)
+        } else {
+            portalView.updateMask(nil, rect: nil)
+        }
+    }
+
     private func updateBackdropMask() {
-        guard let portalSourceView else {
+        // A moving replica leaves its source's place, so the backdrop has no cutout
+        guard let portalSourceView, self.relocation == nil else {
             self.blurView?.layer.mask = nil
             self.dimmingView.layer.mask = nil
             return

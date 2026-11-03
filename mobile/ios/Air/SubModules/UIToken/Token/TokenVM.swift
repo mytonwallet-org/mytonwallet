@@ -10,6 +10,14 @@ import WalletCore
 import WalletContext
 import WReachability
 
+private let PRICE_HISTORY_REFRESH_INTERVAL: Duration = .seconds(15)
+
+enum TokenHistoryLoadingState: Equatable {
+    case loading
+    case loaded
+    case failed
+}
+
 @MainActor protocol TokenVMDelegate: AnyObject {
     func dataUpdated()
     func priceDataUpdated()
@@ -38,17 +46,21 @@ import WReachability
         }
     }
     
-    var historyData: [[Double]]? { allHistoryData.withLock { [selectedPeriod] in $0[selectedPeriod] ?? nil } }
-    private var allHistoryData: UnfairLock<[ApiPriceHistoryPeriod: [[Double]]?]> = .init(initialState: [:])
-    private var loadHistoryTask: UnfairLock<[ApiPriceHistoryPeriod: Task<Void, Never>]> = .init(initialState: [:])
+    private(set) var historyData: [[Double]]?
+    private(set) var isHistoryRestored = true
+    private(set) var historyLoadingState: TokenHistoryLoadingState = .loading
+    private let fetchPriceHistory: @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiHistoryList
+    private var loadHistoryTask: Task<Void, Never>?
     private var loadTokenDetailsTask: Task<Void, Never>?
     private var lastRequestedTokenInfoPreset: DebugTokenInfoMock.Preset?
     private(set) var tokenInfoState: TokenInfoState
     
-    init(accountId: String, selectedToken: ApiToken, tokenVMDelegate: TokenVMDelegate) {
+    init(accountId: String, selectedToken: ApiToken, tokenVMDelegate: TokenVMDelegate,
+         fetchPriceHistory: @escaping @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiHistoryList = Api.fetchPriceHistory) {
         self.accountId = accountId
         self.selectedToken = selectedToken
         self.tokenVMDelegate = tokenVMDelegate
+        self.fetchPriceHistory = fetchPriceHistory
         if DebugTokenInfoMock.preset == .disabled,
            let cached = TokenStore.cachedTokenDetails(tokenSlug: selectedToken.slug) {
             self.tokenInfoState = Self.tokenInfoState(details: cached.details)
@@ -56,9 +68,7 @@ import WReachability
             self.tokenInfoState = .loading
         }
         
-        if let cached = TokenStore.historyData(tokenSlug: selectedToken.slug) {
-            self.allHistoryData.withLock { $0 = cached.data }
-        }
+        self.historyData = TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: selectedPeriod)
         WalletCoreData.add(eventObserver: self)
         
         // Listen for network connection events
@@ -79,11 +89,7 @@ import WReachability
     
     func stopAllObservers() {
         loadTokenDetailsTask?.cancel()
-        loadHistoryTask.withLock { tasks in
-            for task in tasks.values {
-                task.cancel()
-            }
-        }
+        loadHistoryTask?.cancel()
     }
     
     internal func refreshTransactions() {
@@ -147,53 +153,45 @@ import WReachability
         tokenVMDelegate?.tokenDetailsUpdated()
     }
     
-    func loadPriceHistory(period: ApiPriceHistoryPeriod) {
-        Task { [weak self] in self?.tokenVMDelegate?.priceDataUpdated() }
-        if let task = loadHistoryTask.withLock({ $0[period] }), !task.isCancelled {
-            return
-        }
-        let task = Task { [weak self] in
-            _ = await self?._loadPriceHistory(period: period)
-        }
-        self.loadHistoryTask.withLock { $0[period] = task }
-    }
-    
-    private func _loadPriceHistory(period: ApiPriceHistoryPeriod, retriesLeft: Int = 3) async {
-        do {
-            let historyData = try await Api.fetchPriceHistory(slug: selectedToken.slug, period: period, baseCurrency: TokenStore.baseCurrency)
-            guard !Task.isCancelled else { return }
-            let previousHistoryData = allHistoryData.withLock { $0[period] ?? nil }
-            self.allHistoryData.withLock { $0[period] = historyData }
-            let allHistoryData = self.allHistoryData.withLock { $0 }
-            TokenStore.setHistoryData(tokenSlug: selectedToken.slug, data: allHistoryData)
-            if period == selectedPeriod, historyData != previousHistoryData {
-                tokenVMDelegate?.priceDataUpdated()
+    func loadPriceHistory(period: ApiPriceHistoryPeriod, useCache: Bool = true) {
+        loadHistoryTask?.cancel()
+        historyData = useCache ? TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: period) : nil
+        isHistoryRestored = true
+        historyLoadingState = .loading
+        let slug = selectedToken.slug
+        let token = selectedToken
+        let currency = TokenStore.baseCurrency
+        let fetchPriceHistory = fetchPriceHistory
+        loadHistoryTask = Task { [weak self] in
+            self?.tokenVMDelegate?.priceDataUpdated()
+            while !Task.isCancelled {
+                let previousLoadingState = self?.historyLoadingState
+                if let self, historyLoadingState != .loading {
+                    historyLoadingState = .loading
+                    if historyData?.isEmpty != false {
+                        tokenVMDelegate?.priceDataUpdated()
+                    }
+                }
+                do {
+                    let history = try await fetchPriceHistory(token, period, currency)
+                    guard let self, !Task.isCancelled else { return }
+                    guard TokenStore.setPriceHistory(tokenSlug: slug, period: period, history: history, baseCurrency: currency) else { return }
+                    let shouldUpdatePriceData = isHistoryRestored || historyData != history
+                        || historyData?.isEmpty != false || previousLoadingState != .loaded
+                    historyData = history
+                    isHistoryRestored = false
+                    historyLoadingState = .loaded
+                    if shouldUpdatePriceData {
+                        tokenVMDelegate?.priceDataUpdated()
+                    }
+                } catch {
+                    guard let self, !Task.isCancelled else { return }
+                    historyLoadingState = .failed
+                    tokenVMDelegate?.priceDataUpdated()
+                }
+                try? await Task.sleep(for: PRICE_HISTORY_REFRESH_INTERVAL)
             }
-        } catch {
-            if retriesLeft > 0 {
-                try? await Task.sleep(for: .seconds(0.5))
-                await _loadPriceHistory(period: period, retriesLeft: retriesLeft - 1)
-                return
-            } else if !Task.isCancelled {
-                self.loadHistoryTask.withLock { $0[period] = nil }
-                return
-            }
         }
-        try? await Task.sleep(for: .seconds(15))
-        if !Task.isCancelled {
-            await _loadPriceHistory(period: period, retriesLeft: retriesLeft)
-        }
-    }
-
-    private func resetPriceHistoryAndReload() {
-        loadHistoryTask.withLock { tasks in
-            for task in tasks.values {
-                task.cancel()
-            }
-            tasks.removeAll()
-        }
-        allHistoryData.withLock { $0 = [:] }
-        loadPriceHistory(period: selectedPeriod)
     }
 }
 
@@ -205,7 +203,7 @@ extension TokenVM: WalletCoreData.EventsObserver {
                 tokenVMDelegate?.dataUpdated()
             }
         case .baseCurrencyChanged:
-            resetPriceHistoryAndReload()
+            loadPriceHistory(period: selectedPeriod, useCache: false)
             tokenVMDelegate?.dataUpdated()
         case .tokensChanged:
             tokenVMDelegate?.dataUpdated()

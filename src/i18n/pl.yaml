@@ -249,10 +249,10 @@ Dark: Ciemny
 System: Systemowy
 $stake_asset: Stakuj %symbol%
 Add Stake: Dodaj do stakingu
-"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% zablokowane w innym stakingu"
-"Unstake them to restake with **higher returns**.": "Odzastaw je, aby zastawić je ponownie z **wyższym zyskiem**."
-"💎 More profitable staking available": "💎 Dostępny jest bardziej opłacalny staking"
-"Tap to restake your %symbol% with higher returns.": "Dotknij, aby ponownie zastawić swoje %symbol% z wyższym zyskiem."
+"🔒 %amount% %symbol% staked elsewhere": "🔒 %amount% %symbol% w innym stakingu"
+"Unlock your %symbol% to access higher-yield staking.": "Odblokuj swoje %symbol%, aby uzyskać dostęp do stakingu z wyższym zyskiem."
+"💎 Higher-yield staking available": "💎 Staking z wyższym zyskiem"
+"Tap to restake your %symbol% with higher returns.": "Dotknij, aby ponownie zastawić swoje %symbol% z wyższym zyskiem."
 "Restake Now": "Zastaw ponownie"
 Earn from your tokens while holding them: Zarabiaj, przechowując %symbol%
 Current APY: Aktualny APY
@@ -686,6 +686,9 @@ Data Copied: Dane zostały skopiowane
 URL Copied: URL Copied
 Private Key Copied: Private Key Copied
 Contract Initialization Data Copied: Contract Initialization Data Copied
+$state_init_deploys_wallet: Utworzy portfel %version% pod adresem odbiorcy, jeśli nic tam jeszcze nie ma.
+$state_init_deploys_contract: Utworzy smart kontrakt pod adresem odbiorcy, jeśli nic tam jeszcze nie ma.
+$state_init_not_deployable: Sieć zignoruje te dane, nic nie zostanie utworzone.
 Open NFT Collection: Otwórz kolekcję NFT
 Previous: Poprzedni
 Next: Następny
@@ -926,6 +929,10 @@ $mint_action: Minting
 Burning: Palenie
 Burned: Spalone
 $burn_action: Palenie
+Perps Deposit: Depozyt na perps
+$perps_deposit_action: Depozyt na perps
+Perps Withdrawal: Wypłata z perps
+$perps_withdraw_action: Wypłata z perps
 Updating Address: Aktualizowanie adresu
 Updated Address: Adres zaktualizowany
 $update_address_action: Aktualizacja adresu
@@ -1061,6 +1068,10 @@ $iab_more_tabs_count:
   manyValue: "+ %count% kart"
   otherValue: "+ %count% karty"
 Close Tab: Zamknij kartę
+Close All: "Zamknij wszystkie"
+$browser_more_tabs:
+  oneValue: "%title% i %count% więcej"
+  otherValue: "%title% i %count% więcej"
 $domains_amount %count%:
   zeroValue: Brak domen
   oneValue: "%count% domena"
@@ -1186,6 +1197,7 @@ Without it, you won't be able to access your wallet.: Bez niej nie będziesz mó
 $ledger_connection_broken: Połączenie Ledger zostało przerwane. Proszę połączyć ponownie i spróbować jeszcze raz.
 $ledger_wrong_device: Bieżące konto jest skonfigurowane z innymi tajnymi słowami lub hasłem Ledger albo przechowywane na innym urządzeniu Ledger
 Show More: Pokaż więcej
+Show Less: Pokaż mniej
 Search app or enter address: Wyszukaj aplikację lub wprowadź adres
 Search or Ask: Szukaj lub zapytaj
 Connected Apps: Połączone aplikacje
@@ -1417,6 +1429,21 @@ $agent_error_limit: Nie można zrealizować żądania, ponieważ osiągnięto li
 $agent_error_tool: Nie udało się wykonać operacji portfela. Spróbuj ponownie.
 $agent_error_conversation_updated: Rozmowa została zaktualizowana. Spróbuj ponownie wykonać żądanie.
 $agent_error_generic: Agent nie mógł zrealizować żądania. Spróbuj ponownie.
+$agent_error_recording_too_large: "Nagranie jest za długie. Dyktuj maksymalnie minutę naraz."
+$agent_error_audio_unreadable: "Nie udało się przetworzyć nagrania. Nagraj je ponownie."
+$agent_error_transcription_unavailable: "Wprowadzanie głosowe jest teraz niedostępne. Spróbuj później."
+$agent_dictation_start: "Dyktuj"
+$agent_dictation_finish: "Zakończ dyktowanie"
+$agent_dictation_recognizing: "Rozpoznawanie…"
+$agent_dictation_no_speech: "Nie usłyszano mowy. Mów bliżej mikrofonu i spróbuj ponownie."
+$agent_dictation_time_left: "Zostało %seconds% s"
+$agent_dictation_time_left_short: "%seconds% s"
+$agent_dictation_limit_reached: "Dyktowanie zatrzymano po minucie – to maksymalna długość nagrania."
+$agent_dictation_microphone_denied: "Zezwól na dostęp do mikrofonu, aby dyktować."
+$agent_dictation_hold_hint: "Przytrzymaj, aby dyktować. Przesuń w górę, aby nagrywać bez użycia rąk."
+$agent_dictation_too_short: "Za krótko. Przytrzymaj podczas mówienia."
+$agent_dictation_slide_to_cancel: "Przesuń w lewo, aby anulować"
+$agent_dictation_deleted: "Nagranie usunięte"
 $agent_error_invalid_response: Nie udało się odczytać odpowiedzi agenta. Spróbuj ponownie.
 $agent_error_update_required: Zaktualizuj aplikację, aby kontynuować.
 $agent_wallet_page_navigation: Strony danych portfela
@@ -1606,6 +1633,8 @@ Edit Wallet Name: Edytuj nazwę portfela
 Wallet Name: Nazwa portfela
 App Icon: Ikona aplikacji
 Rounded Toolbars: Zaokrąglone paski narzędzi
+Toolbar: Pasek narzędzi
+Shared Background: Wspólne tło
 Side Gutters: Boczne marginesy
 Gradient Navigation Bar: Gradientowy pasek nawigacji
 Tokens on Home Screen: Tokeny na ekranie głównym
@@ -2014,13 +2043,9 @@ $agent_capacity_limit_title: Agent jest tymczasowo niedostępny
 $agent_capacity_limit_known: Nowe zapytania będzie można wysłać za %duration%.
 $agent_capacity_degraded_title: Agent może odpowiadać niestabilnie
 $agent_capacity_limit_unknown: Możesz spróbować ponownie, ale odpowiedź może się nie wczytać.
-$agent_response_failed_title: Nie udało się uzyskać odpowiedzi
-$agent_response_interrupted_title: Odpowiedź została przerwana
 $agent_retry_request: Ponów zapytanie
 $agent_rate_limit_title: Zbyt wiele zapytań do Agenta
 $agent_rate_limit_body: Spróbuj ponownie za %duration%.
-$agent_user_quota_meter: "Pula Agenta: pozostało %remaining% z %limit% jednostek"
-$agent_user_quota_reset: Dzienna pula odnowi się za %duration%.
 $agent_user_quota_exhausted_title: Niewystarczający limit Agenta
 $agent_user_quota_exhausted_body: Dostępny limit nie wystarcza na to żądanie. Dzienna pula wynosi %limit% jednostek i odnowi się za %duration%.
 $agent_time_hours: "%value% godz."
@@ -2098,7 +2123,6 @@ Search token or stock: Wyszukaj token lub akcję
 Unknown Transfer: Nieznany transfer
 $dapp_sign_data_for_prefix: dla
 
-# Token Buy / Sell
 "Pay %value%": "Zapłać %value%"
 "Receive %value%": "Otrzymaj %value%"
 "Buy %token% via %provider%": "Kup %token% przez %provider%"
@@ -2115,7 +2139,6 @@ Successfully Signed: Podpisano pomyślnie
 Coming soon: Wkrótce
 $dapp_identity_not_confirmed: Tożsamość aplikacji **nie jest potwierdzona**.
 
-# Token trade asset browser and details
 "Choose Asset": "Wybierz aktywo"
 "Asset to Buy": "Aktywo do kupienia"
 "Asset to Sell": "Aktywo do sprzedania"
@@ -2130,11 +2153,268 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: Tak
 3D Gram Diamond: Diament Gram 3D
 Hold to enlarge. Drag to rotate.: Przytrzymaj, aby powiększyć. Przeciągnij, aby obrócić.
 "Max": "Maks."
+
+or use web version: "lub skorzystaj z wersji internetowej"
+By continuing, you agree to our %terms% and %privacy%.: "Kontynuując, akceptujesz nasze\n%terms% i naszą %privacy%."
+$auth_privacy_policy: "Politykę prywatności"
+$auth_more: "Więcej"
+$auth_terms_of_use: "Warunki korzystania"
+
+"Pinned": "Przypięte"
+"New Chat": "Nowy czat"
+"Search chats": "Szukaj czatów"
+"Ask a question to start a new chat.": "Zadaj pytanie, aby rozpocząć nowy czat."
+"No chats found": "Nie znaleziono czatów"
+"Rename Chat": "Zmień nazwę czatu"
+"Delete Chat?": "Usunąć czat?"
+"$agent_delete_chat_confirmation": "Wiadomości na tym czacie zostaną trwale usunięte. Wysłane zgłoszenia problemów pozostaną u naszego zespołu."
+
+Invalid Address: Nieprawidłowy adres
+Domain Not Found: Domena nie znaleziona
+Multisig Sending Disabled: Nie można z multisig
+Insufficient Liquidity: Niewystarczająca płynność
+Too Small Amount: Zbyt mała kwota
+
+News: "Wiadomości"
+Crypto Market News: "Wiadomości z rynku kryptowalut"
+$agent_news_new: "Nowe"
+$agent_news_open_source: "Otwórz źródło"
+$agent_news_unavailable: "Wiadomości są teraz niedostępne"
+$agent_news_read_more: "Czytaj więcej"
+$agent_news_discuss: "Omów"
+$agent_news_continue_discussion: "Kontynuuj dyskusję"
+$agent_news_read_more_accessibility: "Czytaj więcej o %headline%"
+$agent_news_continue_discussion_accessibility: "Kontynuuj dyskusję o %headline%"
+$agent_news_ask_placeholder: "Zapytaj o tę wiadomość"
+$agent_news_quote_accessibility: "Wiadomość MyPulse: %headline%"
+$agent_news_unread_count:
+  oneValue: "%count% nieprzeczytana wiadomość"
+  fewValue: "%count% nieprzeczytane wiadomości"
+  manyValue: "%count% nieprzeczytanych wiadomości"
+  otherValue: "%count% nieprzeczytanej wiadomości"
 Explorer mode: Tryb eksplorera
 Open a link to a wallet, transfer, token or collectible to see its details here.: Otwórz link do portfela, transferu, tokena lub przedmiotu kolekcjonerskiego, aby zobaczyć tutaj szczegóły.
+
+# Perps
+Long: Long
+Short: Short
+Funding Rate: "Stopa finansowania"
+Max Leverage: "Maks. dźwignia"
+24h Volume: "Wolumen 24 h"
+Open Interest: "Wartość otwartych pozycji"
+$perps_funding_rate_hint: "Stawka używana do obliczania płatności finansowania między traderami z pozycjami długimi i krótkimi. Gdy stawka jest dodatnia, pozycje długie płacą krótkim. Gdy jest ujemna, pozycje krótkie płacą długim."
+$perps_max_leverage_hint: "Najwyższa dźwignia dostępna na tym rynku."
+$perps_volume_24h_hint: "Łączna wartość transakcji na tym rynku futures w ciągu ostatnich 24 godzin. Obejmuje transakcje zarówno otwierające, jak i zamykające pozycje."
+$perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie otwarte na tym rynku futures. W przeciwieństwie do wolumenu z 24 godzin nie obejmuje pozycji, które zostały już zamknięte."
+
+# Perps order entry
+"Leverage": "Dźwignia"
+"Position Size": "Wielkość pozycji"
+"Liquidation Price": "Cena likwidacji"
+"Trading Fee": "Opłata transakcyjna"
+"Funding Payments": "Płatności finansowania"
+"Swap Fee": "Opłata za wymianę"
+"Review": "Sprawdź"
+"$perps_order_long": "%asset% Long"
+"$perps_order_short": "%asset% Short"
+"$perps_swap_fee_hint": "Opłata za wymianę jednego tokena na inny w ramach tej transakcji."
+"$perps_trading_fee_hint": "Opłata za otwarcie tej pozycji."
+"$perps_position_size_hint": "Wielkość pozycji — łączna wartość pozycji z uwzględnieniem dźwigni."
+"$perps_position_size_details_hint": "Łączna wartość Twojej pozycji z uwzględnieniem dźwigni.\n\nNa przykład, jeśli inwestujesz $100 z dźwignią 5x, wielkość pozycji wynosi $500."
+"$perps_position_size_change_hint": "Łączna wartość Twojej pozycji z uwzględnieniem dźwigni.\nWartości pokazują wielkość pozycji przed zmianą i po niej."
+"$perps_profit_hint": "Zysk z zamknięcia części Twojej pozycji.\n\nNa przykład, jeśli zamkniesz połowę pozycji, tutaj zobaczysz zysk z zamkniętej części."
+"$perps_loss_hint": "Strata z zamknięcia części Twojej pozycji.\n\nNa przykład, jeśli zamkniesz połowę pozycji, tutaj zobaczysz stratę z zamkniętej części."
+"$perps_closing_value_hint": "Kwota pozostała po likwidacji Twojej pozycji. W zależności od wyniku likwidacji może być niższa od zainwestowanej kwoty lub równa zeru."
+"$perps_fees_hint": "Łączne opłaty naliczone za tę transakcję. W zależności od transakcji mogą obejmować opłaty handlowe, za wymianę i sieciowe."
+"$perps_liquidation_price_hint": "Szacowana cena, przy której Twoja pozycja może zostać automatycznie zamknięta z powodu niewystarczających środków do jej utrzymania."
+"$perps_high_leverage_warning": "Wysoka dźwignia: niewielki ruch ceny spowoduje likwidację."
+"$perps_leverage_disclaimer": "Wyższa dźwignia zwiększa potencjalne zyski i straty. Nawet niewielka zmiana ceny na niekorzyść Twojej pozycji może spowodować jej automatyczne zamknięcie."
+
+# Perps order review
+"Open Position": "Otwórz pozycję"
+"$perps_asset_price": "Cena %asset%"
+"$perps_leverage_direction": "%leverage%x %direction%"
+"$perps_liquidation_acknowledgment": "Potwierdzając, rozumiem, że pozycja może zostać zlikwidowana i mogę stracić zainwestowane środki."
+
+# Perps position receipt
+"Position Opened": "Pozycja otwarta"
+"Fees": "Opłaty"
+"Transfer ID": "ID przelewu"
+
+# Perps active position
+"Equity": "Wartość pozycji"
+"Profit and Loss": "Zysk i strata"
+"Invested": "Zainwestowano"
+"Entry Price": "Cena wejścia"
+"Edit Position": "Edytuj pozycję"
+"Close Position": "Zamknij pozycję"
+"PerpsEditPositionAction": "Edytuj"
+"PerpsClosePositionAction": "Zamknij"
+"$perps_invested_hint": "Kwota własnych środków wykorzystanych do tej pozycji. Na przykład, jeśli inwestujesz $100 z dźwignią 5x, zainwestowana kwota wynosi $100, a wielkość pozycji $500."
+"$perps_entry_price_hint": "Średnia cena, po której otwarto tę pozycję."
+"$perps_funding_payments_hint": "Okresowe płatności między traderami z pozycjami długimi i krótkimi. W zależności od stawki finansowania możesz płacić lub otrzymywać finansowanie, gdy Twoja pozycja jest otwarta."
+
+# Perps edit position
+"$perps_edit_long": "Edytuj %asset% Long"
+"$perps_edit_short": "Edytuj %asset% Short"
+"Current:": "Obecnie:"
+"Liquidation": "Likwidacja"
+"You Pay or Receive": "Płacisz lub otrzymujesz"
+"Reset to Current Amount": "Przywróć bieżącą kwotę"
+"Network Fee": "Opłata sieciowa"
+"$perps_network_fee_hint": "Opłata za przetworzenie tej transakcji w blockchainie."
+"$perps_edit_liquidation_hint": "Likwidacja — cena, przy której pozycja jest automatycznie zamykana."
+
+# Perps position lifecycle
+"Increase Position": "Zwiększ pozycję"
+"Reduce Position": "Zmniejsz pozycję"
+"Current Value": "Bieżąca wartość"
+"Closing Value": "Wartość przy zamknięciu"
+"Entry / Exit Price": "Cena wejścia / wyjścia"
+"Entry / Liquidation Price": "Cena wejścia / likwidacji"
+"You Paid": "Zapłacono"
+"You Received": "Otrzymano"
+"Position Increased": "Pozycja zwiększona"
+"Position Reduced": "Pozycja zmniejszona"
+"Position Closed": "Pozycja zamknięta"
+"Position Liquidated": "Pozycja zlikwidowana"
+"Profit": "Zysk"
+"Loss": "Strata"
+"$perps_current_value_hint": "Bieżąca wartość zainwestowanej kwoty, uwzględniająca zysk lub stratę z Twojej pozycji."
+"$perps_price_when_opened": "Cena %asset% przy otwarciu"
+"$perps_price_now": "Bieżąca cena %asset%"
+"$perps_held": "Czas utrzymania: %duration%"
+"$perps_liquidated_title": "Pozycja została automatycznie zamknięta."
+"$perps_liquidated_message": "Cena rynkowa osiągnęła cenę likwidacji, powodując stratę."
+
+# Perps home
+"Open Positions": "Otwarte pozycje"
+"Show All Positions": "Pokaż wszystkie pozycje"
+"Futures": "Futures"
+"Futures Market": "Rynek futures"
+"Liquidation Risk": "Ryzyko likwidacji"
+"Refresh": "Odśwież"
+"More Actions": "Więcej działań"
+"$perps_no_positions": "Nie masz jeszcze otwartych pozycji. Zacznij od przeglądu rynku futures."
+"$perps_explore_market": "Handluj kryptowalutami i aktywami rzeczywistymi"
+"PerpsExploreAgentDescription": "Twój asystent AI"
+"$perps_explore_futures": "Otwieraj pozycje krótkie i długie"
+"$perps_explore_apps": "Odkrywaj zdecentralizowany internet"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "Ceny lub pozycja uległy zmianie. Wróć i ponownie sprawdź zlecenie."
+"PerpsReviewChanged": "Zlecenie uległo zmianie. Wróć i sprawdź je ponownie."
+"PerpsInsufficientUsdc": "Za mało USDC w Arbitrum, z uwzględnieniem opłaty za most."
+"PerpsAmountTooSmall": "Ta kwota jest niższa niż minimum rynkowe."
+"PerpsUnchanged": "Wprowadź inną kwotę, aby zmienić pozycję."
+"PerpsPositionChanged": "Ta pozycja uległa zmianie. Odśwież i spróbuj ponownie."
+"PerpsPositionExists": "Masz już pozycję na tym rynku. Edytuj istniejącą pozycję."
+"PerpsOperationPending": "Operacja nadal oczekuje na zakończenie. Sprawdź jej status przed kolejną transakcją."
+"PerpsUnsupportedAccount": "Handel futures wymaga portfela programowego z adresem w sieci głównej Arbitrum."
+"PerpsTradingUnavailable": "Handel na tym rynku nie jest jeszcze dostępny."
+"PerpsInvalidLeverage": "Wybierz dźwignię obsługiwaną na tym rynku."
+"PerpsInvalidAmount": "Wprowadź prawidłową kwotę."
+"PerpsChangeLeverage": "Zmień dźwignię"
+"PerpsChangeLeverageSeparately": "Zmieniaj dźwignię oddzielnie od kwoty pozycji."
+"PerpsUnavailable": "Futures są niedostępne. Spróbuj ponownie później."
+"PerpsIncompleteData": "Nie udało się wczytać niektórych pozycji. Odśwież, aby uzyskać pełne saldo."
+"PerpsFeesAtExecution": "Opłaty zostaną ustalone przy realizacji"
+"PerpsWithdrawalPending": "Pozycja została zaktualizowana, ale wypłata USDC nie została zakończona. Nie wysyłaj zlecenia ponownie."
+"PerpsOperationStatus": "Status zlecenia"
+"PerpsExecutionUnknown": "Wynik nie został jeszcze potwierdzony. Odśwież i sprawdź pozycję oraz przelew przed kolejnym działaniem."
+"PerpsProcessing": "Przetwarzanie zlecenia. Transfer przez most i rozliczenie mogą potrwać kilka minut."
+"PerpsCompleted": "Zlecenie zrealizowane"
+"PerpsReconciled": "Konto zostało odświeżone. Szczegóły transakcji pojawią się po udostępnieniu zapisu realizacji."
+
+PerpsWithdrawReleased: "Wypłać uwolnione środki"
+PerpsWithdrawDescription: "Przelej dostępne USDC z Hyperliquid do tego portfela w Arbitrum. Obowiązuje opłata za przekazanie w wysokości 0,20 USDC."
+PerpsPartialFill: "Zlecenie zostało zrealizowane częściowo. Zrealizowaną kwotę podano poniżej. Sprawdź bieżącą pozycję przed nowym zleceniem."
+
 Receiver %blockchain% Address: Adres %blockchain% odbiorcy
+
 
 Save to Photos: Zapisz w Zdjęciach
 Image Saved: Obraz zapisany
 Allow access to Photos in Settings to save NFT images.: Zezwól na dostęp do Zdjęć w ustawieniach, aby zapisywać obrazy NFT.
 Could not save the image. Please try again.: Nie udało się zapisać obrazu. Spróbuj ponownie.
+
+"$perps_activity_opened": "Otwarcie %asset%"
+"$perps_activity_increased": "Zwiększenie %asset%"
+"$perps_activity_reduced": "Zmniejszenie %asset%"
+"$perps_activity_closed": "Zamknięcie %asset%"
+"$perps_activity_liquidated": "Likwidacja %asset%"
+
+# Perps
+"PerpsInsufficientGas": "Za mało ETH w Arbitrum na opłatę sieciową. USDC przeznaczone na pozycję nie pokrywają tej opłaty."
+"PerpsFundingMissingTitle": "Brak USDC lub ETH w Arbitrum"
+"$perps_funding_missing": "Odbierz co najmniej %minUSDC% USDC i %feeETH% ETH na opłaty."
+"$perps_funding_usdc": "Potrzebujesz co najmniej %minUSDC% USDC w Arbitrum, aby otworzyć pozycję."
+"$perps_funding_usdc_increase": "Potrzebujesz co najmniej %minUSDC% USDC w Arbitrum, aby zwiększyć tę pozycję."
+"PerpsFundingGasTitle": "Za mało ETH na opłatę"
+"$perps_funding_gas": "Opłaty w Arbitrum są płacone w ETH. Odbierz %feeETH% ETH (~%feeFiat%)."
+"PerpsFundingTokenTitle": "Płać USDC w Arbitrum"
+"PerpsFundingTokenDescription": "Inne tokeny nie są jeszcze obsługiwane. Odbierz USDC, aby kontynuować."
+"Not Enough Funds": "Za mało środków"
+"Unsupported Token": "Nieobsługiwany token"
+"PerpsReviewUpdated": "Ceny zostały zaktualizowane. Sprawdź zlecenie ponownie przed potwierdzeniem."
+"PerpsOrderTooSmall": "Minimalna wartość zlecenia to 10 USD."
+"PerpsOrderNotFilled": "Nie udało się zrealizować zlecenia po sprawdzonej cenie. Odśwież i spróbuj ponownie."
+"PerpsInsufficientMargin": "Niewystarczający depozyt zabezpieczający dla tego zlecenia. Odśwież pozycję i dostosuj kwotę."
+"PerpsOrderRejected": "Giełda odrzuciła zlecenie. Odśwież pozycję i ponownie sprawdź zlecenie."
+"Order": "Zlecenie"
+"Order ID": "ID zlecenia"
+"Date": "Data"
+"PerpsAllowNewOrders": "Zezwól na nowe zlecenia"
+"PerpsAcknowledgeUnknown": "Pierwotne zlecenie może jeszcze zostać zrealizowane. Najpierw sprawdź pozycje i przelewy. Zezwolenie na nowe zlecenia go nie anuluje."
+"$perps_market_title": "Futures %asset%"
+"Recent Market Activity": "Ostatnia aktywność na rynku"
+"Trade Size": "Wielkość transakcji"
+"PerpsExchangeFee": "Opłata giełdowa"
+"PerpsServiceFee": "Opłata portfela"
+"PerpsBridgeFee": "Opłata za most"
+"PerpsTotalFees": "Łączne opłaty w USDC"
+"PerpsFeeEstimateHint": "Opłaty oznaczone ≈ są szacunkowe i mogą się zmienić przy realizacji. Opłata sieciowa Arbitrum jest płacona oddzielnie w ETH."
+"PerpsUnallocatedCollateral": "Nieprzydzielone zabezpieczenie"
+"PerpsUnallocatedCollateralHint": "Zaokrąglenie do dozwolonej wielkości transakcji może pozostawić część USDC poza pozycją. Środki te pozostają na koncie futures i nie są opłatą."
+"PerpsOnboardingTitle": "Pierwszy raz z futures?"
+"PerpsOnboardingDescription": "Poznaj zasady w mniej niż 1 minutę."
+"PerpsOnboardingOpen": "Otwórz wprowadzenie"
+"PerpsStoryIntroTitle": "Poznaj bezterminowe kontrakty futures"
+"PerpsStoryIntroBody": "Otwieraj pozycje zarówno na wzrost, jak i spadek ceny aktywa."
+"PerpsStoryLongTitle": "Oczekujesz wzrostu? Otwórz Long"
+"PerpsStoryLongBody": "Gdy cena rośnie, zyskujesz. Gdy spada, tracisz."
+"PerpsStoryShortTitle": "Oczekujesz spadku? Otwórz Short"
+"PerpsStoryShortBody": "Gdy cena spada, zyskujesz. Gdy rośnie, tracisz."
+"PerpsStoryLeverageTitle": "Dźwignia wzmacnia wynik"
+"PerpsStoryLeverageBody": "Depozyt zabezpieczający to Twoje własne środki w pozycji. Przy dźwigni 5× kwota $10 pozwala kontrolować pozycję o wartości $50 — zyski i straty również są 5 razy większe."
+"PerpsStoryLiquidationTitle": "Twoja pozycja może zamknąć się automatycznie"
+"PerpsStoryLiquidationBody": "To likwidacja: jeśli wskutek strat depozyt zabezpieczający jest zbyt mały, Twoja pozycja może zostać zamknięta. Obserwuj cenę likwidacji."
+"PerpsStoryFundingTitle": "Finansowanie to płatność między traderami"
+"PerpsStoryFundingBody": "Gdy stopa finansowania jest dodatnia, pozycje Long płacą pozycjom Short. Gdy jest ujemna, pozycje Short płacą pozycjom Long."
+"PerpsStoryStart": "Zacznij"
+
+"Funding Payment": "Płatność finansowania"
+"Withdrawal": "Wypłata"
+"Transfer": "Przelew"
+"Spot Balance": "Saldo spot"
+"From": "Z"
+"To": "Do"
+
+Delete Chat: Usuń czat
+Unread: Nieprzeczytane
+$agent_connection_lost: Połączenie z agentem zostało przerwane.
+$agent_daily_limit_reached: Osiągnięto dzienny limit Agenta
+$media_viewer_date_at_time: "%date% o %time%"
+Picture: Obraz
+
+Add to Reading List: Dodaj do listy Czytelnia
+
+$enclave_data_missing_title: Nie znaleziono danych portfela
+$enclave_data_missing_message: |
+  To nie jest problem z hasłem. Na tym urządzeniu brakuje danych, za pomocą których aplikacja sprawdza hasło i otwiera Twoje portfele, dlatego żadne hasło nie odblokuje ich tutaj.
+
+  Nie instaluj aplikacji ponownie i nie czyść jej danych w ustawieniach systemu. Wyeksportuj logi przyciskiem poniżej i wyślij je do %support_link%: dzięki nim zobaczymy, co się stało na tym urządzeniu.
+
+  Jeśli masz tajne słowa swoich portfeli, możesz wyjść ze wszystkich portfeli i zaimportować je ponownie.
+
+Install the TON App on your Ledger and try again.: Zainstaluj aplikację TON na swoim Ledgerze i spróbuj ponownie.

@@ -108,11 +108,17 @@ private func makeTrade(direction: TokenTradeDirection, funded: Bool = true, resp
     }
 }
 
+/// The timeout counts 5 ms samples rather than wall time: on a busy machine the estimate and this wait share a stalled
+/// main actor, and the time neither of them runs is not the estimate's to spend. Ten times the timeout in wall time
+/// still ends a wait whose samples keep stalling.
 @MainActor private func waitForEstimate(_ model: TokenTradeModel) async throws {
-    let deadline = ContinuousClock.now + .seconds(2)
+    let timeout = Duration.seconds(2), sampleInterval = Duration.milliseconds(5)
+    var remainingSamples = Int((timeout / sampleInterval).rounded(.up))
+    let deadline = ContinuousClock.now + timeout * 10
     while model.swap.estimate.current == nil {
-        try #require(ContinuousClock.now < deadline)
-        try await Task.sleep(for: .milliseconds(5))
+        try #require(remainingSamples > 0 && ContinuousClock.now < deadline)
+        remainingSamples -= 1
+        try await Task.sleep(for: sampleInterval)
     }
     model.swap.estimate.pause()
 }

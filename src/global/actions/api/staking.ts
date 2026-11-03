@@ -134,6 +134,7 @@ addActionHandler('startStaking', (global, actions, payload) => {
   setGlobal(updateCurrentStaking(global, {
     state,
     initialAmount,
+    restakeAmount: undefined,
     error: undefined,
   }));
 });

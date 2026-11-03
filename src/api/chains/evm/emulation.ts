@@ -209,28 +209,26 @@ export async function parseTransactionForPreview(
           realFee: feeForActivity,
         };
       } else {
-        const { transfer } = tokenOperation;
-
         emulation = {
           networkFee,
           received: 0n,
           traceOutputs: [],
           // We need to pass TON-like structure, but it's not actual emulation,
           // so we don't have all the fields, but have essential
-          activities: [updateActivityMetadata({
-            id: '',
+          activities: tokenOperation.transfers.map((transfer, index) => updateActivityMetadata({
+            id: String(index),
             kind: 'transaction',
             timestamp: 0,
             comment: undefined,
-            fromAddress: fromAddr,
+            fromAddress: transfer.fromAddress,
             toAddress: transfer.toAddress,
             amount: transfer.amount,
             slug: transfer.slug,
-            isIncoming: false,
-            normalizedAddress: transfer.toAddress,
+            isIncoming: transfer.isIncoming,
+            normalizedAddress: transfer.normalizedAddress,
             fee: feeForActivity,
             status: 'completed',
-          })],
+          })),
           realFee: feeForActivity,
         };
       }
@@ -293,6 +291,11 @@ export async function parseTokenOperation(
   const assets: string[] = [];
   const normalizedUserAddress = normalizeAddress(userAddress);
 
+  if (tx.changes.some((change) => !['NATIVE', 'ERC20'].includes(change.assetType)
+    && normalizeAddress(change.from) === normalizedUserAddress)) {
+    return undefined;
+  }
+
   const nativeSlug = getChainConfig(chain).nativeToken.slug;
 
   tx.changes.forEach((change) => {
@@ -332,44 +335,58 @@ export async function parseTokenOperation(
 
   const isReceivedOnly = !sent.size && received.size;
 
-  if (isSentOnly || isReceivedOnly) {
-    const asset = isSentOnly ? [...sent][0][0] : [...received][0][0];
+  if (isSentOnly) {
+    for (const asset of sent.keys()) {
+      const recipients = new Set(tx.changes
+        .filter((change) => (change.contractAddress || nativeSlug) === asset
+          && normalizeAddress(change.from) === normalizedUserAddress)
+        .map((change) => normalizeAddress(change.to)));
+      recipients.delete(normalizedUserAddress);
 
-    let slug = '';
-    if (asset === nativeSlug) {
-      slug = nativeSlug;
-    } else {
-      slug = buildTokenSlug(chain, asset);
+      if (recipients.size > 1) {
+        return undefined;
+      }
     }
+  }
 
-    // if no from/to address - consider to be mint or burn(?) - use transaction initiator as fallback
-    const fromAddress = isSentOnly
-      ? normalizedUserAddress
-      : normalizeAddress(tx.changes.find((e) => normalizeAddress(e.from) !== normalizedUserAddress)?.from
-        || tx.changes[0].from);
+  if (isSentOnly || isReceivedOnly) {
+    const shown = isSentOnly ? sent : received;
+    const isIncoming = !isSentOnly;
 
-    const toAddress = !isSentOnly
-      ? normalizedUserAddress
-      : normalizeAddress(tx.changes.find((e) => normalizeAddress(e.to) !== normalizedUserAddress)?.to
-        || tx.changes[0].to);
-
-    const amount = isSentOnly ? sent.get(asset) || 0n : received.get(asset) || 0n;
-
-    const isIncoming = toAddress === normalizedUserAddress;
+    await updateTokensMetadataByAddress(network, chain, [...shown.keys()].filter((asset) => asset !== nativeSlug));
 
     return {
       assets,
       isSwap: false,
-      transfer: {
-        amount: isIncoming ? amount : -amount,
-        fromAddress,
-        toAddress,
-        slug,
-        isIncoming,
-        normalizedAddress: isIncoming ? fromAddress : toAddress,
-        fee: BigInt(tx.gasUsed),
-      },
+      transfers: [...shown].map(([asset, amount]) => {
+        const assetChanges = tx.changes.filter((change) => ['NATIVE', 'ERC20'].includes(change.assetType)
+          && (change.contractAddress || nativeSlug) === asset);
+
+        // If no counterparty is present, use the transaction initiator as fallback for a mint or burn.
+        const fromAddress = isIncoming
+          ? normalizeAddress(assetChanges.find((change) => normalizeAddress(change.to) === normalizedUserAddress
+            && normalizeAddress(change.from) !== normalizedUserAddress)?.from || tx.changes[0].from)
+          : normalizedUserAddress;
+        const toAddress = isIncoming
+          ? normalizedUserAddress
+          : normalizeAddress(assetChanges.find((change) => normalizeAddress(change.from) === normalizedUserAddress
+            && normalizeAddress(change.to) !== normalizedUserAddress)?.to || tx.changes[0].to);
+
+        return {
+          amount: isIncoming ? amount : -amount,
+          fromAddress,
+          toAddress,
+          slug: asset === nativeSlug ? nativeSlug : buildTokenSlug(chain, asset),
+          isIncoming,
+          normalizedAddress: isIncoming ? fromAddress : toAddress,
+          fee: BigInt(tx.gasUsed),
+        };
+      }),
     };
+  }
+
+  if (sent.size > 1 || received.size > 1) {
+    return undefined;
   }
 
   const firstSentAsset = [...sent]?.[0]?.[0] || '';

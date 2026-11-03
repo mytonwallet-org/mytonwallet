@@ -31,6 +31,10 @@ open class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutMa
 
     fun getItemHeight(position: Int): Int? = mChildSizesMap[position]
 
+    fun setItemHeight(position: Int, height: Int) {
+        mChildSizesMap[position] = height
+    }
+
     fun estimateContentBottom(itemCount: Int): Int? {
         val lastChild = getChildAt(childCount - 1) ?: return null
         var bottom = getDecoratedBottom(lastChild)

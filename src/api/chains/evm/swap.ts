@@ -7,6 +7,7 @@ import {
 
 import type {
   ApiAnyDisplayError,
+  ApiEvmSwapTransactionRequest,
   ApiNetwork,
   ApiSwapActivity,
   EVMChain,
@@ -41,10 +42,16 @@ import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import { EVM_MAX_TRANSFER_FEE_MULTIPLIER, getEvmChainId, UNISWAP_PERMIT2_ADDRESS } from './constants';
 import { getPermit2SignatureStrategy } from './permit2';
 import { signEip712WithPrivateKey } from './sign';
+import {
+  bindEvmSwapPayload,
+  bindEvmSwapTransactionRequest,
+  buildEvmSwapIntent,
+  EvmSwapBindingError,
+  type EvmSwapIntent,
+} from './swapBinding';
 import { serializeEvmSwapCalls } from './swapCalls';
-import { getWalletBalance } from './wallet';
+import { canPayEvmTransactions } from './wallet';
 
-const erc20ApproveInterface = new Interface(['function approve(address spender, uint256 amount) returns (bool)']);
 const permit2AllowanceInterface = new Interface([
   'function approve(address token, address spender, uint160 amount, uint48 expiration)',
 ]);
@@ -60,9 +67,6 @@ const lifiPermit2ProxyInterface = new Interface([
   'function callDiamondWithPermit2Witness(bytes diamondCalldata, address account, ((address token, uint256 amount) permitted, uint256 nonce, uint256 deadline) permit, bytes signature) payable',
 ]);
 
-const MAX_PERMIT2_AMOUNT = (1n << 160n) - 1n;
-const MAX_PERMIT2_EXPIRATION = (1n << 48n) - 1n;
-
 type UniswapPermitDetails = {
   token: string;
   amount: string;
@@ -76,13 +80,13 @@ type UniswapPermitSingleValues = {
   sigDeadline: string;
 };
 
-type UniswapPermitData = {
+export type UniswapPermitData = {
   domain: Record<string, unknown>;
   types: Record<string, Array<{ name: string; type: string }>>;
   values: UniswapPermitSingleValues;
 };
 
-type EvmSwapTransactionRequest = {
+export type EvmSwapTransactionRequest = {
   to: string;
   from: string;
   data: string;
@@ -96,13 +100,20 @@ type EvmSwapTransactionRequest = {
 
 type UniswapTransactionRequest = EvmSwapTransactionRequest;
 
-type EvmSwapTransactionPayload = {
+export type EvmSwapTransactionPayload = {
   provider?: 'uniswap' | 'lifi';
   routing?: string;
   swap?: EvmSwapTransactionRequest;
   approval?: EvmSwapTransactionRequest;
   permitData?: UniswapPermitData | null;
   requiresPermitSignature?: boolean;
+  /** Set only by `bindEvmSwapPayload`: the Permit2 allowance the first approval of a sold token grants the router */
+  permit2Allowance?: {
+    token: string;
+    spender: string;
+    amount: string;
+    expiration: string;
+  };
   lifiPermit2?: {
     token: string;
     amount: string;
@@ -164,19 +175,6 @@ function evmSwapTxToMetaTransaction(tx: EvmSwapTransactionRequest): EvmMetaTrans
   };
 }
 
-function isPermit2Address(address: string): boolean {
-  return normalizeAddress(address) === UNISWAP_PERMIT2_ADDRESS;
-}
-
-function tryParseErc20ApproveSpender(data: string): string | undefined {
-  try {
-    const [spender] = erc20ApproveInterface.decodeFunctionData('approve', data);
-    return typeof spender === 'string' ? normalizeAddress(spender) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export async function resolveSwapNeedsBatch(chain: EVMChain, accountId: string, needsApprove?: boolean) {
   if (needsApprove) return true;
 
@@ -213,29 +211,23 @@ async function resolveShouldBatchUniswapSwap(
   return shouldBatchUniswapSwap(payload, { needsDelegate });
 }
 
-export function shouldIncludePermit2AllowanceCall(payload: UniswapEvmTransactionPayload) {
-  if (hasUniswapPermitData(payload) || !payload.approval || !payload.swap) {
-    return false;
-  }
+type Permit2Allowance = NonNullable<EvmSwapTransactionPayload['permit2Allowance']>;
 
-  const approvalSpender = tryParseErc20ApproveSpender(payload.approval.data);
-  return !!approvalSpender && isPermit2Address(approvalSpender);
+export function shouldIncludePermit2AllowanceCall(
+  payload: UniswapEvmTransactionPayload,
+): payload is UniswapEvmTransactionPayload & { permit2Allowance: Permit2Allowance } {
+  return !hasUniswapPermitData(payload) && !!payload.permit2Allowance && !!payload.swap;
 }
 
 function shouldApplyUniswapPermit2Rules(payload: EvmSwapTransactionPayload): payload is UniswapEvmTransactionPayload {
   return payload.provider === undefined || payload.provider === 'uniswap';
 }
 
-function buildPermit2AllowanceCall(token: string, spender: string): EvmMetaTransaction {
+function buildPermit2AllowanceCall({ token, spender, amount, expiration }: Permit2Allowance): EvmMetaTransaction {
   return {
     to: UNISWAP_PERMIT2_ADDRESS,
     value: 0n,
-    data: permit2AllowanceInterface.encodeFunctionData('approve', [
-      token,
-      spender,
-      MAX_PERMIT2_AMOUNT,
-      MAX_PERMIT2_EXPIRATION,
-    ]),
+    data: permit2AllowanceInterface.encodeFunctionData('approve', [token, spender, BigInt(amount), BigInt(expiration)]),
   };
 }
 
@@ -316,7 +308,7 @@ export function buildEvmSwapBatchCalls(
       permitSignature,
     ));
   } else if (shouldApplyUniswapPermit2Rules(payload) && shouldIncludePermit2AllowanceCall(payload)) {
-    calls.push(buildPermit2AllowanceCall(payload.approval!.to, payload.swap!.to));
+    calls.push(buildPermit2AllowanceCall(payload.permit2Allowance));
   }
 
   if (payload.swap) {
@@ -621,8 +613,30 @@ async function estimateRegularSwapFee(
     totalFee += gasLimit * gasPrice;
   }
 
-  const nativeBalance = await getWalletBalance(chain, network, address);
-  if (nativeBalance < totalFee) {
+  const values = transactions.map(({ request }) => ({ value: BigInt(request.value ?? 0) }));
+  if (!await canPayEvmTransactions(chain, network, address, values, totalFee)) {
+    return { error: ApiTransactionError.InsufficientBalance };
+  }
+
+  return undefined;
+}
+
+async function estimateSwapRequestFee(
+  chain: EVMChain,
+  network: ApiNetwork,
+  address: string,
+  request: ApiEvmSwapTransactionRequest,
+): Promise<{ error: ApiAnyDisplayError } | undefined> {
+  const provider = getEvmProvider(network, chain);
+  const transaction = mapTransactionRequest(request);
+  const [feeData, gasLimit] = await Promise.all([
+    provider.getFeeData(),
+    request.gasLimit ? BigInt(request.gasLimit) : provider.estimateGas(transaction),
+  ]);
+  const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
+  const value = BigInt(request.value || '0');
+
+  if (!await canPayEvmTransactions(chain, network, address, [{ value }], gasLimit * gasPrice)) {
     return { error: ApiTransactionError.InsufficientBalance };
   }
 
@@ -647,6 +661,17 @@ async function sendUniswapTransaction(
   return response.hash;
 }
 
+// The user's swap intent from the build, kept for the submit that follows it in the same session.
+const evmSwapIntents = new Map<string, EvmSwapIntent>();
+const MAX_EVM_SWAP_INTENTS = 100;
+
+export function rememberEvmSwapIntent(accountId: string, swapId: string, intent: EvmSwapIntent) {
+  evmSwapIntents.set(`${accountId}:${swapId}`, intent);
+  if (evmSwapIntents.size > MAX_EVM_SWAP_INTENTS) {
+    evmSwapIntents.delete(evmSwapIntents.keys().next().value!);
+  }
+}
+
 export async function buildOnchainSwapTransfer(
   chain: EVMChain,
   options: ApiBuildOnchainSwapTransferOptions,
@@ -654,15 +679,7 @@ export async function buildOnchainSwapTransfer(
   const { accountId, request, transaction, transactionRequest, swapId, authToken, enclaveToken } = options;
   const { network } = parseAccountId(accountId);
 
-  if (transactionRequest) {
-    return {
-      id: swapId,
-      chain,
-      transactionRequest,
-    };
-  }
-
-  if (!transaction) {
+  if (!transaction && !transactionRequest) {
     return { error: ApiTransactionError.UnsuccesfulTransfer };
   }
 
@@ -670,13 +687,30 @@ export async function buildOnchainSwapTransfer(
 
   try {
     const { address } = await fetchEvmWallet(accountId, chain);
-    const payload = parseEvmSwapTransactionPayload(transaction);
-    const payloadError = assertUniswapPayloadReady(payload);
+    const intent = buildEvmSwapIntent(chain, getEvmChainId(network, chain), address, request);
+    rememberEvmSwapIntent(accountId, swapId, intent);
+
+    if (transactionRequest) {
+      const boundRequest = bindEvmSwapTransactionRequest(chain, transactionRequest, intent);
+      const feeError = await estimateSwapRequestFee(chain, network, address, boundRequest);
+
+      if (feeError) {
+        await patchSwapItem({ address: historyAddress, swapId, authToken, error: feeError.error });
+        return feeError;
+      }
+
+      return { id: swapId, chain, transactionRequest: boundRequest };
+    }
+
+    const parsedPayload = parseEvmSwapTransactionPayload(transaction!);
+    const payloadError = assertUniswapPayloadReady(parsedPayload);
 
     if (payloadError) {
       await patchSwapItem({ address: historyAddress, swapId, authToken, error: payloadError });
       return { error: payloadError };
     }
+
+    const payload = bindEvmSwapPayload(chain, parsedPayload, intent);
 
     if (hasLifiPermit2Data(payload)) {
       return {
@@ -744,6 +778,10 @@ export async function buildOnchainSwapTransfer(
       address: historyAddress, swapId, authToken, error: errorToString(err),
     });
 
+    if (err instanceof EvmSwapBindingError) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
     throw err;
   }
 }
@@ -753,10 +791,9 @@ async function submitRegularUniswapSwap(
   network: ApiNetwork,
   address: string,
   privateKey: string,
-  transaction: string,
+  payload: EvmSwapTransactionPayload,
   useBatching: boolean,
 ): Promise<{ txHash: string } | { error: ApiAnyDisplayError }> {
-  const payload = parseUniswapTransactionPayload(transaction);
   const payloadError = assertUniswapPayloadReady(payload);
 
   if (payloadError) {
@@ -875,17 +912,24 @@ export async function submitOnchainSwapTransfer(
 
     let txHash: string;
 
+    const intent = evmSwapIntents.get(`${accountId}:${swapId}`);
+
+    if (!intent) {
+      throw new EvmSwapBindingError('Swap was not built in this session');
+    }
+
     if (transactionRequest) {
       if (normalizeAddress(transactionRequest.from) !== normalizeAddress(address)) {
         return { error: ApiTransactionError.UnsuccesfulTransfer };
       }
 
+      const boundRequest = bindEvmSwapTransactionRequest(chain, transactionRequest, intent);
       const provider = getEvmProvider(network, chain);
       const signer = getSignerFromPrivateKey(network, privateKey).connect(provider);
-      const response = await signer.sendTransaction(mapTransactionRequest(transactionRequest));
+      const response = await signer.sendTransaction(mapTransactionRequest(boundRequest));
       txHash = response.hash;
     } else if (transaction) {
-      const payload = parseEvmSwapTransactionPayload(transaction);
+      const payload = bindEvmSwapPayload(chain, parseEvmSwapTransactionPayload(transaction), intent);
 
       if (hasLifiPermit2Data(payload)) {
         const result = await submitLifiPermit2Swap(
@@ -938,7 +982,7 @@ export async function submitOnchainSwapTransfer(
         txHash = result.txHash;
       } else if (shouldApplyUniswapPermit2Rules(payload)) {
         const result = await submitRegularUniswapSwap(
-          chain, network, address, privateKey, transaction, false,
+          chain, network, address, privateKey, payload, false,
         );
 
         if ('error' in result) {

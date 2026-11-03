@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.base
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.TimeInterpolator
 import android.annotation.SuppressLint
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -11,6 +12,8 @@ import android.view.View.OnTouchListener
 import android.view.View.VISIBLE
 import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.constraintlayout.widget.ConstraintLayout
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -180,13 +183,14 @@ class SwipeTouchListener(
             view.translationX = translation
 
             val progress = abs(translation) / view.width
-            if (scaleBehindView) {
+            if (shouldScaleBehindView) {
                 behindView.get()?.let {
                     it.scaleX = 0.95f + (progress / 20)
                     it.scaleY = it.scaleX
                 }
             }
-            darkView.get()?.alpha = 0.5f - (progress / 5)
+            // The dim lifts as the screen goes, gone when it has
+            darkView.get()?.alpha = DIM_ALPHA * (1 - progress)
         }
     }
 
@@ -243,10 +247,26 @@ class SwipeTouchListener(
 
         mViewParent.get()?.isEnabled = false
 
-        val duration =
-            ((1 - outOfView) * SWIPE_DURATION).toLong().coerceIn(0L, SWIPE_DURATION)
-        endSwipe(duration, endAlpha, endX, dismiss)
+        // Let go, the screen carries on at the finger's pace and eases into place: the release curve starts at three
+        // times its average speed, so it lasts three times the remaining distance over the finger's speed, long
+        // enough to be seen
+        val remaining = (1 - outOfView) * view.width
+        val speed = velocityX * VELOCITY_UNITS_PER_SECOND
+        val duration = if (speed > 0f) {
+            (RELEASE_SPEED_RATIO * remaining / speed * MILLISECONDS_PER_SECOND).toLong()
+        } else {
+            SWIPE_DURATION
+        }.coerceIn(MIN_RELEASE_DURATION, SWIPE_DURATION)
+        endSwipe(duration, endAlpha, endX, dismiss, releaseInterpolator = swipeReleaseInterpolator)
     }
+
+    private val swipeReleaseInterpolator = DecelerateInterpolator(RELEASE_SPEED_RATIO / 2)
+
+    // A screen whose bar lies on the root's toolbar keeps its size under the one swiped away, so the bar stays on the
+    // toolbar's line
+    private val shouldScaleBehindView: Boolean
+        get() = scaleBehindView &&
+            behindView.get()?.viewController?.get()?.shrinksUnderSwipeBack != false
 
     val interpolator = WInterpolator.emphasizedAccelerate
 
@@ -266,7 +286,9 @@ class SwipeTouchListener(
         endAlpha: Float,
         fEndX: Float,
         fDismiss: Boolean,
-        onCompletion: (() -> Unit)? = null
+        onCompletion: (() -> Unit)? = null,
+        // The curve the screen, the one behind it and the dim all finish on, for a swipe let go
+        releaseInterpolator: TimeInterpolator? = null
     ) {
         if (fDismiss) {
             mViewParent.get()?.blockTouches()
@@ -332,28 +354,30 @@ class SwipeTouchListener(
             animationEnded()
         } else {
             WGlobalStorage.incDoNotSynchronize()
-            behindView.get()?.let { behindView ->
+            val sideInterpolator = releaseInterpolator ?: interpolator
+            behindView.get()?.takeIf { shouldScaleBehindView }?.let { behindView ->
                 if (fDismiss) {
                     behindView.animate()
                         .scaleX(1f)
                         .scaleY(1f)
                         .setDuration(duration)
-                        .setInterpolator(interpolator)
+                        .setInterpolator(sideInterpolator)
                         .start()
                 } else {
                     behindView.animate()
                         .scaleX(0.95f)
                         .scaleY(0.95f)
                         .setDuration(duration)
-                        .setInterpolator(interpolator)
+                        .setInterpolator(sideInterpolator)
                         .start()
                 }
             }
             if (isSwiping) {
                 darkView.get()?.animate()?.setDuration(duration)
-                    ?.setInterpolator(interpolator)?.alpha(0f)
+                    ?.setInterpolator(sideInterpolator)?.alpha(0f)
             }
             (mView ?: viewController.get()?.view)?.animate()?.setDuration(duration)?.alpha(endAlpha)
+                ?.setInterpolator(releaseInterpolator ?: AccelerateDecelerateInterpolator())
                 ?.translationX(fEndX * LocaleController.rtlMultiplier)
                 ?.setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
@@ -382,5 +406,10 @@ class SwipeTouchListener(
     companion object {
         private const val SWIPE_DURATION = AnimationConstants.QUICK_ANIMATION
         private const val SWIPE_VELOCITY_MIN = 75
+        private const val DIM_ALPHA = 0.5f
+        private const val MIN_RELEASE_DURATION = 200L
+        private const val RELEASE_SPEED_RATIO = 3f
+        private const val VELOCITY_UNITS_PER_SECOND = 10
+        private const val MILLISECONDS_PER_SECOND = 1000
     }
 }

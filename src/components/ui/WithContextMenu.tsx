@@ -1,6 +1,7 @@
 import type { ElementRef, TeactNode } from '../../lib/teact/teact';
 import React, { useRef } from '../../lib/teact/teact';
 
+import type { IAnchorPosition } from '../../global/types';
 import type { Layout } from '../../hooks/useMenuPosition';
 import type { DropdownItem } from './Dropdown';
 
@@ -16,7 +17,13 @@ interface Props<T extends string> {
   rootRef?: ElementRef<HTMLDivElement>;
   onItemClick: (value: T) => void;
   withBackdrop?: boolean;
-  layout?: Partial<Layout>;
+  /**
+   * Fixed overrides, or ones worked out when the menu opens from where it was opened, what opened it and whether a
+   * mouse or a trackpad did, as a right click does, rather than a long press
+   */
+  layout?: Partial<Layout> | (
+    (anchor: IAnchorPosition, trigger: HTMLElement, isFromPointer: boolean) => Partial<Layout>
+  );
   children: (buttonProps: {
     ref: ElementRef<HTMLDivElement | HTMLButtonElement>;
     onMouseDown: (e: React.MouseEvent) => void;
@@ -24,6 +31,8 @@ interface Props<T extends string> {
     className?: string;
   }, isMenuOpen: boolean) => TeactNode;
   menuClassName?: string;
+  /** Shown over the items, as a message menu shows the message's date */
+  menuHeader?: TeactNode;
   fontIconClassName?: string;
   menuPositionY?: 'top' | 'bottom';
 }
@@ -36,6 +45,7 @@ export default function WithContextMenu<T extends string>({
   layout: layoutOverrides,
   children,
   menuClassName,
+  menuHeader,
   fontIconClassName,
   menuPositionY = 'bottom',
 }: Props<T>) {
@@ -46,16 +56,10 @@ export default function WithContextMenu<T extends string>({
   const getTriggerElement = useLastCallback(() => buttonRef.current);
   const getRootElement = useLastCallback(() => rootRef?.current ?? document.body);
   const getMenuElement = useLastCallback(() => menuRef.current);
-  const getLayout = useLastCallback((): Layout => ({
-    withPortal: true,
-    doNotCoverTrigger: true,
-    isCenteredHorizontally: true,
-    ...(layoutOverrides || {}),
-  }));
-
   const {
     isContextMenuOpen,
     contextMenuAnchor,
+    isContextMenuFromPointer,
     handleBeforeContextMenu,
     handleContextMenu,
     handleContextMenuClose,
@@ -63,6 +67,22 @@ export default function WithContextMenu<T extends string>({
   } = useContextMenuHandlers({
     elementRef: buttonRef,
     shouldDisablePropagation: true,
+  });
+
+  const getLayout = useLastCallback((): Layout => {
+    const trigger = buttonRef.current;
+    const overrides = typeof layoutOverrides === 'function'
+      ? (contextMenuAnchor && trigger
+        ? layoutOverrides(contextMenuAnchor, trigger, isContextMenuFromPointer)
+        : undefined)
+      : layoutOverrides;
+
+    return {
+      withPortal: true,
+      doNotCoverTrigger: true,
+      isCenteredHorizontally: true,
+      ...overrides,
+    };
   });
 
   const handleMenuItemSelect = useLastCallback((value: T) => {
@@ -92,6 +112,7 @@ export default function WithContextMenu<T extends string>({
           withPortal
           shouldTranslateOptions
           isOpen={isContextMenuOpen}
+          header={menuHeader}
           items={items}
           menuPositionY={menuPositionY}
           menuAnchor={contextMenuAnchor}

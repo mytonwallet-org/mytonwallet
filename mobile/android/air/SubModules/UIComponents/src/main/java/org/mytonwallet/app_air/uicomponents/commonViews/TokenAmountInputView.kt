@@ -64,7 +64,7 @@ class TokenAmountInputView(context: Context, private val isFirstItem: Boolean) :
         )
     }
 
-    private val maxBalanceButton = WTokenMaxButton(context).apply {
+    val maxBalanceButton = WTokenMaxButton(context).apply {
         id = generateViewId()
         visibility = GONE
     }

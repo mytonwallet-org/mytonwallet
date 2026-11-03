@@ -5,7 +5,9 @@ jest.mock('../../db', () => ({
   },
 }));
 jest.mock('../../common/backend', () => ({
-  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendGet: jest.fn().mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+    ? { catalogVersion: 'empty', prices: {} }
+    : { version: 'empty', assets: [] })),
   callBackendPost: jest.fn().mockResolvedValue([]),
 }));
 jest.mock('./toncenter/other', () => ({
@@ -85,7 +87,9 @@ describe('TON jetton slugs', () => {
     });
     await tokens.loadTokensCache();
     tokens.pauseTokenUpdates();
-    jest.mocked(callBackendGet).mockRejectedValueOnce(new Error('offline'));
+    jest.mocked(callBackendGet).mockImplementation((path: string) => (path === '/assets/prices'
+      ? Promise.resolve({ catalogVersion: 'jetton', prices: {} })
+      : Promise.reject(new Error('offline'))));
     await expect(tokens.updateTokensFromBackend(onUpdate)).rejects.toThrow('offline');
     tokens.resumeTokenUpdates();
 
@@ -98,10 +102,15 @@ describe('TON jetton slugs', () => {
     expect(discoveredSlug).not.toBe(catalogSlug);
     expect(balances[discoveredSlug]).toBe(1000n);
 
-    jest.mocked(callBackendGet).mockResolvedValueOnce([{
-      slug: catalogSlug, chain: 'ton', tokenAddress: listedAddress,
-      name: 'Catalog Jetton', symbol: 'CAT', decimals: 9, priceUsd: 2, percentChange24h: 0,
-    }]);
+    jest.mocked(callBackendGet).mockImplementation((path: string) => Promise.resolve(path === '/assets/prices'
+      ? { catalogVersion: 'jetton', prices: { [catalogSlug]: [2, 0] } }
+      : {
+        version: 'jetton',
+        assets: [{
+          slug: catalogSlug, chain: 'ton', tokenAddress: listedAddress,
+          name: 'Catalog Jetton', symbol: 'CAT', decimals: 9,
+        }],
+      }));
     await tokens.updateTokensFromBackend(onUpdate);
 
     expect(tokens.getTokenByAddress(listedAddress)).toBe(tokens.getTokenBySlug(catalogSlug));

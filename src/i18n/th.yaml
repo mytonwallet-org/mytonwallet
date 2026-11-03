@@ -247,9 +247,9 @@ Dark: ดาร์ค
 System: ระบบ
 $stake_asset: วางเดิมพัน %symbol%
 Add Stake: เพิ่มสเตก
-"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% ถูกล็อกอยู่ในการสเต็กอื่น"
-"Unstake them to restake with **higher returns**.": "ถอนการสเต็กเพื่อสเต็กใหม่พร้อม **ผลตอบแทนที่สูงขึ้น**"
-"💎 More profitable staking available": "💎 มีการสเต็กที่ให้ผลตอบแทนสูงกว่า"
+"🔒 %amount% %symbol% staked elsewhere": "🔒 %amount% %symbol% อยู่ในการสเต็กอื่น"
+"Unlock your %symbol% to access higher-yield staking.": "ปลดล็อก %symbol% ของคุณเพื่อเข้าถึงการสเต็กที่ให้ผลตอบแทนสูงกว่า"
+"💎 Higher-yield staking available": "💎 มีการสเต็กที่ให้ผลตอบแทนสูงกว่า"
 "Tap to restake your %symbol% with higher returns.": "แตะเพื่อสเต็ก %symbol% ของคุณใหม่พร้อมผลตอบแทนที่สูงขึ้น"
 "Restake Now": "สเต็กใหม่ตอนนี้"
 Earn from your tokens while holding them: รับผลตอบแทนจากการถือ %symbol%
@@ -680,6 +680,9 @@ Data Copied: ข้อมูลถูกคัดลอกแล้ว
 URL Copied: URL Copied
 Private Key Copied: Private Key Copied
 Contract Initialization Data Copied: Contract Initialization Data Copied
+$state_init_deploys_wallet: จะสร้างวอลเล็ต %version% ที่ที่อยู่บัญชีผู้รับ หากที่นั่นยังไม่มีอะไร
+$state_init_deploys_contract: จะสร้างสมาร์ตคอนแทรกต์ที่ที่อยู่บัญชีผู้รับ หากที่นั่นยังไม่มีอะไร
+$state_init_not_deployable: เครือข่ายจะไม่สนใจข้อมูลนี้ และจะไม่มีการสร้างสิ่งใด
 Open NFT Collection: เปิด NFT คอลเลกชัน
 Previous: ก่อน
 Next: ถัดไป
@@ -908,6 +911,10 @@ $mint_action: การมิ้นท์
 Burning: กำลังเผา
 Burned: เผาแล้ว
 $burn_action: การเผา
+Perps Deposit: ฝาก Perps
+$perps_deposit_action: ฝาก Perps
+Perps Withdrawal: ถอน Perps
+$perps_withdraw_action: ถอน Perps
 Updating Address: กำลังอัปเดตที่อยู่
 Updated Address: อัพเดทที่อยู่แล้ว
 $update_address_action: การอัปเดตที่อยู่
@@ -1036,6 +1043,10 @@ $iab_more_tabs_count:
   oneValue: "+ %count% แท็บ"
   otherValue: "+ %count% แท็บ"
 Close Tab: ปิดแท็บ
+Close All: "ปิดทั้งหมด"
+$browser_more_tabs:
+  oneValue: "%title% และอีก %count%"
+  otherValue: "%title% และอีก %count%"
 $domains_amount %count%:
   zeroValue: ไม่มีโดเมน
   otherValue: "%count% โดเมน"
@@ -1151,6 +1162,7 @@ Without it, you won't be able to access your wallet.: หากไม่มี�
 $ledger_connection_broken: การเชื่อมต่อ Ledger ถูกตัด กรุณาเชื่อมต่อใหม่และลองอีกครั้ง
 $ledger_wrong_device: บัญชีปัจจุบันถูกตั้งค่าด้วยคำลับหรือรหัสผ่าน Ledger อื่น หรือถูกจัดเก็บไว้ในอุปกรณ์ Ledger อื่น
 Show More: แสดงเพิ่มเติม
+Show Less: แสดงน้อยลง
 Search app or enter address: ค้นหาแอปหรือป้อนที่อยู่
 Search or Ask: ค้นหาหรือถาม
 Connected Apps: แอปที่เชื่อมต่อ
@@ -1380,6 +1392,21 @@ $agent_error_limit: คำขอไม่สามารถดำเนินก
 $agent_error_tool: การดำเนินการกับกระเป๋าเงินล้มเหลว โปรดลองอีกครั้ง
 $agent_error_conversation_updated: การสนทนาได้รับการอัปเดตแล้ว โปรดลองส่งคำขออีกครั้ง
 $agent_error_generic: ผู้ช่วยไม่สามารถดำเนินการตามคำขอได้ โปรดลองอีกครั้ง
+$agent_error_recording_too_large: "การบันทึกยาวเกินไป โปรดพูดครั้งละไม่เกินหนึ่งนาที"
+$agent_error_audio_unreadable: "ไม่สามารถประมวลผลการบันทึกได้ โปรดบันทึกอีกครั้ง"
+$agent_error_transcription_unavailable: "การป้อนข้อมูลด้วยเสียงไม่พร้อมใช้งานในขณะนี้ โปรดลองอีกครั้งภายหลัง"
+$agent_dictation_start: "พูดเพื่อพิมพ์"
+$agent_dictation_finish: "เสร็จสิ้นการพูด"
+$agent_dictation_recognizing: "กำลังจดจำเสียง…"
+$agent_dictation_no_speech: "ไม่ได้ยินเสียงพูด โปรดพูดใกล้ไมโครโฟนมากขึ้นแล้วลองอีกครั้ง"
+$agent_dictation_time_left: "เหลือ %seconds% วินาที"
+$agent_dictation_time_left_short: "%seconds% วิ"
+$agent_dictation_limit_reached: "หยุดการพูดเพื่อพิมพ์หลังจากหนึ่งนาที ซึ่งเป็นความยาวสูงสุดที่อนุญาต"
+$agent_dictation_microphone_denied: "อนุญาตให้เข้าถึงไมโครโฟนเพื่อพูดเพื่อพิมพ์"
+$agent_dictation_hold_hint: "กดค้างไว้แล้วพูดเพื่อพิมพ์ ปัดขึ้นเพื่อบันทึกโดยไม่ต้องกดค้าง"
+$agent_dictation_too_short: "สั้นเกินไป กดค้างไว้ขณะพูด"
+$agent_dictation_slide_to_cancel: "เลื่อนไปทางซ้ายเพื่อยกเลิก"
+$agent_dictation_deleted: "ลบการบันทึกแล้ว"
 $agent_error_invalid_response: ไม่สามารถอ่านคำตอบของเอเจนต์ได้ โปรดลองอีกครั้ง
 $agent_error_update_required: อัปเดตแอปเพื่อดำเนินการต่อ
 $agent_wallet_page_navigation: หน้าข้อมูลกระเป๋าเงิน
@@ -1562,6 +1589,8 @@ Edit Wallet Name: แก้ไขชื่อกระเป๋า
 Wallet Name: ชื่อกระเป๋า
 App Icon: ไอคอนแอป
 Rounded Toolbars: แถบเครื่องมือโค้งมน
+Toolbar: แถบเครื่องมือ
+Shared Background: พื้นหลังร่วมกัน
 Side Gutters: ขอบด้านข้าง
 Gradient Navigation Bar: แถบนำทางไล่สี
 Tokens on Home Screen: โทเคนบนหน้าจอหลัก
@@ -1962,13 +1991,9 @@ $agent_capacity_limit_title: Agent ไม่พร้อมใช้งานช
 $agent_capacity_limit_known: จะส่งคำขอใหม่ได้ในอีก %duration%
 $agent_capacity_degraded_title: Agent อาจตอบกลับได้ไม่เสถียร
 $agent_capacity_limit_unknown: คุณลองอีกครั้งได้ แต่อาจโหลดคำตอบไม่สำเร็จ
-$agent_response_failed_title: ไม่สามารถรับคำตอบได้
-$agent_response_interrupted_title: คำตอบถูกขัดจังหวะ
 $agent_retry_request: ลองส่งคำขออีกครั้ง
 $agent_rate_limit_title: มีคำขอถึง Agent มากเกินไป
 $agent_rate_limit_body: โปรดลองอีกครั้งใน %duration%
-$agent_user_quota_meter: "โควตา Agent: เหลือ %remaining% จาก %limit% หน่วย"
-$agent_user_quota_reset: โควตารายวันจะรีเซ็ตในอีก %duration%
 $agent_user_quota_exhausted_title: โควตา Agent ไม่เพียงพอ
 $agent_user_quota_exhausted_body: โควตาที่มีไม่เพียงพอสำหรับคำขอนี้ โควตารายวันคือ %limit% หน่วยและจะรีเซ็ตในอีก %duration%
 $agent_time_hours: "%value% ชม."
@@ -2046,7 +2071,6 @@ Search token or stock: ค้นหาโทเค็นหรือหุ้น
 Unknown Transfer: การโอนที่ไม่รู้จัก
 $dapp_sign_data_for_prefix: สำหรับ
 
-# Token Buy / Sell
 "Pay %value%": "จ่าย %value%"
 "Receive %value%": "รับ %value%"
 "Buy %token% via %provider%": "ซื้อ %token% ผ่าน %provider%"
@@ -2063,7 +2087,6 @@ Successfully Signed: ลงนามสำเร็จแล้ว
 Coming soon: เร็ว ๆ นี้
 $dapp_identity_not_confirmed: ตัวตนของแอป **ไม่ได้รับการยืนยัน**
 
-# Token trade asset browser and details
 "Choose Asset": "เลือกสินทรัพย์"
 "Asset to Buy": "สินทรัพย์ที่จะซื้อ"
 "Asset to Sell": "สินทรัพย์ที่จะขาย"
@@ -2078,11 +2101,265 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: ก
 3D Gram Diamond: เพชร Gram 3 มิติ
 Hold to enlarge. Drag to rotate.: กดค้างไว้เพื่อขยาย ลากเพื่อหมุน
 "Max": "สูงสุด"
+
+or use web version: "หรือใช้เวอร์ชันเว็บ"
+By continuing, you agree to our %terms% and %privacy%.: "หากดำเนินการต่อ แสดงว่าคุณยอมรับ\n%terms%และ%privacy%ของเรา"
+$auth_privacy_policy: "นโยบายความเป็นส่วนตัว"
+$auth_more: "เพิ่มเติม"
+$auth_terms_of_use: "ข้อกำหนดการใช้งาน"
+
+"Pinned": "ปักหมุด"
+"New Chat": "แชตใหม่"
+"Search chats": "ค้นหาแชต"
+"Ask a question to start a new chat.": "ถามคำถามเพื่อเริ่มแชตใหม่"
+"No chats found": "ไม่พบแชต"
+"Rename Chat": "เปลี่ยนชื่อแชต"
+"Delete Chat?": "ลบแชตหรือไม่?"
+"$agent_delete_chat_confirmation": "ข้อความในแชตนี้จะถูกลบอย่างถาวร รายงานปัญหาที่ส่งไปแล้วจะยังคงอยู่กับทีมของเรา"
+
+Invalid Address: ที่อยู่บัญชีไม่ถูกต้อง
+Domain Not Found: ไม่พบโดเมน
+Multisig Sending Disabled: ไม่ส่งจาก Multisig
+Insufficient Liquidity: สภาพคล่องไม่เพียงพอ
+Too Small Amount: จำนวนเงินน้อยเกินไป
+
+News: "ข่าว"
+Crypto Market News: "ข่าวตลาดคริปโต"
+$agent_news_new: "ใหม่"
+$agent_news_open_source: "เปิดแหล่งข่าว"
+$agent_news_unavailable: "ข่าวไม่พร้อมใช้งานในขณะนี้"
+$agent_news_read_more: "อ่านเพิ่มเติม"
+$agent_news_discuss: "พูดคุย"
+$agent_news_continue_discussion: "สนทนาต่อ"
+$agent_news_read_more_accessibility: "อ่านเพิ่มเติมเกี่ยวกับ %headline%"
+$agent_news_continue_discussion_accessibility: "สนทนาต่อเกี่ยวกับ %headline%"
+$agent_news_ask_placeholder: "สอบถามเกี่ยวกับข่าวนี้"
+$agent_news_quote_accessibility: "ข่าว MyPulse: %headline%"
+$agent_news_unread_count:
+  otherValue: "ข่าวที่ยังไม่ได้อ่าน %count% รายการ"
 Explorer mode: โหมดสำรวจ
 Open a link to a wallet, transfer, token or collectible to see its details here.: เปิดลิงก์ของกระเป๋าสตางค์ การโอน โทเคน หรือของสะสม เพื่อดูรายละเอียดที่นี่
+
+# Perps
+Long: Long
+Short: Short
+Funding Rate: "อัตราฟันดิง"
+Max Leverage: "เลเวอเรจสูงสุด"
+24h Volume: "ปริมาณซื้อขาย 24 ชม."
+Open Interest: "มูลค่าสถานะคงค้าง"
+$perps_funding_rate_hint: "อัตราที่ใช้คำนวณการชำระเงินทุนระหว่างผู้ถือสถานะ Long และ Short เมื่ออัตราเป็นบวก ผู้ถือสถานะ Long จะจ่ายให้ผู้ถือสถานะ Short เมื่ออัตราเป็นลบ ผู้ถือสถานะ Short จะจ่ายให้ผู้ถือสถานะ Long"
+$perps_max_leverage_hint: "เลเวอเรจสูงสุดที่ใช้ได้ในตลาดนี้"
+$perps_volume_24h_hint: "มูลค่ารวมของการซื้อขายในตลาดฟิวเจอร์สนี้ในช่วง 24 ชั่วโมงที่ผ่านมา รวมทั้งการซื้อขายเพื่อเปิดและปิดสถานะ"
+$perps_open_interest_hint: "มูลค่ารวมของสัญญาที่ยังเปิดอยู่ในตลาดฟิวเจอร์สนี้ ต่างจากปริมาณซื้อขาย 24 ชั่วโมง เนื่องจากไม่รวมสถานะที่ปิดไปแล้ว"
+
+# Perps order entry
+"Leverage": "เลเวอเรจ"
+"Position Size": "ขนาดสถานะ"
+"Liquidation Price": "ราคาบังคับปิดสถานะ"
+"Trading Fee": "ค่าธรรมเนียมการซื้อขาย"
+"Funding Payments": "การชำระค่าฟันดิง"
+"Swap Fee": "ค่าธรรมเนียมการแลกเปลี่ยน"
+"Review": "ตรวจสอบ"
+"$perps_order_long": "%asset% Long"
+"$perps_order_short": "%asset% Short"
+"$perps_swap_fee_hint": "ค่าธรรมเนียมสำหรับการแปลงโทเคนหนึ่งเป็นอีกโทเคนหนึ่งซึ่งเป็นส่วนหนึ่งของธุรกรรมนี้"
+"$perps_trading_fee_hint": "ค่าธรรมเนียมสำหรับการเปิดสถานะนี้"
+"$perps_position_size_hint": "ขนาดสถานะ — มูลค่ารวมของสถานะเมื่อใช้เลเวอเรจ"
+"$perps_position_size_details_hint": "มูลค่ารวมของสถานะของคุณโดยคำนึงถึงเลเวอเรจ\n\nตัวอย่างเช่น หากคุณลงทุน $100 ด้วยเลเวอเรจ 5x ขนาดสถานะของคุณจะเป็น $500"
+"$perps_position_size_change_hint": "มูลค่ารวมของสถานะของคุณโดยคำนึงถึงเลเวอเรจ\nค่าที่แสดงคือขนาดสถานะก่อนและหลังการเปลี่ยนแปลง"
+"$perps_profit_hint": "กำไรจากการปิดสถานะบางส่วน\n\nตัวอย่างเช่น หากคุณปิดสถานะครึ่งหนึ่ง จะแสดงกำไรจากส่วนที่คุณปิด"
+"$perps_loss_hint": "ขาดทุนจากการปิดสถานะบางส่วน\n\nตัวอย่างเช่น หากคุณปิดสถานะครึ่งหนึ่ง จะแสดงขาดทุนจากส่วนที่คุณปิด"
+"$perps_closing_value_hint": "จำนวนเงินที่เหลือหลังจากสถานะของคุณถูกล้างพอร์ต จำนวนนี้อาจน้อยกว่าเงินที่ลงทุนหรือเป็นศูนย์ ขึ้นอยู่กับผลของการล้างพอร์ต"
+"$perps_fees_hint": "ค่าธรรมเนียมทั้งหมดที่เรียกเก็บสำหรับธุรกรรมนี้ อาจรวมค่าธรรมเนียมการซื้อขาย การแลกเปลี่ยน และเครือข่าย ขึ้นอยู่กับธุรกรรม"
+"$perps_liquidation_price_hint": "ราคาโดยประมาณที่สถานะของคุณอาจถูกปิดโดยอัตโนมัติ เนื่องจากมีเงินไม่เพียงพอที่จะคงสถานะไว้"
+"$perps_high_leverage_warning": "เลเวอเรจสูง: ราคาเปลี่ยนเพียงเล็กน้อยก็อาจทำให้ถูกบังคับปิดสถานะ"
+"$perps_leverage_disclaimer": "เลเวอเรจที่สูงขึ้นจะเพิ่มทั้งกำไรและขาดทุนที่อาจเกิดขึ้น แม้ราคาเปลี่ยนแปลงสวนทางกับสถานะของคุณเพียงเล็กน้อย ก็อาจทำให้สถานะถูกปิดโดยอัตโนมัติได้"
+
+# Perps order review
+"Open Position": "เปิดสถานะ"
+"$perps_asset_price": "ราคา %asset%"
+"$perps_leverage_direction": "%leverage%x %direction%"
+"$perps_liquidation_acknowledgment": "เมื่อยืนยัน ฉันเข้าใจว่าสถานะนี้อาจถูกบังคับปิด และฉันอาจสูญเสียเงินที่ลงทุนไป"
+
+# Perps position receipt
+"Position Opened": "เปิดสถานะแล้ว"
+"Fees": "ค่าธรรมเนียม"
+"Transfer ID": "รหัสการโอน"
+
+# Perps active position
+"Equity": "มูลค่าสุทธิ"
+"Profit and Loss": "กำไรและขาดทุน"
+"Invested": "เงินลงทุน"
+"Entry Price": "ราคาเข้า"
+"Edit Position": "แก้ไขสถานะ"
+"Close Position": "ปิดสถานะ"
+"PerpsEditPositionAction": "แก้ไขสถานะ"
+"PerpsClosePositionAction": "ปิดสถานะ"
+"$perps_invested_hint": "จำนวนเงินของคุณเองที่ใช้สำหรับสถานะนี้ ตัวอย่างเช่น หากคุณลงทุน $100 ด้วยเลเวอเรจ 5x จำนวนเงินที่ลงทุนคือ $100 และขนาดสถานะคือ $500"
+"$perps_entry_price_hint": "ราคาเฉลี่ยที่เปิดสถานะนี้"
+"$perps_funding_payments_hint": "การชำระเงินเป็นระยะระหว่างผู้ถือสถานะ Long และ Short คุณอาจต้องจ่ายหรือได้รับเงินทุนขณะที่สถานะยังเปิดอยู่ ขึ้นอยู่กับอัตราเงินทุน"
+
+# Perps edit position
+"$perps_edit_long": "แก้ไข %asset% Long"
+"$perps_edit_short": "แก้ไข %asset% Short"
+"Current:": "ปัจจุบัน:"
+"Liquidation": "การบังคับปิดสถานะ"
+"You Pay or Receive": "คุณจ่ายหรือรับ"
+"Reset to Current Amount": "รีเซ็ตเป็นจำนวนปัจจุบัน"
+"Network Fee": "ค่าธรรมเนียมเครือข่าย"
+"$perps_network_fee_hint": "ค่าธรรมเนียมสำหรับการประมวลผลธุรกรรมนี้บนบล็อกเชน"
+"$perps_edit_liquidation_hint": "การบังคับปิดสถานะ — ราคาที่สถานะของคุณจะถูกปิดโดยอัตโนมัติ"
+
+# Perps position lifecycle
+"Increase Position": "เพิ่มสถานะ"
+"Reduce Position": "ลดสถานะ"
+"Current Value": "มูลค่าปัจจุบัน"
+"Closing Value": "มูลค่าเมื่อปิด"
+"Entry / Exit Price": "ราคาเข้า / ออก"
+"Entry / Liquidation Price": "ราคาเข้า / บังคับปิด"
+"You Paid": "คุณจ่ายแล้ว"
+"You Received": "คุณได้รับแล้ว"
+"Position Increased": "เพิ่มสถานะแล้ว"
+"Position Reduced": "ลดสถานะแล้ว"
+"Position Closed": "ปิดสถานะแล้ว"
+"Position Liquidated": "ถูกบังคับปิดสถานะแล้ว"
+"Profit": "กำไร"
+"Loss": "ขาดทุน"
+"$perps_current_value_hint": "มูลค่าปัจจุบันของจำนวนเงินที่ลงทุน รวมกำไรหรือขาดทุนของสถานะ"
+"$perps_price_when_opened": "ราคา %asset% เมื่อเปิด"
+"$perps_price_now": "ราคา %asset% ตอนนี้"
+"$perps_held": "ระยะเวลาถือ: %duration%"
+"$perps_liquidated_title": "สถานะถูกปิดโดยอัตโนมัติ"
+"$perps_liquidated_message": "ราคาตลาดแตะราคาบังคับปิดสถานะ ทำให้เกิดการขาดทุน"
+
+# Perps home
+"Open Positions": "สถานะที่เปิดอยู่"
+"Show All Positions": "แสดงทุกสถานะ"
+"Futures": "ฟิวเจอร์ส"
+"Futures Market": "ตลาดฟิวเจอร์ส"
+"Liquidation Risk": "ความเสี่ยงถูกบังคับปิด"
+"Refresh": "รีเฟรช"
+"More Actions": "การดำเนินการเพิ่มเติม"
+"$perps_no_positions": "ยังไม่มีสถานะที่เปิดอยู่ สำรวจตลาดฟิวเจอร์สเพื่อเริ่มต้น"
+"$perps_explore_market": "ซื้อขายคริปโตและสินทรัพย์ในโลกจริง"
+"PerpsExploreAgentDescription": "ผู้ช่วย AI ของคุณ"
+"$perps_explore_futures": "เปิดสถานะ Short และ Long"
+"$perps_explore_apps": "สำรวจอินเทอร์เน็ตแบบกระจายศูนย์"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "ราคาหรือสถานะของคุณเปลี่ยนไป กลับไปตรวจสอบคำสั่งอีกครั้ง"
+"PerpsReviewChanged": "คำสั่งเปลี่ยนไป กลับไปตรวจสอบอีกครั้ง"
+"PerpsInsufficientUsdc": "USDC บน Arbitrum ไม่เพียงพอเมื่อรวมค่าธรรมเนียมบริดจ์"
+"PerpsAmountTooSmall": "จำนวนนี้ต่ำกว่าขั้นต่ำของตลาด"
+"PerpsUnchanged": "ใส่จำนวนอื่นเพื่อเปลี่ยนแปลงสถานะ"
+"PerpsPositionChanged": "สถานะนี้เปลี่ยนไป รีเฟรชแล้วลองอีกครั้ง"
+"PerpsPositionExists": "คุณมีสถานะในตลาดนี้อยู่แล้ว ให้แก้ไขสถานะเดิม"
+"PerpsOperationPending": "ยังมีการดำเนินการที่รออยู่ ตรวจสอบสถานะก่อนซื้อขายอีกครั้ง"
+"PerpsUnsupportedAccount": "การซื้อขายฟิวเจอร์สต้องใช้กระเป๋าซอฟต์แวร์ที่มีที่อยู่บนเครือข่ายหลัก Arbitrum"
+"PerpsTradingUnavailable": "ยังไม่สามารถซื้อขายในตลาดนี้ได้"
+"PerpsInvalidLeverage": "เลือกเลเวอเรจที่ตลาดนี้รองรับ"
+"PerpsInvalidAmount": "ใส่จำนวนที่ถูกต้อง"
+"PerpsChangeLeverage": "เปลี่ยนเลเวอเรจ"
+"PerpsChangeLeverageSeparately": "เปลี่ยนเลเวอเรจแยกจากจำนวนของสถานะ"
+"PerpsUnavailable": "ฟิวเจอร์สไม่พร้อมใช้งาน โปรดลองอีกครั้งภายหลัง"
+"PerpsIncompleteData": "โหลดบางสถานะไม่ได้ รีเฟรชเพื่อดูยอดคงเหลือทั้งหมด"
+"PerpsFeesAtExecution": "ค่าธรรมเนียมจะสรุปเมื่อดำเนินการ"
+"PerpsWithdrawalPending": "สถานะได้รับการอัปเดตแล้ว แต่การถอน USDC ยังไม่เสร็จ อย่าส่งคำสั่งซ้ำ"
+"PerpsOperationStatus": "สถานะคำสั่ง"
+"PerpsExecutionUnknown": "ยังไม่ได้ยืนยันผล รีเฟรชเพื่อตรวจสอบสถานะและการโอนก่อนดำเนินการอย่างอื่น"
+"PerpsProcessing": "กำลังประมวลผลคำสั่ง การโอนผ่านบริดจ์และการชำระบัญชีอาจใช้เวลาหลายนาที"
+"PerpsCompleted": "คำสั่งเสร็จสมบูรณ์"
+"PerpsReconciled": "รีเฟรชบัญชีแล้ว รายละเอียดการซื้อขายจะปรากฏเมื่อมีบันทึกการดำเนินการ"
+
+PerpsWithdrawReleased: "ถอนเงินที่ปลดล็อกแล้ว"
+PerpsWithdrawDescription: "โอน USDC ที่ใช้ได้จาก Hyperliquid ไปยังกระเป๋านี้บน Arbitrum มีค่าธรรมเนียมการส่งต่อ 0.20 USDC"
+PerpsPartialFill: "คำสั่งสำเร็จบางส่วน จำนวนที่ดำเนินการแล้วแสดงด้านล่าง ตรวจสอบสถานะปัจจุบันก่อนส่งคำสั่งใหม่"
+
 Receiver %blockchain% Address: ที่อยู่ %blockchain% ของผู้รับ
+
 
 Save to Photos: บันทึกไปยังรูปภาพ
 Image Saved: บันทึกรูปภาพแล้ว
 Allow access to Photos in Settings to save NFT images.: อนุญาตให้เข้าถึงรูปภาพในการตั้งค่าเพื่อบันทึกรูปภาพ NFT
 Could not save the image. Please try again.: ไม่สามารถบันทึกรูปภาพได้ โปรดลองอีกครั้ง
+
+"$perps_activity_opened": "เปิด %asset%"
+"$perps_activity_increased": "เพิ่ม %asset%"
+"$perps_activity_reduced": "ลด %asset%"
+"$perps_activity_closed": "ปิด %asset%"
+"$perps_activity_liquidated": "บังคับปิด %asset%"
+
+# Perps
+"PerpsInsufficientGas": "ETH บน Arbitrum ไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย USDC สำหรับสถานะแยกจากค่าธรรมเนียมนี้"
+"PerpsFundingMissingTitle": "ไม่มี USDC หรือ ETH บน Arbitrum"
+"$perps_funding_missing": "รับอย่างน้อย %minUSDC% USDC และ %feeETH% ETH สำหรับค่าธรรมเนียม"
+"$perps_funding_usdc": "คุณต้องมีอย่างน้อย %minUSDC% USDC บน Arbitrum เพื่อเปิดสถานะ"
+"$perps_funding_usdc_increase": "คุณต้องมีอย่างน้อย %minUSDC% USDC บน Arbitrum เพื่อเพิ่มสถานะนี้"
+"PerpsFundingGasTitle": "ETH ไม่เพียงพอสำหรับค่าธรรมเนียม"
+"$perps_funding_gas": "ค่าธรรมเนียมบน Arbitrum ชำระด้วย ETH รับ %feeETH% ETH (~%feeFiat%)"
+"PerpsFundingTokenTitle": "ชำระด้วย USDC บน Arbitrum"
+"PerpsFundingTokenDescription": "ยังไม่รองรับโทเคนอื่น รับ USDC เพื่อดำเนินการต่อ"
+"Not Enough Funds": "เงินไม่เพียงพอ"
+"Unsupported Token": "ไม่รองรับโทเคนนี้"
+"PerpsReviewUpdated": "ราคาได้รับการอัปเดตแล้ว ตรวจสอบคำสั่งอีกครั้งก่อนยืนยัน"
+"PerpsOrderTooSmall": "มูลค่าคำสั่งขั้นต่ำคือ 10 ดอลลาร์สหรัฐ"
+"PerpsOrderNotFilled": "ไม่สามารถดำเนินการคำสั่งตามราคาที่ตรวจสอบได้ รีเฟรชแล้วลองอีกครั้ง"
+"PerpsInsufficientMargin": "หลักประกันไม่เพียงพอสำหรับคำสั่งนี้ รีเฟรชสถานะและปรับจำนวน"
+"PerpsOrderRejected": "ตลาดซื้อขายปฏิเสธคำสั่งนี้ รีเฟรชสถานะและตรวจสอบคำสั่งอีกครั้ง"
+"Order": "คำสั่ง"
+"Order ID": "รหัสคำสั่ง"
+"Date": "วันที่"
+"PerpsAllowNewOrders": "อนุญาตคำสั่งใหม่"
+"PerpsAcknowledgeUnknown": "คำสั่งเดิมอาจยังดำเนินการสำเร็จได้ ตรวจสอบสถานะและการโอนก่อน การอนุญาตคำสั่งใหม่ไม่ได้ยกเลิกคำสั่งเดิม"
+"$perps_market_title": "ฟิวเจอร์ส %asset%"
+"Recent Market Activity": "กิจกรรมตลาดล่าสุด"
+"Trade Size": "ขนาดการซื้อขาย"
+"PerpsExchangeFee": "ค่าธรรมเนียมตลาดซื้อขาย"
+"PerpsServiceFee": "ค่าธรรมเนียมกระเป๋า"
+"PerpsBridgeFee": "ค่าธรรมเนียมบริดจ์"
+"PerpsTotalFees": "ค่าธรรมเนียม USDC รวม"
+"PerpsFeeEstimateHint": "ค่าธรรมเนียมที่มีเครื่องหมาย ≈ เป็นค่าประมาณและอาจเปลี่ยนเมื่อดำเนินการ ค่าธรรมเนียมเครือข่าย Arbitrum จ่ายแยกเป็น ETH"
+"PerpsUnallocatedCollateral": "หลักประกันที่ยังไม่ได้จัดสรร"
+"PerpsUnallocatedCollateralHint": "การปัดเศษตามขนาดการซื้อขายของตลาดอาจทำให้ USDC บางส่วนอยู่นอกสถานะ เงินนี้ยังอยู่ในบัญชีฟิวเจอร์สของคุณและไม่ใช่ค่าธรรมเนียม"
+"PerpsOnboardingTitle": "เพิ่งเริ่มเทรดฟิวเจอร์สใช่ไหม?"
+"PerpsOnboardingDescription": "เรียนรู้วิธีใช้งานในเวลาไม่ถึง 1 นาที"
+"PerpsOnboardingOpen": "เปิดคำแนะนำ"
+"PerpsStoryIntroTitle": "รู้จักกับเพอร์เพทชวลฟิวเจอร์ส"
+"PerpsStoryIntroBody": "เปิดสถานะได้ทั้งเมื่อคาดว่าราคาสินทรัพย์จะขึ้นหรือลง"
+"PerpsStoryLongTitle": "คาดว่าราคาจะขึ้น? เปิด Long"
+"PerpsStoryLongBody": "เมื่อราคาขึ้น คุณได้กำไร เมื่อราคาลง คุณขาดทุน"
+"PerpsStoryShortTitle": "คาดว่าราคาจะลง? เปิด Short"
+"PerpsStoryShortBody": "เมื่อราคาลง คุณได้กำไร เมื่อราคาขึ้น คุณขาดทุน"
+"PerpsStoryLeverageTitle": "เลเวอเรจขยายผลลัพธ์"
+"PerpsStoryLeverageBody": "มาร์จินคือเงินของคุณในสถานะ เมื่อใช้เลเวอเรจ 5× เงิน $10 จะควบคุมสถานะมูลค่า $50 — กำไรและขาดทุนจะเพิ่มเป็น 5 เท่าด้วย"
+"PerpsStoryLiquidationTitle": "สถานะของคุณอาจถูกปิดอัตโนมัติ"
+"PerpsStoryLiquidationBody": "นี่คือการบังคับปิดสถานะ: หากขาดทุนจนเหลือมาร์จินไม่เพียงพอ สถานะของคุณอาจถูกปิด โปรดติดตามราคาบังคับปิดสถานะ"
+"PerpsStoryFundingTitle": "ฟันดิงคือการชำระเงินระหว่างผู้เทรด"
+"PerpsStoryFundingBody": "เมื่ออัตราฟันดิงเป็นบวก ผู้ถือสถานะ Long จ่ายให้ผู้ถือสถานะ Short เมื่อเป็นลบ ผู้ถือสถานะ Short จ่ายให้ผู้ถือสถานะ Long"
+"PerpsStoryStart": "เริ่ม"
+
+"Funding Payment": "การชำระค่าฟันดิง"
+"Withdrawal": "ถอน"
+"Transfer": "โอน"
+"Spot Balance": "ยอดคงเหลือสปอต"
+"From": "จาก"
+"To": "ไปยัง"
+
+Delete Chat: ลบแชต
+Unread: ยังไม่ได้อ่าน
+$agent_connection_lost: การเชื่อมต่อผู้ช่วยถูกขัดจังหวะ
+$agent_daily_limit_reached: ถึงขีดจำกัดรายวันของผู้ช่วยแล้ว
+$media_viewer_date_at_time: "%date% เวลา %time%"
+Picture: รูปภาพ
+
+Add to Reading List: เพิ่มไปยังรายการอ่าน
+
+$enclave_data_missing_title: ไม่พบข้อมูลกระเป๋าเงิน
+$enclave_data_missing_message: |
+  นี่ไม่ใช่ปัญหาเรื่องรหัสผ่าน ข้อมูลที่แอปเก็บไว้ในอุปกรณ์นี้เพื่อตรวจสอบรหัสผ่านและเปิดกระเป๋าเงินของคุณหายไป จึงไม่มีรหัสผ่านใดปลดล็อกได้ที่นี่
+
+  อย่าติดตั้งแอปใหม่และอย่าล้างข้อมูลของแอปในการตั้งค่าระบบ ส่งออกบันทึกด้วยปุ่มด้านล่างแล้วส่งให้ %support_link% บันทึกนี้ช่วยให้เราเห็นว่าเกิดอะไรขึ้นบนอุปกรณ์นี้
+
+  หากคุณมีคำลับของกระเป๋าเงิน คุณสามารถออกจากกระเป๋าทั้งหมดแล้วนำเข้าใหม่อีกครั้ง
+
+Install the TON App on your Ledger and try again.: ติดตั้งแอป TON บน Ledger ของคุณ แล้วลองอีกครั้ง.

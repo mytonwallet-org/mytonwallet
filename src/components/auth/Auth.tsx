@@ -4,9 +4,11 @@ import { getActions, withGlobal } from '../../global';
 import type { GlobalState } from '../../global/types';
 import { AuthState } from '../../global/types';
 
+import { IS_EXPLORER, IS_GRAM_WALLET } from '../../config';
 import { selectIsBiometricAuthEnabled } from '../../global/selectors';
+import buildClassName from '../../util/buildClassName';
 import { pick } from '../../util/iteratees';
-import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY, IS_ANDROID } from '../../util/windowEnvironment';
+import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY, IS_ANDROID, IS_WEB } from '../../util/windowEnvironment';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -23,12 +25,12 @@ import AuthCreateBiometrics from './AuthCreateBiometrics';
 import AuthCreatePassword from './AuthCreatePassword';
 import AuthCreatePin from './AuthCreatePin';
 import AuthCreatingWallet from './AuthCreatingWallet';
-import AuthDisclaimer from './AuthDisclaimer';
 import AuthImportMnemonic from './AuthImportMnemonic';
 import AuthImportViewAccount from './AuthImportViewAccount';
 import AuthSafetyRules from './AuthSafetyRules';
 import AuthSecretWords from './AuthSecretWords';
 import AuthStart from './AuthStart';
+import GramAuthStart from './GramAuthStart';
 
 import styles from './Auth.module.scss';
 
@@ -38,6 +40,7 @@ type StateProps = Pick<GlobalState['auth'], (
 )> & { isBiometricAuthEnabled?: boolean };
 
 const RENDER_COUNT = Object.keys(AuthState).length / 2;
+const IS_GRAM_WEB = IS_GRAM_WALLET && IS_WEB && !IS_EXPLORER;
 
 const Auth = ({
   state,
@@ -73,7 +76,9 @@ const Auth = ({
   function renderAuthScreen(isActive: boolean, isFrom: boolean, currentKey: AuthState) {
     switch (currentKey) {
       case AuthState.none:
-        return <AuthStart isActive={isActive} />;
+        return IS_GRAM_WEB
+          ? <GramAuthStart isActive={isActive} />
+          : <AuthStart isActive={isActive} />;
       case AuthState.createWallet:
         return <AuthCreatingWallet isActive={isActive} />;
       case AuthState.checkPassword:
@@ -96,10 +101,6 @@ const Auth = ({
           : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} error={error} />;
       case AuthState.createPassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method="createAccount" />;
-      case AuthState.disclaimerAndBackup:
-        return (
-          <AuthDisclaimer key="create" isActive={isActive} />
-        );
       case AuthState.importWallet:
         return <AuthImportMnemonic isActive={isActive} />;
       case AuthState.importWalletCreatePin:
@@ -116,13 +117,6 @@ const Auth = ({
             error={error}
           />
         );
-      case AuthState.disclaimer:
-        return (
-          <AuthDisclaimer
-            key="import"
-            isActive={isActive}
-          />
-        );
       case AuthState.importWalletCreateBiometrics:
         return CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
           ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} isImporting error={error} />
@@ -133,7 +127,7 @@ const Auth = ({
         return (
           <SettingsAbout
             isActive={isActive}
-            slideClassName={styles.aboutSlide}
+            slideClassName={IS_GRAM_WEB ? styles.gramAboutSlide : undefined}
             onBackClick={closeAbout}
           />
         );
@@ -171,8 +165,10 @@ const Auth = ({
       activeKey={renderingAuthState}
       renderCount={RENDER_COUNT}
       shouldCleanup
+      cleanupExceptionKey={IS_GRAM_WEB ? AuthState.none : undefined}
       shouldWrap
-      className={styles.transitionContainer}
+      className={buildClassName(styles.transitionContainer,
+        IS_GRAM_WEB && styles.gramWelcome)}
       slideClassName={styles.transitionSlide}
       prevKey={prevKey}
       nextKey={nextKey}

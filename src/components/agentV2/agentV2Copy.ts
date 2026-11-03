@@ -36,8 +36,9 @@ export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn) {
     case 'device_token_missing':
     case 'device_token_invalid':
       return lang('$agent_error_session');
-    case 'rate_limited':
     case 'user_quota_exhausted':
+      return lang('$agent_daily_limit_reached');
+    case 'rate_limited':
     case 'agent_capacity_exhausted':
     case 'device_token_rate_limited':
       return lang('$agent_error_limit');
@@ -48,10 +49,18 @@ export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn) {
     case 'tool_failed':
     case 'tool_result_too_large':
       return lang('$agent_error_tool');
+    case 'recording_too_large':
+      return lang('$agent_error_recording_too_large');
+    case 'audio_unreadable':
+      return lang('$agent_error_audio_unreadable');
+    case 'transcription_unavailable':
+      return lang('$agent_error_transcription_unavailable');
+    case 'news_unavailable':
+      return lang('$agent_news_unavailable');
     case 'market_data_unavailable':
       return lang('$agent_error_generic');
     case 'network_error':
-      return lang('$agent_connection_interrupted');
+      return lang('$agent_connection_lost');
     case 'provider_timeout':
     case 'provider_unavailable':
       return lang('$agent_capacity_limit_unknown');

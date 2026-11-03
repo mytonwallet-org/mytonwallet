@@ -174,6 +174,7 @@ final class AgentRichMessageView: UIStackView {
 @MainActor
 private final class AgentRichTextView: UITextView, UITextViewDelegate {
     private var onURLTap: ((URL) -> Void)?
+    private var linkMenu: AgentLinkMenu?
 
     override var canBecomeFirstResponder: Bool { false }
 
@@ -194,6 +195,10 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
         self.textContainer.lineBreakMode = .byWordWrapping
         textDragInteraction?.isEnabled = false
         delegate = self
+        linkMenu = AgentLinkMenu(source: self, linkAt: { [weak self] point in
+            self?.linkValue(at: point) as? URL
+        }, open: { [weak self] url in self?.onURLTap?(url) })
+        linkTextAttributes = AgentMessageTextRenderer.linkTextAttributes(color: tintColor)
         setContentCompressionResistancePriority(UILayoutPriority(999), for: .vertical)
         setContentHuggingPriority(UILayoutPriority(999), for: .vertical)
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -265,6 +270,11 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
         false
     }
 
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        linkTextAttributes = AgentMessageTextRenderer.linkTextAttributes(color: tintColor)
+    }
+
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         guard super.point(inside: point, with: event) else { return false }
         return linkValue(at: point) != nil
@@ -276,6 +286,7 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
         in characterRange: NSRange,
         interaction: UITextItemInteraction
     ) -> Bool {
+        guard interaction == .invokeDefaultAction else { return false }
         onURLTap?(url)
         return false
     }

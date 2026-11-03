@@ -1,0 +1,184 @@
+@use "../../styles/mixins";
+
+@use "../agent/agentSurface";
+
+.root {
+  @include agentSurface.variables;
+
+  // A menu dims the Agent with half the app's tint, as in the design
+  --color-tint: rgba(0, 0, 0, 0.16);
+
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+
+  :global(html.theme-dark) & {
+    --color-tint: rgba(0, 0, 0, 0.32);
+  }
+}
+
+// The list, a chat and the news feed take turns in one navigation stack, as on iPad
+.stack {
+  --agent-screen-background: var(--agent-background);
+
+  @include agentSurface.card-corners;
+
+  @include mixins.respond-above(xs) {
+    // In the wide layout the screen underneath does not dim as one slides over it, and the stack shows the screens'
+    // own color rather than black wherever they leave it bare, so nothing dark flashes over the whole card
+    --layer-blackout-opacity: 0;
+
+    overflow: hidden;
+
+    &:global(.Transition-slideLayers),
+    &:global(.Transition-slideLayersBackwards) {
+      background: var(--agent-screen-background) !important;
+    }
+  }
+
+  &:global(.Transition-slideLayers),
+  &:global(.Transition-slideLayersBackwards),
+  &:global(.Transition-slideFadeAndroid),
+  &:global(.Transition-slideFadeAndroidBackwards) {
+    // The transitions paint the moving screens with this color, which is the screens' own one
+    --background-color: var(--agent-screen-background);
+  }
+
+  // Going back, the screen underneath settles as the one on top leaves, so no black shows past its far edge. The
+  // shared stack takes 450 ms for it, longer than the 300 ms of the screen on top (on iOS both are longer still).
+  :global(html:not(.is-ios)) &:global(.Transition-slideLayersBackwards) > :global(.Transition_slide-to) {
+    animation-duration: 300ms;
+  }
+
+  // A chat started while composing one under the list comes in place of the list over 250 ms, as on mobile
+  &:global(.Transition-fade) > :global(.Transition_slide-from),
+  &:global(.Transition-fade) > :global(.Transition_slide-to) {
+    animation-duration: 250ms;
+  }
+}
+
+// The list, with the consent over it until the user allows the Agent
+.listLevel {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+// The shared stack transitions move screens toward the left; a right-to-left layout pushes them from the left
+:global(html[dir="rtl"]) .stack {
+  &:global(.Transition-slideLayers) {
+    > :global(.Transition_slide-to) {
+      transform: translateX(-100%);
+      animation: pushInRtl var(--layer-transition);
+    }
+
+    > :global(.Transition_slide-from) {
+      animation: layerOutRtl var(--layer-transition-behind);
+    }
+  }
+
+  &:global(.Transition-slideLayersBackwards) {
+    > :global(.Transition_slide-to) {
+      transform: translateX(20%);
+      // As long as the screen on top takes to leave, so no black shows past the far edge
+      animation: layerOutBackwardsRtl var(--layer-transition-behind);
+    }
+
+    > :global(.Transition_slide-from) {
+      animation: pushInBackwardsRtl var(--layer-transition);
+    }
+  }
+
+  &:global(.Transition-slideFadeAndroid) > :global(.Transition_slide-to) {
+    transform: translateX(-20%);
+    animation: androidInRtl var(--slide-transition);
+  }
+
+  &:global(.Transition-slideFadeAndroidBackwards) > :global(.Transition_slide-from) {
+    animation: androidInBackwardsRtl var(--slide-transition);
+  }
+}
+
+@keyframes pushInRtl {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pushInBackwardsRtl {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes layerOutRtl {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(20%);
+    opacity: calc(1 - var(--layer-blackout-opacity));
+  }
+}
+
+@keyframes layerOutBackwardsRtl {
+  0% {
+    transform: translateX(20%);
+    opacity: calc(1 - var(--layer-blackout-opacity));
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes androidInRtl {
+  0% {
+    transform: translateX(-20%);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes androidInBackwardsRtl {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(-15%);
+    opacity: 0;
+  }
+}

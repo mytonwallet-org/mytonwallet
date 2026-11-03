@@ -40,12 +40,44 @@ class WindowOpenUrlRoutingContractTest {
     }
 
     @Test
-    fun windowOpenUnknownUrlFallsBackToLoadUrlWhenDelegateDenies() {
-        val decision = resolveRouting("unknown-scheme://example") { _, _ ->
-            false
-        }
+    fun windowOpenWebUrlLoadsWhenDelegateDenies() {
+        assertEquals("LOAD_URL", resolveRouting("https://example.com/page") { _, _ -> false })
+        assertEquals("LOAD_URL", resolveRouting("HTTP://example.com") { _, _ -> false })
+    }
 
-        assertEquals("LOAD_URL", decision)
+    @Test
+    fun windowOpenNonWebUrlGoesToBrowserRoutingWhenDelegateDenies() {
+        assertEquals(
+            "OPEN_NON_WEB_URL",
+            resolveRouting("unknown-scheme://example") { _, _ -> false }
+        )
+        assertEquals(
+            "OPEN_NON_WEB_URL",
+            resolveRouting("mailto:support@example.com") { _, _ -> false }
+        )
+    }
+
+    @Test
+    fun windowOpenJavascriptAndSchemelessUrlsAreIgnoredBeforeDelegate() {
+        val handled = mutableListOf<String>()
+        val urls = listOf(
+            "javascript:alert(1)",
+            "JavaScript:alert(1)",
+            " javascript:alert(1)",
+            "\tjavascript:alert(1)",
+            "java\nscript:alert(1)",
+            "/relative/path",
+            ""
+        )
+
+        urls.forEach { url ->
+            val decision = resolveRouting(url) { deeplink, _ ->
+                handled.add(deeplink)
+                true
+            }
+            assertEquals(url, "IGNORE", decision)
+        }
+        assertEquals(emptyList<String>(), handled)
     }
 
     private fun resolveRouting(

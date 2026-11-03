@@ -10,7 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-private enum SecretWordsMode: Equatable {
+enum SecretWordsMode: Equatable {
     case words12
     case words24
 
@@ -60,8 +60,11 @@ public class ImportWalletVC: CreateWalletBaseVC {
     private let scrollView = UIScrollView()
     private var wordInputs: [WWordInput] = []
     private let suggestionsView = WSuggestionsView()
+    private let wordsContainerView = UIView()
     private let wordsStackView1 = UIStackView()
     private let wordsStackView2 = UIStackView()
+    private var singleColumnConstraint: NSLayoutConstraint!
+    private var twoColumnConstraint: NSLayoutConstraint!
     private var secretWordsMode = SecretWordsMode.words12
     private var isSubmitting = false
     
@@ -70,16 +73,28 @@ public class ImportWalletVC: CreateWalletBaseVC {
     private var bottomActionLeading: NSLayoutConstraint!
     private var bottomActionTrailing: NSLayoutConstraint!
     private var bottomActionBottom: NSLayoutConstraint!
-    private var hasBegunEditing = false
     private var isInitialFocusScrollPending = false
     private var isUpdatingWordsMode = false
+    private var showsEditingNavigation = false
+    private var showsContinueButton = true
+    private weak var navigationHost: UIViewController?
+    private var restingRightBarButtonItems: [UIBarButtonItem]?
+    private var introductionViews: [UIView] = []
+
+    private lazy var compactPasteItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(systemName: "document.on.clipboard"), style: .plain,
+                                  target: self, action: #selector(pasteFromClipboard))
+        item.accessibilityLabel = lang("Paste from Clipboard")
+        item.accessibilityIdentifier = "import_paste_compact"
+        return item
+    }()
 
     private lazy var wordsModeSegmentedControl: SecretWordsModeControl = {
         let control = SecretWordsModeControl()
         control.addTarget(self, action: #selector(wordsModeChanged), for: .valueChanged)
         return control
     }()
-    private lazy var wordsModeHitArea = StickyControlHitArea(target: wordsModeSegmentedControl)
+    private lazy var wordsModeTitleView = SecretWordsNavigationTitleView(control: wordsModeSegmentedControl)
 
     private lazy var headerView = HeaderView(
         animationName: "animation_snitch",
@@ -118,7 +133,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         guard let parent, !(parent is UINavigationController) else { return }
         // Sheet replacement does not forward appearance callbacks to the new child.
         loadViewIfNeeded()
-        parent.navigationItem.titleView = wordsModeHitArea
+        installNavigation(on: parent)
         parent.navigationItem.standardAppearance = navigationItem.standardAppearance
         parent.navigationItem.scrollEdgeAppearance = navigationItem.scrollEdgeAppearance
         parent.navigationItem.compactAppearance = navigationItem.compactAppearance
@@ -139,6 +154,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         if AccountStore.accountsById.count > 0 {
             addCloseNavigationItemIfNeeded()
         }
+        installNavigation(on: self)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.delegate = self
@@ -164,6 +180,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
             scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
         ])
 
+        headerView.lblTitle.accessibilityIdentifier = "import_title"
         headerView.isUserInteractionEnabled = true
         headerView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard)))
 
@@ -174,24 +191,59 @@ public class ImportWalletVC: CreateWalletBaseVC {
             headerView.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -32)
         ])
 
-        var pasteConfiguration = UIButton.Configuration.plain()
-        pasteConfiguration.title = lang("Paste from Clipboard")
-        pasteConfiguration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-            var attributes = attributes
-            attributes.font = WTypography.uiFont(.button)
-            return attributes
+        let pasteButton = WButton(style: .primary)
+        pasteButton.setTitle(lang("Paste from Clipboard"), for: .normal)
+        pasteButton.setImage(UIImage(systemName: "document.on.clipboard"), for: .normal)
+        if var configuration = pasteButton.configuration {
+            configuration.cornerStyle = .capsule
+            configuration.imagePadding = 6
+            configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 16)
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 32, bottom: 16, trailing: 32)
+            pasteButton.configuration = configuration
+        } else {
+            pasteButton.layer.cornerRadius = 26
+            pasteButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 32, bottom: 0, right: 32)
         }
-        let pasteButton = UIButton(configuration: pasteConfiguration)
         pasteButton.translatesAutoresizingMaskIntoConstraints = false
         pasteButton.accessibilityIdentifier = "import_paste"
         pasteButton.addTarget(self, action: #selector(pasteFromClipboard), for: .touchUpInside)
         scrollView.addSubview(pasteButton)
         NSLayoutConstraint.activate([
-            pasteButton.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 12),
-            pasteButton.leadingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leadingAnchor, constant: 32),
-            pasteButton.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -32),
-            pasteButton.heightAnchor.constraint(equalToConstant: 50)
+            pasteButton.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 40),
+            pasteButton.centerXAnchor.constraint(equalTo: scrollView.contentLayoutGuide.centerXAnchor),
+            pasteButton.leadingAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 32),
+            pasteButton.trailingAnchor.constraint(lessThanOrEqualTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -32),
         ])
+
+        let manualEntryLabel = UILabel()
+        manualEntryLabel.text = lang("or enter manually")
+        manualEntryLabel.applyTextStyle(.body)
+        manualEntryLabel.textColor = .air.secondaryLabel
+        manualEntryLabel.textAlignment = .center
+        manualEntryLabel.numberOfLines = 0
+        let manualEntry = UIStackView()
+        manualEntry.translatesAutoresizingMaskIntoConstraints = false
+        manualEntry.alignment = .center
+        manualEntry.spacing = 12
+        for index in 0 ..< 3 {
+            if index == 1 {
+                manualEntry.addArrangedSubview(manualEntryLabel)
+            } else {
+                let line = UIView()
+                line.backgroundColor = .separator
+                manualEntry.addArrangedSubview(line)
+                line.widthAnchor.constraint(equalToConstant: 64).withPriority(.defaultHigh).isActive = true
+                line.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
+            }
+        }
+        scrollView.addSubview(manualEntry)
+        NSLayoutConstraint.activate([
+            manualEntry.topAnchor.constraint(equalTo: pasteButton.bottomAnchor, constant: 40),
+            manualEntry.centerXAnchor.constraint(equalTo: scrollView.contentLayoutGuide.centerXAnchor),
+            manualEntry.leadingAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 32),
+            manualEntry.trailingAnchor.constraint(lessThanOrEqualTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -32),
+        ])
+        introductionViews = [headerView, pasteButton, manualEntry]
 
         wordsStackView1.translatesAutoresizingMaskIntoConstraints = false
         wordsStackView1.axis = .vertical
@@ -203,23 +255,26 @@ public class ImportWalletVC: CreateWalletBaseVC {
         wordsStackView2.spacing = 16
         wordsStackView2.semanticContentAttribute = .forceLeftToRight
         
-        wordsModeSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(wordsModeSegmentedControl)
-        scrollView.addSubview(wordsStackView1)
-        scrollView.addSubview(wordsStackView2)
+        wordsContainerView.translatesAutoresizingMaskIntoConstraints = false
+        wordsContainerView.alpha = 0.65
+        scrollView.addSubview(wordsContainerView)
+        wordsContainerView.addSubview(wordsStackView1)
+        wordsContainerView.addSubview(wordsStackView2)
+        singleColumnConstraint = wordsStackView1.rightAnchor.constraint(equalTo: wordsContainerView.rightAnchor)
+        twoColumnConstraint = wordsStackView1.rightAnchor.constraint(equalTo: wordsContainerView.centerXAnchor, constant: -8)
         NSLayoutConstraint.activate([
-            wordsModeSegmentedControl.topAnchor.constraint(equalTo: pasteButton.bottomAnchor, constant: 16),
-            wordsModeSegmentedControl.centerXAnchor.constraint(equalTo: scrollView.contentLayoutGuide.centerXAnchor),
-            wordsModeSegmentedControl.heightAnchor.constraint(equalToConstant: 40),
-
-            wordsStackView1.topAnchor.constraint(equalTo: wordsModeSegmentedControl.bottomAnchor, constant: 24),
+            wordsContainerView.topAnchor.constraint(equalTo: manualEntry.bottomAnchor, constant: 24),
+            wordsContainerView.centerXAnchor.constraint(equalTo: scrollView.contentLayoutGuide.centerXAnchor),
+            wordsContainerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -64).withPriority(.defaultHigh),
+            wordsContainerView.widthAnchor.constraint(lessThanOrEqualToConstant: 496),
+            wordsContainerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            wordsStackView1.topAnchor.constraint(equalTo: wordsContainerView.topAnchor),
             wordsStackView2.topAnchor.constraint(equalTo: wordsStackView1.topAnchor),
-            
-            wordsStackView1.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor, constant: 32),
-            wordsStackView2.leftAnchor.constraint(equalTo: wordsStackView1.rightAnchor, constant: 16),
-            wordsStackView2.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor, constant: -32),
-            wordsStackView1.widthAnchor.constraint(equalTo: wordsStackView2.widthAnchor),
-            wordsStackView2.bottomAnchor.constraint(equalTo: wordsStackView1.bottomAnchor),
+            wordsStackView1.leftAnchor.constraint(equalTo: wordsContainerView.leftAnchor),
+            singleColumnConstraint,
+            wordsStackView2.leftAnchor.constraint(equalTo: wordsContainerView.centerXAnchor, constant: 8),
+            wordsStackView2.rightAnchor.constraint(equalTo: wordsContainerView.rightAnchor),
+            wordsStackView1.bottomAnchor.constraint(equalTo: wordsContainerView.bottomAnchor),
         ])
         
         let fieldsCount = 24
@@ -232,16 +287,14 @@ public class ImportWalletVC: CreateWalletBaseVC {
                 previousWorkInput.nextInput = wordInput
             }
             wordInputs.append(wordInput)
+            (i < 12 ? wordsStackView1 : wordsStackView2).addArrangedSubview(wordInput)
+            if i >= 12 { wordInput.alpha = 0 }
             previousWorkInput = wordInput
         }
         updateWordInputsLayout()
-        
-        wordsStackView1.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor).isActive = true
 
         navigationBackground = addCustomNavigationBarBackground(color: .air.groupedBackground, inside: scrollView)
         navigationBackground?.alpha = 0
-        scrollView.bringSubviewToFront(wordsModeSegmentedControl)
-        navigationItem.titleView = wordsModeHitArea
 
         bottomEdgeEffect.translatesAutoresizingMaskIntoConstraints = false
         bottomEdgeEffect.update(content: .air.groupedBackground, blur: true, alpha: 0.85, edge: .bottom, edgeSize: 48)
@@ -251,23 +304,31 @@ public class ImportWalletVC: CreateWalletBaseVC {
         bottomActionLeading = bottomActionsView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 36)
         bottomActionTrailing = bottomActionsView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -36)
         bottomActionBottom = bottomActionsView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -2)
+        bottomActionLeading.priority = .defaultHigh
+        bottomActionTrailing.priority = .defaultHigh
         NSLayoutConstraint.activate([
             bottomActionLeading,
             bottomActionTrailing,
             bottomActionBottom,
+            bottomActionsView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
+            bottomActionsView.widthAnchor.constraint(lessThanOrEqualToConstant: 496),
             bottomEdgeEffect.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomEdgeEffect.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomEdgeEffect.topAnchor.constraint(equalTo: bottomActionsView.topAnchor, constant: -16),
             bottomEdgeEffect.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         view.addSubview(suggestionsView)
+        suggestionsView.onSuggestionsChange = { [weak self] in
+            guard let self else { return }
+            self.updateContinueVisibility(animated: self.view.window != nil)
+        }
 
         textChanged()
 
         WKeyboardObserver.observeKeyboard(delegate: self)
     }
 
-    private func setWordsMode(_ mode: SecretWordsMode) {
+    func setWordsMode(_ mode: SecretWordsMode) {
         wordsModeSegmentedControl.selectedSegmentIndex = mode.segmentIndex
         guard secretWordsMode != mode else { return }
 
@@ -275,11 +336,27 @@ public class ImportWalletVC: CreateWalletBaseVC {
         isUpdatingWordsMode = true
         isInitialFocusScrollPending = false
         secretWordsMode = mode
-        UIView.performWithoutAnimation {
-            updateWordInputsLayout()
-            view.layoutIfNeeded()
-            scrollView.setContentOffset(clampedContentOffset(contentOffset), animated: false)
+        view.layoutIfNeeded()
+        updateWordInputsLayout()
+        let animated = view.window != nil && !UIAccessibility.isReduceMotionEnabled
+        UIView.animate(withDuration: animated ? 0.42 : 0, delay: 0, usingSpringWithDamping: 0.86,
+                       initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.view.layoutIfNeeded()
         }
+        let isExpanded = mode == .words24
+        let firstVisibleRow = max(0, Int((scrollView.contentOffset.y + firstWordTop - wordsContainerView.frame.minY) / 64))
+        for (row, input) in wordInputs.suffix(12).enumerated() {
+            if isExpanded && input.alpha == 0 {
+                input.transform = CGAffineTransform(translationX: 28, y: 6)
+            }
+            let delay = animated ? Double(min(8, max(0, row - firstVisibleRow))) * 0.025 : 0
+            UIView.animate(withDuration: animated ? 0.42 : 0, delay: delay, usingSpringWithDamping: 0.82,
+                           initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                input.alpha = isExpanded ? 1 : 0
+                input.transform = isExpanded || !animated ? .identity : CGAffineTransform(translationX: 20, y: 0)
+            }
+        }
+        scrollView.setContentOffset(clampedContentOffset(contentOffset), animated: false)
         isUpdatingWordsMode = false
         updateFloatingControls()
         textChanged()
@@ -288,11 +365,12 @@ public class ImportWalletVC: CreateWalletBaseVC {
     private func updateWordInputsLayout() {
         let focusedInput = wordInputs.first { $0.textField.isFirstResponder }
         let activeWordCount = secretWordsMode.wordCount
-        let columnWordCount = activeWordCount / 2
+        NSLayoutConstraint.deactivate([singleColumnConstraint, twoColumnConstraint])
+        (secretWordsMode == .words12 ? singleColumnConstraint : twoColumnConstraint).isActive = true
+        wordsStackView2.isUserInteractionEnabled = secretWordsMode == .words24
+        wordsStackView2.accessibilityElementsHidden = secretWordsMode == .words12
 
         for (index, wordInput) in wordInputs.enumerated() {
-            let isActive = index < activeWordCount
-            wordInput.isHidden = !isActive
             wordInput.previousInput = nil
             wordInput.nextInput = nil
             wordInput.advancesOnSuggestionSelection = false
@@ -301,23 +379,9 @@ public class ImportWalletVC: CreateWalletBaseVC {
 
         for index in 0 ..< activeWordCount {
             let wordInput = wordInputs[index]
-            wordInput.isHidden = false
             wordInput.previousInput = index > 0 ? wordInputs[index - 1] : nil
             wordInput.nextInput = index + 1 < activeWordCount ? wordInputs[index + 1] : nil
             wordInput.advancesOnSuggestionSelection = index + 1 < activeWordCount
-        }
-
-        let columns = [Array(wordInputs.prefix(columnWordCount)), Array(wordInputs[columnWordCount ..< activeWordCount])]
-        for (stackView, inputs) in zip([wordsStackView1, wordsStackView2], columns) {
-            for view in stackView.arrangedSubviews where !inputs.contains(where: { $0 === view }) {
-                stackView.removeArrangedSubview(view)
-                view.removeFromSuperview()
-            }
-        }
-        for (stackView, inputs) in zip([wordsStackView1, wordsStackView2], columns) {
-            for (index, input) in inputs.enumerated() where input.superview !== stackView {
-                stackView.insertArrangedSubview(input, at: index)
-            }
         }
 
         if let focusedInput {
@@ -455,6 +519,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
             view.isUserInteractionEnabled = !isLoading
             navigationItem.hidesBackButton = isLoading
             navigationItem.rightBarButtonItem?.isEnabled = !isLoading
+            wordsModeSegmentedControl.isUserInteractionEnabled = !isLoading
+            compactPasteItem.isEnabled = !isLoading
             bottomActionsView.primaryButton.setTitle(
                 isLoading ? lang("Please wait...") : lang("Continue"),
                 for: .normal)
@@ -558,14 +624,17 @@ public class ImportWalletVC: CreateWalletBaseVC {
         bottomActionLeading.constant = keyboardVisible ? 16 : 36
         bottomActionTrailing.constant = keyboardVisible ? -16 : -36
         bottomActionBottom.constant = keyboardVisible ? -16 : -max(2, 36 - view.safeAreaInsets.bottom)
+        updateContinueVisibility(animated: view.window != nil)
 
         // Include the entire area covered by the button and keyboard. With
         // explicit insets there is no automatic safe-area contribution to subtract.
         let buttonTop = view.keyboardLayoutGuide.layoutFrame.minY + bottomActionBottom.constant - bottomActionsView.bounds.height
+        // Tall iPad windows still need enough scroll space to reveal editing navigation without a software keyboard.
+        let firstRowAlignmentInset = scrollView.bounds.height - firstWordTop - wordsContainerView.bounds.height
         let insets = UIEdgeInsets(
             top: view.safeAreaInsets.top,
             left: 0,
-            bottom: max(0, view.bounds.height - buttonTop + 12),
+            bottom: max(0, view.bounds.height - buttonTop + 12, firstRowAlignmentInset),
             right: 0
         )
         if scrollView.contentInset != insets {
@@ -573,23 +642,29 @@ public class ImportWalletVC: CreateWalletBaseVC {
             let offset = CGPoint(x: 0, y: scrollView.contentOffset.y - topInsetChange)
             scrollView.contentInset = insets
             scrollView.verticalScrollIndicatorInsets = insets
-            scrollView.setContentOffset(clampedContentOffset(offset), animated: false)
+            // Keyboard layout changes arrive throughout its animation. Reassigning
+            // the offset on each frame would cancel the focus scroll.
+            if topInsetChange != 0 || offset != clampedContentOffset(offset) {
+                scrollView.setContentOffset(clampedContentOffset(offset), animated: false)
+            }
         }
         updateFloatingControls()
     }
 
     private func updateFloatingControls() {
-        let navigationBarHeight = navigationController?.navigationBar.bounds.height ?? 44
-        let pinnedTop = view.safeAreaInsets.top - navigationBarHeight + 4
-        let naturalTop = wordsModeSegmentedControl.center.y - wordsModeSegmentedControl.bounds.height / 2
-        // Keep its original layout space and only translate the control when it reaches the navbar.
-        wordsModeSegmentedControl.transform = CGAffineTransform(
-            translationX: 0,
-            y: max(0, scrollView.contentOffset.y + pinnedTop - naturalTop)
-        )
+        guard wordsContainerView.bounds.height > 0 else { return }
+        let fieldsTop = wordsContainerView.frame.minY - scrollView.contentOffset.y
+        setEditingNavigationVisible(fieldsTop <= firstWordTop + (showsEditingNavigation ? 64 : 40))
         navigationBackground?.alpha = calculateNavigationBarProgressiveBlurProgress(
             scrollView.contentOffset.y + scrollView.adjustedContentInset.top
         )
+        let width = min(496, view.safeAreaLayoutGuide.layoutFrame.width - 32)
+        suggestionsView.bottomPresentationFrame = usesKeyboardSuggestions ? CGRect(
+            x: view.safeAreaLayoutGuide.layoutFrame.midX - width / 2,
+            y: view.keyboardLayoutGuide.layoutFrame.minY - 16 - 44,
+            width: width,
+            height: 44
+        ) : nil
         suggestionsView.presentationBounds = CGRect(
             x: view.safeAreaInsets.left + 16,
             y: view.safeAreaInsets.top + 4,
@@ -598,10 +673,61 @@ public class ImportWalletVC: CreateWalletBaseVC {
         )
     }
 
+    var usesKeyboardSuggestions: Bool {
+        traitCollection.horizontalSizeClass == .compact
+            && traitCollection.verticalSizeClass == .regular
+            && view.keyboardLayoutGuide.layoutFrame.height > view.safeAreaInsets.bottom + 100
+    }
+
+    private func installNavigation(on host: UIViewController) {
+        if navigationHost !== host {
+            navigationHost = host
+            restingRightBarButtonItems = host.navigationItem.rightBarButtonItems
+        }
+        host.navigationItem.titleView = wordsModeTitleView
+        wordsModeSegmentedControl.alpha = showsEditingNavigation ? 1 : 0
+        wordsModeTitleView.isUserInteractionEnabled = showsEditingNavigation
+        wordsModeTitleView.accessibilityElementsHidden = !showsEditingNavigation
+    }
+
+    private func setEditingNavigationVisible(_ visible: Bool) {
+        guard showsEditingNavigation != visible else { return }
+        showsEditingNavigation = visible
+        wordsModeTitleView.isUserInteractionEnabled = visible
+        wordsModeTitleView.accessibilityElementsHidden = !visible
+        for introductionView in introductionViews {
+            introductionView.isUserInteractionEnabled = !visible
+            introductionView.accessibilityElementsHidden = visible
+        }
+        let animated = view.window != nil && !UIAccessibility.isReduceMotionEnabled
+        let item = (navigationHost ?? self).navigationItem
+        item.setRightBarButtonItems(visible ? [compactPasteItem] : restingRightBarButtonItems, animated: animated)
+        UIView.animate(withDuration: animated ? 0.28 : 0, delay: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]) {
+            self.wordsModeSegmentedControl.alpha = visible ? 1 : 0
+            self.wordsModeSegmentedControl.transform = visible || !animated ? .identity : CGAffineTransform(translationX: 0, y: 8)
+            self.introductionViews.forEach { $0.alpha = visible ? 0 : 1 }
+        }
+    }
+
+    private func updateContinueVisibility(animated: Bool) {
+        let visible = !usesKeyboardSuggestions || (enteredWords() != nil && !suggestionsView.hasSuggestions) || isLoading
+        guard showsContinueButton != visible else { return }
+        showsContinueButton = visible
+        bottomActionsView.isUserInteractionEnabled = visible
+        bottomActionsView.accessibilityElementsHidden = !visible
+        let animated = animated && !UIAccessibility.isReduceMotionEnabled
+        UIView.animate(withDuration: animated ? 0.32 : 0, delay: 0, usingSpringWithDamping: 0.88,
+                       initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.bottomActionsView.alpha = visible ? 1 : 0
+            self.bottomActionsView.transform = visible || !animated ? .identity : CGAffineTransform(translationX: 0, y: 12)
+        }
+    }
+
     private func scrollToInput(_ input: WWordInput, alignFirstRow: Bool) {
         view.setNeedsLayout()
         view.layoutIfNeeded()
-        let firstRowOffset = wordsStackView1.frame.minY - firstWordTop
+        let firstRowOffset = wordsContainerView.frame.minY - firstWordTop
         var offset = scrollView.contentOffset.y
         if alignFirstRow {
             offset = firstRowOffset
@@ -614,7 +740,7 @@ public class ImportWalletVC: CreateWalletBaseVC {
         } else if inputFrame.minY - offset < visibleTop {
             offset = inputFrame.minY - visibleTop
         }
-        scrollView.setContentOffset(clampedContentOffset(CGPoint(x: 0, y: offset)), animated: true)
+        scrollView.setContentOffset(clampedContentOffset(CGPoint(x: 0, y: offset)), animated: !UIAccessibility.isReduceMotionEnabled)
     }
 
     private func clampedContentOffset(_ offset: CGPoint) -> CGPoint {
@@ -647,8 +773,10 @@ extension ImportWalletVC: WWordInputDelegate {
     
     public func wordInputDidBeginEditing(_ input: WWordInput) {
         guard !isUpdatingWordsMode else { return }
-        let shouldAlignFirstRow = !hasBegunEditing
-        hasBegunEditing = true
+        let shouldAlignFirstRow = !showsEditingNavigation
+        UIView.animate(withDuration: UIAccessibility.isReduceMotionEnabled ? 0 : 0.25) {
+            self.wordsContainerView.alpha = 1
+        }
         isInitialFocusScrollPending = isInitialFocusScrollPending || shouldAlignFirstRow
         DispatchQueue.main.async { [weak self] in
             self?.scrollToInput(input, alignFirstRow: shouldAlignFirstRow)
@@ -657,7 +785,7 @@ extension ImportWalletVC: WWordInputDelegate {
 
     public func wordInputDidWantToCommitData(_ input: WWordInput) {
         if enteredWords() == nil {
-            if let input = wordInputs.first(where: { $0.trimmedText?.isEmpty ?? true }) {
+            if let input = wordInputs.prefix(secretWordsMode.wordCount).first(where: { $0.trimmedText == nil }) {
                 input.textField.becomeFirstResponder()
             } else {
                 dismissKeyboard()
@@ -669,6 +797,7 @@ extension ImportWalletVC: WWordInputDelegate {
     
     public func textChanged() {
         bottomActionsView.primaryButton.isEnabled = enteredWords() != nil
+        updateContinueVisibility(animated: view.window != nil)
     }
     
     public func wordInput(_ input: WWordInput, wantsPasteWords words: [String]) {
@@ -690,15 +819,13 @@ extension ImportWalletVC: UIScrollViewDelegate {
     }
 }
 
-// UIKit's navbar intercepts touches above the safe area. Forward only those that
-// land on the sticky control, which always remains in the scroll view.
-private final class StickyControlHitArea: UIView {
-    private weak var target: UIView?
+private final class SecretWordsNavigationTitleView: UIView {
+    private let control: UIView
 
-    init(target: UIView) {
-        self.target = target
+    init(control: UIView) {
+        self.control = control
         super.init(frame: .zero)
-        accessibilityElementsHidden = true
+        addSubview(control)
     }
 
     required init?(coder: NSCoder) {
@@ -706,25 +833,35 @@ private final class StickyControlHitArea: UIView {
     }
 
     override var intrinsicContentSize: CGSize {
-        target?.intrinsicContentSize ?? .zero
+        control.intrinsicContentSize
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
         intrinsicContentSize
     }
 
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        guard let target, target.window != nil else { return nil }
-        return target.hitTest(target.convert(point, from: self), with: event)
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        control.bounds = CGRect(origin: .zero, size: bounds.size)
+        control.center = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 }
 
 private final class SecretWordsModeControl: UIControl {
     var selectedSegmentIndex = 0 {
-        didSet { updateSelection() }
+        didSet {
+            guard oldValue != selectedSegmentIndex else { return }
+            updateSelection()
+            UIView.animate(withDuration: window != nil && !UIAccessibility.isReduceMotionEnabled ? 0.3 : 0,
+                           delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.layoutIfNeeded()
+            }
+        }
     }
 
     private let background = WCapsuleGlassBackgroundView(style: .header, cornerRadius: 20)
+    private let selectionView = UIView()
     private let stackView = UIStackView()
     private var buttons: [UIButton] = []
     private let titles = [lang("12 Words"), lang("24 Words")].map { localizedIntegerDigits(in: $0) }
@@ -734,6 +871,11 @@ private final class SecretWordsModeControl: UIControl {
         semanticContentAttribute = .forceLeftToRight
         setContentCompressionResistancePriority(.required, for: .horizontal)
         addSubview(background)
+        selectionView.backgroundColor = .tertiarySystemFill
+        selectionView.layer.cornerRadius = 17
+        selectionView.layer.cornerCurve = .continuous
+        selectionView.isUserInteractionEnabled = false
+        addSubview(selectionView)
         stackView.spacing = 2
         stackView.distribution = .fillEqually
         stackView.semanticContentAttribute = .forceLeftToRight
@@ -771,6 +913,10 @@ private final class SecretWordsModeControl: UIControl {
         super.layoutSubviews()
         background.frame = bounds
         stackView.frame = bounds.insetBy(dx: 3, dy: 3)
+        stackView.layoutIfNeeded()
+        if buttons.indices.contains(selectedSegmentIndex) {
+            selectionView.frame = buttons[selectedSegmentIndex].convert(buttons[selectedSegmentIndex].bounds, to: self)
+        }
     }
 
     override func tintColorDidChange() {
@@ -782,10 +928,10 @@ private final class SecretWordsModeControl: UIControl {
         for (index, button) in buttons.enumerated() {
             let selected = index == selectedSegmentIndex
             button.setTitleColor(selected ? tintColor : .label, for: .normal)
-            button.backgroundColor = selected ? .tertiarySystemFill : .clear
             button.titleLabel?.font = WTypography.uiFont(selected ? .subheadlineBold : .subheadlineEmphasized)
             button.accessibilityTraits = selected ? [.button, .selected] : [.button]
         }
+        setNeedsLayout()
     }
 }
 

@@ -21,6 +21,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     private let activationViewProvider: ((UIView) -> UIView?)?
     private let activationHitTestProvider: ((UIView, CGPoint) -> Bool)?
     private let onWillPresent: (() -> Void)?
+    private let onWillDismiss: (() -> Void)?
     private let onDidDismiss: (() -> Void)?
     private let presentationReferenceProvider: ((UIView) -> ContextMenuPresentationReference)?
     private let configurationProvider: (UIView) -> ContextMenuConfiguration?
@@ -40,6 +41,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         activationViewProvider: ((UIView) -> UIView?)? = nil,
         activationHitTestProvider: ((UIView, CGPoint) -> Bool)? = nil,
         onWillPresent: (() -> Void)? = nil,
+        onWillDismiss: (() -> Void)? = nil,
         onDidDismiss: (() -> Void)? = nil,
         configurationProvider: @escaping (UIView) -> ContextMenuConfiguration?
     ) {
@@ -51,6 +53,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         self.activationViewProvider = activationViewProvider
         self.activationHitTestProvider = activationHitTestProvider
         self.onWillPresent = onWillPresent
+        self.onWillDismiss = onWillDismiss
         self.onDidDismiss = onDidDismiss
         self.presentationReferenceProvider = nil
         self.configurationProvider = configurationProvider
@@ -66,6 +69,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         activationViewProvider: ((UIView) -> UIView?)? = nil,
         activationHitTestProvider: ((UIView, CGPoint) -> Bool)? = nil,
         onWillPresent: (() -> Void)? = nil,
+        onWillDismiss: (() -> Void)? = nil,
         onDidDismiss: (() -> Void)? = nil,
         presentationReferenceProvider: ((UIView) -> ContextMenuPresentationReference)? = nil,
         configurationProvider: @escaping (UIView) -> ContextMenuConfiguration?
@@ -78,6 +82,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         self.activationViewProvider = activationViewProvider
         self.activationHitTestProvider = activationHitTestProvider
         self.onWillPresent = onWillPresent
+        self.onWillDismiss = onWillDismiss
         self.onDidDismiss = onDidDismiss
         self.presentationReferenceProvider = presentationReferenceProvider
         self.configurationProvider = configurationProvider
@@ -207,8 +212,12 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
             presentation: self.presentationMode,
             presentationReference: presentationReference
         ) else {
+            self.onWillDismiss?()
             self.onDidDismiss?()
             return
+        }
+        session.onWillDismiss = { [weak self] in
+            self?.onWillDismiss?()
         }
         session.onDidDismiss = { [weak self, weak session] in
             guard let self else {

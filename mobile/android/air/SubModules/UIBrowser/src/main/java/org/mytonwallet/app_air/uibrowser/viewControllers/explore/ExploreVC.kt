@@ -203,6 +203,8 @@ class ExploreVC(context: Context) :
         } else {
             navigationController?.bottomInset ?: 0
         }
+        val previousPadding = recyclerView.paddingStart to recyclerView.paddingEnd
+        val previousVerticalPadding = recyclerView.paddingTop to recyclerView.paddingBottom
         recyclerView.setPaddingLocalized(
             additionalTabletPadding + systemBarStartInset,
             topPadding,
@@ -212,7 +214,11 @@ class ExploreVC(context: Context) :
         bottomReversedCornerView?.setHorizontalPadding(
             ViewConstants.HORIZONTAL_PADDINGS.dp.toFloat()
         )
-        rvAdapter.reloadData()
+        if (previousPadding != (recyclerView.paddingStart to recyclerView.paddingEnd) ||
+            previousVerticalPadding != (recyclerView.paddingTop to recyclerView.paddingBottom)
+        ) {
+            rvAdapter.reloadData()
+        }
     }
 
     override fun scrollToTop() {
@@ -506,7 +512,11 @@ class ExploreVC(context: Context) :
                 usesGlobalSearchOverlay = isGlobalSearch,
                 // Covers dismissals that bypass dismissSearchScreen (swipe back, nav pop),
                 // which would otherwise leave the search request refreshing on every poll.
-                onDestroyed = { exploreVM.cancelSearch() }
+                onDestroyed = { destroyed ->
+                    if (this.searchVC == null || this.searchVC === destroyed) {
+                        exploreVM.cancelSearch()
+                    }
+                }
             ).apply {
                 onBestMatchActionChanged = { query, action ->
                     onBestSearchMatchActionChanged?.invoke(query, action)
@@ -526,7 +536,7 @@ class ExploreVC(context: Context) :
                 targetNavigationController.push(searchVC, false)
             }
             if (isGlobalSearch) {
-                targetNavigationController.tabBarController?.revealSearchOverlay()
+                targetNavigationController.searchOverlayHost?.revealSearchOverlay()
             }
         }
         searchVC?.updateSearchQuery(keyword)
@@ -553,7 +563,7 @@ class ExploreVC(context: Context) :
         if (!globalSearch) {
             navigationController?.popToRoot(false)
         } else if (searchVC != null && searchNavigationController != null) {
-            searchNavigationController.tabBarController?.hideSearchOverlay()
+            searchNavigationController.searchOverlayHost?.hideSearchOverlay()
         }
         if (isShowingSearch) {
             isShowingSearch = false
@@ -578,21 +588,18 @@ class ExploreVC(context: Context) :
                 }
                 return
             }
-            val inAppBrowserVC = InAppBrowserVC(
-                context,
-                navigationController?.tabBarController,
+            val window = window ?: return
+            InAppBrowserVC.open(
+                window,
                 InAppBrowserConfig(
                     url = url,
                     title = it.name,
                     thumbnail = it.iconUrl,
                     injectDappConnect = true,
                     saveInVisitedHistory = true
-                )
+                ),
+                isKnownDapp = true
             )
-            val window = window ?: return
-            val nav = WNavigationController(window)
-            nav.setRoot(inAppBrowserVC)
-            window.present(nav)
         } ?: run {
             pushConfigure()
         }
@@ -637,21 +644,16 @@ class ExploreVC(context: Context) :
             }
             return
         }
-        val inAppBrowserVC = InAppBrowserVC(
-            context,
-            navigationController?.tabBarController,
+        InAppBrowserVC.open(
+            window,
             InAppBrowserConfig(
                 url = uri.toString(),
                 title = app.name,
                 thumbnail = app.iconUrl,
                 injectDappConnect = true,
                 saveInVisitedHistory = true
-            )
-        )
-        window.present(
-            WNavigationController(window).apply {
-                setRoot(inAppBrowserVC)
-            }
+            ),
+            isKnownDapp = true
         )
     }
 }

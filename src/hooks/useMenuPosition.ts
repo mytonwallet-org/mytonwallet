@@ -81,9 +81,13 @@ export interface Layout {
   isDense?: boolean; //  Allows you to place the menu as close to the edges of the area as possible
   preferredPositionX?: 'left' | 'right';
   preferredPositionY?: 'top' | 'bottom';
+  /** The area the menu keeps clear of, in place of the trigger element's box */
+  triggerRect?: Bounds;
+  /** Where the menu opens from, in place of where it was opened */
+  anchor?: IAnchorPosition;
 }
 
-const POSITIONING = {
+export const POSITIONING = {
   VISUAL_COMFORT_SPACE: 16,
   BOTTOM_MARGIN: 12,
   HORIZONTAL_OFFSET: 3,
@@ -178,19 +182,19 @@ function gatherBounds({
   layout,
   anchor,
 }: GatherBoundsParams): {
-    triggerRect: DOMRect;
+    triggerRect: Bounds;
     rootRect: Bounds;
     menuDimensions: MenuDimensions;
   } {
-  const triggerEl = getTriggerElement?.();
+  const triggerElement = getTriggerElement?.();
   const rootEl = getRootElement();
   const menuEl = getMenuElement();
 
   const { extraMarginTop = 0, menuElMinWidth = 0 } = layout;
 
-  const triggerRect = triggerEl
-    ? triggerEl.getBoundingClientRect()
-    : { ...EMPTY_RECT, left: anchor.x, top: anchor.y, right: anchor.x, bottom: anchor.y } as DOMRect;
+  const triggerRect = layout.triggerRect ?? (triggerElement
+    ? triggerElement.getBoundingClientRect()
+    : { ...EMPTY_RECT, left: anchor.x, top: anchor.y, right: anchor.x, bottom: anchor.y });
   const rootRect = rootEl ? rootEl.getBoundingClientRect() : EMPTY_RECT;
 
   rootRect.height -= windowSize.get().safeAreaBottom;
@@ -250,7 +254,7 @@ function determineHorizontalPosition(
 
 function determineVerticalPosition(
   anchor: Coordinates,
-  triggerRect: DOMRect,
+  triggerRect: Bounds,
   rootRect: Bounds,
   menuHeight: number,
   layout: Layout,
@@ -303,7 +307,7 @@ function determineVerticalPosition(
 function applyBoundaryConstraints(
   coordinates: Coordinates,
   positionX: 'left' | 'right',
-  triggerRect: DOMRect,
+  triggerRect: Bounds,
   rootRect: Bounds,
   menuDimensions: MenuDimensions,
   layout: Layout,
@@ -390,7 +394,7 @@ function calculateTransformOrigin(
   anchor: Coordinates,
   finalCoordinates: Coordinates,
   positionResult: Pick<PositionResult, 'positionX' | 'positionY'>,
-  triggerRect: DOMRect,
+  triggerRect: Bounds,
   menuDimensions: MenuDimensions,
   withPortal: boolean,
 ): Coordinates {
@@ -412,7 +416,7 @@ function calculateTransformOrigin(
 
 function processDynamically(
   {
-    anchor,
+    anchor: openedAnchor,
     getRootElement,
     getMenuElement,
     getTriggerElement,
@@ -421,6 +425,7 @@ function processDynamically(
   }: DynamicPositionOptions,
 ) {
   const layout = getLayout?.() || {};
+  const anchor = layout.anchor ?? openedAnchor;
 
   const { triggerRect, rootRect, menuDimensions } = gatherBounds({
     getTriggerElement,

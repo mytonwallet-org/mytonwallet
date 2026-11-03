@@ -11,6 +11,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardBadgeLightView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
@@ -54,9 +55,14 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
         } else {
             null
         }
+    private val badgeLightView: CardBadgeLightView? =
+        if (blurredBackground) CardBadgeLightView(context) else null
 
     init {
         walletTypeBlurView?.let {
+            addView(it, LayoutParams(0, 0))
+        }
+        badgeLightView?.let {
             addView(it, LayoutParams(0, 0))
         }
     }
@@ -66,7 +72,7 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
     }
 
     fun setCardSurfaceLight(x: Float?, y: Float?) {
-        walletTypeBlurView?.setCardSurfaceLight(x, y)
+        badgeLightView?.setTilt(x, y)
     }
 
     fun updateGlassTheme() {
@@ -116,6 +122,8 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
             if (isTemporaryAccount) {
                 walletTypeBlurView?.setTintOverlayColor(null)
                 walletTypeBlurView?.noBlurColor = Color.TRANSPARENT
+                walletTypeBlurView?.setRadius(14f.dp)
+                badgeLightView?.radius = 14f.dp
                 (walletTypeBlurView ?: this).setBackgroundColor(
                     color = Color.TRANSPARENT,
                     radius = 14f.dp,
@@ -131,6 +139,8 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
                     background = null
                     blurView.noBlurColor = backgroundColor
                     blurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
+                    blurView.setRadius(10f.dp)
+                    badgeLightView?.radius = 10f.dp
                     blurView.setBackgroundColor(
                         Color.TRANSPARENT,
                         10f.dp,
@@ -153,6 +163,7 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
             applyViewTagVariant(account, tintColor)
         }
         walletTypeBlurView?.isVisible = true
+        badgeLightView?.isVisible = true
 
         setupViewTagBackground(account)
     }
@@ -207,6 +218,8 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
         if (account.isTemporary) {
             walletTypeBlurView?.setTintOverlayColor(null)
             walletTypeBlurView?.noBlurColor = Color.TRANSPARENT
+            walletTypeBlurView?.setRadius(14f.dp)
+            badgeLightView?.radius = 14f.dp
             (walletTypeBlurView ?: this).setBackgroundColor(
                 color = Color.TRANSPARENT,
                 radius = 14f.dp,
@@ -225,6 +238,8 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
                 background = null
                 blurView.noBlurColor = backgroundColor
                 blurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
+                blurView.setRadius(10f.dp)
+                badgeLightView?.radius = 10f.dp
                 blurView.setBackgroundColor(
                     Color.TRANSPARENT,
                     10f.dp,
@@ -256,15 +271,16 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
         }
         background = null
         walletTypeBlurView?.isVisible = false
+        badgeLightView?.isVisible = false
         setOnClickListener(null)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
 
-        walletTypeBlurView?.measure(
-            MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
-        )
+        val widthSpec = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
+        val heightSpec = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+        walletTypeBlurView?.measure(widthSpec, heightSpec)
+        badgeLightView?.measure(widthSpec, heightSpec)
     }
 }

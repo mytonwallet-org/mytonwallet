@@ -194,25 +194,25 @@ public struct TokenAmountEntrySection: View {
     @ViewBuilder
     var switchToCurrency: some View {
         ZStack(alignment: .leading) {
-            HStack(spacing: 1) {
-                Text(
-                    amount: DecimalAmount(amount ?? 0, token),
-                    format: .init()
-                )
-                Image("SendInCurrency", bundle: AirBundle)
-            }
-            .opacity(switchedToBaseCurrencyInput ? 1 : 0)
-            
-            HStack(spacing: 1) {
-                Text(
-                    amount: BaseCurrencyAmount(amountInBaseCurrency ?? 0, TokenStore.baseCurrency),
-                    format: .init(preset: .baseCurrencyEquivalent)
-                )
-                if allowSwitchingToBaseCurrency {
+            if switchedToBaseCurrencyInput {
+                HStack(spacing: 1) {
+                    Text(
+                        amount: DecimalAmount(amount ?? 0, token),
+                        format: .init()
+                    )
                     Image("SendInCurrency", bundle: AirBundle)
                 }
+            } else {
+                HStack(spacing: 1) {
+                    Text(
+                        amount: BaseCurrencyAmount(amountInBaseCurrency ?? 0, TokenStore.baseCurrency),
+                        format: .init(preset: .baseCurrencyEquivalent)
+                    )
+                    if allowSwitchingToBaseCurrency {
+                        Image("SendInCurrency", bundle: AirBundle)
+                    }
+                }
             }
-            .opacity(switchedToBaseCurrencyInput ? 0 : 1)
         }
         .animation(.smooth(), value: switchedToBaseCurrencyInput)
         .padding(2)

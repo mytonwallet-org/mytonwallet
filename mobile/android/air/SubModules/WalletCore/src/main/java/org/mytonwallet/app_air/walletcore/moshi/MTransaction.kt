@@ -17,6 +17,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
+import org.mytonwallet.app_air.walletcore.ALL_STAKING_POOLS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.helpers.PoisoningCacheHelper
@@ -219,6 +220,12 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     type == ApiTransactionType.UNSTAKE_REQUEST
             }
 
+        val isOurStaking: Boolean
+            get() = isStaking && (if (isIncoming) fromAddress else toAddress) in ALL_STAKING_POOLS
+
+        val shouldShowTransactionAnnualYield: Boolean
+            get() = type == ApiTransactionType.STAKE && isOurStaking
+
         override val title: String
             get() {
                 val transactionTime: ApiTransactionType.TransactionTime = when {
@@ -274,7 +281,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
         val shouldShowTransactionAddress: Boolean
             get() {
-                val shouldHide = isStaking || type == ApiTransactionType.BURN ||
+                val shouldHide = isOurStaking || type == ApiTransactionType.BURN ||
                     (!isIncoming && isNft && toAddress == nft?.address)
 
                 return !shouldHide
@@ -821,7 +828,13 @@ enum class ApiTransactionType {
     LIQUIDITY_DEPOSIT,
 
     @Json(name = "liquidityWithdraw")
-    LIQUIDITY_WITHDRAW;
+    LIQUIDITY_WITHDRAW,
+
+    @Json(name = "perps_deposit")
+    PERPS_DEPOSIT,
+
+    @Json(name = "perps_withdraw")
+    PERPS_WITHDRAW;
 
     private val icons: Map<ApiTransactionType, Int> by lazy {
         mapOf(
@@ -846,7 +859,9 @@ enum class ApiTransactionType {
             DNS_DELETE to R.drawable.ic_act_ton_dns,
             DNS_RENEW to R.drawable.ic_act_ton_dns,
             LIQUIDITY_DEPOSIT to R.drawable.ic_act_liquidity_provided,
-            LIQUIDITY_WITHDRAW to R.drawable.ic_act_liquidity_withdrawn
+            LIQUIDITY_WITHDRAW to R.drawable.ic_act_liquidity_withdrawn,
+            PERPS_DEPOSIT to R.drawable.ic_act_liquidity_provided,
+            PERPS_WITHDRAW to R.drawable.ic_act_liquidity_withdrawn
         )
     }
 
@@ -961,6 +976,16 @@ enum class ApiTransactionType {
                 "Withdrawn Liquidity",
                 "Withdrawing Liquidity",
                 "\$withdraw_liquidity_action"
+            ),
+            PERPS_DEPOSIT to Triple(
+                "Perps Deposit",
+                "Perps Deposit",
+                "\$perps_deposit_action"
+            ),
+            PERPS_WITHDRAW to Triple(
+                "Perps Withdrawal",
+                "Perps Withdrawal",
+                "\$perps_withdraw_action"
             )
         )
     }

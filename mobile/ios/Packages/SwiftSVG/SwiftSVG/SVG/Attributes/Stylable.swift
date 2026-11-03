@@ -30,11 +30,6 @@
 
 import Foundation
 
-/// :nodoc:
-private struct StylableConstants {
-    static let attributesRegex = "(((\\w+)-?(\\w*)?):?([ #\\w]*\\.?\\w+))"
-}
-
 /**
  A protocol that describes instances whose attributes that can be set vis a css style string. A default implementation is supplied that parses the style string and applies the attributes using the `SVGelement`'s `supportedAttributes`.
  */
@@ -75,26 +70,12 @@ extension Stylable where Self : SVGElement {
      Parses and applies the css-style `style` string to this `SVGElement`'s `SVGLayer`
      */
     func style(_ styleString: String) {
-
-        do {
-            let regex = try NSRegularExpression(pattern: StylableConstants.attributesRegex, options: .caseInsensitive)
-            let matches = regex.matches(in: styleString, options: NSRegularExpression.MatchingOptions(rawValue: 0), range: NSMakeRange(0, styleString.utf8.count))
-
-            matches.forEach({ (thisMatch) in
-                let nameRange = thisMatch.range(at: 2)
-                let valueRange = thisMatch.range(at: 5)
-                let styleName = styleString[nameRange.location..<nameRange.location + nameRange.length]
-                let valueString = styleString[valueRange.location..<valueRange.location + valueRange.length].trimWhitespace()
-
-                guard let thisClosure = self.supportedAttributes[styleName] else {
-                    print("Couldn't set: \(styleName)")
-                    return
-                }
-                thisClosure(valueString)
-            })
-
-        } catch {
-            print("Couldn't parse style string: \(styleString)")
+        for declaration in styleString.split(separator: ";") {
+            let parts = declaration.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            let name = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            supportedAttributes[name]?(value)
         }
     }
 }

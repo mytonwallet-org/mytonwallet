@@ -1,8 +1,11 @@
 package org.mytonwallet.app_air.uiagent.agentV2
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerFeedbackResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
@@ -12,8 +15,15 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationError
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 interface AgentV2Client {
@@ -23,7 +33,21 @@ interface AgentV2Client {
     suspend fun setChatActive(isActive: Boolean)
     suspend fun hints(langCode: String?): AgentV2HintsResponse
     suspend fun problemReportAvailability(): Boolean
-    suspend fun defaultThread(): AgentV2ThreadResponse
+
+    /** Asks for the Agent's availability, which arrives as an `availabilityChanged` update */
+    suspend fun loadAvailability() {}
+
+    /** Asks for the user's quota, which arrives as a `userQuotaChanged` update */
+    suspend fun loadUserQuota() {}
+
+    suspend fun listThreads(
+        cursor: String? = null,
+        limit: Int? = null,
+        query: String? = null
+    ): AgentV2ThreadListResponse
+    suspend fun createThread(news: AgentV2ThreadNewsRequest? = null): AgentV2ThreadCreateResponse
+    suspend fun updateThread(threadId: String, update: AgentV2ThreadUpdate): AgentV2ThreadResponse
+    suspend fun deleteThread(threadId: String): AgentV2ThreadDeleteResponse
     suspend fun messages(threadId: String, cursor: String?, limit: Int): AgentV2ThreadHydration
     suspend fun startRun(
         threadId: String?,
@@ -34,9 +58,13 @@ interface AgentV2Client {
         targetUserMessageId: String? = null,
         targetAssistantMessageId: String? = null
     ): AgentV2RunResult
+
+    /** Sends again a run that a limit stopped before it started; null when the SDK no longer holds it */
+    suspend fun retryRun(clientRunId: String): AgentV2RunResult? = null
     suspend fun cancelRun(runId: String): AgentV2ThreadResponse
     suspend fun clearThread(threadId: String, revision: Int): AgentV2ThreadResponse
     suspend fun reportProblem(threadId: String, messageId: String?, comment: String?)
+    suspend fun transcribe(request: AgentV2TranscriptionRequest): AgentV2TranscriptionResponse
     suspend fun setMessageFeedback(
         threadId: String,
         messageId: String,
@@ -54,7 +82,10 @@ class LiveAgentV2Client : AgentV2Client {
     }
 
     override suspend fun updateHostContext(context: JSONObject?) {
-        callAgentV2Mutation(ApiMethod.AgentV2.UpdateHostContext(context))
+        // The context holds whole asset catalogs, which take long to serialize and quote for the SDK
+        withContext(Dispatchers.Default) {
+            callAgentV2Mutation(ApiMethod.AgentV2.UpdateHostContext(context))
+        }
     }
 
     override suspend fun setChatActive(isActive: Boolean) {
@@ -67,7 +98,37 @@ class LiveAgentV2Client : AgentV2Client {
     override suspend fun problemReportAvailability() =
         WalletCore.call(ApiMethod.AgentV2.GetProblemReportAvailability())
 
-    override suspend fun defaultThread() = callAgentV2Mutation(ApiMethod.AgentV2.GetDefaultThread())
+    override suspend fun loadAvailability() {
+        WalletCore.call(ApiMethod.AgentV2.GetAvailability())
+    }
+
+    override suspend fun loadUserQuota() {
+        WalletCore.call(ApiMethod.AgentV2.GetUserQuota())
+    }
+
+    override suspend fun listThreads(
+        cursor: String?,
+        limit: Int?,
+        query: String?
+    ): AgentV2ThreadListResponse =
+        callAgentV2Mutation(ApiMethod.AgentV2.ListThreads(cursor, limit, query))
+
+    override suspend fun createThread(
+        news: AgentV2ThreadNewsRequest?
+    ): AgentV2ThreadCreateResponse =
+        callAgentV2Mutation(ApiMethod.AgentV2.CreateThread(news)).also {
+            if (it.created) WalletCore.notifyEvent(WalletEvent.AgentThreadCreated)
+        }
+
+    override suspend fun updateThread(
+        threadId: String,
+        update: AgentV2ThreadUpdate
+    ): AgentV2ThreadResponse = callAgentV2Mutation(ApiMethod.AgentV2.UpdateThread(threadId, update))
+
+    override suspend fun deleteThread(threadId: String): AgentV2ThreadDeleteResponse =
+        callAgentV2Mutation(ApiMethod.AgentV2.DeleteThread(threadId)).also {
+            WalletCore.notifyEvent(WalletEvent.AgentThreadDeleted(it.threadId))
+        }
 
     override suspend fun messages(
         threadId: String,
@@ -96,6 +157,9 @@ class LiveAgentV2Client : AgentV2Client {
         )
     )
 
+    override suspend fun retryRun(clientRunId: String) =
+        WalletCore.call(ApiMethod.AgentV2.RetryRun(clientRunId))
+
     override suspend fun cancelRun(runId: String) =
         WalletCore.call(ApiMethod.AgentV2.CancelRun(runId))
 
@@ -105,6 +169,9 @@ class LiveAgentV2Client : AgentV2Client {
     override suspend fun reportProblem(threadId: String, messageId: String?, comment: String?) {
         callAgentV2Mutation(ApiMethod.AgentV2.ReportProblem(threadId, messageId, comment))
     }
+
+    override suspend fun transcribe(request: AgentV2TranscriptionRequest) =
+        callAgentV2Mutation(ApiMethod.AgentV2.Transcribe(request))
 
     override suspend fun setMessageFeedback(
         threadId: String,
@@ -119,7 +186,7 @@ class LiveAgentV2Client : AgentV2Client {
         WalletCore.call(ApiMethod.AgentV2.GetActionPresentation(messageId, actionId))
 }
 
-private suspend fun <T> callAgentV2Mutation(method: ApiMethod<AgentV2MutationResult<T>>): T {
+internal suspend fun <T> callAgentV2Mutation(method: ApiMethod<AgentV2MutationResult<T>>): T {
     val result = try {
         WalletCore.call(method)
     } catch (error: JSWebViewBridge.ApiError) {

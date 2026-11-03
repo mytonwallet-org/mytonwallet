@@ -245,9 +245,9 @@ Dark: 暗色模式
 System: 系統
 $stake_asset: 質押 %symbol%
 Add Stake: 新增質押
-"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% 鎖定在其他質押中"
-"Unstake them to restake with **higher returns**.": "解除質押後重新質押，獲得**更高收益**。"
-"💎 More profitable staking available": "💎 有收益更高的質押方案"
+"🔒 %amount% %symbol% staked elsewhere": "🔒 %amount% %symbol% 在其他質押中"
+"Unlock your %symbol% to access higher-yield staking.": "解鎖您的 %symbol%，即可享受收益更高的質押。"
+"💎 Higher-yield staking available": "💎 有收益更高的質押方案"
 "Tap to restake your %symbol% with higher returns.": "點擊重新質押您的 %symbol%，獲得更高收益。"
 "Restake Now": "立即重新質押"
 Earn from your tokens while holding them: 持有 %symbol% 即可賺取收益
@@ -676,6 +676,9 @@ Data Copied: 資料被複製
 URL Copied: URL Copied
 Private Key Copied: Private Key Copied
 Contract Initialization Data Copied: Contract Initialization Data Copied
+$state_init_deploys_wallet: 如果接收人地址上還沒有任何內容，將在該地址建立 %version% 錢包。
+$state_init_deploys_contract: 如果接收人地址上還沒有任何內容，將在該地址建立智慧合約。
+$state_init_not_deployable: 網絡將忽略這些數據，不會建立任何內容。
 Open NFT Collection: 打開 NFT 收藏
 Previous: 上一個
 Next: 下一個
@@ -903,6 +906,10 @@ $mint_action: 鑄造
 Burning: 銷毀
 Burned: 已銷毀
 $burn_action: 銷毀
+Perps Deposit: 永續合約充值
+$perps_deposit_action: 永續合約充值
+Perps Withdrawal: 永續合約提現
+$perps_withdraw_action: 永續合約提現
 Updating Address: 更新地址中
 Updated Address: 已更新地址
 $update_address_action: 更新地址
@@ -1031,6 +1038,10 @@ $iab_more_tabs_count:
   oneValue: "+ %count% 個分頁"
   otherValue: "+ %count% 個分頁"
 Close Tab: 關閉分頁
+Close All: "全部關閉"
+$browser_more_tabs:
+  oneValue: "%title% 及另外 %count% 個"
+  otherValue: "%title% 及另外 %count% 個"
 $domains_amount %count%:
   zeroValue: 無網域
   otherValue: "%count%個網域"
@@ -1150,6 +1161,7 @@ Without it, you won't be able to access your wallet.: 沒有它，您將無法�
 $ledger_connection_broken: Ledger連線已中斷。請重新連接並再試一次。
 $ledger_wrong_device: 當前帳戶使用了其他 Ledger 密語或密碼，或存儲在其他 Ledger 設備上
 Show More: 顯示更多
+Show Less: 收合
 Search app or enter address: 搜尋應用程式或輸入地址
 Search or Ask: 搜尋或提問
 Connected Apps: 已連線的應用程式
@@ -1380,6 +1392,21 @@ $agent_error_limit: 由於已達助手使用上限，無法完成請求。
 $agent_error_tool: 錢包操作失敗，請重試。
 $agent_error_conversation_updated: 對話已更新。請重試請求。
 $agent_error_generic: 助手無法完成請求，請重試。
+$agent_error_recording_too_large: "錄音過長，每次口述請勿超過一分鐘。"
+$agent_error_audio_unreadable: "無法處理該錄音，請重新錄製。"
+$agent_error_transcription_unavailable: "語音輸入暫時無法使用，請稍後重試。"
+$agent_dictation_start: "語音輸入"
+$agent_dictation_finish: "結束口述"
+$agent_dictation_recognizing: "正在辨識…"
+$agent_dictation_no_speech: "未聽到語音，請靠近麥克風再試一次。"
+$agent_dictation_time_left: "還剩 %seconds% 秒"
+$agent_dictation_time_left_short: "%seconds% 秒"
+$agent_dictation_limit_reached: "口述已在一分鐘後停止，這是錄音的最長時間。"
+$agent_dictation_microphone_denied: "請允許存取麥克風以使用語音輸入。"
+$agent_dictation_hold_hint: "按住進行語音輸入。向上滑動即可鬆手錄音。"
+$agent_dictation_too_short: "太短了。說話時請按住。"
+$agent_dictation_slide_to_cancel: "向左滑動以取消"
+$agent_dictation_deleted: "錄音已刪除"
 $agent_error_invalid_response: 無法讀取智能助理的回覆。請重試。
 $agent_error_update_required: 請更新應用程式以繼續。
 $agent_wallet_page_navigation: 錢包資料頁面
@@ -1562,6 +1589,8 @@ Edit Wallet Name: 編輯錢包名稱
 Wallet Name: 錢包名稱
 App Icon: App 圖示
 Rounded Toolbars: 圓角工具列
+Toolbar: 工具列
+Shared Background: 共用背景
 Side Gutters: 側邊留白
 Gradient Navigation Bar: 漸層導覽列
 Tokens on Home Screen: 主畫面顯示代幣
@@ -1956,13 +1985,9 @@ $agent_capacity_limit_title: Agent 暫時無法使用
 $agent_capacity_limit_known: 可在 %duration% 後傳送新請求。
 $agent_capacity_degraded_title: Agent 的回覆可能不穩定
 $agent_capacity_limit_unknown: 你可以重試，但回覆可能無法載入。
-$agent_response_failed_title: 無法取得回覆
-$agent_response_interrupted_title: 回覆已中斷
 $agent_retry_request: 重試請求
 $agent_rate_limit_title: Agent 請求過多
 $agent_rate_limit_body: 請在 %duration% 後重試。
-$agent_user_quota_meter: "Agent 配額：剩餘 %remaining%/%limit% 單位"
-$agent_user_quota_reset: 每日配額將在 %duration% 後重設。
 $agent_user_quota_exhausted_title: Agent 配額不足
 $agent_user_quota_exhausted_body: 目前配額不足以完成此請求。每日配額為 %limit% 單位，將在 %duration% 後重設。
 $agent_time_hours: "%value% 小時"
@@ -2040,7 +2065,6 @@ Search token or stock: 搜尋代幣或股票
 Unknown Transfer: 未知轉帳
 $dapp_sign_data_for_prefix: 為
 
-# Token Buy / Sell
 "Pay %value%": "支付 %value%"
 "Receive %value%": "接收 %value%"
 "Buy %token% via %provider%": "透過 %provider% 購買 %token%"
@@ -2057,7 +2081,6 @@ Successfully Signed: 簽名成功
 Coming soon: 即將推出
 $dapp_identity_not_confirmed: 應用程式身分**未經確認**。
 
-# Token trade asset browser and details
 "Choose Asset": "選擇資產"
 "Asset to Buy": "要購買的資產"
 "Asset to Sell": "要出售的資產"
@@ -2072,11 +2095,265 @@ Swaps like this usually take a few minutes. In rare cases, up to two hours.: 此
 3D Gram Diamond: 3D Gram 鑽石
 Hold to enlarge. Drag to rotate.: 按住可放大，拖曳可旋轉。
 "Max": "最大"
+
+or use web version: "或使用網頁版"
+By continuing, you agree to our %terms% and %privacy%.: "繼續即表示您同意我們的\n%terms%和%privacy%。"
+$auth_privacy_policy: "隱私政策"
+$auth_more: "更多"
+$auth_terms_of_use: "使用條款"
+
+"Pinned": "已置頂"
+"New Chat": "新聊天"
+"Search chats": "搜尋聊天"
+"Ask a question to start a new chat.": "提出問題，開始新聊天。"
+"No chats found": "找不到聊天"
+"Rename Chat": "重新命名聊天"
+"Delete Chat?": "刪除聊天？"
+"$agent_delete_chat_confirmation": "此聊天中的訊息將被永久刪除。已提交的問題報告將由我們的團隊保留。"
+
+Invalid Address: 無效地址
+Domain Not Found: 找不到網域
+Multisig Sending Disabled: 無法從多重簽名發送
+Insufficient Liquidity: 流動性不足
+Too Small Amount: 金額太小
+
+News: "新聞"
+Crypto Market News: "加密市場新聞"
+$agent_news_new: "新消息"
+$agent_news_open_source: "開啟來源"
+$agent_news_unavailable: "新聞暫時無法使用"
+$agent_news_read_more: "瞭解更多"
+$agent_news_discuss: "討論"
+$agent_news_continue_discussion: "繼續討論"
+$agent_news_read_more_accessibility: "瞭解更多關於%headline%的內容"
+$agent_news_continue_discussion_accessibility: "繼續討論%headline%"
+$agent_news_ask_placeholder: "詢問這則新聞"
+$agent_news_quote_accessibility: "MyPulse 新聞：%headline%"
+$agent_news_unread_count:
+  otherValue: "%count% 則未讀新聞"
 Explorer mode: 瀏覽器模式
 Open a link to a wallet, transfer, token or collectible to see its details here.: 開啟錢包、轉帳、代幣或收藏品的連結，即可在此檢視詳情。
+
+# Perps
+Long: "做多"
+Short: "做空"
+Funding Rate: "資金費率"
+Max Leverage: "最高槓桿"
+24h Volume: "24小時成交量"
+Open Interest: "未平倉合約總值"
+$perps_funding_rate_hint: "用於計算多頭和空頭交易者之間資金費用的費率。費率為正時，多頭向空頭付款；費率為負時，空頭向多頭付款。"
+$perps_max_leverage_hint: "此市場可用的最高槓桿。"
+$perps_volume_24h_hint: "過去 24 小時內此期貨市場的交易總額，包括開倉和平倉交易。"
+$perps_open_interest_hint: "此期貨市場目前未平倉合約的總價值。與 24 小時交易量不同，它不包括已平倉的倉位。"
+
+# Perps order entry
+"Leverage": "槓桿"
+"Position Size": "部位規模"
+"Liquidation Price": "強平價"
+"Trading Fee": "交易手續費"
+"Funding Payments": "資金費用"
+"Swap Fee": "兌換手續費"
+"Review": "確認詳情"
+"$perps_order_long": "%asset% 做多"
+"$perps_order_short": "%asset% 做空"
+"$perps_swap_fee_hint": "在此交易中將一種代幣兌換為另一種代幣的費用。"
+"$perps_trading_fee_hint": "開立此倉位的費用。"
+"$perps_position_size_hint": "部位規模 — 槓桿部位的總價值。"
+"$perps_position_size_details_hint": "考慮槓桿後的倉位總價值。\n\n例如，如果您以 5x 槓桿投入 $100，倉位規模為 $500。"
+"$perps_position_size_change_hint": "考慮槓桿後的倉位總價值。\n這些數值顯示變更前後的倉位規模。"
+"$perps_profit_hint": "平掉部分倉位所獲得的利潤。\n\n例如，如果您平掉一半倉位，此處顯示的是已平倉部分的利潤。"
+"$perps_loss_hint": "平掉部分倉位所產生的虧損。\n\n例如，如果您平掉一半倉位，此處顯示的是已平倉部分的虧損。"
+"$perps_closing_value_hint": "倉位被強制平倉後剩餘的金額。根據強制平倉的結果，此金額可能低於您的投入金額或為零。"
+"$perps_fees_hint": "此交易收取的總費用。根據交易類型，可能包括交易費、兌換費和網路費。"
+"$perps_liquidation_price_hint": "由於資金不足以維持倉位，您的倉位可能被自動平倉的估計價格。"
+"$perps_high_leverage_warning": "高槓桿：價格輕微波動即可觸發強平。"
+"$perps_leverage_disclaimer": "更高的槓桿會放大潛在收益和虧損。即使價格出現輕微的不利變動，也可能導致您的倉位被自動平倉。"
+
+# Perps order review
+"Open Position": "開倉"
+"$perps_asset_price": "%asset% 價格"
+"$perps_leverage_direction": "%leverage%倍 %direction%"
+"$perps_liquidation_acknowledgment": "確認即表示我理解，此部位可能被強制平倉，且我可能損失投入的資金。"
+
+# Perps position receipt
+"Position Opened": "已開倉"
+"Fees": "費用"
+"Transfer ID": "轉帳ID"
+
+# Perps active position
+"Equity": "權益"
+"Profit and Loss": "損益"
+"Invested": "已投入"
+"Entry Price": "開倉價"
+"Edit Position": "調整部位"
+"Close Position": "平倉"
+"PerpsEditPositionAction": "調整部位"
+"PerpsClosePositionAction": "平倉"
+"$perps_invested_hint": "您用於此倉位的自有資金金額。例如，如果您以 5x 槓桿投入 $100，您的投入金額為 $100，倉位規模為 $500。"
+"$perps_entry_price_hint": "此部位的平均開倉價。"
+"$perps_funding_payments_hint": "多頭和空頭交易者之間的定期付款。根據資金費率，在倉位開放期間，您可能需要支付或收到資金費用。"
+
+# Perps edit position
+"$perps_edit_long": "調整 %asset% 多倉"
+"$perps_edit_short": "調整 %asset% 空倉"
+"Current:": "目前："
+"Liquidation": "強平"
+"You Pay or Receive": "您支付或收到"
+"Reset to Current Amount": "重設為目前金額"
+"Network Fee": "網路費用"
+"$perps_network_fee_hint": "在區塊鏈上處理此交易的費用。"
+"$perps_edit_liquidation_hint": "強平 — 部位被自動平倉的價格。"
+
+# Perps position lifecycle
+"Increase Position": "加倉"
+"Reduce Position": "減倉"
+"Current Value": "目前價值"
+"Closing Value": "平倉價值"
+"Entry / Exit Price": "開倉價 / 平倉價"
+"Entry / Liquidation Price": "開倉價 / 強平價"
+"You Paid": "您已支付"
+"You Received": "您已收到"
+"Position Increased": "已加倉"
+"Position Reduced": "已減倉"
+"Position Closed": "已平倉"
+"Position Liquidated": "已強平"
+"Profit": "獲利"
+"Loss": "虧損"
+"$perps_current_value_hint": "您投入金額的當前價值，包括倉位的盈利或虧損。"
+"$perps_price_when_opened": "開倉時的 %asset% 價格"
+"$perps_price_now": "目前 %asset% 價格"
+"$perps_held": "持倉時間：%duration%"
+"$perps_liquidated_title": "部位已自動平倉。"
+"$perps_liquidated_message": "市場價格觸及強平價，造成了虧損。"
+
+# Perps home
+"Open Positions": "目前持倉"
+"Show All Positions": "查看所有部位"
+"Futures": "期貨"
+"Futures Market": "期貨市場"
+"Liquidation Risk": "強平風險"
+"Refresh": "重新整理"
+"More Actions": "更多操作"
+"$perps_no_positions": "尚無持倉。瀏覽期貨市場以開始交易。"
+"$perps_explore_market": "交易加密貨幣與現實世界資產"
+"PerpsExploreAgentDescription": "你的 AI 助理"
+"$perps_explore_futures": "開立空頭與多頭部位"
+"$perps_explore_apps": "探索去中心化網際網路"
+
+# Perps SDK integration
+"PerpsQuoteExpired": "價格或部位已變動。請返回並重新確認訂單。"
+"PerpsReviewChanged": "訂單已變動。請返回並重新確認。"
+"PerpsInsufficientUsdc": "Arbitrum上的USDC不足以支付所需金額及跨鏈橋費用。"
+"PerpsAmountTooSmall": "此金額低於市場最低要求。"
+"PerpsUnchanged": "請輸入不同的金額以調整部位。"
+"PerpsPositionChanged": "此部位已變動。請重新整理後再試。"
+"PerpsPositionExists": "您在此市場已有部位。請調整現有部位。"
+"PerpsOperationPending": "仍有操作待完成。再次交易前請檢查其狀態。"
+"PerpsUnsupportedAccount": "永續合約交易需要具有Arbitrum主網地址的軟體錢包。"
+"PerpsTradingUnavailable": "此市場暫不支援交易。"
+"PerpsInvalidLeverage": "請選擇此市場支援的槓桿倍數。"
+"PerpsInvalidAmount": "請輸入有效金額。"
+"PerpsChangeLeverage": "調整槓桿"
+"PerpsChangeLeverageSeparately": "請分別調整槓桿與部位金額。"
+"PerpsUnavailable": "永續合約暫時無法使用。請稍後再試。"
+"PerpsIncompleteData": "部分部位無法載入。請重新整理以取得完整餘額。"
+"PerpsFeesAtExecution": "費用將在執行時確定"
+"PerpsWithdrawalPending": "部位已更新，但USDC提領尚未完成。請勿重複提交訂單。"
+"PerpsOperationStatus": "訂單狀態"
+"PerpsExecutionUnknown": "結果尚未確認。請重新整理並檢查部位與轉帳後再進行其他操作。"
+"PerpsProcessing": "正在處理訂單。跨鏈轉帳與結算可能需要幾分鐘。"
+"PerpsCompleted": "訂單已完成"
+"PerpsReconciled": "帳戶已重新整理。執行紀錄可用後將顯示交易詳情。"
+
+PerpsWithdrawReleased: "提領已釋放資金"
+PerpsWithdrawDescription: "將可用USDC從Hyperliquid轉入此錢包的Arbitrum網路地址。需支付0.20 USDC轉送費用。"
+PerpsPartialFill: "訂單已部分成交。實際成交金額如下；提交新訂單前請檢查目前部位。"
+
 Receiver %blockchain% Address: 接收人%blockchain%地址
+
 
 Save to Photos: 儲存到照片
 Image Saved: 圖片已儲存
 Allow access to Photos in Settings to save NFT images.: 請在設定中允許取用照片，以儲存 NFT 圖片。
 Could not save the image. Please try again.: 無法儲存圖片。請再試一次。
+
+"$perps_activity_opened": "開倉 %asset%"
+"$perps_activity_increased": "加倉 %asset%"
+"$perps_activity_reduced": "減倉 %asset%"
+"$perps_activity_closed": "平倉 %asset%"
+"$perps_activity_liquidated": "強平 %asset%"
+
+# Perps
+"PerpsInsufficientGas": "Arbitrum上的ETH不足以支付網路費用。部位所用的USDC與此費用分開計算。"
+"PerpsFundingMissingTitle": "Arbitrum 上沒有 USDC 或 ETH"
+"$perps_funding_missing": "請接收至少 %minUSDC% USDC，以及用於支付費用的 %feeETH% ETH。"
+"$perps_funding_usdc": "您需要在 Arbitrum 上擁有至少 %minUSDC% USDC 才能開倉。"
+"$perps_funding_usdc_increase": "您需要在 Arbitrum 上擁有至少 %minUSDC% USDC 才能增加此倉位。"
+"PerpsFundingGasTitle": "用於支付費用的 ETH 不足"
+"$perps_funding_gas": "Arbitrum 上的費用以 ETH 支付。請接收 %feeETH% ETH（~%feeFiat%）。"
+"PerpsFundingTokenTitle": "使用 Arbitrum 上的 USDC 支付"
+"PerpsFundingTokenDescription": "暫不支援其他代幣。請接收 USDC 以繼續。"
+"Not Enough Funds": "餘額不足"
+"Unsupported Token": "不支援的代幣"
+"PerpsReviewUpdated": "價格已更新。確認前請重新檢查訂單。"
+"PerpsOrderTooSmall": "最低訂單價值為10美元。"
+"PerpsOrderNotFilled": "訂單無法按已確認的價格成交。請重新整理後再試。"
+"PerpsInsufficientMargin": "此訂單的保證金不足。請重新整理部位並調整金額。"
+"PerpsOrderRejected": "交易所拒絕了此訂單。請重新整理部位並重新確認訂單。"
+"Order": "訂單"
+"Order ID": "訂單ID"
+"Date": "日期"
+"PerpsAllowNewOrders": "允許新訂單"
+"PerpsAcknowledgeUnknown": "原訂單仍可能執行。請先檢查部位與轉帳。允許新訂單不會取消原訂單。"
+"$perps_market_title": "%asset% 期貨"
+"Recent Market Activity": "近期市場活動"
+"Trade Size": "成交規模"
+"PerpsExchangeFee": "交易所手續費"
+"PerpsServiceFee": "錢包手續費"
+"PerpsBridgeFee": "跨鏈橋費用"
+"PerpsTotalFees": "USDC費用合計"
+"PerpsFeeEstimateHint": "標有≈的費用為預估值，執行時可能變動。Arbitrum網路費用需另行以ETH支付。"
+"PerpsUnallocatedCollateral": "未分配保證金"
+"PerpsUnallocatedCollateralHint": "依市場交易數量精度取整後，部分USDC可能留在部位之外。這些資金仍在您的期貨帳戶中，並非手續費。"
+"PerpsOnboardingTitle": "剛接觸期貨？"
+"PerpsOnboardingDescription": "不到 1 分鐘，了解如何使用。"
+"PerpsOnboardingOpen": "開啟入門指南"
+"PerpsStoryIntroTitle": "認識永續合約"
+"PerpsStoryIntroBody": "無論預期資產價格上漲還是下跌，都可以開倉。"
+"PerpsStoryLongTitle": "預期上漲？做多"
+"PerpsStoryLongBody": "價格上漲時獲利，下跌時虧損。"
+"PerpsStoryShortTitle": "預期下跌？做空"
+"PerpsStoryShortBody": "價格下跌時獲利，上漲時虧損。"
+"PerpsStoryLeverageTitle": "槓桿放大交易結果"
+"PerpsStoryLeverageBody": "保證金是您投入倉位的自有資金。使用 5× 槓桿，$10 可以控制價值 $50 的倉位 — 獲利和虧損也會放大 5 倍。"
+"PerpsStoryLiquidationTitle": "您的倉位可能被自動平倉"
+"PerpsStoryLiquidationBody": "這就是強制平倉：如果虧損導致剩餘保證金不足，您的倉位可能被平倉。請留意強平價格。"
+"PerpsStoryFundingTitle": "資金費用是交易者之間的支付"
+"PerpsStoryFundingBody": "資金費率為正時，多頭向空頭支付；資金費率為負時，空頭向多頭支付。"
+"PerpsStoryStart": "開始"
+
+"Funding Payment": "資金費用支付"
+"Withdrawal": "提領"
+"Transfer": "轉帳"
+"Spot Balance": "現貨餘額"
+"From": "從"
+"To": "到"
+
+Delete Chat: 刪除聊天
+Unread: 未讀
+$agent_connection_lost: 助手連線中斷。
+$agent_daily_limit_reached: 已達助手每日使用上限
+$media_viewer_date_at_time: "%date% %time%"
+Picture: 圖片
+
+Add to Reading List: 加入閱讀列表
+
+$enclave_data_missing_title: 找不到錢包資料
+$enclave_data_missing_message: |
+  這不是密碼問題。本應用程式在此裝置上用於驗證密碼並開啟錢包的資料已遺失，因此在這裡任何密碼都無法解鎖。
+
+  請不要重新安裝應用程式，也不要在系統設定中清除其資料。請用下方按鈕匯出日誌並傳送給 %support_link%，我們可以據此了解此裝置上發生了什麼。
+
+  如果您有錢包的密語，可以退出所有錢包並重新匯入。
+
+Install the TON App on your Ledger and try again.: 請在您的 Ledger 上安裝 TON 應用程式後重試。

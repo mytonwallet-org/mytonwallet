@@ -12,3 +12,4 @@ export * from './enclave';
 export * from './settings';
 export * from './portfolio';
 export * from './banners';
+export * from './perps';

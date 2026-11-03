@@ -83,10 +83,14 @@ try {
 
   await page.getByRole('heading', { name: 'Data shared with Agent' }).waitFor({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Allow Agent', exact: true }).click();
+  // Consent opens the chat list, whose field starts a new chat with the question
   const input = page.getByRole('textbox', { name: 'Ask anything' });
+  const chatsButton = page.getByRole('button', { name: 'Chats', exact: true });
   await input.waitFor({ timeout: 15_000 });
   await input.fill(message);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await chatsButton.waitFor({ timeout: 15_000 });
+  await waitForSingleInput();
   await page.getByText(message, { exact: true }).waitFor({ timeout: 15_000 });
   await page.locator('[data-agent-v2-message-role="user"]:not([data-agent-v2-message-id^="local-"])')
     .filter({ hasText: message })
@@ -104,27 +108,27 @@ try {
   await receiveAction.waitFor({ timeout: 20_000 });
   assert(await receiveAction.isEnabled(), 'Receive action is not available to the view wallet');
 
+  // The Agent opens again at the chat list, where the chat is the newest row
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Agent', exact: true }).last().click();
+  await page.locator('[data-agent-v2-thread-id]').first().click({ timeout: 20_000 });
+  await chatsButton.waitFor({ timeout: 15_000 });
+  await waitForSingleInput();
   await page.getByText(message, { exact: true }).waitFor({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'Open Menu', exact: true }).click();
-  await page.getByText('Clear Chat', { exact: true }).last().click();
-  const confirmClear = page.locator('#agent-clear-chat-confirm:visible');
-  await confirmClear.waitFor();
-  await confirmClear.click();
-  await page.getByText(message, { exact: true }).waitFor({ state: 'detached' });
+  await page.getByText('Delete Chat', { exact: true }).last().click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await chatsButton.waitFor({ state: 'detached', timeout: 15_000 });
 
-  assert(threadRequests.some((request) => request === 'GET /api/v2/threads/default'),
-    'Default-thread hydration was not routed through replica B');
+  assert(threadRequests.some((request) => request === 'POST /api/v2/threads'),
+    'Chat creation was not routed through replica B');
+  assert(threadRequests.some((request) => /^GET \/api\/v2\/threads(?:\?|$)/u.test(request)),
+    'The chat list was not routed through replica B');
   assert(threadRequests.some((request) => request.includes('/messages?')),
     'Message history was not routed through replica B');
-  assert(threadRequests.some((request) => request.endsWith('/clear')),
-    'Default-thread clear was not routed through replica B');
-  assert(threadRequests.every((request) => !/^(GET|POST) \/api\/v2\/threads(?:\?|$)/u.test(request)),
-    'Classic requested the removed thread list or create endpoint');
-  assert(threadRequests.every((request) => !/^(PATCH|DELETE) \/api\/v2\/threads\//u.test(request)),
-    'Classic requested removed thread metadata or delete endpoints');
+  assert(threadRequests.some((request) => request.endsWith('/delete')),
+    'Chat deletion was not routed through replica B');
 
   process.stdout.write(`${JSON.stringify({
     ok: true,
@@ -138,8 +142,8 @@ try {
       'direct-chat',
       'receive-action',
       'reload-hydration',
-      'clear',
-      'default-only-thread-api',
+      'delete',
+      'thread-api',
     ],
   }, undefined, 2)}\n`);
 } catch (error) {
@@ -160,6 +164,15 @@ try {
   await context.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);
   await context.close().catch(() => undefined);
   await browser.close().catch(() => undefined);
+}
+
+// A chat slides in over the chat list, whose own field leaves the screen with it
+async function waitForSingleInput() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (await page.getByRole('textbox', { name: 'Ask anything' }).count() === 1) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('The chat list kept its field on screen');
 }
 
 async function seedViewWallet(page) {

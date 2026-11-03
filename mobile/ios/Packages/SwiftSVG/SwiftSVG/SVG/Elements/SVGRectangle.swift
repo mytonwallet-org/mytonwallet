@@ -133,13 +133,7 @@ final class SVGRectangle: SVGShapeElement {
             return
         }
 
-        guard let colorComponents = self.svgLayer.fillColor?.components else {
-            return
-        }
-        guard let fillColor = UIColor(svgString: value) else {
-            return
-        }
-        self.svgLayer.fillColor = fillColor.withAlphaComponent(colorComponents[3]).cgColor
+        fill(fillColor: value)
     }
 
     /**
@@ -174,16 +168,9 @@ final class SVGRectangle: SVGShapeElement {
         }
         self.svgLayer.path = rectanglePath.cgPath
 
-        if let fillReferenceId,
-           let gradientLayer = renderContext?.gradients[fillReferenceId]?.makeLayer(frame: rectangleRect) {
-            if self.xCornerRadius > 0 || self.yCornerRadius > 0 {
-                let maskLayer = CAShapeLayer()
-                maskLayer.path = rectanglePath.cgPath
-                gradientLayer.mask = maskLayer
-            }
-            container.containerLayer.addSublayer(gradientLayer)
-        } else {
-            container.containerLayer.addSublayer(self.svgLayer)
+        if let fillReferenceId {
+            renderContext?.shapeFills.append((svgLayer, fillReferenceId))
         }
+        container.containerLayer.addSublayer(self.svgLayer)
     }
 }

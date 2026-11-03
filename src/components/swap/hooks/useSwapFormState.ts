@@ -1,12 +1,13 @@
 import { useMemo } from '../../../lib/teact/teact';
 
 import type { GlobalState, UserSwapToken } from '../../../global/types';
-import { SwapInputSource, SwapType } from '../../../global/types';
+import { SwapErrorType, SwapInputSource, SwapType } from '../../../global/types';
 
 import { INIT_SWAP_ASSETS, MAX_PRICE_IMPACT_VALUE } from '../../../config';
 import { fromDecimal } from '../../../util/decimals';
 import { explainSwapFee, getMaxSwapAmount, isBalanceSufficientForSwap } from '../../../util/fee/swapFee';
 import { findNativeToken } from '../../../util/tokens';
+import { isSwapAmountError } from '../helpers/resolveSwapError';
 
 /**
  * Derives everything the swap form shows and checks from the current swap state: the tokens, the fees,
@@ -106,8 +107,11 @@ export default function useSwapFormState(
   const isEnoughNative = nativeTokenInBalance >= networkFeeBigint;
 
   const isDieselNotAuthorized = explainedFee.isGasless && dieselStatus === 'not-authorized';
+  // The tokens of a swap to the wallet come from outside, so the wallet balance doesn't limit the amount
+  const isAmountGreaterThanBalance = swapType !== SwapType.CrosschainToWallet
+    && amountInBigint !== undefined && amountInBigint > balanceIn;
 
-  const canSubmit = isDieselNotAuthorized || (
+  const canSubmit = (isDieselNotAuthorized && !isAmountGreaterThanBalance) || (
     (amountInBigint ?? 0n) > 0n
     && (amountOutBigint ?? 0n) > 0n
     && isEnoughBalance
@@ -116,13 +120,15 @@ export default function useSwapFormState(
     && errorType === undefined
   );
 
-  const hasAmountInError = amountInBigint !== undefined && maxAmount !== undefined && amountInBigint > maxAmount;
+  // The native token's max amount leaves room for the fee, so an amount above it also means a fee shortage
+  const hasMaxAmountError = amountInBigint !== undefined && maxAmount !== undefined && amountInBigint > maxAmount;
+  const hasAmountInError = hasMaxAmountError || isSwapAmountError(errorType);
   const amountOutValue = (amountInBigint ?? 0n) <= 0n && inputSource === SwapInputSource.In
     ? ''
     : amountOut?.toString();
-  const isAmountGreaterThanBalance = amountInBigint !== undefined && amountInBigint > balanceIn;
   const hasInsufficientFeeError = isEnoughBalance === false && !isAmountGreaterThanBalance
     && dieselStatus !== 'not-authorized' && dieselStatus !== 'pending-previous';
+  const hasFeeError = hasInsufficientFeeError || errorType === SwapErrorType.NotEnoughForFee;
 
   const isPriceImpactError = priceImpact >= MAX_PRICE_IMPACT_VALUE;
   const isCrosschain = route === 'cex';
@@ -132,7 +138,6 @@ export default function useSwapFormState(
     currentTokenOutSlug,
     tokenIn,
     tokenOut,
-    nativeUserTokenIn,
     balanceIn,
     explainedFee,
     maxAmount,
@@ -140,8 +145,11 @@ export default function useSwapFormState(
     isDieselNotAuthorized,
     canSubmit,
     hasAmountInError,
+    hasMaxAmountError,
     amountOutValue,
+    isAmountGreaterThanBalance,
     hasInsufficientFeeError,
+    hasFeeError,
     isPriceImpactError,
     isCrosschain,
   };

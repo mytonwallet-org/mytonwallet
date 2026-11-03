@@ -26,6 +26,8 @@ export interface BalanceUpdate {
   /** `undefined` for chain Native Token */
   tokenAddress?: string;
   balance: bigint;
+  /** The event block after which the balance was read */
+  blockNumber?: number;
   finality: SocketFinality;
 }
 

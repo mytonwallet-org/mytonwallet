@@ -17,7 +17,7 @@ class AgentTimelineViewportTest {
         val naturalQuestionTop = topPadding + dateHeight
 
         val anchorIndex = items.agentPinAnchorIndex(1)
-        val offset = agentPinnedItemOffset(items[anchorIndex], dateHeight, topPadding, 63, 1900)
+        val offset = agentPinnedItemOffset(items[anchorIndex], dateHeight, topPadding, 1900)
         val pinnedQuestionTop = topPadding + offset + dateHeight
 
         assertEquals(0, anchorIndex)
@@ -37,14 +37,14 @@ class AgentTimelineViewportTest {
         val topPadding = 300
 
         val anchorIndex = items.agentPinAnchorIndex(3)
-        val offset = agentPinnedItemOffset(items[anchorIndex], 82, topPadding, 63, 320)
+        val offset = agentPinnedItemOffset(items[anchorIndex], 82, topPadding, 320)
 
         assertEquals(2, anchorIndex)
         assertEquals(topPadding, topPadding + offset)
     }
 
     @Test
-    fun questionWithoutItsOwnDateKeepsTheMessageOffsetAndAnswerPreview() {
+    fun questionWithoutItsOwnDatePinsAtTheContentTopAndKeepsTheAnswerPreview() {
         val question = AgentMessage(role = AgentMessageRole.USER, text = "What is TON?")
         val items = listOf(
             AgentTimelineItem.DateHeader(question.date),
@@ -55,7 +55,7 @@ class AgentTimelineViewportTest {
         val anchorIndex = items.agentPinAnchorIndex(2)
 
         assertEquals(2, anchorIndex)
-        assertEquals(-63, agentPinnedItemOffset(items[anchorIndex], 126, 300, 63, 1900))
-        assertEquals(-200, agentPinnedItemOffset(items[anchorIndex], 1800, 300, 63, 1900))
+        assertEquals(0, agentPinnedItemOffset(items[anchorIndex], 126, 300, 1900))
+        assertEquals(-200, agentPinnedItemOffset(items[anchorIndex], 1800, 300, 1900))
     }
 }

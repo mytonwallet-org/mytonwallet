@@ -143,20 +143,11 @@ public final class TelegramAmountPresentation: UIView {
 
     private func startDisplayLink() {
         guard displayLink == nil else { return }
-        let link = CADisplayLink(target: DisplayLinkTarget(self), selector: #selector(DisplayLinkTarget.tick(_:)))
-        if #available(iOS 15.0, *) {
-            let maximum = Float(window?.screen.maximumFramesPerSecond ?? 60)
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: maximum, preferred: maximum)
-        }
-        link.add(to: .main, forMode: .common)
-        displayLink = link
-    }
-
-    @MainActor private final class DisplayLinkTarget {
-        weak var view: TelegramAmountPresentation?
-        init(_ view: TelegramAmountPresentation) { self.view = view }
-        @objc func tick(_ link: CADisplayLink) {
-            guard let view else { link.invalidate(); return }
+        let maximum = Float(window?.screen.maximumFramesPerSecond ?? 60)
+        displayLink = .makeWeak(
+            owner: self,
+            frameRateRange: CAFrameRateRange(minimum: 30, maximum: maximum, preferred: maximum)
+        ) { view, link in
             let duration = link.targetTimestamp - link.timestamp
             view.frameDuration += (duration - view.frameDuration) * 0.3
             view.renderFrame(at: CACurrentMediaTime())

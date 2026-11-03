@@ -73,13 +73,19 @@ class SetPasscodeVC(
                 passcodeInputView.fadeInObjectAnimator()?.start()
                 switchLengthButton.fadeInObjectAnimator()?.start()
             },
-            textsGap = 13f
+            textsGap = 13f,
+            subtitleViewId = if (confirmingPasscode == null) {
+                R.id.passcode_set_subtitle
+            } else {
+                R.id.passcode_repeat_subtitle
+            }
         )
         v
     }
 
     private val passcodeInputView: PasscodeInputView by lazy {
         val v = PasscodeInputView(context, WeakReference(this), showKeyboardOnFocus = true)
+        v.id = R.id.passcode_set_input
         if (confirmingPasscode != null) v.passLength = confirmingPasscode.length
         v.alpha = 0f
         v.setOnClickListener {

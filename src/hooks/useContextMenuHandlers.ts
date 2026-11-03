@@ -30,8 +30,11 @@ const useContextMenuHandlers = ({
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuAnchor, setContextMenuAnchor] = useState<IAnchorPosition | undefined>(undefined);
   const [contextMenuTarget, setContextMenuTarget] = useState<HTMLElement | undefined>(undefined);
+  // Whether a mouse or a trackpad opened the menu, as a right click does, rather than a long press on a touch screen
+  const [isContextMenuFromPointer, setIsContextMenuFromPointer] = useState(false);
 
   const handleBeforeContextMenu = useLastCallback((e: React.MouseEvent) => {
+    if (shouldDisableOnLink && (e.target as HTMLElement).closest('a[href]')) return;
     if (!isMenuDisabled && e.button === 2) {
       requestMutation(() => {
         addExtraClass(e.target as HTMLElement, 'no-selection');
@@ -44,7 +47,7 @@ const useContextMenuHandlers = ({
       removeExtraClass(e.target as HTMLElement, 'no-selection');
     });
 
-    if (isMenuDisabled || (shouldDisableOnLink && (e.target as HTMLElement).matches('a[href]'))) {
+    if (isMenuDisabled || (shouldDisableOnLink && (e.target as HTMLElement).closest('a[href]'))) {
       return;
     }
     stopEvent(e);
@@ -56,6 +59,7 @@ const useContextMenuHandlers = ({
     setIsContextMenuOpen(true);
     setContextMenuAnchor({ x: e.clientX, y: e.clientY });
     setContextMenuTarget(e.target as HTMLElement);
+    setIsContextMenuFromPointer(!('pointerType' in e && e.pointerType === 'touch'));
     vibrate();
   });
 
@@ -102,7 +106,7 @@ const useContextMenuHandlers = ({
 
       const { clientX, clientY, target } = originalEvent.touches[0];
 
-      if (contextMenuAnchor || (shouldDisableOnLink && (target as HTMLElement).matches('a[href]'))) {
+      if (contextMenuAnchor || (shouldDisableOnLink && (target as HTMLElement).closest('a[href]'))) {
         return;
       }
 
@@ -139,6 +143,7 @@ const useContextMenuHandlers = ({
 
       setIsContextMenuOpen(true);
       setContextMenuAnchor({ x: clientX, y: clientY });
+      setIsContextMenuFromPointer(false);
       vibrate();
     };
 
@@ -175,6 +180,7 @@ const useContextMenuHandlers = ({
     isContextMenuOpen,
     contextMenuAnchor,
     contextMenuTarget,
+    isContextMenuFromPointer,
     handleBeforeContextMenu,
     handleContextMenu,
     handleContextMenuClose,

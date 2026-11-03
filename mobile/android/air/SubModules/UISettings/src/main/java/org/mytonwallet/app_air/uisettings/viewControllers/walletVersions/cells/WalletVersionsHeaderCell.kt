@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.SpannableStringBuilder
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.styleDots
@@ -32,6 +33,7 @@ class WalletVersionsHeaderCell(context: Context) :
             titleColor = WColor.Tint,
             topRounding = HeaderCell.TopRounding.FIRST_ITEM
         )
+        this.titleLabel.id = UIComponentsR.id.wallet_versions_current_title
     }
 
     private val walletVersionLabel = WLabel(context).apply {

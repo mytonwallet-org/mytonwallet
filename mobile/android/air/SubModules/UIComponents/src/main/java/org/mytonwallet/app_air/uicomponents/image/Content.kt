@@ -18,7 +18,9 @@ data class Content(
     val rounding: Rounding = Rounding.Default,
     val placeholder: Placeholder = Placeholder.Default,
     val scaleType: ScalingUtils.ScaleType = ScalingUtils.ScaleType.CENTER_CROP,
-    val withBlackBackground: Boolean = false
+    val withBlackBackground: Boolean = false,
+    /** Decoded size in px; 0 decodes the whole picture */
+    val decodeSize: Int = 0
 ) {
     sealed class Image {
         data object Empty : Image()
@@ -42,7 +44,7 @@ data class Content(
     }
 
     companion object {
-        private const val STOCK_TOKEN_CORNER_RADIUS_RATIO = 0.3f
+        const val STOCK_TOKEN_CORNER_RADIUS_RATIO = 0.3f
 
         private fun roundingFor(token: IApiToken): Rounding = if (token.isRwaStock) {
             Rounding.RadiusRatio(STOCK_TOKEN_CORNER_RADIUS_RATIO)

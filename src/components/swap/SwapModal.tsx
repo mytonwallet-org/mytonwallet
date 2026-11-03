@@ -77,6 +77,7 @@ function SwapModal({
     needsBatch,
     tradeDirection,
     tradeAmount,
+    isMaxAmount,
   },
   swapType,
   swapRoute,
@@ -204,8 +205,9 @@ function SwapModal({
 
     if (tradeDirection) {
       setTradeCardCurrency({});
-      // The paying amount depends on the counter token: its price and whether the pair can be quoted by the buy amount
-      setTradeAmount({ amount: tradeAmount });
+      // The paying amount depends on the counter token: its price and whether the pair can be quoted by the buy amount.
+      // A sold 100% stays the maximum, which the estimate of the new pair reduces by its own fee.
+      setTradeAmount({ amount: tradeAmount, isMaxAmount });
     }
   });
 

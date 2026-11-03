@@ -33,7 +33,7 @@ extension Api {
     }
 
     public static func submitStake(accountId: String, enclaveToken: EnclaveToken?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await submitStakeProtected(accountId: accountId, enclaveToken: enclaveToken, amount: amount, state: state, realFee: realFee).activityId.orThrow()
+        try await submitStakeProtected(accountId: accountId, enclaveToken: enclaveToken, amount: amount, state: state, realFee: realFee).requireActivityId()
     }
 
     public static func submitStakeProtected(accountId: String, enclaveToken: EnclaveToken?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {
@@ -41,7 +41,7 @@ extension Api {
     }
     
     public static func submitUnstake(accountId: String, enclaveToken: EnclaveToken?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await submitUnstakeProtected(accountId: accountId, enclaveToken: enclaveToken, amount: amount, state: state, realFee: realFee).activityId.orThrow()
+        try await submitUnstakeProtected(accountId: accountId, enclaveToken: enclaveToken, amount: amount, state: state, realFee: realFee).requireActivityId()
     }
 
     public static func submitUnstakeProtected(accountId: String, enclaveToken: EnclaveToken?, amount: BigInt, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {
@@ -53,7 +53,7 @@ extension Api {
     }
     
     public static func submitStakingClaimOrUnlock(accountId: String, enclaveToken: EnclaveToken?, state: ApiStakingState, realFee: BigInt?) async throws -> String {
-        try await submitStakingClaimOrUnlockProtected(accountId: accountId, enclaveToken: enclaveToken, state: state, realFee: realFee).activityId.orThrow()
+        try await submitStakingClaimOrUnlockProtected(accountId: accountId, enclaveToken: enclaveToken, state: state, realFee: realFee).requireActivityId()
     }
 
     public static func submitStakingClaimOrUnlockProtected(accountId: String, enclaveToken: EnclaveToken?, state: ApiStakingState, realFee: BigInt?) async throws -> ApiMfaProtectedResult {

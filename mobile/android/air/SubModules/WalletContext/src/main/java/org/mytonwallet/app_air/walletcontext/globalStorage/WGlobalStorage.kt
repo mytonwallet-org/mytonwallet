@@ -130,6 +130,8 @@ object WGlobalStorage {
     private const val BASE_CURRENCY = "settings.baseCurrency"
     private const val ASSETS_AND_ACTIVITY = "settings.byAccountId"
     private const val LANG_CODE = "settings.langCode"
+    private const val AGENT_NEWS_READ_THROUGH = "settings.agentNewsReadThrough"
+    private const val AGENT_THREAD_READ_STATE = "settings.agentThreadReadState"
     private const val LANG_SOURCE = "settings.langSource"
     const val LANG_SOURCE_USER = "user"
     private const val PRICE_HISTORY = "tokenPriceHistory.bySlug"
@@ -682,6 +684,28 @@ object WGlobalStorage {
     }
 
     fun getBaseCurrency(): String = globalStorageProvider.getString(BASE_CURRENCY) ?: "USD"
+
+    fun getAgentNewsReadThrough(): String? =
+        globalStorageProvider.getString(AGENT_NEWS_READ_THROUGH)
+
+    fun setAgentNewsReadThrough(value: String) {
+        globalStorageProvider.set(
+            AGENT_NEWS_READ_THROUGH,
+            value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getAgentThreadReadState(): String? =
+        globalStorageProvider.getString(AGENT_THREAD_READ_STATE)
+
+    fun setAgentThreadReadState(value: String) {
+        globalStorageProvider.set(
+            AGENT_THREAD_READ_STATE,
+            value,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
 
     fun setBaseCurrency(baseCurrency: String) {
         globalStorageProvider.setEmptyObject(

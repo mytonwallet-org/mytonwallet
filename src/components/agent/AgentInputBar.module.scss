@@ -19,6 +19,9 @@
     right: 0;
     bottom: 0;
     left: 0;
+
+    // The chat fades out under the field and the tab bar into its own background, as in the design
+    background: linear-gradient(180deg, transparent 0%, var(--agent-background-fade) 31%);
   }
 
   @include mixins.respond-above(xs) {
@@ -27,16 +30,8 @@
     bottom: 0;
     left: 0;
 
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%);
-
-    :global(html.theme-dark) & {
-      background: linear-gradient(180deg, rgba(14, 14, 15, 0) 0%, rgba(14, 14, 15, 0.9) 100%);
-    }
+    background: linear-gradient(180deg, transparent 0%, var(--agent-background-fade) 100%);
   }
-}
-
-.quotaSlot {
-  margin-bottom: 0.5rem;
 }
 
 .statusSlot {
@@ -47,16 +42,16 @@
   display: flex;
   align-items: flex-end;
   width: 100%;
+
+  @include mixins.transition(opacity 200ms);
 }
 
-.pill {
-  position: relative;
+.inputRowDimmed {
+  opacity: 0.5;
+}
 
-  flex: 1;
-
-  min-width: 0;
-  border-radius: 1.4375rem;
-
+@mixin fieldSurface {
+  // The field's glass, which the microphone beside it shares, as in the design
   background-color: var(--color-app-background);
   box-shadow: var(--shadow-glass-capsule);
 
@@ -68,12 +63,23 @@
   @include mixins.frostedGlass(0.8);
 }
 
+.pill {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: 1.4375rem;
+
+  @include fieldSurface;
+}
+
 .inputInnerWrapper {
   margin-bottom: 0;
 }
 
 .input {
-  --agent-input-inline-end-padding: 2.75rem;
+  --agent-input-inline-end-padding: 0.75rem;
+  // SemiBold 16/20 on every platform, as in the design
+  --input-font-size: 1rem !important;
 
   overflow-y: auto !important;
 
@@ -99,57 +105,62 @@
   }
 }
 
-.inputButtons {
-  position: absolute;
-  bottom: 0.625rem;
-  inset-inline-end: 0.75rem;
-
-  display: flex;
-  align-items: center;
+// The text keeps clear of the send button in the field
+.inputWithSend {
+  --agent-input-inline-end-padding: 2.75rem;
 }
 
-.inputButton {
+// A 36 px circle 4 px inside the field's end, on its last line: grey until there is a question to send
+.pillSendButton {
   cursor: var(--custom-cursor, pointer);
 
+  position: absolute;
+  bottom: 0.25rem;
+  inset-inline-end: 0.25rem;
+  transform-origin: center;
+
   display: flex;
-  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border: none;
   border-radius: 50%;
 
-  font-size: 1.5rem;
-  color: var(--color-gray-3);
+  font-size: 1.375rem;
+  color: var(--color-gray-4);
 
-  background: none;
+  background-color: var(--color-activity-gray-background);
   outline: none;
 
-  @include mixins.transition(color 200ms);
+  @include mixins.transition("transform 200ms ease, opacity 200ms ease, background-color 200ms, color 200ms");
 
-  @media (hover: hover) {
-    &:hover,
-    &:focus-visible,
-    &:active {
-      color: var(--color-accent);
-    }
+  &:global(.not-open) {
+    pointer-events: none;
+    transform: scale(0.01);
+    opacity: 0;
   }
 
-  @media (pointer: coarse) {
-    &:focus-visible,
-    &:active {
-      color: var(--color-accent);
-    }
+  &:focus-visible {
+    box-shadow: 0 0 0 0.125rem var(--color-accent-10o);
+  }
+
+  &:disabled {
+    cursor: default;
   }
 
   @include mixins.active-transition-optimization();
 }
 
-.inputButtonActive {
-  color: var(--color-accent);
-  background-color: var(--color-accent-10o);
+.pillSendButtonActive {
+  color: var(--color-accent-button-text);
+  background-color: var(--color-accent);
+}
+
+.sendIcon {
+  width: 1.375rem;
+  height: 1.375rem;
 }
 
 .sendButton {
@@ -187,4 +198,228 @@
   }
 
   @include mixins.active-transition-optimization();
+}
+
+.sendButton.microphoneButton {
+  color: var(--color-black);
+
+  @include fieldSurface;
+}
+
+.microphoneButton {
+  touch-action: none;
+  user-select: none;
+}
+
+// `Icons/20px/Microphone Icon` at its own size
+.microphoneIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+// The strip takes the text's place, and the circle the finish button's while the finger holds the recording
+.pillDictating .input,
+.dictationActionHidden {
+  visibility: hidden;
+}
+
+.pillHighlighted {
+  box-shadow: var(--shadow-glass-capsule), 0 0 0 0.25rem var(--color-accent-10o);
+}
+
+// Telegram's recording strip in place of the text, 16 px inside the field
+.dictation {
+  position: absolute;
+  inset: 0;
+
+  overflow: hidden;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  padding-inline: 1rem 0.75rem;
+
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+}
+
+// The red dot grows in, then blinks as Telegram's does
+.recordingDot {
+  flex-shrink: 0;
+
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+
+  background-color: #FF2D55;
+
+  animation:
+    agent-dictation-dot-in 150ms ease-in-out,
+    agent-dictation-dot-blink 500ms ease-in-out 150ms infinite alternate;
+}
+
+.dictationTimer {
+  flex-shrink: 0;
+
+  min-width: 4rem;
+
+  font-variant-numeric: tabular-nums;
+  color: var(--color-black);
+
+  animation: agent-dictation-fade-in 500ms ease-out;
+}
+
+.dictationEnding {
+  color: var(--color-red) !important;
+}
+
+.dictationHintSlot {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 0;
+  height: 100%;
+}
+
+.dictationHint {
+  overflow: hidden;
+
+  min-width: 0;
+
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The hint comes in from past the field's end, follows the finger toward cancelling and fades out on the way
+.dictationSlideHint {
+  overflow: hidden;
+
+  min-width: 0;
+
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  // It nudges 6 px toward cancelling and back every 1.5 s
+  animation:
+    agent-dictation-hint-in 400ms cubic-bezier(0.38, 0.7, 0.125, 1),
+    agent-dictation-hint-wobble 750ms ease-in-out infinite alternate;
+
+  :global(html[dir="rtl"]) & {
+    animation-name: agent-dictation-hint-in-rtl, agent-dictation-hint-wobble-rtl;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  &:global(.closing) {
+    position: absolute;
+    transform: translateY(-1.375rem) scale(0.25) !important;
+    opacity: 0 !important;
+
+    @include mixins.transition('transform 200ms ease-out, opacity 250ms ease-out');
+  }
+}
+
+// Cancel comes up out of the hint's place once the recording goes hands-free
+.dictationCancel {
+  cursor: var(--custom-cursor, pointer);
+
+  flex-shrink: 0;
+
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 0.5rem;
+
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--color-accent);
+
+  background: none;
+  outline: none;
+
+  animation: agent-dictation-cancel-in 250ms cubic-bezier(0.38, 0.7, 0.125, 1);
+
+  &:focus-visible {
+    background-color: var(--color-accent-10o);
+  }
+}
+
+.dictationCancelAtEnd {
+  margin-inline-start: auto;
+}
+
+.dictationRecognizing {
+  padding-inline-end: 0.5rem;
+}
+
+.dictationRecognizingText {
+  overflow: hidden;
+  flex: 1;
+
+  min-width: 0;
+
+  color: var(--color-gray-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes agent-dictation-dot-in {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes agent-dictation-dot-blink {
+  0%,
+  45.46% {
+    opacity: 1;
+  }
+
+  90.91%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes agent-dictation-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes agent-dictation-hint-in {
+  from {
+    transform: translateX(10rem);
+  }
+}
+
+@keyframes agent-dictation-hint-in-rtl {
+  from {
+    transform: translateX(-10rem);
+  }
+}
+
+@keyframes agent-dictation-hint-wobble {
+  to {
+    translate: -0.375rem 0;
+  }
+}
+
+@keyframes agent-dictation-hint-wobble-rtl {
+  to {
+    translate: 0.375rem 0;
+  }
+}
+
+@keyframes agent-dictation-cancel-in {
+  from {
+    transform: translateY(1.375rem) scale(0.25);
+    opacity: 0;
+  }
 }

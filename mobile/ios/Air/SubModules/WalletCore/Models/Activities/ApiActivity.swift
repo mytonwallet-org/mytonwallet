@@ -62,6 +62,8 @@ public enum ApiTransactionType: String, Codable, Sendable {
     case dnsRenew
     case liquidityDeposit
     case liquidityWithdraw
+    case perpsDeposit = "perps_deposit"
+    case perpsWithdraw = "perps_withdraw"
     
     // legacy
     case nftPurchase

@@ -14,6 +14,7 @@ class WInterpolator {
     companion object {
         val emphasizedAccelerate = PathInterpolator(0.3f, 0f, 0.8f, 0.15f)
         val emphasizedDecelerate = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
+        val easeInOut = PathInterpolator(0.42f, 0f, 0.58f, 1f)
         val emphasized =
             PathInterpolatorCompat.create(
                 Path().apply {
@@ -22,6 +23,9 @@ class WInterpolator {
                     cubicTo(0.208333f, 0.82f, 0.25f, 1f, 1f, 1f)
                 }
             )
+
+        // A smooth, nearly critically damped response without visible overshoot.
+        val smooth = spring(dampingRatio = 0.99f)
 
         fun spring(dampingRatio: Float = 0.72f, stiffness: Float = 11f): TimeInterpolator {
             val omegaD = stiffness * sqrt(1f - dampingRatio * dampingRatio)

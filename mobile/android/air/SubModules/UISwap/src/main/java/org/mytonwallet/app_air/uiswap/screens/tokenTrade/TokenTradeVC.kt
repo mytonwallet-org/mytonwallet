@@ -645,4 +645,9 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
         )
         return "$impactValueText\n$hintText".boldSubstring(impactValueText)
     }
+
+    companion object {
+        val centeredWindowMinHeight: Int
+            get() = TokenTradeView.minimumHeight(WNavigationBar.DEFAULT_HEIGHT.dp, 0)
+    }
 }

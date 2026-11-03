@@ -70,10 +70,18 @@ interface OwnProps {
   addressBookChain?: ApiChain;
   savedAddresses?: SavedAddress[];
   validateAddress?: ({ address }: { address?: string; chain?: ApiChain }) => void;
+  /** Paints the address red for an error that the form explains elsewhere, for example on its submit button */
+  hasError?: boolean;
   error?: string;
   enterKeyHint?: HTMLAttributes<HTMLInputElement>['enterKeyHint'];
   onInput: (value: string, isValueReplaced?: boolean) => void;
   onPaste?: (value: string) => void;
+  /**
+   * Reports the result of the field's own format check. The check runs on blur, on paste, on a chain change,
+   * and when the form replaces the value while an error is shown. Focus and typing clear the error.
+   * A form that passes it explains the error itself, for example on its submit button, and the field only paints
+   * the address red. Without it, the field shows the error text.
+   */
   onError?: (hasError: boolean) => void;
   onClose: NoneToVoidFunction;
 }
@@ -112,6 +120,7 @@ function AddressInput({
   supportedChains,
   orderedAccountIds,
   validateAddress,
+  hasError,
   error,
   enterKeyHint,
   onInput,
@@ -131,7 +140,7 @@ function AddressInput({
 
   const [addressForDeletion, setAddressForDeletion] = useState<string | undefined>();
   const [chainForDeletion, setChainForDeletion] = useState<ApiChain | undefined>();
-  const [localError, setLocalError] = useState<string | undefined>(undefined);
+  const [hasLocalError, setHasLocalError] = useState(false);
 
   const [isAddressBookOpen, openAddressBook, closeAddressBook] = useFlag();
   const [isFocused, markFocused, unmarkFocused] = useFlag();
@@ -178,6 +187,7 @@ function AddressInput({
 
   const handleAddressBookItemSelect = useLastCallback((address: string) => {
     isAddressBookSelectionRef.current = true;
+    changeError(false);
     onInput(address, true);
     onPaste?.(address);
     closeAddressBook();
@@ -199,6 +209,9 @@ function AddressInput({
     `.${SUGGESTION_ITEM_CLASS_NAME}`,
   );
 
+  const isLocalErrorExplainedByForm = Boolean(onError);
+  const hasValueError = (hasLocalError && isLocalErrorExplainedByForm) || hasError;
+  const localErrorText = hasLocalError && !isLocalErrorExplainedByForm ? lang('Incorrect address') : undefined;
   const withPasteButton = shouldRenderPasteButton && !value;
   const withQrButton = withQrScan && isQrScannerSupported;
   const withButton = (withQrButton || withPasteButton || !!value.length) && !isReadonly;
@@ -219,6 +232,19 @@ function AddressInput({
     // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
   }, [chain]);
 
+  // The form can replace the value without the user, for example by clearing itself or applying a scanned QR code.
+  // A shown error must describe the current value, so it is checked again.
+  useEffect(() => {
+    if (!hasLocalError) return;
+
+    if (value) {
+      handleAddressErrorCheck(value);
+    } else {
+      changeError(false);
+    }
+    // eslint-disable-next-line react-hooks-static-deps/exhaustive-deps
+  }, [value]);
+
   const addressOverlay = useMemo(() => {
     if (!address) return undefined;
     const renderedAddressName = localAddressName || addressName;
@@ -237,9 +263,9 @@ function AddressInput({
     );
   }, [address, localAddressName, addressName]);
 
-  function changeError(errorMessage: string | undefined) {
-    setLocalError(errorMessage);
-    onError?.(Boolean(errorMessage));
+  function changeError(hasNewError: boolean) {
+    setHasLocalError(hasNewError);
+    onError?.(hasNewError);
   }
 
   const handlePasteClick = useLastCallback(async () => {
@@ -297,18 +323,12 @@ function AddressInput({
     } else if (shouldValidateAllChains) {
       isAddressValid = getSupportedChains().some((c) => isValidAddressOrDomain(address, c));
     }
-    const hasAddressError = isAddressValid !== undefined && address.length > 0 && !isAddressValid;
-
-    if (hasAddressError) {
-      changeError(lang('Incorrect address'));
-    } else {
-      changeError(undefined);
-    }
+    changeError(isAddressValid !== undefined && address.length > 0 && !isAddressValid);
   }
 
   const handleAddressFocus = useLastCallback(() => {
     markFocused();
-    setLocalError(undefined);
+    changeError(false);
 
     if (shouldUseAddressBook) {
       // Simultaneous opening of the virtual keyboard and display of Saved Addresses causes animation degradation
@@ -349,7 +369,7 @@ function AddressInput({
 
   function hanldeInputChange(value: string) {
     onInput(value);
-    changeError(undefined);
+    changeError(false);
   }
 
   const handleAddressPaste = useLastCallback((event: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -364,7 +384,7 @@ function AddressInput({
   const handleAddressClear = useLastCallback(() => {
     onInput('');
     handleAddressValidate();
-    changeError(undefined);
+    changeError(false);
   });
 
   const handleAddressBookClose = useLastCallback(() => {
@@ -444,10 +464,12 @@ function AddressInput({
         label={label}
         placeholder={lang('Wallet address or domain')}
         value={value}
-        error={localError || error}
+        hasValueError={hasValueError}
+        error={localErrorText || error}
         autoCorrect={false}
         enterKeyHint={enterKeyHint}
-        valueOverlay={!localError ? addressOverlay : undefined}
+        // The overlay shows a shortened address in neutral colors, so an invalid value goes without it
+        valueOverlay={!hasLocalError && !hasError ? addressOverlay : undefined}
         onInput={hanldeInputChange}
         onPaste={handleAddressPaste}
         onKeyDown={handleKeyDown}

@@ -1,5 +1,10 @@
 @use "../../styles/mixins";
 
+@use "agentMenu";
+
+// Bold 17/24, as in the design
+$titleLineHeight: 1.5rem;
+
 .header {
   position: absolute !important;
   z-index: 3;
@@ -7,42 +12,140 @@
   inset-inline-start: 0;
 
   display: grid;
-  grid-template-columns: 1fr max-content 1fr;
+  // Equal side columns keep the title centered whether or not the side buttons are shown; a long title shrinks, and
+  // never under the Back button, whose column is at least as wide as its label
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(2.75rem, 1fr);
   align-items: center;
-  justify-items: end;
 
   width: 100%;
-  padding: calc(var(--header-padding-top) + 0.3125rem) 1rem var(--header-padding-bottom);
-  border-radius: var(--border-radius-default) var(--border-radius-default) 0 0;
+  height: calc(var(--header-padding-top) + var(--header-title-height));
+  padding: var(--header-padding-top) 0.375rem 0;
 
-  font-size: 1.0625rem;
-  font-weight: 700;
-  line-height: 1.0625rem;
-
-  background-color: var(--color-background-first);
-  backdrop-filter: var(--filter-blur-bar);
-
-  :global(html.theme-dark) & {
-    background-color: var(--color-background-window);
-  }
+  background-color: var(--agent-background);
+  // A 0.4 px line under the header, always shown, over a 40 px blur, as in the design
+  backdrop-filter: blur(2.5rem);
+  box-shadow: 0 0.025rem 0 0 var(--color-separator-tab-bar);
 
   @include mixins.transition(background-color 300ms);
 
   &:global(.is-scrolled) {
     @supports (backdrop-filter: saturate(180%) blur(20px)) {
-      background-color: var(--color-background-first-blur) !important;
+      background-color: var(--agent-background-blur) !important;
     }
+  }
+
+  @include mixins.respond-above(xs) {
+    // The header has square corners: the card alone rounds them in the wide layout, clipping the header with what
+    // scrolls under it, so that no second rounded edge lets that show along the corners
+    box-shadow: 0 0.025rem 0 0 var(--color-separator);
+  }
+}
+
+// The wallet's back button: its chevron and "Back", in the accent color, at every width
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding-block: 0;
+  padding-inline: 0.125rem 0.5rem;
+  border-radius: 0.625rem;
+
+  font-size: 0.9375rem;
+  color: var(--color-accent);
+  white-space: nowrap;
+
+  @include mixins.transition("color 150ms, opacity 250ms ease, transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1)");
+
+  // It grows out of a fifth of its size and fades, as the glass buttons on mobile
+  &:global(.not-open) {
+    pointer-events: none;
+    transform: scale(0.2);
+    opacity: 0;
+  }
+
+  @include mixins.respond-above(xs) {
+    // On a desktop it is 36 px tall, as the header's other buttons
+    height: 2.25rem;
+  }
+}
+
+.backIcon {
+  font-size: 1.5rem;
+
+  @include mixins.rtl-mirror();
+}
+
+.titleTransition {
+  // The old and the new title share one place while they slide, so the place keeps the wider one's width rather
+  // than collapsing under two absolutely placed slides. The place is the title's own line, so a title comes in and
+  // goes within it, clear of the header's edges. A title wider than the place ends in an ellipsis.
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+
+  width: auto;
+  height: $titleLineHeight;
+}
+
+.titleSlide {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+
+  // The slides share the grid's one cell in place of the absolute placement every slide gets
+  &:global(.Transition_slide) {
+    position: relative;
+    grid-area: 1 / 1;
   }
 }
 
 .headerTitle {
   display: flex;
+  gap: 0.375rem;
+  align-items: center;
   justify-content: center;
 
+  min-width: 0;
   padding: 0 0.5rem;
 
-  line-height: var(--header-title-height);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: $titleLineHeight;
   color: var(--color-black);
+
+  @include mixins.respond-above(xs) {
+    font-size: 1rem;
+  }
+}
+
+.titleIcon {
+  flex-shrink: 0;
+  font-weight: 400;
+}
+
+.titleText {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menuCell {
+  justify-self: end;
+
+  @include mixins.respond-above(xs) {
+    // The dots are centered 24 px from the card's edge, inside their column, so the title stays centered on the card
+    margin-inline-end: 0.375rem;
+  }
+
+  // A pushed chat's dots do not slide in with it: they fade in where they stand once it has landed, as iOS fades the
+  // buttons of a navigation bar
+  :global(.Transition-slideLayers) :global(.Transition_slide-to) & {
+    opacity: 0;
+  }
 }
 
 .menuButton {
@@ -50,13 +153,25 @@
   align-items: center;
   justify-content: center;
 
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
 
   font-size: 1rem;
   color: var(--color-accent);
 
-  @include mixins.respond-below(xs) {
-    height: var(--header-title-height);
+  @include mixins.respond-above(xs) {
+    // On a desktop the dots stand 24 px in from the card's edge, in a 24 × 36 button, as in the design
+    width: 1.5rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
   }
+}
+
+// The chat menu hangs 12 px in from the screen's end, over the header's last 10 px, as in the design
+.menu {
+  --offset-x-value: 0;
+  --offset-y-value: 0;
+
+  @include agentMenu.look;
 }

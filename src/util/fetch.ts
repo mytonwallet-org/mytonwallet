@@ -267,11 +267,10 @@ export function fetchWithTimeout(
 
 export async function handleFetchErrors(response: Response, ignoreHttpCodes?: number[]) {
   if (!response.ok && (!ignoreHttpCodes?.includes(response.status))) {
-    // eslint-disable-next-line prefer-const
-    let { error, errors } = await response.json().catch(() => undefined);
-    if (!error && errors && errors.length) {
-      error = errors[0]?.msg;
-    }
+    // Error pages served by proxies and frameworks are often not JSON.
+    const body: { error?: string; errors?: { msg?: string }[] } | undefined = await response.json()
+      .catch(() => undefined);
+    const error = body?.error || body?.errors?.[0]?.msg;
 
     throw new ApiServerError(error ?? `HTTP Error ${response.status}`, response.status);
   }

@@ -1,0 +1,135 @@
+name: iOS tests
+
+# A full run takes about 20 minutes of the macOS runner, which the organization's Actions budget cannot afford on
+# every pull request or merge. Run it from the Actions tab for the branch to check.
+on:
+  workflow_dispatch:
+
+jobs:
+  ios-tests:
+    name: ios-tests
+    # This smaller runner also provides Xcode 27.1 in test.yml.
+    runs-on: xcode-27
+    timeout-minutes: 30
+    concurrency:
+      group: ios-tests-${{ github.ref }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      SPM_PACKAGES_PATH: ${{ github.workspace }}/.swift-packages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify Xcode 27.1 toolchain
+        run: |
+          if [ ! -d "$DEVELOPER_DIR" ]; then
+            echo "::error::Xcode 27.1 is missing from this runner image: $DEVELOPER_DIR"
+            exit 1
+          fi
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          if [ "$sdk" != "27.1" ]; then
+            echo "::error::Expected iOS Simulator SDK 27.1, found $sdk"
+            exit 1
+          fi
+
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate localizations and prepare package
+        run: |
+          python3 -m pip install -r mobile/ios/Air/scripts/strings/requirements.txt
+          python3 mobile/ios/Air/scripts/strings/import_localizations.py
+
+          # An empty generated project takes precedence over Package.swift.
+          project=mobile/ios/Air/MyTonWalletAir.xcodeproj
+          if [ -d "$project" ] && [ ! -f "$project/project.pbxproj" ]; then
+            mv "$project" "$RUNNER_TEMP/MyTonWalletAir.xcodeproj"
+          fi
+
+      - name: Restore resolved Swift packages
+        id: spm-cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.SPM_PACKAGES_PATH }}
+          key: ios-tests-spm-xcode27.1-${{ hashFiles('mobile/ios/**/Package.resolved') }}
+          restore-keys: |
+            ios-tests-spm-xcode27.1-
+
+      - name: Resolve Swift packages
+        id: spm-resolve
+        working-directory: mobile/ios/Air
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme AirModules-Package \
+            -clonedSourcePackagesDirPath "$SPM_PACKAGES_PATH" \
+            -skipMacroValidation -skipPackagePluginValidation
+
+      # Save immediately after resolution so a failing test still warms the cache.
+      - name: Save resolved Swift packages
+        if: steps.spm-resolve.outcome == 'success' && steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.SPM_PACKAGES_PATH }}
+          key: ios-tests-spm-xcode27.1-${{ hashFiles('mobile/ios/**/Package.resolved') }}
+
+      # PrivateAPITests checks that the private UIKit and Core Animation names
+      # still resolve on the runner's iOS.
+      - name: Run unit tests
+        working-directory: mobile/ios/Air
+        run: |
+          # The simulator runs the iOS version of the SDK the tests are built with
+          SDK_VERSION=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          SIMULATOR_ID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          runtime = "com.apple.CoreSimulator.SimRuntime.iOS-" + sys.argv[1].replace(".", "-")
+          for device in json.load(sys.stdin)["devices"].get(runtime, []):
+              if device["name"].startswith("iPhone"):
+                  print("Using", device["name"], "on", runtime, file=sys.stderr)
+                  print(device["udid"])
+                  sys.exit(0)
+          sys.exit("No available iPhone simulator on " + runtime)
+          ' "$SDK_VERSION")
+          echo "Using iOS simulator: $SIMULATOR_ID"
+
+          # The UI tests wait on main-thread layout and animation frames, which a busy runner can stall; a failed
+          # test runs once more before the job fails
+          xcodebuild test \
+            -scheme AirModules-Package \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -clonedSourcePackagesDirPath "$SPM_PACKAGES_PATH" \
+            -skipMacroValidation -skipPackagePluginValidation \
+            -retry-tests-on-failure -test-iterations 2 \
+            -only-testing:UIAgentTests \
+            -only-testing:UIComponentsTests \
+            -only-testing:WalletContextTests \
+            -only-testing:AirAsFrameworkTests \
+            -only-testing:AirSearchIntegrationTests \
+            -only-testing:UniversalSearchCoreTests \
+            -only-testing:UniversalSearchWalletCoreTests \
+            -only-testing:UniversalSearchFeatureTests \
+            -only-testing:UITransactionTests \
+            -only-testing:UISendTests \
+            -only-testing:UICreateWalletTests \
+            -only-testing:UIPortfolioTests \
+            -only-testing:ProtectedActionTests \
+            -only-testing:UIProtectedActionTests \
+            -only-testing:UIAssetsTests \
+            -only-testing:WalletCoreTests \
+            -only-testing:UIHomeTests \
+            -only-testing:UIDappTests \
+            -only-testing:UISettingsTests \
+            -only-testing:UIComponentsIntegrationTests \
+            -only-testing:UITokenTests \
+            -only-testing:UISwapTests

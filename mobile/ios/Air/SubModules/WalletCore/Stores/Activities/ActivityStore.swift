@@ -153,13 +153,17 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     private var isProcessingEvents = false
     
     private var notifiedIds: Set<String> = []
+    private let fetchPastActivities: @Sendable (String, Int, String?, Int64?) async throws -> ApiActivitySliceResult
     
     private var lastApplicationWillEnterForeground: Date
     private var timeSinceLastApplicationWillEnterForeground: Double { Date.now.timeIntervalSince(lastApplicationWillEnterForeground)}
     
     // MARK: - Event handling
     
-    init() {
+    init(fetchPastActivities: @escaping @Sendable (String, Int, String?, Int64?) async throws -> ApiActivitySliceResult = {
+        try await Api.fetchPastActivities(accountId: $0, limit: $1, tokenSlug: $2, toTimestamp: $3)
+    }) {
+        self.fetchPastActivities = fetchPastActivities
         // event observer will be added after cache is loaded
         lastApplicationWillEnterForeground = .now
     }
@@ -474,7 +478,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         
         var hasMore = true
         while hasMore {
-            let result = try await Api.fetchPastActivities(accountId: accountId, limit: limit, tokenSlug: token.slug, toTimestamp: toTimestamp)
+            let result = try await fetchPastActivities(accountId, limit, token.slug, toTimestamp)
             guard shouldHandleActivities(accountId: accountId) else { return }
             let activities = result.activities
             let apiHasMore = result.hasMore

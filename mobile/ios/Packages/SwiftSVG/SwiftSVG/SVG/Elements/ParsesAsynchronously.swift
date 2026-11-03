@@ -50,6 +50,7 @@ protocol CanManageAsychronousParsing {
  A protocol describing an instance that parses asynchronously
  */
 protocol ParsesAsynchronously {
+    var shouldParseAsynchronously: Bool { get set }
     /**
      The delegate instance that can manage asynchronous parsing
      */

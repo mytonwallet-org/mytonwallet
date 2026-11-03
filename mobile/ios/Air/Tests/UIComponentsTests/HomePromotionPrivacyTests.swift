@@ -25,6 +25,15 @@ struct HomePromotionPrivacyTests {
         #expect(banner.textValues?["%amount%"] == "12345.67")
     }
 
+    @Test func foreignStakingDescriptionShowsItsSymbol() {
+        let text = banner(amount: "12").localized(
+            "Unlock your %symbol% to access higher-yield staking.",
+            isSensitiveDataHidden: false
+        )
+        #expect(text.contains("TON"))
+        #expect(!text.contains("%"))
+    }
+
     @Test func hiddenPromotionsRenderIdenticallyForDifferentBalances() throws {
         let db = try DatabaseQueue()
         try makeMigrator().migrate(db)
@@ -57,7 +66,7 @@ struct HomePromotionPrivacyTests {
 
     private func banner(amount: String) -> ApiPromotion.InfoBanner {
         .init(
-            title: "🔒 %amount% %symbol% locked in another staking",
+            title: "🔒 %amount% %symbol% staked elsewhere",
             description: "%amount% %symbol%",
             actionButton: .init(title: "%amount% %symbol%", onClickAction: .unstakeForeign, chain: .ton),
             textValues: ["%amount%": amount, "%symbol%": "TON"]

@@ -29,6 +29,8 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiForeignUnstakeDraft
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
@@ -95,6 +97,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     lateinit var tokenBalance: BigInteger
 
     var isInputListenerLocked = false
+    private var restakeAmount: BigInteger? = null
 
     //
     var accountId = AccountStore.activeAccountId
@@ -145,6 +148,39 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
         val amountInBaseCurrency: BigInteger?
     )
 
+    fun onForeignUnstakeCompleted(accountId: String, chain: String, draft: ApiForeignUnstakeDraft) {
+        if (!draft.isInstant || !isStake() ||
+            AccountStore.activeAccountId != accountId || this.accountId != accountId ||
+            tokenSlug != MBlockchain.valueOfOrNull(chain)?.nativeSlug
+        ) {
+            return
+        }
+        restakeAmount = draft.amountNative
+        applyRestakeAmount()
+    }
+
+    fun clearRestakeAmount() {
+        restakeAmount = null
+    }
+
+    private fun applyRestakeAmount() {
+        val amountInCrypto = (restakeAmount ?: return).min(tokenBalance)
+            .takeIf { it > BigInteger.ZERO }
+        isInputListenerLocked = true
+        _inputStateFlow.tryEmit(
+            inputStateValue().copy(
+                amountInCrypto = amountInCrypto,
+                amountInBaseCurrency = PriceConversionUtils.convertTokenToBaseCurrency(
+                    amountInCrypto ?: BigInteger.ZERO,
+                    currentToken.decimals,
+                    tokenPrice,
+                    WalletCore.baseCurrency.decimalsCount
+                )
+            )
+        )
+        updateViewStateOnInputChanged()
+    }
+
     //
     fun onAmountInputChanged(inputAmount: CharSequence?) {
         val state = inputStateValue()
@@ -184,6 +220,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     }
 
     fun onEquivalentClicked() {
+        clearRestakeAmount()
         val isInputCurrencyCrypto = inputStateValue().isInputCurrencyCrypto
 
         isInputListenerLocked = true
@@ -596,6 +633,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
             WalletEvent.BalanceChanged,
             WalletEvent.TokensChanged,
             WalletEvent.BaseCurrencyChanged -> {
+                if (accountId != AccountStore.activeAccountId) clearRestakeAmount()
                 accountId = AccountStore.activeAccountId
                 updateBalance()
                 currentToken =
@@ -603,6 +641,11 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                         ?: currentToken
                 tokenPrice = TokenStore.getToken(tokenSlug)?.price
                 _walletStateFlow.value = createWalletState()
+
+                if (restakeAmount != null) {
+                    applyRestakeAmount()
+                    return
+                }
 
                 val amountInCrypto = inputStateValue().amountInCrypto ?: run {
                     updateViewStateOnInputChanged()

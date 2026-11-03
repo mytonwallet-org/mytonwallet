@@ -1012,6 +1012,18 @@ class ActivityListView<T>(
         }
         view.updateActions(AccountStore.accountById(showingAccountId))
         view.updateTheme()
+        applyTabletActionsAlpha()
+    }
+
+    var tabletActionsAlpha = 1f
+        set(value) {
+            field = value
+            applyTabletActionsAlpha()
+        }
+
+    private fun applyTabletActionsAlpha() {
+        val isViewOnly = AccountStore.accountById(showingAccountId)?.isViewOnly == true
+        tabletActionsView?.alpha = if (isViewOnly) 0f else tabletActionsAlpha
     }
 
     fun updateActionsView() {

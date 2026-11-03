@@ -292,9 +292,8 @@ class NftDetailsItemPreview: UIView, NftDetailsFullScreenOverlayContent {
         liveBlurDisplayLink?.invalidate()
         // Capture after Core Animation has committed the first displayed frame.
         // Rendering the uncommitted model tree can contain opaque black tiles.
-        let link = CADisplayLink(target: NftLiveBlurTarget(owner: self), selector: #selector(NftLiveBlurTarget.tick))
+        let link = CADisplayLink.makeWeak(owner: self) { owner, _ in owner.refreshAnimatedBlur() }
         link.preferredFramesPerSecond = 30
-        link.add(to: .main, forMode: .common)
         liveBlurDisplayLink = link
     }
 
@@ -451,15 +450,5 @@ extension NftDetailsItemPreview: NftDetailsLottieViewerDelegate {
         liveBlurDisplayLink = nil
         model?.liveAtmosphereImage = nil
         NftDetailsLottieViewer.runDefaultFadeInUnderlay(viewer: viewer, imageView: imageContainer, finished: finished)
-    }
-}
-
-@MainActor
-private final class NftLiveBlurTarget: NSObject {
-    weak var owner: NftDetailsItemPreview?
-    init(owner: NftDetailsItemPreview) { self.owner = owner }
-    @objc func tick(_ link: CADisplayLink) {
-        guard let owner else { link.invalidate(); return }
-        owner.refreshAnimatedBlur()
     }
 }

@@ -134,7 +134,7 @@ public class NftDetailsBaseVC: WViewController, ContentOverlayAppearanceProvidin
     private let backgroundView: Background.View
     private let contentContainer = UIView()
     private lazy var inlinePinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handleInlinePinch(_:)))
-    private let pinchTouchGuard = NftDetailsPinchTouchGuard()
+    private let pinchTouchGuard = PinchTouchGuard()
     private var gesturesSuspendedForPinch: [UIGestureRecognizer] = []
     private var isPinchInteractionActive: Bool {
         pinchTouchGuard.isClaimed || headerView?.isInlineZoomActive == true
@@ -154,7 +154,6 @@ public class NftDetailsBaseVC: WViewController, ContentOverlayAppearanceProvidin
     private var clearNavigationButton: UIButton?
     private var navigationButtonIsModalRoot: Bool?
     private var navigationContrastLink: CADisplayLink?
-    private lazy var navigationContrastTarget = NftNavigationContrastTarget(owner: self)
     private weak var previousPopGestureDelegate: UIGestureRecognizerDelegate?
     private weak var previousContentPopGestureDelegate: UIGestureRecognizerDelegate?
     private var hasCustomBackGestureDelegates = false
@@ -496,10 +495,10 @@ public class NftDetailsBaseVC: WViewController, ContentOverlayAppearanceProvidin
         super.viewDidAppear(animated)
         setLottiePlaybackEnabled(true)
         if clearNavigationButton != nil, navigationContrastLink == nil {
-            let link = CADisplayLink(target: navigationContrastTarget, selector: #selector(NftNavigationContrastTarget.tick))
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
-            link.add(to: .main, forMode: .common)
-            navigationContrastLink = link
+            navigationContrastLink = .makeWeak(
+                owner: self,
+                frameRateRange: CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+            ) { owner, _ in owner.updateClearNavigationButtonColor() }
         }
     }
 
@@ -1107,11 +1106,4 @@ extension NftDetailsBaseVC: UIGestureRecognizerDelegate {
         // eligible; the touch guard cancels that pan as soon as the second lands.
         gestureRecognizer === inlinePinchGesture && otherGestureRecognizer is UIPanGestureRecognizer
     }
-}
-
-@MainActor
-private final class NftNavigationContrastTarget: NSObject {
-    weak var owner: NftDetailsBaseVC?
-    init(owner: NftDetailsBaseVC) { self.owner = owner }
-    @objc func tick() { owner?.updateClearNavigationButtonColor() }
 }

@@ -15,6 +15,8 @@ public class IntroVC: CreateWalletBaseVC {
 
     let introModel: IntroModel
     private let showsCloseButton: Bool
+
+    public override var hideNavigationBar: Bool { !showsCloseButton }
     
     public init(introModel: IntroModel, showsCloseButton: Bool = false) {
         self.introModel = introModel

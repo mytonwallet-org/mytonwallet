@@ -8,6 +8,12 @@ import { pause } from '../../util/schedulers';
 
 import MessageBubble from './MessageBubble';
 
+const mockShowToast = jest.fn();
+
+jest.mock('../../global', () => {
+  const actual = jest.requireActual('../../global');
+  return { ...actual, getActions: () => ({ ...actual.getActions(), showToast: mockShowToast }) };
+});
 jest.mock('../../util/clipboard', () => ({ copyTextToClipboard: jest.fn() }));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
@@ -64,6 +70,8 @@ describe('copying Agent answers', () => {
 
     const tableText = 'Partial data\n\nAsset\tValue\nA & B_[token]\t123456789.000000001 TON';
     expect(copyTextToClipboard).toHaveBeenCalledWith(text ? `🪙\n\n\n\n${tableText}\n\nAfter` : `\n\n${tableText}\n\n`);
+    await pause(0);
+    expect(mockShowToast).toHaveBeenCalledWith({ message: 'Message Copied', icon: 'icon-copy' });
   });
 
   it('offers a finished answer for a problem report, but not one still being written', async () => {
@@ -90,5 +98,42 @@ describe('copying Agent answers', () => {
     (await openMenu(false)).find((button) => button.textContent === 'Report a Problem')!.click();
 
     expect(onReport).toHaveBeenCalledWith(7);
+  });
+
+  it('offers to answer again after Copy for a finished answer it may regenerate', async () => {
+    const onRegenerate = jest.fn();
+    const message: AgentMessage = {
+      id: 9, text: 'TON is up 3%', timestamp: 0, isOutgoing: false,
+    };
+
+    async function openMenu(props: { isStreaming?: boolean; canRegenerate: boolean }) {
+      TeactDOM.render(
+        <MessageBubble
+          message={{ ...message, isStreaming: props.isStreaming }}
+          isDisabled={false}
+          onRegenerate={props.canRegenerate ? onRegenerate : undefined}
+        />,
+        root,
+      );
+      await pause(20);
+      root.querySelector('[data-agent-v2-message-id="9"] [data-agent-static-text]')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+      await pause(20);
+      return Array.from(document.querySelectorAll('button'));
+    }
+
+    expect((await openMenu({ canRegenerate: false })).map((button) => button.textContent))
+      .not.toContain('Regenerate');
+    expect((await openMenu({ canRegenerate: true, isStreaming: true })).map((button) => button.textContent))
+      .not.toContain('Regenerate');
+    const buttons = await openMenu({ canRegenerate: true });
+    const labels = buttons.map((button) => button.textContent);
+    expect(labels.indexOf('Regenerate')).toBe(labels.indexOf('Copy') + 1);
+    buttons.find((button) => button.textContent === 'Regenerate')!.click();
+
+    // The answer is answered again once its menu has faded out
+    expect(onRegenerate).not.toHaveBeenCalled();
+    await pause(400);
+    expect(onRegenerate).toHaveBeenCalledWith(9);
   });
 });

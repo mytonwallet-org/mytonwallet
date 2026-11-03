@@ -1,0 +1,400 @@
+import {
+  BOX_HALF_EXTENT, buildAgentSpinningTopMesh, FLOATS_PER_VERTEX, RESTING_OFFSET_X, RESTING_OFFSET_Y,
+} from './agentSpinningTopGeometry';
+
+/** What one frame of a top draws */
+export interface AgentSpinningTopFrame {
+  /** Model to view, column-major */
+  rotation: Float32Array;
+  /** The model's origin, the top's point, from the canvas's center in pixels, y up */
+  originX: number;
+  originY: number;
+  pixelsPerUnit: number;
+  /** How firmly the top is held, 0…1: held, it turns clearer and its highlights stronger */
+  strength: number;
+  isDark: boolean;
+  /** The color behind the top, as sRGB components 0…1 */
+  backdrop: readonly [number, number, number];
+}
+
+/**
+ * How finely the surface is drawn: a resting top is at most a few dozen pixels high, the held one three times larger,
+ * with as many rings and segments as on iOS and Android
+ */
+export type AgentSpinningTopDetail = 'resting' | 'held';
+
+interface MeshBuffers {
+  vertexArray: WebGLVertexArrayObject;
+  indexCount: number;
+}
+
+interface RendererState {
+  canvas: HTMLCanvasElement;
+  gl: WebGL2RenderingContext;
+  program: WebGLProgram;
+  meshes: Partial<Record<AgentSpinningTopDetail, MeshBuffers>>;
+  locations: Record<'rotation' | 'placement' | 'size' | 'material' | 'boxCenter' | 'backdrop', WebGLUniformLocation>;
+}
+
+const POSITION_ATTRIBUTE = 0;
+const NORMAL_ATTRIBUTE = 1;
+const HIGHLIGHT_BOOST = 0.25;
+const MESH_RESOLUTION: Record<AgentSpinningTopDetail, [profileSamples: number, segments: number]> = {
+  resting: [64, 48],
+  held: [160, 144],
+};
+// The tops use a lower frame rate while drawing takes longer than this frame budget
+const SLOW_FRAME_MS = 6;
+const SLOW_FRAME_SAMPLES = 12;
+const SLOW_FRAME_SMOOTHING = 0.2;
+// The first frames compile the shaders on the graphics processor, which takes a while once
+const WARM_UP_FRAMES = 4;
+
+let state: RendererState | undefined;
+let hasFailed = false;
+let frameTimeAverage: number | undefined;
+let frameTimeSamples = 0;
+let warmUpFramesLeft = WARM_UP_FRAMES;
+let isMeshBuiltInFrame = false;
+const failureListeners = new Set<NoneToVoidFunction>();
+
+/**
+ * Whether tops can draw in 3D here. Every top draws with one WebGL2 context, each into its own canvas, so that any
+ * number of them stays within the browser's limit of contexts.
+ */
+export function getIsAgentSpinningTopRendererAvailable() {
+  return Boolean(prepareRenderer());
+}
+
+/** Called once the context is lost or the device turns out unable to draw the top; tops draw the flat mark then */
+export function subscribeToAgentSpinningTopFailure(listener: NoneToVoidFunction) {
+  failureListeners.add(listener);
+  return () => {
+    failureListeners.delete(listener);
+  };
+}
+
+/** Reports whether drawing the tops stays above the frame budget */
+export function reportAgentSpinningTopFrameTime(milliseconds: number) {
+  const isMeshBuilt = isMeshBuiltInFrame;
+  isMeshBuiltInFrame = false;
+  if (hasFailed || isMeshBuilt) return;
+  if (warmUpFramesLeft > 0) {
+    warmUpFramesLeft -= 1;
+    return;
+  }
+
+  frameTimeAverage = frameTimeAverage === undefined
+    ? milliseconds
+    : frameTimeAverage + (milliseconds - frameTimeAverage) * SLOW_FRAME_SMOOTHING;
+  frameTimeSamples += 1;
+  return frameTimeSamples >= SLOW_FRAME_SAMPLES && frameTimeAverage > SLOW_FRAME_MS;
+}
+
+/**
+ * Draws `frame` into `target`, a 2D canvas, sized in device pixels. What is behind the glass is taken as the flat
+ * color behind the top: over that color the glass shows as iOS shows it over its captured backdrop.
+ */
+export function drawAgentSpinningTop(
+  target: HTMLCanvasElement,
+  frame: AgentSpinningTopFrame | undefined,
+  detail: AgentSpinningTopDetail = 'resting',
+) {
+  const context = target.getContext('2d');
+  const { width, height } = target;
+  if (!context || !width || !height) return;
+
+  context.clearRect(0, 0, width, height);
+  const renderer = frame ? prepareRenderer() : undefined;
+  const mesh = renderer && prepareMesh(renderer, detail);
+  if (!frame || !renderer || !mesh || frame.pixelsPerUnit <= 0) return;
+
+  const { canvas, gl, program, locations } = renderer;
+  const { vertexArray, indexCount } = mesh;
+  // The shared canvas only grows, so that tops of different sizes do not reallocate it on every frame
+  if (canvas.width < width || canvas.height < height) {
+    canvas.width = Math.max(canvas.width, width);
+    canvas.height = Math.max(canvas.height, height);
+  }
+
+  gl.viewport(0, 0, width, height);
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(0, 0, width, height);
+  gl.clearColor(0, 0, 0, 0);
+  gl.depthMask(true);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  gl.useProgram(program);
+  gl.uniformMatrix4fv(locations.rotation, false, frame.rotation);
+  gl.uniform3f(locations.placement, width / 2 + frame.originX, height / 2 + frame.originY, frame.pixelsPerUnit);
+  gl.uniform2f(locations.size, width, height);
+  gl.uniform3f(locations.material, frame.strength, frame.isDark ? 1 : 0, HIGHLIGHT_BOOST * frame.strength);
+  gl.uniform2f(locations.boxCenter, -RESTING_OFFSET_X, -RESTING_OFFSET_Y);
+  gl.uniform3f(locations.backdrop, frame.backdrop[0], frame.backdrop[1], frame.backdrop[2]);
+  gl.bindVertexArray(vertexArray);
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LESS);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.CULL_FACE);
+  gl.frontFace(gl.CCW);
+  // The mesh is closed and wound counter-clockwise from outside. The hollow shell draws its back wall first, seen
+  // from inside, then its front wall over it; the depth test keeps the nearest of each.
+  for (const culledFace of [gl.FRONT, gl.BACK]) {
+    gl.cullFace(culledFace);
+    gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_INT, 0);
+  }
+  // eslint-disable-next-line no-null/no-null
+  gl.bindVertexArray(null);
+
+  // The drawing is still in the shared canvas's buffer within this task; its rows start at the bottom
+  context.drawImage(canvas, 0, canvas.height - height, width, height, 0, 0, width, height);
+}
+
+/** Pixels per model unit of a top whose box is a square of `side` pixels */
+export function getAgentSpinningTopUnit(side: number) {
+  return side / 2 / BOX_HALF_EXTENT;
+}
+
+function prepareRenderer() {
+  if (state || hasFailed) return state;
+  if (typeof WebGL2RenderingContext === 'undefined') {
+    hasFailed = true;
+    return undefined;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const gl = canvas.getContext('webgl2', {
+    alpha: true,
+    antialias: true,
+    depth: true,
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: false,
+    powerPreference: 'low-power',
+    // Without a usable GPU, the browser renders WebGL on the CPU, which the frame timing does not see
+    failIfMajorPerformanceCaveat: true,
+  });
+  const prepared = gl ? prepareResources(canvas, gl) : undefined;
+  if (!prepared) {
+    fail();
+    return undefined;
+  }
+
+  canvas.addEventListener('webglcontextlost', fail);
+  state = prepared;
+  return state;
+}
+
+function fail() {
+  if (hasFailed) return;
+
+  hasFailed = true;
+  state = undefined;
+  failureListeners.forEach((listener) => listener());
+}
+
+function prepareResources(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext): RendererState | undefined {
+  const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  const program = gl.createProgram();
+  if (!vertexShader || !fragmentShader || !program) return undefined;
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.bindAttribLocation(program, POSITION_ATTRIBUTE, 'aPosition');
+  gl.bindAttribLocation(program, NORMAL_ATTRIBUTE, 'aNormal');
+  gl.linkProgram(program);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    return undefined;
+  }
+
+  const getLocation = (name: string) => gl.getUniformLocation(program, name);
+  const rotation = getLocation('uRotation');
+  const placement = getLocation('uPlacement');
+  const size = getLocation('uSize');
+  const material = getLocation('uMaterial');
+  const boxCenter = getLocation('uBoxCenter');
+  const backdrop = getLocation('uBackdrop');
+  if (!rotation || !placement || !size || !material || !boxCenter || !backdrop) return undefined;
+
+  const renderer: RendererState = {
+    canvas,
+    gl,
+    program,
+    meshes: {},
+    locations: {
+      rotation, placement, size, material, boxCenter, backdrop,
+    },
+  };
+
+  return prepareMesh(renderer, 'resting') ? renderer : undefined;
+}
+
+// The held top's finer surface is built the first time a top is held
+function prepareMesh(renderer: RendererState, detail: AgentSpinningTopDetail) {
+  const cached = renderer.meshes[detail];
+  if (cached) return cached;
+
+  const { gl } = renderer;
+  isMeshBuiltInFrame = true;
+  const mesh = buildAgentSpinningTopMesh(...MESH_RESOLUTION[detail]);
+  const vertexArray = gl.createVertexArray();
+  const vertexBuffer = gl.createBuffer();
+  const indexBuffer = gl.createBuffer();
+  if (!vertexArray || !vertexBuffer || !indexBuffer) {
+    fail();
+    return undefined;
+  }
+
+  gl.bindVertexArray(vertexArray);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
+  const stride = FLOATS_PER_VERTEX * Float32Array.BYTES_PER_ELEMENT;
+  gl.enableVertexAttribArray(POSITION_ATTRIBUTE);
+  gl.vertexAttribPointer(POSITION_ATTRIBUTE, 3, gl.FLOAT, false, stride, 0);
+  gl.enableVertexAttribArray(NORMAL_ATTRIBUTE);
+  gl.vertexAttribPointer(NORMAL_ATTRIBUTE, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+  // eslint-disable-next-line no-null/no-null
+  gl.bindVertexArray(null);
+  if (gl.getError() !== gl.NO_ERROR) {
+    fail();
+    return undefined;
+  }
+
+  const buffers = { vertexArray, indexCount: mesh.indices.length };
+  renderer.meshes[detail] = buffers;
+  return buffers;
+}
+
+function compileShader(gl: WebGL2RenderingContext, type: number, source: string) {
+  const shader = gl.createShader(type);
+  if (!shader) return undefined;
+
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return undefined;
+  }
+
+  return shader;
+}
+
+const VERTEX_SHADER = `#version 300 es
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
+uniform mat4 uRotation;
+// xy: the model's origin in pixels, y up; z: pixels per model unit
+uniform vec3 uPlacement;
+uniform vec2 uSize;
+out vec3 vViewPosition;
+out vec3 vModelPosition;
+out vec3 vModelNormal;
+
+void main() {
+    vec3 viewPosition = (uRotation * vec4(aPosition, 1.0)).xyz;
+    vec2 pixel = uPlacement.xy + viewPosition.xy * uPlacement.z;
+    gl_Position = vec4(pixel / uSize * 2.0 - 1.0, -viewPosition.z * 0.5, 1.0);
+    vViewPosition = viewPosition;
+    vModelPosition = aPosition;
+    vModelNormal = aNormal;
+}
+`;
+
+const FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+uniform mat4 uRotation;
+// x: hold strength from 0 to 1; y: dark appearance; z: highlight boost
+uniform vec3 uMaterial;
+// The box's center relative to the model's origin, in view units
+uniform vec2 uBoxCenter;
+// The color behind the top
+uniform vec3 uBackdrop;
+in vec3 vViewPosition;
+in vec3 vModelPosition;
+in vec3 vModelNormal;
+out vec4 fragColor;
+
+vec3 computeGradient(float t) {
+    vec3 c0 = vec3(0.0, 0.533, 1.0);
+    vec3 c1 = vec3(0.0, 0.745, 1.0);
+    vec3 c2 = vec3(0.714, 0.337, 1.0);
+    return t < 0.476 ? mix(c0, c1, t / 0.476) : mix(c1, c2, (t - 0.476) / 0.524);
+}
+
+// A broad soft window above and a cool fill below, as a matte surface blurs them
+vec3 computeStudio(vec3 d) {
+    float window = smoothstep(0.2, 0.95, d.y) * (0.55 + 0.45 * smoothstep(-0.7, 0.5, -d.x));
+    float fill = smoothstep(-0.1, -0.9, d.y) * 0.2;
+    return vec3(1.0) * window + vec3(0.55, 0.75, 1.0) * fill;
+}
+
+// A hollow top of frosted glass with a colored coating sprayed on: thin where the shell faces the viewer, so what is
+// behind shows through tinted, dense where the shell turns away, and soft, matte highlights. The back wall draws
+// first, the front over it.
+void main() {
+    float strength = clamp(uMaterial.x, 0.0, 1.0);
+    bool isDark = uMaterial.y > 0.5;
+
+    // A smooth shell without facets. Soft twisted bands in the coating turn with the body and show the spin; they
+    // fade out toward the thin stem and the point, where they would flicker.
+    vec3 modelNormal = normalize(vModelNormal);
+    float radial = length(vModelPosition.xz);
+    float azimuth = atan(vModelPosition.z, vModelPosition.x);
+    float swirl = sin(2.0 * azimuth + vModelPosition.y * 4.0) * smoothstep(0.08, 0.3, radial);
+
+    vec3 outward = normalize((uRotation * vec4(modelNormal, 0.0)).xyz);
+    // The side of the shell that faces the viewer: the outside of the front wall, the inside of the back wall
+    vec3 n = gl_FrontFacing ? outward : -outward;
+    vec3 v = vec3(0.0, 0.0, 1.0);
+    float grazing = 1.0 - clamp(n.z, 0.0, 1.0);
+    float fresnel = pow(grazing, 2.2);
+
+    vec2 fromCenter = vViewPosition.xy - uBoxCenter;
+    float t = clamp(dot(fromCenter, vec2(0.96, -0.27)) * 0.55 + 0.5 + 0.07 * swirl, 0.0, 1.0);
+    vec3 base = computeGradient(t);
+    // The coating is a little uneven, as sprayed on
+    float coatDensity = 1.0 + 0.12 * swirl;
+
+    vec3 light = normalize(vec3(-0.45, 0.75, 0.5));
+    float diffuse = 0.7 + 0.3 * clamp(dot(n, light), 0.0, 1.0);
+    float halfway = clamp(dot(n, normalize(light + v)), 0.0, 1.0);
+    // Frosted glass scatters its highlights: wide and soft, no sharp glint
+    float sheen = (pow(halfway, 10.0) * 0.16 + pow(halfway, 36.0) * 0.12) * (1.0 + uMaterial.z);
+
+    if (!gl_FrontFacing) {
+        // The back wall, seen through the hollow: what is behind, tinted by the coating it passes, which gathers
+        // where the wall turns away, under a milky veil
+        float wall = mix(isDark ? 0.2 : 0.16, 0.55, fresnel) * coatDensity * mix(1.0, 0.7, strength);
+        vec3 wallColor = base * (isDark ? 0.78 : 0.9);
+        vec3 transmittance = mix(vec3(1.0), base, 0.55);
+        float veil = isDark ? 0.05 : 0.1;
+        vec3 transmitted = mix(uBackdrop * transmittance, vec3(isDark ? 0.75 : 1.0), veil);
+        vec3 seen = mix(transmitted, wallColor, wall);
+        // The share of what is behind that still shows: over the backdrop's color the wall shows exactly what is seen
+        float clearest = min(transmittance.r, min(transmittance.g, transmittance.b));
+        float clearness = (1.0 - wall) * (1.0 - veil) * clearest;
+        float opacity = 1.0 - clearness;
+        fragColor = vec4(clamp(seen - uBackdrop * clearness, 0.0, opacity), opacity);
+        return;
+    }
+
+    // The front wall: a thin colored coat over the hollow, denser toward the silhouette, with the matte sheen and a
+    // soft rim where the frosted surface scatters the light around it
+    vec3 coat = base * diffuse;
+    coat += computeStudio(reflect(-v, n)) * (0.06 + 0.22 * fresnel);
+    coat = mix(coat, vec3(1.0), fresnel * (isDark ? 0.18 : 0.24));
+    coat = clamp(coat + vec3(sheen), 0.0, 1.0);
+    float facing = mix(isDark ? 0.34 : 0.3, 0.16, strength);
+    float coverage = mix(facing, 0.82, smoothstep(0.05, 0.95, grazing));
+    float opacity = clamp(coverage * coatDensity + sheen, 0.0, 1.0);
+    fragColor = vec4(coat * opacity, opacity);
+}
+`;

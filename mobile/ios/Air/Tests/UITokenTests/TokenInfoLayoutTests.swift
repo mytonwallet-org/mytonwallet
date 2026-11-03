@@ -1,25 +1,221 @@
+import GRDB
 import SwiftUI
 import Testing
 import UIKit
 @testable import UIToken
-import WalletCore
+@testable import WalletCore
 import WalletResources
 
 @MainActor
-@Suite("Token Info Layout", .serialized)
+@Suite("Token Info Layout", .serialized, .settingsStoreIsolation)
 struct TokenInfoLayoutTests {
+    @Test(arguments: [1, 3, 4])
+    func `description toggle only occupies space when more than three lines are needed`(lines: Int) async throws {
+        try await withMarketDescription(Array(repeating: "A token description.", count: lines).joined(separator: "\n")) { cell, model, window in
+            let expectedHeight = CGFloat(42 + min(lines, 3) * 22 + (lines > 3 ? 22 : 0))
+            #expect(abs((cell.height ?? 0) - expectedHeight) < 1)
+            if lines > 3 {
+                model.requestToggle()
+                try await Task.sleep(for: .milliseconds(650))
+                window.layoutIfNeeded()
+                #expect(abs((cell.height ?? 0) - CGFloat(42 + lines * 22 + 22)) < 1)
+                model.requestToggle()
+                try await Task.sleep(for: .milliseconds(650))
+                #expect(abs((cell.height ?? 0) - expectedHeight) < 1)
+            }
+        }
+    }
+
     @Test
-    func `restored expanded cell fills its collection view allocation`() async throws {
+    func `description toggle follows width and content changes`() async throws {
+        try await withMarketDescription("A token description that fits in a few lines on a wide screen and wraps onto more lines on a narrow screen.") { cell, model, window in
+            #expect((cell.height ?? 0) <= 109)
+            cell.frame.size.width = 180
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(150))
+            #expect(abs((cell.height ?? 0) - 130) < 1)
+            cell.frame.size.width = 500
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(150))
+            #expect((cell.height ?? 0) <= 109)
+            model.configure(state: .details(ApiTokenDetails(
+                description: "Short description.", links: nil, marketCap: nil, circulatingSupply: nil,
+                totalSupply: nil, createdAt: nil, volume24h: nil
+            )))
+            cell.modelStateDidChange()
+            try await Task.sleep(for: .milliseconds(650))
+            #expect(abs((cell.height ?? 0) - 64) < 1)
+        }
+    }
+
+    private func withMarketDescription(_ text: String, body: (TokenInfoCell, TokenInfoModel, UIWindow) async throws -> Void) async throws {
         _ = WalletResourcesBundle.bundle.load()
         let model = TokenInfoModel(state: .details(ApiTokenDetails(
+            description: text, links: nil, marketCap: nil, circulatingSupply: nil,
+            totalSupply: nil, createdAt: nil, volume24h: nil
+        )), hasBalance: false)
+        let cell = TokenInfoCell(frame: CGRect(x: 16, y: 100, width: 370, height: 64))
+        let controller = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 550, height: 874))
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        controller.view.addSubview(cell)
+        cell.configure(model: model, onHeightChange: { [weak cell] in
+            guard let cell else { return }
+            cell.frame.size.height = cell.height ?? 0
+            cell.layoutIfNeeded()
+        }, onUserToggleAnimationChange: { _ in })
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
+        try await body(cell, model, window)
+    }
+
+    @Test
+    func `market info matches the Figma component dimensions`() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let db = try DatabaseQueue()
+        try makeMigrator().migrate(db)
+        SettingsStore.liveValue.use(db: db)
+        defer { SettingsStore.liveValue.clean() }
+        let links = try JSONDecoder().decode([ApiTokenDetails.Link].self, from: Data("""
+        [
+            {"kind":"website","title":"Website","url":"https://bitcoin.org"},
+            {"kind":"x","title":"X","url":"https://x.com/bitcoin"},
+            {"kind":"telegram","title":"Telegram","url":"https://t.me/bitcoin"},
+            {"kind":"aggregator","title":"CoinMarketCap","url":"https://coinmarketcap.com/currencies/bitcoin/"}
+        ]
+        """.utf8))
+        let volume = try JSONDecoder().decode(ApiTokenDetails.Volume.self, from: Data("""
+        {"total":4030000,"buy":2440000,"sell":1580000,"change":0.8946,"currency":"USD"}
+        """.utf8))
+        let details = ApiTokenDetails(
+            description: "Bitcoin is the first cryptocurrency, created\u{2028}in 2009 by the pseudonymous Satoshi Nakamoto. It runs on its own network, without banks or intermediaries. Its supply is capped at 21 million coins — no one can issue more. Bitcoin is the largest crypto asset by market value and is more often held as a store of value than used for payments.",
+            links: links, marketCap: 7_580_000_000, circulatingSupply: 5_120_000_000,
+            totalSupply: 5_120_000_000, createdAt: Date(timeIntervalSince1970: 1_573_776_000), volume24h: volume
+        )
+        let model = TokenInfoModel(state: .details(details), isExpanded: false, hasBalance: false)
+        let cell = TokenInfoCell(frame: CGRect(x: 16, y: 100, width: 370, height: 413))
+        let controller = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        controller.view.addSubview(cell)
+        cell.configure(model: model, onHeightChange: { [weak cell] in
+            guard let cell else { return }
+            cell.frame.size.height = cell.height ?? 0
+            cell.layoutIfNeeded()
+        }, onUserToggleAnimationChange: { _ in })
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(abs((cell.height ?? 0) - 413) < 2)
+        func record(_ name: String) {
+            let image = UIGraphicsImageRenderer(bounds: cell.bounds).image { context in
+                cell.layer.render(in: context.cgContext)
+            }
+            if let data = image.pngData() { Attachment.record(data, named: name) }
+        }
+        record("token-info-figma-comparison.png")
+        model.requestToggle()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(abs((cell.height ?? 0) - 523) < 2)
+        record("token-info-figma-full-comparison.png")
+        model.configure(state: .details(details), hasBalance: true)
+        cell.modelStateDidChange()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(cell.height == 64)
+        model.requestToggle()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(abs((cell.height ?? 0) - 501) < 2)
+        record("token-info-figma-owned-comparison.png")
+    }
+
+    @Test
+    func `market description expands and ownership collapses the same info cell`() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let db = try DatabaseQueue()
+        try makeMigrator().migrate(db)
+        SettingsStore.liveValue.use(db: db)
+        defer { SettingsStore.liveValue.clean() }
+        let details = ApiTokenDetails(
+            description: String(repeating: "Bitcoin is a cryptocurrency with a fixed supply. ", count: 12),
+            links: nil, marketCap: 7_580_000_000, circulatingSupply: 19_000_000,
+            totalSupply: 21_000_000, createdAt: nil, volume24h: nil
+        )
+        let model = TokenInfoModel(state: .details(details), isExpanded: false, hasBalance: false)
+        let cell = TokenInfoCell(frame: CGRect(x: 16, y: 100, width: 370, height: 64))
+        let controller = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        controller.view.addSubview(cell)
+        let updateHeight = { [weak cell] in
+            guard let cell else { return }
+            cell.frame.size.height = cell.height ?? 0
+            cell.layoutIfNeeded()
+        }
+        cell.configure(model: model, onHeightChange: updateHeight, onUserToggleAnimationChange: { _ in })
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(150))
+        let compactHeight = try #require(cell.height)
+        #expect(compactHeight > 200)
+        #expect(compactHeight < 350)
+
+        func record(_ name: String) {
+            let image = UIGraphicsImageRenderer(bounds: cell.bounds).image { context in
+                cell.layer.render(in: context.cgContext)
+            }
+            if let data = image.pngData() { Attachment.record(data, named: name) }
+        }
+        record("token-market-info.png")
+        model.requestToggle()
+        try await Task.sleep(for: .milliseconds(650))
+        window.layoutIfNeeded()
+        let fullHeight = try #require(cell.height)
+        #expect(fullHeight > compactHeight + 100)
+        #expect(abs(fullHeight - model.measuredExpandedHeight) < 1)
+        record("token-market-info-full.png")
+
+        model.requestToggle()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(abs((cell.height ?? 0) - compactHeight) < 1)
+
+        model.configure(state: .details(details), hasBalance: true)
+        cell.modelStateDidChange()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(cell.height == TokenInfoModel.collapsedHeight)
+        #expect(!model.isExpanded)
+        record("token-owned-info.png")
+
+        model.requestToggle()
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(model.isExpanded)
+        #expect((cell.height ?? 0) > compactHeight)
+        record("token-owned-info-full.png")
+    }
+
+    @Test(arguments: [true, false], [true, false])
+    func `expanded cell fills its collection view allocation`(hasBalance: Bool, loadsAsynchronously: Bool) async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let volume = try JSONDecoder().decode(ApiTokenDetails.Volume.self, from: Data("""
+        {"total":4030000,"buy":2440000,"sell":1580000,"change":0.8946,"currency":"USD"}
+        """.utf8))
+        let details = ApiTokenDetails(
             description: String(repeating: "A long token description. ", count: 30),
             links: nil,
             marketCap: 7_580_000_000,
-            circulatingSupply: nil,
-            totalSupply: nil,
-            createdAt: nil,
-            volume24h: nil
-        )), isExpanded: true)
+            circulatingSupply: 19_000_000,
+            totalSupply: 21_000_000,
+            createdAt: Date(timeIntervalSince1970: 1_573_776_000),
+            volume24h: volume
+        )
+        let model = TokenInfoModel(
+            state: loadsAsynchronously ? .loading : .details(details),
+            isExpanded: true,
+            hasBalance: hasBalance
+        )
         let layout = UICollectionViewCompositionalLayout { section, _ in
             let size = NSCollectionLayoutSize(
                 widthDimension: .fractionalWidth(1),
@@ -62,8 +258,16 @@ struct TokenInfoLayoutTests {
         window.layoutIfNeeded()
         try await Task.sleep(for: .milliseconds(300))
         let cell = try #require(collection.cellForItem(at: IndexPath(item: 0, section: 1)) as? TokenInfoCell)
+        if loadsAsynchronously {
+            #expect(cell.height == TokenInfoModel.collapsedHeight)
+            model.configure(state: .details(details))
+            cell.modelStateDidChange()
+            try await Task.sleep(for: .milliseconds(650))
+            window.layoutIfNeeded()
+        }
         let clippingView = try #require(cell.contentView.subviews.first)
-        #expect(model.measuredExpandedHeight > TokenInfoModel.initialExpandedHeight)
+        #expect(model.measuredExpandedHeight > 350)
+        #expect(abs((cell.height ?? 0) - model.measuredExpandedHeight) < 1)
         #expect(abs(cell.bounds.height - model.measuredExpandedHeight) < 1)
         #expect(abs(cell.contentView.bounds.height - cell.bounds.height) < 1)
         #expect(abs(clippingView.bounds.height - cell.bounds.height) < 1)

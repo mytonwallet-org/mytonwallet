@@ -1,0 +1,10 @@
+.root {
+  pointer-events: none;
+
+  position: absolute;
+  top: calc(var(--particle-offset-y, -3.125rem) - 2rem);
+  left: calc(50% - 12.0625rem);
+
+  width: 24.125rem;
+  height: 16.75rem;
+}

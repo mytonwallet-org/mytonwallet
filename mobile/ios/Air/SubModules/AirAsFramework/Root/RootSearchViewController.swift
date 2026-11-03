@@ -8,6 +8,7 @@ final class RootSearchViewController: WViewController {
     let screen = UniversalSearchScreenViewController()
     lazy var session = UniversalSearchFeatureSession(screen: screen)
     var fieldConfiguration: UniversalSearchFieldConfiguration
+    var fieldAccessibilityIdentifier: String?
     var restoresKeyboard = true
     var returnDeadline: ContinuousClock.Instant?
     var expirationTask: Task<Void, Never>?

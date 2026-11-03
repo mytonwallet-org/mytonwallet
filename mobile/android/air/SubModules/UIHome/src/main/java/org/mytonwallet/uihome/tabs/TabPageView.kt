@@ -13,13 +13,15 @@ import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
-import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPlayScrollHost
+import org.mytonwallet.app_air.uicomponents.helpers.ScrollLockHost
 
 internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     FrameLayout(context),
-    CardPlayScrollHost {
+    ScrollLockHost {
     init {
         layoutParams = RecyclerView.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        // The Agent list's bar stays on the toolbar past its page's edge while paging
+        clipChildren = false
     }
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
@@ -32,10 +34,14 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     private var verticalGesture = false
     private var allowParentPager = false
     private var nestedOwnsHorizontalGesture = false
-    private var releaseCardPlayScrollLock: (() -> Unit)? = null
+    private var releaseScrollLock: (() -> Unit)? = null
 
-    override fun acquireCardPlayScrollLock(): (() -> Unit)? {
-        if (releaseCardPlayScrollLock != null || tabPager.isFakeDragging ||
+    /** Whether a finger is on the page */
+    val isTouched: Boolean
+        get() = trackingGesture || releaseScrollLock != null
+
+    override fun acquireScrollLock(): (() -> Unit)? {
+        if (releaseScrollLock != null || tabPager.isFakeDragging ||
             tabPager.scrollState != ViewPager2.SCROLL_STATE_IDLE
         ) {
             return null
@@ -48,11 +54,11 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
         val release = {
             if (!released) {
                 released = true
-                releaseCardPlayScrollLock = null
+                releaseScrollLock = null
                 tabPager.isUserInputEnabled = inputWasEnabled
             }
         }
-        releaseCardPlayScrollLock = release
+        releaseScrollLock = release
         return release
     }
 
@@ -64,7 +70,7 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     }
 
     fun unbind() {
-        releaseCardPlayScrollLock?.invoke()
+        releaseScrollLock?.invoke()
         // Recycling mid-swipe would otherwise strand the fake drag, since only this view's
         // touch stream ends it, and every later beginFakeDrag() would fail.
         if (tabPager.isFakeDragging) tabPager.endFakeDrag()
@@ -73,7 +79,7 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (releaseCardPlayScrollLock != null) {
+        if (releaseScrollLock != null) {
             super.requestDisallowInterceptTouchEvent(true)
             val handled = super.dispatchTouchEvent(event)
             if (event.actionMasked == MotionEvent.ACTION_UP ||
@@ -183,11 +189,11 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
         verticalGesture = false
         allowParentPager = false
         nestedOwnsHorizontalGesture = false
-        super.requestDisallowInterceptTouchEvent(releaseCardPlayScrollLock != null)
+        super.requestDisallowInterceptTouchEvent(releaseScrollLock != null)
     }
 
     override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
-        if (releaseCardPlayScrollLock != null) {
+        if (releaseScrollLock != null) {
             super.requestDisallowInterceptTouchEvent(true)
         } else if (trackingGesture) {
             super.requestDisallowInterceptTouchEvent(!allowParentPager)
@@ -197,7 +203,7 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     }
 
     override fun onDetachedFromWindow() {
-        releaseCardPlayScrollLock?.invoke()
+        releaseScrollLock?.invoke()
         super.onDetachedFromWindow()
     }
 

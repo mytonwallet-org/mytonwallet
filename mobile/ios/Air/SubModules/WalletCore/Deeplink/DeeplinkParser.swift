@@ -62,6 +62,9 @@ private let compatibleWalletConnectUniversalHosts: Set<String> = [
 
 private var compatibleSelfProtocolSchemes: Set<String> {
     var schemes: Set<String> = [SELF_PROTOCOL_SCHEME]
+    if IS_PREVIEW_APP {
+        schemes.insert("mtw-preview")
+    }
     if IS_GRAM_WALLET {
         schemes.insert(gramLegacySelfProtocolScheme)
     }

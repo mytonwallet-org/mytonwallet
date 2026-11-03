@@ -6,13 +6,113 @@ import com.squareup.moshi.JsonClass
 data class AgentV2HostContextUpdate(val authorityChanged: Boolean, val generation: Int)
 
 @JsonClass(generateAdapter = true)
-data class AgentV2ThreadSummary(val id: String, val revision: Int)
+data class AgentV2NewsFeedItem(
+    val eventId: Int,
+    val deliveredAt: String,
+    val headline: String,
+    val body: String,
+    val imageUrl: String? = null,
+    val sources: List<Source>,
+    val discussion: Discussion? = null
+) {
+    @JsonClass(generateAdapter = true)
+    data class Source(val name: String? = null, val url: String)
+
+    @JsonClass(generateAdapter = true)
+    data class Discussion(val threadId: String, val icon: String? = null)
+}
+
+@JsonClass(generateAdapter = true)
+data class AgentV2NewsFeedPage(
+    val locale: String,
+    val items: List<AgentV2NewsFeedItem>,
+    val nextCursor: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2NewsFeedRequest(val lang: String, val cursor: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadNewsCard(
+    val eventId: Int,
+    val headline: String,
+    val excerpt: String? = null,
+    val imageUrl: String? = null,
+    val publishedAt: String,
+    val source: String? = null,
+    val body: String? = null,
+    val sources: List<AgentV2NewsFeedItem.Source>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadNewsRequest(val eventId: Int, val locale: String)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadCreateRequest(val news: AgentV2ThreadNewsRequest)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadSummary(
+    val id: String,
+    val revision: Int,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    val lastActivityAt: String? = null,
+    val clearedAt: String? = null,
+    val messageCount: Int = 0,
+    val title: String? = null,
+    val icon: String? = null,
+    val hasCustomTitle: Boolean? = null,
+    val isPinned: Boolean? = null,
+    val news: AgentV2ThreadNewsCard? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadListRequest(
+    val cursor: String? = null,
+    val limit: Int? = null,
+    val query: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadListItem(val thread: AgentV2ThreadSummary, val preview: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadListResponse(
+    val threads: List<AgentV2ThreadListItem>,
+    val nextCursor: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadCreateResponse(val thread: AgentV2ThreadSummary, val created: Boolean)
+
+class AgentV2ThreadUpdate private constructor(
+    val title: String?,
+    val isPinned: Boolean?,
+    internal val hasTitle: Boolean
+) {
+    constructor(title: String?, isPinned: Boolean? = null) : this(title, isPinned, true)
+
+    constructor(isPinned: Boolean) : this(null, isPinned, false)
+}
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadDeleteResponse(val threadId: String, val duplicate: Boolean)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2ThreadResponse(val thread: AgentV2ThreadSummary)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2ProblemReportResponse(val reportId: String, val duplicate: Boolean)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2TranscriptionRequest(
+    val audio: String,
+    val format: String = "m4a",
+    val lang: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2TranscriptionResponse(val outcome: String, val text: String? = null)
 
 /** The answer's rating after the request; without `feedback` the answer has none */
 @JsonClass(generateAdapter = true)
@@ -89,7 +189,8 @@ data class AgentV2PersistedMessage(
     val actions: List<AgentV2Action>? = null,
     val followups: List<AgentV2FollowUp>? = null,
     /** `like` or `dislike` on a rated complete answer */
-    val feedback: String? = null
+    val feedback: String? = null,
+    val newsPost: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -123,7 +224,8 @@ data class AgentV2EntryPoint(
     val query: String? = null,
     val surface: String? = null,
     val hintId: String? = null,
-    val catalogVersion: String? = null
+    val catalogVersion: String? = null,
+    val eventId: Int? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -133,6 +235,26 @@ data class AgentV2RunResult(
     val inputMessageId: String? = null,
     val state: String
 )
+
+/** A step of a run, such as a web search; the backend reports when it starts and completes */
+@JsonClass(generateAdapter = true)
+data class AgentV2RunActivityEvent(
+    val runId: String,
+    val sequence: Int,
+    val code: String,
+    val status: String,
+    val detail: Detail? = null
+) {
+    @JsonClass(generateAdapter = true)
+    data class Detail(val kind: String, val count: Int)
+}
+
+/** While `capacity_exhausted`, no run starts until `resetAt` (Unix ms) when it is known */
+@JsonClass(generateAdapter = true)
+data class AgentV2Availability(val state: String, val resetAt: Long? = null)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2UserQuota(val limit: Int, val used: Int, val remaining: Int, val resetAt: String)
 
 sealed class AgentV2ActionPresentation {
     @JsonClass(generateAdapter = true)
@@ -273,12 +395,34 @@ sealed class AgentV2Update {
     ) : AgentV2Update()
 
     @JsonClass(generateAdapter = true)
+    data class ToolActivityChanged(
+        val clientRunId: String,
+        val runId: String,
+        override val threadId: String,
+        val toolCallId: String,
+        val toolName: String,
+        val operation: String? = null,
+        val status: String
+    ) : AgentV2Update()
+
+    @JsonClass(generateAdapter = true)
+    data class RunActivityChanged(
+        val clientRunId: String,
+        val runId: String,
+        override val threadId: String,
+        val event: AgentV2RunActivityEvent
+    ) : AgentV2Update()
+
+    /** A failure of the answer `messageId` when it names one; a limit lasts until `resetAt` (Unix ms) */
+    @JsonClass(generateAdapter = true)
     data class RunFailed(
         val clientRunId: String,
         val runId: String? = null,
         override val threadId: String? = null,
         val code: String,
-        val retryable: Boolean
+        val retryable: Boolean,
+        val messageId: String? = null,
+        val resetAt: Long? = null
     ) : AgentV2Update()
 
     @JsonClass(generateAdapter = true)
@@ -289,7 +433,27 @@ sealed class AgentV2Update {
     ) : AgentV2Update()
 
     @JsonClass(generateAdapter = true)
-    data class WalletAuthorityChanged(override val threadId: String? = null) : AgentV2Update()
+    data class AvailabilityChanged(
+        val availability: AgentV2Availability,
+        override val threadId: String? = null
+    ) : AgentV2Update()
+
+    /** Without a `quota` the user's quota is unknown */
+    @JsonClass(generateAdapter = true)
+    data class UserQuotaChanged(
+        val quota: AgentV2UserQuota? = null,
+        override val threadId: String? = null
+    ) : AgentV2Update()
+
+    /** Without a thread, a change that does not `preservesActiveRuns` ends every run */
+    @JsonClass(generateAdapter = true)
+    data class WalletAuthorityChanged(
+        override val threadId: String? = null,
+        val preservesActiveRuns: Boolean = false
+    ) : AgentV2Update()
+
+    @JsonClass(generateAdapter = true)
+    data class WalletContextChanged(override val threadId: String? = null) : AgentV2Update()
 
     @JsonClass(generateAdapter = true)
     data class ThreadChanged(override val threadId: String, val thread: AgentV2ThreadSummary) :

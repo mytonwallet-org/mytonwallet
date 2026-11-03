@@ -25,11 +25,23 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 enum class TokenTradeDirection { BUY, SELL }
 
+internal interface TokenTradeSwap {
+    val tokenToSendMaxBalance: BigInteger
+    val currentUiInputState: SwapUiInputState?
+    fun tokenToSendSetMaxAmount()
+    fun onTokenToSendAmountInput(amount: CharSequence?)
+    fun onTokenToReceiveAmountInput(amount: CharSequence?)
+    fun setTokenToSend(asset: IApiToken)
+    fun setTokenToReceive(asset: IApiToken?)
+}
+
 /** Buy/Sell state of one token layered on the shared swap quote pipeline. */
-class TokenTradeModel(
-    private val swap: SwapViewModel,
+class TokenTradeModel internal constructor(
+    private val swap: TokenTradeSwap,
     val direction: TokenTradeDirection,
-    val token: IApiToken
+    val token: IApiToken,
+    private val loadCardMaximum: suspend (String, IApiToken, BigInteger) -> BigInteger =
+        SellWithCardLauncher::maximumAmount
 ) {
     data class CardMaximumRequest(val accountId: String, val balance: BigInteger)
 
@@ -43,6 +55,9 @@ class TokenTradeModel(
     private var cardMaximum: BigInteger? = null
     private var cardMaximumError: String? = null
     private var retainedTokenAmount: BigInteger? = null
+
+    /** Selling picked 100%, so the amount follows the maximum of the current pair or card */
+    private var isSellingAll = false
 
     var swapState: SwapUiInputState? = null
         private set
@@ -381,6 +396,7 @@ class TokenTradeModel(
         if (this.input == input) return
         this.input = input
         retainedTokenAmount = null
+        isSellingAll = false
         updateSwapAmount()
     }
 
@@ -394,10 +410,12 @@ class TokenTradeModel(
     fun useFraction(percentage: Int) {
         val maximum = maximumTokenAmount ?: return
         if (cardCurrency != null) {
+            isSellingAll = !isBuying && percentage == 100
             setInput(maximum * percentage.toBigInteger() / HUNDRED)
             return
         }
         val selling = swapState?.tokenToSend ?: return
+        isSellingAll = !isBuying && percentage == 100
         val amount = swap.tokenToSendMaxBalance * percentage.toBigInteger() / HUNDRED
         if (percentage == 100) {
             swap.tokenToSendSetMaxAmount()
@@ -431,6 +449,7 @@ class TokenTradeModel(
     fun resetAmount() {
         input = TokenTradeAmountInput()
         retainedTokenAmount = null
+        isSellingAll = false
         cardMaximum = null
         cardMaximumError = null
         cardCurrency?.let { if (!availableCardCurrencies.contains(it)) cardCurrency = null }
@@ -454,7 +473,7 @@ class TokenTradeModel(
     suspend fun refreshCardMaximum(request: CardMaximumRequest): Boolean {
         val result = try {
             Result.success(
-                SellWithCardLauncher.maximumAmount(request.accountId, token, request.balance)
+                loadCardMaximum(request.accountId, token, request.balance)
             )
         } catch (e: CancellationException) {
             throw e
@@ -463,7 +482,10 @@ class TokenTradeModel(
         }
         if (cardMaximumRequest() != request) return false
         result.fold(
-            onSuccess = { cardMaximum = it },
+            onSuccess = {
+                cardMaximum = it
+                if (isSellingAll) setInput(it)
+            },
             onFailure = { cardMaximumError = LocaleController.getString("Unexpected Error") }
         )
         return true
@@ -481,6 +503,11 @@ class TokenTradeModel(
     private fun updateSwapAmount() {
         if (cardCurrency != null) return
         val state = swap.currentUiInputState ?: return
+        if (isSellingAll) {
+            swap.tokenToSendSetMaxAmount()
+            setInput(swap.tokenToSendMaxBalance)
+            return
+        }
         val amount = typedTokenAmount
         if (isBuying && (state.isCex || !state.canSwapByBuyAmount)) {
             val payment = state.tokenToSend

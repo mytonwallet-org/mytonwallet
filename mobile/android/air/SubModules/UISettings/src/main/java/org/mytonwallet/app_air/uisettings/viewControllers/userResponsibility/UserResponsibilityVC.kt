@@ -57,6 +57,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     }
 
     private val titleLabel = WLabel(context).apply {
+        id = R.id.responsibility_title
         setStyle(28f, WFont.Medium)
         text = LocaleController.getString("Use Responsibly")
         gravity = Gravity.CENTER
@@ -89,7 +90,7 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
                     title = title,
                     value = null,
                     hasTintColor = false,
-                    testViewId = null
+                    testViewId = R.id.responsibility_terms
                 ),
                 subtitle = null,
                 isFirst = true,
@@ -110,7 +111,8 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
                     icon = org.mytonwallet.app_air.icons.R.drawable.ic_responsibility_policy,
                     title = title,
                     value = null,
-                    hasTintColor = false
+                    hasTintColor = false,
+                    testViewId = R.id.responsibility_privacy
                 ),
                 subtitle = null,
                 isFirst = false,
@@ -221,7 +223,6 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
         nav.setRoot(
             InAppBrowserVC(
                 context,
-                null,
                 InAppBrowserConfig(
                     link,
                     injectDappConnect = false,

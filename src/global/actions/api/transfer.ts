@@ -1,6 +1,7 @@
 import type {
   ApiChain,
   ApiCheckTransactionDraftResult,
+  ApiNft,
   ApiSubmitTransferOptions,
   ApiTransferPayload,
 } from '../../../api/types';
@@ -19,6 +20,7 @@ import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '..
 import { getChainBySlug } from '../../../util/tokens';
 import { callApi } from '../../../api';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
+import { isToAddressError } from '../../helpers/errors';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -42,6 +44,9 @@ import {
   selectToken,
 } from '../../selectors';
 import { switchAccount } from './auth';
+
+// The token and NFT fee checks share `isLoading`, so only the newest check may clear it
+let activeFeeRequestId = 0;
 
 addActionHandler('switchTransferAccount', async (global, actions, { accountId }) => {
   if (accountId === selectCurrentAccountId(global)) {
@@ -161,6 +166,7 @@ addActionHandler('submitTransferInitial', async (global, actions, payload) => {
 });
 
 addActionHandler('fetchTransferFee', async (global, actions, payload) => {
+  const requestId = ++activeFeeRequestId;
   global = updateCurrentTransfer(global, { isLoading: true, error: undefined });
   setGlobal(global);
 
@@ -182,17 +188,38 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
   });
 
   global = getGlobal();
-  if (hasCurrentTokenChanged(global, tokenSlug)) {
+  if (requestId !== activeFeeRequestId) {
     return;
   }
 
   global = updateCurrentTransfer(global, { isLoading: false });
+  const { currentTransfer } = global;
+  // The user has changed the transfer before the result arrived
+  if (
+    hasCurrentTokenChanged(global, tokenSlug)
+    || currentTransfer.amount !== amount
+    || currentTransfer.toAddress !== toAddress
+    // The form passes an empty comment when the transfer has none
+    || (currentTransfer.comment ?? '') !== (comment ?? '')
+    || currentTransfer.shouldEncrypt !== shouldEncrypt
+    || currentTransfer.binPayload !== binPayload
+    || currentTransfer.stateInit !== stateInit
+  ) {
+    setGlobal(global);
+    return;
+  }
+
   if (result) {
     global = updateCurrentTransferByCheckResult(global, result);
   }
   setGlobal(global);
 
-  if (result?.error && result.error !== ApiTransactionDraftError.InsufficientBalance) {
+  if (
+    result?.error
+    && result.error !== ApiTransactionDraftError.InsufficientBalance
+    // The form shows address errors on its submit button
+    && !isToAddressError(result.error)
+  ) {
     actions.showError({ error: result.error });
   }
 
@@ -218,6 +245,7 @@ addActionHandler('fetchTransferFee', async (global, actions, payload) => {
 addActionHandler('fetchNftFee', async (global, actions, payload) => {
   const { toAddress, nfts, comment } = payload;
 
+  const requestId = ++activeFeeRequestId;
   global = updateCurrentTransfer(global, { isLoading: true, error: undefined });
   setGlobal(global);
 
@@ -231,13 +259,22 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   });
 
   global = getGlobal();
-
-  if (!global.currentTransfer.nfts?.length) {
-    // For cases when the user switches the token transfer mode before the result arrives
+  if (requestId !== activeFeeRequestId) {
     return;
   }
 
   global = updateCurrentTransfer(global, { isLoading: false });
+  // The user has switched to a token transfer, selected other collectibles or entered a new address
+  // before the result arrived
+  if (
+    !global.currentTransfer.nfts?.length
+    || !isSameNftSelection(global.currentTransfer.nfts, nfts)
+    || global.currentTransfer.toAddress !== toAddress
+  ) {
+    setGlobal(global);
+    return;
+  }
+
   if (result) {
     global = updateCurrentTransferByCheckResult(global, result);
   }
@@ -263,7 +300,8 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
     }
   }
 
-  if (result?.error) {
+  // The form shows address errors on its submit button
+  if (result?.error && !isToAddressError(result.error)) {
     actions.showError({ error: result.error });
   }
 });
@@ -481,4 +519,10 @@ function getNftTransferComment(chain: ApiChain, comment?: string) {
 function hasCurrentTokenChanged(currentGlobal: GlobalState, oldSlug: string) {
   const { tokenSlug, nfts } = currentGlobal.currentTransfer;
   return oldSlug !== tokenSlug || nfts?.length;
+}
+
+function isSameNftSelection(currentNfts: ApiNft[], requestedNfts: ApiNft[]) {
+  return currentNfts.length === requestedNfts.length && currentNfts.every((nft, i) => (
+    nft.address === requestedNfts[i].address && nft.chain === requestedNfts[i].chain
+  ));
 }

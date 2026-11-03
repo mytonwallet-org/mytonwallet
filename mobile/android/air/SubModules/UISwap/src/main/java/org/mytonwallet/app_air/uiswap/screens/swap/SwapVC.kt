@@ -126,7 +126,8 @@ class SwapVC(
     private val sendAmount = SwapAssetInputView(
         context,
         assetViewId = UIComponentsR.id.swap_sell_token,
-        amountEditTextId = UIComponentsR.id.swap_sell_amount
+        amountEditTextId = UIComponentsR.id.swap_sell_amount,
+        maxButtonId = UIComponentsR.id.swap_sell_max
     )
     private val receiveAmount = SwapAssetInputView(
         context,
@@ -137,6 +138,7 @@ class SwapVC(
         context,
         alertColor = WColor.Red.color
     ).apply {
+        id = UIComponentsR.id.swap_price_impact_warning
         isGone = true
     }
     private var currentHint: SwapHint? = null
@@ -868,7 +870,6 @@ class SwapVC(
                 nav.setRoot(
                     InAppBrowserVC(
                         context,
-                        null,
                         InAppBrowserConfig(url = hint.url, injectDappConnect = true)
                     )
                 )

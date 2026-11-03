@@ -18,6 +18,8 @@ public final class MtwCardChangeView: MtwCardTapView {
     private var revealReset: Task<Void, Never>?
     private var text: String?
     private var configured = false
+    private var showsChevron = true
+    private var pillHeight: CGFloat = 26
     private var animates = true
     private var theme: ShyMask.Theme = .light
     private var style: Style = .card
@@ -71,29 +73,52 @@ public final class MtwCardChangeView: MtwCardTapView {
     public func configure(balance: BaseCurrencyAmount?, previous: BaseCurrencyAmount?, percent: Double?,
                           nft: ApiNft?, style: Style = .card, isHidden: Bool, animates: Bool = true,
                           concealment: CardBalanceConcealment = .particles) {
-        defer { particleEffectChanged = false }
-        let previousConcealment = self.concealment
-        self.concealment = concealment
         let nextText = Self.text(balance: balance, previous: previous, percent: percent)
-        let contentChanged = text != nextText || globallyHidden != isHidden || previousConcealment != concealment
-        let wasConfigured = configured
-        configured = true
-        self.animates = animates
-        self.style = style
-        setMaterialLight(tilt: materialTilt, emboss: materialEmboss)
         let positive = balance != nil && previous != nil && balance!.amount > 0 && previous!.amount > 0 && balance!.amount > previous!.amount
         let secondary = UIColor(getSecondaryForegroundColor(nft: nft))
         let usesPositive = positive && (style == .plainBackground || nft == nil)
         let color: UIColor = style == .card
             ? (usesPositive ? .air.positiveBalance : secondary)
             : (usesPositive ? UIColor(hex: "34C759") : .air.secondaryLabel)
+        configureContent(text: nextText, color: color, secondary: secondary, style: style,
+                         foregroundOpacity: style == .card && !usesPositive ? 0.8 : 1,
+                         backgroundOpacity: style == .card && usesPositive ? 0.16 : 0.10,
+                         showsChevron: true, height: 26, isHidden: isHidden, animates: animates, concealment: concealment)
+    }
+
+    /// Reuses the Home change pill and privacy effects for a caller-supplied change value.
+    public func configure(text: String?, color: UIColor, backgroundOpacity: CGFloat = 0.10,
+                          height: CGFloat = 26, isHidden: Bool, animates: Bool = true,
+                          concealment: CardBalanceConcealment = .particles) {
+        configureContent(text: text, color: color, secondary: .air.secondaryLabel, style: .plainBackground,
+                         foregroundOpacity: 1, backgroundOpacity: backgroundOpacity, showsChevron: false,
+                         height: height, isHidden: isHidden, animates: animates, concealment: concealment)
+    }
+
+    private func configureContent(text nextText: String?, color: UIColor, secondary: UIColor, style: Style,
+                                  foregroundOpacity: CGFloat, backgroundOpacity: CGFloat, showsChevron: Bool,
+                                  height: CGFloat, isHidden: Bool, animates: Bool, concealment: CardBalanceConcealment) {
+        defer { particleEffectChanged = false }
+        let previousConcealment = self.concealment
+        self.concealment = concealment
+        let contentChanged = text != nextText || globallyHidden != isHidden || previousConcealment != concealment
+        let wasConfigured = configured
+        configured = true
+        self.animates = animates
+        self.style = style
+        self.showsChevron = showsChevron
+        self.pillHeight = height
+        chevron.isHidden = !showsChevron
+        fill.layer.cornerRadius = height / 2
+        label.applyTextStyle(.bodyEmphasized)
+        setMaterialLight(tilt: materialTilt, emboss: materialEmboss)
         updateContent(animated: wasConfigured && contentChanged && previousConcealment == concealment) {
             self.text = nextText
             self.label.text = nextText
-            self.label.textColor = color.withAlphaComponent(style == .card && !usesPositive ? 0.8 : 1)
+            self.label.textColor = color.withAlphaComponent(foregroundOpacity)
             self.dust.setColor(color)
             self.chevron.tintColor = self.label.textColor
-            self.fill.backgroundColor = color.withAlphaComponent(style == .card && usesPositive ? 0.16 : 0.10)
+            self.fill.backgroundColor = color.withAlphaComponent(backgroundOpacity)
             self.placeholder.backgroundColor = (style == .card ? UIColor.white : .label).withAlphaComponent(0.06)
             self.theme = style == .card ? .color(secondary) : .adaptive
             if self.globallyHidden != isHidden {
@@ -172,7 +197,8 @@ public final class MtwCardChangeView: MtwCardTapView {
         }
         isAccessibilityElement = hasText
         accessibilityLabel = masked ? lang("Tap to reveal") : text
-        accessibilityHint = masked ? nil : lang("Portfolio")
+        accessibilityTraits = masked || showsChevron ? .button : .staticText
+        accessibilityHint = !masked && showsChevron ? lang("Portfolio") : nil
         isUserInteractionEnabled = hasText
     }
 
@@ -243,22 +269,26 @@ public final class MtwCardChangeView: MtwCardTapView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        let size = label.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: 26))
-        let iconSize = chevron.image?.size ?? .zero
-        let width = size.width + 4 + iconSize.width + 16
-        pillVisibility.frame = CGRect(x: (bounds.width - width) / 2, y: (bounds.height - 26) / 2, width: width, height: 26)
+        let size = label.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: pillHeight))
+        let iconSize = showsChevron ? chevron.image?.size ?? .zero : .zero
+        let accessoryWidth = showsChevron ? 4 + iconSize.width : 0
+        let width = size.width + accessoryWidth + 16
+        let fitScale = min(1, max(0.1, bounds.width / max(1, width)))
+        pillVisibility.bounds = CGRect(x: 0, y: 0, width: width, height: pillHeight)
+        pillVisibility.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        pillVisibility.transform = CGAffineTransform(scaleX: fitScale, y: fitScale)
         pill.frame = pillVisibility.bounds
         background.frame = pill.bounds
         fill.frame = pill.bounds
         let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
-        label.frame = CGRect(x: rtl ? 8 + iconSize.width + 4 : 8, y: (26 - size.height) / 2 - 0.5, width: size.width, height: size.height)
-        chevron.frame = CGRect(x: rtl ? 8 : 8 + size.width + 4, y: (26 - iconSize.height) / 2, width: iconSize.width, height: iconSize.height)
+        label.frame = CGRect(x: rtl ? 8 + accessoryWidth : 8, y: (pillHeight - size.height) / 2 - 0.5, width: size.width, height: size.height)
+        chevron.frame = CGRect(x: rtl ? 8 : 8 + size.width + 4, y: (pillHeight - iconSize.height) / 2, width: iconSize.width, height: iconSize.height)
         let scale = max(traitCollection.displayScale, 1)
         chevron.frame.origin.y = (chevron.frame.origin.y * scale).rounded() / scale
-        placeholder.frame = CGRect(x: bounds.midX - 38, y: bounds.midY - 13, width: 76, height: 26)
+        placeholder.frame = CGRect(x: bounds.midX - 38, y: bounds.midY - pillHeight / 2, width: 76, height: pillHeight)
         dust.frame = bounds.insetBy(dx: -80, dy: -80)
         let fieldWidth = min(bounds.width, 10 * 13.0)
         dust.fieldRect = dust.convert(CGRect(x: bounds.midX - fieldWidth / 2,
-            y: bounds.midY - 13, width: fieldWidth, height: 26), from: self)
+            y: bounds.midY - pillHeight / 2, width: fieldWidth, height: pillHeight), from: self)
     }
 }

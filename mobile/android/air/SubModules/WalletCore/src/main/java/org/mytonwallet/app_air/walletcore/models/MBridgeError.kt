@@ -31,6 +31,8 @@ sealed interface MBridgeError {
         PAIR_NOT_FOUND("Pair not found"),
         TOO_SMALL_AMOUNT("Too small amount"),
         INSUFFICIENT_LIQUIDITY("Insufficient liquidity"),
+        SWAP_QUOTE_UNAVAILABLE("No swap quote available"),
+        SWAP_ROUTERS_UNAVAILABLE("Swap routers are unavailable"),
         UNSUCCESSFUL_TRANSFER("UnsuccesfulTransfer"),
         CANCELED_BY_THE_USER("Canceled by the user"),
         HARDWARE_OUTDATED("HardwareOutdated"),
@@ -145,6 +147,14 @@ sealed interface MBridgeError {
 
                 Type.INSUFFICIENT_LIQUIDITY -> LocaleController.getString("Insufficient liquidity")
 
+                Type.SWAP_QUOTE_UNAVAILABLE -> LocaleController.getString(
+                    "\$swap_quote_unavailable"
+                )
+
+                Type.SWAP_ROUTERS_UNAVAILABLE -> LocaleController.getString(
+                    "\$swap_service_unavailable"
+                )
+
                 Type.UNSUCCESSFUL_TRANSFER -> LocaleController.getString(
                     "Transfer was unsuccessful. Try again later."
                 )
@@ -192,6 +202,16 @@ sealed interface MBridgeError {
                 Type.PAIR_NOT_FOUND -> LocaleController.getString("Invalid Pair")
 
                 Type.TOO_SMALL_AMOUNT -> LocaleController.getString("\$swap_too_small_amount")
+
+                Type.INSUFFICIENT_LIQUIDITY -> LocaleController.getString("Insufficient liquidity")
+
+                Type.SWAP_QUOTE_UNAVAILABLE -> LocaleController.getString(
+                    "\$swap_quote_unavailable"
+                )
+
+                Type.SWAP_ROUTERS_UNAVAILABLE -> LocaleController.getString(
+                    "\$swap_service_unavailable"
+                )
 
                 Type.SLIPPAGE_ERROR -> LocaleController.getString("\$swap_slippage_violation")
 

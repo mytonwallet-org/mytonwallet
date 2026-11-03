@@ -19,15 +19,26 @@ internal class BlueDiamondMotion {
     private var toYaw = 0f
     private var toPitch = 0f
     private var phase = Phase.IDLE
+    private var lastUpdateTime: Float? = null
     private var spinVelocity = 0f
+    private var turnTangent = 18 * PI.toFloat()
+    private var interruptedTurnVelocity: Float? = null
     private var isPressed = false
+    private var usesSpringGrowth = false
+    private var gripVelocity = 0f
+    private var gripUpdatedAt: Float? = null
     var grip = 0f
         private set
     private var gripFrom = 0f
     private var gripStart = 0f
     private var isGripAnimating = false
 
-    fun update(time: Float) {
+    fun update(time: Float, idleSpeed: Float = 1f) {
+        val frameTime = lastUpdateTime?.let { (time - it).coerceAtLeast(0f) } ?: 0f
+        lastUpdateTime = time
+        if (phase == Phase.IDLE && !isPressed) {
+            animationStart -= frameTime * (idleSpeed - 1)
+        }
         updateGrip(time)
         val elapsed = (time - animationStart).coerceAtLeast(0f)
         when (phase) {
@@ -43,6 +54,19 @@ internal class BlueDiamondMotion {
                 yaw = fromYaw + (toYaw - fromYaw) * ratio
                 pitch = fromPitch + (toPitch - fromPitch) * ratio
                 if (progress == 1f) release(time)
+            }
+
+            Phase.TURN -> {
+                val progress = (elapsed / 1.8f).coerceAtMost(1f)
+                val t = progress
+                yaw = fromYaw + 6 * PI.toFloat() * t * t * (3 - 2 * t) +
+                    turnTangent * t * (1 - t) * (1 - t)
+                pitch = 0f
+                if (progress == 1f) {
+                    phase = Phase.IDLE
+                    fromYaw = yaw
+                    animationStart = time - 0.5f
+                }
             }
 
             Phase.RELEASE -> {
@@ -76,13 +100,25 @@ internal class BlueDiamondMotion {
         }
     }
 
-    fun press(time: Float) {
+    fun press(time: Float, springGrowth: Boolean = false) {
+        interruptedTurnVelocity = if (phase == Phase.TURN) {
+            val t = ((time - animationStart) / 1.8f).coerceIn(0f, 1f)
+            (36 * PI.toFloat() * t * (1 - t) + turnTangent * (3 * t * t - 4 * t + 1)) / 1.8f
+        } else {
+            null
+        }
         setHolding(true, time)
+        usesSpringGrowth = springGrowth
         isPressed = true
         phase = Phase.DRAG
     }
 
+    fun cancelPress(time: Float) {
+        if (isPressed) release(time)
+    }
+
     fun drag(dx: Float, dy: Float) {
+        phase = Phase.DRAG
         yaw += dx * 0.5f * PI.toFloat() / 180
         pitch += dy * 0.05f * PI.toFloat() / 180
     }
@@ -91,14 +127,20 @@ internal class BlueDiamondMotion {
         time: Float,
         tapX: Float? = null,
         tapY: Float? = null,
-        flingDirection: Float? = null
+        flingDirection: Float? = null,
+        fullTurn: Boolean = false
     ) {
         setHolding(false, time)
         isPressed = false
+        if (usesSpringGrowth && !fullTurn && flingDirection == null) yaw = atan2(sin(yaw), cos(yaw))
         fromYaw = yaw
         fromPitch = pitch
         animationStart = time
-        if (flingDirection != null) {
+        if (fullTurn) {
+            turnTangent = interruptedTurnVelocity?.times(1.8f) ?: (18 * PI.toFloat())
+            pitch = 0f
+            phase = Phase.TURN
+        } else if (flingDirection != null) {
             spinVelocity = flingDirection * FLING_IMPULSE
             phase = Phase.SPIN
         } else if (tapX != null && tapY != null && abs(yaw) <= 10 * PI.toFloat() / 180) {
@@ -108,6 +150,7 @@ internal class BlueDiamondMotion {
         } else {
             phase = Phase.RELEASE
         }
+        interruptedTurnVelocity = null
     }
 
     private fun setHolding(holding: Boolean, time: Float) {
@@ -119,7 +162,25 @@ internal class BlueDiamondMotion {
     }
 
     private fun updateGrip(time: Float) {
+        val frameTime = gripUpdatedAt?.let { (time - it).coerceIn(0f, 0.05f) } ?: 0f
+        gripUpdatedAt = time
         if (!isGripAnimating) return
+        if (usesSpringGrowth) {
+            val target = if (isPressed) 1f else 0f
+            var remaining = frameTime
+            while (remaining > 0) {
+                val step = remaining.coerceAtMost(1f / 120)
+                gripVelocity += ((target - grip) * 196 - 2 * 0.42f * 14 * gripVelocity) * step
+                grip += gripVelocity * step
+                remaining -= step
+            }
+            if (abs(grip - target) < 0.0001f && abs(gripVelocity) < 0.0001f) {
+                grip = target
+                gripVelocity = 0f
+                isGripAnimating = false
+            }
+            return
+        }
         val elapsed = (time - gripStart).coerceAtLeast(0f)
         if (isPressed) {
             val t = (elapsed / 0.46f).coerceAtMost(1f)
@@ -139,7 +200,7 @@ internal class BlueDiamondMotion {
         }
     }
 
-    private enum class Phase { IDLE, TAP, RELEASE, DRAG, SPIN }
+    private enum class Phase { IDLE, TAP, TURN, RELEASE, DRAG, SPIN }
 
     private companion object {
         const val FLING_IMPULSE = 3 * 6.5f

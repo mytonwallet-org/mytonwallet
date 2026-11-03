@@ -319,6 +319,9 @@ export type SolanaInstructionParsed = {
       tokenProgram: string;
       wallet: string;
       lamports?: number;
+      newAccount?: string;
+      nonceAccount?: string;
+      sourceBase?: string;
     };
     type: string;
   };
@@ -330,7 +333,9 @@ export type SolanaInstructionParsed = {
 export type SolanaInstruction = SolanaInstructionRaw | SolanaInstructionParsed;
 
 export type SolanaTransactionEmulationResult = {
-  accounts: string[] | null;
+  accounts: ({
+    data?: { parsed?: { type?: string; info?: unknown } };
+  } | null)[] | null;
   err: any;
   fee: number;
   innerInstructions: SolanaInnerIntrution[];

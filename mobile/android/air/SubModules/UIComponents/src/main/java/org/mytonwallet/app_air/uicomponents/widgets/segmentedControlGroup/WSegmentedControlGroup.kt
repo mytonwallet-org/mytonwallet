@@ -44,6 +44,7 @@ class WSegmentedControlGroup(context: Context) :
 
     private var dividerPaint = Paint()
     private var dividerColorOverride: Int? = null
+    private var backgroundColorOverride: Int? = null
     private var dividerStrokeWidth = 1f
     private var dividerMargin = 0
     private var inset: Float = 0F
@@ -340,8 +341,13 @@ class WSegmentedControlGroup(context: Context) :
         invalidate()
     }
 
+    fun setBackgroundColorOverride(color: Int?) {
+        backgroundColorOverride = color
+        setBackgroundColor(color ?: WColor.SecondaryBackground.color, 15f.dp)
+    }
+
     override fun updateTheme() {
-        setBackgroundColor(WColor.SecondaryBackground.color, 15f.dp)
+        setBackgroundColor(backgroundColorOverride ?: WColor.SecondaryBackground.color, 15f.dp)
         sliderPaint.color = sliderColorOverride ?: WColor.Background.color
         dividerPaint.color = dividerColorOverride ?: WColor.DIVIDER.color
         sliderShadowPaintLeft.setShadowLayer(

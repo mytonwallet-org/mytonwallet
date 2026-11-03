@@ -68,15 +68,17 @@ function Info({
   const rootRef = useRef<HTMLElement>();
 
   const refreshDetails = useLastCallback(() => {
-    loadTokenDetails({ slug: tokenSlug });
+    loadTokenDetails({ slugs: [tokenSlug] });
   });
 
-  // The description comes localized, so a language change needs a fresh request
+  // As in the native apps, an opened token always refreshes its details, fresh or not. The description comes
+  // localized, so a language change refreshes them too.
   useEffect(() => {
     if (isActive) refreshDetails();
   }, [isActive, refreshDetails, tokenSlug, lang.code]);
 
-  useInterval(refreshDetails, isActive && details?.hasError ? RETRY_INTERVAL : undefined, true);
+  // Retries while the last request failed or there are no details in the current language yet
+  useInterval(refreshDetails, isActive && (!details || details.hasError) ? RETRY_INTERVAL : undefined, true);
 
   const handleHeightChange = useLastCallback((prevHeight: number, nextHeight: number) => {
     if (nextHeight > prevHeight) animateHeightReveal(rootRef.current!, prevHeight, nextHeight);

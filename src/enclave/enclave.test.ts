@@ -175,4 +175,22 @@ describe('enclave', () => {
     await expect(enclave.authorize('passcode', false, PASSCODE)).resolves.toBeUndefined();
     await expect(enclave.isAuthProvisioned('passcode')).resolves.toBe(false);
   });
+
+  // The app builds its auth instances from the cached `authTypes` without reading the storage, so a
+  // storage that lost its data still has a passcode auth to answer the unlock screen with
+  it('names an auth whose stored data is gone', async () => {
+    const enclave = await loadEnclave(createMemoryStorage());
+    await enclave.setAuths(['passcode']);
+
+    await expect(enclave.authorizeOrThrow('passcode', false, PASSCODE))
+      .rejects.toMatchObject({ code: 'auth_not_configured' });
+  });
+
+  it('names a refused passcode apart from missing data', async () => {
+    const enclave = await loadEnclave(createMemoryStorage());
+    await enclave.setupAuth('passcode', PASSCODE);
+
+    await expect(enclave.authorizeOrThrow('passcode', false, '000000'))
+      .rejects.toMatchObject({ code: 'wrong_passcode' });
+  });
 });

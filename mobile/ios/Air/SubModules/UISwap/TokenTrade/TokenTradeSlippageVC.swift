@@ -77,6 +77,10 @@ final class TokenTradeSlippageVC: WViewController {
     }
 
     private func configureContent() {
+        if #available(iOS 17.0, *) {
+            // Content already reserves bottom padding, including with a hardware keyboard.
+            view.keyboardLayoutGuide.usesBottomSafeArea = false
+        }
         scrollView.bounces = false
         scrollView.delaysContentTouches = false
         scrollView.keyboardDismissMode = .interactive

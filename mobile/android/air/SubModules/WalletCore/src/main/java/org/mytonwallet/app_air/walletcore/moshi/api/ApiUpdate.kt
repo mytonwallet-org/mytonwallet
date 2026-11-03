@@ -208,6 +208,10 @@ sealed class ApiUpdate {
     data class ApiUpdateNftReceived(val accountId: String, val nft: ApiNft? = null) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)
+    data class ApiUpdateNftChanged(val accountId: String, val chain: MBlockchain, val nft: ApiNft) :
+        ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
     data class ApiUpdateAccountDomainData(
         val accountId: String,
         val expirationByAddress: Map<String, Long>? = null,

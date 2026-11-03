@@ -62,6 +62,7 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
     private var shyMask: ShyMask?
     private var deferred = ScrollDeferredValue<BaseCurrencyAmount?>(nil)
     private var isConfigured = false
+    private var needsInitialLabelLayout = false
     private var wasScrolling = false
     private var balanceIsMasked = false
     private var concealment = CardBalanceConcealment.mask
@@ -133,7 +134,7 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
             nextLabelState.transitionGeneration += 1
         }
         wasScrolling = isScrolling
-        let shouldAnimate = !first && !balanceIsMasked && changed && animates && !isScrolling && !isHidden
+        let shouldAnimate = !first && wasLoaded && !balanceIsMasked && changed && animates && !isScrolling && !isHidden
             && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
         if shouldAnimate, labelState.balance != nil, deferred.displayed != nil { numericTransitionCount += 1 }
         if changed || first || isScrolling || !animates || isHidden { nextLabelState.animates = shouldAnimate }
@@ -150,7 +151,9 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
         gradient.isHidden = !needsGradient
         snapshotContent.layer.compositingFilter = needsGradient ? "normalBlendMode" : nil
         let masked = isHidden && deferred.displayed != nil
-        let visibilityChanged = wasLoaded != (deferred.displayed != nil) || balanceIsMasked != masked || previousConcealment != concealment
+        let loadingChanged = wasLoaded != (deferred.displayed != nil)
+        let visibilityChanged = loadingChanged || balanceIsMasked != masked || previousConcealment != concealment
+        if !wasLoaded, deferred.displayed != nil { needsInitialLabelLayout = true }
         let updateVisibility = {
             // Hidden balances still track the latest value, but need no SwiftUI text or layout.
             // Render inside the privacy transition so its outgoing snapshot stays masked.
@@ -175,7 +178,7 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
             self.updateMask(style: style)
             self.setNeedsLayout()
         }
-        if concealment == .mask, previousConcealment == .mask,
+        if (loadingChanged || (concealment == .mask && previousConcealment == .mask)),
            !first, visibilityChanged, animates, !isScrolling, window != nil,
            AppStorageHelper.animations, !UIAccessibility.isReduceMotionEnabled {
             UIView.transition(with: self, duration: 0.25,
@@ -226,6 +229,7 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
             }.margins(.all, 0)
         } else {
             let label = HostingView { BalanceLabel(state: state) }
+            needsInitialLabelLayout = true
             label.translatesAutoresizingMaskIntoConstraints = true
             label.isUserInteractionEnabled = false
             label.accessibilityElementsHidden = true
@@ -263,6 +267,7 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
     public func prepareForReuse() {
         setPrivacyAnimationActive(false)
         isConfigured = false
+        needsInitialLabelLayout = true
         wasScrolling = false
         numericTransitionCount = 0
         deferred = ScrollDeferredValue(nil)
@@ -304,6 +309,15 @@ public final class MtwCardBalanceLabelView: MtwCardTapView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        if needsInitialLabelLayout && bounds.width > 0 {
+            UIView.performWithoutAnimation { layoutContent() }
+            needsInitialLabelLayout = false
+        } else {
+            layoutContent()
+        }
+    }
+
+    private func layoutContent() {
         tintedContent.frame = bounds
         snapshotContent.frame = tintedContent.bounds
         // The former source-atop gradient included 40 pt padding on every edge.

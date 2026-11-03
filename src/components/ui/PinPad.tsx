@@ -33,6 +33,8 @@ interface OwnProps {
   onClearError?: NoneToVoidFunction;
   onSubmit: (pin: string) => void;
   onLogOutClick?: NoneToVoidFunction;
+  /** Offers to log out from the first attempt on */
+  isLogOutSuggested?: boolean;
 }
 
 interface StateProps {
@@ -59,6 +61,7 @@ function PinPad({
   onClearError,
   onSubmit,
   onLogOutClick,
+  isLogOutSuggested,
 }: OwnProps & StateProps) {
   const { clearIsPinAccepted } = getActions();
 
@@ -76,7 +79,8 @@ function PinPad({
     (isSuccess || isSuccessDuringAnimation) && styles.success,
   );
 
-  const shouldSuggestLogout = useMatchCount(type === 'error', WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
+  const shouldSuggestLogout = useMatchCount(type === 'error', WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION)
+    || Boolean(isLogOutSuggested);
 
   useEffect(() => {
     if (prevIsPinAccepted && !isPinAccepted && length === value.length) {

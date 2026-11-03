@@ -57,6 +57,25 @@ final class ContextMenuPortalView: UIView {
         )
     }
 
+    /// Draws the source at this view's own position rather than over the source, and hides the source while this
+    /// view shows it, so the replica can move away from the source without leaving the source behind
+    func detachFromSourcePosition() {
+        ContextMenuPrivatePortalRuntime.setFlag(
+            false,
+            forKey: ContextMenuPrivatePortalRuntime.matchesPositionKey,
+            on: self.portalContentView
+        )
+        self.setSourceViewHidden(true)
+    }
+
+    func setSourceViewHidden(_ isHidden: Bool) {
+        ContextMenuPrivatePortalRuntime.setFlag(
+            isHidden,
+            forKey: ContextMenuPrivatePortalRuntime.hidesSourceViewKey,
+            on: self.portalContentView
+        )
+    }
+
     func updateMask(_ mask: ContextMenuSourcePortalMask?, rect maskRect: CGRect?) {
         guard let mask, let maskRect else {
             self.layer.mask = nil

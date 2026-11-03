@@ -1,3 +1,5 @@
+@use "../../../styles/mixins";
+
 .root {
   display: flex;
   flex-direction: column;
@@ -62,7 +64,16 @@
   &:focus-visible {
     color: var(--color-black);
     text-decoration: none;
+    opacity: 0.85;
   }
+
+  &:active {
+    opacity: 0.7;
+  }
+
+  @include mixins.transition(opacity 200ms);
+
+  @include mixins.active-transition-optimization();
 }
 
 .linkIcon {

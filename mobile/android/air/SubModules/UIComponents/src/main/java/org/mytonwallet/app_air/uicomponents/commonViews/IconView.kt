@@ -232,6 +232,7 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
 
         ApiTransactionType.UNSTAKE,
         ApiTransactionType.LIQUIDITY_WITHDRAW,
+        ApiTransactionType.PERPS_WITHDRAW,
         ApiTransactionType.MINT,
         ApiTransactionType.EXCESS,
         ApiTransactionType.BOUNCED -> GradientDrawables.greenDrawable
@@ -250,6 +251,7 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
 
         ApiTransactionType.UNSTAKE_REQUEST,
         ApiTransactionType.LIQUIDITY_DEPOSIT,
+        ApiTransactionType.PERPS_DEPOSIT,
         ApiTransactionType.AUCTION_BID,
         ApiTransactionType.NFT_AUCTION_START,
         ApiTransactionType.NFT_AUCTION_CANCEL,

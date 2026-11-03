@@ -46,6 +46,8 @@ enum TokenInfoState: Equatable {
 
 struct TokenInfoPresentationSnapshot: Equatable {
     let state: TokenInfoState
+    let hasBalance: Bool
+    let showsFullDescription: Bool
     let showsOriginalDescription: Bool
     let expansionProgress: CGFloat
     let expandedHeight: CGFloat
@@ -58,10 +60,10 @@ enum TokenInfoPresentationOverlay: Equatable {
 
 @MainActor
 final class TokenInfoModel: ObservableObject {
-    static let collapsedHeight = CGFloat(64)
+    static let collapsedHeight = AssetInfoExpansion.collapsedHeight
     static let initialExpandedHeight = CGFloat(368)
-    static let animationDuration = TimeInterval(0.45)
-    static let crossfadeDuration = TimeInterval(0.2)
+    static let animationDuration = AssetInfoExpansion.animationDuration
+    static let crossfadeDuration = AssetInfoExpansion.crossfadeDuration
 
     @Published private(set) var state: TokenInfoState
     @Published private(set) var isExpanded: Bool
@@ -71,6 +73,8 @@ final class TokenInfoModel: ObservableObject {
     @Published private(set) var presentationOverlayOpacity: CGFloat
     @Published private(set) var layoutRevision = 0
     @Published private(set) var showsOriginalDescription = false
+    @Published private(set) var hasBalance: Bool
+    @Published private(set) var showsFullDescription = false
 
     var measuredExpandedHeight = initialExpandedHeight
     private(set) var pendingPresentationRevision: Int?
@@ -80,10 +84,11 @@ final class TokenInfoModel: ObservableObject {
     private var presentationTask: Task<Void, Never>?
     private var preferredExpansion: Bool
 
-    init(state: TokenInfoState = .loading, isExpanded: Bool? = nil) {
+    init(state: TokenInfoState = .loading, isExpanded: Bool? = nil, hasBalance: Bool = true) {
         let preferredExpansion = isExpanded ?? AppStorageHelper.isTokenInfoExpanded
-        let isExpanded = state.canExpand ? preferredExpansion : false
+        let isExpanded = state.canExpand && (!hasBalance || preferredExpansion)
         self.preferredExpansion = preferredExpansion
+        self.hasBalance = hasBalance
         self.state = state
         self.isExpanded = isExpanded
         self.expansionProgress = isExpanded ? 1 : 0
@@ -97,13 +102,17 @@ final class TokenInfoModel: ObservableObject {
     var currentPresentationSnapshot: TokenInfoPresentationSnapshot {
         TokenInfoPresentationSnapshot(
             state: state,
+            hasBalance: hasBalance,
+            showsFullDescription: showsFullDescription,
             showsOriginalDescription: showsOriginalDescription,
             expansionProgress: expansionProgress,
             expandedHeight: measuredExpandedHeight
         )
     }
-    func configure(state: TokenInfoState) {
-        guard self.state != state else { return }
+    func configure(state: TokenInfoState, hasBalance: Bool? = nil) {
+        let hasBalance = hasBalance ?? self.hasBalance
+        let ownershipChanged = self.hasBalance != hasBalance
+        guard self.state != state || ownershipChanged else { return }
         presentationTask?.cancel()
         presentationTask = nil
 
@@ -112,6 +121,8 @@ final class TokenInfoModel: ObservableObject {
             defer { isConfiguringState = false }
             withTransaction(Transaction(animation: nil)) {
                 self.state = state
+                self.hasBalance = hasBalance
+                showsFullDescription = false
                 showsOriginalDescription = false
                 isExpanded = false
                 expansionProgress = 0
@@ -139,11 +150,15 @@ final class TokenInfoModel: ObservableObject {
             presentationOverlayOpacity = 1
             contentOpacity = 0
             self.state = state
+            self.hasBalance = hasBalance
+            if ownershipChanged {
+                showsFullDescription = false
+            }
             showsOriginalDescription = false
             if !state.canExpand {
                 isExpanded = false
-            } else if shouldRestoreExpansion {
-                isExpanded = preferredExpansion
+            } else if shouldRestoreExpansion || ownershipChanged {
+                isExpanded = !hasBalance || preferredExpansion
             }
             pendingPresentationRevision = revision
             layoutRevision = revision
@@ -182,6 +197,19 @@ final class TokenInfoModel: ObservableObject {
 
     func requestToggle() {
         onToggleRequested?()
+    }
+
+    func toggleDescription() {
+        guard !hasBalance, state.details?.displayDescriptionText != nil else { return }
+        presentationTask?.cancel()
+        withTransaction(Transaction(animation: nil)) {
+            presentationOverlay = .content(currentPresentationSnapshot)
+            presentationOverlayOpacity = 1
+            contentOpacity = 0
+            showsFullDescription.toggle()
+            layoutRevision &+= 1
+            pendingPresentationRevision = layoutRevision
+        }
     }
 
     func showOriginalDescription() {
@@ -225,6 +253,8 @@ struct TokenInfoView: View {
         return ZStack(alignment: .top) {
             contentLayer(
                 state: model.state,
+                hasBalance: model.hasBalance,
+                showsFullDescription: model.showsFullDescription,
                 showsOriginalDescription: model.showsOriginalDescription,
                 expansionProgress: model.expansionProgress,
                 showsSkeleton: isStaticLoading,
@@ -258,6 +288,8 @@ struct TokenInfoView: View {
         case .skeleton:
             contentLayer(
                 state: .loading,
+                hasBalance: model.hasBalance,
+                showsFullDescription: false,
                 showsOriginalDescription: false,
                 expansionProgress: 0,
                 showsSkeleton: true,
@@ -266,6 +298,8 @@ struct TokenInfoView: View {
         case .content(let snapshot):
             contentLayer(
                 state: snapshot.state,
+                hasBalance: snapshot.hasBalance,
+                showsFullDescription: snapshot.showsFullDescription,
                 showsOriginalDescription: snapshot.showsOriginalDescription,
                 expansionProgress: snapshot.expansionProgress,
                 showsSkeleton: false,
@@ -276,31 +310,71 @@ struct TokenInfoView: View {
         }
     }
 
+    @ViewBuilder
     private func contentLayer(
         state: TokenInfoState,
+        hasBalance: Bool,
+        showsFullDescription: Bool,
         showsOriginalDescription: Bool,
         expansionProgress: CGFloat,
         showsSkeleton: Bool,
         isInteractive: Bool
     ) -> some View {
-        VStack(spacing: 0) {
-            header(
-                state: state,
-                showsOriginalDescription: showsOriginalDescription,
-                expansionProgress: expansionProgress,
-                showsSkeleton: showsSkeleton,
-                isInteractive: isInteractive
-            )
+        if !hasBalance, let details = state.details {
+            marketContent(details, showsOriginalDescription: showsOriginalDescription, showsFullDescription: showsFullDescription)
+                .allowsHitTesting(isInteractive)
+                .accessibilityHidden(!isInteractive)
+        } else {
+            VStack(spacing: 0) {
+                header(
+                    state: state,
+                    showsOriginalDescription: showsOriginalDescription,
+                    expansionProgress: expansionProgress,
+                    showsSkeleton: showsSkeleton,
+                    isInteractive: isInteractive
+                )
 
-            if let details = state.details {
-                detailsContent(details, showsOriginalDescription: showsOriginalDescription)
-                    .opacity(expansionProgress)
-                    .allowsHitTesting(isInteractive && model.isExpanded)
-                    .accessibilityHidden(!isInteractive || !model.isExpanded)
+                if let details = state.details {
+                    detailsContent(details, showsOriginalDescription: showsOriginalDescription)
+                        .opacity(expansionProgress)
+                        .allowsHitTesting(isInteractive && model.isExpanded)
+                        .accessibilityHidden(!isInteractive || !model.isExpanded)
+                }
             }
+            .allowsHitTesting(isInteractive)
+            .accessibilityHidden(!isInteractive)
         }
-        .allowsHitTesting(isInteractive)
-        .accessibilityHidden(!isInteractive)
+    }
+
+    private func marketContent(
+        _ details: ApiTokenDetails,
+        showsOriginalDescription: Bool,
+        showsFullDescription: Bool
+    ) -> some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(lang("Info"))
+                    .textStyle(.supporting)
+                    .tracking(-0.154)
+                    .foregroundStyle(Color.air.secondaryLabel)
+                    .frame(height: 18, alignment: .leading)
+                if let text = displayedDescription(details, showsOriginalDescription: showsOriginalDescription) {
+                    AssetInfoDescriptionView(
+                        text: text,
+                        color: details.displayDescriptionText == nil ? Color.air.secondaryLabel : Color.air.primaryLabel,
+                        canToggle: details.displayDescriptionText != nil,
+                        showsFullDescription: showsFullDescription
+                    ) {
+                        model.requestToggle()
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            detailsContent(details, showsOriginalDescription: showsOriginalDescription)
+        }
     }
 
     @ViewBuilder
@@ -308,7 +382,8 @@ struct TokenInfoView: View {
         _ details: ApiTokenDetails,
         showsOriginalDescription: Bool
     ) -> some View {
-        let tokenLinks = details.links?.filter { ![.documentation, .sourceCode].contains($0.kind) } ?? []
+        let linkKinds: [ApiTokenDetails.Link.Kind] = [.x, .telegram, .website]
+        let tokenLinks = linkKinds.flatMap { kind in details.links?.filter { $0.kind == kind } ?? [] }
         let supply = supplyDetails(details)
         let hasMetrics = details.marketCap != nil || supply != nil || details.createdAt != nil || details.volume24h != nil
 
@@ -378,7 +453,7 @@ struct TokenInfoView: View {
                 showsSkeleton: showsSkeleton
             )
             if canExpand {
-                chevron(expansionProgress: expansionProgress)
+                AssetInfoExpansionChevron(expansionProgress: expansionProgress)
                     .transition(.opacity)
             }
         }
@@ -428,7 +503,7 @@ struct TokenInfoView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(.top, 12)
-        .padding(.bottom, 15)
+        .padding(.bottom, 12)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -473,16 +548,7 @@ struct TokenInfoView: View {
         color: Color,
         expansionProgress: CGFloat
     ) -> some View {
-        ZStack(alignment: .topLeading) {
-            description(text, lineLimit: nil, color: color)
-                .opacity(expansionProgress)
-
-            description(text, lineLimit: 1, color: color)
-                .opacity(1 - expansionProgress)
-        }
-        .padding(.trailing, 24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
+        AssetInfoExpandableDescription(text: text, color: color, expansionProgress: expansionProgress)
     }
 
     private var translationAttribution: some View {
@@ -496,21 +562,6 @@ struct TokenInfoView: View {
             .foregroundStyle(Color(uiColor: .tintColor))
         }
         .textStyle(.footnote)
-    }
-
-    private func chevron(expansionProgress: CGFloat) -> some View {
-        Image(systemName: "chevron.down")
-            .textStyle(.badgeBold, content: .technical)
-            .foregroundStyle(Color.air.primaryLabel.opacity(0.3))
-            .frame(width: 24, height: 24)
-            .rotationEffect(.degrees(chevronRotation(expansionProgress: expansionProgress)))
-            .padding(.top, 20)
-            .padding(.trailing, 12)
-    }
-
-    private func chevronRotation(expansionProgress: CGFloat) -> Double {
-        let direction = layoutDirection == .leftToRight ? -1.0 : 1.0
-        return direction * 180 * Double(expansionProgress)
     }
 
     private func displayedDescription(
@@ -536,13 +587,7 @@ struct TokenInfoView: View {
         lineLimit: Int?,
         color: Color = Color.air.primaryLabel
     ) -> some View {
-        Text(verbatim: description)
-            .textStyle(.callout)
-            .tracking(-0.12)
-            .lineSpacing(3)
-            .foregroundStyle(color)
-            .lineLimit(lineLimit)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        AssetInfoDescriptionText(text: description, color: color, lineLimit: lineLimit)
     }
 
     private func links(_ links: [ApiTokenDetails.Link]) -> some View {
@@ -557,15 +602,19 @@ struct TokenInfoView: View {
                 Button {
                     AppActions.openInBrowser(link.url)
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 1) {
                         linkIcon(link.kind)
+                            .frame(width: 28, height: 28)
+                            .offset(x: layoutDirection == .leftToRight ? 3 : -3)
+                            .frame(width: 34, height: 32)
                         Text(verbatim: linkTitle(link))
                             .textStyle(.supportingEmphasized)
+                            .frame(height: 20)
                     }
                     .foregroundStyle(Color.air.primaryLabel)
-                    .padding(.horizontal, 10)
+                    .padding(.trailing, 12)
                     .frame(height: 32)
-                    .background(Color.air.secondaryFill, in: .capsule)
+                    .background(Color.air.secondaryLabel.opacity(0.12), in: .capsule)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint(lang("$token_info_open_in_browser_hint"))
@@ -599,7 +648,7 @@ struct TokenInfoView: View {
         switch kind {
         case .x:
             Image.airBundle("inline.x")
-                .font(.system(size: 20))
+                .font(.system(size: 17))
                 .imageScale(.medium)
                 .foregroundStyle(Color.air.primaryLabel)
         case .telegram:
@@ -628,27 +677,7 @@ struct TokenInfoView: View {
     }
 
     private func detailRow(title: String, info: String? = nil, value: String) -> some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                Text(verbatim: title)
-                    .textStyle(.body)
-                    .foregroundStyle(Color.air.secondaryLabel)
-
-                if let info {
-                    InfoButton(title: title, message: info, offset: .zero)
-                }
-            }
-            .lineLimit(1)
-
-            Spacer(minLength: 4)
-
-            Text(verbatim: value)
-                .textStyle(.body, content: .technical)
-                .foregroundStyle(Color.air.primaryLabel)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 48)
+        AssetInfoMetricRow(title: title, info: info, value: value)
     }
 
     private func volume(_ volume: ApiTokenDetails.Volume) -> some View {
@@ -657,10 +686,9 @@ struct TokenInfoView: View {
                 HStack(spacing: 4) {
                     Text(lang("Volume · 24h"))
                         .foregroundStyle(Color.air.secondaryLabel)
-                    InfoButton(
+                    infoButton(
                         title: lang("Volume · 24h"),
-                        message: lang("$token_info_volume_hint"),
-                        offset: .zero
+                        message: lang("$token_info_volume_hint")
                     )
                 }
 
@@ -689,74 +717,16 @@ struct TokenInfoView: View {
     }
 
     private func volumeBar(_ volume: ApiTokenDetails.Volume) -> some View {
-        GeometryReader { proxy in
-            let buyValue = compactCurrency(volume.buy, currency: volume.currency)
-            let sellValue = compactCurrency(volume.sell, currency: volume.currency)
-            let layout = TokenInfoVolumeBarLayout.resolve(
-                buy: volume.buy,
-                sell: volume.sell,
-                width: proxy.size.width,
-                buyLabelWidth: volumeLabelWidth(buyValue),
-                sellLabelWidth: volumeLabelWidth(sellValue)
-            )
-
-            HStack(spacing: layout.spacing) {
-                if let buyWidth = layout.buyWidth {
-                    barSegment(
-                        value: buyValue,
-                        color: Color.air.positiveAmount,
-                        width: buyWidth,
-                        isLeading: true,
-                        isStandalone: layout.sellWidth == nil
-                    )
-                }
-                if let sellWidth = layout.sellWidth {
-                    barSegment(
-                        value: sellValue,
-                        color: Color.air.negativeAmount,
-                        width: sellWidth,
-                        isLeading: false,
-                        isStandalone: layout.buyWidth == nil
-                    )
-                }
-            }
-        }
-        .frame(height: 26)
+        AssetInfoSplitBar(
+            positiveValue: volume.buy,
+            negativeValue: volume.sell,
+            positiveLabel: compactCurrency(volume.buy, currency: volume.currency),
+            negativeLabel: compactCurrency(volume.sell, currency: volume.currency)
+        )
     }
 
-    private func volumeLabelWidth(_ value: String) -> CGFloat {
-        ceil((value as NSString).size(withAttributes: [
-            .font: WTypography.uiFont(.footnoteEmphasized, content: .technical),
-        ]).width)
-    }
-
-    private func barSegment(
-        value: String,
-        color: Color,
-        width: CGFloat,
-        isLeading: Bool,
-        isStandalone: Bool
-    ) -> some View {
-        ZStack(alignment: isLeading ? .leading : .trailing) {
-            color
-            LinearGradient(
-                colors: [.white.opacity(0.15), .white.opacity(0)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            Text(verbatim: value)
-                .textStyle(.footnoteEmphasized, content: .technical)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, TokenInfoVolumeBarLayout.labelHorizontalPadding)
-        }
-        .frame(width: width, height: 26)
-        .clipShape(TokenInfoVolumeSegmentShape(
-            isLeading: isLeading,
-            isStandalone: isStandalone,
-            layoutDirection: layoutDirection
-        ))
+    private func infoButton(title: String, message: String) -> some View {
+        AssetInfoHelpButton(title: title, message: message)
     }
 
     private var divider: some View {
@@ -771,29 +741,11 @@ struct TokenInfoView: View {
     }
 
     private func compactCurrency(_ value: Double, currency: MBaseCurrency) -> String {
-        let number = compactNumber(value)
-        return currency.sign.count == 1 && currency.sign != "₽"
-            ? "\(currency.sign)\(number)"
-            : "\(number) \(currency.sign)"
+        AssetInfoFormatting.compactCurrency(value, currency: currency)
     }
 
     private func compactNumber(_ value: Double) -> String {
-        let magnitude = abs(value)
-        let (scaled, suffix): (Double, String) = if magnitude >= 1_000_000_000 {
-            (value / 1_000_000_000, "B")
-        } else if magnitude >= 1_000_000 {
-            (value / 1_000_000, "M")
-        } else if magnitude >= 1_000 {
-            (value / 1_000, "K")
-        } else {
-            (value, "")
-        }
-
-        return scaled.formatted(
-            .number
-                .locale(LocalizationSupport.shared.locale)
-                .precision(.fractionLength(0...2))
-        ) + suffix
+        AssetInfoFormatting.compactNumber(value)
     }
 }
 
@@ -825,100 +777,6 @@ extension ApiTokenDetails {
     }
 }
 
-struct TokenInfoVolumeBarLayout: Equatable {
-    static let segmentSpacing = CGFloat(4)
-    static let labelHorizontalPadding = CGFloat(8)
-
-    let buyWidth: CGFloat?
-    let sellWidth: CGFloat?
-    let spacing: CGFloat
-
-    static func resolve(
-        buy: Double,
-        sell: Double,
-        width: CGFloat,
-        buyLabelWidth: CGFloat,
-        sellLabelWidth: CGFloat
-    ) -> Self {
-        let buy = max(0, buy)
-        let sell = max(0, sell)
-        let width = max(0, width)
-
-        if buy == 0, sell > 0 {
-            return Self(buyWidth: nil, sellWidth: width, spacing: 0)
-        }
-        if sell == 0, buy > 0 {
-            return Self(buyWidth: width, sellWidth: nil, spacing: 0)
-        }
-
-        let availableWidth = max(0, width - segmentSpacing)
-        if buy == 0, sell == 0 {
-            return Self(
-                buyWidth: availableWidth / 2,
-                sellWidth: availableWidth / 2,
-                spacing: segmentSpacing
-            )
-        }
-
-        let rawBuyWidth = availableWidth * buy / (buy + sell)
-        let buyMinimumWidth = buyLabelWidth + 2 * labelHorizontalPadding
-        let sellMinimumWidth = sellLabelWidth + 2 * labelHorizontalPadding
-        let buyWidth: CGFloat
-        if buyMinimumWidth + sellMinimumWidth <= availableWidth {
-            buyWidth = min(
-                max(rawBuyWidth, buyMinimumWidth),
-                availableWidth - sellMinimumWidth
-            )
-        } else {
-            buyWidth = availableWidth * buyMinimumWidth / (buyMinimumWidth + sellMinimumWidth)
-        }
-
-        return Self(
-            buyWidth: buyWidth,
-            sellWidth: availableWidth - buyWidth,
-            spacing: segmentSpacing
-        )
-    }
-}
-
-private struct TokenInfoVolumeSegmentShape: Shape {
-    let isLeading: Bool
-    let isStandalone: Bool
-    let layoutDirection: LayoutDirection
-
-    func path(in rect: CGRect) -> Path {
-        let outerRadius = rect.height / 2
-        let innerRadius = min(CGFloat(3), outerRadius)
-        let isOuterOnLeft = isLeading == (layoutDirection == .leftToRight)
-        let leftRadius = isStandalone || isOuterOnLeft ? outerRadius : innerRadius
-        let rightRadius = isStandalone || !isOuterOnLeft ? outerRadius : innerRadius
-
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + leftRadius, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX - rightRadius, y: rect.minY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + rightRadius),
-            control: CGPoint(x: rect.maxX, y: rect.minY)
-        )
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - rightRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX - rightRadius, y: rect.maxY),
-            control: CGPoint(x: rect.maxX, y: rect.maxY)
-        )
-        path.addLine(to: CGPoint(x: rect.minX + leftRadius, y: rect.maxY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX, y: rect.maxY - leftRadius),
-            control: CGPoint(x: rect.minX, y: rect.maxY)
-        )
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + leftRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + leftRadius, y: rect.minY),
-            control: CGPoint(x: rect.minX, y: rect.minY)
-        )
-        path.closeSubpath()
-        return path
-    }
-}
 
 #if DEBUG
 #Preview("Expanded") {

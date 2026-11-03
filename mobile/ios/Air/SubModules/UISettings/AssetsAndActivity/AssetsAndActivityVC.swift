@@ -186,6 +186,7 @@ public class AssetsAndActivityVC: WViewController {
 
         let hideTinyTransfersReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
             cell.title = lang("Hide Tiny Transfers")
+            cell.accessibilityIdentifier = "assets_hide_tiny_transfers"
             cell.isSelectable = false
             cell.configureSwitchAccessory(isOn: AppStorageHelper.hideTinyTransfers) { isOn in
                 AppStorageHelper.hideTinyTransfers = isOn
@@ -195,6 +196,7 @@ public class AssetsAndActivityVC: WViewController {
 
         let hideUnverifiedNftsReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
             cell.title = lang("Hide Unverified NFTs")
+            cell.accessibilityIdentifier = "assets_hide_unverified_nfts"
             cell.isSelectable = false
             cell.configureSwitchAccessory(isOn: AppStorageHelper.hideUnverifiedNfts) { isOn in
                 AppStorageHelper.hideUnverifiedNfts = isOn
@@ -217,6 +219,7 @@ public class AssetsAndActivityVC: WViewController {
 
         let hideNoCostReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
             cell.title = lang("Hide Tokens With No Cost")
+            cell.accessibilityIdentifier = "assets_hide_no_cost_tokens"
             cell.isSelectable = false
             cell.configureSwitchAccessory(isOn: AppStorageHelper.hideNoCostTokens) { isOn in
                 AppStorageHelper.hideNoCostTokens = isOn
@@ -246,6 +249,7 @@ public class AssetsAndActivityVC: WViewController {
             let accountId = account.id
             let count = NftStore.getAccountHiddenNftsCount(accountId: accountId)
             cell.title = lang("Hidden NFTs")
+            cell.accessibilityIdentifier = "assets_hidden_nfts"
             cell.accessoryView = SimpleGroupCell.TitledDisclosureAccessory(text: count > 0 ? localizedIntegerString(count) : nil)
         }
 

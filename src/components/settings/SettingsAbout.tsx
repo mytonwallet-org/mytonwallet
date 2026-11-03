@@ -1,4 +1,4 @@
-import React, { memo, useRef } from '../../lib/teact/teact';
+import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import {
   APP_ENV_MARKER,
@@ -13,6 +13,7 @@ import {
 import { getHelpCenterUrl } from '../../global/helpers/getHelpCenterUrl';
 import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
+import { vibrate } from '../../util/haptics';
 import { handleUrlClick } from '../../util/openUrl';
 import { getBlogUrl, getTelegramNewsChannelUrl, getTelegramTipsChannelUrl } from '../../util/url';
 
@@ -21,6 +22,8 @@ import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 
 import Header from '../auth/Header';
+import WelcomeParticles from '../auth/WelcomeParticles';
+import GramDiamond from '../common/GramDiamond';
 import Emoji from '../ui/Emoji';
 import SettingsHeader from './SettingsHeader';
 
@@ -28,18 +31,19 @@ import activityStyles from '../main/sections/Content/Activity.module.scss';
 import styles from './Settings.module.scss';
 
 import logoWebpPath from '../../assets/logo.webp';
-import gramWalletLogoPath from '../../assets/logoGramWallet.svg';
 import helpcenterImg from '../../assets/settings/settings_helpcenter.svg';
 import hotImg from '../../assets/settings/settings_hot.svg';
 import videoImg from '../../assets/settings/settings_video.svg';
-
-const LOGO_PATH = IS_GRAM_WALLET ? gramWalletLogoPath : logoWebpPath;
 
 interface OwnProps {
   isActive?: boolean;
   slideClassName?: string;
   onBackClick: NoneToVoidFunction;
 }
+
+const DIAMOND_SIZE = 146;
+const DIAMOND_HOVER_SPEED = 2;
+const DIAMOND_MAX_GROW = 1.15;
 
 function SettingsAbout({
   isActive, slideClassName, onBackClick,
@@ -48,12 +52,23 @@ function SettingsAbout({
 
   const { isPortrait } = useDeviceScreen();
   const headerRef = useRef<HTMLHeadingElement>();
+  const logoRef = useRef<HTMLDivElement>();
   const aboutExtensionTitle = lang('$about_extension_link_text', { app_name: APP_NAME });
 
   useHistoryBack({
     isActive,
     onBack: onBackClick,
   });
+
+  useEffect(() => {
+    if (IS_GRAM_WALLET) return undefined;
+    const logo = logoRef.current!;
+    function handlePress(event: PointerEvent) {
+      if (event.isPrimary && event.button === 0) vibrate(true);
+    }
+    logo.addEventListener('pointerdown', handlePress);
+    return () => logo.removeEventListener('pointerdown', handlePress);
+  }, []);
 
   return (
     <div className={buildClassName(styles.slide, slideClassName)}>
@@ -71,7 +86,21 @@ function SettingsAbout({
       <div
         className={buildClassName(styles.content, styles.noTitle, 'custom-scroll')}
       >
-        <img src={LOGO_PATH} alt={lang('Logo')} className={styles.logo} />
+        <div ref={logoRef} className={styles.aboutLogo}>
+          <WelcomeParticles isActive={isActive} interactionRef={logoRef} className={styles.aboutParticles} />
+          {IS_GRAM_WALLET ? (
+            <GramDiamond
+              isOpen={isActive}
+              size={DIAMOND_SIZE}
+              hoverSpeed={DIAMOND_HOVER_SPEED}
+              shouldRotateOnTap
+              maxGrow={DIAMOND_MAX_GROW}
+              className={styles.aboutDiamond}
+            />
+          ) : (
+            <img src={logoWebpPath} alt={lang('Logo')} className={buildClassName(styles.logo, styles.aboutLogoImage)} />
+          )}
+        </div>
         <h2 ref={headerRef} className={styles.title}>
           {APP_NAME} {APP_VERSION} {APP_ENV_MARKER}
           <a href={APP_PROMO_URL} target="_blank" className={styles.titleLink} rel="noreferrer">

@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "id": "35A0DC38-5880-41F9-BA9C-C5BC9AAAFEF5",
+      "name": "Configuration 1",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../App/App.xcodeproj",
+        "identifier": "D95850000000000000000009",
+        "name": "AppIntentsSearchTests"
+      }
+    }
+  ],
+  "version": 1
+}

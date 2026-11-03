@@ -110,6 +110,8 @@ export interface ChainConfig {
   isEncryptedCommentSupported: boolean;
   /** Whether the chain supports sending the full balance of the native token (the fee is taken from the sent amount) */
   canTransferFullNativeBalance: boolean;
+  /** Whether SDK balances include pending local transfer debits until the observed value changes */
+  shouldUsePendingBalances?: boolean;
   /** Whether Ledger support is implemented for this chain */
   isLedgerSupported: boolean;
   /** Whether the chain supports multiWallet (e.g. Solana derivations or TON versions) */
@@ -488,6 +490,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   ethereum: {
     title: 'Ethereum',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -555,6 +558,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   base: {
     title: 'Base',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -618,6 +622,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   bnb: {
     title: 'BNB',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -677,6 +682,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   polygon: {
     title: 'Polygon',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -736,6 +742,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   arbitrum: {
     title: 'Arbitrum',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -799,6 +806,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   optimism: {
     title: 'Optimism',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -858,6 +866,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   monad: {
     title: 'Monad',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: false,
@@ -917,6 +926,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   avalanche: {
     title: 'Avalanche',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -976,6 +986,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   hyperliquid: {
     title: 'Hyperliquid',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -1038,6 +1049,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   robinhood: {
     title: 'Robinhood',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
@@ -1097,6 +1109,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
   arc: {
     title: 'Arc',
     chainStandard: 'ethereum',
+    shouldUsePendingBalances: true,
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,

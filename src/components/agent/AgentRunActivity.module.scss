@@ -1,8 +1,18 @@
 @use "../../styles/mixins";
 
+@use "agentMark";
+
+// The answer's place while the Agent works on it: the Agent mark and the step in the Agent gradient, as in the design
 .root {
   // The gradient ends with its first color so the shimmer can loop over it
-  --activity-gradient: linear-gradient(90deg, #2C92F0 0%, #00BEFF 20%, #B656FF 50%, #00BEFF 80%, #2C92F0 100%);
+  --activity-gradient: linear-gradient(
+    90deg,
+    #{agentMark.$blue} 0%,
+    #{agentMark.$cyan} 19.77%,
+    #{agentMark.$purple} 50%,
+    #{agentMark.$cyan} 80.23%,
+    #{agentMark.$blue} 100%
+  );
 
   display: flex;
   flex-shrink: 0;
@@ -10,22 +20,23 @@
   align-items: center;
   align-self: flex-start;
 
-  max-width: 85%;
+  max-width: calc(100% - 1rem);
   margin-top: 0.625rem;
   margin-inline-start: 0.5rem;
   padding-block: 0.4375rem;
   padding-inline: 0.625rem 0.75rem;
 
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.25rem;
 
-  // Appears after the question it answers has settled in place
-  animation: agent-activity-appear 200ms ease-out 250ms backwards;
-
-  :global(html.theme-dark) & {
-    --activity-gradient: linear-gradient(90deg, #469CEC 0%, #00BEFF 20%, #B656FF 50%, #00BEFF 80%, #469CEC 100%);
+  @include mixins.is-mobile() {
+    font-size: 1.0625rem;
+    line-height: 1.375rem;
   }
+
+  // Comes in after the question it answers, rising into place while its text comes into focus, as on mobile
+  animation: agent-activity-appear 350ms ease-out 180ms backwards;
 
   &:global(.closing) {
     opacity: 0;
@@ -34,51 +45,138 @@
   @include mixins.transition(opacity 200ms ease);
 }
 
-// Inside the message the gap above comes from the message itself, and the spot is already in view
+// Inside the message the gap above comes from the message itself, and the spot is already in view. The message is
+// as wide as the line and its start margin, so the line leaves out only that margin.
 .answerPlaceholder {
+  max-width: calc(100% - 0.5rem);
   margin-top: 0;
   animation: none;
 
-  // The arriving bubble takes the flow position, so the fading placeholder is lifted onto it
+  // The arriving bubble takes the flow position, so the fading placeholder is lifted onto it whole
   &:global(.closing) {
     position: absolute;
     top: 0;
     inset-inline-start: 0;
+
+    width: max-content;
+    max-width: none;
   }
 }
 
-.icon,
+// The Agent's spinning top
+.icon {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+// The flat mark, where the 3D top is not drawn, leans from side to side as it spins
+.iconMark {
+  transform-origin: 50% 85%;
+  animation: agent-activity-mark-wobble 1.05s ease-in-out infinite alternate;
+}
+
+// The steps share one place, so the leaving one blurs away over the arriving one
+.steps {
+  display: grid;
+  min-width: 0;
+}
+
+// The first step comes into focus with the indicator
+.stepsFocusing {
+  animation: agent-activity-focus 400ms ease-out 180ms backwards;
+}
+
+.step {
+  display: flex;
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.stepEntering {
+  animation: agent-activity-step-in 350ms ease-out 50ms backwards;
+}
+
+.stepLeaving {
+  animation: agent-activity-step-out 250ms ease-in forwards;
+}
+
+// The Agent gradient sweeps along the text every 2 s, as on mobile
 .text {
+  overflow: hidden;
+
+  min-width: 0;
+
   color: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
   background-image: var(--activity-gradient);
   -webkit-background-clip: text;
   background-clip: text;
 
-  @include mixins.gradient-shimmer(5s);
+  @include mixins.gradient-shimmer(2s);
 }
 
-.icon {
-  flex: 0 0 auto;
-  font-size: 1.5rem;
-  line-height: 1;
+:global(html.animation-level-0) .root,
+:global(html.animation-level-0) .iconMark,
+:global(html.animation-level-0) .stepsFocusing,
+:global(html.animation-level-0) .step {
+  animation: none;
 }
 
-.text {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+:global(html.animation-level-0) .stepLeaving {
+  display: none;
 }
-
-:global(html.animation-level-0) .root { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .root { animation: none; }
+  .root,
+  .iconMark,
+  .stepsFocusing,
+  .step {
+    animation: none;
+  }
+
+  .stepLeaving {
+    display: none;
+  }
 }
 
 @keyframes agent-activity-appear {
   from {
-    transform: translateY(2rem);
+    transform: translateY(0.375rem);
     opacity: 0;
+  }
+}
+
+@keyframes agent-activity-focus {
+  from {
+    filter: blur(0.5rem);
+  }
+}
+
+@keyframes agent-activity-step-in {
+  from {
+    transform: translateY(0.3125rem);
+    opacity: 0;
+    filter: blur(0.5rem);
+  }
+}
+
+@keyframes agent-activity-step-out {
+  to {
+    transform: translateY(-0.3125rem);
+    opacity: 0;
+    filter: blur(0.5rem);
+  }
+}
+
+@keyframes agent-activity-mark-wobble {
+  0% {
+    transform: rotate(-9deg);
+  }
+
+  100% {
+    transform: rotate(9deg);
   }
 }

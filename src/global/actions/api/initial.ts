@@ -1,5 +1,6 @@
 import { DEFAULT_PRICE_CURRENCY, IS_AIR_APP, IS_EXTENSION, IS_GRAM_WALLET } from '../../../config';
 import { captureBrowserWebFunnel, setupWebFunnelRetry } from '../../../util/captureWebFunnel';
+import { reportIndexedDbLoss } from '../../../util/indexedDbLoss';
 import { captureBrowserAttribution } from '../../../util/installAttribution';
 import { mapValues } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
@@ -14,6 +15,7 @@ addActionHandler('initApi', async (global, actions) => {
   const accountIds = global.accounts?.byId
     ? Object.keys(global.accounts.byId).filter((accountId) => accountId !== global.currentTemporaryViewAccountId)
     : [];
+  void reportIndexedDbLoss(accountIds.map((accountId) => global.accounts!.byId[accountId].type), global.authTypes);
   initApi(actions.apiUpdate, {
     isElectron: IS_ELECTRON,
     isIosApp: false,

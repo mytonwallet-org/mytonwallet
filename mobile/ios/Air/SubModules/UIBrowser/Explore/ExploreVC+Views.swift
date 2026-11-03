@@ -324,6 +324,7 @@ extension ExploreVC {
         let viewState: ObservedViewState
         let viewOutput: ViewOutput
         var contentBottomSpacing: CGFloat = 32
+        var pagingTint = WPagingBackgroundTint()
 
         private let trendingDappsInterItemHSpacing: Double = 16
 
@@ -353,7 +354,10 @@ extension ExploreVC {
                             .safeAreaInset(edge: .trailing, spacing: contentMargins.trailing) {
                                 Color.clear.frame(width: 0, height: 1)
                             }
-                            .background(viewState.shouldShowWhiteBackground ? Color.air.background : Color.air.groupedBackground)
+                            .background(WPagingBackground(
+                                tint: pagingTint,
+                                base: viewState.shouldShowWhiteBackground ? Color.air.background : Color.air.groupedBackground
+                            ))
                             .onChange(of: viewState.scrollToTopTrigger) { _ in
                                 let scroll = {
                                     scrollReader.scrollTo(viewState.firstAnchorID, anchor: .top)

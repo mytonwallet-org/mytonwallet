@@ -13,6 +13,8 @@ import WalletContext
 // Used for AppUnlock and other actions that require user to unlock using passcode or biometric, first.
 public class UnlockVC: WViewController {
 
+    public override var shouldPreserveSheetSizeOnPush: Bool { true }
+
     @discardableResult
     public static func pushAuth(
         on vc: UIViewController,

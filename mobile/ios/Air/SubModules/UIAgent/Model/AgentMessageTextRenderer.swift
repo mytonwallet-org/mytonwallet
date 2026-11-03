@@ -16,7 +16,7 @@ private enum AgentMessageTextRendererMetrics {
     static let italicPattern = #"(?<!\*)\*([^*\n]+)\*(?!\*)"#
 }
 
-enum AgentMessageMarkdownProfile: Equatable {
+enum AgentMessageMarkdownProfile: Hashable {
     case legacy
     case agentMarkdownV1
 }
@@ -26,6 +26,11 @@ enum AgentMessageTextRenderer {
     static var baseFont: UIFont {
         WTypography.uiFont(.body)
     }
+
+    /// How far apart paragraphs a blank line apart stand, from one's last line to the next one's first. A heading
+    /// stands this far from the text under it.
+    nonisolated static let blankLineGap: CGFloat = AgentMessageTextRendererMetrics.paragraphSpacing
+        + AgentMessageTextRendererMetrics.emptyLineHeight
 
     static func makeAttributedText(
         _ text: String,
@@ -77,6 +82,7 @@ enum AgentMessageTextRenderer {
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
         applyEmptyLineHeights(to: attributedText, baseFont: baseFont)
+        applyHeadingSpacing(to: attributedText)
         if detectsLinks {
             applyDetectedLinks(to: attributedText)
         } else {
@@ -84,8 +90,26 @@ enum AgentMessageTextRenderer {
         }
         // Answer links are checked when they are marked, so they apply whether or not other links are detected
         AgentTextLinks.resolve(in: attributedText, linkColor: linkColor)
+        let linkAttributes = linkTextAttributes(color: linkColor)
+        attributedText.enumerateAttribute(.link, in: NSRange(location: 0, length: attributedText.length)) { value, range, _ in
+            guard value != nil else { return }
+            attributedText.addAttributes(linkAttributes, range: range)
+        }
 
         return attributedText
+    }
+
+    static func linkTextAttributes(color linkColor: UIColor) -> [NSAttributedString.Key: Any] {
+        let isMonochrome = [UIUserInterfaceStyle.light, .dark].contains { style in
+            let color = linkColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            return color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                && red == green && green == blue && (red == 0 || red == 1) && alpha == 1
+        }
+        return [
+            .foregroundColor: linkColor,
+            .underlineStyle: isMonochrome ? NSUnderlineStyle.single.rawValue : 0,
+        ]
     }
 
     private static func normalizedMessageSource(_ text: String) -> String {
@@ -561,6 +585,46 @@ enum AgentMessageTextRenderer {
             attributedText.addAttribute(.paragraphStyle, value: emptyStyle, range: enclosingRange)
             attributedText.addAttribute(.font, value: baseFont, range: enclosingRange)
         }
+    }
+
+    /// A heading, a line in bold on its own, stands as far from the text right under it as paragraphs a blank line
+    /// apart do
+    private static func applyHeadingSpacing(to attributedText: NSMutableAttributedString) {
+        let string = attributedText.string as NSString
+        var paragraphs: [(content: NSRange, enclosing: NSRange)] = []
+        string.enumerateSubstrings(
+            in: NSRange(location: 0, length: string.length),
+            options: [.byParagraphs, .substringNotRequired]
+        ) { _, range, enclosingRange, _ in
+            paragraphs.append((range, enclosingRange))
+        }
+        for (index, paragraph) in paragraphs.enumerated().dropLast() {
+            guard isHeading(paragraph.content, in: attributedText),
+                  !isBlank(paragraphs[index + 1].content, in: string) else { continue }
+            attributedText.enumerateAttribute(.paragraphStyle, in: paragraph.enclosing) { value, range, _ in
+                let style = ((value as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+                style.paragraphSpacing = blankLineGap
+                attributedText.addAttribute(.paragraphStyle, value: style, range: range)
+            }
+        }
+    }
+
+    private static func isHeading(_ range: NSRange, in attributedText: NSAttributedString) -> Bool {
+        let string = attributedText.string as NSString
+        guard range.length > 0, !isBlank(range, in: string) else { return false }
+        var isBold = true
+        attributedText.enumerateAttribute(.font, in: range) { value, runRange, stop in
+            guard !isBlank(runRange, in: string) else { return }
+            if (value as? UIFont)?.fontDescriptor.symbolicTraits.contains(.traitBold) != true {
+                isBold = false
+                stop.pointee = true
+            }
+        }
+        return isBold
+    }
+
+    private static func isBlank(_ range: NSRange, in string: NSString) -> Bool {
+        string.substring(with: range).trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private static func isHorizontalRuleLine(_ line: String) -> Bool {

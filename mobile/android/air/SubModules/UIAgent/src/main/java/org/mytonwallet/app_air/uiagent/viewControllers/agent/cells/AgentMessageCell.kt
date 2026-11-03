@@ -4,8 +4,9 @@ import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.text.Spannable
-import android.view.GestureDetector
+import android.graphics.Path
+import android.graphics.Rect
+import android.text.SpannableStringBuilder
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -16,30 +17,42 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.animation.doOnEnd
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.core.view.accessibility.AccessibilityViewCommand
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.max
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
 import org.mytonwallet.app_air.uiagent.agentV2.buildAgentV2MessageBlocks
+import org.mytonwallet.app_air.uiagent.agentV2.getAgentAnalyzingRequestText
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentAnswerFeedback
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentDeeplink
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentActivityIndicatorView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_BUBBLE_TAIL_WIDTH
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_TAIL_REVEAL_DAMPING
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_TAIL_REVEAL_DELAY_MS
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_TAIL_REVEAL_DURATION_MS
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBubbleDrawable
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentFeedbackPillView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentRichMessageView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentTypingIndicatorView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.StreamingRevealLabel
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
+import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastManager
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -52,39 +65,69 @@ import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
+import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.x
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTableReference
 
 private const val MYTONWALLET_SCHEME_PREFIX = "mytonwallet://"
 private const val MTW_SCHEME_PREFIX = "mtw://"
-private const val MESSAGE_HORIZONTAL_PADDING_DP = 34
+private const val MESSAGE_HORIZONTAL_PADDING_DP = 36
 private const val RICH_MESSAGE_HORIZONTAL_GUTTER_DP = 40
 
-// The rating pill overlaps the answer's top edge and reaches past its end, as a thought bubble over it
-private const val FEEDBACK_PILL_OVERLAP_DP = 12
-private const val FEEDBACK_PILL_OVERHANG_DP = 20
+// The rating pill overlaps the answer's top edge and reaches past its end, as a thought bubble over it, where
+// Telegram's reactions bar is
+private const val FEEDBACK_PILL_OVERLAP_DP = 16
+private const val FEEDBACK_PILL_OVERHANG_DP = 24
+
+private const val TEXT_SIZE = 17f
+private const val LINE_HEIGHT = 22f
+private const val MIN_BUBBLE_WIDTH = 44
+private const val MIN_BUBBLE_HEIGHT = 40
+
+// Half the 12 dp between rows
+private const val ROW_MARGIN = 6f
+
+// The tail's tip keeps this far from the screen's edge, the body 8 dp farther, and the text 14 dp into the body
+private const val TAIL_TIP_INSET = 10f
+private const val BUBBLE_TEXT_INSET = 14
+private const val TAIL_SIDE_TEXT_INSET = BUBBLE_TEXT_INSET + AGENT_BUBBLE_TAIL_WIDTH
+
+// The action buttons under an answer: Demibold 16/20, 3 dp under the bubble and each other
+private const val ACTION_TEXT_SIZE = 16f
+private const val ACTION_LINE_HEIGHT = 20f
+private const val ACTION_GAP = 3
+
+// How close a bubble may come to the side opposite its sender's
+private const val OUTGOING_OPPOSITE_INSET = 50f
+private const val INCOMING_OPPOSITE_INSET = 56f
 
 @SuppressLint("ViewConstructor")
-class AgentMessageCell(context: Context) :
-    WCell(
-        context,
-        LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-    ) {
+class AgentMessageCell internal constructor(
+    context: Context,
+    private val textCache: AgentMessageTextCache
+) : WCell(
+    context,
+    LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+) {
     companion object {
         private val pendingDeeplinkAnimationIds = mutableSetOf<String>()
+
+        // Answers whose status has come in once; scrolled back into view, the status is simply there
+        private val revealedTypingMessageIds = LinkedHashSet<String>()
+        private const val REVEALED_TYPING_LIMIT = 64
     }
 
     private val contentContainer = LinearLayout(context).apply {
@@ -92,29 +135,15 @@ class AgentMessageCell(context: Context) :
         orientation = LinearLayout.VERTICAL
     }
 
-    // A tap on a finished answer opens its menu, unless it opens a link inside the answer
-    private val tapDetector = GestureDetector(
-        context,
-        object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                if (isOutgoingCell || !isCopyable || isTouchOnLink) return false
-                showCopyMenu()
-                return true
-            }
-        }
-    )
-    private var isTouchOnLink = false
-    private val bubbleContainer = object : WFrameLayout(context) {
-        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                isTouchOnLink = hasClickableSpanAt(this, event.rawX, event.rawY)
-            }
-            tapDetector.onTouchEvent(event)
-            return super.dispatchTouchEvent(event)
-        }
-    }
+    // A tap or a long press opens the message's menu, as in Telegram; a tap on a link keeps to the link
+    private val bubbleContainer = WFrameLayout(context)
+    val skeletonRevealView: View get() = bubbleContainer
+    private var bubbleDrawable: AgentBubbleDrawable? = null
+    private var tailAnimator: ValueAnimator? = null
     private val messageLabel = StreamingRevealLabel(context).apply {
-        setStyle(adaptiveFontSize())
+        id = UIComponentsR.id.agent_message_text
+        setStyle(adaptiveFontSize(TEXT_SIZE))
+        setLineHeight(LINE_HEIGHT)
         isSingleLine = false
         maxLines = Int.MAX_VALUE
         ellipsize = null
@@ -124,21 +153,43 @@ class AgentMessageCell(context: Context) :
     private val richMessageView = AgentRichMessageView(context).apply {
         visibility = GONE
     }
-    private val typingIndicator = AgentActivityIndicatorView(context).apply {
-        id = generateViewId()
+    private val typingIndicator = AgentTypingIndicatorView(context).apply {
+        id = UIComponentsR.id.agent_typing_indicator
         visibility = GONE
     }
     private val deeplinkContainer = LinearLayout(context).apply {
+        id = UIComponentsR.id.agent_message_actions
         orientation = LinearLayout.VERTICAL
     }
-    private val copyLongClickListener = OnLongClickListener {
-        if (isCopyable) {
-            showCopyMenu()
+    private val copyLongClickListener = OnLongClickListener { source ->
+        val link = (source as? TextView)?.let(menuTouch::linkAt)
+        if (link != null) {
+            requestLinkMenu(source, link, menuTouch.take(bubbleContainer))
+            true
+        } else if (isCopyable) {
+            requestCopyMenu(menuTouch.take(bubbleContainer))
             true
         } else {
             false
         }
     }
+    private val copyClickListener = OnClickListener { view ->
+        val isOnLink = (view as? TextView)?.let(menuTouch::isOnLink) == true
+        if (isCopyable && !isOnLink && canOpenMenuOnTap()) {
+            requestCopyMenu(menuTouch.take(bubbleContainer))
+        }
+    }
+
+    private val menuTouch = AgentMenuTouch()
+
+    /** Whether a tap may open the menu now; the chat says no to a tap that stops its scroll */
+    var canOpenMenuOnTap: () -> Boolean = { true }
+
+    /** How the chat opens the menu, which may wait for the keyboard to go */
+    var menuPresenter: AgentMenuPresenter? = null
+
+    /** Rows where the menu leaves the bubble undimmed */
+    var menuRows: AgentMenuRows = { getAgentListRows(this) }
 
     init {
         bubbleContainer.addView(messageLabel, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
@@ -157,7 +208,9 @@ class AgentMessageCell(context: Context) :
         addView(contentContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(typingIndicator, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         bubbleContainer.setOnLongClickListener(copyLongClickListener)
+        bubbleContainer.setMessageMenuTapListener(copyClickListener)
         messageLabel.setOnLongClickListener(copyLongClickListener)
+        messageLabel.setMessageMenuTapListener(copyClickListener)
         messageLabel.onRevealFinished = {
             if (pendingRichMessageId == currentMessage?.id) {
                 showRichMessage(animate = true)
@@ -181,7 +234,9 @@ class AgentMessageCell(context: Context) :
 
     /** Sets the rating of this answer, or withdraws it with null */
     var onRate: ((AgentAnswerFeedback?) -> Unit)? = null
-    var onPopupVisibilityChanged: ((visible: Boolean, bubbleView: View?) -> Unit)? = null
+    var onPopupVisibilityChanged: ((visible: Boolean) -> Unit)? = null
+
+    var onCopied: (() -> Unit)? = null
     var onSizeTransitionFrame: ((previousHeight: Int) -> Unit)? = null
     var onInsertAnimationStarted: ((targetHeight: Int) -> Unit)? = null
     var onInsertAnimationFinished: (() -> Unit)? = null
@@ -208,6 +263,7 @@ class AgentMessageCell(context: Context) :
     internal val layoutTargetHeight: Int
         get() = insertAnimationTargetHeight.takeIf { it > 0 } ?: height
     private var isStreamingCell = false
+    private var renderedBubbleShape: Pair<Boolean, Boolean>? = null
     private var currentMessage: AgentMessage? = null
     private var isOutgoingCell = false
     private var renderedDeeplinks: List<AgentDeeplink> = emptyList()
@@ -219,17 +275,8 @@ class AgentMessageCell(context: Context) :
     private var typingCrossfadeAnimator: ValueAnimator? = null
     private var isRenderingEnabled = true
     private var richContentWidth = 0
-    private var parsedRichBlocksKey: ParsedRichBlocksKey? = null
-    private var parsedRichBlocks: List<MarkdownParser.Block>? = null
     private var renderedRichKey: RichRenderKey? = null
-
-    private data class ParsedRichBlocksKey(
-        val messageId: String,
-        val source: String,
-        val tables: List<AgentV2AnswerTable>,
-        val references: List<AgentV2AnswerTableReference>,
-        val links: List<AgentV2AnswerLink>
-    )
+    private var shownTextKey: AgentMessageTextCache.TextKey? = null
 
     private data class RichRenderKey(
         val messageId: String,
@@ -272,11 +319,13 @@ class AgentMessageCell(context: Context) :
         }
     }
 
+    /** [hasFollowupsBelow]: suggestions hang from the bubble, which then has no tail */
     fun configure(
         message: AgentMessage,
         recyclerWidth: Int,
         publishesAnswerLinks: Boolean,
-        animate: Boolean = false
+        shouldAnimate: Boolean = false,
+        hasFollowupsBelow: Boolean = false
     ) {
         val previousMessageId = currentMessage?.id
         if (previousMessageId != message.id) {
@@ -288,13 +337,34 @@ class AgentMessageCell(context: Context) :
         currentMessage = message
         val isOutgoing = message.role == AgentMessageRole.USER
         isOutgoingCell = isOutgoing
+        // The role id sits on the cell, which stays visible when an answer has
+        // no bubble, and marks an answer that is still streaming apart.
+        id = when {
+            isOutgoing -> UIComponentsR.id.agent_message_user
+            message.isStreaming -> UIComponentsR.id.agent_message_streaming
+            else -> UIComponentsR.id.agent_message_assistant
+        }
         val detectsUrls = isOutgoing || !publishesAnswerLinks
         val showTyping = message.isStreaming && !message.hasText
         val wasStreaming = isStreamingCell
-        val shouldAnimateInsert = animate && !wasStreaming
+        val shouldAnimateInsert = shouldAnimate && !wasStreaming
         isInsertAnimationPending = shouldAnimateInsert
         isStreamingCell = message.isStreaming
         bubbleContainer.isHapticFeedbackEnabled = isCopyable
+        // TalkBack offers the message's menu as "More actions"
+        ViewCompat.replaceAccessibilityAction(
+            bubbleContainer,
+            AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
+            LocaleController.getString("More actions").takeIf { isCopyable },
+            if (isCopyable) {
+                AccessibilityViewCommand { _, _ ->
+                    requestCopyMenu(touch = null)
+                    true
+                }
+            } else {
+                null
+            }
+        )
         val hasDeeplinks = message.deeplinks.isNotEmpty()
         val wasShowingTypingForSameMessage = previousMessageId == message.id &&
             typingIndicator.isVisible && typingCrossfadeAnimator == null
@@ -312,6 +382,16 @@ class AgentMessageCell(context: Context) :
             cancelTypingCrossfade()
             messageLabel.visibility = GONE
             typingIndicator.visibility = VISIBLE
+            typingIndicator.setStatus(
+                message.activityText ?: getAgentAnalyzingRequestText(),
+                isAnimated = previousMessageId == message.id
+            )
+            if (revealedTypingMessageIds.add(message.id)) {
+                if (revealedTypingMessageIds.size > REVEALED_TYPING_LIMIT) {
+                    revealedTypingMessageIds.remove(revealedTypingMessageIds.first())
+                }
+                typingIndicator.revealStatus()
+            }
             bubbleContainer.alpha = 0f
         } else {
             messageLabel.visibility = VISIBLE
@@ -323,7 +403,10 @@ class AgentMessageCell(context: Context) :
             }
         }
         val maxBubbleWidth = recyclerWidth - 15f.dp.roundToInt()
-        val standardMessageMaxWidth = maxBubbleWidth.coerceAtLeast(1)
+        // As wide as the bubble may be between its margins, so the text wraps where the bubble ends
+        val oppositeInset = if (isOutgoing) OUTGOING_OPPOSITE_INSET else INCOMING_OPPOSITE_INSET
+        val standardMessageMaxWidth =
+            (recyclerWidth - (TAIL_TIP_INSET + oppositeInset).dp.roundToInt()).coerceAtLeast(1)
         val richBlocks = if (
             message.role == AgentMessageRole.ASSISTANT &&
             (!message.isStreaming || message.tableReferences.isNotEmpty())
@@ -338,28 +421,29 @@ class AgentMessageCell(context: Context) :
             standardMessageMaxWidth
         }
 
+        updateBubbleBackground(
+            isOutgoing = isOutgoing,
+            hasActions = !isOutgoing && showDeeplinks,
+            hasTail = !hasFollowupsBelow,
+            isSameMessage = previousMessageId == message.id
+        )
         if (isOutgoing) {
-            bubbleContainer.background = AgentBubbleDrawable(isOutgoing = true)
             messageLabel.setTextColor(WColor.TextOnTint.color)
-            messageLabel.setPaddingDpLocalized(14, 10, 20, 10)
+            messageLabel.setPaddingDpLocalized(BUBBLE_TEXT_INSET, 10, TAIL_SIDE_TEXT_INSET, 10)
             messageLabel.maxWidth = standardMessageMaxWidth
             deeplinkContainer.visibility = GONE
 
             setConstraints {
                 constrainedWidth(contentContainer.id, true)
-                toTop(contentContainer, 4f)
-                toBottom(contentContainer, 4f)
-                toEnd(contentContainer, 4.5f)
-                toStart(contentContainer, 10f)
+                toTop(contentContainer, ROW_MARGIN)
+                toBottom(contentContainer, ROW_MARGIN)
+                toEnd(contentContainer, TAIL_TIP_INSET)
+                toStart(contentContainer, OUTGOING_OPPOSITE_INSET)
                 setHorizontalBias(contentContainer.id, 1f)
             }
         } else {
-            bubbleContainer.background = AgentBubbleDrawable(
-                isOutgoing = false,
-                hasActions = showDeeplinks
-            )
             messageLabel.setTextColor(WColor.PrimaryText.color)
-            messageLabel.setPaddingDpLocalized(20, 10, 14, 10)
+            messageLabel.setPaddingDpLocalized(TAIL_SIDE_TEXT_INSET, 10, BUBBLE_TEXT_INSET, 10)
             messageLabel.maxWidth = messageMaxWidth
 
             setupDeeplinks(
@@ -370,13 +454,20 @@ class AgentMessageCell(context: Context) :
 
             setConstraints {
                 constrainedWidth(contentContainer.id, true)
-                toTop(contentContainer, 4f)
-                toBottom(contentContainer, 4f)
-                toStart(contentContainer, 4.5f)
-                toEnd(contentContainer, if (richBlocks != null) 30f else 10f)
+                toTop(contentContainer, ROW_MARGIN)
+                toBottom(contentContainer, ROW_MARGIN)
+                toStart(contentContainer, TAIL_TIP_INSET)
+                toEnd(
+                    contentContainer,
+                    if (richBlocks != null) 30f else INCOMING_OPPOSITE_INSET
+                )
                 setHorizontalBias(contentContainer.id, 0f)
-                toTop(typingIndicator, 8f)
-                toStart(typingIndicator, 10f)
+                constrainedWidth(typingIndicator.id, true)
+                toTop(typingIndicator, ROW_MARGIN)
+                // Its icon and text line up with the bubbles' text
+                toStart(typingIndicator, TAIL_TIP_INSET + AGENT_BUBBLE_TAIL_WIDTH)
+                toEnd(typingIndicator, 10f)
+                setHorizontalBias(typingIndicator.id, 0f)
             }
         }
 
@@ -391,19 +482,30 @@ class AgentMessageCell(context: Context) :
                 }
             val linkColor = if (isOutgoing) WColor.TextOnTint.color.colorWithAlpha(204) else null
             if (richBlocks == null || message.tableReferences.isEmpty()) {
-                messageLabel.setTextWithReveal(
-                    MarkdownParser.parse(
-                        message.formatText(),
+                val source = message.formatText()
+                val textKey = if (message.isStreaming) {
+                    null
+                } else {
+                    AgentMessageTextCache.TextKey(
+                        message.id,
+                        source,
                         codeColor,
                         linkColor,
-                        onOpenUrl,
                         detectsUrls,
-                        textSize = messageLabel.textSize,
-                        isStreaming = message.isStreaming
-                    ),
-                    isStreaming = message.isStreaming && richBlocks == null,
-                    key = message.id
-                )
+                        messageLabel.textSize
+                    )
+                }
+                // The same finished text keeps its layout
+                if (textKey == null || textKey != shownTextKey) {
+                    val text =
+                        makeMessageText(message, source, textKey, codeColor, linkColor, detectsUrls)
+                    messageLabel.setTextWithReveal(
+                        text,
+                        isStreaming = message.isStreaming && !isOutgoing && richBlocks == null,
+                        key = message.id
+                    )
+                    shownTextKey = textKey
+                }
             } else {
                 messageLabel.finishReveal(message.id)
             }
@@ -431,7 +533,8 @@ class AgentMessageCell(context: Context) :
                         codeColor,
                         onOpenUrl,
                         detectsUrls,
-                        copyLongClickListener
+                        copyLongClickListener,
+                        copyClickListener
                     )
                     renderedRichKey = renderKey
                 }
@@ -444,7 +547,16 @@ class AgentMessageCell(context: Context) :
         }
 
         bubbleContainer.isVisible = message.hasVisibleBubble
-        bubbleContainer.minimumHeight = 40.dp
+        bubbleContainer.minimumHeight = MIN_BUBBLE_HEIGHT.dp
+        bubbleContainer.minimumWidth = MIN_BUBBLE_WIDTH.dp
+        // A very short question sits in the middle of its bubble
+        val labelGravity = if (isOutgoing) Gravity.CENTER_HORIZONTAL else Gravity.START
+        (messageLabel.layoutParams as FrameLayout.LayoutParams).let { labelParams ->
+            if (labelParams.gravity != labelGravity) {
+                labelParams.gravity = labelGravity
+                messageLabel.layoutParams = labelParams
+            }
+        }
 
         if (shouldAnimateInsert) {
             setInsertAppearance(alpha = 0f, scale = 0.8f)
@@ -458,6 +570,49 @@ class AgentMessageCell(context: Context) :
                 notifyInsertAnimationStarted(measureExpandedHeight())
             }
             notifyInsertAnimationFinished()
+        }
+    }
+
+    /** Keeps the bubble's drawable across rebinds of a message, so its tail can grow back */
+    private fun updateBubbleBackground(
+        isOutgoing: Boolean,
+        hasActions: Boolean,
+        hasTail: Boolean,
+        isSameMessage: Boolean
+    ) {
+        val current = bubbleDrawable
+        val canReuse = current != null && isSameMessage &&
+            renderedBubbleShape == (isOutgoing to hasActions)
+        if (!canReuse) {
+            tailAnimator?.cancel()
+            tailAnimator = null
+            bubbleDrawable =
+                AgentBubbleDrawable(isOutgoing, hasActions, isTailless = !hasTail).also {
+                    bubbleContainer.background = it
+                }
+            renderedBubbleShape = isOutgoing to hasActions
+            return
+        }
+        val drawable = checkNotNull(current)
+        drawable.setBubbleColor(
+            if (isOutgoing) WColor.Tint.color else agentIncomingBubbleColor
+        )
+        val target = if (hasTail) 1f else 0f
+        if (drawable.tailProgress == target && tailAnimator == null) return
+        tailAnimator?.cancel()
+        tailAnimator = null
+        if (!hasTail || !isAttachedToWindow || !WGlobalStorage.getAreAnimationsActive()) {
+            drawable.tailProgress = target
+            return
+        }
+        // As the suggestions go, the tail grows back out of the corner
+        tailAnimator = ValueAnimator.ofFloat(drawable.tailProgress, 1f).apply {
+            duration = AGENT_TAIL_REVEAL_DURATION_MS
+            startDelay = AGENT_TAIL_REVEAL_DELAY_MS
+            interpolator = WInterpolator.spring(dampingRatio = AGENT_TAIL_REVEAL_DAMPING)
+            addUpdateListener { drawable.tailProgress = it.animatedValue as Float }
+            doOnEnd { if (tailAnimator === this) tailAnimator = null }
+            start()
         }
     }
 
@@ -526,31 +681,42 @@ class AgentMessageCell(context: Context) :
         showPlainMessage()
         richMessageView.removeAllViews()
         richContentWidth = 0
-        parsedRichBlocksKey = null
-        parsedRichBlocks = null
     }
 
     private fun richBlocksFor(message: AgentMessage): List<MarkdownParser.Block>? {
-        val key = ParsedRichBlocksKey(
+        val key = AgentMessageTextCache.BlocksKey(
             message.id,
             message.text,
             message.answerTables,
             message.tableReferences,
             message.links
         )
-        if (parsedRichBlocksKey != key) {
-            parsedRichBlocksKey = key
-            parsedRichBlocks =
-                buildAgentV2MessageBlocks(
-                    key.source,
-                    key.tables,
-                    key.references,
-                    key.links
-                ).takeIf { blocks ->
-                    blocks.any { it is MarkdownParser.Block.Table }
-                }
+        return textCache.getBlocks(key) {
+            buildAgentV2MessageBlocks(key.source, key.tables, key.references, key.links)
+                .takeIf { blocks -> blocks.any { it is MarkdownParser.Block.Table } }
         }
-        return parsedRichBlocks
+    }
+
+    // Each label gets its own copy because it adds emoji to it
+    private fun makeMessageText(
+        message: AgentMessage,
+        source: String,
+        key: AgentMessageTextCache.TextKey?,
+        codeColor: Int,
+        linkColor: Int?,
+        detectsUrls: Boolean
+    ): CharSequence {
+        fun parse() = MarkdownParser.parse(
+            source,
+            codeColor,
+            linkColor,
+            onOpenUrl,
+            detectsUrls,
+            textSize = messageLabel.textSize,
+            isStreaming = message.isStreaming && message.role != AgentMessageRole.USER
+        )
+        if (key == null) return parse()
+        return SpannableStringBuilder(textCache.getText(key, ::parse))
     }
 
     private fun showRichMessage(animate: Boolean) {
@@ -708,7 +874,7 @@ class AgentMessageCell(context: Context) :
         deeplinkContainer.removeAllViews()
         deeplinkContainer.visibility = VISIBLE
         deeplinkContainer.updateLayoutParams<LinearLayout.LayoutParams> {
-            marginStart = 6.dp
+            marginStart = AGENT_BUBBLE_TAIL_WIDTH.dp
         }
         val shouldAnimate = animate && WGlobalStorage.getAreAnimationsActive()
         if (shouldAnimate) {
@@ -727,7 +893,9 @@ class AgentMessageCell(context: Context) :
             val accentColor = WColor.Tint.color
 
             val label = WLabel(context).apply {
-                setStyle(17f)
+                id = UIComponentsR.id.agent_action_button
+                setStyle(ACTION_TEXT_SIZE, WFont.Medium)
+                setLineHeight(ACTION_LINE_HEIGHT)
                 text = deeplink.title
                 setTextColor(accentColor)
                 gravity = Gravity.CENTER
@@ -763,7 +931,7 @@ class AgentMessageCell(context: Context) :
                 }
             }
             val lp = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            lp.topMargin = 1.dp
+            lp.topMargin = ACTION_GAP.dp
             deeplinkContainer.addView(label, lp)
 
             if (shouldAnimate) {
@@ -839,33 +1007,66 @@ class AgentMessageCell(context: Context) :
         updateRenderingAnimations()
     }
 
-    private fun showCopyMenu() {
-        val message = currentMessage ?: return
-        val dateHeader = run {
-            WMenuPopup.Item(
-                WMenuPopup.Item.Config.CustomView(
-                    FrameLayout(context).apply {
-                        minimumWidth = 144.dp
-                        addView(
-                            WLabel(context).apply {
-                                setStyle(14f, WFont.Medium)
-                                setTextColor(WColor.Tint)
-                                translationY = 3f.dp
-                                setUserFriendlyDate(message.date)
-                                text = "$text, ${message.date.formatDateAndTime("H:mm")}"
-                                setSingleLine()
-                            },
-                            FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                                marginStart = 16.dp
-                                marginEnd = 16.dp
-                            }
-                        )
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        menuTouch.track(this, event)
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun requestCopyMenu(touch: Vec2i?) {
+        val messageId = currentMessage?.id ?: return
+        presentAgentMenu(
+            menuPresenter,
+            bubbleContainer,
+            touch,
+            isStillShown = { isAttachedToWindow && currentMessage?.id == messageId },
+            open = ::showCopyMenu
+        )
+    }
+
+    private fun requestLinkMenu(source: View, url: String, touch: Vec2i?) {
+        val label = source as? TextView ?: return
+        val messageId = currentMessage?.id ?: return
+        presentAgentMenu(
+            menuPresenter,
+            source,
+            touch,
+            isStillShown = { isAttachedToWindow && currentMessage?.id == messageId }
+        ) { anchor ->
+            AgentLinkMenu.present(
+                source = label,
+                url = url,
+                touch = anchor,
+                items = listOf(
+                    WMenuPopup.Item(
+                        org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
+                        LocaleController.getString("Open")
+                    ) {
+                        onOpenUrl?.invoke(url)
                     },
-                    height = 40.dp
-                )
+                    WMenuPopup.Item(
+                        org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
+                        LocaleController.getString("Copy Link")
+                    ) {
+                        if (ClipboardHelpers.copyToClipboard(context, "Link", url)) {
+                            ToastManager.show(
+                                ToastManager.Toast(text = LocaleController.getString("Link Copied"))
+                            )
+                        }
+                    }
+                ),
+                bubbleColor = {
+                    if (isOutgoingCell) WColor.Tint.color else agentIncomingBubbleColor
+                },
+                isStillShown = { isAttachedToWindow && currentMessage?.id == messageId },
+                onVisibilityChanged = { onPopupVisibilityChanged?.invoke(it) }
             )
         }
+    }
+
+    /** Opens the message's menu from the finger at [touch], a window point, as Telegram does; null opens it at the bubble */
+    private fun showCopyMenu(touch: Vec2i?) {
+        val message = currentMessage ?: return
+        val dateHeader = buildAgentMessageMenuHeader(context, message.date)
         val canRate = !isOutgoingCell && !isStreamingCell && message.isComplete &&
             message.sdkMessageId != null && onRate != null
         lateinit var popup: INavigationPopup
@@ -881,79 +1082,81 @@ class AgentMessageCell(context: Context) :
         } else {
             null
         }
-        onPopupVisibilityChanged?.invoke(true, bubbleContainer)
+        val menuItems = listOfNotNull(
+            dateHeader,
+            WMenuPopup.Item(
+                org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
+                LocaleController.getString("Copy")
+            ) {
+                val text = currentMessage?.formatText()?.let(AgentTextLinks::copyText)
+                if (text != null && ClipboardHelpers.copyToClipboard(
+                        context,
+                        "Message",
+                        text
+                    )
+                ) {
+                    Haptics.play(this@AgentMessageCell, HapticType.LIGHT_TAP)
+                    onCopied?.invoke()
+                }
+            },
+            WMenuPopup.Item(
+                org.mytonwallet.app_air.icons.R.drawable.ic_pen,
+                LocaleController.getString("Edit")
+            ) {
+                onEdit?.invoke()
+            }.takeIf { isOutgoingCell && canEditMessage() },
+            WMenuPopup.Item(
+                org.mytonwallet.app_air.icons.R.drawable.ic_regenerate,
+                LocaleController.getString("Regenerate")
+            ) {
+                onRegenerate?.invoke()
+            }.takeIf { !isOutgoingCell && canRegenerateMessage() },
+            WMenuPopup.Item(
+                org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
+                LocaleController.getString("Report a Problem")
+            ) {
+                onReportProblem?.invoke()
+            }.takeIf { !isOutgoingCell && !isStreamingCell && canReportProblem() }
+        )
+        val rows = menuRows()
+        val pillFrame = feedbackPill?.let { computeFeedbackPillFrame(it, rows.first) }
+        onPopupVisibilityChanged?.invoke(true)
         popup = WMenuPopup.present(
             bubbleContainer,
-            listOfNotNull(
-                dateHeader,
-                WMenuPopup.Item(
-                    org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
-                    LocaleController.getString("Copy")
-                ) {
-                    val text = currentMessage?.formatText()?.let(AgentTextLinks::copyText)
-                    if (text != null && ClipboardHelpers.copyToClipboard(
-                            context,
-                            "Message",
-                            text
-                        )
-                    ) {
-                        Haptics.play(context, HapticType.LIGHT_TAP)
-                        Toast.makeText(
-                            context,
-                            LocaleController.getString("Message Copied"),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                },
-                WMenuPopup.Item(
-                    org.mytonwallet.app_air.icons.R.drawable.ic_pen,
-                    LocaleController.getString("Edit")
-                ) {
-                    onEdit?.invoke()
-                }.takeIf { isOutgoingCell && canEditMessage() },
-                WMenuPopup.Item(
-                    org.mytonwallet.app_air.icons.R.drawable.ic_regenerate,
-                    LocaleController.getString("Regenerate")
-                ) {
-                    onRegenerate?.invoke()
-                }.takeIf { !isOutgoingCell && canRegenerateMessage() },
-                WMenuPopup.Item(
-                    org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
-                    LocaleController.getString("Report a Problem")
-                ) {
-                    onReportProblem?.invoke()
-                }.takeIf { !isOutgoingCell && !isStreamingCell && canReportProblem() }
-            ),
+            menuItems,
             positioning = WMenuPopup.Positioning.BELOW,
-            // Without room below the answer, the menu opens above it clear of the rating pill
-            aboveFallbackYOffset = feedbackPill?.let {
-                FEEDBACK_PILL_OVERLAP_DP.dp - it.bodyHeight
-            },
-            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
-            yOffset = (-16).dp,
-            centerHorizontally = true,
-            windowBackgroundStyle = buildBubbleCutoutStyle(),
-            onWillDismiss = { onPopupVisibilityChanged?.invoke(false, null) },
+            backdropStyle = WMenuPopup.BackdropStyle.Dimmed,
+            windowBackgroundStyle = buildAgentMenuBackdrop(buildBubbleCutoutPath(), rows),
+            onWillDismiss = { onPopupVisibilityChanged?.invoke(false) },
             onDidDismiss = { (feedbackPill?.parent as? ViewGroup)?.removeView(feedbackPill) },
-            displayProgressListener = feedbackPill?.let { pill -> pill::setDisplayProgress }
+            displayProgressListener = feedbackPill?.let { pill -> pill::setDisplayProgress },
+            placement = buildAgentMenuPlacement(this, bubbleContainer, touch, avoid = pillFrame)
         )
-        feedbackPill?.let(::showFeedbackPill)
+        if (feedbackPill != null && pillFrame != null) showFeedbackPill(feedbackPill, pillFrame)
     }
 
-    /** Places the rating pill over the answer's top edge at its end, above the open menu */
-    private fun showFeedbackPill(pill: AgentFeedbackPillView) {
-        val host = PopupHelpers.popupHost ?: return
-        val bubbleLocation = IntArray(2).also(bubbleContainer::getLocationInWindow)
-        val hostLocation = IntArray(2).also(host::getLocationInWindow)
-        val bounds = host.getContentAreaBounds()
-        val bubbleLeft = bubbleLocation[0] - hostLocation[0]
-        val bubbleTop = bubbleLocation[1] - hostLocation[1]
+    /**
+     * Where the rating pill goes, in the window: over the answer's top edge at its end, or over the top of what the
+     * header leaves of a taller answer, from window row [visibleTop]. The frame takes in the pill's tail under it.
+     */
+    private fun computeFeedbackPillFrame(pill: AgentFeedbackPillView, visibleTop: Int): Rect {
+        val area = getAgentPopupArea()
+        val bubbleLocation = bubbleContainer.getLocationInWindow()
         val left = if (layoutDirection == LAYOUT_DIRECTION_RTL) {
-            bubbleLeft - FEEDBACK_PILL_OVERHANG_DP.dp
+            bubbleLocation.x - FEEDBACK_PILL_OVERHANG_DP.dp
         } else {
-            bubbleLeft + bubbleContainer.width + FEEDBACK_PILL_OVERHANG_DP.dp - pill.bodyWidth
-        }
-        val top = bubbleTop + FEEDBACK_PILL_OVERLAP_DP.dp - pill.bodyHeight
+            bubbleLocation.x + bubbleContainer.width + FEEDBACK_PILL_OVERHANG_DP.dp -
+                pill.bodyWidth
+        }.coerceAtMost(area.right - pill.bodyWidth).coerceAtLeast(area.left)
+        val bubbleTop = max(bubbleLocation.y, visibleTop)
+        val top = max(bubbleTop + FEEDBACK_PILL_OVERLAP_DP.dp - pill.bodyHeight, area.top)
+        return Rect(left, top, left + pill.bodyWidth, top + pill.tailBottom)
+    }
+
+    /** Places the rating pill at [frame], a window rect, above the open menu */
+    private fun showFeedbackPill(pill: AgentFeedbackPillView, frame: Rect) {
+        val host = PopupHelpers.popupHost ?: return
+        val hostLocation = host.getLocationInWindow()
         host.addView(
             pill,
             FrameLayout.LayoutParams(
@@ -961,38 +1164,15 @@ class AgentMessageCell(context: Context) :
                 WRAP_CONTENT,
                 Gravity.TOP or Gravity.LEFT
             ).apply {
-                leftMargin = left.coerceAtMost(bounds.right - pill.bodyWidth)
-                    .coerceAtLeast(bounds.left) - host.paddingLeft
-                topMargin = top.coerceAtLeast(bounds.top) - host.paddingTop
+                leftMargin = frame.left - hostLocation.x - host.paddingLeft
+                topMargin = frame.top - hostLocation.y - host.paddingTop
             }
         )
     }
 
-    /** Whether a touch at [rawX], [rawY] opens a link in [view], as its link movement method decides */
-    private fun hasClickableSpanAt(view: View, rawX: Float, rawY: Float): Boolean {
-        if (!view.isShown) return false
-        val location = IntArray(2).also(view::getLocationOnScreen)
-        val x = rawX - location[0]
-        val y = rawY - location[1]
-        if (x < 0 || y < 0 || x > view.width || y > view.height) return false
-        if (view is ViewGroup) {
-            return (0 until view.childCount).any {
-                hasClickableSpanAt(view.getChildAt(it), rawX, rawY)
-            }
-        }
-        val textView = view as? TextView ?: return false
-        val movementMethod = textView.movementMethod as? ExtraHitLinkMovementMethod ?: return false
-        val text = textView.text as? Spannable ?: return false
-        return movementMethod.findLinks(textView, text, x, y).isNotEmpty()
-    }
-
-    private fun buildBubbleCutoutStyle(): WMenuPopup.BackgroundStyle {
-        val drawable = bubbleContainer.background as? AgentBubbleDrawable
-        if (drawable != null) {
-            return WMenuPopup.BackgroundStyle.Cutout(drawable.buildCutoutPath(bubbleContainer))
-        }
-        return WMenuPopup.BackgroundStyle.Cutout.fromView(bubbleContainer, roundRadius = 21f.dp)
-    }
+    private fun buildBubbleCutoutPath(): Path =
+        (bubbleContainer.background as? AgentBubbleDrawable)?.buildCutoutPath(bubbleContainer)
+            ?: bubbleContainer.frameAsPath(roundRadius = 21f.dp)
 
     private fun scheduleInsertAnimation() {
         if (!isInsertAnimationPending || !isRenderingEnabled || !isAttachedToWindow) return

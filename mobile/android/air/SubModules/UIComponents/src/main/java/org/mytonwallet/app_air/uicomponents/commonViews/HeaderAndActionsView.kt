@@ -36,7 +36,10 @@ class HeaderAndActionsView(
     private val trinaryActionPressed: (() -> Unit)? = null,
     val headerPadding: Float = 0f,
     var onStarted: (() -> Unit)? = null,
-    val textsGap: Float = 21f
+    val textsGap: Float = 21f,
+    // Stable resource ids of the title and subtitle labels, for UI automation
+    titleViewId: Int? = null,
+    subtitleViewId: Int? = null
 ) : WView(context, LayoutParams(0, WRAP_CONTENT)),
     WThemedView {
 
@@ -67,11 +70,13 @@ class HeaderAndActionsView(
 
     private val titleLabel: WLabel by lazy {
         val v = WLabel(context)
+        titleViewId?.let { v.id = it }
         v
     }
 
     private val subTitleLabel: WLabel by lazy {
         val v = WLabel(context)
+        subtitleViewId?.let { v.id = it }
         v
     }
 

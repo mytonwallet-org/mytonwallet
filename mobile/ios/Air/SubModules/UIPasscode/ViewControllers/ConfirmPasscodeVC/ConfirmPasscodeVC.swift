@@ -81,6 +81,8 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             topView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
 
+        headerView.lblTitle.accessibilityIdentifier = "passcode_set_title"
+        headerView.lblDescription.accessibilityIdentifier = "passcode_set_subtitle"
         topView.addSubview(headerView)
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
@@ -111,6 +113,7 @@ public class ConfirmPasscodeVC: WViewController, PasscodeScreenViewDelegate {
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         passcodeScreenView.enterPasscodeLabel.label.text = lang("Enter your code again")
+        passcodeScreenView.enterPasscodeLabel.label.accessibilityIdentifier = "passcode_repeat_subtitle"
         passcodeScreenView.passcodeInputView.setAccessibilityTitle(lang("Enter your code again"))
 
         view.addSubview(indicatorView)

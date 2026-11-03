@@ -1,9 +1,10 @@
-import type { OnApiUpdate } from '../types';
+import type { ApiCurrencyRates, OnApiUpdate } from '../types';
 
 import { DEFAULT_RETRIES } from '../../config';
 import Deferred from '../../util/Deferred';
 import { resetFetchStateForTests } from '../../util/fetch';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
+import { logDebugError } from '../../util/logs';
 import {
   checkIsTrustedCollection,
   checkIsTrustedSite,
@@ -13,8 +14,11 @@ import {
   tryUpdateKnownAddresses,
 } from '../common/addresses';
 import { callBackendGet } from '../common/backend';
+import * as cache from '../common/cache';
 import { tokensPreload } from '../common/tokens';
 import { destroyPolling, initPolling } from './polling';
+import { resolveDataPreloadPromise } from './preload';
+import { initTokens, refreshTokens } from './tokens';
 
 const mockFetch = jest.fn();
 const mockUpdateTokensFromBackend = jest.fn();
@@ -33,11 +37,21 @@ jest.mock('../../util/abortSignal', () => ({
   ...jest.requireActual('../../util/abortSignal'),
   pauseWithAbortSignal: () => Promise.resolve(),
 }));
-jest.mock('../chains', () => ({ __esModule: true, default: {} }));
+jest.mock('../chains', () => ({
+  __esModule: true,
+  default: {
+    ton: { staking: { getCommonData: () => mockStakingCommon() } },
+    tron: {},
+  },
+}));
+jest.mock('../../util/logs', () => ({
+  ...jest.requireActual('../../util/logs'), logDebugError: jest.fn(),
+}));
 jest.mock('../environment', () => ({ getEnvironment: () => ({ apiHeaders: {} }) }));
 jest.mock('../common/other', () => ({ getClientId: () => 'catalog-polling-test' }));
 jest.mock('../common/accounts', () => ({ fetchStoredAccounts: () => Promise.resolve({}) }));
 jest.mock('../common/heldTokens', () => ({
+  getHeldSlugs: () => new Set(),
   forgetAllHeldTokens: jest.fn(),
   forgetHeldTokens: jest.fn(),
   forgetNetworkHeldTokens: jest.fn(),
@@ -45,14 +59,11 @@ jest.mock('../common/heldTokens', () => ({
   recordHeldTokens: jest.fn(),
 }));
 jest.mock('../common/tokens', () => ({
-  fetchNonBackendTokenDetails: jest.fn(),
-  loadTokensCache: jest.fn(),
-  pauseTokenUpdates: jest.fn(),
-  resumeTokenUpdates: jest.fn(),
-  sendUpdateTokens: jest.fn(),
-  tokensPreload: { promise: Promise.resolve() },
-  updateTokens: jest.fn(),
+  ...jest.requireActual('../common/tokens'),
   updateTokensFromBackend: (...args: unknown[]) => mockUpdateTokensFromBackend(...args),
+}));
+jest.mock('../db', () => ({
+  tokenRepository: jest.requireActual('../db/noopRepository').createNoopRepository(),
 }));
 jest.mock('../storages', () => ({ storage: { getItem: () => Promise.resolve(undefined) } }));
 jest.mock('./optional', () => ({
@@ -61,12 +72,17 @@ jest.mock('./optional', () => ({
     resolveAgentV2ProtocolVersionForRouting: (version?: string) => version,
   }),
   requireStakingMethods: () => ({
-    tryUpdateStakingCommonData: () => mockStakingCommon(),
+    tryUpdateStakingCommonData: () => jest.requireActual('./staking').tryUpdateStakingCommonData(),
   }),
   requireSwapMethods: () => ({
     swapGetAssetsText: () => jest.requireActual('../common/backend').callBackendGet(
       '/swap/assets', undefined, undefined, undefined, { shouldReturnText: true },
     ),
+  }),
+  requirePerpsAssets: () => ({
+    setPerpsAssetsUpdater: () => undefined,
+    loadPerpsAssetsCache: () => Promise.resolve(),
+    refreshPerpsAssets: () => Promise.resolve({ assetsByChain: {} }),
   }),
 }));
 jest.mock('./preload', () => ({ resolveDataPreloadPromise: jest.fn() }));
@@ -80,6 +96,7 @@ const CATALOGS = [
 ];
 const SWAP_TEXT = swapText('TON');
 const KNOWN_TEXT = knownText('Known');
+const CURRENCY_RATES: ApiCurrencyRates = { USD: '1', EUR: '0.9', RUB: '90', CNY: '7', BTC: '0.00001', TON: '0.3' };
 
 type Reply = { text: string; status?: number; error?: Error; pending?: Promise<void> };
 let replies: Record<string, Reply>;
@@ -89,15 +106,19 @@ beforeEach(() => {
   setIsAppFocused(true);
   resetFetchStateForTests();
   mockOnUpdate.mockReset();
+  jest.mocked(resolveDataPreloadPromise).mockClear();
   mockFetch.mockReset();
-  mockUpdateTokensFromBackend.mockReset().mockImplementation(() => callBackendGet('/assets'));
+  mockUpdateTokensFromBackend.mockReset().mockImplementation(
+    jest.requireActual('../common/tokens').updateTokensFromBackend,
+  );
   mockStakingCommon.mockReset().mockImplementation(() => callBackendGet('/staking/common'));
   replies = {
     [SWAP_PATH]: { text: SWAP_TEXT },
     [KNOWN_PATH]: { text: KNOWN_TEXT },
-    '/assets': { text: '{}' },
+    '/assets/prices': { text: JSON.stringify({ catalogVersion: 'empty', prices: {} }) },
+    '/assets/catalog': { text: JSON.stringify({ version: 'empty', assets: [] }) },
     '/staking/common': { text: '{}' },
-    '/currency-rates': { text: '{"rates":{}}' },
+    '/currency-rates': { text: JSON.stringify({ rates: CURRENCY_RATES }) },
     '/utils/get-config': { text: JSON.stringify({ now: Date.now() }) },
   };
   mockFetch.mockImplementation((url: string | URL) => {
@@ -110,7 +131,7 @@ beforeEach(() => {
       status,
       ok: status >= 200 && status < 300,
       text: () => Promise.resolve(reply.pending).then(() => reply.text),
-      json: () => Promise.resolve(reply.text).then((text) => JSON.parse(text)),
+      json: () => Promise.resolve(reply.pending).then(() => JSON.parse(reply.text)),
       headers: { get: () => undefined },
     } as unknown as Response);
   });
@@ -124,27 +145,286 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 
-it('keeps catalog periods and the existing periods of the other endpoints', async () => {
+it('polls common staking and config every five minutes while keeping assets and catalog periods', async () => {
   await startPolling();
   expectCounts([1, 1, 1, 1, 1, 1]);
 
   await jest.advanceTimersByTimeAsync(30_000);
-  expectCounts([1, 1, 1, 1, 1, 2]);
+  expectCounts([1, 1, 1, 1, 1, 1]);
   await jest.advanceTimersByTimeAsync(30_000);
-  expectCounts([1, 1, 2, 2, 2, 3]);
+  expectCounts([1, 1, 2, 1, 1, 2]);
   await jest.advanceTimersByTimeAsync(4 * MINUTE - 1);
-  expectCounts([1, 1, 5, 5, 5, 10]);
+  expectCounts([1, 1, 5, 1, 1, 5]);
   await jest.advanceTimersByTimeAsync(1);
-  expectCounts([1, 2, 6, 6, 6, 11]);
+  expectCounts([1, 2, 6, 2, 2, 6]);
   await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
-  expectCounts([1, 2, 10, 10, 10, 20]);
+  expectCounts([1, 2, 10, 2, 2, 10]);
   await jest.advanceTimersByTimeAsync(1);
-  expectCounts([2, 3, 11, 11, 11, 21]);
+  expectCounts([2, 3, 11, 3, 3, 11]);
 
   await destroyPolling();
   await jest.advanceTimersByTimeAsync(10 * MINUTE);
-  expectCounts([2, 3, 11, 11, 11, 21]);
+  expectCounts([2, 3, 11, 3, 3, 11]);
 });
+
+it('uses price response rates for five focused minutes and sends only changed rates', async () => {
+  const pending = new Deferred();
+  replies['/assets/prices'] = {
+    text: JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: CURRENCY_RATES }), pending: pending.promise,
+  };
+  await startPolling();
+  expect(requestCount('/currency-rates')).toBe(0);
+  expect(resolveDataPreloadPromise).not.toHaveBeenCalled();
+
+  pending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+  expect(resolveDataPreloadPromise).toHaveBeenCalledTimes(1);
+
+  await jest.advanceTimersByTimeAsync(4 * MINUTE);
+  expect(currencyRateUpdates()).toHaveLength(1);
+  const changedRates = { ...CURRENCY_RATES, EUR: '0.95' };
+  replies['/assets/prices'].text = JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: changedRates });
+  await jest.advanceTimersByTimeAsync(MINUTE);
+
+  expect(requestCount('/assets/prices')).toBe(6);
+  expect(requestCount('/currency-rates')).toBe(0);
+  expect(currencyRateUpdates()).toEqual([
+    { type: 'updateCurrencyRates', rates: CURRENCY_RATES },
+    { type: 'updateCurrencyRates', rates: changedRates },
+  ]);
+});
+
+it('fetches fallback rates at five seconds while prices take thirty seconds, then stops fallback polling', async () => {
+  const pending = new Deferred();
+  const priceRates = { ...CURRENCY_RATES, EUR: '0.95' };
+  replies['/assets/prices'] = {
+    text: JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: priceRates }), pending: pending.promise,
+  };
+  setTimeout(() => pending.resolve(), 30_000);
+  await startPolling();
+
+  await jest.advanceTimersByTimeAsync(4999);
+  expect(requestCount('/currency-rates')).toBe(0);
+  await jest.advanceTimersByTimeAsync(1);
+  expect(requestCount('/currency-rates')).toBe(1);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+
+  await jest.advanceTimersByTimeAsync(25_000);
+  expect(currencyRateUpdates()).toEqual([
+    { type: 'updateCurrencyRates', rates: CURRENCY_RATES },
+    { type: 'updateCurrencyRates', rates: priceRates },
+  ]);
+  await jest.advanceTimersByTimeAsync(5 * MINUTE);
+  expect(requestCount('/currency-rates')).toBe(1);
+});
+
+it('ignores a late fallback response after price rates arrive', async () => {
+  const pricesPending = new Deferred();
+  const ratesPending = new Deferred();
+  const priceRates = { ...CURRENCY_RATES, EUR: '0.95' };
+  replies['/assets/prices'] = {
+    text: JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: priceRates }), pending: pricesPending.promise,
+  };
+  replies['/currency-rates'].pending = ratesPending.promise;
+  await startPolling();
+  await jest.advanceTimersByTimeAsync(5000);
+  expect(requestCount('/currency-rates')).toBe(1);
+
+  pricesPending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: priceRates }]);
+  ratesPending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: priceRates }]);
+  await jest.advanceTimersByTimeAsync(5 * MINUTE);
+  expect(requestCount('/currency-rates')).toBe(1);
+});
+
+it('cancels the startup fallback timer when polling stops', async () => {
+  const pending = new Deferred();
+  replies['/assets/prices'].pending = pending.promise;
+  await startPolling();
+  await jest.advanceTimersByTimeAsync(4999);
+  await destroyPolling();
+  await jest.advanceTimersByTimeAsync(MINUTE);
+  pending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+
+  expect(requestCount('/currency-rates')).toBe(0);
+  expect(currencyRateUpdates()).toEqual([]);
+});
+
+it.each(['0', '', 'NaN'])('fetches fallback rates when a price rate is unusable: %p', async (rate) => {
+  replies['/assets/prices'].text = JSON.stringify({
+    catalogVersion: 'empty', prices: {}, rates: { ...CURRENCY_RATES, EUR: rate },
+  });
+  await startPolling();
+
+  expect(requestCount('/currency-rates')).toBe(1);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+});
+
+it('resends unchanged price rates when a new UI initializes polling', async () => {
+  replies['/assets/prices'].text = JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: CURRENCY_RATES });
+  await startPolling();
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+  const nextOnUpdate = jest.fn<void, Parameters<OnApiUpdate>>();
+
+  initPolling(nextOnUpdate);
+  await jest.advanceTimersByTimeAsync(0);
+
+  expect(nextOnUpdate.mock.calls.map(([update]) => update).filter((update) => update.type === 'updateCurrencyRates'))
+    .toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+  expect(currencyRateUpdates()).toHaveLength(1);
+  expect(requestCount('/currency-rates')).toBe(0);
+});
+
+it.each([true, false])('resends unchanged rates after clearing caches (price rates: %s)', async (hasPriceRates) => {
+  replies['/assets/prices'].text = JSON.stringify({
+    catalogVersion: 'empty', prices: {}, ...(hasPriceRates && { rates: CURRENCY_RATES }),
+  });
+  initTokens(mockOnUpdate);
+  await startPolling();
+  expect(currencyRateUpdates()).toHaveLength(1);
+
+  await refreshTokens();
+  await jest.advanceTimersByTimeAsync(0);
+
+  expect(currencyRateUpdates()).toEqual([
+    { type: 'updateCurrencyRates', rates: CURRENCY_RATES },
+    { type: 'updateCurrencyRates', rates: CURRENCY_RATES },
+  ]);
+  expect(requestCount('/assets/prices')).toBe(2);
+  expect(requestCount('/currency-rates')).toBe(hasPriceRates ? 0 : 2);
+});
+
+it.each([0, 5000])('waits for the initial fallback before preload resolves (price delay: %i ms)', async (delay) => {
+  const pricesPending = new Deferred();
+  const ratesPending = new Deferred();
+  replies['/assets/prices'].pending = pricesPending.promise;
+  replies['/currency-rates'].pending = ratesPending.promise;
+  await startPolling();
+  expect(requestCount('/currency-rates')).toBe(0);
+  expect(resolveDataPreloadPromise).not.toHaveBeenCalled();
+
+  await jest.advanceTimersByTimeAsync(delay);
+  pricesPending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(requestCount('/currency-rates')).toBe(1);
+  expect(resolveDataPreloadPromise).not.toHaveBeenCalled();
+
+  ratesPending.resolve();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+  expect(resolveDataPreloadPromise).toHaveBeenCalledTimes(1);
+});
+
+it.each(['failure', 'undefined'])('fetches fallback immediately after a price update %s', async (result) => {
+  if (result === 'failure') replies['/assets/prices'].error = new Error('Offline');
+  else mockUpdateTokensFromBackend.mockResolvedValueOnce(undefined);
+
+  await startPolling();
+
+  expect(requestCount('/currency-rates')).toBe(1);
+  expect(currencyRateUpdates()).toEqual([{ type: 'updateCurrencyRates', rates: CURRENCY_RATES }]);
+  expect(resolveDataPreloadPromise).toHaveBeenCalledTimes(1);
+  if (result === 'failure') expect(requestCount('/assets/prices')).toBe(DEFAULT_RETRIES);
+});
+
+it('stops fallback when price rates arrive and resumes immediately when they disappear in the background', async () => {
+  setIsAppFocused(false);
+  await startPolling();
+  expect(requestCount('/currency-rates')).toBe(1);
+
+  const priceRates = { ...CURRENCY_RATES, EUR: '0.95' };
+  replies['/assets/prices'].text = JSON.stringify({ catalogVersion: 'empty', prices: {}, rates: priceRates });
+  await jest.advanceTimersByTimeAsync(MINUTE + 1);
+  expect(currencyRateUpdates().at(-1)).toEqual({ type: 'updateCurrencyRates', rates: priceRates });
+
+  await jest.advanceTimersByTimeAsync(5 * (MINUTE + 1));
+  expect(requestCount('/currency-rates')).toBe(1);
+  replies['/assets/prices'].text = JSON.stringify({ catalogVersion: 'empty', prices: {} });
+  await jest.advanceTimersByTimeAsync(MINUTE + 1);
+  expect(requestCount('/currency-rates')).toBe(2);
+  expect(currencyRateUpdates().at(-1)).toEqual({ type: 'updateCurrencyRates', rates: CURRENCY_RATES });
+
+  await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
+  expect(requestCount('/currency-rates')).toBe(2);
+  await jest.advanceTimersByTimeAsync(2);
+  expect(requestCount('/currency-rates')).toBe(3);
+});
+
+it('keeps common staking and config on failure and retries both at the next five-minute poll', async () => {
+  await startPolling();
+  const staking = await cache.getStakingCommonCache('ton');
+  const config = cache.getBackendConfigCacheSync();
+  const error = new Error('Offline');
+  replies['/staking/common'].error = error;
+  replies['/utils/get-config'].error = error;
+  mockOnUpdate.mockClear();
+
+  await jest.advanceTimersByTimeAsync(5 * MINUTE);
+
+  expect(requestCount('/staking/common')).toBe(1 + DEFAULT_RETRIES);
+  expect(requestCount('/utils/get-config')).toBe(1 + DEFAULT_RETRIES);
+  expect(await cache.getStakingCommonCache('ton')).toBe(staking);
+  expect(cache.getBackendConfigCacheSync()).toBe(config);
+  expect(mockOnUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateConfig' }));
+  expect(logDebugError).toHaveBeenCalledWith('tryUpdateStakingCommonData', expect.objectContaining({
+    message: expect.stringContaining(`/staking/common | attempts=${DEFAULT_RETRIES} | Offline`),
+  }));
+  expect(logDebugError).toHaveBeenCalledWith('tryUpdateConfig', expect.objectContaining({
+    message: expect.stringContaining(`/utils/get-config | attempts=${DEFAULT_RETRIES} | Offline`),
+  }));
+
+  delete replies['/staking/common'].error;
+  delete replies['/utils/get-config'].error;
+  await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
+  expect(requestCount('/staking/common')).toBe(1 + DEFAULT_RETRIES);
+  expect(requestCount('/utils/get-config')).toBe(1 + DEFAULT_RETRIES);
+  await jest.advanceTimersByTimeAsync(1);
+  expect(requestCount('/staking/common')).toBe(2 + DEFAULT_RETRIES);
+  expect(requestCount('/utils/get-config')).toBe(2 + DEFAULT_RETRIES);
+  expect(await cache.getStakingCommonCache('ton')).not.toBe(staking);
+  expect(cache.getBackendConfigCacheSync()).not.toBe(config);
+  expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: 'updateConfig' }));
+});
+
+it.each(['/utils/get-config', '/staking/common'])(
+  'retries missing initial %s data after one minute and resumes five-minute polling after success',
+  async (path) => {
+    const readConfig = cache.getBackendConfigCacheSync;
+    const readStaking = cache.getStakingCommonCacheSync;
+    const configWrites = jest.spyOn(cache, 'setBackendConfigCache');
+    const stakingWrites = jest.spyOn(cache, 'setStakingCommonCache');
+    jest.spyOn(cache, 'getBackendConfigCacheSync').mockImplementation(() => (
+      configWrites.mock.calls.length ? readConfig() : undefined
+    ));
+    const readStakingSpy = jest.spyOn(cache, 'getStakingCommonCacheSync').mockImplementation((chain) => (
+      stakingWrites.mock.calls.some(([storedChain]) => storedChain === chain) ? readStaking(chain) : undefined
+    ));
+    replies[path].error = new Error('Offline');
+    await startPolling();
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES);
+
+    delete replies[path].error;
+    await jest.advanceTimersByTimeAsync(MINUTE - 1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES + 1);
+
+    await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES + 1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES + 2);
+    await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES + 2);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(requestCount(path)).toBe(DEFAULT_RETRIES + 3);
+    expect(readStakingSpy).not.toHaveBeenCalledWith('tron');
+  },
+);
 
 it('keeps catalog polling infrequent while the app is unfocused', async () => {
   setIsAppFocused(false);
@@ -153,12 +433,15 @@ it('keeps catalog polling infrequent while the app is unfocused', async () => {
   await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
   expect(requestCount(SWAP_PATH)).toBe(1);
   expect(requestCount(KNOWN_PATH)).toBe(1);
+  expect(requestCount('/currency-rates')).toBe(1);
   await jest.advanceTimersByTimeAsync(2);
   expect(requestCount(SWAP_PATH)).toBe(1);
   expect(requestCount(KNOWN_PATH)).toBe(2);
+  expect(requestCount('/currency-rates')).toBe(2);
   await jest.advanceTimersByTimeAsync(5 * MINUTE + 1);
   expect(requestCount(SWAP_PATH)).toBe(2);
   expect(requestCount(KNOWN_PATH)).toBe(3);
+  expect(requestCount('/currency-rates')).toBe(3);
 });
 
 it.each(CATALOGS)('retries an initial failure after one minute for $path', async ({ path, period }) => {
@@ -208,7 +491,7 @@ it.each(CATALOGS)('does not overlap initial or retry requests for $path', async 
   expect(requestCount(path)).toBe(3);
   await jest.advanceTimersByTimeAsync(period);
   expect(requestCount(path)).toBe(3);
-  expect(requestCount('/assets')).toBe(2 + 2 * period / MINUTE);
+  expect(requestCount('/assets/prices')).toBe(2 + 2 * period / MINUTE);
 
   retryPending.resolve();
   await jest.advanceTimersByTimeAsync(0);
@@ -529,12 +812,16 @@ function requestCount(path: string) {
 
 function expectCounts(counts: number[]) {
   expect([
-    SWAP_PATH, KNOWN_PATH, '/assets', '/staking/common', '/utils/get-config', '/currency-rates',
+    SWAP_PATH, KNOWN_PATH, '/assets/prices', '/staking/common', '/utils/get-config', '/currency-rates',
   ].map(requestCount)).toEqual(counts);
 }
 
 function swapUpdates() {
   return mockOnUpdate.mock.calls.map(([update]) => update).filter((update) => update.type === 'updateSwapTokens');
+}
+
+function currencyRateUpdates() {
+  return mockOnUpdate.mock.calls.map(([update]) => update).filter((update) => update.type === 'updateCurrencyRates');
 }
 
 function swapText(symbol: string) {

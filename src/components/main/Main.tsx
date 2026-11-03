@@ -1,4 +1,4 @@
-import React, { memo, useRef, useState } from '../../lib/teact/teact';
+import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiStakingState } from '../../api/types';
@@ -91,6 +91,8 @@ const UPDATE_SWAPS_INTERVAL_NOT_FOCUSED = 15000; // 15 sec
 const UPDATE_SWAPS_INTERVAL = 3000; // 3 sec
 // Keeps the market request away from the wallet start, yet the showcase is ready by the time the tab is opened
 const MARKET_PRELOAD_DELAY = 5000; // 5 sec
+// Picks up the token details that expired since the last preload
+const TOKEN_DETAILS_PRELOAD_INTERVAL = 60000; // 1 min
 
 function Main({
   isActive,
@@ -116,6 +118,7 @@ function Main({
     loadExploreSites,
     loadMarketAssets,
     updatePendingSwaps,
+    preloadTokenDetails,
   } = getActions();
 
   const lang = useLang();
@@ -145,6 +148,12 @@ function Main({
   useTimeout(loadMarketAssets, MARKET_PRELOAD_DELAY);
 
   useInterval(updatePendingSwaps, isFocused ? UPDATE_SWAPS_INTERVAL : UPDATE_SWAPS_INTERVAL_NOT_FOCUSED);
+
+  useEffect(() => {
+    if (isFocused) preloadTokenDetails();
+  }, [isFocused, accountId, lang.code]);
+
+  useInterval(preloadTokenDetails, isFocused ? TOKEN_DETAILS_PRELOAD_INTERVAL : undefined, true);
 
   // Use scroll detection for portrait mode
   const { isVisible: isPageAtTop } = useElementVisibility({

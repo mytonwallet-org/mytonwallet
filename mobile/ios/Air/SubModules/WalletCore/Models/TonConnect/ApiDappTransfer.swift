@@ -11,6 +11,7 @@ public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, D
     public var rawPayload: String?
     public var payload: ApiParsedPayload?
     public var stateInit: String?
+    public var parsedStateInit: ApiParsedStateInit?
 
     public var isScam: Bool?
     /** Whether the transfer should be treated with cautiousness, because its payload is unclear */
@@ -20,18 +21,31 @@ public struct ApiDappTransfer: ApiTransferToSignProtocol, Equatable, Hashable, D
     public var displayedToAddress: String
     public var networkFee: BigInt
     
-    public init(chain: ApiChain? = nil, toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil, isScam: Bool? = nil, isDangerous: Bool, normalizedAddress: String, displayedToAddress: String, networkFee: BigInt) {
+    public init(chain: ApiChain? = nil, toAddress: String, amount: BigInt, rawPayload: String? = nil, payload: ApiParsedPayload? = nil, stateInit: String? = nil, parsedStateInit: ApiParsedStateInit? = nil, isScam: Bool? = nil, isDangerous: Bool, normalizedAddress: String, displayedToAddress: String, networkFee: BigInt) {
         self.chain = chain
         self.toAddress = toAddress
         self.amount = amount
         self.rawPayload = rawPayload
         self.payload = payload
         self.stateInit = stateInit
+        self.parsedStateInit = parsedStateInit
         self.isScam = isScam
         self.isDangerous = isDangerous
         self.normalizedAddress = normalizedAddress
         self.displayedToAddress = displayedToAddress
         self.networkFee = networkFee
+    }
+}
+
+public struct ApiParsedStateInit: Equatable, Hashable, Codable, Sendable {
+    /** The known wallet whose code the StateInit carries */
+    public var walletName: String?
+    /** Whether the StateInit belongs to the message recipient. The network deploys nothing from one that does not. */
+    public var isDeployable: Bool
+
+    public init(walletName: String? = nil, isDeployable: Bool) {
+        self.walletName = walletName
+        self.isDeployable = isDeployable
     }
 }
 

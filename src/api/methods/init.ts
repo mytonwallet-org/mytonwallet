@@ -1,5 +1,6 @@
 import type { ApiInitArgs, OnApiUpdate } from '../types';
 
+import { logDebugError } from '../../util/logs';
 import { initWindowConnector } from '../../util/windowProvider/connector';
 import { fetchBackendReferrer } from '../common/backend';
 import { connectUpdater, disconnectUpdater, isUpdaterAlive, tryMigrateStorage } from '../common/helpers';
@@ -10,7 +11,7 @@ import { addHooks } from '../hooks';
 import { configureStorage, createStorage, withStorage } from '../storages';
 import { destroyAgentV2IfEnabled, initAgentV2IfEnabled } from './agentV2Lifecycle';
 import { claimInstallAttribution } from './attribution';
-import { initMfa, initStaking, initSwap } from './extra';
+import { initMfa, initPerps, initPerpsTrading, initStaking, initSwap } from './extra';
 import { reportInstallMetadata } from './installMetadata';
 import { destroyPolling } from './polling';
 import { startWebFirstLaunchReporting, stopWebFirstLaunchReporting } from './webFunnel';
@@ -46,6 +47,8 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
     initMfa(onUpdate);
     initStaking();
     initSwap(onUpdate);
+    initPerps(onUpdate);
+    initPerpsTrading(onUpdate);
   }
   if (process.env.NO_EXTRA_FEATURES !== '1') {
     await initAgentV2IfEnabled(onUpdate);
@@ -68,7 +71,9 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   if (isWebFunnelClient(args, runtimeStorage)) {
     void startWebFirstLaunchReporting(runtimeStorage, () => isUpdaterAlive(onUpdate));
   }
-  void saveReferrer(args, runtimeStorage);
+  void saveReferrer(args, runtimeStorage).catch((err) => {
+    logDebugError('saveReferrer', err);
+  });
   void claimInstallAttribution(args, runtimeStorage);
   if (environment.isAndroidApp) void reportInstallMetadata(runtimeStorage);
 }

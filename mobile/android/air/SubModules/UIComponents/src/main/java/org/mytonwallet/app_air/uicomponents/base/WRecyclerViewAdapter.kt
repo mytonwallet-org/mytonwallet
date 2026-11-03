@@ -128,7 +128,8 @@ class WRecyclerViewAdapter(
         oldList: List<WEquatable<*>>,
         newList: List<WEquatable<*>>,
         section: Int,
-        forceReloadFirstAndLast: Boolean
+        forceReloadFirstAndLast: Boolean,
+        shouldDetectMoves: Boolean = false
     ) {
         val diffCallback = object : DiffUtil.Callback() {
 
@@ -146,7 +147,7 @@ class WRecyclerViewAdapter(
             }
         }
 
-        val diffResult = DiffUtil.calculateDiff(diffCallback, false)
+        val diffResult = DiffUtil.calculateDiff(diffCallback, shouldDetectMoves)
         diffResult.dispatchUpdatesTo(OffsetUpdateCallback(this, section))
     }
 

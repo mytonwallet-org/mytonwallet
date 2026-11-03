@@ -1,17 +1,29 @@
 import type { ApiAccountAny, ApiBackendConfig } from '../../types';
 import type { ZerionNftTransfer, ZerionTransaction } from './types';
 
+import { ARBITRUM_USDC_MAINNET } from '../../../config';
 import { getIsHiddenNftActivity, isScamTransaction } from '../../../util/activities';
 import { fetchJson } from '../../../util/fetch';
 import { untrackableRegistry } from './util/untrackable';
 import { fetchStoredAccount } from '../../common/accounts';
 import { setBackendConfigCache } from '../../common/cache';
+import {
+  PERPS_CCTP_EXTENSION_ADDRESS,
+  PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS,
+  PERPS_HYPERCORE_BRIDGE_RELAYER,
+} from '../../common/perps';
 import { ApiServerError } from '../../errors';
 import { fetchActivitySlice, fetchEvmTxs, transformEvmTxToUnified } from './activities';
+import { normalizeAddress } from './address';
 import { fetchNftByAddress } from './nfts';
 
 // Mock only the network call; keep isNegativeCacheableStatus real so the adapter's classification
 // is exercised end to end.
+jest.mock('../../../config', () => ({
+  ...jest.requireActual('../../../config'),
+  IS_PERPS_ENABLED: true,
+}));
+
 jest.mock('../../../util/fetch', () => ({
   ...jest.requireActual('../../../util/fetch'),
   fetchJson: jest.fn(),
@@ -272,5 +284,243 @@ describe('transformEvmTxToUnified on allowance transactions', () => {
     tx.attributes.approvals = [];
 
     expect(transformEvmTxToUnified('ethereum', tx, OWNER)).toMatchObject({ type: 'callContract' });
+  });
+});
+
+describe('transformEvmTxToUnified on token mints', () => {
+  const OWNER = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+  const MINTER = '0x0000000000000000000000000000000000000000';
+  const TOKEN = '0xA27EC0006e59f245217Ff08CD52A7E8b169E62D2';
+  const MINTED_AMOUNT = 1_000_000n;
+
+  function buildMintTx(
+    operationType: ZerionTransaction['attributes']['operation_type'],
+    actType: ZerionTransaction['attributes']['acts'][number]['type'],
+  ): ZerionTransaction {
+    return {
+      type: 'transactions',
+      id: '0xmint',
+      attributes: {
+        address: OWNER,
+        operation_type: operationType,
+        hash: '0xmint',
+        mined_at_block: 1,
+        mined_at: '2026-09-01T00:00:00Z',
+        sent_from: OWNER.toLowerCase(),
+        sent_to: TOKEN.toLowerCase(),
+        status: 'confirmed',
+        nonce: 1,
+        fee: { quantity: { int: '21000', decimals: 18, float: 0, numeric: '0' }, price: 0, value: 0 },
+        transfers: [{
+          act_id: '0',
+          direction: 'in',
+          sender: MINTER,
+          recipient: OWNER.toLowerCase(),
+          quantity: { int: MINTED_AMOUNT.toString(), decimals: 6, float: 1, numeric: '1' },
+          // eslint-disable-next-line no-null/no-null
+          price: null,
+          // eslint-disable-next-line no-null/no-null
+          value: null,
+          fungible_info: {
+            id: 'token-id',
+            name: 'Token',
+            symbol: 'TKN',
+            icon: { url: 'https://token.example/icon.png' },
+            flags: { verified: true },
+            implementations: [{ chain_id: 'ethereum', address: TOKEN.toLowerCase(), decimals: 6 }],
+          },
+        }],
+        approvals: [],
+        flags: { is_trash: false },
+        acts: [{ id: '0', type: actType }],
+      },
+      relationships: { chain: { links: { related: '' }, data: { type: 'chains', id: 'ethereum' } } },
+    };
+  }
+
+  it('parses a transaction Zerion marks mint as a token mint', () => {
+    const activity = transformEvmTxToUnified('ethereum', buildMintTx('mint', 'receive'), OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'mint',
+      amount: MINTED_AMOUNT,
+      isIncoming: true,
+      fromAddress: OWNER,
+      toAddress: OWNER,
+      slug: 'ethereum-0xa27ec000',
+    });
+  });
+
+  it('parses a mint act inside another operation as a token mint', () => {
+    const activity = transformEvmTxToUnified('ethereum', buildMintTx('execute', 'mint'), OWNER);
+
+    expect(activity).toMatchObject({
+      type: 'mint',
+      amount: MINTED_AMOUNT,
+      slug: 'ethereum-0xa27ec000',
+    });
+  });
+
+  it('leaves an ordinary incoming transfer unmarked', () => {
+    const activity = transformEvmTxToUnified('ethereum', buildMintTx('receive', 'receive'), OWNER);
+
+    expect(activity).toMatchObject({ kind: 'transaction', isIncoming: true, amount: MINTED_AMOUNT });
+    expect(activity).not.toHaveProperty('type', 'mint');
+  });
+
+  it('classifies a HyperCore relayer Arbitrum USDC mint as perps withdrawal', () => {
+    const tx = buildMintTx('mint', 'mint');
+    tx.attributes.sent_from = PERPS_HYPERCORE_BRIDGE_RELAYER.toLowerCase();
+    tx.relationships.chain.data.id = 'arbitrum';
+    tx.attributes.transfers[0] = {
+      ...tx.attributes.transfers[0],
+      fungible_info: {
+        id: 'arbitrum-usdc',
+        name: 'USD Coin',
+        symbol: 'USDC',
+        // eslint-disable-next-line no-null/no-null
+        icon: null,
+        flags: { verified: true },
+        implementations: [{
+          chain_id: 'arbitrum',
+          address: ARBITRUM_USDC_MAINNET.tokenAddress.toLowerCase(),
+          decimals: 6,
+        }],
+      },
+    };
+
+    const activity = transformEvmTxToUnified('arbitrum', tx, OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'perps_withdraw',
+      slug: ARBITRUM_USDC_MAINNET.slug,
+      fromAddress: normalizeAddress(PERPS_HYPERCORE_BRIDGE_RELAYER),
+      amount: MINTED_AMOUNT,
+      isIncoming: true,
+    });
+  });
+});
+
+describe('transformEvmTxToUnified on perps deposits', () => {
+  const OWNER = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+  const BRIDGE = PERPS_CCTP_EXTENSION_ADDRESS.toLowerCase();
+  const GROSS_DEPOSIT = 10_000_000n;
+  const NET_DEPOSIT = GROSS_DEPOSIT - PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS;
+
+  function arbitrumUsdcFungibleInfo() {
+    return {
+      id: 'arbitrum-usdc',
+      name: 'USD Coin',
+      symbol: 'USDC',
+      // eslint-disable-next-line no-null/no-null
+      icon: null,
+      flags: { verified: true },
+      implementations: [{
+        chain_id: 'arbitrum',
+        address: ARBITRUM_USDC_MAINNET.tokenAddress.toLowerCase(),
+        decimals: 6,
+      }],
+    };
+  }
+
+  function buildPerpsDepositTx(transfers: ZerionTransaction['attributes']['transfers']): ZerionTransaction {
+    return {
+      type: 'transactions',
+      id: '0xdeposit',
+      attributes: {
+        address: OWNER,
+        operation_type: 'execute',
+        hash: '0xdeposit',
+        mined_at_block: 1,
+        mined_at: '2026-09-01T00:00:00Z',
+        sent_from: OWNER.toLowerCase(),
+        sent_to: BRIDGE,
+        status: 'confirmed',
+        nonce: 1,
+        fee: { quantity: { int: '21000', decimals: 18, float: 0, numeric: '0' }, price: 0, value: 0 },
+        transfers,
+        approvals: [],
+        flags: { is_trash: false },
+        acts: [],
+      },
+      relationships: { chain: { links: { related: '' }, data: { type: 'chains', id: 'arbitrum' } } },
+    };
+  }
+
+  it('parses a single gross USDC transfer to the CCTP extension as perps deposit', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildPerpsDepositTx([{
+      act_id: '0',
+      direction: 'out',
+      sender: OWNER.toLowerCase(),
+      recipient: BRIDGE,
+      quantity: { int: GROSS_DEPOSIT.toString(), decimals: 6, float: 10, numeric: '10' },
+      // eslint-disable-next-line no-null/no-null
+      price: null,
+      // eslint-disable-next-line no-null/no-null
+      value: null,
+      fungible_info: arbitrumUsdcFungibleInfo(),
+    }]), OWNER);
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'perps_deposit',
+      slug: ARBITRUM_USDC_MAINNET.slug,
+      amount: -NET_DEPOSIT,
+      isIncoming: false,
+      toAddress: normalizeAddress(PERPS_CCTP_EXTENSION_ADDRESS),
+    });
+  });
+
+  it('parses separate bridge fee and deposit USDC transfers as one perps deposit', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildPerpsDepositTx([
+      {
+        act_id: '0',
+        direction: 'out',
+        sender: OWNER.toLowerCase(),
+        recipient: BRIDGE,
+        quantity: { int: PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS.toString(), decimals: 6, float: 0.2, numeric: '0.2' },
+        // eslint-disable-next-line no-null/no-null
+        price: null,
+        // eslint-disable-next-line no-null/no-null
+        value: null,
+        fungible_info: arbitrumUsdcFungibleInfo(),
+      },
+      {
+        act_id: '1',
+        direction: 'out',
+        sender: OWNER.toLowerCase(),
+        recipient: BRIDGE,
+        quantity: { int: NET_DEPOSIT.toString(), decimals: 6, float: 9.8, numeric: '9.8' },
+        // eslint-disable-next-line no-null/no-null
+        price: null,
+        // eslint-disable-next-line no-null/no-null
+        value: null,
+        fungible_info: arbitrumUsdcFungibleInfo(),
+      },
+    ]), OWNER);
+
+    expect(activity).toMatchObject({
+      type: 'perps_deposit',
+      amount: -NET_DEPOSIT,
+    });
+  });
+
+  it('ignores a transfer that only covers the bridge fee', () => {
+    const activity = transformEvmTxToUnified('arbitrum', buildPerpsDepositTx([{
+      act_id: '0',
+      direction: 'out',
+      sender: OWNER.toLowerCase(),
+      recipient: BRIDGE,
+      quantity: { int: PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS.toString(), decimals: 6, float: 0.2, numeric: '0.2' },
+      // eslint-disable-next-line no-null/no-null
+      price: null,
+      // eslint-disable-next-line no-null/no-null
+      value: null,
+      fungible_info: arbitrumUsdcFungibleInfo(),
+    }]), OWNER);
+
+    expect(activity).not.toMatchObject({ type: 'perps_deposit' });
   });
 });

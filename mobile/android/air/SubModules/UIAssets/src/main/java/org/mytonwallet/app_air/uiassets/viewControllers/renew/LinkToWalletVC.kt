@@ -64,6 +64,8 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
 
     override val shouldDisplayTopBar = false
 
+    override val wrapsContentInCenteredWindow = true
+
     private val linkedAddress =
         NftStore.nftData?.linkedAddressByAddress?.get(nft.address)?.takeIf { it.isNotBlank() }
     var address: String? =
