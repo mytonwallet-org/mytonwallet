@@ -7,6 +7,8 @@ final class ActivateBiometricViewModel {
         case idle
         case authenticating
         case skipping
+        /// Face ID is on: the icon plays its success animation before the flow moves on.
+        case succeeded
     }
     
     let biometryType: BiometryType
