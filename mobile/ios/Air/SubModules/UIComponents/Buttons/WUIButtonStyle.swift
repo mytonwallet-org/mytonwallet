@@ -1,17 +1,8 @@
-//
-//  WButton.swift
-//  UIComponents
-//
-//  Created by Sina on 3/30/23.
-//
-
 import UIKit
 import SwiftUI
 import WalletContext
 
-
 public struct WUIButtonStyle: PrimitiveButtonStyle {
-    
     public var style: WButtonStyle
     public var loadingIndicatorDelay: CGFloat = 0.2
     public var useLegacyShadow: Bool
@@ -20,167 +11,168 @@ public struct WUIButtonStyle: PrimitiveButtonStyle {
         self.style = style
         self.useLegacyShadow = useLegacyShadow
     }
-    
+
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isLoading) private var isLoading
-    @State private var isTouching: Bool = false
-    @State private var isShowingLoadingIndicator = false
-    
-    var textColor: UIColor {
-        switch style {
-        case .primary, .destructive:
-            .white
-        case .compactCapsule:
-            .label
-        case .thickDestructiveCapsule:
-            isEnabled ? .air.error : .air.secondaryLabel
-        case .secondary, .clearBackground, .thickCapsule:
-            .tintColor
-        }
-    }
 
-    var backgroundColor: UIColor {
-        switch style {
-        case .primary:
-            .tintColor
-        case .secondary:
-            .tintColor.withAlphaComponent(0.15)
-        case .clearBackground:
-            .clear
-        case .compactCapsule:
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                .clear
-            } else {
-                .air.secondaryFill
-            }
-        case .thickDestructiveCapsule, .thickCapsule:
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                .clear
-            } else {
-                .air.secondaryFill
-            }
-        case .destructive:
-            .air.error
-        }
-    }
-    
     public func makeBody(configuration: Configuration) -> some View {
-        Group {
-            if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-                if style == .compactCapsule {
-                    content(configuration: configuration)
-                        .glassEffect(Glass.regular.interactive(isEnabled), in: .capsule)
-                } else {
-                    content(configuration: configuration)
-                        .glassEffect(Glass.regular.tint(Color(backgroundColor)).interactive(isEnabled), in: .capsule)
-                }
-            } else if style == .compactCapsule {
-                content(configuration: configuration)
-                    .background(Color(backgroundColor), in: .capsule)
-                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
-            } else if useLegacyShadow {
-                content(configuration: configuration)
-                    .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
-                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
-            } else {
-                content(configuration: configuration)
-                    .background(Color(backgroundColor), in: .rect(cornerRadius: WButton.borderRadius))
-            }
-        }
-        .opacity(isEnabled || style == .thickDestructiveCapsule ? 1 : 0.5)
-        .contentShape(.rect)
-        .onTapGesture {
-            configuration.trigger()
-        }
-        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-            withAnimation(.spring(duration: 0.1)) {
-                isTouching = true
-            }
-        }.onEnded { _ in
-            withAnimation(.spring(duration: 0.5)) {
-                isTouching = false
-            }
-        })
-        .allowsHitTesting(!isLoading)
-        .onAppear {
-            guard isLoading else { return }
-            withAnimation(.spring().delay(loadingIndicatorDelay)) {
-                isShowingLoadingIndicator = true
-            }
-        }
-        .onChange(of: isLoading) { isLoading in
-            withAnimation(.spring().delay(isLoading ? loadingIndicatorDelay : 0)) {
-                isShowingLoadingIndicator = isLoading
-            }
-        }
-    }
-    
-    func content(configuration: Configuration) -> some View {
-        HStack {
-            labelContent(configuration: configuration)
-        }
-        .font(Font(WButton.font(for: style)))
-        .applyModifierConditionally {
-            if style == .primary {
-                $0.foregroundForTintedBackground()
-            } else {
-                $0.foregroundStyle(Color(textColor))
-            }
-        }
-        .opacity(isEnabled && isTouching ? 0.5 : 1)
-        .frame(height: buttonHeight)
+        WUIButtonStyleView(
+            style: style,
+            isEnabled: isEnabled,
+            isLoading: isLoading,
+            loadingIndicatorDelay: loadingIndicatorDelay,
+            useLegacyShadow: useLegacyShadow,
+            label: styledLabel(configuration: configuration),
+            action: configuration.trigger
+        )
+        .id(style)
+        .frame(height: WButton.height(for: style))
         .applyModifierConditionally {
             if style == .compactCapsule {
-                $0
-                    .padding(.horizontal, 18)
-                    .fixedSize(horizontal: true, vertical: false)
+                $0.fixedSize(horizontal: true, vertical: false)
             } else {
                 $0.frame(maxWidth: .infinity)
             }
         }
-    }
-
-    private var buttonHeight: CGFloat {
-        if style == .compactCapsule {
-            return WButton.compactHeight
-        } else {
-            return IOS_26_MODE_ENABLED ? WButton.glassHeight : WButton.defaultHeight
-        }
-    }
-
-    @ViewBuilder
-    private func labelContent(configuration: Configuration) -> some View {
-        if style == .compactCapsule {
-            ZStack {
-                styledLabel(configuration: configuration)
-                    .opacity(isShowingLoadingIndicator ? 0 : 1)
-                if isShowingLoadingIndicator {
-                    loadingIndicator
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                }
-            }
-        } else if !isShowingLoadingIndicator {
-            styledLabel(configuration: configuration)
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
-        } else {
-            loadingIndicator
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+        .accessibilityRepresentation {
+            Button(action: configuration.trigger) { configuration.label }
+                .buttonStyle(.plain)
+                .disabled(!isEnabled || isLoading)
         }
     }
 
     @ViewBuilder
     private func styledLabel(configuration: Configuration) -> some View {
         if style == .compactCapsule {
-            configuration.label
-                .labelStyle(WUICompactButtonLabelStyle())
-                .lineLimit(1)
+            configuration.label.labelStyle(WUICompactButtonLabelStyle())
         } else {
             configuration.label
         }
     }
-    
-    var loadingIndicator: some View {
-        WUIActivityIndicator()
+}
+
+private struct WUIButtonStyleView<Label: View>: UIViewRepresentable {
+    @Environment(\.self) private var environment
+    let style: WButtonStyle
+    let isEnabled: Bool
+    let isLoading: Bool
+    let loadingIndicatorDelay: CGFloat
+    let useLegacyShadow: Bool
+    let label: Label
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> WButton {
+        let button = WButton(style: style)
+        let contentView = makeLabelConfiguration(button: button, coordinator: context.coordinator).makeContentView()
+        context.coordinator.contentView = contentView
+        button.setCustomContentView(contentView)
+        button.addTarget(context.coordinator, action: #selector(Coordinator.pressed), for: .touchUpInside)
+        return button
+    }
+
+    func updateUIView(_ button: WButton, context: Context) {
+        context.coordinator.action = action
+        context.coordinator.canPress = isEnabled && !isLoading
+        button.isEnabled = isEnabled
+        button.isUserInteractionEnabled = context.coordinator.canPress
+        context.coordinator.contentView?.configuration = makeLabelConfiguration(button: button, coordinator: context.coordinator)
+        button.invalidateIntrinsicContentSize()
+        button.setNeedsLayout()
+        if useLegacyShadow && !IOS_26_MODE_ENABLED {
+            button.layer.shadowColor = UIColor.black.cgColor
+            button.layer.shadowOffset = CGSize(width: 0, height: 2)
+            button.layer.shadowRadius = 8
+            button.layer.shadowOpacity = 0.12
+        }
+        context.coordinator.updateLoading(isLoading, button: button, delay: loadingIndicatorDelay)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: WButton, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width, height: WButton.height(for: style))
+    }
+
+    private func makeLabelConfiguration(button: WButton, coordinator: Coordinator) -> UIHostingConfiguration<some View, EmptyView> {
+        UIHostingConfiguration {
+            // Hosted labels can change their ideal size without an `updateUIView` call
+            WUIButtonLabelLayout(onSizeChange: { [weak button, weak coordinator] size in
+                DispatchQueue.main.async {
+                    guard let button, let coordinator else { return }
+                    coordinator.updateContentSize(size, button: button)
+                }
+            }) {
+                label
+                    .font(Font(WButton.font(for: style)))
+                    .applyModifierConditionally {
+                        if style == .primary && isEnabled && button.usesGlassButtonStyling {
+                            $0.foregroundForTintedBackground()
+                        } else {
+                            $0.foregroundStyle(Color(button.contentForegroundColor))
+                        }
+                    }
+                    .lineLimit(1)
+                    .environment(\.isEnabled, isEnabled)
+                    .environment(\.self, environment)
+            }
+        }
+        .margins(.all, 0)
+    }
+
+    @MainActor final class Coordinator: NSObject {
+        var contentView: (UIView & UIContentView)?
+        var action: (() -> Void)?
+        var canPress = false
+        private var contentSize: CGSize?
+        private var isLoading = false
+        private var loadingTask: Task<Void, Never>?
+
+        func updateContentSize(_ size: CGSize, button: WButton) {
+            guard contentSize != size else { return }
+            contentSize = size
+            button.invalidateIntrinsicContentSize()
+            button.setNeedsLayout()
+        }
+
+        func updateLoading(_ isLoading: Bool, button: WButton, delay: CGFloat) {
+            guard self.isLoading != isLoading else { return }
+            self.isLoading = isLoading
+            loadingTask?.cancel()
+            if isLoading && delay > 0 {
+                loadingTask = Task { [weak button] in
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    button?.showLoading = true
+                }
+            } else {
+                button.showLoading = isLoading
+            }
+        }
+
+        @objc func pressed() {
+            guard canPress else { return }
+            action?()
+        }
+    }
+}
+
+private struct WUIButtonLabelLayout: Layout {
+    let onSizeChange: (CGSize) -> Void
+
+    func makeCache(subviews: Subviews) -> CGSize { .zero }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout CGSize) -> CGSize {
+        let label = subviews.first
+        let idealSize = label?.sizeThatFits(.unspecified) ?? .zero
+        if cache != idealSize {
+            cache = idealSize
+            onSizeChange(idealSize)
+        }
+        return label?.sizeThatFits(proposal) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout CGSize) {
+        subviews.first?.place(at: CGPoint(x: bounds.midX, y: bounds.midY), anchor: .center, proposal: proposal)
     }
 }
 

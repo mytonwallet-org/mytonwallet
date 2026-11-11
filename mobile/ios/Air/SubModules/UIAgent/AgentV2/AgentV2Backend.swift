@@ -42,8 +42,19 @@ final class AgentV2Model: AgentModel {
         coordinator.messages.contains { $0.role == .user }
     }
 
+    /// Whether the user has written in the chat, by the SDK's rule for its thread: a news discussion with only its post
+    /// is not started. A message the user sends there counts at once, before the thread says so.
+    var isStarted: Bool {
+        !coordinator.isDiscussion || hasUserMessages || coordinator.thread?.isStarted == true
+    }
+
     var hasActiveRun: Bool {
         coordinator.activeRun?.isRunning == true
+    }
+
+    /// The last run failed or was interrupted, and the chat shows it
+    var isRunFailed: Bool {
+        coordinator.isRunFailure && coordinator.error != nil
     }
 
     /// A limit keeps the chat from sending until it resets
@@ -61,6 +72,9 @@ final class AgentV2Model: AgentModel {
     }
 
     var isDeletingChat: Bool { coordinator.isDeletingChat }
+
+    /// The messages are the SDK's copy of the history, shown until it loads
+    var isShowingCachedMessages: Bool { coordinator.isShowingCachedMessages }
 
     /// A shown conversation can be deleted even while its thread is being created
     var canDeleteChat: Bool {
@@ -83,6 +97,11 @@ final class AgentV2Model: AgentModel {
 
     var hasFailedInitialLoad: Bool {
         !coordinator.hasPendingOpenings && !coordinator.hasHydratedMessages && coordinator.error != nil
+    }
+
+    /// The failure of a chat that hasn't loaded, whatever it shows meanwhile
+    var initialLoadFailure: String? {
+        hasFailedInitialLoad ? coordinator.error : nil
     }
 
     /// The failure of a chat that has nothing to show, which the chat shows in its middle with Retry
@@ -109,8 +128,24 @@ final class AgentV2Model: AgentModel {
     }
     var needsOpeningConsent: Bool { coordinator.needsOpeningConsent }
     var isAcceptingOpeningConsent: Bool { coordinator.isAcceptingOpeningConsent }
+    /// A news discussion opened before consent asks for it at its first message, suggestion or recording
+    var needsConsentToSend: Bool { coordinator.needsConsentToSend }
+    var isConsentToSendUnknown: Bool { coordinator.isConsentToSendUnknown }
 
     func acceptOpeningConsent() { coordinator.acceptOpeningConsent() }
+    func confirmOpeningConsent() { coordinator.confirmOpeningConsent() }
+
+    func loadConsent() async throws -> Bool {
+        try await coordinator.loadConsent()
+    }
+
+    func acceptConsent() async throws {
+        try await coordinator.acceptConsent()
+    }
+
+    func markConsentGiven() {
+        coordinator.markConsentGiven()
+    }
 
     func cancelOpeningIfNeeded() {
         if isOpening && threadId == nil && !isDeletingChat { stop() }
@@ -120,6 +155,13 @@ final class AgentV2Model: AgentModel {
 
     func newsPost(for message: AgentMessage) -> ApiAgentV2ThreadNewsCard? {
         message.id == newsPostItemID ? news : nil
+    }
+
+    /// What the post at the top of a news or digest discussion shows, for its message
+    func newsPostContent(for message: AgentMessage) -> AgentNewsPostView.Content? {
+        if let news = newsPost(for: message) { return AgentNewsPostView.Content(news: news) }
+        guard message.id == newsPostItemID else { return nil }
+        return coordinator.digest.map(AgentNewsPostView.Content.init(digest:))
     }
 
     override var chatTitleText: String {
@@ -175,11 +217,33 @@ final class AgentV2Model: AgentModel {
         }
     }
 
-    init(client: AgentV2Client, thread: ApiAgentV2ThreadSummary? = nil) {
-        let coordinator = AgentV2Coordinator(client: client, thread: thread)
+    /// The thread's latest history loaded, or `nil` once the thread has none to show
+    var onCachedHistoryChange: ((String, AgentCachedHistory?) -> Void)? {
+        get { coordinator.onCachedHistoryChange }
+        set { coordinator.onCachedHistoryChange = newValue }
+    }
+
+    /// With `cachedHistory`, a chat that may show the cached history shows it from the start. With `isSummaryCached`,
+    /// the thread's summary is the SDK's copy, whose unread state is unknown, and the chat shows no cached history.
+    init(
+        client: AgentV2Client,
+        thread: ApiAgentV2ThreadSummary? = nil,
+        cachedHistory: AgentCachedHistory? = nil,
+        isSummaryCached: Bool = false
+    ) {
+        let coordinator = AgentV2Coordinator(
+            client: client,
+            thread: thread,
+            cachedHistory: cachedHistory,
+            isSummaryCached: isSummaryCached
+        )
         self.coordinator = coordinator
         v2Backend = AgentV2Backend(coordinator: coordinator)
         super.init(backend: v2Backend)
+        // The base model starts with an empty timeline, which the cached history then fills
+        if coordinator.isShowingCachedMessages {
+            v2Backend.refreshPresentation()
+        }
         coordinator.start()
     }
 
@@ -200,6 +264,19 @@ final class AgentV2Model: AgentModel {
         v2Backend = AgentV2Backend(coordinator: coordinator)
         super.init(backend: v2Backend)
         v2Backend.refreshPresentation()
+        startOpening(onThreadCreated: onThreadCreated)
+    }
+
+    init(
+        client: AgentV2Client,
+        newsRequest: ApiAgentV2ThreadNewsRequest? = nil,
+        digestRequest: ApiAgentV2ThreadDigestRequest? = nil,
+        onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void
+    ) {
+        let coordinator = AgentV2Coordinator(client: client, newsRequest: newsRequest, digestRequest: digestRequest)
+        self.coordinator = coordinator
+        v2Backend = AgentV2Backend(coordinator: coordinator)
+        super.init(backend: v2Backend)
         startOpening(onThreadCreated: onThreadCreated)
     }
 
@@ -268,6 +345,11 @@ final class AgentV2Model: AgentModel {
         await coordinator.waitForInitialLoad()
     }
 
+    /// Waits for the initial timeline, or for the SDK's copy of it that shows while it loads
+    func waitForInitialContent() async {
+        await coordinator.waitForInitialContent()
+    }
+
     override func stop() {
         guard !didStop else { return }
         didStop = true
@@ -307,6 +389,10 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             && !isLoadingOlderMessages
     }
 
+    var canStopAnswer: Bool {
+        !didStop && coordinator.activeRun?.isRunning == true
+    }
+
     var seenMessageCount: Int? {
         messageReplacement.seenMessageCount(coordinator.seenMessageCount, messages: coordinator.messages)
     }
@@ -331,11 +417,13 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         true
     }
 
+    /// Reports are offered from the start once the user has allowed the Agent, also while a discussion's thread is
+    /// being created and before the server's check has answered; a report sent then waits for both
     var canReportProblem: Bool {
-        isTimelineReady
+        !didStop
+            && coordinator.hasConsent
             && coordinator.isProblemReportAvailable
-            && coordinator.thread != nil
-            && !coordinator.messages.isEmpty
+            && (coordinator.thread != nil || coordinator.isOpening)
             && !isClearing
     }
 
@@ -375,6 +463,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     private var didStop = false
     private var lastSettledRunGeneration: Int?
     private var presentedNews: ApiAgentV2ThreadNewsCard?
+    private var presentedDigest: ApiAgentV2ThreadDigestCard?
     private let postItemID = AgentItemID()
     private var postTimestamp: Date?
     private(set) var newsPostItemID: AgentItemID?
@@ -400,7 +489,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     func loadHints(animated: Bool) {
         hintsAnimated = animated
         synchronizeHints(force: true)
-        guard coordinator.hasHydratedMessages, coordinator.news == nil,
+        guard coordinator.hasHydratedMessages, !coordinator.isDiscussion,
               coordinator.hints == nil, !coordinator.hasPendingOpenings else { return }
         Task { [weak self] in
             await self?.coordinator.loadHints()
@@ -444,9 +533,9 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         if editContext == nil {
             switch source {
             case .composer:
-                entryPoint = coordinator.news == nil ? .agentTab : nil
+                entryPoint = !coordinator.isDiscussion ? .agentTab : nil
             case .hint(let id, let catalogVersion):
-                entryPoint = coordinator.news == nil ? .emptyState(hintId: id, catalogVersion: catalogVersion) : nil
+                entryPoint = !coordinator.isDiscussion ? .emptyState(hintId: id, catalogVersion: catalogVersion) : nil
             case .followup(let messageID, let followupID):
                 followup = .init(messageId: messageID, followupId: followupID)
             }
@@ -571,6 +660,10 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         }
     }
 
+    func stopAnswer() {
+        coordinator.stopRun()
+    }
+
     func refreshPresentation() {
         synchronizeHints(force: true)
         synchronizeMessages(forceMessageUpdates: true)
@@ -615,7 +708,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         synchronizeHints()
         synchronizeMessages(
             forceTimelineReplacement: shouldForceTimelineReplacement
-                || change == .messagesHydrated && coordinator.isOpening && coordinator.news == nil && coordinator.activeRun == nil,
+                || change == .messagesHydrated && coordinator.isOpening && !coordinator.isDiscussion && coordinator.activeRun == nil,
             shouldRebuildTimelineForTimestampChanges: shouldRebuildTimelineForTimestampChanges
         )
         if terminalOutcome != nil {
@@ -629,7 +722,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
     }
 
     private func synchronizeHints(force: Bool = false) {
-        let response = coordinator.hasHydratedMessages && coordinator.news == nil ? coordinator.hints : nil
+        let response = coordinator.hasHydratedMessages && !coordinator.isDiscussion ? coordinator.hints : nil
         let hints: [AgentHint] = response?.items.map { item in
             let copy = AgentV2Copy.hint(item.id)
             return AgentHint(
@@ -652,30 +745,34 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         shouldRebuildTimelineForTimestampChanges: Bool = false
     ) {
         guard let context, !isClearing,
-              coordinator.hasHydratedMessages || coordinator.error != nil
+              coordinator.hasHydratedMessages || coordinator.hasShownCachedMessages || coordinator.error != nil
                 || coordinator.newsPreview != nil
                 || coordinator.hasPendingOpenings && !coordinator.messages.isEmpty else { return }
         defer { synchronizeOpeningTypingIndicator() }
-        let needsMessageUpdates = forceMessageUpdates || presentedNews != coordinator.news
+        let needsMessageUpdates = forceMessageUpdates || presentedNews != coordinator.news || presentedDigest != coordinator.digest
         presentedNews = coordinator.news
+        presentedDigest = coordinator.digest
         messageReplacement.prune(messages: coordinator.messages)
 
         var nextInteractions: [AgentItemID: [String: Interaction]] = [:]
         let news = coordinator.nextMessageCursor == nil ? coordinator.news : nil
+        // A digest's post stands where a news item's does, with the digest's card in place of the news
+        let digest = coordinator.nextMessageCursor == nil ? coordinator.digest : nil
         let nativePost = news.flatMap { news in
             coordinator.messages.first(where: \.newsPost)
                 ?? coordinator.messages.first(where: { $0.role == .user }).flatMap { $0.text == news.headline ? $0 : nil }
-        }
-        newsPostItemID = news == nil ? nil : postItemID
+        } ?? digest.flatMap { _ in coordinator.messages.first(where: \.newsPost) }
+        let postText = news.map { "**\($0.headline)**" + (($0.body ?? $0.excerpt).map { "\n\n\($0)" } ?? "") }
+            ?? digest.map { "**\(lang("$agent_digest_title"))**\n\n" + $0.top.map(\.headline).joined(separator: " · ") }
+        newsPostItemID = postText == nil ? nil : postItemID
         var desired: [PresentedMessage] = []
-        if let news {
+        if let postText {
             if let nativePost {
                 postTimestamp = nativePost.createdAt
                 bind(nativeID: nativePost.id, to: postItemID)
             } else if postTimestamp == nil {
-                postTimestamp = coordinator.hasOpening ? Date() : AgentV2DateParser.date(news.publishedAt)
+                postTimestamp = coordinator.hasOpening ? Date() : AgentV2DateParser.date(news?.publishedAt ?? digest!.windowEnd)
             }
-            let text = "**\(news.headline)**" + ((news.body ?? news.excerpt).map { "\n\n\($0)" } ?? "")
             // The post's own follow-ups are suggestions about the news, shown under it while it is the latest message and
             // nothing is being answered
             let postControls: [AgentMessageControl]
@@ -696,7 +793,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                 message: AgentMessage(
                     id: postItemID,
                     role: .assistant,
-                    text: text,
+                    text: postText,
                     isStreaming: false,
                     controls: postControls,
                     newsPost: true,
@@ -851,7 +948,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             || !text.isEmpty
             || semanticContent != nil
             || !nativeMessage.actions.isEmpty
-            || !nativeMessage.followups.isEmpty
+            || !Self.getShownFollowups(of: nativeMessage).isEmpty
         guard hasContent || failureText != nil else { return [] }
 
         let key = presentationKey(nativeID: nativeMessage.id)
@@ -915,7 +1012,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                 links: nativeMessage.links
             )
         }
-        message.canRate = nativeMessage.isStoredAsComplete && !nativeMessage.newsPost
+        message.canRate = nativeMessage.isStoredAsComplete && !nativeMessage.newsPost && !coordinator.isShowingCachedMessages
         message.feedback = nativeMessage.feedback
         var presented = [PresentedMessage(key: key, message: message, replacedItemID: replacedItemID)]
         if let failureText {
@@ -960,7 +1057,7 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
         guard let error = coordinator.error ?? coordinator.inputLimitErrorCode.map(AgentV2Copy.error) else { return nil }
         // A chat with nothing to show has the failure in its middle instead
         guard coordinator.hasPendingOpenings || coordinator.hasHydratedMessages || coordinator.error == nil
-                || coordinator.news != nil || !coordinator.messages.isEmpty else { return nil }
+                || coordinator.news != nil || coordinator.digest != nil || !coordinator.messages.isEmpty else { return nil }
         let messageID: AgentItemID
         let replacedItemID: AgentItemID?
         if let statusMessageID {
@@ -995,8 +1092,9 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             )
             controls.append(control)
             interactions[messageID, default: [:]][control.id] = .retryOpening
-        } else if coordinator.isLoadFailure {
-            // The chat shows what it had, and the failure line under it loads it again
+        } else if coordinator.isLoadFailure || coordinator.isShowingCachedMessages && coordinator.error != nil {
+            // The chat shows what it had, and the failure line under it loads it again; a chat on its cached history
+            // starts over whatever failed
             let control = AgentMessageControl(id: "retry-load", title: lang("Retry"), isEnabled: true)
             controls.append(control)
             interactions[messageID, default: [:]][control.id] = .retryLoad
@@ -1017,9 +1115,11 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             var controls: [AgentMessageControl] = []
             for action in nativeMessage.actions {
                 let controlID = "action:\(action.id)"
-                let isEnabled = action.kind != .send
-                    || action.labelCode == .openSend
-                    || action.presentation?.kind == .send && action.presentation?.status == .active
+                let isEnabled = !coordinator.isShowingCachedMessages && (
+                    action.kind != .send
+                        || action.labelCode == .openSend
+                        || action.presentation?.kind == .send && action.presentation?.status == .active
+                )
                 controls.append(AgentMessageControl(
                     id: controlID,
                     title: action.title,
@@ -1030,12 +1130,15 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
                     action: action
                 )
             }
-            for followup in nativeMessage.followups {
+            // The cached history that stays with a failure shows no suggestions
+            let followups = coordinator.hasCachedHistoryFailed ? [] : Self.getShownFollowups(of: nativeMessage)
+            for followup in followups {
                 let controlID = "followup:\(followup.id)"
+                // The cached history's suggestions look as the loaded history's do; the chat ignores a tap on them
                 controls.append(AgentMessageControl(
                     id: controlID,
                     title: followup.text,
-                    isEnabled: canSendMessages,
+                    isEnabled: canSendMessages || coordinator.isShowingCachedMessages,
                     kind: .followup
                 ))
                 interactions[messageID, default: [:]][controlID] = .followup(
@@ -1045,6 +1148,11 @@ private final class AgentV2Backend: AgentBackend, AgentV2CoordinatorObserver {
             }
             return controls
         }
+    }
+
+    /// A stopped answer offers no suggestions
+    private static func getShownFollowups(of nativeMessage: AgentV2NativeMessage) -> [ApiAgentV2FollowUp] {
+        nativeMessage.status == .cancelled ? [] : nativeMessage.followups
     }
 
     private func reconcileMessageID(localID: String, canonicalID: String) {

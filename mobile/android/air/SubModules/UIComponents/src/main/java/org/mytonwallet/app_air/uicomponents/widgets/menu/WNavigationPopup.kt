@@ -3,30 +3,38 @@ package org.mytonwallet.app_air.uicomponents.widgets.menu
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.GONE
+import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import androidx.core.graphics.withSave
 import androidx.core.view.children
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.updateLayoutParams
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.drawable.WCutoutDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
+import org.mytonwallet.app_air.uicomponents.extensions.captureHardwareImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
@@ -42,6 +50,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.colorForTheme
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
@@ -51,27 +60,43 @@ class WNavigationPopup(
     private val popupWidth: Int,
     private val windowBackgroundStyle: WMenuPopup.BackgroundStyle,
     private val backdropStyle: WMenuPopup.BackdropStyle,
-    private val usePillShadow: Boolean = false
+    private val usePillShadow: Boolean = false,
+    private val morphSource: View? = null
 ) : INavigationPopup {
 
     companion object {
         private const val BACKGROUND_SCALE = 0.9f
         private const val BACKGROUND_SCRIM_ALPHA = 0.1f
+        private const val MORPH_SOURCE_FADE_END = 0.15f
+        private val DRAG_SELECTION_ACTIVATION_DISTANCE = 4f.dp
     }
 
     private val popupHost: WPopupHost? get() = PopupHelpers.popupHost
 
     private val roundRadius: Float = 20f.dp
+
+    // The menu's surface without blur, in the menu's theme
+    private val surfaceColor: Int
+        get() = WColor.Background.colorForTheme(initialPopupView.themeIsDark)
     private val transitionXOffset: Float = 48f.dp
 
     private val isBlurSupported: Boolean
         get() = WGlobalStorage.isBlurEnabled()
+
+    // A menu in a fixed theme is solid, as Telegram's viewer's is: over a screen of another theme, its glass would let
+    // that screen's lighter parts show through
+    private val isSurfaceBlurred: Boolean
+        get() = isBlurSupported && initialPopupView.themeIsDark == null
     private val shouldUseTransparentBackdrop: Boolean
         get() = backdropStyle is WMenuPopup.BackdropStyle.Transparent
     private val shouldUseDimBackdrop: Boolean
-        get() = !shouldUseTransparentBackdrop
+        get() = backdropStyle is WMenuPopup.BackdropStyle.BlurDimmed ||
+            backdropStyle is WMenuPopup.BackdropStyle.Dimmed
     private val shouldUseBlurBackdrop: Boolean
-        get() = isBlurSupported && backdropStyle is WMenuPopup.BackdropStyle.BlurDimmed
+        get() = isBlurSupported && (
+            backdropStyle is WMenuPopup.BackdropStyle.BlurDimmed ||
+                backdropStyle is WMenuPopup.BackdropStyle.PlainBlur
+            )
 
     private inner class PopupSurfaceLayout(
         private val stableHeightProvider: () -> Int,
@@ -91,6 +116,22 @@ class WNavigationPopup(
         private var requestedTranslationX = 0f
         private var requestedTranslationY = 0f
         private var isPositionTransitioning = false
+        private var surfaceRadius = roundRadius
+
+        fun setMorphSize(width: Int, height: Int, radius: Float) {
+            right = left + width
+            bottom = top + height
+            surfaceRadius = radius
+            setRoundedOutline(radius)
+            if (isSurfaceBlurred) {
+                // Match the animated shadow outline without resizing the stable blur height
+                blurryBackground.right = blurryBackground.left + width
+                blurryBackground.setRadius(radius)
+            } else {
+                setBackgroundColor(surfaceColor, radius, true)
+            }
+            dimOverlay.right = dimOverlay.left + width
+        }
 
         val blurryBackground: WGlassView by lazy {
             WGlassView(initialPopupView.context).apply {
@@ -102,7 +143,7 @@ class WNavigationPopup(
         }
 
         init {
-            if (isBlurSupported) {
+            if (isSurfaceBlurred) {
                 addView(blurryBackground, LayoutParams(0, 0))
                 val blurRootView = popupHost?.windowView?.children
                     ?.lastOrNull { child ->
@@ -122,7 +163,7 @@ class WNavigationPopup(
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
             val stableHeight = stableHeightProvider()
-            if (isBlurSupported) {
+            if (isSurfaceBlurred) {
                 // with stable size blur works better while animation
                 blurryBackground.measure(measuredWidth.exactly, stableHeight.exactly)
             }
@@ -208,19 +249,16 @@ class WNavigationPopup(
         }
 
         override fun updateTheme() {
-            if (isBlurSupported) {
+            if (isSurfaceBlurred) {
                 blurryBackground.updateTheme()
             } else {
-                setBackgroundColor(WColor.Background.color, roundRadius, true)
+                setBackgroundColor(surfaceColor, surfaceRadius, true)
             }
             updateShadows()
         }
 
         private fun updateShadows() {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                outlineAmbientShadowColor = WColor.PopupAmbientShadow.color
-                outlineSpotShadowColor = WColor.PopupSpotShadow.color
-            }
+            WMenuPopup.applySurfaceShadowColors(this)
         }
 
         fun dispose() {}
@@ -234,7 +272,7 @@ class WNavigationPopup(
     ).apply {
         val layoutWidth = if (popupWidth == WRAP_CONTENT) WRAP_CONTENT else popupWidth
         addContentView(initialPopupView, FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT))
-        if (isBlurSupported) {
+        if (isSurfaceBlurred) {
             setRoundedOutline(roundRadius)
         }
         setOnClickListener {
@@ -249,7 +287,11 @@ class WNavigationPopup(
     private val blurVisiblePath = Path()
     private val windowBlurBackground: WGlassView by lazy {
         WGlassView(initialPopupView.context).apply {
-            flavor = GlassFlavor.FROSTED
+            flavor = if (backdropStyle is WMenuPopup.BackdropStyle.PlainBlur) {
+                GlassFlavor.FROSTED_PLAIN
+            } else {
+                GlassFlavor.FROSTED
+            }
             liquidGlass = false
             setProvider(GlassProviders.plain(WColor.Background, 0f))
         }
@@ -328,7 +370,10 @@ class WNavigationPopup(
         isBlurBackdropAttached = true
     }
 
+    private var backdropProgress = 0f
+
     private fun updateBackdropProgress(progress: Float) {
+        backdropProgress = progress
         if (shouldUseDimBackdrop) {
             windowBackgroundDrawable?.alpha = (255 * progress).roundToInt()
         } else {
@@ -344,6 +389,11 @@ class WNavigationPopup(
             initialPopupView.context
         ),
         WThemedView {
+        override fun onDetachedFromWindow() {
+            super.onDetachedFromWindow()
+            if (morphSource != null) removeFromParent()
+        }
+
         override fun updateTheme() {
             contentContainerLayout.updateTheme()
             expandedItemStates.forEach { it.surface.updateTheme() }
@@ -361,20 +411,21 @@ class WNavigationPopup(
             WRAP_CONTENT
         )
         params.gravity = Gravity.LEFT or Gravity.TOP
-        if (windowBackgroundStyle is WMenuPopup.BackgroundStyle.Cutout) {
-            blurCutoutPath = if (shouldUseBlurBackdrop) windowBackgroundStyle.cutoutPath else null
-            if (shouldUseDimBackdrop) {
-                background = WCutoutDrawable().apply {
-                    color = WColor.PopupWindow.color
-                    cutoutPath = windowBackgroundStyle.cutoutPath
-                    windowBackgroundDrawable = this
-                }
-            } else {
-                background = null
-                windowBackgroundDrawable = null
+        val cutoutStyle = if (morphSource == null) {
+            windowBackgroundStyle as? WMenuPopup.BackgroundStyle.Cutout
+        } else {
+            null
+        }
+        blurCutoutPath = if (shouldUseBlurBackdrop) cutoutStyle?.cutoutPath else null
+        if (shouldUseDimBackdrop && (morphSource != null || cutoutStyle != null)) {
+            background = WCutoutDrawable().apply {
+                color = WColor.PopupWindow.color
+                cutoutPath = cutoutStyle?.cutoutPath
+                lifted = cutoutStyle?.lifted
+                windowBackgroundDrawable = this
             }
         } else {
-            blurCutoutPath = null
+            background = null
             windowBackgroundDrawable = null
         }
         addView(contentContainerLayout, params)
@@ -412,6 +463,226 @@ class WNavigationPopup(
     private var displayProgressListener: ((progress: Float) -> Unit)? = null
     private var isDismissed = false
 
+    private var morphAnimator: ValueAnimator? = null
+    private var morphProgress = 0f
+    private var isMorphDismissing = false
+    private var sourceAlpha: Float? = null
+    private var sourceSnapshot: Bitmap? = null
+    private val sourceBounds = RectF()
+    private val menuBounds = RectF()
+
+    private var isPresented = false
+    private var dragSelectionStartY: Float? = null
+    private var dragSelectionView: WMenuPopupView? = null
+    private var hasLastDragPoint = false
+    private var lastDragX = 0f
+    private var lastDragY = 0f
+    private var hasPendingDragRelease = false
+    private val canDragSelect: Boolean
+        get() = isPresented && !isDismissed && !isMorphDismissing &&
+            !isItemTransitioning && !isExpandedDismissing
+    private val sourceLayoutBounds = Rect()
+    private val hostLayoutBounds = Rect()
+    private val hostContentBounds = Rect()
+    private var geometryObserver: ViewTreeObserver? = null
+    private var geometryListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    private val snapshotPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val snapshotView = object : View(initialPopupView.context) {
+        override fun onDraw(canvas: Canvas) {
+            sourceSnapshot?.let { canvas.drawBitmap(it, 0f, 0f, snapshotPaint) }
+        }
+    }.apply {
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        isClickable = false
+    }
+    private val sourceAttachListener = object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(view: View) {}
+
+        override fun onViewDetachedFromWindow(view: View) {
+            removeFromParent()
+        }
+    }
+
+    private fun captureSource(source: View, onResult: (Bitmap?) -> Unit) {
+        val parent = source.parent as? View
+        if (source.width <= 0 || source.height <= 0 || parent == null) {
+            onResult(null)
+            return
+        }
+        val captureView = object : View(source.context) {
+            override fun onDraw(canvas: Canvas) {
+                canvas.withSave {
+                    translate(-source.x + parent.scrollX, -source.y + parent.scrollY)
+                    parent.draw(this)
+                }
+            }
+        }
+        captureView.layout(0, 0, source.width, source.height)
+        captureView.captureHardwareImage(onResult)
+    }
+
+    private fun presentMorph(source: View, host: WPopupHost) {
+        val location = IntArray(2)
+        val hostLocation = IntArray(2)
+        source.getLocationInWindow(location)
+        host.getLocationInWindow(hostLocation)
+        sourceBounds.set(
+            (location[0] - hostLocation[0]).toFloat(),
+            (location[1] - hostLocation[1]).toFloat(),
+            (location[0] - hostLocation[0] + source.width).toFloat(),
+            (location[1] - hostLocation[1] + source.height).toFloat()
+        )
+        source.getGlobalVisibleRect(sourceLayoutBounds)
+        host.getGlobalVisibleRect(hostLayoutBounds)
+        hostContentBounds.set(host.getContentAreaBounds())
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            val currentSourceBounds = Rect()
+            val currentHostBounds = Rect()
+            source.getGlobalVisibleRect(currentSourceBounds)
+            host.getGlobalVisibleRect(currentHostBounds)
+            if (currentSourceBounds != sourceLayoutBounds ||
+                currentHostBounds != hostLayoutBounds ||
+                host.getContentAreaBounds() != hostContentBounds
+            ) {
+                removeFromParent()
+            }
+        }
+        geometryListener = listener
+        geometryObserver = host.viewTreeObserver.also { it.addOnGlobalLayoutListener(listener) }
+        initialPopupView.limitHeight(hostContentBounds.height())
+        initialPopupView.prepareForExpandingPresentation()
+        initialPopupView.alpha = 0f
+        contentContainerLayout.alpha = 0f
+        contentContainerLayout.interceptChildTouches = true
+        source.addOnAttachStateChangeListener(sourceAttachListener)
+        rootContainerLayout.addView(
+            snapshotView,
+            FrameLayout.LayoutParams(source.width, source.height).apply {
+                // Morph positions use physical window coordinates in both layout directions
+                gravity = Gravity.LEFT or Gravity.TOP
+            }
+        )
+        snapshotView.visibility = INVISIBLE
+        captureSource(source) { bitmap ->
+            if (isDismissed || isMorphDismissing || !source.isAttachedToWindow) {
+                bitmap?.recycle()
+                if (!isDismissed) removeFromParent()
+                return@captureSource
+            }
+            sourceSnapshot = bitmap
+            rootContainerLayout.doOnPreDraw {
+                if (isDismissed || isMorphDismissing || !source.isAttachedToWindow) {
+                    if (!isDismissed) removeFromParent()
+                    return@doOnPreDraw
+                }
+                menuBounds.set(
+                    contentContainerLayout.x,
+                    contentContainerLayout.y,
+                    contentContainerLayout.x + contentContainerLayout.width,
+                    contentContainerLayout.y + initialPopupView.finalHeight
+                )
+                sourceAlpha = source.alpha
+                snapshotView.visibility = VISIBLE
+                contentContainerLayout.beginPositionTransition()
+                animateMorph(1f)
+            }
+            rootContainerLayout.invalidate()
+        }
+    }
+
+    private fun updateMorph(progress: Float) {
+        morphProgress = progress
+        // Crossfade matching source outlines before changing the surface geometry
+        val surfaceAlpha = (progress / MORPH_SOURCE_FADE_END).coerceIn(0f, 1f)
+        val shapeProgress = (
+            (progress - MORPH_SOURCE_FADE_END) / (1f - MORPH_SOURCE_FADE_END)
+            ).coerceIn(0f, 1f)
+        morphSource?.alpha = if (sourceSnapshot == null) {
+            (sourceAlpha ?: 1f) * (1f - surfaceAlpha)
+        } else {
+            0f
+        }
+        val width = lerp(sourceBounds.width(), menuBounds.width(), shapeProgress).roundToInt()
+        val height = lerp(sourceBounds.height(), menuBounds.height(), shapeProgress).roundToInt()
+        val x = lerp(sourceBounds.left, menuBounds.left, shapeProgress)
+        val y = lerp(sourceBounds.top, menuBounds.top, shapeProgress)
+        val radius = lerp(sourceBounds.height() / 2f, roundRadius, shapeProgress)
+        contentContainerLayout.apply {
+            translationX = x
+            translationY = y
+            setMorphSize(width, height, radius)
+            alpha = surfaceAlpha
+        }
+        initialPopupView.alpha = ((progress - MORPH_SOURCE_FADE_END) / 0.65f).coerceIn(0f, 1f)
+        snapshotView.apply {
+            translationX = x
+            translationY = y
+            right = left + width
+            bottom = top + sourceBounds.height().roundToInt()
+            setRoundedOutline(radius)
+            alpha = 1f - surfaceAlpha
+        }
+        displayProgressListener?.invoke(progress)
+    }
+
+    private fun animateMorph(target: Float) {
+        morphAnimator?.removeAllListeners()
+        morphAnimator?.cancel()
+        val start = morphProgress
+        val startBackdrop = backdropProgress
+        val backdropInterpolator = AccelerateDecelerateInterpolator()
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration =
+                if (target ==
+                    1f
+                ) {
+                    AnimationConstants.MENU_PRESENT
+                } else {
+                    AnimationConstants.MENU_DISMISS
+                }
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                val fraction = it.animatedFraction
+                updateMorph(
+                    lerp(start, target, WInterpolator.emphasized.getInterpolation(fraction))
+                )
+                updateBackdropProgress(
+                    lerp(startBackdrop, target, backdropInterpolator.getInterpolation(fraction))
+                )
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    morphAnimator = null
+                    updateMorph(target)
+                    updateBackdropProgress(target)
+                    if (target == 0f) {
+                        removeFromParent()
+                    } else {
+                        contentContainerLayout.interceptChildTouches = false
+                        initialPopupView.prepareExpandingSubmenus()
+                        finishPresentation()
+                    }
+                }
+            })
+        }
+        morphAnimator = animator
+        updateMorph(start)
+        if (WGlobalStorage.getAreAnimationsActive()) animator.start() else animator.end()
+    }
+
+    private fun dismissMorph() {
+        if (isMorphDismissing) return
+        isMorphDismissing = true
+        initialPopupView.notifyWillDismiss()
+        contentContainerLayout.interceptChildTouches = true
+        if (sourceAlpha == null || morphSource?.isAttachedToWindow != true) {
+            removeFromParent()
+            return
+        }
+        initialPopupView.resetExpandingPresentationScroll()
+        animateMorph(0f)
+    }
+
     private fun lerp(start: Float, end: Float, progress: Float): Float =
         start + (end - start) * progress
 
@@ -441,6 +712,46 @@ class WNavigationPopup(
         initialPopupView.popupWindow = this
     }
 
+    fun beginDragSelection(startY: Float) {
+        dragSelectionStartY = startY
+    }
+
+    fun updateDragSelection(x: Float, y: Float) {
+        val startY = dragSelectionStartY ?: y.also { dragSelectionStartY = it }
+        hasLastDragPoint = true
+        lastDragX = x
+        lastDragY = y
+        if (!canDragSelect) return
+        val isActivated = dragSelectionView != null
+        if (!isActivated && abs(y - startY) <= DRAG_SELECTION_ACTIVATION_DISTANCE) return
+        val popupView = popupViews.last()
+        dragSelectionView?.takeIf { it !== popupView }?.endDragSelection(performAction = false)
+        dragSelectionView = popupView
+        popupView.updateDragSelection(x, y)
+    }
+
+    fun endDragSelection(performAction: Boolean) {
+        if (performAction && !isPresented) {
+            hasPendingDragRelease = true
+            return
+        }
+        hasPendingDragRelease = false
+        hasLastDragPoint = false
+        dragSelectionStartY = null
+        val popupView = dragSelectionView ?: return
+        dragSelectionView = null
+        val isCurrentPage = popupView === popupViews.last()
+        popupView.endDragSelection(performAction && canDragSelect && isCurrentPage)
+    }
+
+    // Applies a drag made while the menu was opening
+    private fun finishPresentation() {
+        isPresented = true
+        if (isDismissed || isMorphDismissing) return
+        if (hasLastDragPoint) updateDragSelection(lastDragX, lastDragY)
+        if (hasPendingDragRelease) endDragSelection(performAction = true)
+    }
+
     fun setOnDismissListener(listener: (() -> Unit)?) {
         onDismissListener = listener
     }
@@ -462,23 +773,24 @@ class WNavigationPopup(
     }
 
     fun showAtLocation(x: Int, y: Int, initialHeight: Int = 0, fromTop: Boolean = true) {
-        val popupHost = this.popupHost ?: return
+        val popupHost = this.popupHost ?: run {
+            removeFromParent()
+            return
+        }
         ensureBlurBackdropAttached(popupHost)
         contentContainerLayout.apply {
             setRequestedPosition(
                 x.toFloat() - popupHost.paddingLeft,
                 y.toFloat() - popupHost.paddingTop
             )
-            val elevationValue = if (usePillShadow) {
+            elevation = if (usePillShadow) {
                 0f
-            } else if (!shouldUseDimBackdrop ||
-                windowBackgroundStyle is WMenuPopup.BackgroundStyle.Transparent
-            ) {
-                4f
             } else {
-                2f
+                WMenuPopup.surfaceElevation(
+                    isOverDim = !shouldUseTransparentBackdrop &&
+                        windowBackgroundStyle !is WMenuPopup.BackgroundStyle.Transparent
+                )
             }
-            elevation = elevationValue.dp
         }
         popupHost.addView(rootContainerLayout)
         attachPillShadowIfNeeded()
@@ -487,12 +799,22 @@ class WNavigationPopup(
             blurBackdropContainer.alpha = 0f
         }
         updateBackdropProgress(0f)
-        val interpolator = LinearInterpolator()
-        initialPopupView.present(initialHeight, fromTop) { animationFraction ->
-            val interpolated = interpolator.getInterpolation(animationFraction)
-            updateBackdropProgress(interpolated)
-            displayProgressListener?.invoke(animationFraction)
+        morphSource?.let { source ->
+            presentMorph(source, popupHost)
+            PopupHelpers.popupShown(this)
+            return
         }
+        val interpolator = LinearInterpolator()
+        initialPopupView.present(
+            initialHeight,
+            fromTop,
+            updateListener = { animationFraction ->
+                val interpolated = interpolator.getInterpolation(animationFraction)
+                updateBackdropProgress(interpolated)
+                displayProgressListener?.invoke(animationFraction)
+            },
+            onPresented = ::finishPresentation
+        )
         PopupHelpers.popupShown(this)
     }
 
@@ -619,7 +941,7 @@ class WNavigationPopup(
                 nextPopupView,
                 FrameLayout.LayoutParams(layoutWidth, WRAP_CONTENT)
             )
-            if (isBlurSupported) {
+            if (isSurfaceBlurred) {
                 setRoundedOutline(roundRadius)
             }
             setOnClickListener {
@@ -952,6 +1274,10 @@ class WNavigationPopup(
         if (isDismissed) {
             return
         }
+        if (morphSource != null) {
+            dismissMorph()
+            return
+        }
         if (isItemTransitioning) {
             itemTransitionAnimator?.end()
         }
@@ -982,6 +1308,21 @@ class WNavigationPopup(
             return
         }
         isDismissed = true
+        morphAnimator?.removeAllListeners()
+        morphAnimator?.cancel()
+        morphAnimator = null
+        geometryListener?.let { listener ->
+            geometryObserver?.takeIf { it.isAlive }?.removeOnGlobalLayoutListener(listener)
+        }
+        geometryListener = null
+        geometryObserver = null
+        morphSource?.removeOnAttachStateChangeListener(sourceAttachListener)
+        sourceAlpha?.let { morphSource?.alpha = it }
+        sourceAlpha = null
+        sourceSnapshot?.let { snapshot ->
+            sourceSnapshot = null
+            snapshot.recycle()
+        }
         PopupHelpers.popupDismissed(this@WNavigationPopup)
 
         (rootContainerLayout.parent as? ViewGroup)?.removeView(rootContainerLayout)

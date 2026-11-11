@@ -28,6 +28,10 @@ internal interface AgentDictationRecorder {
 
     /** The peak amplitude since the last call, out of 32767 */
     fun amplitude(): Int
+
+    /** Stops taking in sound until [resume], keeping what was recorded */
+    fun pause()
+    fun resume()
     suspend fun finish(): String
     fun cancel()
 }
@@ -60,9 +64,12 @@ internal enum class AgentDictationCancelDirection(val sign: Int) {
 internal data class AgentDictationState(
     val phase: AgentDictationPhase = AgentDictationPhase.IDLE,
     val locked: Boolean = false,
+    /** The time recorded so far, without its pauses */
     val elapsedMs: Long = 0,
-    /** When the recording started, on the controller's clock */
+    /** When the recording would have started without its pauses, on the controller's clock */
     val startedAtMs: Long = 0,
+    /** A locked recording waits, keeping what it has, until it resumes or finishes */
+    val isPaused: Boolean = false,
     val level: Float = 0f,
     /** How far the recording waves swell, from 0 to 1: Telegram's peak amplitude against 16000 */
     val waveLevel: Float = 0f,
@@ -107,6 +114,8 @@ internal class AgentDictationController(
     private var pendingLockDragDp = 0f
     private var hasPassedCancelFeedback = false
     private var hasPassedLockFeedback = false
+    private var recordingStartedAtMs = 0L
+    private var pausedAtMs = 0L
 
     fun press() {
         if (state.phase != AgentDictationPhase.IDLE && state.phase != AgentDictationPhase.FAILED) {
@@ -204,6 +213,43 @@ internal class AgentDictationController(
         if (state.phase == AgentDictationPhase.RECORDING) finishSignal?.complete(false)
     }
 
+    /** Telegram's pause of a locked recording: [resume] goes on with the same recording */
+    fun pause() {
+        val recorder = currentRecorder ?: return
+        if (state.phase != AgentDictationPhase.RECORDING || !state.locked || state.isPaused) return
+        try {
+            recorder.pause()
+        } catch (error: Exception) {
+            fail(AgentDictationFailure.Error(error.message))
+            return
+        }
+        pausedAtMs = nowMs()
+        update(
+            state.copy(
+                isPaused = true,
+                elapsedMs = measureElapsed(pausedAtMs),
+                level = 0f,
+                waveLevel = 0f
+            )
+        )
+    }
+
+    fun resume() {
+        val recorder = currentRecorder ?: return
+        if (state.phase != AgentDictationPhase.RECORDING || !state.isPaused) return
+        try {
+            recorder.resume()
+        } catch (error: Exception) {
+            fail(AgentDictationFailure.Error(error.message))
+            return
+        }
+        recordingStartedAtMs += nowMs() - pausedAtMs
+        update(state.copy(isPaused = false, startedAtMs = recordingStartedAtMs))
+    }
+
+    private fun measureElapsed(now: Long): Long =
+        (now - recordingStartedAtMs).coerceIn(0L, AGENT_DICTATION_MAX_DURATION_MS)
+
     fun onAppBackground() {
         if (state.phase == AgentDictationPhase.PRESSING && state.locked) return
         cancel()
@@ -267,9 +313,10 @@ internal class AgentDictationController(
                 currentRecorder = activeRecorder
                 activeRecorder.start()
                 currentCoroutineContext().ensureActive()
-                val startedAt = nowMs()
+                recordingStartedAtMs = nowMs()
                 var hasSpeech = false
                 fun sample() {
+                    if (state.isPaused) return
                     val amplitude = activeRecorder.amplitude().coerceIn(0, MAX_AMPLITUDE)
                     hasSpeech = hasSpeech || amplitude >= SPEECH_AMPLITUDE
                     val dbfs = 20 * log10(amplitude.coerceAtLeast(1).toDouble() / MAX_AMPLITUDE)
@@ -277,11 +324,8 @@ internal class AgentDictationController(
                     update(
                         state.copy(
                             phase = AgentDictationPhase.RECORDING,
-                            startedAtMs = startedAt,
-                            elapsedMs = (nowMs() - startedAt).coerceIn(
-                                0L,
-                                AGENT_DICTATION_MAX_DURATION_MS
-                            ),
+                            startedAtMs = recordingStartedAtMs,
+                            elapsedMs = measureElapsed(nowMs()),
                             level = level,
                             waveLevel = (amplitude.toFloat() / FULL_WAVE_AMPLITUDE).coerceIn(0f, 1f)
                         )
@@ -326,6 +370,7 @@ internal class AgentDictationController(
                 update(
                     state.copy(
                         phase = AgentDictationPhase.RECOGNIZING,
+                        isPaused = false,
                         cancelDragDp = 0f,
                         lockDragDp = 0f
                     )

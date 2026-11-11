@@ -8,6 +8,8 @@ import { clearAgentV2PersistentState } from './persistentState';
 import {
   createAgentV2Thread,
   destroyAgentV2,
+  getAgentV2CachedMessages,
+  getAgentV2CachedThreads,
   getAgentV2DefaultThread,
   getAgentV2NewsFeed,
   getAgentV2Runtime,
@@ -18,7 +20,7 @@ import {
 type MockRuntime = jest.Mocked<Pick<
   import('./runtime').AgentV2Runtime,
     'createThread' | 'getDefaultThread' | 'getNewsFeed' | 'destroy' | 'getConsent' | 'getRunLifecycleGeneration'
-    | 'setToolExecutor' | 'updateHostContext'
+    | 'setToolExecutor' | 'updateHostContext' | 'getCachedThreads' | 'getCachedMessages'
 >> & {
   dependencies: AgentV2RuntimeDependencies;
 };
@@ -34,6 +36,8 @@ jest.mock('./runtime', () => ({
       createThread: jest.fn(),
       getDefaultThread: jest.fn(),
       getNewsFeed: jest.fn(),
+      getCachedThreads: jest.fn(),
+      getCachedMessages: jest.fn(),
       destroy: jest.fn(() => Promise.resolve()),
       getConsent: jest.fn(() => Promise.resolve(true)),
       getRunLifecycleGeneration: jest.fn(() => 0),
@@ -79,6 +83,19 @@ describe('Agent V2 service lifecycle', () => {
     globalThis.fetch = originalFetch;
   });
 
+  it('returns missing cache without an active runtime and forwards cache reads to the active runtime', async () => {
+    await expect(getAgentV2CachedThreads()).resolves.toBeUndefined();
+    await expect(getAgentV2CachedMessages('thread-id')).resolves.toBeUndefined();
+    await initAgentV2(jest.fn());
+    mockRuntimeInstances[0].getCachedThreads.mockResolvedValue([]);
+    mockRuntimeInstances[0].getCachedMessages.mockResolvedValue(undefined);
+
+    await expect(getAgentV2CachedThreads()).resolves.toEqual([]);
+    await expect(getAgentV2CachedMessages('thread-id')).resolves.toBeUndefined();
+    expect(mockRuntimeInstances[0].getCachedThreads).toHaveBeenCalledWith();
+    expect(mockRuntimeInstances[0].getCachedMessages).toHaveBeenCalledWith('thread-id');
+  });
+
   it.each([
     [new AgentV2ContractError('$.thread.revision'), 'invalid_event'],
     [new AgentV2CompatibilityError('$.protocolVersion', undefined, 3), 'client_update_required'],
@@ -94,11 +111,13 @@ describe('Agent V2 service lifecycle', () => {
     const page = { locale: 'ru' as const, items: [], nextCursor: 'next-page' };
     mockRuntimeInstances[0].getNewsFeed.mockResolvedValue(page);
 
-    await expect(getAgentV2NewsFeed({ lang: 'ru-RU', cursor: 'current-page' })).resolves.toEqual({
+    const params = { lang: 'ru-RU', cursor: 'current-page', digestHour: 21, timeZone: 'Europe/Moscow' };
+
+    await expect(getAgentV2NewsFeed(params)).resolves.toEqual({
       ok: true,
       value: page,
     });
-    expect(mockRuntimeInstances[0].getNewsFeed).toHaveBeenCalledWith({ lang: 'ru-RU', cursor: 'current-page' });
+    expect(mockRuntimeInstances[0].getNewsFeed).toHaveBeenCalledWith(params);
   });
 
   it('passes news binding and default parameters to thread creation', async () => {
@@ -137,6 +156,18 @@ describe('Agent V2 service lifecycle', () => {
 
     await expect(getAgentV2NewsFeed({ lang: 'ru-RU', cursor: 'next-page' })).resolves.toEqual(expected);
     await expect(createAgentV2Thread({ news: { eventId: 42, locale: 'ru' } })).resolves.toEqual(expected);
+  });
+
+  it('preserves digest_unavailable from digest thread creation across the worker boundary', async () => {
+    await initAgentV2(jest.fn());
+    mockRuntimeInstances[0].createThread.mockRejectedValue(
+      new AgentV2HttpError(404, 'digest_unavailable', 'Private server details', false),
+    );
+
+    await expect(createAgentV2Thread({ digest: { id: 'ru:2026-11-04T08:00:00.000Z' } })).resolves.toEqual({
+      ok: false,
+      error: { code: 'digest_unavailable', retryable: false },
+    });
   });
 
   it('tears down the current runtime before activating its replacement', async () => {

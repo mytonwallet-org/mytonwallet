@@ -139,8 +139,8 @@ You can always enable seasonal theming again in the appearance settings.: คุ
 Base Currency: สกุลเงินหลัก
 Investor View: มุมมองนักลงทุน
 Toggle Investor View: เปิด/ปิด มุมมองนักลงทุนงทุน
-Hide Tiny Transfers: ซ่อนรายการโอนขนาดเล็ก
-Toggle Hide Tiny Transfers: เปิด/ปิด ซ่อนรายการโอนขนาดเล็ก
+Hide Tiny Transfers and Spam: ซ่อนรายการโอนขนาดเล็กและสแปม
+Toggle Hide Tiny Transfers and Spam: เปิด/ปิดการซ่อนรายการโอนขนาดเล็กและสแปม
 Network: เครือข่าย
 Developer Options: ตัวเลือกสำหรับผู้พัฒนา
 All Wallet Versions: เวอร์ชันกระเป๋าเงินทั้งหมด
@@ -1314,7 +1314,6 @@ Agent: ผู้ช่วย
 Learn more: เรียนรู้เพิ่มเติม
 Data shared with Agent: ข้อมูลที่แชร์กับผู้ช่วย
 $agent_consent_allow_button: อนุญาตผู้ช่วย
-$agent_consent_subtitle: ถามผู้ช่วยเกี่ยวกับความช่วยเหลือด้านวอลเล็ต ข้อมูลโทเค็น และการดำเนินการที่รองรับ
 $agent_consent_feature_answers: รับคำตอบเกี่ยวกับ %app_name% โทเค็น และกิจกรรมในวอลเล็ต
 $agent_consent_feature_actions: เตรียมการดำเนินการที่รองรับ เช่น การส่ง การรับ และการสเตก
 $agent_consent_feature_context: ใช้บริบทของวอลเล็ตเพื่อให้คำตอบอ้างอิงสินทรัพย์และที่อยู่ที่เกี่ยวข้องได้
@@ -1402,6 +1401,7 @@ $agent_dictation_no_speech: "ไม่ได้ยินเสียงพูด
 $agent_dictation_time_left: "เหลือ %seconds% วินาที"
 $agent_dictation_time_left_short: "%seconds% วิ"
 $agent_dictation_limit_reached: "หยุดการพูดเพื่อพิมพ์หลังจากหนึ่งนาที ซึ่งเป็นความยาวสูงสุดที่อนุญาต"
+$agent_stop_answer: "หยุดการตอบ"
 $agent_dictation_microphone_denied: "อนุญาตให้เข้าถึงไมโครโฟนเพื่อพูดเพื่อพิมพ์"
 $agent_dictation_hold_hint: "กดค้างไว้แล้วพูดเพื่อพิมพ์ ปัดขึ้นเพื่อบันทึกโดยไม่ต้องกดค้าง"
 $agent_dictation_too_short: "สั้นเกินไป กดค้างไว้ขณะพูด"
@@ -2127,6 +2127,8 @@ News: "ข่าว"
 Crypto Market News: "ข่าวตลาดคริปโต"
 $agent_news_new: "ใหม่"
 $agent_news_open_source: "เปิดแหล่งข่าว"
+$agent_news_source: "แหล่งที่มา: %sources%"
+$agent_news_sources: "แหล่งที่มา: %sources%"
 $agent_news_unavailable: "ข่าวไม่พร้อมใช้งานในขณะนี้"
 $agent_news_read_more: "อ่านเพิ่มเติม"
 $agent_news_discuss: "พูดคุย"
@@ -2162,7 +2164,6 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "Review": "ตรวจสอบ"
 "$perps_order_long": "%asset% Long"
 "$perps_order_short": "%asset% Short"
-"$perps_swap_fee_hint": "ค่าธรรมเนียมสำหรับการแปลงโทเคนหนึ่งเป็นอีกโทเคนหนึ่งซึ่งเป็นส่วนหนึ่งของธุรกรรมนี้"
 "$perps_trading_fee_hint": "ค่าธรรมเนียมสำหรับการเปิดสถานะนี้"
 "$perps_position_size_hint": "ขนาดสถานะ — มูลค่ารวมของสถานะเมื่อใช้เลเวอเรจ"
 "$perps_position_size_details_hint": "มูลค่ารวมของสถานะของคุณโดยคำนึงถึงเลเวอเรจ\n\nตัวอย่างเช่น หากคุณลงทุน $100 ด้วยเลเวอเรจ 5x ขนาดสถานะของคุณจะเป็น $500"
@@ -2172,7 +2173,6 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "$perps_closing_value_hint": "จำนวนเงินที่เหลือหลังจากสถานะของคุณถูกล้างพอร์ต จำนวนนี้อาจน้อยกว่าเงินที่ลงทุนหรือเป็นศูนย์ ขึ้นอยู่กับผลของการล้างพอร์ต"
 "$perps_fees_hint": "ค่าธรรมเนียมทั้งหมดที่เรียกเก็บสำหรับธุรกรรมนี้ อาจรวมค่าธรรมเนียมการซื้อขาย การแลกเปลี่ยน และเครือข่าย ขึ้นอยู่กับธุรกรรม"
 "$perps_liquidation_price_hint": "ราคาโดยประมาณที่สถานะของคุณอาจถูกปิดโดยอัตโนมัติ เนื่องจากมีเงินไม่เพียงพอที่จะคงสถานะไว้"
-"$perps_high_leverage_warning": "เลเวอเรจสูง: ราคาเปลี่ยนเพียงเล็กน้อยก็อาจทำให้ถูกบังคับปิดสถานะ"
 "$perps_leverage_disclaimer": "เลเวอเรจที่สูงขึ้นจะเพิ่มทั้งกำไรและขาดทุนที่อาจเกิดขึ้น แม้ราคาเปลี่ยนแปลงสวนทางกับสถานะของคุณเพียงเล็กน้อย ก็อาจทำให้สถานะถูกปิดโดยอัตโนมัติได้"
 
 # Perps order review
@@ -2250,7 +2250,16 @@ $perps_open_interest_hint: "มูลค่ารวมของสัญญา�
 "PerpsQuoteExpired": "ราคาหรือสถานะของคุณเปลี่ยนไป กลับไปตรวจสอบคำสั่งอีกครั้ง"
 "PerpsReviewChanged": "คำสั่งเปลี่ยนไป กลับไปตรวจสอบอีกครั้ง"
 "PerpsInsufficientUsdc": "USDC บน Arbitrum ไม่เพียงพอเมื่อรวมค่าธรรมเนียมบริดจ์"
+"EvmUserOperationMismatch": "การชำระค่าแก๊สไม่ตรงกับธุรกรรมนี้"
+"PerpsInsufficientBalance": "USDC ในยอดคงเหลือ Hyperliquid ของคุณไม่เพียงพอเมื่อรวมค่าธรรมเนียมการซื้อขาย"
+"PerpsMarketNeedsUnifiedAccount": "ไม่สามารถเติมเงินตลาดนี้จากกระเป๋าเงินของคุณด้วยประเภทบัญชี Hyperliquid ปัจจุบันได้"
+"PerpsRequiresMultichainWallet": "ฟิวเจอร์สต้องใช้กระเป๋าเงินแบบหลายเชน สลับไปใช้หรือสร้างใหม่เพื่อเริ่มซื้อขาย"
+"PerpsSwitchesToUnifiedAccount": "คำสั่งนี้จะเปลี่ยนบัญชี Hyperliquid ของคุณเป็น Unified ด้วย เพื่อให้ยอดคงเหลือ USDC เดียวครอบคลุมทุกตลาด"
 "PerpsAmountTooSmall": "จำนวนนี้ต่ำกว่าขั้นต่ำของตลาด"
+"$perps_minimum_amount": "จำนวนเงินขั้นต่ำ: %amount% USDC"
+"$perps_minimum_reduction": "ลดจำนวนเงินลงมากกว่า %amount% USDC เพื่อให้ครอบคลุมค่าธรรมเนียมบริดจ์"
+"$perps_required_balance": "ต้องใช้: %required% USDC รวมค่าธรรมเนียม ยอดที่ใช้ได้บน Hyperliquid: %available% USDC"
+"$perps_available_balance": "ยอดที่ใช้ได้บน Hyperliquid: %available% USDC ลดจำนวนเงินลงเพื่อเผื่อค่าธรรมเนียมการซื้อขาย"
 "PerpsUnchanged": "ใส่จำนวนอื่นเพื่อเปลี่ยนแปลงสถานะ"
 "PerpsPositionChanged": "สถานะนี้เปลี่ยนไป รีเฟรชแล้วลองอีกครั้ง"
 "PerpsPositionExists": "คุณมีสถานะในตลาดนี้อยู่แล้ว ให้แก้ไขสถานะเดิม"
@@ -2297,8 +2306,6 @@ Could not save the image. Please try again.: ไม่สามารถบั�
 "$perps_funding_usdc_increase": "คุณต้องมีอย่างน้อย %minUSDC% USDC บน Arbitrum เพื่อเพิ่มสถานะนี้"
 "PerpsFundingGasTitle": "ETH ไม่เพียงพอสำหรับค่าธรรมเนียม"
 "$perps_funding_gas": "ค่าธรรมเนียมบน Arbitrum ชำระด้วย ETH รับ %feeETH% ETH (~%feeFiat%)"
-"PerpsFundingTokenTitle": "ชำระด้วย USDC บน Arbitrum"
-"PerpsFundingTokenDescription": "ยังไม่รองรับโทเคนอื่น รับ USDC เพื่อดำเนินการต่อ"
 "Not Enough Funds": "เงินไม่เพียงพอ"
 "Unsupported Token": "ไม่รองรับโทเคนนี้"
 "PerpsReviewUpdated": "ราคาได้รับการอัปเดตแล้ว ตรวจสอบคำสั่งอีกครั้งก่อนยืนยัน"
@@ -2317,13 +2324,14 @@ Could not save the image. Please try again.: ไม่สามารถบั�
 "PerpsExchangeFee": "ค่าธรรมเนียมตลาดซื้อขาย"
 "PerpsServiceFee": "ค่าธรรมเนียมกระเป๋า"
 "PerpsBridgeFee": "ค่าธรรมเนียมบริดจ์"
+"PerpsFirstWithdrawalFee": "ค่าธรรมเนียมการถอนครั้งแรก"
 "PerpsTotalFees": "ค่าธรรมเนียม USDC รวม"
 "PerpsFeeEstimateHint": "ค่าธรรมเนียมที่มีเครื่องหมาย ≈ เป็นค่าประมาณและอาจเปลี่ยนเมื่อดำเนินการ ค่าธรรมเนียมเครือข่าย Arbitrum จ่ายแยกเป็น ETH"
 "PerpsUnallocatedCollateral": "หลักประกันที่ยังไม่ได้จัดสรร"
 "PerpsUnallocatedCollateralHint": "การปัดเศษตามขนาดการซื้อขายของตลาดอาจทำให้ USDC บางส่วนอยู่นอกสถานะ เงินนี้ยังอยู่ในบัญชีฟิวเจอร์สของคุณและไม่ใช่ค่าธรรมเนียม"
-"PerpsOnboardingTitle": "เพิ่งเริ่มเทรดฟิวเจอร์สใช่ไหม?"
-"PerpsOnboardingDescription": "เรียนรู้วิธีใช้งานในเวลาไม่ถึง 1 นาที"
-"PerpsOnboardingOpen": "เปิดคำแนะนำ"
+"PerpsOnboardingTitle": "ฟิวเจอร์ส\nใน %app_name%!"
+"PerpsOnboardingDescription": "เปิด Long หรือ Short ได้ในไม่กี่แตะ"
+"PerpsOnboardingOpen": "ดูวิธีการทำงาน"
 "PerpsStoryIntroTitle": "รู้จักกับเพอร์เพทชวลฟิวเจอร์ส"
 "PerpsStoryIntroBody": "เปิดสถานะได้ทั้งเมื่อคาดว่าราคาสินทรัพย์จะขึ้นหรือลง"
 "PerpsStoryLongTitle": "คาดว่าราคาจะขึ้น? เปิด Long"
@@ -2338,10 +2346,8 @@ Could not save the image. Please try again.: ไม่สามารถบั�
 "PerpsStoryFundingBody": "เมื่ออัตราฟันดิงเป็นบวก ผู้ถือสถานะ Long จ่ายให้ผู้ถือสถานะ Short เมื่อเป็นลบ ผู้ถือสถานะ Short จ่ายให้ผู้ถือสถานะ Long"
 "PerpsStoryStart": "เริ่ม"
 
-"Funding Payment": "การชำระค่าฟันดิง"
 "Withdrawal": "ถอน"
 "Transfer": "โอน"
-"Spot Balance": "ยอดคงเหลือสปอต"
 "From": "จาก"
 "To": "ไปยัง"
 
@@ -2363,3 +2369,69 @@ $enclave_data_missing_message: |
   หากคุณมีคำลับของกระเป๋าเงิน คุณสามารถออกจากกระเป๋าทั้งหมดแล้วนำเข้าใหม่อีกครั้ง
 
 Install the TON App on your Ledger and try again.: ติดตั้งแอป TON บน Ledger ของคุณ แล้วลองอีกครั้ง.
+Liked: ถูกใจแล้ว
+Disliked: ไม่ถูกใจแล้ว
+$agent_feedback_liked_toast: "ผู้ช่วยจะตอบแบบนี้มากขึ้น"
+$agent_feedback_disliked_toast: "เราจะตรวจสอบเรื่องนี้เพื่อช่วยปรับปรุงผู้ช่วย"
+$agent_voice_pause: "หยุดบันทึกชั่วคราว"
+$agent_voice_resume: "บันทึกต่อ"
+$agent_message_copied: คัดลอกข้อความแล้ว
+$agent_copied: "คัดลอกแล้ว"
+$agent_news_empty: "ยังไม่มีข่าว"
+$agent_chats_unavailable: "ไม่สามารถโหลดแชตได้"
+
+"PerpsAvailable": "พร้อมใช้"
+"PerpsWithdraw": "ถอน"
+"PerpsBalanceWithdrawalTitle": "ถอนเข้ากระเป๋า"
+"PerpsWithdrawalFromHyperliquid": "จาก Hyperliquid"
+"PerpsWithdrawalToWallet": "ไปยังกระเป๋า Arbitrum"
+"PerpsBalanceWithdrawalNote": "USDC จะเข้ากระเป๋า Arbitrum ของคุณภายในไม่กี่นาที 0.03 USDC จะอยู่บน Hyperliquid เพื่อเป็นค่าแก๊สของการถอน"
+"PerpsBalanceWithdrawalUpdated": "ยอดคงเหลือ Hyperliquid ของคุณเปลี่ยนแปลง ตรวจสอบการถอนอีกครั้งก่อนยืนยัน"
+"PerpsWithdrawalStatus": "สถานะการถอน"
+"PerpsWithdrawalCompleted": "ส่งคำขอถอนแล้ว"
+"PerpsWithdrawalOnItsWay": "USDC กำลังเดินทางไปยังกระเป๋า Arbitrum ของคุณ อาจใช้เวลาสักครู่"
+"PerpsWithdrawalProcessing": "กำลังประมวลผลการถอน การโอนผ่านบริดจ์อาจใช้เวลาสักครู่"
+"PerpsWithdrawalUnknown": "ยังไม่ได้ยืนยันผล ตรวจสอบยอดคงเหลือ Hyperliquid และกระเป๋าของคุณก่อนดำเนินการอย่างอื่น"
+"PerpsAcknowledgeWithdrawalUnknown": "การถอนอาจยังดำเนินการสำเร็จได้ ตรวจสอบยอดคงเหลือ Hyperliquid และกระเป๋าของคุณก่อน การอนุญาตคำสั่งใหม่ไม่ได้ยกเลิกการถอนนี้"
+"PerpsNothingToWithdraw": "ขณะนี้ไม่มียอดที่ถอนได้จาก Hyperliquid"
+"PerpsWithdrawalRejected": "Hyperliquid ปฏิเสธการถอนนี้ USDC ของคุณยังอยู่ในยอดคงเหลือ Hyperliquid"
+"View your assets and activity": "ดูสินทรัพย์และกิจกรรมของคุณ"
+"Ask AI and follow the news": "ถาม AI และติดตามข่าวสาร"
+$underlying_stock: 'หุ้น %symbol%'
+$agent_support_requested: "คุณขอความช่วยเหลือแล้ว เจ้าหน้าที่จะตอบกลับที่นี่"
+$agent_support_operator_joined: "ฝ่ายสนับสนุนเข้าร่วมแชตแล้ว: %name%"
+$agent_support_closed_operator: "ฝ่ายสนับสนุนปิดคำขอแล้ว จากนี้ผู้ช่วยจะเป็นผู้ตอบ"
+$agent_support_closed_inactivity: "คำขอถูกปิดหลังจากไม่มีการตอบกลับเป็นเวลา 48 ชั่วโมง จากนี้ผู้ช่วยจะเป็นผู้ตอบ"
+$agent_support_waiting: "ฝ่ายสนับสนุน · กำลังรอเจ้าหน้าที่"
+$agent_support_with_operator: "ฝ่ายสนับสนุน · %name%"
+$agent_support_label: "ฝ่ายสนับสนุน"
+$agent_support_badge: "ฝ่ายสนับสนุน %app_name%"
+$agent_support_placeholder: "ข้อความถึงฝ่ายสนับสนุน"
+"PerpsStoryFinaleTitle": "พร้อมลองเทรดฟิวเจอร์สหรือยัง?"
+"PerpsStoryFinaleBody": "เลือกตลาด เปิดสถานะ และติดตามได้โดยตรงใน %app_name%!"
+"PerpsStoryViewMarkets": "ดูตลาด"
+Unlink Wallet: ยกเลิกการเชื่อมโยงกระเป๋าเงิน
+Confirm Unlinking: ยืนยันการยกเลิกการเชื่อมโยง
+Domain Unlinked: ยกเลิกการเชื่อมโยงโดเมนเรียบร้อยแล้ว
+Drag here to add to the toolbar: ลากมาที่นี่เพื่อเพิ่มลงในแถบเครื่องมือ
+$send_only_chain_and_token: ส่งเฉพาะ %symbol%, %tokenSymbol% หรือสินทรัพย์อื่นบน %chain% ไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$agent_digest_unavailable: "สรุปนี้ไม่พร้อมใช้งานอีกต่อไป"
+$agent_digest_title: "ข่าวเด่นประจำวัน"
+$agent_digest_meta:
+  otherValue: "%count% ข่าว · %time%"
+$agent_digest_more:
+  otherValue: "และอีก %count% ข่าว — อยู่ด้านบนในฟีด"
+$agent_digest_settings_title: "สรุปข่าวและการแจ้งเตือน"
+$agent_digest_settings_text: "วันละครั้ง ฟีดจะมีสรุปข่าวเด่นประจำวัน"
+$agent_digest_time: "เวลาสรุปข่าว"
+$agent_digest_time_zone: "ตามเขตเวลาของโทรศัพท์"
+$agent_digest_notifications_off: "ปิด"
+$agent_digest_notifications_off_hint: "สรุปข่าวจะแสดงในฟีดเท่านั้น"
+$agent_digest_notifications_daily: "สรุปข่าวรายวัน"
+$agent_digest_notifications_daily_hint: "เวลา %time% ข่าวเด่นในการแจ้งเตือนเดียว"
+$agent_digest_notifications_every: "ทุกข่าว"
+$agent_digest_notifications_every_hint: "แจ้งเตือนแยกสำหรับทุกข่าว"
+$agent_digest_post_header: "MyPulse · สรุปข่าว · %time%"
+$agent_digest_sheet_title: "สรุปข่าวประจำวัน"
+$agent_digest_device_time_zone: "ตามเขตเวลาของอุปกรณ์นี้"
+$agent_dictation_microphone_denied_device: "อนุญาตให้เข้าถึงไมโครโฟนในการตั้งค่าอุปกรณ์เพื่อพูดเพื่อพิมพ์"

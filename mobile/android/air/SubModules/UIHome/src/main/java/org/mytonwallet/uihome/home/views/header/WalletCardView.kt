@@ -39,12 +39,14 @@ import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import com.facebook.imagepipeline.request.ImageRequestBuilder
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.concurrent.thread
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -92,6 +94,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopupExpandableTra
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.SensitiveDataMaskView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
@@ -341,11 +344,12 @@ class WalletCardView(
             }
         }
         linearLayout.setOnLongClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed || !topTabsMode ||
-                WGlobalStorage.getIsSensitiveDataProtectionOn()
-            ) {
-                return@setOnLongClickListener false
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnLongClickListener false
+            if (!topTabsMode) {
+                balanceViewContainerTapped()
+                return@setOnLongClickListener true
             }
+            if (WGlobalStorage.getIsSensitiveDataProtectionOn()) return@setOnLongClickListener false
             balanceViewContainerTapped(WMenuPopup.BackdropStyle.BlurDimmed)
             true
         }
@@ -753,8 +757,8 @@ class WalletCardView(
     }
 
     private fun setupFooterLabel(label: WRadialGradientLabel) {
-        label.setOnClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnClickListener
+        label.setOnMenuClickListener {
+            if (mode == HomeHeaderView.Mode.Collapsed) return@setOnMenuClickListener
             openAddressMenu(label)
         }
         label.addOnLayoutChangeListener(footerLayoutChangeListener)
@@ -769,6 +773,7 @@ class WalletCardView(
         val newLabel = footerLabel
         if (oldLabel !== newLabel) {
             oldLabel.setOnClickListener(null)
+            oldLabel.setOnLongClickListener(null)
             oldLabel.removeOnLayoutChangeListener(footerLayoutChangeListener)
             bottomViewContainer.removeView(oldLabel)
             bottomViewContainer.addView(
@@ -1193,6 +1198,14 @@ class WalletCardView(
         walletTypeView.configure(account)
         balanceAmount = null
         applyBalance(initialBalance, animated = false)
+    }
+
+    // Home keeps three card instances, and only the current one may carry the ids
+    fun setTestViewIdsEnabled(isEnabled: Boolean) {
+        balanceView.id = if (isEnabled) UIComponentsR.id.home_balance else NO_ID
+        balanceChangeTextLabel.id = if (isEnabled) UIComponentsR.id.home_portfolio_pill else NO_ID
+        walletNameLabel.id = if (isEnabled) UIComponentsR.id.home_wallet_name else NO_ID
+        addressLabel.id = if (isEnabled) UIComponentsR.id.home_address else NO_ID
     }
 
     fun updateCardImage() {
@@ -1761,7 +1774,7 @@ class WalletCardView(
                             currency = it.sign,
                             currencyDecimals = 9,
                             smartDecimals = true,
-                            roundUp = false
+                            rounding = RoundingMode.DOWN
                         ),
                         isSelected = WalletCore.baseCurrency.currencySymbol == it.currencySymbol
                     ),
@@ -1906,12 +1919,15 @@ class WalletCardView(
                     makeAddressActionButton(R.drawable.ic_copy, WColor.SecondaryText) {
                         copyAddressToClipboard(accountChain.address, chain)
                         popup.dismiss()
+                    }.apply {
+                        id = UIComponentsR.id.address_copy
                     }
                 )
                 addView(
                     makeAddressActionButton(R.drawable.ic_qr_thin, WColor.Tint) {
                         openReceive(chain)
                     }.apply {
+                        id = UIComponentsR.id.address_qr
                         contentDescription = LocaleController.getString("Receive")
                     },
                     LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
@@ -1931,6 +1947,7 @@ class WalletCardView(
             val qrView = makeAddressActionButton(R.drawable.ic_qr_thin, WColor.Tint) {
                 openReceive(chain)
             }.apply {
+                id = UIComponentsR.id.address_qr
                 contentDescription = LocaleController.getString("Receive")
             }
             return object :
@@ -2031,7 +2048,7 @@ class WalletCardView(
                 false
             ) {
                 copyAddressToClipboard(accountChain.address, chain)
-            }
+            }.apply { testViewId = UIComponentsR.id.address_row }
         }
 
         fun makeShareItem(hasSeparator: Boolean) = WMenuPopup.Item(
@@ -2052,7 +2069,7 @@ class WalletCardView(
                 currentAccount.shareLink,
                 LocaleController.getString("Share Wallet Link")
             )
-        }
+        }.apply { testViewId = UIComponentsR.id.address_share }
 
         val chainDisplaySnapshot = currentAccount.chainDisplaySnapshot()
         val visibleAddressChains = chainDisplaySnapshot.visibleChains.mapNotNull { accountChain ->

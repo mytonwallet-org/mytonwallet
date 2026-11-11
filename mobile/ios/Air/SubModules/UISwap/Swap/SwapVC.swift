@@ -236,10 +236,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         continueButton.accessibilityIdentifier = "swap_continue"
         continueButton.translatesAutoresizingMaskIntoConstraints = false
         bottomButtonContainer.addSubview(continueButton)
-        let horizontalInset: CGFloat = IOS_26_MODE_ENABLED ? 36 : 16
         NSLayoutConstraint.activate([
-            continueButton.leadingAnchor.constraint(equalTo: bottomButtonContainer.leadingAnchor, constant: horizontalInset),
-            continueButton.trailingAnchor.constraint(equalTo: bottomButtonContainer.trailingAnchor, constant: -horizontalInset),
+            continueButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            continueButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
         ])
         let buttonPresentationController = DraftButtonPresenter(button: continueButton)
         self.buttonPresentationController = buttonPresentationController
@@ -535,7 +534,7 @@ extension SwapVC: TokenSelectionVCDelegate {
                 isModal: true,
                 onlySupportedChains: false,
                 fiatOptions: fiatOptions,
-                showsAssetCategories: tradeModel != nil
+                isTokenTrade: tradeModel != nil
             )
         case .buying:
             swapTokenSelectionVC = TokenSelectionVC(
@@ -551,7 +550,7 @@ extension SwapVC: TokenSelectionVCDelegate {
                 isModal: true,
                 onlySupportedChains: false,
                 fiatOptions: fiatOptions,
-                showsAssetCategories: tradeModel != nil
+                isTokenTrade: tradeModel != nil
             )
         }
         let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
@@ -578,40 +577,22 @@ private extension SwapVC {
         }
         configureNavigationItemWithTransparentBackground()
         addCloseNavigationItemIfNeeded()
-        let settingsButton = UIButton(type: .system)
-        if #available(iOS 26, *), IOS_26_MODE_ENABLED {
-            var configuration = UIButton.Configuration.glass()
-            configuration.cornerStyle = .capsule
-            configuration.contentInsets = .zero
-            configuration.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .medium)
-            settingsButton.configuration = configuration
-        }
-        settingsButton.tintColor = .label
-        settingsButton.accessibilityIdentifier = "tokenTrade.settings"
-        // Keep navigation-bar sizing independent of the icon's intrinsic size.
-        let settingsContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
-        settingsButton.frame = settingsContainer.bounds
-        settingsButton.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        settingsContainer.addSubview(settingsButton)
-        let settings = UIBarButtonItem(customView: settingsContainer)
-        if #available(iOS 26, *) { settings.hidesSharedBackground = true }
-        if #available(iOS 27.1, *) { settings.axisBehavior = .verticalPreferred }
-        let closeItems = navigationItem.rightBarButtonItems ?? []
-        navigationItem.rightBarButtonItems = closeItems + [settings]
-        let interaction = ContextMenuInteraction(triggers: [.tap, .longPress], presentationMode: .zoomPopover) { [weak self] _ in
+        weak var settingsButton: UIButton?
+        let settings = TradeInfoMenu.barButton(accessibilityIdentifier: "tokenTrade.settings") { [weak self] in
             guard let self else { return nil }
             return TokenTradeMenu.configuration(model: model,
-                showSlippage: { [weak self, weak settingsButton] in self?.showTradeSlippage(sourceView: settingsButton) },
+                showSlippage: { [weak self] in self?.showTradeSlippage(sourceView: settingsButton) },
                 showProvider: { [weak self] in self?.showTradeProvider() })
         }
-        interaction.attach(to: settingsButton)
-        settingsButton.addAction(UIAction { [weak interaction] _ in interaction?.present() }, for: .primaryActionTriggered)
-        tradeMenuInteraction = interaction
+        let button = settings.button
+        settingsButton = button
+        navigationItem.rightBarButtonItems = (navigationItem.rightBarButtonItems ?? []) + [settings.item]
+        tradeMenuInteraction = settings.interaction
         observe {
             let isCard = model.cardCurrency != nil
-            settingsButton.setImage(isCard ? UIImage(systemName: "info")
+            button.setImage(isCard ? UIImage(systemName: "info")
                 : UIImage(named: "TokenTradeSettings", in: AirBundle, compatibleWith: nil), for: .normal)
-            settingsButton.accessibilityLabel = lang(isCard ? "Info" : "Settings")
+            button.accessibilityLabel = lang(isCard ? "Info" : "Settings")
         }
         let tradeView = TokenTradeView(model: model, selectMethod: { [weak self] in
             self?.showTradeMethods()

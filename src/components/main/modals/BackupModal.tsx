@@ -152,6 +152,7 @@ function BackupModal({
       case SLIDES.mnemonic:
         return mnemonic && isMnemonicPrivateKey(mnemonic) ? (
           <MnemonicPrivateKey
+            isActive={isActive}
             privateKeyHex={mnemonic[0]}
             onClose={onClose}
           />

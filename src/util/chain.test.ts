@@ -1,6 +1,28 @@
+import { getBase58Decoder } from '@solana/kit';
+
 import { isValidAddress } from '../api/chains/evm/address';
 import { ZERO_ADDRESS } from '../api/chains/evm/constants';
 import { getChainConfig, getEvmChains, getIsSupportedChain } from './chain';
+
+describe('Solana address matching', () => {
+  it('excludes TRON recipients from Solana token selection', () => {
+    const address = 'TVQ1BBt6WEQ1gcbkLNaJAWumuQrfDo1MgW';
+
+    expect(getChainConfig('tron').addressRegex.test(address)).toBe(true);
+    expect(getChainConfig('solana').addressRegex.test(address)).toBe(false);
+  });
+
+  it.each([1, 255])('accepts 32-byte addresses with leading zero bytes and remaining bytes %i', (value) => {
+    const decoder = getBase58Decoder();
+    const { addressRegex } = getChainConfig('solana');
+
+    for (let leadingZeroBytes = 0; leadingZeroBytes <= 32; leadingZeroBytes++) {
+      const bytes = new Uint8Array(32).fill(value).fill(0, 0, leadingZeroBytes);
+
+      expect(addressRegex.test(decoder.decode(bytes))).toBe(true);
+    }
+  });
+});
 
 describe('feeCheckAddress', () => {
   // A zero probe address reverts in every OpenZeppelin-derived ERC20 before the gas is measured.

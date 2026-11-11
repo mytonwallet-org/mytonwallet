@@ -76,6 +76,7 @@ public class HiddenNftsVC: WViewController, Sendable {
     
     private func setupViews() {
         title = lang("Hidden NFTs")
+        view.accessibilityIdentifier = "hidden_nfts_title"
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false

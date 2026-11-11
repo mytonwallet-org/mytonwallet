@@ -67,6 +67,48 @@ final class AgentPreviewImageTests: XCTestCase {
         XCTAssertEqual(getParagraph(of: cell)?.firstLineHeadIndent, 0)
     }
 
+    /// A discussion shows its news's picture while the post is its latest message, and none once a message follows it
+    func testDiscussionRowShowsTheNewsPictureOnlyWhileThePostIsItsLatestMessage() async throws {
+        let cell = AgentThreadCell(frame: CGRect(x: 0, y: 0, width: 402, height: 92))
+        let window = makeKeyWindow(showing: UIViewController())
+        defer { window.isHidden = true }
+        window.addSubview(cell)
+        let url = try makeImageFile()
+        let imageView = try XCTUnwrap(findDescendants(of: cell.previewLabel).compactMap { $0 as? WImageView }.first)
+
+        cell.configure(with: try makeDiscussion(messageCount: 1, imageURL: url))
+        for _ in 0..<100 where imageView.isHidden {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertFalse(imageView.isHidden)
+        XCTAssertEqual(getParagraph(of: cell)?.firstLineHeadIndent, 23)
+
+        cell.configure(with: try makeDiscussion(messageCount: 3, imageURL: url))
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertTrue(imageView.isHidden)
+        XCTAssertEqual(getParagraph(of: cell)?.firstLineHeadIndent, 0)
+    }
+
+    private func makeDiscussion(messageCount: Int, imageURL: URL) throws -> ApiAgentV2ThreadListItem {
+        let thread: [String: Any] = [
+            "id": "news-thread",
+            "revision": 1,
+            "createdAt": "2026-10-19T10:00:00Z",
+            "updatedAt": "2026-10-19T10:00:00Z",
+            "lastActivityAt": "2026-10-19T10:00:00Z",
+            "messageCount": messageCount,
+            "title": "Stablecoin supply reaches a new record",
+            "news": [
+                "eventId": 12,
+                "headline": "Stablecoin supply reaches a new record",
+                "imageUrl": imageURL.absoluteString,
+                "publishedAt": "2026-10-19T09:00:00Z",
+            ],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: ["thread": thread, "preview": "The combined supply passed $300 billion"])
+        return try JSONDecoder().decode(ApiAgentV2ThreadListItem.self, from: data)
+    }
+
     private func getParagraph(of cell: AgentThreadRowCell) -> NSParagraphStyle? {
         cell.previewLabel.attributedText?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
     }

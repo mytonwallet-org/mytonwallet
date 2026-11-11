@@ -8,8 +8,14 @@ import org.junit.Test
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentAnswerFeedback
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportEvent
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVM
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.findFollowupOwner
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentComposerPlaceholder
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportSubtitle
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.hasSupportOperatorJoined
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.arrivingRichBlockIndex
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
@@ -18,9 +24,110 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2DisplayTable
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageError
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 
 class AgentV2CopyTest {
+    @Test
+    fun restoresSupportMessagesWithoutContentAndSkipsUnknownEvents() {
+        val user = AgentV2PersistedMessage(
+            id = "user",
+            threadId = "thread",
+            role = "user",
+            status = "complete",
+            content = AgentV2MessageContent.Markdown("I need help"),
+            createdAt = "2026-11-05T12:00:00.000Z"
+        )
+        val operator = AgentV2OperatorAuthor("operator", "Alex", "https://example.com/avatar.png")
+        val event = user.copy(role = "event", content = null)
+        val messages = listOf(
+            user,
+            user.copy(id = "assistant", role = "assistant"),
+            user.copy(
+                id = "operator",
+                role = "operator",
+                content = null,
+                text = "**Literal** [text](https://example.com)",
+                author = operator,
+                feedback = "like"
+            ),
+            event.copy(id = "requested", code = "support_requested"),
+            event.copy(id = "joined", code = "operator_joined", author = operator),
+            event.copy(id = "closed", code = "support_closed", reason = "inactivity"),
+            event.copy(id = "unknown", code = "future_event")
+        ).mapNotNull { mapAgentV2Message(it) }
+
+        assertEquals(
+            listOf("user", "assistant", "operator", "requested", "joined", "closed"),
+            messages.map { it.id }
+        )
+        assertEquals(AgentMessageRole.USER, messages[0].role)
+        assertEquals(AgentMessageRole.ASSISTANT, messages[1].role)
+        assertEquals(AgentMessageRole.OPERATOR, messages[2].role)
+        assertEquals(operator, messages[2].operator)
+        assertTrue(messages[2].isPlainText)
+        assertEquals("**Literal** [text](https://example.com)", messages[2].formatText())
+        assertTrue(messages[2].isComplete)
+        assertEquals(AgentAnswerFeedback.LIKE, messages[2].feedback)
+        assertTrue(messages.drop(3).none { it.isComplete })
+        assertTrue(messages.drop(3).all { it.role == AgentMessageRole.SYSTEM })
+        assertEquals("support_requested", messages[3].supportEvent?.code)
+        assertEquals("operator_joined", messages[4].supportEvent?.code)
+        assertEquals("Alex", messages[4].supportEvent?.operatorName)
+        assertEquals("support_closed", messages[5].supportEvent?.code)
+        assertEquals("inactivity", messages[5].supportEvent?.reason)
+    }
+
+    @Test
+    fun namesAuthorsOnlyOnceAnOperatorHasJoinedTheChat() {
+        val question = AgentMessage(role = AgentMessageRole.USER, text = "I need help")
+        val answer = AgentMessage(role = AgentMessageRole.ASSISTANT, text = "Calling support")
+        val event = { code: String ->
+            AgentMessage(
+                role = AgentMessageRole.SYSTEM,
+                text = code,
+                supportEvent = AgentSupportEvent(code, operatorName = "Alex")
+            )
+        }
+        val reply = AgentMessage(
+            role = AgentMessageRole.OPERATOR,
+            text = "Hi",
+            operator = AgentV2OperatorAuthor("operator", "Alex")
+        )
+
+        assertFalse(listOf(question, answer, event("support_requested")).hasSupportOperatorJoined())
+        assertTrue(listOf(question, answer, event("operator_joined")).hasSupportOperatorJoined())
+        assertTrue(listOf(question, answer, reply).hasSupportOperatorJoined())
+        assertTrue(
+            listOf(question, reply, event("support_closed"), answer).hasSupportOperatorJoined()
+        )
+    }
+
+    @Test
+    fun describesSupportUnderTheTitleAndInTheComposerWhileItHasTheChat() {
+        assertNull(getAgentSupportSubtitle(AgentVM.SupportState.None))
+        assertNull(getAgentSupportSubtitle(AgentVM.SupportState.Closed))
+        assertEquals(
+            "\$agent_support_waiting",
+            getAgentSupportSubtitle(AgentVM.SupportState.Waiting)
+        )
+        assertEquals(
+            "\$agent_support_with_operator",
+            getAgentSupportSubtitle(AgentVM.SupportState.Operator("Alex"))
+        )
+        assertEquals(
+            "\$agent_support_label",
+            getAgentSupportSubtitle(AgentVM.SupportState.Operator(null))
+        )
+        assertEquals("\$agent_support_placeholder", getAgentComposerPlaceholder(true))
+        assertEquals("Ask anything", getAgentComposerPlaceholder(false))
+    }
+
+    @Test
+    fun declaresSupportHandoffToTheAgent() {
+        assertEquals(true, AGENT_UI_CAPABILITY_FLAGS["supportsSupportHandoff"])
+    }
+
     @Test
     fun restoresFollowupsWithTheirCanonicalMessageAndOriginalPrompt() {
         val followup = AgentV2FollowUp("next", "suggested_prompt", "Explain wallet safety.")
@@ -50,6 +157,7 @@ class AgentV2CopyTest {
             status = "complete",
             content = AgentV2MessageContent.Markdown("Staking locks coins to earn a reward."),
             createdAt = "2026-10-05T12:00:00.000Z",
+            followups = listOf(AgentV2FollowUp("next", "suggested_prompt", "Tell me more.")),
             feedback = "dislike"
         )
 
@@ -61,6 +169,18 @@ class AgentV2CopyTest {
         assertEquals(AgentAnswerFeedback.DISLIKE, rated.feedback)
         assertNull(unknownRating.feedback)
         assertFalse(cancelled.isComplete)
+        // A stopped answer keeps its text without suggestions, and doesn't show when it has nothing
+        assertEquals("Staking locks coins to earn a reward.", cancelled.text)
+        assertTrue(cancelled.followups.isEmpty())
+        assertNull(
+            mapAgentV2Message(
+                persisted.copy(
+                    status = "cancelled",
+                    content = AgentV2MessageContent.Markdown(""),
+                    feedback = null
+                )
+            )
+        )
     }
 
     @Test
@@ -134,6 +254,40 @@ class AgentV2CopyTest {
             links
         )
         assertTrue(blocks[1] is MarkdownParser.Block.Table)
+    }
+
+    @Test
+    fun holdsBackABareListMarkerAfterATableWhileTheAnswerStreams() {
+        val table = AgentV2AnswerTable(
+            "t1",
+            AgentV2DisplayTable("display", listOf("Asset"), listOf(listOf("TON")), emptyList())
+        )
+        val blocks = buildAgentV2MessageBlocks(
+            "Fees:\n\nTotal:\n- **",
+            listOf(table),
+            listOf(AgentV2AnswerTableReference("t1", "Fees:\n\n".length))
+        )
+        assertTrue(blocks[1] is MarkdownParser.Block.Table)
+        val tail = blocks.last() as MarkdownParser.Block.Text
+        // While the answer streams, its last text parses as arriving, which holds back the bare marker
+        assertEquals(blocks.lastIndex, arrivingRichBlockIndex(blocks, isStreaming = true))
+        assertTrue(MarkdownParser.isListMarks(tail.value.lines().last()))
+        // Complete, the answer's text renders as it is
+        assertNull(arrivingRichBlockIndex(blocks, isStreaming = false))
+        // A table the answer ends with takes no text that is still coming in
+        assertNull(arrivingRichBlockIndex(blocks.take(2), isStreaming = true))
+    }
+
+    @Test
+    fun keepsAnswerLinkLabelsAsTextInsideCode() {
+        val blocks = buildAgentV2MessageBlocks(
+            "Run:\n```\nsee Docs\n```",
+            emptyList(),
+            emptyList(),
+            listOf(AgentV2AnswerLink(13, 4, "https://a.io/"))
+        )
+
+        assertEquals(MarkdownParser.Block.Code(null, "see Docs"), blocks[1])
     }
 
     @Test

@@ -1,4 +1,3 @@
-import type { ElementRef } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useState,
 } from '../../lib/teact/teact';
@@ -8,31 +7,55 @@ import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentati
 
 import { APP_NAME, APP_PRIVACY_POLICY_URL } from '../../config';
 import buildClassName from '../../util/buildClassName';
-import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
-import AgentHeader from '../agent/AgentHeader';
 import AgentSpinningTop from '../agent/AgentSpinningTop';
 import StaticText from '../agent/StaticText';
 import StreamingText from '../agent/StreamingText';
 import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 
 import styles from './AgentV2Conversation.module.scss';
 
-export const AgentV2ConsentScreen = memo(({ onAccept }: { onAccept: NoneToVoidFunction }) => {
+/**
+ * The consent the Agent asks for at the first thing the user does that would send something to it: the app's bottom
+ * sheet on mobile and its centred modal on desktop, under the app's sheet header with the Agent's name beside its
+ * spinning top, the small one of the typing row. A hold grows the top threefold over the header, as everywhere, while
+ * the title stays in place. The sheet sizes to its content up to the screen, past which the text scrolls above the
+ * Allow button. Swiping it down, a tap outside it, the close button, Back or Escape closes it.
+ */
+export const AgentV2ConsentSheet = memo(({
+  isOpen, isAllowing, onAllow, onClose,
+}: {
+  isOpen: boolean;
+  isAllowing?: boolean;
+  onAllow: NoneToVoidFunction;
+  onClose: NoneToVoidFunction;
+}) => {
   const lang = useLang();
   return (
-    <div className={styles.consent}>
-      <div className={styles.consentScroll}>
+    <Modal
+      isOpen={isOpen}
+      title={(
+        <span className={styles.consentTitle}>
+          <AgentSpinningTop
+            className={styles.consentTitleIcon}
+            markClassName={styles.consentTitleMark}
+            isTouchInteractive
+          />
+          {lang('Agent')}
+        </span>
+      )}
+      hasCloseButton
+      forceBottomSheet
+      dialogClassName={styles.consentDialog}
+      contentClassName={styles.consent}
+      onClose={onClose}
+    >
+      <div className={buildClassName(styles.consentScroll, 'custom-scroll')}>
         <div className={styles.consentContent}>
-          <div className={styles.consentIntro}>
-            <AgentSpinningTop className={styles.consentIcon} speed={0.5} isTouchInteractive />
-            <h2 className={styles.consentTitle}>{lang('Data shared with Agent')}</h2>
-            <p className={styles.consentSubtitle}>{lang('$agent_consent_subtitle')}</p>
-          </div>
-
           <ul className={styles.consentList}>
             <li className={styles.consentFeature}>
               <span className={styles.consentFeatureIcon} aria-hidden>
@@ -71,31 +94,15 @@ export const AgentV2ConsentScreen = memo(({ onAccept }: { onAccept: NoneToVoidFu
       </div>
 
       <div className={styles.consentFooter}>
-        <Button className={styles.consentButton} isPrimary onClick={onAccept}>
+        <Button className={styles.consentButton} isPrimary isLoading={isAllowing} onClick={onAllow}>
           {lang('$agent_consent_allow_button')}
         </Button>
       </div>
-    </div>
+    </Modal>
   );
 });
 
-/**
- * The screen the agent opens with until the user allows it the data it needs, under the plain "Agent" header. It lies
- * over the chat list, which shows through as it fades out.
- */
-export const AgentV2ConsentPage = memo(({ pageRef, onAccept }: {
-  pageRef?: ElementRef<HTMLDivElement>;
-  onAccept: NoneToVoidFunction;
-}) => {
-  return (
-    <div ref={pageRef} className={buildClassName(styles.consentPage, SWIPE_DISABLED_CLASS_NAME)}>
-      <AgentHeader />
-      <AgentV2ConsentScreen onAccept={onAccept} />
-    </div>
-  );
-});
-
-export function AgentV2AssistantText({
+function AssistantText({
   messageId,
   text,
   tables,
@@ -164,3 +171,5 @@ export function AgentV2AssistantText({
     </div>
   );
 }
+
+export const AgentV2AssistantText = memo(AssistantText);

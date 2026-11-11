@@ -16,6 +16,7 @@ import android.view.animation.DecelerateInterpolator
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.contains
+import androidx.core.view.doOnNextLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -25,6 +26,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -601,8 +603,14 @@ class EarnVC(
                 )
                 recyclerView.overScrollMode = RecyclerView.OVER_SCROLL_ALWAYS
                 noItemView.visibility = View.GONE
-                updateSkeletonState()
                 updateItems(viewState.historyListState.historyItems)
+                if (recyclerView.isLayoutRequested) {
+                    recyclerView.doOnNextLayout {
+                        if (lastListState is HistoryListState.HasItem) updateSkeletonState()
+                    }
+                } else {
+                    updateSkeletonState()
+                }
             }
         }
         lastListState = viewState.historyListState
@@ -626,7 +634,7 @@ class EarnVC(
                         currencyDecimals = token.decimals,
                         showPositiveSign = false,
                         forceCurrencyToRight = true,
-                        roundUp = false
+                        rounding = RoundingMode.DOWN
                     )
                 } ?: ""
             )
@@ -882,21 +890,35 @@ class EarnVC(
         skeletonView.applyMask(skeletonViews, skeletonViewsRadius)
     }
 
+    private var isSkeletonShown = false
+    private var isHeaderSkeletonShown = false
+
     private fun showSkeletonViews(showHeaderSkeleton: Boolean) {
+        if (isSkeletonShown) {
+            if (isHeaderSkeletonShown != showHeaderSkeleton) {
+                isHeaderSkeletonShown = showHeaderSkeleton
+                view.post {
+                    if (isSkeletonShown) updateSkeletonViews(isHeaderSkeletonShown)
+                }
+            }
+            return
+        }
+        isSkeletonShown = true
+        isHeaderSkeletonShown = showHeaderSkeleton
+        skeletonRecyclerView.animate().cancel()
         skeletonRecyclerView.visibility = View.VISIBLE
         rvSkeletonAdapter.reloadData()
         view.post {
-            updateSkeletonViews(showHeaderSkeleton)
-            skeletonAlpha = 1f
+            if (!isSkeletonShown) return@post
+            updateSkeletonViews(isHeaderSkeletonShown)
             skeletonRecyclerView.alpha = 1f
             skeletonView.startAnimating()
         }
     }
 
-    private var skeletonAlpha = 0f
     private fun updateSkeletonState() {
-        if (skeletonAlpha > 0f) {
-            skeletonAlpha = 0f
+        if (isSkeletonShown) {
+            isSkeletonShown = false
             skeletonRecyclerView.fadeOut {
                 skeletonView.stopAnimating()
             }

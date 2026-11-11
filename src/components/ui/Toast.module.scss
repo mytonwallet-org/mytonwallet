@@ -77,6 +77,28 @@ $safeZone: 1.5rem;
   vertical-align: -0.3125rem;
 }
 
+// The place of `.icon` for an animation: as wide as the icon and as tall as the text's line, on whose top it sits, so
+// that it is centred on the first line without making it taller
+.animatedIcon {
+  position: relative;
+
+  display: inline-block;
+
+  width: 1.25rem;
+  height: 1rem;
+  margin-inline-end: 0.375rem;
+
+  vertical-align: top;
+}
+
+// The animation's frame of its own size, centred on its place, past which it reaches without taking room
+.animatedIconFrame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .action {
   cursor: var(--custom-cursor, pointer);
 

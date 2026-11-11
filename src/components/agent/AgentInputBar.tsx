@@ -2,13 +2,16 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useLayoutEffect, useRef, useState,
 } from '../../lib/teact/teact';
+import { setExtraStyles } from '../../lib/teact/teact-dom';
 
 import type { AgentDictationCircleMode } from './AgentDictationCircle';
+import type { AgentTranscriptReveal } from './hooks/useAgentTranscriptReveal';
 import type { AgentDictation } from './hooks/useAgentV2Dictation';
 
-import { requestMeasure } from '../../lib/fasterdom/fasterdom';
+import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
+import segmentGraphemes from '../../util/segmentGraphemes';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import { DICTATION_MAX_DURATION_MS } from './helpers/dictationRecorder';
@@ -18,18 +21,20 @@ import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useShowTransition from '../../hooks/useShowTransition';
+import useThrottledCallback from '../../hooks/useThrottledCallback';
 import useToggleClass from '../../hooks/useToggleClass';
 
 import Input from '../ui/Input';
 import Portal from '../ui/Portal';
 import AgentDictationCircle, { DESIGN_PIXEL } from './AgentDictationCircle';
+import AgentFieldGlow from './AgentFieldGlow';
 import AgentIcon from './AgentIcon';
 
 import styles from './AgentInputBar.module.scss';
 
 export type AgentInputBarDictation = Pick<AgentDictation,
-  'phase' | 'elapsedMs' | 'level' | 'transcriptCount' | 'failureCount' | 'start' | 'finish' | 'cancel'
-  | 'cancelRecognition'>;
+  'phase' | 'isPaused' | 'elapsedMs' | 'level' | 'transcriptCount' | 'failureCount' | 'start' | 'finish' | 'cancel'
+  | 'pause' | 'resume' | 'cancelRecognition'>;
 
 /** How the user records: holding the microphone, or hands-free after a tap or a slide up */
 type DictationHold = 'none' | 'holding' | 'locked';
@@ -85,31 +90,41 @@ interface OwnProps {
   isDimmed?: boolean;
   /** Voice input in place of the send button while the draft is empty; absent where it is not supported */
   dictation?: AgentInputBarDictation;
+  /** Pressing the microphone starts nothing and goes to `onHeldDictation`, as while the Agent asks for consent */
+  isDictationHeld?: boolean;
+  onHeldDictation?: NoneToVoidFunction;
   dictationNotice?: TeactNode;
   /** Read out to a screen reader, unseen */
   dictationAnnouncement?: TeactNode;
+  /** The transcript the draft ends with, while its words come in */
+  transcriptReveal?: AgentTranscriptReveal;
+  /** An answer is being produced, which `onStop` stops: the microphone turns into Stop in place of send */
+  canStop?: boolean;
   onInput: (value: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onSend: NoneToVoidFunction;
+  /** Present where an answer can be stopped from the field */
+  onStop?: NoneToVoidFunction;
   onFocus?: NoneToVoidFunction;
   onHeightChange?: (height: number) => void;
 }
 
 function AgentInputBar({
-  inputRef: externalInputRef, inputValue, placeholder, isDisabled, isDimmed,
-  dictation, dictationNotice, dictationAnnouncement, onInput, onKeyDown, onSend, onFocus, onHeightChange,
+  inputRef: externalInputRef, inputValue, placeholder, isDisabled, isDimmed, canStop = false,
+  dictation, isDictationHeld, onHeldDictation, dictationNotice, dictationAnnouncement, transcriptReveal,
+  onInput, onKeyDown, onSend, onStop, onFocus, onHeightChange,
 }: OwnProps) {
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
   const [isHighlighted, setIsHighlighted] = useState(false);
   const [hold, setHold] = useState<DictationHold>('none');
-  const [drag, setDrag] = useState(NO_DRAG);
+  // The finger moves many times a frame, so its travel is kept out of the state that renders the bar
+  const dragRef = useRef(NO_DRAG);
   const [circleAnchor, setCircleAnchor] = useState<{ x: number; y: number }>();
   const [circleFailure, setCircleFailure] = useState<{ isFailureOnly: boolean }>();
   const dictationActionRef = useRef<HTMLButtonElement>();
   const dictationCancelRef = useRef<HTMLButtonElement>();
   const dictationTimerRef = useRef<HTMLSpanElement>();
-  const hintFadeDistanceRef = useRef(HINT_FADE_DISTANCE);
   const pressRef = useRef<MicrophonePress>();
   const recognitionStartedAtRef = useRef(0);
   const dictationPhase = dictation?.phase ?? 'idle';
@@ -167,9 +182,12 @@ function AgentInputBar({
     return () => observer.disconnect();
   }, [onHeightChange]);
 
+  // While an answer is being produced, Stop stands in place of send and the microphone, a draft or not, as sending
+  // waits for the answer. A recording that is under way keeps its controls until it ends.
+  const isStopShown = Boolean(onStop) && canStop && !isDictating;
   // The send button waits in the field, dimmed, on a phone; elsewhere, and where the microphone stands for it while
   // the draft is empty, it comes with the draft
-  const isSendButtonOpen = !isDictating && (Boolean(inputValue) || (!dictation && isPortrait));
+  const isSendButtonOpen = !isStopShown && !isDictating && (Boolean(inputValue) || (!dictation && isPortrait));
   const canSend = Boolean(inputValue) && !isDisabled;
 
   const isCircleOpen = Boolean(dictation) && (isRecording || Boolean(circleFailure));
@@ -192,16 +210,25 @@ function AgentInputBar({
     ? isHolding || !isCircleOverAction
     : lastHold === 'holding';
 
-  const isMicrophoneButtonOpen = Boolean(dictation) && !inputValue && !isDictating && !isCircleLeaving;
+  // The microphone turns into Stop in its own place, and back once the answer ends
+  const isStopButtonOpen = isStopShown && !isCircleLeaving;
+  const isMicrophoneButtonOpen = Boolean(dictation) && !isStopShown && !inputValue && !isDictating
+    && !isCircleLeaving;
+  const isMicrophoneSlotOpen = isMicrophoneButtonOpen || isStopButtonOpen;
+  // The button keeps the face it showed while it goes, so an answer that ends with a draft trades Stop for the send
+  // button directly, without the microphone in between
+  const isStopFace = useCurrentOrPrev(isMicrophoneSlotOpen ? isStopButtonOpen : undefined, true) ?? false;
   // While the agent recognizes the phrase, the microphone's place goes to the field, as on mobile
   const isDictationActionOpen = isRecording;
+  // The field glows while it recognizes, and until the transcript has come in, as on iOS; never while the user records
+  const isGlowing = dictationPhase === 'recognizing' || Boolean(transcriptReveal);
   const { ref: sendButtonRef } = useShowTransition<HTMLButtonElement>({
     isOpen: isSendButtonOpen,
     noMountTransition: true,
     className: false,
   });
   const { ref: microphoneButtonRef } = useShowTransition<HTMLButtonElement>({
-    isOpen: isMicrophoneButtonOpen,
+    isOpen: isMicrophoneSlotOpen,
     noMountTransition: true,
     className: false,
   });
@@ -223,7 +250,7 @@ function AgentInputBar({
     if (dictationPhase === 'recognizing') recognitionStartedAtRef.current = Date.now();
     if (!isRecording) {
       setHold('none');
-      setDrag(NO_DRAG);
+      updateDrag(NO_DRAG);
       setIsCircleOverAction(true);
     }
   }, [dictationPhase, isRecording]);
@@ -239,13 +266,20 @@ function AgentInputBar({
     });
   });
 
+  // A recording started from outside the bar, as once the user allows the Agent, runs hands-free
+  useEffect(() => {
+    if (!isRecording || hold !== 'none') return;
+    measureCircleAnchor();
+    setHold('locked');
+  }, [hold, isRecording, measureCircleAnchor]);
+
   const isCircleShownRef = useRef(false);
   isCircleShownRef.current = shouldRenderCircle;
   // The scroll-to-latest button gives way to the circle, as on mobile
   useToggleClass({ className: 'is-agent-dictation-circle-shown', isActive: shouldRenderCircle });
 
-  // The hint rises and shrinks away as the recording goes hands-free, while Cancel comes up in its place
-  // The hint's opacity follows the finger frame by frame, so it has no opacity transition of its own
+  // The hint rises and shrinks away as the recording goes hands-free, while Cancel comes up in its place.
+  // The hint's opacity follows the finger frame by frame, so it has no opacity transition of its own.
   const { ref: slideHintRef, shouldRender: shouldRenderSlideHint } = useShowTransition<HTMLSpanElement>({
     isOpen: isHolding,
     withShouldRender: true,
@@ -254,21 +288,36 @@ function AgentInputBar({
     className: false,
   });
 
-  // The hint is gone by the time it reaches the timer, as on mobile, however little room the field leaves it. The
-  // room is measured as the finger slides, as the field may still be widening into the microphone's place.
-  const slideX = isHolding ? drag.x : 0;
-  useLayoutEffect(() => {
-    if (!slideX) return;
-    requestMeasure(() => {
-      const hint = slideHintRef.current;
-      const timer = dictationTimerRef.current;
-      if (!hint || !timer) return;
+  // The hint follows the finger toward cancelling and fades on the way, written straight to its style once a frame.
+  // It is gone by the time it reaches the timer, as on mobile, however little room the field leaves it. The room is
+  // measured as the finger slides, as the field may still be widening into the microphone's place.
+  const updateSlideHint = useThrottledCallback(() => {
+    const hint = slideHintRef.current;
+    if (!hint) return;
+
+    const { x } = dragRef.current;
+    const timer = dictationTimerRef.current;
+    let fadeDistance = HINT_FADE_DISTANCE;
+    if (x && timer) {
       const room = lang.isRtl
         ? timer.offsetLeft - (hint.offsetLeft + hint.offsetWidth)
         : hint.offsetLeft - (timer.offsetLeft + timer.offsetWidth);
-      hintFadeDistanceRef.current = Math.max(1, Math.min(HINT_FADE_DISTANCE, room));
+      fadeDistance = Math.max(1, Math.min(HINT_FADE_DISTANCE, room));
+    }
+
+    requestMutation(() => {
+      setExtraStyles(hint, x
+        ? { transform: `translateX(${x}px)`, opacity: String(Math.max(0, 1 - Math.abs(x) / fadeDistance)) }
+        : { transform: '', opacity: '' });
     });
-  }, [slideX, lang.isRtl, slideHintRef]);
+  }, [lang.isRtl, slideHintRef], requestMeasure);
+
+  const updateDrag = useLastCallback((nextDrag: { x: number; y: number }) => {
+    dragRef.current = nextDrag;
+    updateSlideHint();
+  });
+
+  const getCircleDrag = useLastCallback(() => (isHolding ? dragRef.current : NO_DRAG));
 
   // A dictation that ends without text turns the circle red for a moment, popping it out of the microphone when it
   // was not up
@@ -279,6 +328,45 @@ function AgentInputBar({
     const timer = window.setTimeout(() => setCircleFailure(undefined), FAILURE_DURATION_MS);
     return () => window.clearTimeout(timer);
   }, [failureCount, measureCircleAnchor]);
+
+  // The transcript's words are drawn over the field's own text, which they match letter for letter, so each can
+  // come in blurred and in the accent and settle
+  const revealRef = useRef<HTMLDivElement>();
+  const revealTextRef = useRef<HTMLDivElement>();
+  useLayoutEffect(() => {
+    if (!transcriptReveal) return;
+    requestMeasure(() => {
+      const input = inputRef.current;
+      const reveal = revealRef.current;
+      const text = revealTextRef.current;
+      const pill = reveal?.parentElement;
+      if (!input || !reveal || !text || !pill) return;
+
+      const style = getComputedStyle(input);
+      const inputRect = input.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      const scrollTop = input.scrollTop;
+      requestMutation(() => {
+        setExtraStyles(reveal, {
+          top: `${inputRect.top - pillRect.top + input.clientTop}px`,
+          left: `${inputRect.left - pillRect.left + input.clientLeft}px`,
+          width: `${input.clientWidth}px`,
+          height: `${input.clientHeight}px`,
+          paddingTop: style.paddingTop,
+          paddingRight: style.paddingRight,
+          paddingBottom: style.paddingBottom,
+          paddingLeft: style.paddingLeft,
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          lineHeight: style.lineHeight,
+          letterSpacing: style.letterSpacing,
+          visibility: 'visible',
+        });
+        setExtraStyles(text, { transform: scrollTop ? `translateY(${-scrollTop}px)` : '' });
+      });
+    });
+  }, [inputRef, inputValue, transcriptReveal]);
 
   // The transcript reaches the draft before the count changes, so the caret can move to its end here
   useEffect(() => {
@@ -320,13 +408,22 @@ function AgentInputBar({
 
   const startHandsFree = useLastCallback(() => {
     if (!dictation || !isMicrophoneButtonOpen) return;
+    if (isDictationHeld) {
+      onHeldDictation?.();
+      return;
+    }
     measureCircleAnchor();
     setHold('locked');
     dictation.start();
   });
 
-  // A keyboard press starts a hands-free recording; a pointer goes through the press below
+  // Stop takes any click. On the microphone, a keyboard press starts a hands-free recording; a pointer goes through
+  // the press below.
   const handleMicrophoneClick = useLastCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    if (isStopButtonOpen) {
+      onStop();
+      return;
+    }
     if (e.detail === 0) startHandsFree();
   });
 
@@ -346,7 +443,7 @@ function AgentInputBar({
   const lockRecording = useLastCallback(() => {
     endPress();
     setHold('locked');
-    setDrag(NO_DRAG);
+    updateDrag(NO_DRAG);
     dictationActionRef.current?.focus();
   });
 
@@ -365,6 +462,10 @@ function AgentInputBar({
   const handleMicrophonePointerDown = useLastCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     if (!dictation || !isMicrophoneButtonOpen || e.button !== 0 || !e.isPrimary || pressRef.current) return;
     e.preventDefault();
+    if (isDictationHeld) {
+      onHeldDictation?.();
+      return;
+    }
 
     const press: MicrophonePress = {
       pointerId: e.pointerId,
@@ -380,7 +481,7 @@ function AgentInputBar({
         press.isHolding = true;
         measureCircleAnchor();
         setHold('holding');
-        setDrag(NO_DRAG);
+        updateDrag(NO_DRAG);
         dictation.start();
       }, HOLD_DELAY_MS),
       listeners: {
@@ -427,7 +528,7 @@ function AgentInputBar({
       lockRecording();
       return;
     }
-    setDrag({ x: towardCancel * cancelSign, y: -towardLock });
+    updateDrag({ x: towardCancel * cancelSign, y: -towardLock });
   }
 
   // Only the main direction counts when the finger lets go
@@ -482,14 +583,15 @@ function AgentInputBar({
 
     const remainingMs = Math.max(0, DICTATION_MAX_DURATION_MS - dictation.elapsedMs);
     const isEnding = remainingMs <= DICTATION_ENDING_MS;
-    const hintOpacity = Math.max(0, 1 - Math.abs(drag.x) / hintFadeDistanceRef.current);
-    const hintStyle = isHolding && drag.x ? `transform: translateX(${drag.x}px); opacity: ${hintOpacity}` : undefined;
     return (
       <div className={styles.dictation}>
         <span className="visually-hidden" role="status">
           {isEnding ? lang('$agent_dictation_time_left', DICTATION_ENDING_MS / 1000) : ''}
         </span>
-        <span className={styles.recordingDot} aria-hidden />
+        <span
+          className={buildClassName(styles.recordingDot, dictation.isPaused && styles.recordingDotPaused)}
+          aria-hidden
+        />
         <span
           ref={dictationTimerRef}
           className={buildClassName(styles.dictationTimer, isEnding && styles.dictationEnding)}
@@ -504,7 +606,7 @@ function AgentInputBar({
           ) : (
             <>
               {shouldRenderSlideHint && (
-                <span ref={slideHintRef} className={styles.dictationSlideHint} style={hintStyle} aria-hidden>
+                <span ref={slideHintRef} className={styles.dictationSlideHint} aria-hidden>
                   {lang.isRtl ? '\u2066\u203A\u2069 ' : '\u2039 '}
                   {lang('$agent_dictation_slide_to_cancel')}
                 </span>
@@ -518,17 +620,38 @@ function AgentInputBar({
     );
   }
 
+  // The draft before the transcript stays as it is. Each of the transcript's characters comes in as it reaches the
+  // draft, or the whole transcript fades in where motion is reduced.
+  function renderTranscriptReveal({ start, isReduced }: AgentTranscriptReveal) {
+    const transcript = inputValue.slice(start);
+
+    return (
+      <div ref={revealRef} className={styles.transcriptReveal} aria-hidden>
+        <div ref={revealTextRef}>
+          {inputValue.slice(0, start)}
+          {isReduced ? (
+            <span className={styles.transcriptFade}>{transcript}</span>
+          ) : segmentGraphemes(transcript).map((character, index) => (
+            <span key={index} className={styles.transcriptCharacter}>{character}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // Cancel stands in the middle of the free space, or at the end beside a countdown or the recognition
   function renderDictationCancel(isAtEnd: boolean) {
+    const cancelText = lang('Cancel');
+
     return (
       <button
         ref={dictationCancelRef}
         type="button"
         className={buildClassName(styles.dictationCancel, isAtEnd && styles.dictationCancelAtEnd)}
-        aria-label={lang('Cancel')}
+        aria-label={cancelText}
         onClick={handleDictationCancel}
       >
-        {lang('Cancel')}
+        {cancelText}
       </button>
     );
   }
@@ -549,17 +672,23 @@ function AgentInputBar({
             isHighlighted && styles.pillHighlighted,
           )}
         >
+          <AgentFieldGlow isActive={isGlowing} />
           <Input
             ref={inputRef}
             isMultiline
             value={inputValue}
             placeholder={placeholder ?? lang('Ask anything')}
-            className={buildClassName(styles.input, isSendButtonOpen && styles.inputWithSend)}
+            className={buildClassName(
+              styles.input,
+              isSendButtonOpen && styles.inputWithSend,
+              transcriptReveal && styles.inputRevealing,
+            )}
             wrapperClassName={styles.inputInnerWrapper}
             onInput={handleInput}
             onKeyDown={onKeyDown}
             onFocus={onFocus}
           />
+          {transcriptReveal && renderTranscriptReveal(transcriptReveal)}
           {renderDictation()}
           <button
             ref={sendButtonRef}
@@ -573,22 +702,29 @@ function AgentInputBar({
             <AgentIcon name="send" className={styles.sendIcon} />
           </button>
         </div>
-        {dictation && (
+        {(dictation || onStop) && (
           <button
             ref={microphoneButtonRef}
             type="button"
             // A finger that holds the microphone records rather than swipes the chat away
-            className={buildClassName(styles.sendButton, styles.microphoneButton, SWIPE_DISABLED_CLASS_NAME)}
-            aria-label={lang('$agent_dictation_start')}
-            aria-hidden={!isMicrophoneButtonOpen}
+            className={buildClassName(
+              styles.sendButton,
+              styles.microphoneButton,
+              isStopFace && styles.stopButton,
+              SWIPE_DISABLED_CLASS_NAME,
+            )}
+            aria-label={lang(isStopFace || !dictation ? '$agent_stop_answer' : '$agent_dictation_start')}
+            title={isStopFace ? lang('$agent_stop_answer') : undefined}
+            aria-hidden={!isMicrophoneSlotOpen}
             // The button that is still pressed stays enabled, since some browsers do not deliver the pointer events of
             // a disabled button and the press would never end
-            disabled={!isMicrophoneButtonOpen && !pressRef.current}
+            disabled={!isMicrophoneSlotOpen && !pressRef.current}
             onPointerDown={handleMicrophonePointerDown}
             onContextMenu={handleMicrophoneContextMenu}
             onClick={handleMicrophoneClick}
           >
-            <AgentIcon name="microphone" className={styles.microphoneIcon} />
+            {dictation && <AgentIcon name="microphone" className={styles.microphoneIcon} />}
+            <span className={styles.stopIcon} aria-hidden />
           </button>
         )}
         {dictation && (
@@ -614,8 +750,11 @@ function AgentInputBar({
             isFailureOnly={circleFailure?.isFailureOnly}
             isClosing={!isCircleOpen}
             level={dictation!.level}
-            drag={isHolding ? drag : NO_DRAG}
+            getDrag={getCircleDrag}
             onFinish={handleDictationAction}
+            isPaused={dictation!.isPaused}
+            onPause={dictation!.pause}
+            onResume={dictation!.resume}
             onCoverChange={setIsCircleOverAction}
           />
         </Portal>

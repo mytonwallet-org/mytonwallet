@@ -92,6 +92,62 @@ final class SidebarBannersTests: XCTestCase {
         XCTAssertEqual(model.selectedTab, AppTabManager.shared.orderedTabIds.first)
     }
 
+    func testMultisigWarningFollowsFocusedAccountAndPermissionUpdates() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let db = try DatabaseQueue()
+        try makeMigrator().migrate(db)
+        try await db.write { db in
+            try MAccount(id: "regular-mainnet", title: "Regular", type: .mnemonic,
+                byChain: ["tron": AccountChain(address: "regular-address")]).insert(db)
+            try MAccount(id: "multisig-mainnet", title: "Multisig", type: .mnemonic,
+                byChain: ["tron": AccountChain(address: "multisig-address", isMultisig: true)]).insert(db)
+        }
+        let accountStore = _AccountStore(db: db)
+        try accountStore.use(db: db)
+        defer { accountStore.clean() }
+        @Dependency(\.accountSettings) var accountSettings
+        await accountSettings.use(db: db)
+        SettingsStore.liveValue.use(db: db)
+        defer { SettingsStore.liveValue.clean() }
+
+        try await withDependencies {
+            $0.accountStore = accountStore
+        } operation: {
+            let sidebar = SplitRootSidebarViewController(viewModel: SplitRootViewModel())
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 360, height: 900))
+            window.rootViewController = sidebar
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+            let collection = try XCTUnwrap(sidebar.view.subviews.compactMap { $0 as? UICollectionView }.first)
+
+            sidebar.focusAccount("multisig-mainnet", animated: false)
+            try await settle(window)
+            XCTAssertEqual(collection.numberOfSections, 3)
+            let warningFrame = try XCTUnwrap(collection.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))).frame
+            XCTAssertGreaterThan(warningFrame.height, 44)
+
+            sidebar.focusAccount("regular-mainnet", animated: false)
+            try await settle(window)
+            XCTAssertEqual(collection.numberOfSections, 2)
+
+            try await db.write { db in
+                var account = try XCTUnwrap(MAccount.fetchOne(db, key: "regular-mainnet"))
+                account.byChain["tron"]?.isMultisig = true
+                try account.update(db)
+            }
+            try await settle(window)
+            XCTAssertEqual(collection.numberOfSections, 3)
+
+            try await db.write { db in
+                var account = try XCTUnwrap(MAccount.fetchOne(db, key: "regular-mainnet"))
+                account.byChain["tron"]?.isMultisig = false
+                try account.update(db)
+            }
+            try await settle(window)
+            XCTAssertEqual(collection.numberOfSections, 2)
+        }
+    }
+
     private func settle(_ window: UIWindow) async throws {
         try await Task.sleep(for: .milliseconds(300))
         window.layoutIfNeeded()

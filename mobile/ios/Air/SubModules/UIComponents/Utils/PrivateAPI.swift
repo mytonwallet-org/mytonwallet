@@ -92,10 +92,15 @@ public enum PrivateAPI {
         return behaviorClass.perform(behaviorWithType.selector, with: type)?.takeUnretainedValue() as? NSObject
     }
 
-    /// Shows `contentView` under the navigation bar of `navigationItem`'s controller, on the bar's background.
+    /// Shows `contentView` under the navigation bar of `navigationItem`'s controller, or removes the palette when `nil`.
     /// Returns false, leaving the item unchanged, when the palette is unavailable.
     @MainActor @discardableResult
-    public static func setBottomPalette(of navigationItem: UINavigationItem, contentView: UIView) -> Bool {
+    public static func setBottomPalette(of navigationItem: UINavigationItem, contentView: UIView?) -> Bool {
+        guard let contentView else {
+            guard navigationItem.responds(to: setBottomPalette.selector) else { return false }
+            navigationItem.perform(setBottomPalette.selector, with: nil)
+            return true
+        }
         let initWithContentView = NSSelectorFromString("initWithContentView:")
         guard let paletteClass = navigationBarPalette.objectClass,
               paletteClass.instancesRespond(to: initWithContentView),

@@ -11,38 +11,31 @@ public final class PerpsOperationVC: WViewController {
     private let operationId: String
     private let onWithdraw: () -> Void
     private let onReceipt: () -> Void
-    private let onCompleted: ((ApiPerpsOperation) -> Void)?
     private let statusView = PerpsOperationStatusView()
     private var detailsController: UIHostingController<PerpsOperationDetailsView>?
-    private var pollTask: Task<Void, Never>?
     private var isVisible = false
     private var isRefreshing = false
     private var isAcknowledging = false
-    private var didComplete = false
     private lazy var refreshButton = makeButton(title: lang("Refresh"), style: .secondary) { [weak self] in
         Task { await self?.refresh() }
     }
     private lazy var actionButton = makeButton(title: lang("Close"), style: .primary) { [weak self] in self?.performAction() }
 
     public init(store: PerpsStore, accountId: String, operationId: String,
-                onWithdraw: @escaping () -> Void, onReceipt: @escaping () -> Void,
-                onCompleted: ((ApiPerpsOperation) -> Void)? = nil) {
+                onWithdraw: @escaping () -> Void, onReceipt: @escaping () -> Void) {
         self.store = store
         self.accountId = accountId
         self.operationId = operationId
         self.onWithdraw = onWithdraw
         self.onReceipt = onReceipt
-        self.onCompleted = onCompleted
         super.init(nibName: nil, bundle: nil)
     }
 
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
 
-    deinit { pollTask?.cancel() }
-
     public override func viewDidLoad() {
         super.viewDidLoad()
-        title = lang("PerpsOperationStatus")
+        title = lang(operation?.isBalanceWithdrawal == true ? "PerpsWithdrawalStatus" : "PerpsOperationStatus")
         view.backgroundColor = .air.groupedBackground
         configureNavigationItemWithTransparentBackground()
         navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in self?.close() })
@@ -51,13 +44,7 @@ public final class PerpsOperationVC: WViewController {
         detailsController = details
         let layout = AssetDetailsView(sections: [statusView, details.view], buttons: [refreshButton, actionButton])
         layout.scrollView.accessibilityIdentifier = "perps.operation.content"
-        view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+        layout.install(in: view)
         addCustomNavigationBarBackground(color: .air.groupedBackground)
         observe { [weak self] in self?.updateContent() }
     }
@@ -66,22 +53,13 @@ public final class PerpsOperationVC: WViewController {
         super.viewDidAppear(animated)
         isVisible = true
         updateContent()
-        guard !didComplete else { return }
-        pollTask?.cancel()
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard self?.isVisible == true else { break }
-                if UIApplication.shared.applicationState == .active { await self?.refresh() }
-                do { try await Task.sleep(for: .seconds(5)) } catch { break }
-            }
-        }
+        store.watch(accountId: accountId, every: .seconds(5), by: self)
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         isVisible = false
-        pollTask?.cancel()
-        pollTask = nil
+        store.unwatch(by: self)
     }
 
     private var operation: ApiPerpsOperation? {
@@ -90,14 +68,14 @@ public final class PerpsOperationVC: WViewController {
     }
 
     private var symbol: String {
-        store.snapshots[accountId]?.assets.first { $0.id == operation?.assetId }?.symbol
+        operation.flatMap { store.asset(id: $0.assetId) }?.symbol
             ?? operation?.assetId.components(separatedBy: ":").last ?? ""
     }
 
     private var hasReceipt: Bool {
         guard let operation, let orderId = operation.orderId else { return false }
-        let coin = store.snapshots[accountId]?.assets.first { $0.id == operation.assetId }?.name ?? operation.assetId
-        return store.fills[accountId]?.contains { $0.oid == orderId && $0.coin == coin && $0.eventKind != nil } == true
+        let coin = store.asset(id: operation.assetId)?.name ?? operation.assetId
+        return store.fills[accountId]?.contains { $0.oid == orderId && $0.coin == coin } == true
     }
 
     private func updateContent() {
@@ -115,16 +93,10 @@ public final class PerpsOperationVC: WViewController {
         actionButton.isEnabled = !isAcknowledging
         actionButton.showLoading = isAcknowledging
         refreshButton.isEnabled = !isRefreshing && !store.loading.contains(accountId)
-        guard isVisible, !didComplete, let operation, operation.state == "completed", operation.error != "PerpsPartialFill", hasReceipt,
-              let onCompleted else { return }
-        didComplete = true
-        pollTask?.cancel()
-        pollTask = nil
-        onCompleted(operation)
     }
 
     private func refresh() async {
-        guard isVisible, !isRefreshing, !didComplete else { return }
+        guard isVisible, !isRefreshing else { return }
         isRefreshing = true
         refreshButton.isEnabled = false
         await store.reconcile(accountId: accountId)
@@ -135,7 +107,8 @@ public final class PerpsOperationVC: WViewController {
     private func performAction() {
         if operation?.state == "partial" { onWithdraw() }
         else if operation?.state == "unknown", operation?.acknowledgedAt == nil {
-            let alert = WAlertController(title: lang("PerpsAllowNewOrders"), message: lang("PerpsAcknowledgeUnknown"), actions: acknowledgementActions())
+            let message = lang(operation?.isBalanceWithdrawal == true ? "PerpsAcknowledgeWithdrawalUnknown" : "PerpsAcknowledgeUnknown")
+            let alert = WAlertController(title: lang("PerpsAllowNewOrders"), message: message, actions: acknowledgementActions())
             present(alert, animated: true)
         }
         else if hasReceipt { onReceipt() }
@@ -227,29 +200,33 @@ private final class PerpsOperationStatusView: UIView {
         titleLabel.applyTextStyle(.statusTitle)
         messageLabel.applyTextStyle(.callout, scaling: .dynamic)
         let state = operation?.state
-        let isPartialFill = operation?.error == "PerpsPartialFill"
-        titleLabel.text = lang(state == "completed" && !isPartialFill ? "PerpsCompleted" : "PerpsOperationStatus")
-        titleLabel.textColor = state == "completed" && !isPartialFill ? .air.positiveAmount : .label
+        let needsAttention = operation?.error == "PerpsPartialFill" || operation?.isWithdrawalRejected == true
+        let isWithdrawal = operation?.isBalanceWithdrawal == true
+        let statusMessage = operation.map(PerpsFormatting.operationMessage) ?? ""
+        titleLabel.text = state == "completed" && !needsAttention
+            ? lang(isWithdrawal ? "PerpsWithdrawalCompleted" : "PerpsCompleted")
+            : lang(isWithdrawal ? "PerpsWithdrawalStatus" : "PerpsOperationStatus")
+        titleLabel.textColor = state == "completed" && !needsAttention ? .air.positiveAmount : .label
         let glyph: String
         let colors: [UIColor]
         let message: String
         switch state {
         case "completed":
-            glyph = isPartialFill ? "exclamationmark" : "checkmark"
-            colors = isPartialFill ? [UIColor(light: "#DE8C00", dark: "#FFAB2F"), UIColor(light: "#DE8C00", dark: "#FFAB2F")] : UIColor.air.greenGradient
-            message = isPartialFill ? lang("PerpsPartialFill") : hasReceipt ? "" : lang("PerpsReconciled")
+            glyph = needsAttention ? "exclamationmark" : "checkmark"
+            colors = needsAttention ? [UIColor(light: "#DE8C00", dark: "#FFAB2F"), UIColor(light: "#DE8C00", dark: "#FFAB2F")] : UIColor.air.greenGradient
+            message = !needsAttention && hasReceipt ? "" : statusMessage
         case "failed":
             glyph = "exclamationmark"
             colors = UIColor.air.redGradient
-            message = PerpsFormatting.errorMessage(operation?.error)
+            message = statusMessage
         case "partial", "unknown":
             glyph = "exclamationmark"
             colors = [UIColor(light: "#DE8C00", dark: "#FFAB2F"), UIColor(light: "#DE8C00", dark: "#FFAB2F")]
-            message = lang(state == "partial" ? "PerpsWithdrawalPending" : "PerpsExecutionUnknown")
+            message = statusMessage
         case "running":
             glyph = "clock"
             colors = UIColor.air.blueGradient
-            message = lang("PerpsProcessing")
+            message = statusMessage
         default:
             glyph = "questionmark"
             colors = UIColor.air.blueGradient
@@ -269,10 +246,21 @@ private struct PerpsOperationDetailsView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if let operation {
+            if let operation, let withdrawal = operation.balanceWithdrawal {
+                InsetSection(horizontalPadding: 0) {
+                    if operation.state != "failed" {
+                        AssetInfoMetricRow(title: lang("You Receive"), value: PerpsFormatting.quantity(withdrawal.receiveAmount, symbol: "USDC"))
+                    }
+                    AssetInfoMetricRow(title: lang("PerpsWithdrawalFromHyperliquid"), value: PerpsFormatting.quantity(withdrawal.amount, symbol: "USDC"))
+                    let withdrawalData = PerpsSDKAdapter.balanceWithdrawalReview(withdrawal)
+                    PerpsFeeSummaryRow(fee: withdrawalData.fee, rows: withdrawalData.feeRows)
+                    AssetInfoMetricRow(title: lang("PerpsWithdrawalToWallet"), value: formatStartEndAddress(withdrawal.destination))
+                    AssetInfoMetricRow(title: lang("Date"), value: operation.createdAt.dateTimeString)
+                }
+            } else if let operation {
                 InsetSection(horizontalPadding: 0) {
                     AssetInfoMetricRow(title: lang("Order"), value: PerpsFormatting.operationTitle(operation, symbol: symbol))
-                    AssetInfoMetricRow(title: lang("Date"), value: PerpsFormatting.date(operation.createdAt))
+                    AssetInfoMetricRow(title: lang("Date"), value: operation.createdAt.dateTimeString)
                     if let orderId = operation.orderId {
                         AssetInfoMetricRow(title: lang("Order ID"), value: String(orderId))
                     }
@@ -287,12 +275,7 @@ private struct PerpsOperationDetailsView: View {
                 }
             }
             if let hash = operation?.depositTxHash {
-                InsetSection(horizontalPadding: 0) {
-                    Button { AppActions.copyString(hash, toastMessage: lang("Copied")) } label: {
-                        AssetInfoMetricRow(title: lang("Transfer ID"), value: hash)
-                    }
-                    .buttonStyle(InsetRowButtonStyle())
-                }
+                PerpsTransferIDSection(hash: hash)
             }
         }
         .fixedSize(horizontal: false, vertical: true)

@@ -37,10 +37,12 @@ interface AgentV2HostContextRelevantSlice {
   byAccountId: GlobalState['byAccountId'];
   currencyRates: GlobalState['currencyRates'];
   currentAccountId: GlobalState['currentAccountId'];
+  isLandscape: boolean;
   isTestnet: GlobalState['settings']['isTestnet'];
   langCode: GlobalState['settings']['langCode'];
   settingsByAccountId: GlobalState['settings']['byAccountId'];
   theme: GlobalState['settings']['theme'];
+  timeZone: string;
   tokenInfoBySlug: GlobalState['tokenInfo']['bySlug'];
   swapTokenInfo: GlobalState['swapTokenInfo'];
 }
@@ -290,10 +292,12 @@ function selectAgentV2HostContextRelevantSlice(global: GlobalState): AgentV2Host
     byAccountId: global.byAccountId,
     currencyRates: global.currencyRates,
     currentAccountId: global.currentAccountId,
+    isLandscape: getIsLandscape(),
     isTestnet: global.settings.isTestnet,
     langCode: global.settings.langCode,
     settingsByAccountId: global.settings.byAccountId,
     theme: global.settings.theme,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     tokenInfoBySlug: global.tokenInfo.bySlug,
     swapTokenInfo: global.swapTokenInfo,
   };
@@ -310,10 +314,12 @@ function areAgentV2HostContextSlicesEqual(
     && first.byAccountId === second.byAccountId
     && first.currencyRates === second.currencyRates
     && first.currentAccountId === second.currentAccountId
+    && first.isLandscape === second.isLandscape
     && first.langCode === second.langCode
     && first.isTestnet === second.isTestnet
     && first.settingsByAccountId === second.settingsByAccountId
     && first.theme === second.theme
+    && first.timeZone === second.timeZone
     && first.tokenInfoBySlug === second.tokenInfoBySlug
     && first.swapTokenInfo === second.swapTokenInfo;
 }

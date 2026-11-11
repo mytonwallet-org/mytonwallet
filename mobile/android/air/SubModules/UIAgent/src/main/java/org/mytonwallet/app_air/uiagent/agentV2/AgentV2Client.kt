@@ -6,8 +6,11 @@ import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.api.getAgentV2CachedMessages
+import org.mytonwallet.app_air.walletcore.api.getAgentV2CachedThreads
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerFeedbackResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
@@ -17,7 +20,9 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
@@ -27,6 +32,9 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResp
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 interface AgentV2Client {
+    /** The user's consent as the app last read or gave it, known at once: false until then */
+    val isConsentKnownGiven: Boolean get() = false
+
     suspend fun consent(): Boolean
     suspend fun acceptConsent()
     suspend fun updateHostContext(context: JSONObject?)
@@ -45,11 +53,23 @@ interface AgentV2Client {
         limit: Int? = null,
         query: String? = null
     ): AgentV2ThreadListResponse
-    suspend fun createThread(news: AgentV2ThreadNewsRequest? = null): AgentV2ThreadCreateResponse
+
+    /** The device's copy of the first page of chats; null when there is none */
+    suspend fun getCachedThreads(): List<AgentV2ThreadListItem>?
+    suspend fun createThread(
+        news: AgentV2ThreadNewsRequest? = null,
+        digest: AgentV2ThreadDigestRequest? = null
+    ): AgentV2ThreadCreateResponse
     suspend fun updateThread(threadId: String, update: AgentV2ThreadUpdate): AgentV2ThreadResponse
     suspend fun deleteThread(threadId: String): AgentV2ThreadDeleteResponse
     suspend fun messages(threadId: String, cursor: String?, limit: Int): AgentV2ThreadHydration
+
+    /** The device's copy of the thread's latest messages; null when there is none */
+    suspend fun getCachedMessages(threadId: String): AgentV2CachedMessages?
+
+    /** Starts a run that the SDK reports under [clientRunId], which the caller chooses before the call */
     suspend fun startRun(
+        clientRunId: String,
         threadId: String?,
         revision: Int,
         text: String,
@@ -62,6 +82,9 @@ interface AgentV2Client {
     /** Sends again a run that a limit stopped before it started; null when the SDK no longer holds it */
     suspend fun retryRun(clientRunId: String): AgentV2RunResult? = null
     suspend fun cancelRun(runId: String): AgentV2ThreadResponse
+
+    /** Stops every run of [threadId] the SDK holds; the SDK cancels it on the server and reloads the thread */
+    suspend fun stopRun(threadId: String)
     suspend fun clearThread(threadId: String, revision: Int): AgentV2ThreadResponse
     suspend fun reportProblem(threadId: String, messageId: String?, comment: String?)
     suspend fun transcribe(request: AgentV2TranscriptionRequest): AgentV2TranscriptionResponse
@@ -75,10 +98,14 @@ interface AgentV2Client {
 }
 
 class LiveAgentV2Client : AgentV2Client {
-    override suspend fun consent() = WalletCore.call(ApiMethod.AgentV2.GetConsent())
+    override val isConsentKnownGiven: Boolean get() = isConsentGiven
+
+    override suspend fun consent() =
+        WalletCore.call(ApiMethod.AgentV2.GetConsent()).also { isConsentGiven = it }
 
     override suspend fun acceptConsent() {
         WalletCore.call(ApiMethod.AgentV2.AcceptConsent())
+        isConsentGiven = true
     }
 
     override suspend fun updateHostContext(context: JSONObject?) {
@@ -113,10 +140,13 @@ class LiveAgentV2Client : AgentV2Client {
     ): AgentV2ThreadListResponse =
         callAgentV2Mutation(ApiMethod.AgentV2.ListThreads(cursor, limit, query))
 
+    override suspend fun getCachedThreads() = WalletCore.getAgentV2CachedThreads()
+
     override suspend fun createThread(
-        news: AgentV2ThreadNewsRequest?
+        news: AgentV2ThreadNewsRequest?,
+        digest: AgentV2ThreadDigestRequest?
     ): AgentV2ThreadCreateResponse =
-        callAgentV2Mutation(ApiMethod.AgentV2.CreateThread(news)).also {
+        callAgentV2Mutation(ApiMethod.AgentV2.CreateThread(news, digest)).also {
             if (it.created) WalletCore.notifyEvent(WalletEvent.AgentThreadCreated)
         }
 
@@ -137,7 +167,11 @@ class LiveAgentV2Client : AgentV2Client {
     ): AgentV2ThreadHydration =
         callAgentV2Mutation(ApiMethod.AgentV2.GetMessages(threadId, cursor, limit))
 
+    override suspend fun getCachedMessages(threadId: String) =
+        WalletCore.getAgentV2CachedMessages(threadId)
+
     override suspend fun startRun(
+        clientRunId: String,
         threadId: String?,
         revision: Int,
         text: String,
@@ -153,7 +187,8 @@ class LiveAgentV2Client : AgentV2Client {
             entryPoint,
             followupOf,
             targetUserMessageId,
-            targetAssistantMessageId
+            targetAssistantMessageId,
+            clientRunId
         )
     )
 
@@ -162,6 +197,10 @@ class LiveAgentV2Client : AgentV2Client {
 
     override suspend fun cancelRun(runId: String) =
         WalletCore.call(ApiMethod.AgentV2.CancelRun(runId))
+
+    override suspend fun stopRun(threadId: String) {
+        WalletCore.call(ApiMethod.AgentV2.StopRun(threadId))
+    }
 
     override suspend fun clearThread(threadId: String, revision: Int): AgentV2ThreadResponse =
         callAgentV2Mutation(ApiMethod.AgentV2.ClearThread(threadId, revision))
@@ -184,6 +223,17 @@ class LiveAgentV2Client : AgentV2Client {
 
     override suspend fun actionPresentation(messageId: String, actionId: String) =
         WalletCore.call(ApiMethod.AgentV2.GetActionPresentation(messageId, actionId))
+
+    companion object {
+        // Shared by every chat and list, so that a chat opening knows the consent from its first frame
+        @Volatile
+        private var isConsentGiven = false
+
+        // A reset of the accounts deletes the consent
+        internal fun forgetKnownConsent() {
+            isConsentGiven = false
+        }
+    }
 }
 
 internal suspend fun <T> callAgentV2Mutation(method: ApiMethod<AgentV2MutationResult<T>>): T {

@@ -91,6 +91,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
 
 final class WalletTokenContentView: UIView {
     nonisolated public static let defaultHeight = 60.0
+    static let horizontalPadding: CGFloat = 12
 
     private static let pinIconSideLength: CGFloat = 12
     private static let pinIconSpacing: CGFloat = 4
@@ -175,7 +176,7 @@ final class WalletTokenContentView: UIView {
         heightConstraint.isActive = true
         
         mainView.backgroundColor = .clear
-        contentView.addStretchedToBounds(subview: mainView, insets: UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12))
+        contentView.addStretchedToBounds(subview: mainView, insets: UIEdgeInsets(top: 10, left: Self.horizontalPadding, bottom: 10, right: Self.horizontalPadding))
         
         // left icon
         iconView = IconView(size: 40, accessoryGeometry: .forIcon40)

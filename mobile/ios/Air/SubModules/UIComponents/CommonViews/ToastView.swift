@@ -11,6 +11,8 @@ public final class ToastController {
     private var toastHider: DispatchWorkItem?
     private var currentToastIdentity: ToastIdentity?
     private var currentTransition: ToastTransition = .fadeIn
+    /// What the toasts keep above besides the keyboard and the safe area
+    private var bottomBoundary: (anchor: NSLayoutYAxisAnchor, spacing: CGFloat)?
 
     /// Note this does not include action handler, because it is not equatable.
     /// In practice this should be fine - things like this are not going to be updated.
@@ -23,6 +25,12 @@ public final class ToastController {
 
     public init(containerView: UIView) {
         self.containerView = containerView
+    }
+
+    /// Rests the toasts `spacing` above `anchor`, such as the top of a screen's input field, as Telegram's chat keeps its
+    /// overlays above its input panel, and never lower than the keyboard and the safe area allow
+    public func keepAbove(_ anchor: NSLayoutYAxisAnchor, spacing: CGFloat) {
+        bottomBoundary = (anchor, spacing)
     }
 
     public func showToast(_ config: ToastConfig) {
@@ -53,13 +61,25 @@ public final class ToastController {
         containerView.addSubview(toastView)
         let sideInset: CGFloat = config.style == .overlay ? 12 : 24
         // Above the keyboard, or above the safe area without one, also where the keyboard guide leaves the safe area out
-        NSLayoutConstraint.activate([
+        var constraints = [
             toastView.bottomAnchor.constraint(lessThanOrEqualTo: containerView.keyboardLayoutGuide.topAnchor, constant: -12),
             toastView.bottomAnchor.constraint(lessThanOrEqualTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-            toastView.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh),
             toastView.leftAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor, constant: sideInset),
             toastView.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.rightAnchor, constant: -sideInset),
-        ])
+        ]
+        if let bottomBoundary {
+            // The toast rests on the boundary itself. A pull toward the screen's bottom would weigh as much as the
+            // boundary view's own height, so the layout could as well squeeze that view under the toast.
+            constraints += [
+                toastView.bottomAnchor.constraint(lessThanOrEqualTo: bottomBoundary.anchor, constant: -bottomBoundary.spacing),
+                toastView.bottomAnchor.constraint(equalTo: bottomBoundary.anchor, constant: -bottomBoundary.spacing).withPriority(.defaultHigh),
+            ]
+        } else {
+            constraints.append(
+                toastView.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor, constant: -12).withPriority(.defaultHigh)
+            )
+        }
+        NSLayoutConstraint.activate(constraints)
 
         containerView.layoutIfNeeded()
 
@@ -179,6 +199,12 @@ public class ToastView: UIView {
         setContent(config: config, animated: true)
     }
 
+    /// Telegram's undo overlay: the toasts' dark glass in the light theme, and in the dark one Telegram's #1D1D1D at
+    /// 90%, its tab bar's colour, which shows against a black screen
+    static let overlayBackgroundColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(rgb: 0x1D1D1D).withAlphaComponent(0.9) : UIColor.air.toastBackground
+    }
+
     func replayIcon() {
         contentView?.replayIcon()
     }
@@ -203,7 +229,9 @@ public class ToastView: UIView {
 
         contentView = newContent
 
+        let background = config.style == .overlay ? Self.overlayBackgroundColor : .air.toastBackground
         let applyStyle = {
+            self.blurView.backgroundColor = background
             self.blurView.layer.cornerRadius = cornerRadius
             self.layer.cornerRadius = cornerRadius
             self.layer.shadowRadius = cornerRadius
@@ -316,26 +344,10 @@ private final class ToastContentView: UIView {
 
             switch icon {
             case .animatedCopy:
-                let animatedSticker = WAnimatedSticker()
-                animatedSticker.animationName = "Copy"
-                if style == .overlay {
-                    // The icon plays once the toast is in
-                    animatedSticker.setup(width: Int(iconSize), height: Int(iconSize), playbackMode: .still(position: .begin))
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak animatedSticker] in
-                        animatedSticker?.playOnceFromStart()
-                    }
-                } else {
-                    animatedSticker.setup(width: Int(iconSize), height: Int(iconSize), playbackMode: .once)
-                }
-                animatedSticker.translatesAutoresizingMaskIntoConstraints = false
-                iconView.addSubview(animatedSticker)
-                iconSticker = animatedSticker
-                constraints += [
-                    animatedSticker.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-                    animatedSticker.leadingAnchor.constraint(equalTo: iconView.leadingAnchor),
-                    animatedSticker.widthAnchor.constraint(equalToConstant: iconSize),
-                    animatedSticker.heightAnchor.constraint(equalToConstant: iconSize),
-                ]
+                constraints += addAnimation(named: "Copy", size: iconSize, to: iconView, style: style)
+
+            case .animation(let name, let size):
+                constraints += addAnimation(named: name, size: size, to: iconView, style: style)
 
             case .symbolImage(let name):
                 let image = UIImage(systemName: name)
@@ -435,6 +447,30 @@ private final class ToastContentView: UIView {
 
     /// Telegram's copy animation, 512 pt drawn at 0.066
     private static let overlayIconSize: CGFloat = 34
+
+    /// The bundle's `<name>.tgs` in a square of `size` centred in `iconView`. In the overlay it plays once the toast is
+    /// in, elsewhere at once, and rests on its last frame.
+    private func addAnimation(named name: String, size: CGFloat, to iconView: UIView, style: ToastStyle) -> [NSLayoutConstraint] {
+        let animatedSticker = WAnimatedSticker()
+        animatedSticker.animationName = name
+        if style == .overlay {
+            animatedSticker.setup(width: Int(size), height: Int(size), playbackMode: .still(position: .begin))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak animatedSticker] in
+                animatedSticker?.playOnceFromStart()
+            }
+        } else {
+            animatedSticker.setup(width: Int(size), height: Int(size), playbackMode: .once)
+        }
+        animatedSticker.translatesAutoresizingMaskIntoConstraints = false
+        iconView.addSubview(animatedSticker)
+        iconSticker = animatedSticker
+        return [
+            animatedSticker.centerXAnchor.constraint(equalTo: iconView.centerXAnchor),
+            animatedSticker.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
+            animatedSticker.widthAnchor.constraint(equalToConstant: size),
+            animatedSticker.heightAnchor.constraint(equalToConstant: size),
+        ]
+    }
 
     func replayIcon() {
         iconSticker?.playOnceFromStart()

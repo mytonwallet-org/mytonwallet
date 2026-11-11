@@ -3,6 +3,7 @@ import type { AgentV2SessionStorage } from './sessionStorage';
 import type { AgentV2HostContextSnapshot } from './types';
 
 import { APP_NAME } from '../../config';
+import { AGENT_V2_CLASSIC_UI_CAPABILITIES } from '../../global/agentV2/uiCapabilities';
 import { getSupportedChains } from '../../util/chain';
 import contractManifest from './generated/manifest.json';
 import { hostUiCapabilities } from './testing/hostUiCapabilities';
@@ -116,6 +117,19 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     const session = new AgentV2WalletSession();
 
     expect(session.buildContext().capabilities.features).toEqual([]);
+  });
+
+  it('advertises support handoff only when the host declares it', () => {
+    const session = new AgentV2WalletSession();
+    const host = { ...hostContext(), uiCapabilities: AGENT_V2_CLASSIC_UI_CAPABILITIES };
+    session.update(host);
+    expect(session.buildContext().capabilities.features).toContain('supportHandoff');
+
+    session.update({ ...host, uiCapabilities: { ...host.uiCapabilities, supportsSupportHandoff: false } });
+    expect(session.buildContext().capabilities.features).not.toContain('supportHandoff');
+
+    session.update({ ...host, uiCapabilities: hostUiCapabilities('ios') });
+    expect(session.buildContext().capabilities.features).not.toContain('supportHandoff');
   });
 
   it('admits wallet query and the client time zone once the server offers the pinned filter catalog', () => {
@@ -400,6 +414,22 @@ describe('AgentV2WalletSession semantic capabilities', () => {
       hasWalletContextChanged: true,
     });
     expect(session.snapshot().revision).toBe(revision + 1);
+  });
+
+  it.each((['classic', 'ios', 'android'] as const).flatMap((platform) => [
+    { platform, from: undefined, to: false },
+    { platform, from: false, to: undefined },
+  ]))('preserves mainnet authority on $platform when isTestnet changes from $from to $to', ({ platform, from, to }) => {
+    const session = new AgentV2WalletSession();
+    const host = { ...hostContext(), platform, isTestnet: from };
+    session.update(host);
+    const revision = session.snapshot().revision;
+
+    expect(session.update({ ...host, isTestnet: to })).toEqual({
+      hasAuthorityChanged: false,
+      hasWalletContextChanged: false,
+    });
+    expect(session.snapshot().revision).toBe(revision);
   });
 
   it('tracks swap identity changes without changing wallet authority', () => {

@@ -255,15 +255,27 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
 
     switch url.host {
     case "agent":
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        if let value = query.first(where: { $0.name == "news" })?.value,
+           !value.isEmpty, value.allSatisfy({ $0.isASCII && $0.isNumber }),
+           let eventId = Int(value), eventId > 0 {
+            return .agentNews(eventId: eventId)
+        }
+        if let value = query.first(where: { $0.name == "digest" })?.value,
+           !value.isEmpty,
+           value.rangeOfCharacter(from: .whitespacesAndNewlines.union(.controlCharacters)) == nil {
+            return .agentDigest(id: value)
+        }
         return .agent
 
     case "e2e-unlock":
         #if DEBUG
         // Custom scheme only: universal links (https://my.tt/…) do not unlock.
         guard !isUniversalLink else { return nil }
-        let passcode = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first(where: { $0.name == "passcode" })?.value
-        return passcode.flatMap { $0.isEmpty ? nil : .e2eUnlock(passcode: $0) }
+        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        let passcode = queryItems?.first(where: { $0.name == "passcode" })?.value
+        let next = queryItems?.first(where: { $0.name == "next" })?.value.flatMap { URL(string: $0) }
+        return passcode.flatMap { $0.isEmpty ? nil : .e2eUnlock(passcode: $0, next: next) }
         #else
         return nil
         #endif

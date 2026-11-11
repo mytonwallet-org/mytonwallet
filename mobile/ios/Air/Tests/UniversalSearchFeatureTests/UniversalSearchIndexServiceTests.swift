@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import UniversalSearchCore
 import UniversalSearchWalletCore
+import WalletCore
 @testable import UniversalSearchFeature
 
 @Suite("Universal Search index service", .serialized)
@@ -104,6 +105,54 @@ struct UniversalSearchIndexServiceTests {
         #expect(await source.contexts == [context("account-a"), context("account-a")])
     }
 
+    @Test
+    func `a deleted Agent chat leaves the results of an open query at once`() async throws {
+        let queryText = "знако"
+        let deletedItem = ApiAgentV2ThreadListItem(thread: try makeThread(id: "deleted", title: "Знакомство с TON"))
+        let keptItem = ApiAgentV2ThreadListItem(thread: try makeThread(id: "kept", title: "Знакомые адреса"))
+        let loader = MutableThreadLoader(items: [deletedItem, keptItem])
+        let coordinator = UniversalSearchCoordinator(sources: [
+            UniversalSearchAgentConversationSource(loader: { query in await loader.load(query: query) }),
+        ])
+        let service = UniversalSearchIndexService(
+            coordinator: coordinator,
+            contextProvider: { context("account-a") },
+            timing: .init(debounce: .zero, maxPostpone: .zero, loopPacing: .zero)
+        )
+        let recorder = UpdateRecorder()
+        service.add(observer: recorder)
+        service.start()
+        service.setWalletReady(true)
+        defer { service.stop() }
+        try await waitUntil { await coordinator.browse().recentDocuments.count == 2 }
+
+        // An open search session keeps the server's matches for its query as a query snapshot
+        let querySource = UniversalSearchAgentConversationQuerySource(
+            loader: { query in await loader.load(query: query) },
+            debounce: .zero
+        )
+        let query = UniversalSearchQuery(queryText)
+        for try await snapshot in querySource.snapshots(for: query, context: context("account-a")) {
+            await coordinator.replace(snapshot)
+        }
+        let openQueryHits = await coordinator.search(queryText).hits.map(\.id.rawValue)
+        #expect(Set(openQueryHits) == ["agent-chat:deleted", "agent-chat:kept"])
+
+        await loader.setItems([keptItem])
+        service.walletCore(event: .agentThreadDeleted(threadId: "deleted"))
+
+        let deletedID = SearchEntityID("agent-chat:deleted")
+        try await waitUntil { recorder.removedIDs == [deletedID] }
+        #expect(await coordinator.search(queryText).hits.map(\.id.rawValue) == ["agent-chat:kept"])
+        #expect(await coordinator.browse().recentDocuments.map(\.id) == [SearchEntityID("agent-chat:kept")])
+
+        await coordinator.remove(sourceID: querySource.sourceID)
+        for try await snapshot in querySource.snapshots(for: query, context: context("account-a")) {
+            await coordinator.replace(snapshot)
+        }
+        #expect(await coordinator.search(queryText).hits.map(\.id.rawValue) == ["agent-chat:kept"])
+    }
+
     private func waitUntil(_ condition: () async -> Bool) async throws {
         let deadline = ContinuousClock.now + .seconds(2)
         while !(await condition()), ContinuousClock.now < deadline {
@@ -120,6 +169,53 @@ private final class Selection {
 
 private func context(_ accountID: String) -> UniversalSearchContext {
     UniversalSearchContext(scopeID: accountID, network: "mainnet", localeIdentifier: "en")
+}
+
+private func makeThread(id: String, title: String) throws -> ApiAgentV2ThreadSummary {
+    let value: [String: Any] = [
+        "id": id,
+        "revision": 1,
+        "createdAt": "2026-10-18T09:00:00Z",
+        "updatedAt": "2026-10-18T10:00:00Z",
+        "lastActivityAt": "2026-10-18T10:00:00Z",
+        "messageCount": 2,
+        "title": title,
+        "hasCustomTitle": true,
+    ]
+    return try JSONDecoder().decode(
+        ApiAgentV2ThreadSummary.self,
+        from: JSONSerialization.data(withJSONObject: value)
+    )
+}
+
+@MainActor
+private final class UpdateRecorder: UniversalSearchIndexServiceObserver {
+    private(set) var removedIDs: [SearchEntityID] = []
+
+    func universalSearchIndexService(
+        _: UniversalSearchIndexService,
+        didUpdate update: UniversalSearchIndexUpdate
+    ) {
+        if case .documentRemoved(let id) = update.kind {
+            removedIDs.append(id)
+        }
+    }
+}
+
+private actor MutableThreadLoader {
+    private var items: [ApiAgentV2ThreadListItem]
+
+    init(items: [ApiAgentV2ThreadListItem]) {
+        self.items = items
+    }
+
+    func setItems(_ items: [ApiAgentV2ThreadListItem]) {
+        self.items = items
+    }
+
+    func load(query _: String?) -> [ApiAgentV2ThreadListItem] {
+        items
+    }
 }
 
 private actor RecordingSource: UniversalSearchSource {

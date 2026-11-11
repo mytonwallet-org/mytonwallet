@@ -108,10 +108,10 @@ class NftDetailsPageView: UIView {
         do {
             var buttons: [UIView] = []
             
-            func add(_ action: NftDetailsItemModel.Action, _ title: String, _ imageName: String) {
+            func add(_ action: NftDetailsItemModel.Action, _ title: String, _ image: UIImage?) {
                 if let config = delegate.ntfDetailsOnConfigureAction(forModel: model, action: action) {
                     if #available(iOS 26, *) {
-                        let button = WGlassActionButton(title: title, image: .airBundle(imageName), onTap: config.onTap)
+                        let button = WGlassActionButton(title: title, image: image, onTap: config.onTap)
                         if let menuConfig = config.onMenuConfiguration {
                             button.menu = UIMenu(children: [UIDeferredMenuElement.uncached { completion in
                                 completion(Self.nativeMenuElements(from: menuConfig().rootPage))
@@ -124,7 +124,7 @@ class NftDetailsPageView: UIView {
                     }
                     let button = WScalableButton(
                         title: title,
-                        image: .airBundle(imageName),
+                        image: image,
                         style: .plain,
                         onTap: config.onTap ?? {},
                     )
@@ -142,10 +142,10 @@ class NftDetailsPageView: UIView {
                 }
             }
             
-            add(.wear, lang("Wear"), "WearIconBold" )
-            add(.send, lang("Send"), "SendIconBold" )
-            add(.share, lang("Share"), "ShareIconBold" )
-            add(.more, lang("More"), "MoreIconBold")
+            add(.wear, lang("Wear"), .airBundle("WearIconBold"))
+            add(.send, lang("Send"), WActionButtonIcon.send)
+            add(.share, lang("Share"), .airBundle("ShareIconBold"))
+            add(.more, lang("More"), .airBundle("MoreIconBold"))
             
             
             if !buttons.isEmpty {

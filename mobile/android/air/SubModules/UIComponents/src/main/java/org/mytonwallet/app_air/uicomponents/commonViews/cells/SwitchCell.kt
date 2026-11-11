@@ -25,6 +25,7 @@ class SwitchCell(
     var isFirst: Boolean = false,
     var isLast: Boolean = false,
     private val leadingIconRes: Int? = null,
+    private val switchViewId: Int? = null,
     onChange: (checked: Boolean) -> Unit
 ) : WCell(context),
     WThemedView {
@@ -52,6 +53,7 @@ class SwitchCell(
 
     private val switchView: WSwitch by lazy {
         val switchView = WSwitch(context)
+        switchViewId?.let { switchView.id = it }
         switchView.isChecked = isChecked
         switchView.setOnCheckedChangeListener { _, isChecked ->
             onChange(isChecked)

@@ -1,9 +1,11 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
+import type { AgentV2LiveAction } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 
-import { pause } from '../../util/schedulers';
+import { pause, waitFor } from '../../util/schedulers';
+import { startTypingAnswerMorph } from '../agent/helpers/typingAnswerMorph';
 
 import MessageBubble from '../agent/MessageBubble';
 
@@ -11,6 +13,24 @@ const mockResponseLang = Object.assign((key: string) => key, {
   code: 'ar',
   isRtl: true,
 });
+
+// Telegram's animations of the reactions do not play here
+jest.mock('../ui/AnimatedSticker', () => ({ __esModule: true, default: () => undefined }));
+
+jest.mock('../agent/helpers/typingAnswerMorph', () => ({
+  ...jest.requireActual('../agent/helpers/typingAnswerMorph'),
+  startTypingAnswerMorph: jest.fn(),
+}));
+
+// Class names are their own keys, so that the bubble's look can be read from them. Style modules and assets resolve to
+// one stub, which still reads as a file where an asset's URL is used.
+jest.mock('../agent/MessageBubble.module.scss', () => new Proxy({}, {
+  get: (target, key) => {
+    if (key === '__esModule') return false;
+    if (key === Symbol.toPrimitive) return () => 'test-file-stub';
+    return key;
+  },
+}));
 
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
@@ -36,6 +56,7 @@ describe('AgentV2IncomingMessage', () => {
     TeactDOM.render(undefined, root);
     root.remove();
     portals.remove();
+    jest.mocked(startTypingAnswerMorph).mockClear();
   });
 
   it('inherits text direction from the interface instead of the response language', async () => {
@@ -54,7 +75,7 @@ describe('AgentV2IncomingMessage', () => {
   });
 
   it('rates a complete answer from its menu and withdraws the chosen rating on a second press', async () => {
-    const onRate = jest.fn();
+    const onRate = jest.fn().mockResolvedValue(() => true);
     TeactDOM.render(
       <>
         <MessageBubble
@@ -81,6 +102,7 @@ describe('AgentV2IncomingMessage', () => {
     expect(buttons.map((button) => [button.getAttribute('aria-label'), button.getAttribute('aria-pressed')]))
       .toEqual([['Like', 'true'], ['Dislike', 'false']]);
     buttons[0].click();
+    expect(await waitFor(() => portals.querySelectorAll('.menu-bubble').length === 1, 10, 100)).toBe(true);
     (await openMenu(1))[1].click();
     expect(onRate.mock.calls).toEqual([[1, undefined], [1, 'dislike']]);
   });
@@ -109,6 +131,42 @@ describe('AgentV2IncomingMessage', () => {
     expect(root.querySelector('[data-agent-v2-message-status="error"]')).not.toBeNull();
   });
 
+  it('grows the answer\'s bubble out of the run\'s indicator as its first text comes', async () => {
+    function renderAnswer(text: string, shouldAnimate = true) {
+      TeactDOM.render(
+        <MessageBubble
+          message={{ ...message(), text, followups: undefined }}
+          isDisabled={false}
+          isLatest
+          shouldAnimateTextStreaming={shouldAnimate}
+          activity={text ? undefined : { kind: 'preparingResponse' }}
+        />,
+        root,
+      );
+    }
+
+    renderAnswer('');
+    await pause(20);
+    expect(startTypingAnswerMorph).not.toHaveBeenCalled();
+
+    renderAnswer('The answer');
+    await pause(20);
+    expect(startTypingAnswerMorph).toHaveBeenCalledTimes(1);
+    const [row, bubble] = jest.mocked(startTypingAnswerMorph).mock.calls[0];
+    expect(row).toBe(root.querySelector('[data-agent-run-activity]'));
+    expect(bubble.textContent).toContain('The answer');
+    expect(row.contains(bubble)).toBe(false);
+
+    // Where motion is reduced, the bubble takes the indicator's place without growing out of it
+    TeactDOM.render(undefined, root);
+    jest.mocked(startTypingAnswerMorph).mockClear();
+    renderAnswer('', false);
+    await pause(20);
+    renderAnswer('The answer', false);
+    await pause(20);
+    expect(startTypingAnswerMorph).not.toHaveBeenCalled();
+  });
+
   it('keeps the suggestions of an answer being answered again as they are, out of reach', async () => {
     function renderAnswer(isRegenerating: boolean) {
       TeactDOM.render(
@@ -132,6 +190,78 @@ describe('AgentV2IncomingMessage', () => {
     renderAnswer(false);
     await pause(250);
     expect(root.querySelector('[data-agent-followup-id]')).toBeNull();
+  });
+
+  it('takes the tail away while suggestions hang from the answer and gives it back once they go', async () => {
+    const action = { id: 'send', kind: 'send', title: 'Review transfer' } as AgentV2LiveAction;
+    function renderAnswer(props: { isLatest?: boolean; areFollowupsHeld?: boolean; hasActions?: boolean } = {}) {
+      const { isLatest = true, areFollowupsHeld = false, hasActions = false } = props;
+      TeactDOM.render(
+        <MessageBubble
+          message={{ ...message(), ...(hasActions && { actions: [action] }) }}
+          isDisabled={false}
+          isLatest={isLatest}
+          areFollowupsHeld={areFollowupsHeld}
+        />,
+        root,
+      );
+    }
+    const getIsTailless = () => root.querySelector('.bubble.incoming')!.classList.contains('tailless');
+
+    renderAnswer();
+    await pause(20);
+    expect(root.querySelector('[data-agent-followup-id]')).not.toBeNull();
+    expect(getIsTailless()).toBe(true);
+
+    // A tapped suggestion starts a run, which takes the suggestions away before the question comes
+    renderAnswer({ areFollowupsHeld: true });
+    await pause(20);
+    expect(getIsTailless()).toBe(false);
+
+    renderAnswer();
+    await pause(20);
+    expect(getIsTailless()).toBe(true);
+
+    // A new question takes them away as well
+    renderAnswer({ isLatest: false });
+    await pause(20);
+    expect(getIsTailless()).toBe(false);
+
+    // Action buttons hang from the bubble's body and leave the tail in place
+    renderAnswer({ hasActions: true });
+    await pause(20);
+    expect(getIsTailless()).toBe(false);
+  });
+
+  it('shows inactive suggestions as pressable ones, which a press does not send until they are active', async () => {
+    const onFollowup = jest.fn();
+    function renderAnswer(areFollowupsInactive: boolean) {
+      TeactDOM.render(
+        <MessageBubble
+          message={message()}
+          isDisabled={areFollowupsInactive}
+          isLatest
+          areFollowupsInactive={areFollowupsInactive}
+          onFollowup={onFollowup}
+        />,
+        root,
+      );
+    }
+
+    renderAnswer(true);
+    await pause(20);
+    const followup = root.querySelector<HTMLButtonElement>('[data-agent-followup-id="followup"]')!;
+    expect(followup.disabled).toBe(false);
+    expect(followup.getAttribute('aria-disabled')).toBe('true');
+    followup.click();
+    expect(onFollowup).not.toHaveBeenCalled();
+
+    renderAnswer(false);
+    await pause(20);
+    const activeFollowup = root.querySelector<HTMLButtonElement>('[data-agent-followup-id="followup"]')!;
+    expect(activeFollowup.hasAttribute('aria-disabled')).toBe(false);
+    activeFollowup.click();
+    expect(onFollowup).toHaveBeenCalledWith(1, message().followups![0]);
   });
 });
 

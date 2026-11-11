@@ -28,7 +28,7 @@ struct TokenChartLoadingTests {
         defer { fixture.close() }
         var requestedPeriods: [ApiPriceHistoryPeriod] = []
         func configure(_ history: [[Double]]?, state: TokenHistoryLoadingState) {
-            fixture.view.configure(token: .TONCOIN, historyData: history,
+            fixture.view.configure(token: .TONCOIN, historyData: history, backfill: nil,
                 isHistoryRestored: true, historyLoadingState: state,
                 onPeriodChange: { requestedPeriods.append($0) }, onAnalyze: nil)
         }
@@ -67,7 +67,7 @@ struct TokenChartLoadingTests {
     func `a failed refresh preserves the chart without covering it with an error`() async throws {
         let fixture = try await Fixture()
         defer { fixture.close() }
-        fixture.view.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]],
+        fixture.view.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]], backfill: nil,
             isHistoryRestored: true, historyLoadingState: .failed,
             onPeriodChange: { _ in }, onAnalyze: nil)
         #expect(fixture.spinner.isHidden)
@@ -151,7 +151,7 @@ struct TokenChartLoadingTests {
         #expect(AppStorageHelper.isTokenChartExpanded == !isExpanded)
 
         let reopened = TokenExpandableChartView(onHeightChange: {})
-        reopened.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]],
+        reopened.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]], backfill: nil,
                            isHistoryRestored: false, onPeriodChange: { _ in }, onAnalyze: nil)
         try await Task.sleep(for: .milliseconds(100))
         await waitUntil { isChartExpanded(reopened) == !isExpanded }
@@ -170,7 +170,7 @@ struct TokenChartLoadingTests {
         #expect(AppStorageHelper.isTokenChartExpanded == isExpanded)
 
         let reopened = TokenExpandableChartView(onHeightChange: {})
-        reopened.configure(token: .TONCOIN, showsTokenIcon: true, historyData: [[1, 1], [2, 2]],
+        reopened.configure(token: .TONCOIN, showsTokenIcon: true, historyData: [[1, 1], [2, 2]], backfill: nil,
                            isHistoryRestored: false, onPeriodChange: { _ in }, onAnalyze: nil)
         try await Task.sleep(for: .milliseconds(100))
         await waitUntil { reopened.height > TokenExpandableChartView.collapsedHeight }
@@ -178,11 +178,30 @@ struct TokenChartLoadingTests {
         #expect(AppStorageHelper.isTokenChartExpanded == isExpanded)
 
         let owned = TokenExpandableChartView(onHeightChange: {})
-        owned.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]],
+        owned.configure(token: .TONCOIN, historyData: [[1, 1], [2, 2]], backfill: nil,
                         isHistoryRestored: false, onPeriodChange: { _ in }, onAnalyze: nil)
         try await Task.sleep(for: .milliseconds(100))
         await waitUntil { (owned.height > TokenExpandableChartView.collapsedHeight) == isExpanded }
         #expect((owned.height > TokenExpandableChartView.collapsedHeight) == isExpanded)
+    }
+
+    @Test(arguments: [true, false])
+    func `stock history keeps its dates on instant expansion without a legend`(hasTokenHistory: Bool) async throws {
+        let fixture = try await Fixture(isExpanded: false)
+        defer { fixture.close() }
+        let backfill = ApiPriceHistoryBackfill(symbol: "QQQ", points: [[1, 100], [2, 110]])
+        fixture.configure(hasTokenHistory ? [[3, 120], [4, 130]] : [], backfill: backfill, showsTokenIcon: true)
+        try await Task.sleep(for: .milliseconds(100))
+
+        let timeAxis = try #require(fixture.view.subviews.compactMap { $0 as? UIStackView }.first {
+            $0.arrangedSubviews.count == 4 && $0.arrangedSubviews.allSatisfy { $0 is UILabel }
+        })
+        #expect(fixture.view.height > TokenExpandableChartView.collapsedHeight)
+        #expect(timeAxis.alpha == 1)
+        #expect(timeAxis.arrangedSubviews.compactMap { ($0 as? UILabel)?.text }.allSatisfy { !$0.isEmpty })
+        #expect(fixture.label(withText: L10n.underlyingStock(symbol: "QQQ")) == nil)
+        #expect(fixture.emptyLabel.isHidden)
+        #expect(fixture.spinner.isHidden)
     }
 
     @Test
@@ -372,10 +391,10 @@ struct TokenChartLoadingTests {
             window.layoutIfNeeded()
         }
 
-        func configure(_ history: [[Double]]?, isHistoryRestored: Bool = false, showsTokenIcon: Bool = false) {
+        func configure(_ history: [[Double]]?, backfill: ApiPriceHistoryBackfill? = nil, isHistoryRestored: Bool = false, showsTokenIcon: Bool = false) {
             var token = ApiToken.TONCOIN
             token.priceUsd = 1.5
-            view.configure(token: token, showsTokenIcon: showsTokenIcon, historyData: history, isHistoryRestored: isHistoryRestored, onPeriodChange: { _ in }, onAnalyze: nil)
+            view.configure(token: token, showsTokenIcon: showsTokenIcon, historyData: history, backfill: backfill, isHistoryRestored: isHistoryRestored, onPeriodChange: { _ in }, onAnalyze: nil)
         }
 
         func label(withText text: String) -> UILabel? {

@@ -185,6 +185,7 @@ export class AgentV2WalletSession {
     const isWalletQueryAvailable = this.isWalletQueryAvailable();
     const features: AgentClientFeature[] = [
       ...(ui?.supportsFollowups ? ['followups' as const] : []),
+      ...(ui?.supportsSupportHandoff ? ['supportHandoff' as const] : []),
       ...(isActiveAccountAvailable && ui?.supportsWalletDirectory && canBuildWalletDirectory(host!)
         ? ['walletDirectory' as const] : []),
       ...(ui?.supportsSendRecipientWithoutAsset && supportedActions.includes('send')

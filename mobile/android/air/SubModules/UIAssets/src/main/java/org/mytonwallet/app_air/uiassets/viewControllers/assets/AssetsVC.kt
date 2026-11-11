@@ -65,6 +65,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.SelectiveItemAnimator
 import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.hideChromeOverlapping
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
@@ -679,6 +680,7 @@ class AssetsVC(
     }
 
     private var activeNftMenuPopup: INavigationPopup? = null
+    private var restoreChromeAfterNftMenu: (() -> Unit)? = null
 
     private val recyclerViewTouchListener = object : RecyclerView.OnItemTouchListener {
         private var startedDrag = false
@@ -734,6 +736,7 @@ class AssetsVC(
                     if (popup != null) {
                         if (dx > dragFromMenuSlop || dy > dragFromMenuSlop) {
                             activeNftMenuPopup = null
+                            showChromeAfterNftMenu()
                             popup.dismiss()
                             startDragFromMenu(touchDownX, touchDownY)
                             startedDrag = true
@@ -1660,6 +1663,7 @@ class AssetsVC(
             return
         }
         val navigationController = navigationController ?: return
+        var isMenuDismissed = false
         activeNftMenuPopup = CollectionsMenuHelpers.presentNftMenuOn(
             showingAccountId = assetsVM.showingAccountId,
             nft = nft,
@@ -1671,14 +1675,32 @@ class AssetsVC(
             } else {
                 AssetCell.CORNER_RADIUS_COMPLETE
             }.dp,
-            onReorderTapped = { requestReordering() },
+            onReorderTapped = {
+                showChromeAfterNftMenu()
+                requestReordering()
+            },
             onSelectTapped = {
+                showChromeAfterNftMenu()
                 onSelectionRequested?.invoke(nft.address) ?: openSelectionMode(nft.address)
+            },
+            onWillDismiss = ::showChromeAfterNftMenu,
+            onDidDismiss = {
+                isMenuDismissed = true
+                showChromeAfterNftMenu()
             }
         )
         if (activeNftMenuPopup != null) {
             recyclerView.parent?.requestDisallowInterceptTouchEvent(true)
+            if (!isMenuDismissed) {
+                restoreChromeAfterNftMenu = hideChromeOverlapping(anchorView, navigationController)
+            }
         }
+    }
+
+    // Runs before Reorder and Select, which hide the tab bar for their own mode
+    private fun showChromeAfterNftMenu() {
+        restoreChromeAfterNftMenu?.invoke()
+        restoreChromeAfterNftMenu = null
     }
 
     private fun startDragFromMenu(x: Float, y: Float) {

@@ -3,6 +3,9 @@ import type { GlobalState } from '../../global/types';
 import { DEFAULT_STAKING_STATE, MYCOIN_MAINNET, MYCOIN_TESTNET } from '../../config';
 import { buildAgentV2HostContext, createAgentV2HostContextSelector } from './buildHostContext';
 
+let mockIsLandscape = true;
+jest.mock('../../hooks/useDeviceScreen', () => ({ getIsLandscape: () => mockIsLandscape }));
+
 describe('buildAgentV2HostContext', () => {
   it.each([
     ['TON when the account has it', ['bitcoin', 'ethereum', 'ton'], 'ton', ['bitcoin', 'ethereum', 'ton']],
@@ -539,6 +542,33 @@ describe('buildAgentV2HostContext', () => {
 
     expect(second).not.toBe(first);
     expect(buildHostContext).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates the memoized host context when the screen turns', () => {
+    const global = stakingGlobal();
+    const selectHostContext = createAgentV2HostContextSelector();
+    expect(selectHostContext(global).isLandscape).toBe(true);
+
+    mockIsLandscape = false;
+    try {
+      expect(selectHostContext(global).isLandscape).toBe(false);
+    } finally {
+      mockIsLandscape = true;
+    }
+  });
+
+  it('invalidates the memoized host context when the time zone changes', () => {
+    const global = stakingGlobal();
+    const selectHostContext = createAgentV2HostContextSelector();
+    selectHostContext(global);
+
+    const resolvedOptions = jest.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockReturnValue({ timeZone: 'Asia/Tokyo' } as Intl.ResolvedDateTimeFormatOptions);
+    try {
+      expect(selectHostContext(global).timeZone).toBe('Asia/Tokyo');
+    } finally {
+      resolvedOptions.mockRestore();
+    }
   });
 });
 

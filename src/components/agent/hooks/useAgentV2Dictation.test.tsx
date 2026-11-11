@@ -49,14 +49,16 @@ function Harness({ isActive, onTranscript }: { isActive: boolean; onTranscript: 
 describe('useAgentV2Dictation', () => {
   let root: HTMLDivElement;
   let onTranscript: jest.Mock;
-  let recorder: { stop: jest.Mock; cancel: jest.Mock };
+  let recorder: { stop: jest.Mock; cancel: jest.Mock; pause: jest.Mock; resume: jest.Mock };
   let getUserMedia: jest.Mock;
 
   beforeEach(() => {
     root = document.createElement('div');
     document.body.appendChild(root);
     onTranscript = jest.fn();
-    recorder = { stop: jest.fn(() => Promise.resolve(RECORDING)), cancel: jest.fn() };
+    recorder = {
+      stop: jest.fn(() => Promise.resolve(RECORDING)), cancel: jest.fn(), pause: jest.fn(), resume: jest.fn(),
+    };
     getUserMedia = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
@@ -344,6 +346,48 @@ describe('useAgentV2Dictation', () => {
     expect(dictation.notice).toBeUndefined();
     expect(mockShowToast).not.toHaveBeenCalled();
     expect(dictation.phase).toBe('idle');
+  });
+
+  it('pauses and resumes the same recording, and transcribes all of it', async () => {
+    callApiMock.mockResolvedValue({ ok: true, value: { protocolVersion: 3, outcome: 'transcribed', text: 'Hi' } });
+
+    dictation.start();
+    await pause(FRAME_MS);
+    dictation.pause();
+    await pause(FRAME_MS);
+    expect(recorder.pause).toHaveBeenCalledTimes(1);
+    expect(dictation).toMatchObject({ phase: 'recording', isPaused: true, level: 0 });
+    // The limit waits for the recording to go on
+    await pause(DICTATION_MAX_DURATION_MS * 2);
+    expect(recorder.stop).not.toHaveBeenCalled();
+
+    dictation.resume();
+    await pause(FRAME_MS);
+    expect(recorder.resume).toHaveBeenCalledTimes(1);
+    expect(dictation).toMatchObject({ phase: 'recording', isPaused: false });
+    expect(startRecorderMock).toHaveBeenCalledTimes(1);
+
+    dictation.pause();
+    dictation.finish();
+    await pause(FRAME_MS);
+    expect(recorder.stop).toHaveBeenCalledTimes(1);
+    expect(onTranscript).toHaveBeenCalledWith('Hi');
+    expect(dictation).toMatchObject({ phase: 'idle', isPaused: false });
+  });
+
+  it('counts only the time recorded, without its pauses, toward the shortest phrase', async () => {
+    mockMinDurationMs = 100;
+
+    dictation.start();
+    await pause(FRAME_MS);
+    dictation.pause();
+    await pause(mockMinDurationMs * 2);
+    dictation.finish();
+    await pause(FRAME_MS);
+
+    expect(recorder.cancel).toHaveBeenCalled();
+    expect(recorder.stop).not.toHaveBeenCalled();
+    expect(dictation.failure).toEqual({ kind: 'tooShort' });
   });
 
   it('stops at the length limit and transcribes what was recorded', async () => {

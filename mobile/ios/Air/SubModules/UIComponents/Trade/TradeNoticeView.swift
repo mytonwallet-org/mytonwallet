@@ -5,22 +5,26 @@ public struct TradeNoticeView: View {
     let title: String
     let message: String
     var isWarning = false
+    var isInformational = false
     let isCompact: Bool
     var actionTitle: String?
     var onAction: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(title: String, message: String, isWarning: Bool = false, isCompact: Bool = false, actionTitle: String? = nil, onAction: (() -> Void)? = nil) {
+    public init(title: String, message: String, isWarning: Bool = false, isInformational: Bool = false, isCompact: Bool = false,
+                actionTitle: String? = nil, onAction: (() -> Void)? = nil) {
         self.title = title
         self.message = message
         self.isWarning = isWarning
+        self.isInformational = isInformational
         self.isCompact = isCompact
         self.actionTitle = actionTitle
         self.onAction = onAction
     }
 
     private var color: Color {
-        isWarning ? .air.error : Color(UIColor(light: "#DE8C00", dark: "#FFAB2F"))
+        if isInformational { return Color(AirTintColor) }
+        return isWarning ? .air.error : Color(UIColor(light: "#DE8C00", dark: "#FFAB2F"))
     }
 
     public var body: some View {

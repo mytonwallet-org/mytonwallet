@@ -1,10 +1,15 @@
 import type { ApiTokenWithPrice } from '../../api/types';
-import type { GlobalState, PriceHistoryPeriods, TokenDetailsState } from '../types';
+import type { GlobalState, PriceHistoryBackfillPeriods, PriceHistoryPeriods, TokenDetailsState } from '../types';
 
 import { updateAccountState } from './misc';
 
-export function updateTokenPriceHistory(global: GlobalState, slug: string, partial: PriceHistoryPeriods): GlobalState {
-  const { bySlug } = global.tokenPriceHistory;
+export function updateTokenPriceHistory(
+  global: GlobalState,
+  slug: string,
+  partial: PriceHistoryPeriods,
+  backfillPartial?: PriceHistoryBackfillPeriods,
+): GlobalState {
+  const { bySlug, backfillBySlug } = global.tokenPriceHistory;
 
   return {
     ...global,
@@ -17,6 +22,15 @@ export function updateTokenPriceHistory(global: GlobalState, slug: string, parti
           ...partial,
         },
       },
+      ...(backfillPartial && {
+        backfillBySlug: {
+          ...backfillBySlug,
+          [slug]: {
+            ...backfillBySlug?.[slug],
+            ...backfillPartial,
+          },
+        },
+      }),
     },
   };
 }

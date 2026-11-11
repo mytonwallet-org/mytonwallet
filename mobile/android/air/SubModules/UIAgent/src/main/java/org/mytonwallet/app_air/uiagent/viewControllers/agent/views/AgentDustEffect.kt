@@ -5,6 +5,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.SurfaceTexture
 import android.opengl.EGL14
 import android.opengl.EGLConfig
@@ -14,12 +15,14 @@ import android.opengl.EGLExt
 import android.opengl.EGLSurface
 import android.opengl.GLES30
 import android.opengl.GLUtils
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.view.Choreographer
 import android.view.TextureView
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.animation.doOnEnd
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withTranslation
@@ -28,6 +31,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 
@@ -102,7 +106,8 @@ internal class AgentDustEffect(
      */
     fun dissolve(source: View, views: List<View>, onStarted: () -> Unit, onDone: () -> Unit) {
         val shown = views.filter { it.width > 0 && it.height > 0 && it.isShown }
-        if (isKilled || shown.isEmpty()) {
+        // Debug builds skip the dust while system animations are off, to keep E2E runs fast
+        if (isKilled || shown.isEmpty() || (DEBUG_MODE && !areSystemAnimatorsEnabled)) {
             onStarted()
             onDone()
             return
@@ -116,12 +121,54 @@ internal class AgentDustEffect(
         val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         for (view in shown) {
-            canvas.withTranslation(view.x - left, view.y - top) { view.draw(this) }
+            canvas.withTranslation(view.x - left, view.y - top) {
+                view.draw(this)
+                drawTextureViews(view, view, this)
+            }
         }
         val dust = Dust(bitmap, left, top, shown, source, onStarted, onDone)
         val thread = thread
         if (thread == null) waiting.add(dust) else submit(thread, dust)
     }
+
+    // A software canvas leaves out what a `TextureView` shows, as the 3D top of a chat's status, so its frame is
+    // drawn over the row where it stands
+    private fun drawTextureViews(row: View, view: View, canvas: Canvas) {
+        if (view.visibility != VISIBLE) return
+        if (view is TextureView) {
+            if (!view.isAvailable || view.width <= 0 || view.height <= 0) return
+            val frame = view.getBitmap() ?: return
+            view.getLocationInWindow(viewLocation)
+            row.getLocationInWindow(rowLocation)
+            var alpha = 1f
+            var current: View? = view
+            while (current != null && current !== row) {
+                alpha *= current.alpha
+                current = current.parent as? View
+            }
+            texturePaint.alpha = (alpha * 255).roundToInt().coerceIn(0, 255)
+            canvas.drawBitmap(
+                frame,
+                (viewLocation[0] - rowLocation[0]).toFloat(),
+                (viewLocation[1] - rowLocation[1]).toFloat(),
+                texturePaint
+            )
+            frame.recycle()
+            return
+        }
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                drawTextureViews(row, view.getChildAt(index), canvas)
+            }
+        }
+    }
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
+    private val viewLocation = IntArray(2)
+    private val rowLocation = IntArray(2)
+    private val texturePaint = Paint(Paint.FILTER_BITMAP_FLAG)
 
     /** Whether it still takes rows; once its dust has settled it goes */
     val isActive: Boolean get() = !isKilled

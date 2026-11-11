@@ -2,6 +2,7 @@ import { addExtraClass, removeExtraClass } from '../../lib/teact/teact-dom';
 
 import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import { animate } from '../../util/animation';
+import { clamp } from '../../util/math';
 import getAgentHeaderBottom from '../agent/helpers/getAgentHeaderBottom';
 
 import styles from './AgentNews.module.scss';
@@ -11,6 +12,42 @@ interface Frame {
   top: number;
   width: number;
   height: number;
+}
+
+/**
+ * The flying card. `frame`, `shadow` and `tail` keep the card's size and are scaled to the current one, and `layers`
+ * and the tail's shape are scaled back, so that the copies inside keep their own size while the frame clips them, and
+ * the bubble's tail at the frame's corner keeps its own.
+ */
+interface FlightElements {
+  root: HTMLElement;
+  frame: HTMLElement;
+  shadow: HTMLElement;
+  tail: HTMLElement;
+  layers: HTMLElement[];
+  from: Frame;
+  /** The frame's corner radius, read once its styles apply */
+  radius?: number;
+}
+
+/** The picture of a bubble that its copy draws, with the size the bubble shows it at */
+interface Picture {
+  /** A loaded picture of the same address, which is the bubble's own or the card's */
+  source: HTMLImageElement;
+  width: number;
+  height: number;
+}
+
+/** The window's height and the edges of the Agent's header and composer, which the flight passes under */
+interface ChromeEdges {
+  top: number;
+  bottom: number;
+  viewportHeight: number;
+}
+
+/** The edges the flight is clipped to, which are written again only when they change */
+interface ChromeClip {
+  edges?: ChromeEdges;
 }
 
 // The card waits where it was until the chat lays out the post, and dissolves if the post never shows
@@ -61,39 +98,52 @@ export function startAgentNewsCardFlight(card: HTMLElement, eventId: number) {
     const from: Frame = {
       left: rect.left, top: rect.top, width: rect.width, height: rect.height,
     };
-    const clipTop = getAgentHeaderBottom(rect.left, rect.right);
+    const chromeEdges = measureChromeEdges(rect.left, rect.right);
+    const picture = measurePicture(card, card);
 
     requestMutation(() => {
       const root = document.createElement('div');
       root.className = styles.flight;
       root.setAttribute('aria-hidden', 'true');
+      const shadow = document.createElement('div');
+      shadow.className = styles.flightShadow;
       const frame = document.createElement('div');
       frame.className = styles.flightFrame;
-      const cardLayer = createLayer(card, from.width);
+      const tail = document.createElement('div');
+      tail.className = styles.flightTail;
+      [shadow, frame, tail].forEach((element) => {
+        element.style.width = `${from.width}px`;
+        element.style.height = `${from.height}px`;
+      });
+      const cardLayer = createLayer(card, from.width, picture);
       frame.appendChild(cardLayer);
-      root.appendChild(frame);
-      clipUnderChrome(root, clipTop, getComposerTop());
+      root.append(shadow, frame, tail);
+      const clip: ChromeClip = {};
+      clipUnderChrome(root, clip, chromeEdges);
       document.body.appendChild(root);
-      applyFrame(frame, from, 0, 0, 0);
+      const elements: FlightElements = {
+        root, frame, shadow, tail, layers: [cardLayer], from,
+      };
+      applyFrame(elements, from, 0, 0, 0);
       addExtraClass(card, styles.flightSource);
 
       fly({
-        card, eventId, root, frame, cardLayer, from,
+        card, eventId, elements, cardLayer, clip,
       });
     });
   });
 }
 
 function fly({
-  card, eventId, root, frame, cardLayer, from,
+  card, eventId, elements, cardLayer, clip,
 }: {
   card: HTMLElement;
   eventId: number;
-  root: HTMLElement;
-  frame: HTMLElement;
+  elements: FlightElements;
   cardLayer: HTMLElement;
-  from: Frame;
+  clip: ChromeClip;
 }) {
+  const { root, frame, from } = elements;
   const startedAt = Date.now();
   let takeoffAt: number | undefined;
   let postMessage: HTMLElement | undefined;
@@ -103,6 +153,7 @@ function fly({
 
   animate(() => {
     const now = Date.now();
+    elements.radius ??= parseFloat(getComputedStyle(frame).borderTopLeftRadius) || 0;
     const found = findPost(eventId);
     if (found) {
       const rect = found.bubble.getBoundingClientRect();
@@ -116,11 +167,13 @@ function fly({
           takeoffAt = now;
           const bubble = found.bubble;
           const width = rect.width;
+          const picture = measurePicture(bubble, card);
           requestMutation(() => {
             addExtraClass(postMessage!, styles.flightTarget);
-            standInLayer = createLayer(bubble, width);
+            standInLayer = createLayer(bubble, width, picture);
             standInLayer.style.opacity = '0';
             frame.appendChild(standInLayer);
+            elements.layers.push(standInLayer);
           });
         }
       }
@@ -128,9 +181,8 @@ function fly({
 
     if (takeoffAt === undefined || !target) {
       if (now - startedAt < HOLD_TIMEOUT) {
-        const top = getAgentHeaderBottom(from.left, from.left + from.width);
-        const bottom = getComposerTop();
-        requestMutation(() => clipUnderChrome(root, top, bottom));
+        const chromeEdges = measureChromeEdges(from.left, from.left + from.width);
+        requestMutation(() => clipUnderChrome(root, clip, chromeEdges));
         return true;
       }
       dissolve(eventId, root, card, postMessage);
@@ -152,8 +204,7 @@ function fly({
     const pitch = -Math.sign(distanceY) * MAX_PITCH_DEG * lift * Math.min(1, Math.abs(distanceY) / PITCH_DISTANCE);
     const yaw = MAX_YAW_DEG * lift * clamp(distanceX / YAW_DISTANCE, -1, 1);
     const turn = Math.min(1, time / LIFT_DURATION);
-    const clipTop = getAgentHeaderBottom(current.left, current.left + current.width);
-    const clipBottom = getComposerTop();
+    const chromeEdges = measureChromeEdges(current.left, current.left + current.width);
     const isLanded = time >= LIFT_DURATION
       && Math.abs(1 - progress) < SPRING_REST_DISTANCE
       && Math.abs(current.left - target.left) < TARGET_REST_DISTANCE
@@ -165,8 +216,8 @@ function fly({
         return;
       }
 
-      clipUnderChrome(root, clipTop, clipBottom);
-      applyFrame(frame, current, lift, pitch, yaw);
+      clipUnderChrome(root, clip, chromeEdges);
+      applyFrame(elements, current, lift, pitch, yaw);
       cardLayer.style.opacity = String(1 - interpolateSmoothly(CARD_FADE_START, CARD_FADE_END, turn));
       if (standInLayer) {
         standInLayer.style.opacity = String(interpolateSmoothly(STAND_IN_FADE_START, STAND_IN_FADE_END, turn));
@@ -178,40 +229,119 @@ function fly({
 }
 
 // The flight is clipped in window coordinates, so the clip stays put while both screens slide underneath it
-function clipUnderChrome(root: HTMLElement, top = 0, bottom = window.innerHeight) {
-  const height = window.innerHeight;
+function clipUnderChrome(root: HTMLElement, clip: ChromeClip, edges: ChromeEdges) {
+  const { top, bottom, viewportHeight } = edges;
+  if (
+    clip.edges?.top === top && clip.edges.bottom === bottom && clip.edges.viewportHeight === viewportHeight
+  ) {
+    return;
+  }
+
+  clip.edges = edges;
   const headerFadeEnd = top + HEADER_FADE_DISTANCE;
-  root.style.clipPath = `inset(${top}px 0 ${Math.max(0, height - bottom)}px 0)`;
+  root.style.clipPath = `inset(${top}px 0 ${Math.max(0, viewportHeight - bottom)}px 0)`;
   root.style.maskImage = `linear-gradient(to bottom, transparent ${top}px, black ${headerFadeEnd}px,`
     + ` black ${Math.max(headerFadeEnd, bottom - COMPOSER_FADE_DISTANCE)}px, transparent ${bottom}px)`;
 }
 
-function getComposerTop() {
-  const composers = Array.from(document.querySelectorAll<HTMLElement>('[data-agent-composer]'));
-  const rect = composers.reverse().find((element) => {
-    const frame = element.getBoundingClientRect();
-    return frame.width > 0 && frame.bottom > 0 && frame.top < window.innerHeight;
-  })?.getBoundingClientRect();
-  return rect?.top ?? window.innerHeight;
+// Runs in a measure phase
+function measureChromeEdges(left: number, right: number): ChromeEdges {
+  const viewportHeight = window.innerHeight;
+
+  return {
+    top: getAgentHeaderBottom(left, right) ?? 0,
+    bottom: getComposerTop(viewportHeight),
+    viewportHeight,
+  };
 }
 
-/** A copy of the bubble, at its own width, without the tail, which the flying frame clips */
-function createLayer(source: HTMLElement, width: number) {
+// The last composer on the screen is the chat coming in
+function getComposerTop(viewportHeight: number) {
+  const composers = document.querySelectorAll<HTMLElement>('[data-agent-composer]');
+  for (let index = composers.length - 1; index >= 0; index--) {
+    const rect = composers[index].getBoundingClientRect();
+    if (rect.width > 0 && rect.bottom > 0 && rect.top < viewportHeight) return rect.top;
+  }
+
+  return viewportHeight;
+}
+
+// Runs in a measure phase. The post's picture may still be loading while the card shows the same one.
+function measurePicture(bubble: HTMLElement, card: HTMLElement): Picture | undefined {
+  const image = bubble.querySelector('img');
+  if (!image) return undefined;
+
+  const source = [image, card.querySelector('img')].find((candidate) => (
+    candidate?.src === image.src && candidate.complete && candidate.naturalWidth > 0
+  ));
+  if (!source || image.clientWidth <= 0 || image.clientHeight <= 0) return undefined;
+
+  return { source, width: image.clientWidth, height: image.clientHeight };
+}
+
+/**
+ * A copy of the bubble, at its own width, without the tail, which the flight draws at the frame's corner. Its picture
+ * is drawn from one already shown, since a new `img` may load and decode the picture again first, with the placeholder
+ * in its place.
+ */
+function createLayer(source: HTMLElement, width: number, picture?: Picture) {
   const layer = source.cloneNode(true) as HTMLElement;
   layer.removeAttribute('data-agent-news-event-id');
   layer.classList.add(styles.flightLayer);
   layer.style.width = `${width}px`;
+  const image = layer.querySelector('img');
+  const canvas = picture && image ? drawPicture(picture, image.className) : undefined;
+  if (canvas) image!.replaceWith(canvas);
   return layer;
 }
 
+// The loaded picture, drawn at once, as `object-fit: cover` lays it out; without a 2D context the copy keeps its `img`
+function drawPicture({ source, width, height }: Picture, className: string) {
+  const canvas = document.createElement('canvas');
+  canvas.className = className;
+  canvas.width = Math.round(width * window.devicePixelRatio);
+  canvas.height = Math.round(height * window.devicePixelRatio);
+  const scale = Math.max(canvas.width / source.naturalWidth, canvas.height / source.naturalHeight);
+  const drawnWidth = source.naturalWidth * scale;
+  const drawnHeight = source.naturalHeight * scale;
+  const context = canvas.getContext('2d');
+  if (!context) return undefined;
+
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(
+    source, (canvas.width - drawnWidth) / 2, (canvas.height - drawnHeight) / 2, drawnWidth, drawnHeight,
+  );
+  return canvas;
+}
+
+// The frame turns about its centre, as it would at the current size, and its corners are scaled back to stay round
 function applyFrame(
-  frame: HTMLElement, { left, top, width, height }: Frame, lift: number, pitch: number, yaw: number,
+  {
+    frame, shadow, tail, layers, from, radius,
+  }: FlightElements,
+  {
+    left, top, width, height,
+  }: Frame,
+  lift: number,
+  pitch: number,
+  yaw: number,
 ) {
-  frame.style.width = `${width}px`;
-  frame.style.height = `${height}px`;
-  frame.style.transform = `translate3d(${left}px, ${top}px, 0) perspective(${PERSPECTIVE}px) `
-    + `rotateX(${pitch}deg) rotateY(${yaw}deg) scale(${1 + LIFT_SCALE * lift})`;
-  frame.style.boxShadow = `0 0.625rem 1.125rem rgba(0, 0, 0, ${SHADOW_OPACITY * lift})`;
+  const scaleX = width / from.width;
+  const scaleY = height / from.height;
+  const liftScale = 1 + LIFT_SCALE * lift;
+  const transform = `translate3d(${left + (width - from.width) / 2}px, ${top + (height - from.height) / 2}px, 0) `
+    + `perspective(${PERSPECTIVE}px) rotateX(${pitch}deg) rotateY(${yaw}deg) `
+    + `scale(${scaleX * liftScale}, ${scaleY * liftScale})`;
+
+  frame.style.transform = transform;
+  shadow.style.transform = transform;
+  shadow.style.opacity = String(SHADOW_OPACITY * lift);
+  tail.style.transform = transform;
+  tail.style.setProperty('--flight-tail-scale', `${1 / scaleX} ${1 / scaleY}`);
+  if (radius) frame.style.setProperty('--flight-frame-radius', `${radius / scaleX}px / ${radius / scaleY}px`);
+  layers.forEach((layer) => {
+    layer.style.transform = `scale(${1 / scaleX}, ${1 / scaleY})`;
+  });
 }
 
 /** Calls `onLanded` once the news card flying to the post has turned into it, or at once when none is flying */
@@ -286,8 +416,4 @@ function interpolateFrame(from: Frame, to: Frame, progress: number): Frame {
 function interpolateSmoothly(edgeStart: number, edgeEnd: number, value: number) {
   const progress = clamp((value - edgeStart) / (edgeEnd - edgeStart), 0, 1);
   return progress * progress * (3 - 2 * progress);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

@@ -4,6 +4,7 @@ import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../hooks/useInactivityTimeout';
 import useLang from '../../hooks/useLang';
 
 import Emoji from '../ui/Emoji';
@@ -27,6 +28,8 @@ function MnemonicPrivateKey({
     isActive,
     onBack: onClose,
   });
+
+  useInactivityTimeout(onClose, isActive);
 
   return (
     <div className={modalStyles.transitionContentWrapper}>

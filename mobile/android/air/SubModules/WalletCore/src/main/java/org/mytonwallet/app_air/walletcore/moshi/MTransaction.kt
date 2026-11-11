@@ -4,6 +4,7 @@ import android.net.Uri
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.util.Date
 import org.json.JSONObject
 import org.mytonwallet.app_air.icons.R
@@ -268,7 +269,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 currencyDecimals = amount.smartDecimalsCount(token.decimals),
                 showPositiveSign = false,
                 forceCurrencyToRight = true,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
         }
 

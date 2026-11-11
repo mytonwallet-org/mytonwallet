@@ -31,6 +31,7 @@ import kotlin.math.abs
 import kotlin.math.pow
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
@@ -181,6 +182,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
 
         title = LocaleController.getString("Portfolio")
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.portfolio_title
         if (navigationController?.viewControllers?.size == 1) {
             navigationBar?.addCloseButton()
         }

@@ -84,6 +84,7 @@ struct ThemeOption: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("appearance_theme_\(theme.rawValue)")
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
         .padding(.horizontal, 4)
     }
 }

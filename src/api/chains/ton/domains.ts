@@ -38,6 +38,14 @@ type StoredDnsEntry = {
     verifiedLinkedAddress?: string;
     checkedAt: number;
   };
+  // The backend reports a wallet record change only after a delay. Until it does, a change submitted from this app is
+  // checked on chain on every poll, so the cached verification of the previous record cannot hide it. The change is
+  // stored with the entry, so the check survives a restart of the app or the SDK worker.
+  submittedChange?: {
+    // A normalized address, or `undefined` when the change deletes the record
+    linkedAddress?: string;
+    submittedAt: number;
+  };
 };
 
 type DnsCache = {
@@ -94,7 +102,7 @@ export async function* submitDnsRenewal(
   }
 }
 
-export async function checkDnsChangeWalletDraft(accountId: string, nftAddress: string, address: string) {
+export async function checkDnsChangeWalletDraft(accountId: string, nftAddress: string, address?: string) {
   const result = await checkMultiTransactionDraft(accountId, [makeChangeMessage(nftAddress, address)]);
 
   if ('error' in result) {
@@ -108,15 +116,20 @@ export async function submitDnsChangeWallet(
   accountId: string,
   enclaveToken: string | undefined,
   nftAddress: string,
-  address: string,
+  address?: string,
 ) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
-
-  return submitMultiTransferWithMfa({
+  const result = await submitMultiTransferWithMfa({
     accountId,
     signer: getSigner(accountId, account, enclaveToken),
     messages: [makeChangeMessage(nftAddress, address)],
   });
+
+  if (!('error' in result)) {
+    await rememberSubmittedChange(accountId, nftAddress, address);
+  }
+
+  return result;
 }
 
 function makeRenewMessage(nftAddress: string) {
@@ -127,12 +140,36 @@ function makeRenewMessage(nftAddress: string) {
   };
 }
 
-function makeChangeMessage(nftAddress: string, linkedAddress: string) {
+function makeChangeMessage(nftAddress: string, linkedAddress?: string) {
   return {
     toAddress: nftAddress,
-    payload: DnsItem.buildChangeDnsWalletMessage(linkedAddress),
+    // Native bridges pass `null` for a deletion. An empty string must fail in `Address.parse` instead of deleting
+    // the record.
+    payload: typeof linkedAddress === 'string'
+      ? DnsItem.buildChangeDnsWalletMessage(linkedAddress)
+      : DnsItem.buildDeleteDnsRecordMessage(undefined, DnsCategory.Wallet),
     amount: TON_GAS.changeDns,
   };
+}
+
+async function rememberSubmittedChange(accountId: string, nftAddress: string, linkedAddress?: string) {
+  const storage = getCurrentStorage();
+  const cache = getDnsCache(storage);
+  const generation = cache.generation;
+  const { network } = parseAccountId(accountId);
+
+  await loadDnsCache(storage, cache, generation);
+  if (cache.generation !== generation) return;
+
+  const cacheKey = `${network}:${nftAddress}`;
+  const now = Date.now();
+  cache.entries[cacheKey] ??= { lastSeenAt: now };
+  cache.entries[cacheKey].submittedChange = {
+    linkedAddress: linkedAddress ? toBase64Address(linkedAddress, true, network) : undefined,
+    submittedAt: now,
+  };
+
+  await persistDnsCache(storage, cache, generation);
 }
 
 export async function fetchDomains(accountId: string) {
@@ -186,16 +223,7 @@ function getDnsCache(storage: Storage) {
 async function verifyTonDnsLinkedAddresses(
   network: ApiNetwork, data: Record<string, ApiDomainData>, storage: Storage, cache: DnsCache, generation: number,
 ) {
-  cache.loaded ??= (async () => {
-    try {
-      const entries = await storage.getItem('tonDnsCache') as DnsCache['entries'] | undefined;
-      if (cache.generation === generation) cache.entries = entries ?? {};
-    } catch (err) {
-      logDebugError('tonDnsCache:read', err);
-      if (cache.generation === generation) cache.canPersist = false;
-    }
-  })();
-  return cache.loaded.then(async () => {
+  return loadDnsCache(storage, cache, generation).then(async () => {
     const currentCache = { ...cache };
     if (currentCache.generation !== generation) {
       currentCache.entries = {};
@@ -219,32 +247,105 @@ async function verifyTonDnsLinkedAddresses(
 
     const linkedAddressByAddress: Record<string, string> = {};
     await Promise.all(Object.entries(data).map(async ([nftAddress, { linkedAddress }]) => {
-      if (!linkedAddress) return;
-
-      const cacheKey = cacheKeyByAddress.get(nftAddress)!;
-      const verifiedLinkedAddress = await verifyTonDnsLinkedAddress(
-        network, nftAddress, linkedAddress, currentCache, cacheKey,
+      const verifiedLinkedAddress = await getVerifiedLinkedAddress(
+        network, nftAddress, currentCache, cacheKeyByAddress.get(nftAddress)!, now, linkedAddress,
       );
       if (verifiedLinkedAddress) {
         linkedAddressByAddress[nftAddress] = verifiedLinkedAddress;
       }
     }));
 
-    await cache.queue.run(async () => {
-      if (cache.generation !== generation || !cache.canPersist) return;
-      try {
-        await storage.setItem('tonDnsCache', cache.entries);
-      } catch (err) {
-        logDebugError('tonDnsCache:write', err);
-      }
-    });
+    await persistDnsCache(storage, cache, generation);
 
     return linkedAddressByAddress;
   });
 }
 
+function loadDnsCache(storage: Storage, cache: DnsCache, generation: number) {
+  cache.loaded ??= (async () => {
+    try {
+      const entries = await storage.getItem('tonDnsCache') as DnsCache['entries'] | undefined;
+      if (cache.generation === generation) cache.entries = entries ?? {};
+    } catch (err) {
+      logDebugError('tonDnsCache:read', err);
+      if (cache.generation === generation) cache.canPersist = false;
+    }
+  })();
+
+  return cache.loaded;
+}
+
+function persistDnsCache(storage: Storage, cache: DnsCache, generation: number) {
+  return cache.queue.run(async () => {
+    if (cache.generation !== generation || !cache.canPersist) return;
+    try {
+      await storage.setItem('tonDnsCache', cache.entries);
+    } catch (err) {
+      logDebugError('tonDnsCache:write', err);
+    }
+  });
+}
+
+// While a change submitted from this app is pending, the backend still reports the previous wallet. The submitted
+// wallet shows up as soon as the chain has it. Until then, the previous wallet stays while the chain still has it.
+async function getVerifiedLinkedAddress(
+  network: ApiNetwork,
+  nftAddress: string,
+  cache: DnsCache,
+  cacheKey: string,
+  now: number,
+  backendLinkedAddress?: string,
+) {
+  const submittedChange = getPendingSubmittedChange(cache.entries[cacheKey], network, now, backendLinkedAddress);
+
+  if (submittedChange?.linkedAddress) {
+    const submittedLinkedAddress = await verifyTonDnsLinkedAddress(
+      network, nftAddress, submittedChange.linkedAddress, cache, cacheKey, true,
+    );
+    if (submittedLinkedAddress) return submittedLinkedAddress;
+  }
+
+  if (!backendLinkedAddress) return undefined;
+
+  return verifyTonDnsLinkedAddress(
+    network, nftAddress, backendLinkedAddress, cache, cacheKey, Boolean(submittedChange),
+  );
+}
+
+// A change is dropped once the backend reports it or `LINKED_ADDRESS_VERIFIED_TTL` passes. By then, the cached
+// verification of the previous record has expired too.
+function getPendingSubmittedChange(
+  entry: StoredDnsEntry, network: ApiNetwork, now: number, backendLinkedAddress?: string,
+) {
+  const change = entry.submittedChange;
+  if (!change) return undefined;
+
+  const isExpired = change.submittedAt > now || now - change.submittedAt >= LINKED_ADDRESS_VERIFIED_TTL;
+  if (isExpired || normalizeBackendLinkedAddress(network, backendLinkedAddress) === change.linkedAddress) {
+    delete entry.submittedChange;
+    return undefined;
+  }
+
+  return change;
+}
+
+function normalizeBackendLinkedAddress(network: ApiNetwork, linkedAddress?: string) {
+  if (!linkedAddress) return undefined;
+
+  try {
+    return toBase64Address(linkedAddress, true, network);
+  } catch {
+    return undefined;
+  }
+}
+
 async function verifyTonDnsLinkedAddress(
-  network: ApiNetwork, nftAddress: string, linkedAddress: string, cache: DnsCache, cacheKey: string,
+  network: ApiNetwork,
+  nftAddress: string,
+  linkedAddress: string,
+  cache: DnsCache,
+  cacheKey: string,
+  shouldSkipCache?: boolean,
 ) {
   try {
     const normalizedLinkedAddress = toBase64Address(linkedAddress, true, network);
@@ -253,7 +354,10 @@ async function verifyTonDnsLinkedAddress(
     const ttl = cached?.verifiedLinkedAddress ? LINKED_ADDRESS_VERIFIED_TTL : LINKED_ADDRESS_UNVERIFIED_TTL;
     const now = Date.now();
 
-    if (cached?.linkedAddress === normalizedLinkedAddress && cached.checkedAt <= now && now - cached.checkedAt < ttl) {
+    if (
+      !shouldSkipCache
+      && cached?.linkedAddress === normalizedLinkedAddress && cached.checkedAt <= now && now - cached.checkedAt < ttl
+    ) {
       return cached.verifiedLinkedAddress;
     }
 

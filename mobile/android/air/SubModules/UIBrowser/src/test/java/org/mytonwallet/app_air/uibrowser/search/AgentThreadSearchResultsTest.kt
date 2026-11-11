@@ -66,6 +66,33 @@ class AgentThreadSearchResultsTest {
     }
 
     @Test
+    fun deletedThreadLeavesTheOpenResultsAtOnceAndStaysOutOfTheirRefresh() {
+        for (keyword in listOf("", "знако")) {
+            val chats = listOf(result("deleted"), result("kept"))
+            val published = mutableListOf<ExploreVM.SearchResult>()
+            val onResult: (ExploreVM.SearchResult) -> Unit = { published.add(it) }
+
+            val shown = ExploreVM.ActiveSearchRequest(keyword, onResult)
+            shown.publishLocalResult(ExploreVM.SearchResult(keyword))
+            shown.publishResult(shown.result!!.withRecentChats(chats))
+            shown.removeChat("deleted")
+            assertEquals(listOf("kept"), published.last().recentChats?.map { it.thread.id })
+            val refresh = ExploreVM.ActiveSearchRequest(keyword, onResult, previous = shown)
+            refresh.publishLocalResult(ExploreVM.SearchResult(keyword))
+            assertEquals(listOf("kept"), refresh.result?.recentChats?.map { it.thread.id })
+
+            // A refresh still building its local result starts from the chats shown before
+            val previous = ExploreVM.ActiveSearchRequest(keyword, onResult)
+            previous.publishLocalResult(ExploreVM.SearchResult(keyword))
+            previous.publishResult(previous.result!!.withRecentChats(chats))
+            val building = ExploreVM.ActiveSearchRequest(keyword, onResult, previous = previous)
+            building.removeChat("deleted")
+            building.publishLocalResult(ExploreVM.SearchResult(keyword))
+            assertEquals(listOf("kept"), published.last().recentChats?.map { it.thread.id })
+        }
+    }
+
+    @Test
     fun openingSearchSeedsItsFirstResultFromCacheAndNewQueriesDiscardOldMatches() {
         val chats = listOf(result("cached"))
         val published = mutableListOf<ExploreVM.SearchResult>()

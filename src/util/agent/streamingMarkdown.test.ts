@@ -1,4 +1,8 @@
-import { closeStreamingInlineMarkdown, segmentStreamingMarkdown } from './streamingMarkdown';
+import {
+  closeStreamingInlineMarkdown,
+  closeStreamingMarkdownTail,
+  segmentStreamingMarkdown,
+} from './streamingMarkdown';
 
 describe('segmentStreamingMarkdown', () => {
   it('commits blocks only after an empty line', () => {
@@ -143,5 +147,49 @@ describe('closeStreamingInlineMarkdown', () => {
 
   it('leaves an open code block as it is', () => {
     expect(closeStreamingInlineMarkdown('```\nconst a = **b')).toBe('```\nconst a = **b');
+    expect(closeStreamingInlineMarkdown('```\n##')).toBe('```\n##');
+  });
+
+  it('waits for the text of a list item whose marker alone has come in', () => {
+    // A bullet whose bold text has not come in yet shows neither the bullet nor the asterisks
+    expect(closeStreamingInlineMarkdown('- **')).toBe('');
+    expect(closeStreamingInlineMarkdown('Fees:\n- **')).toBe('Fees:');
+    expect(closeStreamingInlineMarkdown('Fees:\n  * ')).toBe('Fees: ');
+    expect(closeStreamingInlineMarkdown('Steps:\n12. ')).toBe('Steps: ');
+    expect(closeStreamingInlineMarkdown('- `')).toBe('');
+    // Its text shows as it comes, the bold closed
+    expect(closeStreamingInlineMarkdown('- **Lo')).toBe('- **Lo**');
+    expect(closeStreamingInlineMarkdown('- **Low**')).toBe('- **Low**');
+    // A marker on a line that has ended, or within a line, stays as it came
+    expect(closeStreamingInlineMarkdown('-\n')).toBe('-\n');
+    expect(closeStreamingInlineMarkdown('From 5 to 3 -')).toBe('From 5 to 3 -');
+  });
+
+  it('waits for the code of a code block whose fence alone has come in', () => {
+    expect(closeStreamingInlineMarkdown('```')).toBe('');
+    expect(closeStreamingInlineMarkdown('Run:\n```py')).toBe('Run:');
+    expect(closeStreamingInlineMarkdown('Run **this:\n```\n')).toBe('Run **this:**');
+    expect(closeStreamingInlineMarkdown('```py\nprint')).toBe('```py\nprint');
+  });
+
+  it('waits for the text of a heading whose hashes alone have come in', () => {
+    expect(closeStreamingInlineMarkdown('##')).toBe('');
+    expect(closeStreamingInlineMarkdown('Intro\n#')).toBe('Intro');
+    expect(closeStreamingInlineMarkdown('Intro\n## ')).toBe('Intro ');
+    expect(closeStreamingInlineMarkdown('## **')).toBe('');
+    expect(closeStreamingInlineMarkdown('## **Market summ')).toBe('## **Market summ**');
+    // Seven hashes open no heading, and a line that has ended stays as it came
+    expect(closeStreamingInlineMarkdown('#######')).toBe('#######');
+    expect(closeStreamingInlineMarkdown('##\n')).toBe('##\n');
+    expect(closeStreamingInlineMarkdown('Rank ##')).toBe('Rank ##');
+  });
+});
+
+describe('closeStreamingMarkdownTail', () => {
+  it('holds back the markup of the last paragraph only', () => {
+    expect(closeStreamingMarkdownTail('Fees:\n- **')).toBe('Fees:');
+    expect(closeStreamingMarkdownTail('Done **now**.\n\nTotal: **Low')).toBe('Done **now**.\n\nTotal: **Low**');
+    expect(closeStreamingMarkdownTail('Done.\n\nTotal:\n- **')).toBe('Done.\n\nTotal:');
+    expect(closeStreamingMarkdownTail('Done.\n\n')).toBe('Done.\n\n');
   });
 });

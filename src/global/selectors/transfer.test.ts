@@ -22,6 +22,8 @@ const ACCOUNT_ID = 'test-account';
 const TON_ADDRESS = 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S';
 const TRON_ADDRESS = 'TBvwz11CKdgBymTtF7Q6UfhGWQyEqNrodT';
 const SOL_ADDRESS = '35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA';
+const TRON_ORDINARY_TOKEN_SLUG = 'tron-ordinary';
+const TON_18_DECIMALS_TOKEN_SLUG = 'ton-18decimals';
 
 const TOKEN_INFO: Record<string, object> = {
   [TONCOIN.slug]: { ...TONCOIN, priceUsd: 5, percentChange24h: 0 },
@@ -30,6 +32,12 @@ const TOKEN_INFO: Record<string, object> = {
   [TRC20_USDT_MAINNET.slug]: { ...TRC20_USDT_MAINNET, priceUsd: 1, percentChange24h: 0 },
   [SOLANA.slug]: { ...SOLANA, priceUsd: 150, percentChange24h: 0 },
   [SOLANA_USDT_MAINNET.slug]: { ...SOLANA_USDT_MAINNET, priceUsd: 1, percentChange24h: 0 },
+  [TRON_ORDINARY_TOKEN_SLUG]: {
+    slug: TRON_ORDINARY_TOKEN_SLUG, chain: 'tron', decimals: 6, priceUsd: 1, percentChange24h: 0,
+  },
+  [TON_18_DECIMALS_TOKEN_SLUG]: {
+    slug: TON_18_DECIMALS_TOKEN_SLUG, chain: 'ton', decimals: 18, priceUsd: 4000, percentChange24h: 0,
+  },
 };
 
 /**
@@ -212,6 +220,18 @@ describe('selectTokenMatchingCurrentTransferAddressSlow', () => {
       });
 
       expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(SOLANA.slug);
+    });
+  });
+
+  describe('max-balance fallback', () => {
+    it('compares the token values rather than the amounts in the smallest units', () => {
+      const global = buildGlobal(TRON_ORDINARY_TOKEN_SLUG, TON_ADDRESS, {
+        [TRON_ORDINARY_TOKEN_SLUG]: 1_000_000n,
+        [TON_18_DECIMALS_TOKEN_SLUG]: 1_800_000_000_000_000n,
+        [TONCOIN.slug]: 1_000_000_000_000n,
+      });
+
+      expect(selectTokenMatchingCurrentTransferAddressSlow(global)).toBe(TONCOIN.slug);
     });
   });
 });

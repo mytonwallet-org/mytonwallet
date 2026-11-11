@@ -13,6 +13,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setMarginsDp
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
@@ -42,6 +43,11 @@ class AppearancePaletteItemView(
     var state: State = State.LOADING
 
     init {
+        // Flow references items by their own ids, so the shared id goes on a child
+        addView(
+            View(context).apply { id = UIComponentsR.id.customize_palette_item },
+            LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        )
         setOnClickListener {
             onTap(nftAccentId, state)
         }

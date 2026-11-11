@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
 import android.content.Context
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedVC
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -9,6 +10,26 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
 object AgentNavigation {
+    fun openNewsChat(context: Context, navigationController: WNavigationController, eventId: Int) {
+        navigationController.push(AgentVC(context, news = AgentNewsChatRequest(eventId)))
+    }
+
+    fun openDigestChat(
+        context: Context,
+        navigationController: WNavigationController,
+        digestId: String
+    ) {
+        navigationController.push(AgentVC(context, digestId = digestId))
+    }
+
+    fun openNewsFeed(
+        context: Context,
+        navigationController: WNavigationController,
+        digestId: String
+    ) {
+        navigationController.push(AgentNewsFeedVC(context, requestedDigestId = digestId))
+    }
+
     /** [beforePush] gets the discussion's chat before it slides in */
     fun openNewsChat(
         context: Context,

@@ -4,7 +4,6 @@ import { logDebugError } from '../../util/logs';
 import { fetchBackendReferrer } from '../common/backend';
 import { addHooks } from '../hooks';
 import init, { destroy } from './init';
-import { reportInstallMetadata } from './installMetadata';
 import { startWebFirstLaunchReporting, stopWebFirstLaunchReporting } from './webFunnel';
 import * as methods from '.';
 
@@ -35,7 +34,6 @@ jest.mock('../storages', () => ({
 jest.mock('./agentV2Lifecycle', () => ({ destroyAgentV2IfEnabled: jest.fn(), initAgentV2IfEnabled: jest.fn() }));
 jest.mock('./attribution', () => ({ claimInstallAttribution: jest.fn() }));
 jest.mock('./webFunnel', () => ({ startWebFirstLaunchReporting: jest.fn(), stopWebFirstLaunchReporting: jest.fn() }));
-jest.mock('./installMetadata', () => ({ reportInstallMetadata: jest.fn() }));
 jest.mock('./extra', () => ({
   initMfa: jest.fn(), initStaking: jest.fn(), initSwap: jest.fn(), initPerps: jest.fn(), initPerpsTrading: jest.fn(),
 }));
@@ -114,7 +112,6 @@ it('completes the current init and installs its polling, dApp updater and hooks'
   expect(methods.initPolling).toHaveBeenCalledWith(updater);
   expect(methods.initDapps).toHaveBeenCalledWith(updater);
   expect(addHooks).toHaveBeenCalledTimes(1);
-  expect(reportInstallMetadata).toHaveBeenCalledTimes(1);
   expect(startWebFirstLaunchReporting).toHaveBeenCalledTimes(1);
 });
 

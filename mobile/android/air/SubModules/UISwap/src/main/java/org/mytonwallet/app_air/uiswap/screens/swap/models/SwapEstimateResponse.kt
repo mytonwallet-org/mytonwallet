@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uiswap.screens.swap.models
 
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.uicomponents.helpers.Rate
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.walletbasecontext.utils.max
@@ -100,7 +101,7 @@ data class SwapEstimateResponse(
         currency = request.tokenToReceive.symbol ?: "",
         currencyDecimals = toAmountMin.smartDecimalsCount(request.tokenToReceive.decimals),
         showPositiveSign = false,
-        roundUp = false
+        rounding = RoundingMode.DOWN
     )
 
     val swapType: SwapType

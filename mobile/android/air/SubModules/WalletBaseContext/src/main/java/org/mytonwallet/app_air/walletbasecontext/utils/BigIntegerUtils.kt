@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletbasecontext.utils
 
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.math.abs
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 
@@ -23,6 +24,11 @@ private val exactPowersOfTen = DoubleArray(23).also {
     for (i in 1 until it.size) it[i] = it[i - 1] * 10
 }
 
+private val BIG_POWERS_OF_TEN = Array(20) { BigInteger.TEN.pow(it) }
+
+private fun getPowerOfTen(exponent: Int): BigInteger =
+    BIG_POWERS_OF_TEN.getOrElse(exponent) { BigInteger.TEN.pow(it) }
+
 fun BigInteger.doubleAbsRepresentation(decimals: Int? = null): Double {
     val scale = decimals ?: 9
     // An integer below 2^53 and 10^scale up to 10^22 are exact doubles, so their quotient is rounded
@@ -40,30 +46,19 @@ fun BigInteger.toString(
     currencyDecimals: Int,
     showPositiveSign: Boolean,
     forceCurrencyToRight: Boolean = false,
-    roundUp: Boolean = true,
+    rounding: RoundingMode = RoundingMode.HALF_UP,
     localizedDigits: Boolean = false,
     zeroCountSubscriptMinCount: Int? = 6
 ): String {
-    val scale = BigInteger.TEN.pow(decimals)
-    val absValue = abs()
-    var integerPart = absValue.divide(scale)
-    var decimalPart = absValue.remainder(scale).toString().padStart(decimals, '0')
-
-    // Handle rounding
-    if (decimalPart.length > currencyDecimals) {
-        val extraDigit = decimalPart[currencyDecimals].digitToInt()
-        decimalPart = decimalPart.substring(0, currencyDecimals)
-
-        if (roundUp && extraDigit >= 5) {
-            val rounded = decimalPart.toBigInteger() + BigInteger.ONE
-            decimalPart = rounded.toString().padStart(currencyDecimals, '0')
-            if (decimalPart.length > currencyDecimals) {
-                // If rounding causes overflow, adjust integer part
-                decimalPart = ""
-                integerPart += BigInteger.ONE
-            }
-        }
+    val shownDecimals = minOf(decimals, currencyDecimals)
+    val absValue = if (shownDecimals == decimals) {
+        abs()
+    } else {
+        BigDecimal(abs(), decimals).setScale(shownDecimals, rounding).unscaledValue()
     }
+    val scale = getPowerOfTen(shownDecimals)
+    val integerPart = absValue.divide(scale)
+    val decimalPart = absValue.remainder(scale).toString().padStart(shownDecimals, '0')
 
     // Build result string
     val sb = StringBuilder(integerPart.toString())
@@ -148,13 +143,14 @@ fun BigInteger.smartDecimalsCount(tokenDecimals: Int): Int {
     if (amount < BigInteger.valueOf(2)) {
         return tokenDecimals
     }
-    if (amount >= BigInteger.valueOf(10).pow(tokenDecimals + 1)) {
+    val limit = getPowerOfTen(tokenDecimals + 1)
+    if (amount >= limit) {
         return 2.coerceAtLeast(1 + tokenDecimals - "$amount".count())
     }
     var newAmount = amount
     var multiplier = 0
-    while (newAmount < BigInteger.valueOf(10).pow(tokenDecimals + 1)) {
-        newAmount *= BigInteger.valueOf(10)
+    while (newAmount < limit) {
+        newAmount *= BigInteger.TEN
         multiplier += 1
     }
     return multiplier.coerceIn(2, tokenDecimals)

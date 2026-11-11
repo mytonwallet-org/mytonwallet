@@ -214,6 +214,7 @@ class MainWindow : WWindow() {
     override fun onResume() {
         AutoLockHelper.appResumed()
         super.onResume()
+        if (WGlobalStorage.isInitialized) AirPushNotifications.refreshNewsSubscription()
         if (WGlobalStorage.getIsShakeToDebugEnabled()) {
             ShakeDetector.onAppResume()
         }

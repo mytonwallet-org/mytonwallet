@@ -5,7 +5,7 @@ import type { MediaViewerPictures } from '../../global/types';
 type AgentNewsPictureSurface = 'feed' | 'post';
 
 interface AgentNewsWithPicture
-  extends Pick<AgentThreadNewsCardV2, 'eventId' | 'headline' | 'body' | 'sources' | 'source' | 'imageUrl'> {
+  extends Pick<AgentThreadNewsCardV2, 'eventId' | 'headline' | 'body' | 'sources' | 'imageUrl'> {
   /** When the news came, as its card or post dates it */
   time: string;
 }
@@ -25,7 +25,7 @@ export function buildAgentNewsPictures(
 ): MediaViewerPictures {
   const pictures: MediaViewerPictures = { ids: [], byId: {} };
   items.forEach(({
-    eventId, headline, body, sources, source, imageUrl, time,
+    eventId, headline, body, sources, imageUrl, time,
   }) => {
     if (!imageUrl) return;
 
@@ -35,7 +35,7 @@ export function buildAgentNewsPictures(
       url: imageUrl,
       title: headline,
       news: {
-        headline, body, sources, source, timestamp: Date.parse(time),
+        headline, body, sources, timestamp: Date.parse(time),
       },
     };
   });

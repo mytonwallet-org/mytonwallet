@@ -44,7 +44,7 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         }
     }
 
-    private let pages: [Page]
+    private var pages: [Page]
     private let preloadsPages: Bool
     private var preparationTimer: Timer?
     private var didReceiveMemoryPressure = false
@@ -253,6 +253,25 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
             changeDestination(to: index)
         }
         animate(to: index)
+    }
+
+    /// Puts the pages in the order of `ids`, keeping their controllers and the selected page.
+    /// Indices change with the order and are not reported through the selection callbacks
+    public func reorderPages(_ ids: [String]) {
+        let currentIds = pages.map(\.id)
+        guard ids != currentIds else { return }
+        precondition(ids.count == currentIds.count && Set(ids) == Set(currentIds))
+        finishPaging()
+        let newIndices = currentIds.map { ids.firstIndex(of: $0)! }
+        pages = ids.map { id in pages[currentIds.firstIndex(of: id)!] }
+        cachedControllers = Dictionary(uniqueKeysWithValues: cachedControllers.map { (newIndices[$0.key], $0.value) })
+        hosts = Dictionary(uniqueKeysWithValues: hosts.map { (newIndices[$0.key], $0.value) })
+        selectedIndex = newIndices[selectedIndex]
+        committedIndex = newIndices[committedIndex]
+        appearanceIndex = newIndices[appearanceIndex]
+        destination = destination.map { newIndices[$0] }
+        guard isViewLoaded else { return }
+        resetSlots()
     }
 
     /// Resolve the current input before an owner snapshots or moves this container.

@@ -18,15 +18,14 @@ public final class PerpsPositionsSectionDataProvider: ActivityListViewController
     private func rowID(_ positionID: String) -> String { id + ":position:" + (data?.accountID ?? "") + ":" + positionID }
     private var visiblePositions: [PerpsPositionRowDisplayData] {
         guard let data, data.status == .ready else { return [] }
-        var seen = Set<String>()
-        return Array(data.positions.filter { seen.insert($0.id).inserted }.prefix(previewLimit ?? Int.max))
+        return Array(data.positions.prefix(previewLimit ?? Int.max))
     }
     public var itemIdentifiers: [String] {
         guard let data else { return [] }
         guard data.status == .ready else { return [statusID] }
         let rows = visiblePositions.map { rowID($0.id) }
         if rows.isEmpty { return previewLimit == nil ? [statusID] : [] }
-        return rows + (previewLimit == nil ? [] : [showAllID])
+        return rows.count < data.positions.count ? rows + [showAllID] : rows
     }
 
     public init(id: String, showsHeader: Bool = true, previewLimit: Int? = 5, topSpacing: CGFloat = 16) {
@@ -36,14 +35,14 @@ public final class PerpsPositionsSectionDataProvider: ActivityListViewController
         self.topSpacing = topSpacing
     }
 
-    private lazy var positionRegistration = UICollectionView.CellRegistration<PerpsPositionCell, PerpsPositionRowDisplayData> { cell, _, position in
-        cell.configure(position)
+    private lazy var positionRegistration = UICollectionView.CellRegistration<PerpsPositionCell, PerpsPositionRowDisplayData> { [weak self] cell, _, position in
+        cell.configure(position, isStale: self?.data?.isStale == true)
         cell.configurationUpdateHandler = { cell, state in cell.isHighlighted = state.isHighlighted }
     }
     private lazy var showAllRegistration = UICollectionView.CellRegistration<WalletSeeAllCell, String> { [weak self] cell, _, _ in
         guard let self else { return }
         cell.baseBackgroundColor = .air.groupedItem
-        cell.configurePositions(positionsCount: max(data?.totalCount ?? 0, data?.positions.count ?? 0))
+        cell.configurePositions(positionsCount: data?.positions.count ?? 0)
         cell.configurationUpdateHandler = { cell, state in cell.isHighlighted = state.isHighlighted }
     }
     private lazy var statusRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [weak self] cell, _, _ in
@@ -125,7 +124,7 @@ public final class PerpsPositionsSectionDataProvider: ActivityListViewController
     public func shouldSelect(itemIdentifier: String) -> Bool {
         if itemIdentifier == statusID, case .unavailable = data?.status { return true }
         guard data?.status == .ready else { return false }
-        return itemIdentifier == showAllID || visiblePositions.contains { rowID($0.id) == itemIdentifier && $0.canSelect }
+        return itemIdentifier == showAllID || visiblePositions.contains { rowID($0.id) == itemIdentifier }
     }
 
     public func didSelect(itemIdentifier: String) {

@@ -98,7 +98,7 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertEqual(viewer.currentIndex, 1)
         XCTAssertEqual(sources[0].alpha, 1)
         XCTAssertEqual(sources[1].alpha, 0)
-        XCTAssertEqual(viewer.headerView.counterLabel.text, L10n.agentWalletPageIndicator(current: 2, total: 2))
+        XCTAssertEqual(viewer.headerView.titleLabel.text, L10n.agentWalletPageIndicator(current: 2, total: 2))
 
         var isClosed = false
         viewer.onClose = { isClosed = true }
@@ -423,7 +423,7 @@ final class AgentMediaViewerTests: XCTestCase {
         )
         let viewer = try XCTUnwrap(MediaViewer.present(
             pictures: [.init(url: nil, image: makePicture(), title: "Picture", details: .init(
-                author: "Source", date: "Today, 10:00", caption: caption, actions: []
+                date: "Today, 10:00", caption: caption, actions: []
             ))],
             index: 0,
             in: window,
@@ -454,45 +454,86 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertEqual(footer.frame.minY, restingTop, accuracy: 0.5)
     }
 
-    /// "N of M" stands under the capsule over several pictures while they page and for 2 s after, as in Telegram, and
-    /// a single picture has none
-    func testCounterShowsNOfMWhileSeveralPicturesPage() async throws {
+    /// "N of M" is the capsule's first line over several pictures, over the date, and stays as they page; a single
+    /// picture has no counter, its date alone on the first line
+    func testCounterIsTheCapsulesTitleOverSeveralPictures() throws {
         let window = makeKeyWindow(showing: UIViewController())
         defer { window.isHidden = true }
         let viewer = try XCTUnwrap(MediaViewer.present(
-            pictures: (0..<3).map { .init(url: nil, image: makePicture(), title: "Picture \($0)") },
+            pictures: (0..<3).map {
+                .init(url: nil, image: makePicture(), title: "Picture \($0)", details: .init(
+                    date: "Today, 10:0\($0)", caption: nil, actions: []
+                ))
+            },
             index: 1,
             in: window,
             source: { _ in nil }
         ))
         defer { viewer.removeFromSuperview() }
+        viewer.layoutIfNeeded()
         let header = viewer.headerView
         XCTAssertEqual(viewer.counterText, L10n.agentWalletPageIndicator(current: 2, total: 3))
-        XCTAssertEqual(header.counterLabel.text, viewer.counterText)
-        XCTAssertFalse(header.isCounterShown)
-        XCTAssertFalse(header.counterGlass.isMaterialized)
+        XCTAssertEqual(header.titleLabel.text, viewer.counterText)
+        XCTAssertEqual(header.titleLabel.font, MediaViewerHeaderView.titleFont)
+        XCTAssertEqual(header.subtitleLabel.text, "Today, 10:01")
+        XCTAssertEqual(header.titleGlass.accessibilityLabel, "\(viewer.counterText!), Today, 10:01")
+        let title = header.titleLabel.convert(header.titleLabel.bounds, to: header.titleGlass)
+        let subtitle = header.subtitleLabel.convert(header.subtitleLabel.bounds, to: header.titleGlass)
+        XCTAssertLessThan(title.maxY, subtitle.minY + 0.5)
+        XCTAssertEqual(title.minY, header.titleGlass.bounds.height - subtitle.maxY, accuracy: 1)
+        // No pill of its own hangs under the capsule
+        XCTAssertFalse(header.subviews.contains { $0 is WGlassView && $0 !== header.titleGlass })
 
-        viewer.setPagingInteraction(true)
-        XCTAssertTrue(header.isCounterShown)
-        XCTAssertTrue(header.counterGlass.isMaterialized)
         viewer.showPicture(at: 2)
-        XCTAssertEqual(header.counterLabel.text, L10n.agentWalletPageIndicator(current: 3, total: 3))
-        viewer.setPagingInteraction(false)
-        XCTAssertTrue(header.isCounterShown)
-        try await waitUntil { !header.isCounterShown }
-        XCTAssertFalse(header.counterGlass.isMaterialized)
+        XCTAssertEqual(header.titleLabel.text, L10n.agentWalletPageIndicator(current: 3, total: 3))
+        XCTAssertEqual(header.subtitleLabel.text, "Today, 10:02")
+        XCTAssertTrue(header.titleGlass.isMaterialized)
 
         let single = try XCTUnwrap(MediaViewer.present(
-            pictures: [.init(url: nil, image: makePicture(), title: "Picture")],
+            pictures: [.init(url: nil, image: makePicture(), title: "Picture", details: .init(
+                date: "Today, 10:00", caption: nil, actions: []
+            ))],
             index: 0,
             in: window,
             source: { _ in nil }
         ))
         defer { single.removeFromSuperview() }
+        single.layoutIfNeeded()
         XCTAssertNil(single.counterText)
-        XCTAssertTrue(single.headerView.counterGlass.isHidden)
-        single.setPagingInteraction(true)
-        XCTAssertFalse(single.headerView.isCounterShown)
+        XCTAssertEqual(single.headerView.titleLabel.text, "Today, 10:00")
+        XCTAssertNil(single.headerView.subtitleLabel.text)
+        XCTAssertEqual(single.headerView.titleGlass.accessibilityLabel, "Today, 10:00")
+        let lone = single.headerView.titleLabel.convert(single.headerView.titleLabel.bounds, to: single.headerView.titleGlass)
+        XCTAssertEqual(lone.midY, single.headerView.titleGlass.bounds.midY, accuracy: 1)
+    }
+
+    /// The counter changes only its digits as the pictures page: the text both pages share stays, and only what
+    /// differs rolls
+    func testCounterChangesOnlyWhatDiffers() {
+        func change(_ old: String, _ new: String) -> MediaViewerAnimatedLabel.Change {
+            MediaViewerAnimatedLabel.getChange(from: old, to: new)
+        }
+        XCTAssertEqual(change("5 of 24", "6 of 24"), .init(prefix: "", removed: "5", inserted: "6", suffix: " of 24"))
+        XCTAssertEqual(change("11 of 24", "12 of 24"), .init(prefix: "1", removed: "1", inserted: "2", suffix: " of 24"))
+        XCTAssertEqual(change("9 of 24", "10 of 24"), .init(prefix: "", removed: "9", inserted: "10", suffix: " of 24"))
+        XCTAssertEqual(change("10 of 24", "9 of 24"), .init(prefix: "", removed: "10", inserted: "9", suffix: " of 24"))
+        XCTAssertEqual(change("1 of 11", "11 of 11"), .init(prefix: "1", removed: "", inserted: "1", suffix: " of 11"))
+        XCTAssertEqual(change("Today, 10:00", "Today, 10:00"), .init(prefix: "Today, 10:00", removed: "", inserted: "", suffix: ""))
+
+        let label = MediaViewerAnimatedLabel(frame: CGRect(x: 0, y: 0, width: 200, height: 24))
+        let window = makeKeyWindow(showing: UIViewController())
+        defer { window.isHidden = true }
+        window.addSubview(label)
+        label.setText("5 of 24", direction: .forward, animated: false)
+        XCTAssertEqual(label.runLabels.map(\.text), ["5 of 24"])
+        label.setText("6 of 24", direction: .forward, animated: true)
+        XCTAssertEqual(label.text, "6 of 24")
+        XCTAssertEqual(label.runLabels.map(\.text), ["", "6", " of 24"])
+        label.layoutIfNeeded()
+        // The parts stand side by side as the whole text would, centred
+        let frames = label.runLabels.map(\.frame)
+        XCTAssertEqual(frames[1].maxX, frames[2].minX, accuracy: 1)
+        XCTAssertEqual(frames[1].minX + frames[2].maxX, label.bounds.width, accuracy: 2)
     }
 
     /// A tap on the picture slides the bars out and back as Telegram's gallery does, and while they are out their
@@ -506,7 +547,7 @@ final class AgentMediaViewerTests: XCTestCase {
         ]
         let viewer = try XCTUnwrap(MediaViewer.present(
             pictures: [.init(url: nil, image: makePicture(), title: "Picture", details: .init(
-                author: "Source", date: "Today, 10:00", caption: NSAttributedString(string: "Caption"), actions: actions
+                date: "Today, 10:00", caption: NSAttributedString(string: "Caption"), actions: actions
             ))],
             index: 0,
             in: window,
@@ -525,7 +566,7 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertTrue(header.backGroup.glassView.isMaterialized)
         XCTAssertTrue(footer.trailingGroup.glassView.isMaterialized)
         XCTAssertEqual(header.backGroup.buttons.first?.accessibilityLabel, lang("Back"))
-        XCTAssertEqual(header.titleGlass.accessibilityLabel, "Source, Today, 10:00")
+        XCTAssertEqual(header.titleGlass.accessibilityLabel, "Today, 10:00")
         XCTAssertEqual(footer.leadingGroup.buttons.map(\.accessibilityLabel), ["Share"])
         XCTAssertEqual(footer.trailingGroup.buttons.map(\.accessibilityLabel), ["Copy"])
         XCTAssertLessThan(footer.leadingGroup.frame.minX, footer.trailingGroup.frame.minX)
@@ -642,9 +683,8 @@ final class AgentMediaViewerTests: XCTestCase {
     }
 
     /// The viewer's bar stands where the Agent chat's header stands on the same screen, as Telegram's gallery bar stands
-    /// where the chat's does: the back button in the threads button's place and the capsule on the title pill's line,
-    /// the counter's pill hanging 9 pt under it. The navigation bar puts its buttons at its top, 44 pt bars and the
-    /// 54 pt ones of iOS 26 alike.
+    /// where the chat's does: the back button in the threads button's place and the capsule on the title pill's line.
+    /// The navigation bar puts its buttons at its top, 44 pt bars and the 54 pt ones of iOS 26 alike.
     func testViewerBarStandsWhereTheAgentHeaderStands() async throws {
         let screen = try await AgentHeaderScreen()
         defer { screen.window.isHidden = true }
@@ -665,8 +705,6 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertEqual(capsule.minY, chatPill.minY, accuracy: 0.5)
         XCTAssertEqual(capsule.height, chatPill.height)
         XCTAssertEqual(capsule.midX, chatPill.midX, accuracy: 1)
-        let counter = header.counterGlass.convert(header.counterGlass.bounds, to: screen.window)
-        XCTAssertEqual(counter.minY, capsule.maxY + 9, accuracy: 0.5)
     }
 
     /// The bars fade as a swipe down moves the picture, gone once it has moved 50 pt as in Telegram, and come back as
@@ -676,7 +714,7 @@ final class AgentMediaViewerTests: XCTestCase {
         defer { window.isHidden = true }
         let viewer = try XCTUnwrap(MediaViewer.present(
             pictures: [.init(url: nil, image: makePicture(), title: "Picture", details: .init(
-                author: "Source", date: "Today, 10:00", caption: NSAttributedString(string: "Caption"), actions: []
+                date: "Today, 10:00", caption: NSAttributedString(string: "Caption"), actions: []
             ))],
             index: 0,
             in: window,
@@ -699,7 +737,7 @@ final class AgentMediaViewerTests: XCTestCase {
         XCTAssertTrue(viewer.headerView.titleGlass.isMaterialized)
     }
 
-    /// A news picture shows its post as Telegram's gallery shows a message: the source and the date on the capsule,
+    /// A news picture shows its post as Telegram's gallery shows a message: the date on the capsule, without the source,
     /// the headline and the body as the caption, and the post's menu as the footer's buttons, Share at the leading end
     func testNewsPictureShowsItsPostAroundIt() async throws {
         let window = makeKeyWindow(showing: UIViewController())
@@ -716,8 +754,9 @@ final class AgentMediaViewerTests: XCTestCase {
         ))
         defer { viewer.removeFromSuperview() }
         let (day, time) = AgentModel.formatChatDate(for: date)
-        XCTAssertEqual(viewer.headerView.authorLabel.text, "Source")
-        XCTAssertEqual(viewer.headerView.dateLabel.text, "\(day), \(time)")
+        XCTAssertEqual(viewer.headerView.titleLabel.text, "\(day), \(time)")
+        XCTAssertNil(viewer.headerView.subtitleLabel.text)
+        XCTAssertEqual(viewer.headerView.titleGlass.accessibilityLabel, "\(day), \(time)")
         let caption = viewer.footerView.captionTextView.attributedText.string
         XCTAssertEqual(caption, "Headline 7\nNews body 7.")
         XCTAssertEqual(viewer.footerView.leadingGroup.buttons.map(\.accessibilityLabel), [lang("Share")])
@@ -894,7 +933,7 @@ private final class ListUnderHeader {
         let source = source
         return try XCTUnwrap(MediaViewer.present(
             pictures: [.init(url: nil, image: makePicture(), title: "Picture", details: .init(
-                author: "Source", date: "Today, 10:00", caption: nil, actions: []
+                date: "Today, 10:00", caption: nil, actions: []
             ))],
             index: 0,
             in: window,
@@ -955,7 +994,7 @@ private final class AgentHeaderScreen {
     func presentViewer(over source: UIImageView?) throws -> MediaViewer {
         let viewer = try XCTUnwrap(MediaViewer.present(
             pictures: (0..<2).map { .init(url: nil, image: makePicture(), title: "Picture \($0)", details: .init(
-                author: "Source", date: "Today, 10:00", caption: nil, actions: []
+                date: "Today, 10:00", caption: nil, actions: []
             )) },
             index: 0,
             in: window,

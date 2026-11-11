@@ -9,7 +9,8 @@ import WalletCore
 @MainActor @Perceptible
 public final class HomeBannersSection {
     public let id = "home-banners"
-    public private(set) var isVisible = false
+    // Snapshot builders must not subscribe unrelated section observers to banner visibility
+    @PerceptionIgnored public private(set) var isVisible = false
     private var accountContext: AccountContext?
     private let topSpacing: CGFloat
     private let bottomSpacing: CGFloat

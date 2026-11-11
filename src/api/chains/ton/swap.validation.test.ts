@@ -94,7 +94,33 @@ function buildConfigCell() {
     .endCell();
 }
 
-describe('validateDexSwapTransfers Uranus memepad buys', () => {
+describe('validateDexSwapTransfers standard native-in swaps', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it.each([
+    'UQC9lQOaEHC6YASiJJ2NrKEOlITMMQmc8j0_iZEHy-4sl3tG',
+    'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2',
+  ])('accepts a standard swap fee sent to diesel collector %s', async (feeAddress) => {
+    jest.mocked(getContractInfo).mockResolvedValueOnce({
+      isInitialized: true,
+      isSwapAllowed: true,
+      codeHash: '875fac5e08e5062f0f7c5c9f4c989607108e35a9ad88dc563e3e4fc7a3d3e75c',
+      contractInfo: {
+        name: 'dedustVaultNativeV2',
+        hash: '875fac5e08e5062f0f7c5c9f4c989607108e35a9ad88dc563e3e4fc7a3d3e75c',
+        isSwapAllowed: true,
+      },
+    });
+    const transfers = withFee(buildTransfer({ payload: undefined }));
+    transfers[1].toAddress = feeAddress;
+
+    await expect(validateDexSwapTransfers(
+      'mainnet', USER_ADDRESS, buildRequest(), transfers, ACCOUNT,
+    )).resolves.toBeUndefined();
+  });
+
   it('keeps standard native-in swap contract validation unchanged', async () => {
     jest.mocked(getContractInfo).mockResolvedValueOnce({
       isInitialized: true,
@@ -115,7 +141,9 @@ describe('validateDexSwapTransfers Uranus memepad buys', () => {
       ACCOUNT,
     )).resolves.toBeUndefined();
   });
+});
 
+describe('validateDexSwapTransfers Uranus memepad buys', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(getContractInfo).mockResolvedValue({

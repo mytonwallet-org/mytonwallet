@@ -47,6 +47,7 @@ export type StorageKey = 'accounts'
   | 'installAttribution'
   | 'installMetadata'
   | 'attributionTechnicalClaimed'
+  | 'attributionOutcomeClaimed'
   // For extension
   | 'dapps'
   | 'dappMethods:lastAccountId'

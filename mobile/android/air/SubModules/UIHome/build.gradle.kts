@@ -24,6 +24,7 @@ dependencies {
     implementation(project("$airSubModulePath:UISettings"))
     implementation(project("$airSubModulePath:UIAgent"))
     implementation(project("$airSubModulePath:UIMarket"))
+    implementation(project("$airSubModulePath:UIFutures"))
     implementation(project("$airSubModulePath:UIPortfolio"))
     implementation(project("$airSubModulePath:UITransaction"))
     implementation(project("$airSubModulePath:UIComponents"))

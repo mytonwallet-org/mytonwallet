@@ -15,7 +15,7 @@ test.describe('Agent V2 answer links', () => {
         localStorage.setItem(key, JSON.stringify(state));
       }, { accent: accentColorIndex, selectedTheme: theme });
       await agentV2.open();
-      await agentV2.acceptConsent();
+      await agentV2.waitForList();
       await agentV2.send('Where are the TON docs?');
       await agentV2.completeRun();
       const link = getAnswer(page).getByRole('link', { name: 'TON docs', exact: true });
@@ -40,7 +40,7 @@ test.describe('Agent V2 answer links', () => {
     await agentV2.reset('answer-links');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Where are the TON docs?');
     const answer = getAnswer(page);
@@ -70,7 +70,7 @@ test.describe('Agent V2 answer links', () => {
     await agentV2.reset('answer-link-events');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Where can I read about TON?');
     await expectSiteLinkOnly(page);

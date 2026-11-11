@@ -116,6 +116,7 @@ class SwapEstimatedInfo(
     fun setEstimated(est: SwapEstimateResponse?, toToken: IApiToken?) {
         val transactionFee = est?.transactionFeeFmt2
         estBlockchainFee.value = transactionFee
+        estBlockchainFee.isValueError = est?.hasInsufficientFeeError == true
         estBlockchainFee.visibility = if (transactionFee == null) GONE else VISIBLE
         this.est = est
         if (availableFeeDetails != null) {

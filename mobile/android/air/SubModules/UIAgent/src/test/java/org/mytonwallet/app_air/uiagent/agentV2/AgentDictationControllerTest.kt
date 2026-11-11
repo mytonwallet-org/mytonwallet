@@ -6,6 +6,7 @@ import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
@@ -13,6 +14,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
+
+// A few of the controller's 80 ms samples
+private const val TICKS_MS = 250L
 
 class AgentDictationControllerTest {
     @Test
@@ -274,6 +278,41 @@ class AgentDictationControllerTest {
     }
 
     @Test
+    fun pausedRecordingStopsItsTimeAndResumesTheSameRecording() = runBlocking {
+        val fixture = Fixture(this)
+        fixture.controller.startHandsFree()
+        fixture.started.await()
+        fixture.now = 1000
+
+        fixture.controller.pause()
+        assertTrue(fixture.controller.state.isPaused)
+        assertEquals(1000, fixture.controller.state.elapsedMs)
+
+        // A pause doesn't count toward the limit
+        fixture.now = 61_000
+        delay(TICKS_MS)
+        assertEquals(AgentDictationPhase.RECORDING, fixture.controller.state.phase)
+        assertEquals(1000, fixture.controller.state.elapsedMs)
+        assertEquals(0, fixture.recorder.finishCalls)
+
+        fixture.controller.resume()
+        fixture.now = 61_500
+        delay(TICKS_MS)
+        assertEquals(1500, fixture.controller.state.elapsedMs)
+
+        fixture.controller.pause()
+        fixture.controller.finish()
+        fixture.recorder.cancelled.await()
+
+        assertEquals(1, fixture.recorder.startCalls)
+        assertEquals(2, fixture.recorder.pauseCalls)
+        assertEquals(1, fixture.recorder.resumeCalls)
+        assertEquals(1, fixture.recorder.finishCalls)
+        assertEquals(listOf("Text"), fixture.transcripts)
+        assertTrue(fixture.failures.isEmpty())
+    }
+
+    @Test
     fun cancellingDuringEncodingReleasesTheRecorderAndOldCleanupCannotCancelTheNewOne() =
         runBlocking {
             val encodingStarted = CompletableDeferred<Unit>()
@@ -369,12 +408,22 @@ class AgentDictationControllerTest {
         val cancelled = CompletableDeferred<Unit>()
         var startCalls = 0
         var finishCalls = 0
+        var pauseCalls = 0
+        var resumeCalls = 0
 
         override fun start() {
             startCalls++
         }
 
         override fun amplitude() = amplitude
+
+        override fun pause() {
+            pauseCalls++
+        }
+
+        override fun resume() {
+            resumeCalls++
+        }
 
         override suspend fun finish(): String {
             finishCalls++
@@ -396,6 +445,10 @@ class AgentDictationControllerTest {
         }
 
         override fun amplitude() = 2000
+
+        override fun pause() = Unit
+
+        override fun resume() = Unit
 
         override suspend fun finish() = encode()
 

@@ -39,6 +39,7 @@ struct PaletteAndCardSection: View {
                 Image.airBundle("RightArrowIcon")
             }
         }
+        .accessibilityIdentifier("appearance_customize_wallet")
     }
     
     func onTap() {

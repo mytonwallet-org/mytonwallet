@@ -2,7 +2,7 @@ import UIKit
 import WalletContext
 
 public final class WInteractiveGlassButton: WButton {
-    private let glassView = UIVisualEffectView()
+    private let glassView = WGlassView(cornerRadius: nil)
     public let glassTitleLabel = UILabel()
     private let glassImageView = UIImageView()
     private var outgoingTitleLabels: [UILabel] = []
@@ -20,11 +20,6 @@ public final class WInteractiveGlassButton: WButton {
         glassImageView.contentMode = .center
         configuration = nil
         backgroundColor = .clear
-        if #available(iOS 26, *) {
-            glassView.cornerConfiguration = .capsule()
-        } else {
-            glassView.clipsToBounds = true
-        }
         glassView.contentView.addSubview(glassTitleLabel)
         glassView.contentView.addSubview(glassImageView)
         if glassView.superview == nil {
@@ -98,14 +93,11 @@ public final class WInteractiveGlassButton: WButton {
 
     public func setGlassTintColor(_ color: UIColor) {
         glassTintColor = color
-        if #available(iOS 26, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.isInteractive = true
-            effect.tintColor = color
-            glassView.effect = effect
-        } else {
-            glassView.effect = UIBlurEffect(style: .systemMaterialLight)
-        }
+        glassView.setTint(color)
+    }
+
+    func setGlassMaterialized(_ isMaterialized: Bool) {
+        glassView.setMaterialized(isMaterialized)
     }
 
     public override var isEnabled: Bool {

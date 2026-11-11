@@ -9,7 +9,7 @@ import {
   socketMessage,
   wallet2,
 } from '../../../tests/helpers/swapReconcilerFixtures';
-import { fetchPastActivities, reconcileActivityUpdate } from './activities';
+import { fetchActivityDetails, fetchPastActivities, reconcileActivityUpdate } from './activities';
 
 jest.mock('../common/accounts', () => ({
   ...jest.requireActual('../common/accounts'),
@@ -39,6 +39,7 @@ jest.mock('../chains', () => {
         if (!stubsByChain.has(chain)) {
           stubsByChain.set(chain, {
             fetchActivitySlice: jest.fn().mockResolvedValue([]),
+            fetchActivityDetails: jest.fn().mockResolvedValue(undefined),
             crosschain: {
               fetchCrossChainActivitySlice: jest.fn().mockResolvedValue([]),
             },
@@ -58,6 +59,7 @@ const { fetchStoredAccount } = require('../common/accounts') as {
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const chains = require('../chains').default as Record<string, {
   fetchActivitySlice: jest.Mock;
+  fetchActivityDetails: jest.Mock;
   crosschain: { fetchCrossChainActivitySlice: jest.Mock };
 }>;
 
@@ -183,6 +185,28 @@ describe('fetchPastActivities', () => {
       signal: new AbortController().signal,
       shouldThrowOnError: true,
     })).rejects.toBe(error);
+  });
+});
+
+describe('fetchActivityDetails', () => {
+  const [swapRow] = activitiesFromBackendRows([fixtures.nearIntentsBackend.swapRowVersions[0]]);
+  const dexSwapRow = { ...swapRow, cex: undefined, shouldLoadDetails: true };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('stops waiting for details that no chain of the activity loads', async () => {
+    const detailed = await fetchActivityDetails('0-mainnet', dexSwapRow);
+
+    expect(detailed).toEqual({ ...dexSwapRow, shouldLoadDetails: undefined });
+  });
+
+  it('returns the details a chain loads', async () => {
+    const chainDetails = { ...dexSwapRow, networkFee: '0.000005', shouldLoadDetails: undefined };
+    chains.solana.fetchActivityDetails.mockResolvedValueOnce(chainDetails);
+
+    await expect(fetchActivityDetails('0-mainnet', dexSwapRow)).resolves.toBe(chainDetails);
   });
 });
 

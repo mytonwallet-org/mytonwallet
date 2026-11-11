@@ -37,7 +37,7 @@ class PasscodeKeyboardView(
         private const val HEIGHT = 80
         private const val MAX_BUTTON_WIDTH = 120
 
-        // Stable resource ids for UI automation (Maestro `id:` selectors)
+        // Stable resource ids for UI automation
         private val digitKeyIds = intArrayOf(
             PasscodeR.id.passcode_key_0,
             PasscodeR.id.passcode_key_1,

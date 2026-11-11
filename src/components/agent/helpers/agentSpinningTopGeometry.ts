@@ -1,7 +1,7 @@
 /**
- * The Agent's spinning top as a smooth surface of revolution around the y axis, fitted to the flat mark: a rounded
- * point, flanks that curve in toward a thin rim low on the body, a long concave flare up into the stem, and a rounded
- * cap. The point sits at the origin, where the top pivots as it precesses. The same surface as on iOS and Android.
+ * The Agent's spinning top as a smooth surface of revolution around the y axis: a rounded point, concave flanks that
+ * flare to a thin rim low on the body with a rounded edge, a long concave flare up into the stem, and a rounded cap.
+ * The point sits at the origin, where the top pivots as it precesses. The same surface as on iOS and Android.
  */
 
 /** The camera's elevation above the rim's plane, at which the top shows the mark's silhouette */
@@ -17,44 +17,66 @@ export const RESTING_OFFSET_Y = -0.722;
 /** Half of the box side in model units: the mark's 48 px box at 26.1 px per unit */
 export const BOX_HALF_EXTENT = 0.92;
 
+/** The extent of something along one axis of the window, in CSS pixels */
+interface AgentExpansionSpan {
+  start: number;
+  end: number;
+}
+
+/** A top growing out of its resting place keeps this far from the window's sides, unless it rests nearer already */
+const SCREEN_EDGE_INSET = 16;
+
 /** Position and normal of each vertex, three floats each */
 export const FLOATS_PER_VERTEX = 6;
 
 /**
  * The profile in (radius, height), from the point up to the cap, through which a centripetal Catmull–Rom spline runs.
- * Fitted so the top, leaning and seen from the camera's elevation, covers the mark.
+ * The rim, 0.68 across from the axis, is the widest ring.
  */
 const PROFILE: readonly (readonly [number, number])[] = [
   [0.0000, 0.0000],
-  [0.0479, 0.0134],
-  [0.0843, 0.0652],
-  [0.1112, 0.1073],
-  [0.1380, 0.1610],
-  [0.1687, 0.2223],
-  [0.2070, 0.2798],
-  [0.2837, 0.3527],
-  [0.4600, 0.4447],
+  [0.0356, 0.0067],
+  [0.0649, 0.0318],
+  [0.0822, 0.0627],
+  [0.1203, 0.1331],
+  [0.1756, 0.2413],
+  [0.2366, 0.3151],
+  [0.2874, 0.3543],
+  [0.3389, 0.3844],
+  [0.4176, 0.4191],
+  [0.5191, 0.4496],
+  [0.6140, 0.4676],
   // The rim: its lower edge, its rounded outer edge and its upper edge
-  [0.6747, 0.4696],
-  [0.7283, 0.4887],
-  [0.6747, 0.5079],
-  [0.4907, 0.5309],
-  [0.3450, 0.5865],
-  [0.2722, 0.6555],
-  [0.2300, 0.7092],
-  [0.1955, 0.7667],
-  [0.1687, 0.8280],
-  [0.1418, 0.9200],
-  [0.1265, 1.0158],
-  [0.1169, 1.1308],
-  [0.1112, 1.2267],
-  [0.1054, 1.3225],
-  [0.0862, 1.4030],
-  [0.0479, 1.4605],
+  [0.6467, 0.4727],
+  [0.6630, 0.4810],
+  [0.6747, 0.4929],
+  [0.6791, 0.5093],
+  [0.6747, 0.5256],
+  [0.6630, 0.5375],
+  [0.6467, 0.5458],
+  [0.6102, 0.5520],
+  [0.5190, 0.5734],
+  [0.4677, 0.5895],
+  [0.3864, 0.6215],
+  [0.3408, 0.6444],
+  [0.3082, 0.6673],
+  [0.2333, 0.7440],
+  [0.1967, 0.7981],
+  [0.1761, 0.8423],
+  [0.1556, 0.9032],
+  [0.1271, 1.0183],
+  [0.1060, 1.1741],
+  [0.0917, 1.3553],
+  [0.0740, 1.4280],
+  [0.0526, 1.4588],
+  [0.0353, 1.4705],
   [0.0000, 1.4797],
 ];
 
-export interface AgentSpinningTopMesh {
+const DENSE_PROFILE_STEPS_PER_SPAN = 96;
+const TURNING_ANGLE_SHARE = 0.05;
+
+interface AgentSpinningTopMesh {
   vertices: Float32Array;
   indices: Uint32Array;
 }
@@ -123,13 +145,13 @@ export function buildAgentSpinningTopMesh(profileSamples = 160, segments = 144):
  * the cap get denser rings than the gently curving flanks
  */
 function sampleProfile(count: number): ProfilePoint[] {
-  const dense = makeDenseProfile(96);
+  const dense = makeDenseProfile(DENSE_PROFILE_STEPS_PER_SPAN);
   const measure = new Float64Array(dense.length);
   for (let i = 1; i < dense.length; i++) {
     const length = Math.hypot(dense[i].x - dense[i - 1].x, dense[i].y - dense[i - 1].y);
     const dot = dense[i].tangentX * dense[i - 1].tangentX + dense[i].tangentY * dense[i - 1].tangentY;
     const turn = Math.acos(Math.min(1, Math.max(-1, dot)));
-    measure[i] = measure[i - 1] + length + 0.05 * turn;
+    measure[i] = measure[i - 1] + length + TURNING_ANGLE_SHARE * turn;
   }
 
   const total = measure[measure.length - 1];
@@ -197,22 +219,22 @@ function computeCentripetalPoint(
   p3: readonly [number, number],
   fraction: number,
 ): readonly [number, number] {
-  const advanceKnot = (t: number, a: readonly [number, number], b: readonly [number, number]) => (
-    t + Math.sqrt(Math.max(Math.hypot(b[0] - a[0], b[1] - a[1]), 1e-6))
-  );
+  function advanceKnot(t: number, a: readonly [number, number], b: readonly [number, number]) {
+    return t + Math.sqrt(Math.max(Math.hypot(b[0] - a[0], b[1] - a[1]), 1e-6));
+  }
   const t0 = 0;
   const t1 = advanceKnot(t0, p0, p1);
   const t2 = advanceKnot(t1, p1, p2);
   const t3 = advanceKnot(t2, p2, p3);
   const t = t1 + (t2 - t1) * fraction;
-  const interpolate = (axis: 0 | 1) => {
+  function interpolate(axis: 0 | 1) {
     const a1 = ((t1 - t) / (t1 - t0)) * p0[axis] + ((t - t0) / (t1 - t0)) * p1[axis];
     const a2 = ((t2 - t) / (t2 - t1)) * p1[axis] + ((t - t1) / (t2 - t1)) * p2[axis];
     const a3 = ((t3 - t) / (t3 - t2)) * p2[axis] + ((t - t2) / (t3 - t2)) * p3[axis];
     const b1 = ((t2 - t) / (t2 - t0)) * a1 + ((t - t0) / (t2 - t0)) * a2;
     const b2 = ((t3 - t) / (t3 - t1)) * a2 + ((t - t1) / (t3 - t1)) * a3;
     return ((t2 - t) / (t2 - t1)) * b1 + ((t - t1) / (t2 - t1)) * b2;
-  };
+  }
 
   return [interpolate(0), interpolate(1)];
 }
@@ -220,7 +242,8 @@ function computeCentripetalPoint(
 /**
  * The top turned by `yaw` about its own axis, the axis leaning by `lean` toward `leanDirection` and pivoting on the
  * point at the origin, all seen from `pitch` above, into `out` as a column-major 4 × 4 matrix. Direction 0 leans to
- * the right, as the mark does; it advances the way the top spins.
+ * the right, as the mark does. A growing yaw and lean direction turn counter-clockwise as seen from above; the top,
+ * which spins clockwise, passes both negated.
  */
 export function computeAgentSpinningTopTransform(
   yaw: number,
@@ -239,12 +262,12 @@ export function computeAgentSpinningTopTransform(
   const tiltZ = -Math.cos(leanDirection) * tiltSin;
   const cameraSin = Math.sin(pitch / 2);
   const cameraCos = Math.cos(pitch / 2);
-  // tilt × spin, spin being (0, spinSin, 0, spinCos)
+  // Tilt × spin, spin being (0, `spinSin`, 0, `spinCos`)
   const tiltSpinX = tiltX * spinCos - tiltZ * spinSin;
   const tiltSpinY = tiltCos * spinSin;
   const tiltSpinZ = tiltZ * spinCos + tiltX * spinSin;
   const tiltSpinW = tiltCos * spinCos;
-  // camera × (tilt × spin), camera being (cameraSin, 0, 0, cameraCos)
+  // Camera × (tilt × spin), camera being (`cameraSin`, 0, 0, `cameraCos`)
   const x = cameraCos * tiltSpinX + cameraSin * tiltSpinW;
   const y = cameraCos * tiltSpinY - cameraSin * tiltSpinZ;
   const z = cameraCos * tiltSpinZ + cameraSin * tiltSpinY;
@@ -265,4 +288,17 @@ export function computeAgentSpinningTopTransform(
   out[13] = 0;
   out[14] = 0;
   out[15] = 1;
+}
+
+/**
+ * How far something growing out of its resting place moves along one axis of the window, away from a side it would
+ * otherwise cross: toward the middle, keeping 16 px from the side, or as far from it as its resting place is already.
+ * The held spinning top grows this way.
+ */
+export function getAgentExpansionShift(resting: AgentExpansionSpan, grown: AgentExpansionSpan, windowSide: number) {
+  const startInset = Math.max(0, Math.min(SCREEN_EDGE_INSET, resting.start));
+  const endInset = Math.max(0, Math.min(SCREEN_EDGE_INSET, windowSide - resting.end));
+  if (grown.start < startInset) return startInset - grown.start;
+  if (grown.end > windowSide - endInset) return windowSide - endInset - grown.end;
+  return 0;
 }

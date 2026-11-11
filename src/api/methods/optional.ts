@@ -11,6 +11,7 @@
 import * as perpsAssets from '../common/perpsAssets';
 import * as agentV2Lifecycle from './agentV2Lifecycle';
 import * as mfaMethods from './mfa';
+import * as perpsPositions from './perpsPositions';
 import * as stakingMethods from './staking';
 import * as swapMethods from './swap';
 
@@ -41,6 +42,14 @@ export function requireStakingMethods() {
 export function requirePerpsAssets() {
   if (process.env.NO_EXTRA_FEATURES !== '1') {
     return perpsAssets;
+  }
+
+  throw new Error('Perps is not supported in this build');
+}
+
+export function requirePerpsPositions() {
+  if (process.env.NO_EXTRA_FEATURES !== '1') {
+    return perpsPositions;
   }
 
   throw new Error('Perps is not supported in this build');

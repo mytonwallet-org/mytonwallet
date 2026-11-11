@@ -1,8 +1,16 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
 
 object TonConfig : MBlockchainConfig {
+
+    override val usdtSlug = mapOf(
+        MBlockchainNetwork.MAINNET to TON_USDT_SLUG,
+        MBlockchainNetwork.TESTNET to TON_USDT_TESTNET_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = BigDecimal("0.4"),

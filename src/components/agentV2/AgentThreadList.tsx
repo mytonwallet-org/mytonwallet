@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useMemo, useRef, useState,
+  memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 
 import type {
@@ -10,32 +10,39 @@ import type {
 import type { AgentHint } from '../../global/types';
 
 import { IS_EXTENSION } from '../../config';
-import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
+import { requestForcedReflow, requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
 import { getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
-import { getIsInputMethodKey, stopEvent } from '../../util/domEvents';
+import { stopEvent } from '../../util/domEvents';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../util/swipeController';
+import { getSecretPhraseWordList, hasSecretPhrase } from '../../api/agentV2/secretPhrase';
+import { getReturnKeyAction, insertLineBreak } from '../agent/helpers/composerReturnKey';
+import getCanAnimate from '../agent/helpers/getCanAnimate';
+import { createSnapGhost, getSnapEffectKind, getSnapEffectLayer } from '../agent/helpers/snapEffect';
+import { startOpeningSuggestionMorph, startOpeningTextFlight } from './agentOpeningQuestion';
 import { buildAgentThreadListSections } from './agentThreadListSections';
 import { getIsAgentThreadUnread, subscribeToAgentThreadReadState } from './agentThreadReadState';
 import useAgentSuggestions from './useAgentSuggestions';
 import useAgentThreadListMotion from './useAgentThreadListMotion';
 import { closeAgentThreadSwipe } from './useAgentThreadSwipe';
 
+import useDerivedState from '../../hooks/useDerivedState';
 import useForceUpdate from '../../hooks/useForceUpdate';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useScrolledState from '../../hooks/useScrolledState';
+import useSignal from '../../hooks/useSignal';
 import useAgentLayoutSwitch from '../agent/hooks/useAgentLayoutSwitch';
-import useAgentV2Dictation, { getIsAgentDictationSupported } from '../agent/hooks/useAgentV2Dictation';
 
 import AgentHeader from '../agent/AgentHeader';
 import AgentHints from '../agent/AgentHints';
-import AgentInputBar from '../agent/AgentInputBar';
+import AgentLoadFailure from '../agent/AgentLoadFailure';
 import AgentNewsRow from './AgentNewsRow';
-import { AgentDictationAnnouncement, AgentDictationNotice } from './AgentStatusNotice';
+import { AgentFailureCaption } from './AgentStatusNotice';
 import AgentThreadListItem from './AgentThreadListItem';
 import AgentThreadListSkeleton from './AgentThreadListSkeleton';
+import AgentV2Composer from './AgentV2Composer';
 
 import styles from './AgentThreadList.module.scss';
 
@@ -45,11 +52,20 @@ interface OwnProps {
   items?: AgentThreadListItemV2[];
   /** The user changed the chats, as by a pin or a deletion, and the rows play the change out */
   isUserChange?: boolean;
+  /** Chats the user is deleting: their rows turn to dust at once and keep their place until the chats leave */
+  dissolvingThreadIds?: ReadonlySet<string>;
   hasMore: boolean;
+  /** The first page failed to load: empty lists show the failure in place; cached rows keep it below */
+  hasLoadFailed?: boolean;
+  /** The next page failed to load: the list ends with its failure line */
+  hasPageLoadFailed?: boolean;
+  isRetrying?: boolean;
   /** What the Agent is doing in each chat that answers, as a localization key */
   activityLangKeys: Record<string, string>;
   latestNewsItem?: AgentNewsFeedItemV2;
   newsUnreadCount: number;
+  /** The user has not allowed the Agent yet, so a question or a recording asks for consent first */
+  isDictationHeld?: boolean;
   onSelect: (threadId: string) => void;
   onOpenNews: NoneToVoidFunction;
   /**
@@ -57,7 +73,15 @@ interface OwnProps {
    * list, as on mobile.
    */
   onStartChat: (text: string, isInPlace: boolean) => void;
+  /**
+   * Carries out what the user did that sends something to the Agent once they allow it: at once if they have, or
+   * after the consent sheet's Allow. Closing the sheet drops it, and gives the `field` a question was sent from its
+   * focus back.
+   */
+  onRequestConsent: (action: NoneToVoidFunction, field?: HTMLElement) => void;
   onLoadMore: NoneToVoidFunction;
+  /** Loads the chats again after they failed to load, or the page that failed */
+  onRetry: NoneToVoidFunction;
   onRename: (thread: AgentThreadSummaryV2) => void;
   onTogglePin: (thread: AgentThreadSummaryV2) => void;
   onDelete: (thread: AgentThreadSummaryV2) => void;
@@ -67,20 +91,29 @@ interface OwnProps {
 const LOAD_MORE_THRESHOLD_PX = 200;
 // A list left while composing a chat shows its chats again once it is out of sight
 const COMPOSE_RESET_DELAY = 350;
-const IS_DICTATION_SUPPORTED = getIsAgentDictationSupported();
+const NO_THREAD_IDS: ReadonlySet<string> = new Set();
+const ROW_KEY_ATTRIBUTE = 'data-agent-row-key';
+const SECTION_KEY_PREFIX = 'section-';
 
 function AgentThreadList({
   isActive,
   items,
   isUserChange,
+  dissolvingThreadIds = NO_THREAD_IDS,
   hasMore,
+  hasLoadFailed,
+  hasPageLoadFailed,
+  isRetrying,
   activityLangKeys,
   latestNewsItem,
   newsUnreadCount,
+  isDictationHeld,
   onSelect,
   onOpenNews,
   onStartChat,
+  onRequestConsent,
   onLoadMore,
+  onRetry,
   onRename,
   onTogglePin,
   onDelete,
@@ -88,25 +121,13 @@ function AgentThreadList({
   const localState = useRef(getAgentV2LocalState()).current;
   const lang = useLang();
   const [switchedLayout] = useState(takeSwitchedLayout);
-  const [draft, setDraft] = useState(localState.draftOnMount);
-  // The list's field takes dictation as a chat's does; the transcript fills the draft, which then starts a new chat
-  const handleTranscript = useLastCallback((text: string) => {
-    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text));
-  });
-  const dictation = useAgentV2Dictation({ isActive, langCode: lang.code, onTranscript: handleTranscript });
-  const {
-    notice: dictationNotice, failure: dictationFailure, failureCount: dictationFailureCount,
-    dismissNotice: dismissDictationNotice,
-  } = dictation;
-
-  // Typing makes a dictation notice about an earlier phrase stale
-  const handleDraftInput = useLastCallback((value: string) => {
-    if (dictationNotice) dismissDictationNotice();
-    setDraft(value);
-  });
+  const [getDraft, setDraft] = useSignal(localState.draftOnMount);
+  const draft = useDerivedState(getDraft);
   // Focusing the field turns the list into a new chat with its suggestions, as on mobile
   const [isComposing, setIsComposing] = useState(Boolean(switchedLayout?.isComposing));
-  const isListEmpty = items?.length === 0;
+  // Chats that failed to load show the failure in place of the suggestions, which would say there are none
+  const isLoadFailureShown = Boolean(hasLoadFailed) && !items?.length;
+  const isListEmpty = items?.length === 0 && !isLoadFailureShown;
   const shouldShowSuggestions = isComposing || isListEmpty;
   const suggestions = useAgentSuggestions(lang, isActive, shouldShowSuggestions);
   const rootRef = useRef<HTMLElement>();
@@ -115,15 +136,60 @@ function AgentThreadList({
   const bodyRef = useRef<HTMLDivElement>();
   const { isScrolled, handleScroll: handleScrolledState } = useScrolledState();
   useAgentThreadListMotion(bodyRef, items, isUserChange);
+
+  // A deleted chat's row turns to dust as soon as the user confirms, as Telegram's deleted messages do, or fades out
+  // where dust isn't drawn, and its place closes once the chat leaves the list. The title of a section it leaves empty
+  // goes with it. A deletion that fails shows the row again.
+  const [dissolvedThreadIds, setDissolvedThreadIds] = useState<ReadonlySet<string>>(NO_THREAD_IDS);
+  const previousDissolvingIdsRef = useRef(dissolvingThreadIds);
+  useLayoutEffect(() => {
+    const previousIds = previousDissolvingIdsRef.current;
+    previousDissolvingIdsRef.current = dissolvingThreadIds;
+    const addedIds = [...dissolvingThreadIds].filter((id) => !previousIds.has(id));
+    const endedIds = [...previousIds].filter((id) => !dissolvingThreadIds.has(id));
+    if (endedIds.length) {
+      setDissolvedThreadIds((current) => new Set([...current].filter((id) => !endedIds.includes(id))));
+    }
+    if (!addedIds.length || !isActive) return;
+
+    const kind = getSnapEffectKind(getCanAnimate());
+    requestForcedReflow(() => {
+      const body = bodyRef.current;
+      if (!body) return undefined;
+
+      const bodyRect = body.getBoundingClientRect();
+      const rows = addedIds
+        .map((id) => body.querySelector<HTMLElement>(`[${ROW_KEY_ATTRIBUTE}="${CSS.escape(id)}"]`))
+        .filter((element): element is HTMLElement => Boolean(element));
+      const ghosts = [...rows, ...findLeavingSectionTitles(rows, dissolvingThreadIds)]
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > bodyRect.top && rect.top < bodyRect.bottom;
+        })
+        .map((element) => {
+          const ghost = createSnapGhost(element, kind);
+          // The copy is no row of the list, which finds its rows by this key
+          ghost.querySelectorAll(`[${ROW_KEY_ATTRIBUTE}]`).forEach((copy) => copy.removeAttribute(ROW_KEY_ATTRIBUTE));
+          return ghost;
+        });
+
+      return () => {
+        const layer = getSnapEffectLayer();
+        ghosts.forEach((ghost) => layer.appendChild(ghost));
+        setDissolvedThreadIds((current) => new Set([...current, ...addedIds]));
+      };
+    });
+  }, [dissolvingThreadIds, isActive]);
   const forceUpdate = useForceUpdate();
 
+  // A save that comes after the app switched layouts keeps the draft typed since this render
   useEffect(() => {
-    localState.draftOnMount = draft;
-  }, [draft, localState]);
+    localState.draftOnMount = getDraft();
+  }, [draft, getDraft, localState]);
 
   useAgentLayoutSwitch(() => {
-    // The effect that keeps the draft may not have run yet
-    localState.draftOnMount = draft;
+    // A layout handoff can precede the render for the last input event
+    localState.draftOnMount = getDraft();
     localState.switchedLayoutOnMount = {
       isComposing,
       isInputFocused: Boolean(inputRef.current) && document.activeElement === inputRef.current,
@@ -145,6 +211,7 @@ function AgentThreadList({
   useEffect(() => subscribeToAgentThreadReadState(forceUpdate), [forceUpdate]);
 
   const sections = useMemo(() => (items ? buildAgentThreadListSections(items, lang) : undefined), [items, lang]);
+  const hasBody = Boolean(sections) || isLoadFailureShown;
 
   // The rows come back to where the other layout showed them, once they have loaded again
   const restoredScrollTopRef = useRef(switchedLayout?.scrollTop);
@@ -155,9 +222,9 @@ function AgentThreadList({
     if (!hasRows || !body || !scrollTop) return;
 
     restoredScrollTopRef.current = undefined;
-    requestMutation(() => {
-      body.scrollTop = scrollTop;
-    });
+    // The list scrolls smoothly (`.custom-scroll`), which would scroll the rows in from the top rather than restore them.
+    // `scrollTo` lays the page out, so it runs here, in the measure phase.
+    body.scrollTo({ top: scrollTop, behavior: 'instant' });
   }, [hasRows]);
 
   const handleScroll = useLastCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -180,8 +247,13 @@ function AgentThreadList({
   });
 
   const handleSend = useLastCallback(() => {
-    const text = draft.trim();
+    const text = getDraft().trim();
     if (!text) return;
+    // The question flies out of the field into the new chat's first bubble, as a question sent in a chat does. One with
+    // secret words shows there without them, so it doesn't fly.
+    if (inputRef.current && !hasSecretPhrase(text, getSecretPhraseWordList())) {
+      startOpeningTextFlight(inputRef.current, text);
+    }
     setDraft('');
     startChat(text);
   });
@@ -192,8 +264,11 @@ function AgentThreadList({
     setIsComposing(true);
   });
 
-  const handleSuggestionClick = useLastCallback((hint: AgentHint) => {
-    startChat(hint.prompt);
+  const handleSuggestionClick = useLastCallback((hint: AgentHint, button: HTMLElement) => {
+    onRequestConsent(() => {
+      startOpeningSuggestionMorph(button, hint.prompt);
+      startChat(hint.prompt);
+    });
   });
 
   // A tap beside the suggestions ends composing; the suggestions and the Agent mark keep it
@@ -221,8 +296,14 @@ function AgentThreadList({
   }, [isActive, isComposing]);
 
   const handleDraftKeyDown = useLastCallback((e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (e.key !== 'Enter' || e.shiftKey || getIsInputMethodKey(e)) return;
+    const action = getReturnKeyAction(e);
+    if (action !== 'send' && action !== 'lineBreak') return;
+
     stopEvent(e);
+    if (action === 'lineBreak') {
+      if (inputRef.current) insertLineBreak(inputRef.current);
+      return;
+    }
     handleSend();
   });
 
@@ -236,29 +317,48 @@ function AgentThreadList({
       />
     );
 
-    if (!sections) return undefined;
+    if (!hasBody) return undefined;
 
     return [
       newsRow,
-      <div key="rows">
-        {sections.map((section) => (
-          <div key={section.key} className={styles.section}>
-            <div className={styles.sectionTitle} data-agent-row-key={`section-${section.key}`}>{section.title}</div>
-            {section.items.map((item) => (
-              <AgentThreadListItem
-                key={item.thread.id}
-                item={item}
-                isUnread={getIsAgentThreadUnread(item.thread)}
-                activityLangKey={activityLangKeys[item.thread.id]}
-                onSelect={onSelect}
-                onRename={onRename}
-                onTogglePin={onTogglePin}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        ))}
-      </div>,
+      sections ? (
+        <div key="rows">
+          {sections.map((section) => (
+            <div key={section.key} className={styles.section}>
+              <div
+                className={buildClassName(
+                  styles.sectionTitle,
+                  // A section whose every chat is deleted goes with them
+                  section.items.every((item) => dissolvedThreadIds.has(item.thread.id)) && styles.dissolved,
+                )}
+                data-agent-row-key={`${SECTION_KEY_PREFIX}${section.key}`}
+              >
+                {section.title}
+              </div>
+              {section.items.map((item) => (
+                <AgentThreadListItem
+                  key={item.thread.id}
+                  item={item}
+                  support={item.thread.support}
+                  isUnread={getIsAgentThreadUnread(item.thread)}
+                  activityLangKey={activityLangKeys[item.thread.id]}
+                  isDissolved={dissolvedThreadIds.has(item.thread.id)}
+                  onSelect={onSelect}
+                  onRename={onRename}
+                  onTogglePin={onTogglePin}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : undefined,
+      // A chat's failure line, as the news feed ends with one when it fails to refresh
+      (hasLoadFailed || hasPageLoadFailed) && items?.length ? (
+        <div key="page-failure" className={styles.pageFailure}>
+          <AgentFailureCaption text={lang('$agent_chats_unavailable')} onRetry={onRetry} />
+        </div>
+      ) : undefined,
     ];
   }
 
@@ -277,13 +377,18 @@ function AgentThreadList({
       />
       <div
         ref={bodyRef}
-        className={buildClassName(styles.body, (isComposing || !sections) && styles.bodyComposing, 'custom-scroll')}
-        inert={isComposing || !sections}
+        className={buildClassName(styles.body, (isComposing || !hasBody) && styles.bodyComposing, 'custom-scroll')}
+        inert={isComposing || !hasBody}
         onScroll={handleScroll}
       >
         {renderBody()}
       </div>
-      <AgentThreadListSkeleton isOpen={!sections && !isComposing} />
+      <AgentThreadListSkeleton isOpen={!hasBody && !isComposing} />
+      {isLoadFailureShown && !isComposing && (
+        <div className={styles.loadFailure}>
+          <AgentLoadFailure text={lang('$agent_chats_unavailable')} isRetrying={isRetrying} onRetry={onRetry} />
+        </div>
+      )}
       <div
         className={buildClassName(
           styles.compose,
@@ -295,15 +400,13 @@ function AgentThreadList({
         <div className={styles.composeSpacer} />
         <AgentHints isOpen={shouldShowSuggestions} hints={suggestions} onHintClick={handleSuggestionClick} />
       </div>
-      <AgentInputBar
+      <AgentV2Composer
         inputRef={inputRef}
         inputValue={draft}
-        dictation={IS_DICTATION_SUPPORTED ? dictation : undefined}
-        dictationNotice={dictationNotice ? <AgentDictationNotice notice={dictationNotice} /> : undefined}
-        dictationAnnouncement={dictationFailure
-          ? <AgentDictationAnnouncement key={dictationFailureCount} failure={dictationFailure} />
-          : undefined}
-        onInput={handleDraftInput}
+        isActive={isActive}
+        isDisabled={false}
+        onRequestConsent={isDictationHeld ? onRequestConsent : undefined}
+        onInput={setDraft}
         onKeyDown={handleDraftKeyDown}
         onSend={handleSend}
         onFocus={handleDraftFocus}
@@ -320,4 +423,17 @@ function takeSwitchedLayout() {
   const switchedLayout = localState.switchedLayoutOnMount;
   localState.switchedLayoutOnMount = undefined;
   return switchedLayout;
+}
+
+// The titles of the sections that have no chat left once the dissolving ones go
+function findLeavingSectionTitles(rows: HTMLElement[], dissolvingThreadIds: ReadonlySet<string>) {
+  const sections = new Set(rows.map((row) => row.parentElement));
+  return [...sections]
+    .filter((section): section is HTMLElement => Boolean(section))
+    .filter((section) => Array.from(section.querySelectorAll(`[${ROW_KEY_ATTRIBUTE}]`)).every((element) => {
+      const key = element.getAttribute(ROW_KEY_ATTRIBUTE)!;
+      return key.startsWith(SECTION_KEY_PREFIX) || dissolvingThreadIds.has(key);
+    }))
+    .map((section) => section.querySelector<HTMLElement>(`[${ROW_KEY_ATTRIBUTE}^="${SECTION_KEY_PREFIX}"]`))
+    .filter((title): title is HTMLElement => Boolean(title));
 }

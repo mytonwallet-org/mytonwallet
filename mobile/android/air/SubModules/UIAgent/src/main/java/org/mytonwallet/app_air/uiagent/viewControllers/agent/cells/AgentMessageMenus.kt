@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.text.Spanned
 import android.text.style.ClickableSpan
@@ -28,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMe
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopupView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
@@ -66,14 +68,8 @@ internal fun buildAgentMessageMenuHeader(context: Context, date: Date): WMenuPop
         )
     )
 
-// Telegram's chat menu: it ends this far before the finger, keeps this far under the list's top, and keeps its own
-// height plus 56 dp over the screen's bottom; one taller than 240 dp rises by the excess
-private const val MENU_TOUCH_GAP = 28
+// The menu keeps this far under the list's top, as Telegram's chat menu does
 private const val MENU_LIST_TOP_INSET = 24
-private const val MENU_BOTTOM_RESERVE = 48
-private const val MENU_BOTTOM_INSET = 8
-private const val MENU_RISE_LIMIT = 240
-private const val MENU_PILL_GAP = 8
 
 // A click lands right after the finger lifts; one later, as from TalkBack or a key, has no finger to open at
 private const val CLICK_AFTER_LIFT_MS = 300L
@@ -213,11 +209,21 @@ internal fun getAgentListRows(row: View): IntRange {
     return top + list.paddingTop until top + list.height - list.paddingBottom
 }
 
-/** Dims the whole window except [cutoutPath] within [rows]. */
-internal fun buildAgentMenuBackdrop(cutoutPath: Path, rows: IntRange): WMenuPopup.BackgroundStyle =
-    WMenuPopup.BackgroundStyle.Cutout(
-        cutoutPath.clipToRows(rows.first.toFloat(), (rows.last + 1).toFloat())
-    )
+/** The surface of the menu that holds this view, which moves as the menu appears and goes */
+internal fun View.findMenuSurface(): View? = generateSequence(parent) { it.parent }
+    .filterIsInstance<WMenuPopupView>()
+    .firstOrNull()
+    ?.parent as? View
+
+/** Dims the whole window except [cutoutPath] within [rows], with [lifted] drawn over the dim */
+internal fun buildAgentMenuBackdrop(
+    cutoutPath: Path,
+    rows: IntRange,
+    lifted: Drawable? = null
+): WMenuPopup.BackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
+    cutoutPath.clipToRows(rows.first.toFloat(), (rows.last + 1).toFloat()),
+    lifted
+)
 
 /** The part of the window that popups keep inside, above the keyboard */
 internal fun getAgentPopupArea(): Rect {
@@ -232,61 +238,41 @@ internal fun getAgentPopupArea(): Rect {
 }
 
 /**
- * Places a message's menu as Telegram's chat does. The menu hangs from the finger at [touch], a window point, and ends
- * [MENU_TOUCH_GAP] dp before it toward the line's start; one taller than [MENU_RISE_LIMIT] dp rises by the excess. It
- * keeps [MENU_LIST_TOP_INSET] dp under the top of [row]'s list and clear of the screen's bottom, and one taller than
- * the screen starts at its top. Without a touch, as from TalkBack, it hangs from [bubble]'s centre. When it would cover
- * [avoid], the rating pill over the bubble, it opens under the pill, else over it, else beside it.
+ * Places a message's menu from the finger at [touch], a window point, with [placeAgentMenu]; without a touch, as from
+ * TalkBack, it hangs from [bubble]'s centre. The menu keeps [MENU_LIST_TOP_INSET] dp under the top of [row]'s list.
+ * With [hasCloud], the reaction cloud rides over the menu and keeps under [visibleTop], the list's top under the
+ * header; [onPlaced] gets where both go.
  */
 internal fun buildAgentMenuPlacement(
     row: View,
     bubble: View,
     touch: Vec2i?,
-    avoid: Rect? = null
+    hasCloud: Boolean = false,
+    visibleTop: Int = 0,
+    onPlaced: (AgentMenuPlacement) -> Unit = {}
 ): (width: Int, height: Int) -> Vec2i = { width, height ->
     val area = getAgentPopupArea()
     val point = touch ?: bubble.getLocationInWindow().let {
         vec2i(it.x + bubble.width / 2, it.y + bubble.height / 2)
     }
-    var x = if (bubble.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
-        point.x + MENU_TOUCH_GAP.dp
-    } else {
-        point.x - MENU_TOUCH_GAP.dp - width
-    }.coerceAtMost(area.right - width).coerceAtLeast(area.left)
-    val reservedHeight = height + MENU_BOTTOM_RESERVE.dp
     val listTop = (row.parent as? View)?.getLocationInWindow()?.y ?: area.top
-    val minY = max(area.top, listTop + MENU_LIST_TOP_INSET.dp)
-    val maxY = area.bottom - reservedHeight - MENU_BOTTOM_INSET.dp
-    var y = if (reservedHeight < area.height()) {
-        val risen = if (reservedHeight > MENU_RISE_LIMIT.dp) {
-            point.y + MENU_RISE_LIMIT.dp - reservedHeight
-        } else {
-            point.y
-        }
-        risen.coerceAtMost(maxY).coerceAtLeast(minY)
-    } else {
-        area.top
-    }
-    if (avoid != null && Rect.intersects(avoid, Rect(x, y, x + width, y + height))) {
-        val belowPill = avoid.bottom + MENU_PILL_GAP.dp
-        val abovePill = avoid.top - MENU_PILL_GAP.dp - height
-        when {
-            belowPill <= maxY -> y = max(y, belowPill)
-
-            abovePill >= minY -> y = abovePill
-
-            else -> {
-                val hasRoomBefore = avoid.left - area.left >= area.right - avoid.right
-                x = if (hasRoomBefore) {
-                    avoid.left - MENU_PILL_GAP.dp - width
-                } else {
-                    avoid.right + MENU_PILL_GAP.dp
-                }
-                x = x.coerceAtMost(area.right - width).coerceAtLeast(area.left)
-            }
-        }
-    }
-    vec2i(x, y)
+    val placement = placeAgentMenu(
+        touchX = point.x,
+        touchY = point.y,
+        width = width,
+        height = height,
+        areaLeft = area.left,
+        areaTop = area.top,
+        areaRight = area.right,
+        areaBottom = area.bottom,
+        minTop = max(area.top, listTop + MENU_LIST_TOP_INSET.dp),
+        cloudMinTop = visibleTop,
+        hasCloud = hasCloud,
+        isRtl = bubble.layoutDirection == View.LAYOUT_DIRECTION_RTL,
+        density = bubble.resources.displayMetrics.density
+    )
+    onPlaced(placement)
+    vec2i(placement.left, placement.top)
 }
 
 private fun Path.clipToRows(top: Float, bottom: Float): Path {

@@ -1,0 +1,135 @@
+name: PR title
+
+# Pull requests merge as squash commits that take the pull request title as their subject, so the
+# title is what `master` keeps. This holds it to the format in CODESTYLE.md, "Commit Messages": a
+# mechanical slip is renamed away, with one comment on the pull request saying what changed, and the
+# check fails only on what needs a person, such as a missing area.
+#
+# `edited` re-runs the check when a person renames the pull request, and `synchronize` puts a fresh
+# verdict on every new head. A subject rewritten in the merge dialog itself raises no event and is out
+# of its reach.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+# `pull-requests: write` renames the pull request and writes the comment. A pull request from a fork
+# gets a read-only token whatever is asked here, so its title is only checked.
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check the commit format
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      # The rules are one dependency-free script, taken from the branch the pull request merges into: a
+      # pull request is held to the rules already there and cannot loosen them for its own title, while
+      # its own version of the script is tested by `npm run test:pr-title`
+      - name: Checkout the title rules
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          sparse-checkout: dev/checkPrTitle.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # The title is author-controlled text, so the script reads it from the API and it is never
+      # interpolated into the step.
+      #
+      # A rename made with GITHUB_TOKEN raises no `edited` event for workflows, so no second run follows
+      # it: this job gives its verdict on the renamed title itself.
+      - name: Check the title
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // A base branch that predates the rules, such as the one this workflow first lands on or an
+            // older branch a stacked pull request targets, has nothing to check against yet
+            const rulesPath = `${process.env.GITHUB_WORKSPACE}/dev/checkPrTitle.mjs`;
+            if (!require('fs').existsSync(rulesPath)) {
+              core.notice(`${context.payload.pull_request.base.ref} has no dev/checkPrTitle.mjs yet, so the title is not checked`);
+              return;
+            }
+
+            const { findTitleProblems, fixTitle, formatTitleReport, RULES } = await import(rulesPath);
+
+            const MARKER = '<!-- pr-title-autofix -->';
+            const BOT_LOGIN = 'github-actions[bot]';
+
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const prRef = { owner, repo, pull_number: pullNumber };
+
+            // The event payload is a snapshot from when the event fired, so the title is read fresh
+            const { data: pr } = await github.rest.pulls.get(prRef);
+            const title = pr.title;
+
+            const problems = findTitleProblems(title);
+            if (!problems.length) {
+              core.info(`PR title ${JSON.stringify(title)} follows the commit format`);
+              return;
+            }
+
+            let finalTitle = title;
+            const fixed = fixTitle(title);
+            // An empty title is nothing to rename to, as with a lone `[Fix]`
+            if (fixed && fixed !== title) {
+              try {
+                await github.rest.pulls.update({ ...prRef, title: fixed });
+                finalTitle = fixed;
+              } catch (error) {
+                core.warning(`Could not rename the pull request to ${JSON.stringify(fixed)}: ${error.message}`);
+              }
+            }
+
+            const remaining = finalTitle === title ? problems : findTitleProblems(finalTitle);
+
+            if (finalTitle !== title) {
+              const corrected = problems.filter((problem) => !remaining.includes(problem));
+              // The titles stand in a code block, so an `@name` in them mentions nobody; the fence is
+              // longer than any run of backticks inside
+              const longestBackticks = Math.max(0, ...[title, finalTitle].flatMap((text) => (
+                (text.match(/`+/g) ?? []).map((run) => run.length)
+              )));
+              const fence = '`'.repeat(Math.max(3, longestBackticks + 1));
+              const body = [
+                MARKER,
+                'The title was renamed to match the commit format in CODESTYLE.md ("Commit Messages"), '
+                  + 'because the squash commit on `master` takes it as its subject.',
+                '',
+                `${fence}text`,
+                `Before: ${title}`,
+                `After:  ${finalTitle}`,
+                fence,
+                '',
+                ...corrected.map((problem) => `- ${RULES[problem]}`),
+              ].join('\n');
+
+              // One comment per pull request, edited on every later rename
+              const issueRef = { owner, repo, issue_number: pullNumber };
+              try {
+                const comments = await github.paginate(github.rest.issues.listComments, { ...issueRef, per_page: 100 });
+                const existing = comments.find((comment) => (
+                  comment.user?.login === BOT_LOGIN && comment.body?.includes(MARKER)
+                ));
+                if (existing) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                } else {
+                  await github.rest.issues.createComment({ ...issueRef, body });
+                }
+              } catch (error) {
+                core.warning(`Could not comment on the renamed title: ${error.message}`);
+              }
+            }
+
+            if (remaining.length) {
+              core.setFailed(formatTitleReport(finalTitle, remaining));
+            } else {
+              core.notice(`Renamed the pull request from ${JSON.stringify(title)} to ${JSON.stringify(finalTitle)}`);
+            }

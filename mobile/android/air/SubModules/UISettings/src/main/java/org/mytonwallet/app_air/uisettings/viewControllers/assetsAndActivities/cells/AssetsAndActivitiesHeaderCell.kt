@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uisettings.R as UISettingsR
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.ChainDisplaySettingsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.views.ChainIconStackView
@@ -125,12 +126,13 @@ class AssetsAndActivitiesHeaderCell(
         val lbl = WLabel(context)
         lbl.setStyle(adaptiveFontSize())
         lbl.text =
-            LocaleController.getString("Hide Tiny Transfers")
+            LocaleController.getString("Hide Tiny Transfers and Spam")
         lbl
     }
 
     private val hideTinyTransfersSwitch: WSwitch by lazy {
         val switchView = WSwitch(context)
+        switchView.id = UISettingsR.id.assets_hide_tiny_transfers
         switchView.isChecked = WGlobalStorage.getAreTinyTransfersHidden()
         switchView.setOnCheckedChangeListener { _, isChecked ->
             WGlobalStorage.setAreTinyTransfersHidden(isChecked)
@@ -160,6 +162,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val hideUnverifiedNftsSwitch: WSwitch by lazy {
         val switchView = WSwitch(context)
+        switchView.id = UISettingsR.id.assets_hide_unverified_nfts
         switchView.isChecked = WGlobalStorage.getAreUnverifiedNftsHidden()
         switchView.setOnCheckedChangeListener { _, isChecked ->
             WGlobalStorage.setAreUnverifiedNftsHidden(isChecked)
@@ -186,7 +189,11 @@ class AssetsAndActivitiesHeaderCell(
     }
 
     private val hiddenNftsRow: WView by lazy {
-        valueRow(hiddenNftsLabel, hiddenNftsCountLabel) {
+        valueRow(
+            hiddenNftsLabel,
+            hiddenNftsCountLabel,
+            viewId = UISettingsR.id.assets_hidden_nfts
+        ) {
             val accountId = AccountStore.activeAccountId ?: return@valueRow
             (
                 WalletContextManager.delegate?.get()
@@ -225,6 +232,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val blockchainsView: WView by lazy {
         val v = WView(context)
+        v.id = UISettingsR.id.assets_blockchains
         v.addView(chainIconStackView, LayoutParams(0, ChainIconStackView.ICON_SIZE))
         v.addView(blockchainsChevronView, LayoutParams(24.dp, 24.dp))
         v.setConstraints {
@@ -337,7 +345,7 @@ class AssetsAndActivitiesHeaderCell(
             isLast = true
         ).apply {
             setValueView(changeThresholdDropdownView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 WMenuPopup.present(
                     changeThresholdDropdownView,
                     MTokenChangeThreshold.entries.map { threshold ->
@@ -401,6 +409,7 @@ class AssetsAndActivitiesHeaderCell(
 
     private val addTokenView: WView by lazy {
         val v = WView(context)
+        v.id = UISettingsR.id.assets_add_token
         v.addView(addIcon, LayoutParams(24.dp, 24.dp))
         v.addView(addTokenLabel)
         v.setConstraints {

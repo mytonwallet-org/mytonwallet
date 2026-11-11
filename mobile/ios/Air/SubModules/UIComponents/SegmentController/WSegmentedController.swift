@@ -157,11 +157,7 @@ public class WSegmentedController: WTouchPassView {
 
         let pagingScrollView = WSegmentedScrollView()
         pagingScrollView.shouldYieldToBackNavigation = { [weak self] velocity in
-            guard let self, let navigationController = backNavigationController,
-                  navigationController.viewControllers.count > 1,
-                  navigationController.presentedViewController == nil,
-                  navigationController.isBackSwipeToDismissAllowed else { return false }
-            return canBeginBackNavigation(velocity: velocity)
+            self?.shouldYieldToBackNavigation(velocity: velocity) ?? false
         }
         scrollView = pagingScrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -520,6 +516,14 @@ public class WSegmentedController: WTouchPassView {
         }
         (navigationController as? WNavigationController)?
             .fullWidthBackGestureRecognizerRequireToFail(scrollView.panGestureRecognizer)
+    }
+
+    func shouldYieldToBackNavigation(velocity: CGPoint) -> Bool {
+        guard let navigationController = backNavigationController,
+              navigationController.viewControllers.count > 1,
+              navigationController.presentedViewController == nil,
+              navigationController.isBackSwipeToDismissAllowed else { return false }
+        return canBeginBackNavigation(velocity: velocity)
     }
 
     func canBeginBackNavigation(velocity: CGPoint) -> Bool {

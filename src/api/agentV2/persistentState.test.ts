@@ -1,6 +1,9 @@
 import type { Storage } from '../storages/types';
 
 import { clearAgentV2PersistentState } from './persistentState';
+import { clearThreadCache } from './threadCache';
+
+jest.mock('./threadCache', () => ({ clearThreadCache: jest.fn(() => Promise.resolve()) }));
 
 const WALLET_SESSION_STORAGE_KEY = 'agentV2WalletSession';
 
@@ -17,6 +20,7 @@ describe('Agent V2 persistent state', () => {
     await expect(storage.getItem('agentV2DeviceIdentity')).resolves.toBeUndefined();
     await expect(storage.getItem('agentV2Consent')).resolves.toBeUndefined();
     expect(sessionStorage.getItem(WALLET_SESSION_STORAGE_KEY)).toBeNull();
+    expect(clearThreadCache).toHaveBeenCalledTimes(1);
   });
 });
 

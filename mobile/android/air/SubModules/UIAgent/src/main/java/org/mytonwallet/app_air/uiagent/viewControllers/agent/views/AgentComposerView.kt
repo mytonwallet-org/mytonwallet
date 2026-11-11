@@ -16,16 +16,21 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.ViewTreeObserver
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatEditText
+import androidx.core.view.isInvisible
 import androidx.core.widget.doAfterTextChanged
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiagent.agentV2.AgentDictationCancelDirection
@@ -38,7 +43,6 @@ import org.mytonwallet.app_air.uiagent.agentV2.getAgentDictationFailureText
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AGENT_COMPOSER_FIELD_TOP
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
-import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastManager
 import org.mytonwallet.app_air.uicomponents.emoji.EmojiHelper
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -72,11 +76,16 @@ private const val STRIP_INSET = 16
 // The microphone's glass circle beside the empty field, and the gap between them, as on iOS
 private const val MICROPHONE_SIZE = 48
 private const val MICROPHONE_GAP = 12
+private const val STOP_SIZE = 14
+private const val STOP_RADIUS = 3.5f
+private const val STOP_START_SCALE = 0.4f
+private const val STOP_MORPH_MS = 220L
 
 // The circle shrinks this far as it merges into the field's end, where the send button comes
 private const val MERGED_MICROPHONE_SCALE = 0.6f
 private const val SEPARATION_MS = 400L
 private const val DRAFT_FADE_MS = 400L
+private const val TRANSCRIPT_FADE_MS = 200L
 private val TELEGRAM_CURVE = PathInterpolator(0.38f, 0.7f, 0.125f, 1f)
 private const val IDLE_SIDE_INSET = 16
 private const val FIELD_TEXT_TOP_MARGIN = 2.5f
@@ -96,7 +105,23 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     WThemedView {
 
     var onSend: ((String) -> Boolean)? = null
+
+    /** Called by Stop, which the microphone turns into while the Agent answers */
+    var onStop: (() -> Unit)? = null
+
+    /** The Agent is answering, so the empty field offers to stop the answer */
+    var isAnswering = false
+        set(value) {
+            if (field == value) return
+            field = value
+            applySendButtonTheme()
+        }
     var onDraftCleared: (() -> Unit)? = null
+
+    /** The field started or stopped recording, recognizing or holding a draft ([isAgentFieldInUse]) */
+    var onFieldInUseChanged: ((Boolean) -> Unit)? = null
+    var isFieldInUse = false
+        private set
 
     private val inputBackground = WFrameLayout(context)
     var onHeightChanged: (() -> Unit)? = null
@@ -113,6 +138,10 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     /** How far the field's bottom edge lies above the composer's */
     val inputBottomInset: Int
         get() = paddingBottom
+
+    /** How far the field's top edge, the composer's visible top, lies below the composer's own */
+    val fieldTop: Int
+        get() = inputBackground.top + inputBackground.translationY.roundToInt()
 
     /** The opacity of the field's text and its buttons' icons over their glass, halved while a limit blocks sending */
     var contentAlpha = 1f
@@ -138,6 +167,13 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         setPaddingRelative(16.dp, 10.dp, 16.dp, 10.dp)
     }
 
+    /** The field's text while it is empty */
+    var placeholder: CharSequence?
+        get() = editText.hint
+        set(value) {
+            if (editText.hint?.toString() != value?.toString()) editText.hint = value
+        }
+
     private val sendButton = ImageView(context).apply {
         id = UIComponentsR.id.agent_send
         scaleType = ImageView.ScaleType.CENTER
@@ -156,9 +192,24 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         setImageResource(org.mytonwallet.app_air.uiagent.R.drawable.ic_agent_microphone)
     }
 
+    // While an answer is being written, the microphone turns into Stop wherever it would show: a filled square, as in
+    // ChatGPT's and Telegram's stop states. It lets the microphone's touches through, and UI automation finds Stop by
+    // its id while it shows.
+    private val stopIcon = View(context).apply {
+        id = UIComponentsR.id.agent_stop
+        visibility = INVISIBLE
+        background = GradientDrawable().apply { cornerRadius = STOP_RADIUS.dp }
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        alpha = 0f
+    }
+    private var isStopShown = false
+    private var stopProgress = 0f
+    private var stopAnimator: ValueAnimator? = null
+
     // The microphone's own glass circle beside the field, which it merges into while the field has text
     private val microphoneCircle = WFrameLayout(context).apply {
         addView(microphoneButton, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        addView(stopIcon, LayoutParams(STOP_SIZE.dp, STOP_SIZE.dp, Gravity.CENTER))
     }
     private var microphoneGlass: WGlassView? = null
 
@@ -173,12 +224,34 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     private var hostedGrowFrom = 1f
     private val recordingStrip = AgentDictationStrip(context).apply { visibility = GONE }
 
+    // Telegram's light while a question is recognised and its transcript comes in: in the field, and round its border
+    private val fieldGlow = AgentFieldGlowView(context)
+    private val fieldRim = AgentFieldGlowView(context, isRim = true)
+
+    // The rim's bloom spills well beyond the field and past the containers round it, so the rim lies over the field in
+    // the window's overlay, which nothing clips, and follows it there every frame while it shows
+    private var rimHost: ViewGroup? = null
+    private val rimLocation = IntArray(2)
+    private val rimHostLocation = IntArray(2)
+    private val rimFollower = ViewTreeObserver.OnPreDrawListener {
+        if (fieldRim.isLit) followField()
+        true
+    }
+
+    // A transcript comes into the field character by character
+    private val transcriptReveal = AgentTranscriptReveal(editText).apply {
+        onFinished = { updateGlow() }
+    }
+
     // Grows out of the microphone while recording, over everything else
     private val recordingCircle = AgentDictationCircle(microphoneButton).apply {
         onVisibilityChanged = { isShown -> onRecordingCircleVisibilityChanged?.invoke(isShown) }
         onCoverChanged = { cover ->
             recordingCover = cover
             applyMicrophoneCircle()
+        }
+        onPauseToggled = {
+            if (dictationState.isPaused) dictation?.resume() else dictation?.pause()
         }
     }
 
@@ -187,6 +260,12 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
     /** The recording circle shows over the chat, or has gone */
     var onRecordingCircleVisibilityChanged: ((Boolean) -> Unit)? = null
+
+    /**
+     * Asked as the microphone is pressed to start a recording: true holds it back and takes the press, as while the
+     * Agent asks for the user's consent first
+     */
+    var shouldHoldDictation: (() -> Boolean)? = null
     private var dictation: AgentDictationController? = null
     private var dictationState = AgentDictationState()
     private var touchStartX = 0f
@@ -223,6 +302,7 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         clipToPadding = false
 
         inputBackground.minimumHeight = 48.dp
+        inputBackground.addView(fieldGlow, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         inputBackground.addView(
             editText,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
@@ -274,7 +354,12 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
         editText.setOnFocusChangeListener { _, hasFocus -> onInputFocusChanged?.invoke(hasFocus) }
         editText.filters = editText.filters + InputFilter { _, _, _, original, start, end ->
-            dictationState.filterDraftEdit(original, start, end)
+            if (transcriptReveal.isAppending) {
+                null
+            } else {
+                dictationState.filterDraftEdit(original, start, end)
+                    ?: transcriptReveal.filterEdit(original, start, end)
+            }
         }
         editText.setOnTouchListener { _, event ->
             if (dictationState.isActive) return@setOnTouchListener true
@@ -288,6 +373,7 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
                 isApplyingEmoji = false
             }
             updateSendButtonState()
+            updateFieldInUse()
             if (editable.isNullOrEmpty()) onDraftCleared?.invoke()
         }
 
@@ -296,11 +382,15 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         // microphone starts and finishes a hands-free recording. The click that ends a hold does
         // neither, so a recording locked by that hold keeps going once the finger lifts.
         microphoneButton.setOnClickListener {
+            if (isStopShown) {
+                onStop?.invoke()
+                return@setOnClickListener
+            }
             if (isGestureEndClick) return@setOnClickListener
             val state = dictationState
             if (state.phase == AgentDictationPhase.RECORDING && state.locked) {
                 dictation?.finish()
-            } else {
+            } else if (shouldHoldDictation?.invoke() != true) {
                 dictation?.startHandsFree()
             }
         }
@@ -316,16 +406,18 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
             }
         }
 
-        // Return sends; with Shift or Alt it starts a new line
+        // On a physical keyboard Return sends, and with Shift, Alt, Ctrl or Meta it starts a new line. The on-screen
+        // keyboard's Return always starts a new line, as on iOS.
         editText.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN &&
-                !event.isShiftPressed && !event.isAltPressed
-            ) {
-                trySend()
-                true
-            } else {
-                false
+            val isPhysicalReturn = keyCode == KeyEvent.KEYCODE_ENTER && !isSoftKeyboardKey(event)
+            if (isPhysicalReturn && event.action == KeyEvent.ACTION_DOWN) {
+                if (event.hasNoModifiers()) {
+                    trySend()
+                } else {
+                    insertLineBreak()
+                }
             }
+            isPhysicalReturn
         }
 
         updateTheme()
@@ -401,20 +493,50 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
+        followField()
         if (height != lastHeight) {
             lastHeight = height
             onHeightChanged?.invoke()
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        (rootView as? ViewGroup)?.let { root ->
+            rimHost = root
+            root.overlay.add(fieldRim)
+        }
+        viewTreeObserver.addOnPreDrawListener(rimFollower)
+        followField()
+    }
+
     override fun onDetachedFromWindow() {
+        transcriptReveal.finish()
         recordingCircle.detach()
         endMicrophoneGesture()
+        viewTreeObserver.removeOnPreDrawListener(rimFollower)
+        rimHost?.overlay?.remove(fieldRim)
+        rimHost = null
         super.onDetachedFromWindow()
     }
 
+    /**
+     * Puts a transcript into the field character by character, each out of a blur, as iOS does. Without motion, and for
+     * TalkBack, which reads the field as it comes, the whole text fades in.
+     */
     internal fun setDictationText(text: String) {
+        val canReveal = isAttachedToWindow && WGlobalStorage.getAreAnimationsActive() &&
+            ValueAnimator.areAnimatorsEnabled() && !isAccessibilityEnabled()
+        if (canReveal) {
+            transcriptReveal.start(text)
+            updateGlow()
+            return
+        }
         setDraftText(text, focusInput = false)
+        if (!isAttachedToWindow) return
+        editText.animate().cancel()
+        editText.alpha = 0f
+        editText.animate().alpha(1f).setDuration(TRANSCRIPT_FADE_MS).start()
     }
 
     /** Lets the field grow with its text up to [height]; the text scrolls beyond it */
@@ -435,10 +557,31 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     }
 
     fun setDraftText(text: String, focusInput: Boolean = true) {
+        transcriptReveal.finish()
         if (dictationState.isActive) dictation?.cancel()
         editText.setText(text)
         editText.setSelection(editText.length())
-        if (!focusInput) return
+        if (focusInput) focusInputWithKeyboard()
+    }
+
+    /** The field's text as it shows, for the sent question's bubble to grow out of */
+    internal fun makeSentTextSource(): AgentSentMessageSource? =
+        AgentSentMessageSource.makeText(editText, inputBackground)
+
+    /**
+     * The field, empty once its question has left it, fades back in over [durationMs], as
+     * Telegram's does in its send transition
+     */
+    internal fun fadeInFieldText(durationMs: Long) {
+        if (dictationState.isActive) return
+        editText.animate().cancel()
+        editText.alpha = 0f
+        editText.animate().alpha(1f).setDuration(durationMs)
+            .setInterpolator(LinearInterpolator()).start()
+    }
+
+    /** Gives the field the focus and the keyboard, with its draft as it is */
+    fun focusInputWithKeyboard() {
         editText.requestFocus()
         editText.post {
             if (!dictationState.isActive && editText.hasFocus()) {
@@ -447,8 +590,19 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         }
     }
 
+    private fun isSoftKeyboardKey(event: KeyEvent): Boolean =
+        (event.flags and KeyEvent.FLAG_SOFT_KEYBOARD) != 0 || event.device?.isVirtual != false
+
+    private fun insertLineBreak() {
+        val text = editText.text ?: return
+        val start = max(0, min(editText.selectionStart, editText.selectionEnd))
+        val end = max(editText.selectionStart, editText.selectionEnd).coerceAtLeast(start)
+        text.replace(start, end, "\n")
+    }
+
     private fun trySend() {
         if (dictationState.isActive) return
+        transcriptReveal.finish()
         val text = editText.text?.toString()?.trim() ?: return
         if (text.isNotEmpty() && onSend?.invoke(text) == true) {
             editText.text?.clear()
@@ -497,20 +651,18 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     }
 
     private fun applySendButtonTheme() {
-        val phase = dictationState.phase
-        val isIdle = phase == AgentDictationPhase.IDLE || phase == AgentDictationPhase.PRESSING ||
-            phase == AgentDictationPhase.FAILED
-        val hasText = !editText.text.isNullOrBlank()
-        // A draft keeps its send button; it greys out while the Agent can't take the question. The
-        // microphone stays under the recording circle, whose checkmark finishes a locked recording.
-        val shouldShowSend = isIdle && hasText
-        // The microphone's circle stands apart while the field is empty and while recording; it merges into the
-        // field while the field has text, where the send button is, and while recognizing, when the strip spans it
-        val shouldShowMicrophone = (isIdle && !hasText) || phase == AgentDictationPhase.RECORDING
-        setSeparation(if (shouldShowMicrophone) 1f else 0f)
+        val buttons = agentComposerButtons(
+            dictationState.phase,
+            hasText = !editText.text.isNullOrBlank(),
+            isAnswering = isAnswering
+        )
+        val shouldShowSend = buttons.isSendShown
+        setSeparation(if (buttons.isCircleApart) 1f else 0f)
+        setStopShown(buttons.isStopShown)
         val contentAlphaValue = (contentAlpha * 255).roundToInt()
         microphoneButton.setColorFilter(WColor.SecondaryText.color)
-        microphoneButton.imageAlpha = contentAlphaValue
+        (stopIcon.background as GradientDrawable).setColor(WColor.SecondaryText.color)
+        applyStopProgress()
         val sendDrawable = GradientDrawable().apply {
             cornerRadius = 20f.dp
             if (isSendEnabled) {
@@ -597,7 +749,42 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         inputBackground.pivotY = inputBackground.height / 2f
         inputBackground.scaleX = swell * (growFrom + (1 - growFrom) * appearance)
         inputBackground.scaleY = swell
+        followField()
         applyMicrophoneCircle()
+    }
+
+    // The rim lies round the field, where the field is in the window, and takes its morph about the same point
+    private fun followField() {
+        val host = rimHost ?: return
+        val margin = AGENT_FIELD_RIM_MARGIN.dp.roundToInt()
+        getLocationInWindow(rimLocation)
+        host.getLocationInWindow(rimHostLocation)
+        val left = rimLocation[0] - rimHostLocation[0] + inputBackground.left - margin
+        val top = rimLocation[1] - rimHostLocation[1] + inputBackground.top - margin
+        val right = left + inputBackground.width + 2 * margin
+        val bottom = top + inputBackground.height + 2 * margin
+        if (fieldRim.left != left || fieldRim.top != top || fieldRim.right != right ||
+            fieldRim.bottom != bottom
+        ) {
+            fieldRim.layout(left, top, right, bottom)
+        }
+        fieldRim.isInvisible = !inputBackground.isShown
+        fieldRim.alpha = alpha * inputBackground.alpha
+        fieldRim.pivotX = inputBackground.pivotX + margin
+        fieldRim.pivotY = inputBackground.pivotY + margin
+        fieldRim.scaleX = inputBackground.scaleX
+        fieldRim.scaleY = inputBackground.scaleY
+        fieldRim.translationX = inputBackground.translationX
+        fieldRim.translationY = inputBackground.translationY
+    }
+
+    // The field glows while a question is recognised and until its transcript has come in, never while recording
+    private fun updateGlow() {
+        val isGlowing = dictationState.phase == AgentDictationPhase.RECOGNIZING ||
+            transcriptReveal.isRunning
+        if (isGlowing) followField()
+        fieldGlow.setGlowing(isGlowing)
+        fieldRim.setGlowing(isGlowing)
     }
 
     private fun animateInputPadding() {
@@ -625,8 +812,56 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     fun setSubmissionEnabled(enabled: Boolean) {
         if (isSubmissionEnabled == enabled) return
         isSubmissionEnabled = enabled
-        microphoneButton.isEnabled = enabled
+        microphoneButton.isEnabled = enabled || isStopShown
         updateSendButtonState()
+    }
+
+    // The microphone morphs into Stop and back: one fades and shrinks as the other grows in
+    private fun setStopShown(shown: Boolean) {
+        if (isStopShown == shown) return
+        isStopShown = shown
+        microphoneButton.isEnabled = isSubmissionEnabled || shown
+        updateMicrophoneDescription()
+        stopAnimator?.cancel()
+        val target = if (shown) 1f else 0f
+        // Out of sight, merged into the field, the circle takes its icon at once, so it comes back with it
+        if (!isAttachedToWindow || !WGlobalStorage.getAreAnimationsActive() ||
+            microphoneCircle.visibility != VISIBLE
+        ) {
+            stopProgress = target
+            applyStopProgress()
+            return
+        }
+        stopAnimator = ValueAnimator.ofFloat(stopProgress, target).apply {
+            duration = STOP_MORPH_MS
+            interpolator = TELEGRAM_CURVE
+            addUpdateListener {
+                stopProgress = it.animatedValue as Float
+                applyStopProgress()
+            }
+            start()
+        }
+    }
+
+    private fun applyStopProgress() {
+        microphoneButton.imageAlpha = (contentAlpha * 255 * (1 - stopProgress)).roundToInt()
+        stopIcon.alpha = contentAlpha * stopProgress
+        stopIcon.visibility = if (stopProgress > 0f) VISIBLE else INVISIBLE
+        val scale = STOP_START_SCALE + (1 - STOP_START_SCALE) * stopProgress
+        stopIcon.scaleX = scale
+        stopIcon.scaleY = scale
+    }
+
+    private fun updateMicrophoneDescription() {
+        val state = dictationState
+        val isFinishing = state.phase == AgentDictationPhase.RECORDING && state.locked
+        microphoneButton.contentDescription = LocaleController.getString(
+            when {
+                isStopShown -> "\$agent_stop_answer"
+                isFinishing -> "\$agent_dictation_finish"
+                else -> "\$agent_dictation_start"
+            }
+        )
     }
 
     internal fun bindDictation(controller: AgentDictationController) {
@@ -639,6 +874,8 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         dictationState = state
         val isRecording = state.phase == AgentDictationPhase.RECORDING
         val showsStrip = isRecording || state.phase == AgentDictationPhase.RECOGNIZING
+        if (state.isActive) transcriptReveal.finish()
+        updateGlow()
         val hasBeenShowingStrip = previous.phase == AgentDictationPhase.RECORDING ||
             previous.phase == AgentDictationPhase.RECOGNIZING
         if (showsStrip != hasBeenShowingStrip) fadeDraft(isDraftVisible = !showsStrip)
@@ -650,16 +887,22 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
         recordingStrip.visibility = if (showsStrip) VISIBLE else GONE
         recordingStrip.render(state)
         recordingCircle.update(state)
-        val isFinishing = isRecording && state.locked
-        microphoneButton.contentDescription = LocaleController.getString(
-            if (isFinishing) "\$agent_dictation_finish" else "\$agent_dictation_start"
-        )
+        updateMicrophoneDescription()
         // A recording slid away to cancel keeps the finger's drag, so the rest of it doesn't start a swipe back
         if (!state.isActive && !isMicrophoneGesture) {
             parent?.requestDisallowInterceptTouchEvent(false)
         }
         applySendButtonTheme()
         moveAccessibilityFocus(previous, state)
+        updateFieldInUse()
+    }
+
+    private fun updateFieldInUse() {
+        val isInUse =
+            isAgentFieldInUse(dictationState.phase, hasDraft = !editText.text.isNullOrBlank())
+        if (isInUse == isFieldInUse) return
+        isFieldInUse = isInUse
+        onFieldInUseChanged?.invoke(isInUse)
     }
 
     // The field's text fades out under the recording, as the placeholder does in Telegram
@@ -697,9 +940,6 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     /** A recording produced no transcript: the circle turns red, and TalkBack hears why */
     internal fun showDictationFailure(failure: AgentDictationFailure) {
         Haptics.play(this, HapticType.ERROR)
-        if (failure == AgentDictationFailure.MicrophoneDenied) {
-            ToastManager.show(ToastManager.Toast(text = getAgentDictationFailureText(failure)))
-        }
         if (isAccessibilityEnabled()) {
             @Suppress("DEPRECATION")
             announceForAccessibility(getAgentDictationFailureText(failure))
@@ -738,17 +978,17 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
     // Telegram's recording gesture on the microphone: hold to record, slide toward the start to
     // cancel, slide up to lock, let go to transcribe
     private fun handleMicrophoneTouch(event: MotionEvent): Boolean {
-        if (isTouchExplorationEnabled()) return false
+        if (isTouchExplorationEnabled() || isStopShown) return false
         val isOwnGesture = isMicrophoneGesture
         val density = resources.displayMetrics.density
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val phase = dictationState.phase
-                if ((phase != AgentDictationPhase.IDLE && phase != AgentDictationPhase.FAILED) ||
-                    !acquireScrollLocks()
-                ) {
+                if (phase != AgentDictationPhase.IDLE && phase != AgentDictationPhase.FAILED) {
                     return false
                 }
+                if (shouldHoldDictation?.invoke() == true) return true
+                if (!acquireScrollLocks()) return false
                 isMicrophoneGesture = true
                 touchStartX = event.rawX
                 touchStartY = event.rawY
@@ -826,8 +1066,63 @@ class AgentComposerView(context: Context, private val blurRootView: ViewGroup? =
 
         recordingCircle.updateTheme()
         recordingStrip.updateTheme()
+        fieldGlow.updateTheme()
+        fieldRim.updateTheme()
 
         applySendButtonTheme()
         animateInputPadding()
     }
+}
+
+/**
+ * The field records, recognizes or holds a draft, so the chat list's search makes way for it, as Telegram's attach
+ * button does for a recording
+ */
+internal fun isAgentFieldInUse(phase: AgentDictationPhase, hasDraft: Boolean): Boolean =
+    hasDraft || phase == AgentDictationPhase.RECORDING || phase == AgentDictationPhase.RECOGNIZING
+
+internal enum class AgentComposerButton {
+    SEND,
+    STOP,
+    MICROPHONE
+}
+
+/** The button at the field's end: send for a draft, else Stop while the Agent answers, else the microphone */
+internal fun resolveAgentComposerButton(hasText: Boolean, isAnswering: Boolean) = when {
+    hasText -> AgentComposerButton.SEND
+    isAnswering -> AgentComposerButton.STOP
+    else -> AgentComposerButton.MICROPHONE
+}
+
+/** What the composer's buttons show: the send button at the field's end, and the circle beside the field */
+internal data class AgentComposerButtons(
+    val isSendShown: Boolean,
+    /** The circle stands apart from the field; otherwise it is merged into the field's end */
+    val isCircleApart: Boolean,
+    /** The circle holds Stop in place of the microphone */
+    val isStopShown: Boolean
+)
+
+internal fun agentComposerButtons(
+    phase: AgentDictationPhase,
+    hasText: Boolean,
+    isAnswering: Boolean
+): AgentComposerButtons {
+    val isIdle = phase == AgentDictationPhase.IDLE || phase == AgentDictationPhase.PRESSING ||
+        phase == AgentDictationPhase.FAILED
+    val button = resolveAgentComposerButton(hasText, isAnswering)
+    return AgentComposerButtons(
+        // A draft keeps its send button; it greys out while the Agent can't take the question. The microphone stays
+        // under the recording circle, whose checkmark finishes a locked recording.
+        isSendShown = isIdle && button == AgentComposerButton.SEND,
+        // The circle, with the microphone or Stop, stands apart while the field is empty and while recording; it
+        // merges into the field while the field has text, where the send button is, and while recognizing, when the
+        // strip spans it
+        isCircleApart = (isIdle && button != AgentComposerButton.SEND) ||
+            phase == AgentDictationPhase.RECORDING,
+        // While an answer is being written, the circle keeps Stop as a draft merges it into the field and as clearing
+        // the draft brings it back, so the draft trades Stop for the send button directly
+        isStopShown = isAnswering &&
+            (phase == AgentDictationPhase.IDLE || phase == AgentDictationPhase.FAILED)
+    )
 }

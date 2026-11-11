@@ -58,22 +58,15 @@ class MediaViewerChromeTest {
     }
 
     @Test
-    fun countTextSplitsAroundBothNumbers() {
-        assertEquals(
-            MediaViewerCountText("", " of ", ""),
-            MediaViewerCountText.from("%current% of %total%")
-        )
-        assertEquals(
-            MediaViewerCountText("No. ", " / ", " pics"),
-            MediaViewerCountText.from("No. %current% / %total% pics")
-        )
+    fun titleIsThePlaceAmongSeveralOverTheDate() {
+        assertEquals("5 of 24" to "Today at 9:41", mediaViewerTitles(5, 24, "Today at 9:41"))
+        assertEquals("2 of 2" to null, mediaViewerTitles(2, 2, null))
     }
 
     @Test
-    fun countTextWithoutBothNumbersInOrderFallsBackToASlash() {
-        val fallback = MediaViewerCountText("", " / ", "")
-        assertEquals(fallback, MediaViewerCountText.from("%total% of %current%"))
-        assertEquals(fallback, MediaViewerCountText.from("\$agent_wallet_page_indicator"))
+    fun titleOfALonePictureIsItsDate() {
+        assertEquals("Today at 9:41" to null, mediaViewerTitles(1, 1, "Today at 9:41"))
+        assertEquals("" to null, mediaViewerTitles(1, 1, null))
     }
 
     @Test

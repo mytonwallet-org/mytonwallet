@@ -14,6 +14,8 @@ enum AgentBackendSendSource {
 @MainActor
 protocol AgentBackend: AnyObject {
     var canSendMessages: Bool { get }
+    /// An answer is being written, and the user can stop it
+    var canStopAnswer: Bool { get }
     var canClearConversation: Bool { get }
     var shouldConfirmConversationClear: Bool { get }
     var canReportProblem: Bool { get }
@@ -49,6 +51,8 @@ protocol AgentBackend: AnyObject {
     /// Asks for the answer `messageID` again: it and the messages after it give way to the new answer
     func regenerateMessage(messageID: AgentItemID)
     func performControl(messageID: AgentItemID, controlID: String)
+    /// Stops the answer being written; the chat can send again at once
+    func stopAnswer()
     func refreshPresentation()
     /// The chat is on screen, so the backend keeps its wallet data current.
     func setActive(_ isActive: Bool)
@@ -57,6 +61,7 @@ protocol AgentBackend: AnyObject {
 
 extension AgentBackend {
     var canSendMessages: Bool { true }
+    var canStopAnswer: Bool { false }
     var canClearConversation: Bool { true }
     var shouldConfirmConversationClear: Bool { false }
     var canReportProblem: Bool { false }
@@ -79,6 +84,8 @@ extension AgentBackend {
     func regenerateMessage(messageID: AgentItemID) {}
 
     func performControl(messageID: AgentItemID, controlID: String) {}
+
+    func stopAnswer() {}
 
     func refreshPresentation() {}
 

@@ -60,6 +60,7 @@ const tronSdk: ChainSdk<'tron'> = {
   fetchWalletPermissions: notSupported,
   revokeWalletPermission: notSupported,
   fetchWalletPlugins: notSupported,
+  estimatePerpsDepositNetworkFee: notSupported,
 };
 
 export default tronSdk;

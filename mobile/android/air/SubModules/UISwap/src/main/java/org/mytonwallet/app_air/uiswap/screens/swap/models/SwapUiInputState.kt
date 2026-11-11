@@ -44,12 +44,15 @@ data class SwapUiInputState(
         CoinUtils.fromDecimal(amountInput, it.decimals)
     }
 
-    val key =
-        tokenToSend?.slug + "_" + tokenToReceive?.slug + "_" + amountInput + "_" +
-            reverse + "_" + slippage
-
     internal val tokenToSendBalance: BigInteger =
         tokenToSend?.let { token -> wallet.balances[token.slug] } ?: BigInteger.ZERO
+
+    /** A max quote asks for the whole balance, so the fee-adjusted amount it fills in stays out of the key. */
+    val key =
+        tokenToSend?.slug + "_" + tokenToReceive?.slug + "_" +
+            (if (input.isFromAmountMax) "max$tokenToSendBalance" else amountInput) + "_" +
+            reverse + "_" + slippage
+
     internal val nativeTokenToSendBalance: BigInteger =
         nativeTokenToSend?.let { wallet.balances[it.slug] } ?: BigInteger.ZERO
 

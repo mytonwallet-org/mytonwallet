@@ -162,6 +162,10 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
         self.presentMenu(triggeredByLongPress: false)
     }
 
+    public func dismiss() {
+        self.presentedSession?.dismiss()
+    }
+
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
         self.handleLongPressState(recognizer)
     }
@@ -232,6 +236,10 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     }
 
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer !== self.tapGestureRecognizer {
+            // A touch that may become a hold readies its haptic
+            ContextMenuHaptics.prepare()
+        }
         guard let activationHitTestProvider, let sourceView = gestureRecognizer.view else {
             return true
         }

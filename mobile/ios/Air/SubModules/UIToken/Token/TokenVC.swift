@@ -342,6 +342,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             token: token,
             showsTokenIcon: !hasBalance,
             historyData: tokenVM.historyData,
+            backfill: tokenVM.backfill,
             isHistoryRestored: tokenVM.isHistoryRestored,
             historyLoadingState: tokenVM.historyLoadingState,
             onPeriodChange: { [weak self] period in
@@ -739,6 +740,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         navigationItem.rightBarButtonItem = menu.children.isEmpty
             ? nil
             : UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: menu)
+        navigationItem.rightBarButtonItem?.accessibilityIdentifier = "token_more_button"
     }
 
     private func makeMenu() -> UIMenu {

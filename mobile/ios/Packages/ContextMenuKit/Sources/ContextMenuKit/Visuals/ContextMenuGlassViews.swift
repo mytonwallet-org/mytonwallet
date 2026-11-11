@@ -222,14 +222,11 @@ final class ContextMenuPanelView: UIView {
             self.layer.shadowOpacity = 0.0
             self.layer.shadowPath = nil
         } else {
-            self.layer.shadowColor = UIColor.black.cgColor
-            self.layer.shadowOpacity = traits.userInterfaceStyle == .dark ? 0.22 : 0.12
-            self.layer.shadowRadius = 24.0
-            self.layer.shadowOffset = CGSize(width: 0.0, height: 12.0)
-            self.layer.shadowPath = UIBezierPath(
-                roundedRect: self.backgroundView.frame,
-                cornerRadius: panelCornerRadius
-            ).cgPath
+            ContextMenuVisuals.applyLegacyPanelShadow(
+                to: self.layer,
+                path: UIBezierPath(roundedRect: self.backgroundView.frame, cornerRadius: panelCornerRadius).cgPath,
+                traits: traits
+            )
         }
     }
 }

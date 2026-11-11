@@ -1,45 +1,70 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.views
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
+import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.RenderEffect
+import android.graphics.RenderNode
+import android.graphics.Shader
 import android.os.Build
 import android.os.SystemClock
 import android.text.Layout
 import android.view.Choreographer
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.PathInterpolator
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.createBitmap
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
+/**
+ * An answer's text, whose new characters come in as iOS's streamed text does, where they rest: each comes in at 0.15
+ * opacity and is sharp within 0.15 s, a glow of its own shape in the Agent's blue fading as it sharpens, and it
+ * arrives in the Agent's blue, which turns violet on its way into the text's own colours by 0.65 s, so the fresh end
+ * of a line runs from blue to violet as the thinking glow does
+ */
 @SuppressLint("ViewConstructor")
 class StreamingRevealLabel(context: Context) : WLabel(context) {
 
     companion object {
-        private const val SNIPPET_DURATION = 0.2
-        private const val BLUR_DURATION = 0.22
         private const val SIZE_TRANSITION_DURATION = 0.15
         private const val MAX_SNIPPETS_PER_FRAME = 128
         private const val MAX_BITMAP_DIMENSION = 4096
+        private const val MAX_CHANNEL = 255f
+
+        // The glow's blur in dp, as a UIKit shadow radius: iOS's shrinks from 3 pt as the glow fades, and the glow
+        // shows most at about 1.75 pt. UIKit's shadow blur is twice its gaussian's sigma, and a blur effect of
+        // radius r blurs with a sigma of 0.57735 r + 0.5.
+        private const val GLOW_BLUR = 1.75f
+        private const val BLUR_SIGMA_SCALE = 0.57735f
+        private const val BLUR_SIGMA_OFFSET = 0.5f
+
+        // A gaussian reaches this many sigmas out
+        private const val BLUR_REACH = 3f
 
         private val revealProgressByKey = mutableMapOf<String, Int>()
 
         // Start times of in-flight snippet animations per message, so a label adopting the
         // reveal after a cell handoff can respawn them instead of popping the characters in.
         private val snippetTimesByKey = mutableMapOf<String, MutableList<Pair<Int, Double>>>()
-        private val SNIPPET_LIFETIME = max(SNIPPET_DURATION, BLUR_DURATION)
+        private const val SNIPPET_LIFETIME = AgentStreamedCharacterLook.DURATION_S
     }
 
     private class Snippet(
@@ -49,9 +74,6 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         val dst: RectF,
         val bitmap: Bitmap
     )
-
-    private val snippetRise = 6f.dp
-    private val snippetBlurRadius = 2f.dp
 
     private var revealKey: String? = null
     private var revealController: TextRevealController? = null
@@ -75,14 +97,33 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     private var isRenderingEnabled = true
     private var frameScheduled = false
     private val interpolator = AccelerateDecelerateInterpolator()
+
+    // Core Animation's ease-out, which iOS sharpens a character with
+    private val sharpenInterpolator = PathInterpolator(0f, 0f, 0.58f, 1f)
     private val maskPath = Path()
     private val snippetPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val tintPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val glowPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val glowRegion = RectF()
+    private var streamedGlow: StreamedGlow? = null
+    private var blueTint = 0
+    private var violetTint = 0
+    private var blueTintFilter: ColorFilter? = null
+    private var violetTintFilter: ColorFilter? = null
 
     private val isRevealActive: Boolean
         get() = revealController != null || snippets.isNotEmpty() || hasSizeOverride
 
     val isRevealAnimating: Boolean
         get() = isRevealActive
+
+    // Debug builds show streamed text at once while system animations are off, for fast E2E runs
+    private val canAnimateReveal: Boolean
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (!DEBUG_MODE || areSystemAnimatorsEnabled)
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
 
     var onRevealFinished: (() -> Unit)? = null
     var onSizeTransitionFrame: (() -> Unit)? = null
@@ -104,7 +145,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         }
         val previousText = if (revealController != null) text else null
         text = newText
-        if (!WGlobalStorage.getAreAnimationsActive()) {
+        if (!canAnimateReveal) {
             cancelReveal()
             return
         }
@@ -352,13 +393,18 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         setMeasuredDimension(targetWidth, targetHeight)
     }
 
-    private fun maskCharLimit(): Int? {
-        val minAnimating = snippets.minOfOrNull { it.charIndex }
+    // The text shows up to the first character still sharpening; a sharp one settling in its colours shows in it
+    private fun maskCharLimit(now: Double): Int? {
+        var minSharpening: Int? = null
+        for (snippet in snippets) {
+            if (now - snippet.startTime >= AgentStreamedCharacterLook.SHARPEN_S) continue
+            minSharpening = min(minSharpening ?: snippet.charIndex, snippet.charIndex)
+        }
         val revealed = revealCharCount
         return when {
-            revealed != null && minAnimating != null -> min(revealed, minAnimating)
+            revealed != null && minSharpening != null -> min(revealed, minSharpening)
             revealed != null -> revealed
-            minAnimating != null -> minAnimating
+            minSharpening != null -> minSharpening
             else -> null
         }
     }
@@ -370,18 +416,23 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         }
         val layout = layout
         if (layout != null && layout !== snippetLayout) relayoutSnippets(layout)
-        val limit = maskCharLimit()
-        if (limit == null || layout == null) {
+        if (layout == null) {
             super.onDraw(canvas)
             return
         }
-        maskPath.rewind()
-        buildMaskPath(layout, limit.coerceAtMost(layout.text.length), maskPath)
-        val saveCount = canvas.save()
-        canvas.clipPath(maskPath)
-        super.onDraw(canvas)
-        canvas.restoreToCount(saveCount)
-        drawSnippets(canvas, nowSeconds())
+        val now = nowSeconds()
+        val limit = maskCharLimit(now)
+        if (limit == null) {
+            super.onDraw(canvas)
+        } else {
+            maskPath.rewind()
+            buildMaskPath(layout, limit.coerceAtMost(layout.text.length), maskPath)
+            val saveCount = canvas.save()
+            canvas.clipPath(maskPath)
+            super.onDraw(canvas)
+            canvas.restoreToCount(saveCount)
+        }
+        drawSnippets(canvas, now, limit ?: Int.MAX_VALUE)
     }
 
     private fun buildMaskPath(layout: Layout, limit: Int, path: Path) {
@@ -429,8 +480,8 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     }
 
     /**
-     * Moves the snippets still flying in onto [layout], where the text re-wrapped as it grew, so each glyph lands where
-     * the text now has it
+     * Moves the snippets still coming in onto [layout], where the text re-wrapped as it grew, so each glyph settles
+     * where the text now has it
      */
     private fun relayoutSnippets(layout: Layout) {
         snippetLayout = layout
@@ -463,7 +514,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     }
 
     // Re-creates the snippets that were still animating on the label this reveal was handed
-    // over from, keeping their original start times so the fly-in continues seamlessly.
+    // over from, keeping their original start times so their coming in continues seamlessly.
     private fun adoptInFlightSnippets(now: Double) {
         val entries = revealKey?.let { snippetTimesByKey[it] } ?: return
         val layout = layout ?: return
@@ -537,34 +588,98 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         return bitmap
     }
 
-    private fun drawSnippets(canvas: Canvas, now: Double) {
+    /**
+     * Draws the characters still coming in where they rest: a sharpening one at its opacity over its glow, and each
+     * one under copies of it in the Agent's blue and violet, the violet over the blue, as iOS lays them. The text
+     * under the mask, which ends at [limit], shows a sharp character itself.
+     */
+    private fun drawSnippets(canvas: Canvas, now: Double, limit: Int) {
         if (snippets.isEmpty()) return
-        val supportsBlur =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P || !canvas.isHardwareAccelerated
+        updateTintFilters()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && canvas.isHardwareAccelerated) {
+            drawGlow(canvas, now)
+        }
         for (snippet in snippets) {
-            val elapsed = now - snippet.startTime
-            val progress = interpolator.getInterpolation(
-                (elapsed / SNIPPET_DURATION).coerceIn(0.0, 1.0).toFloat()
-            )
-            val blurProgress = interpolator.getInterpolation(
-                (elapsed / BLUR_DURATION).coerceIn(0.0, 1.0).toFloat()
-            )
-            val scale = 0.5f + 0.5f * progress
-            val translationY = snippetRise * (1f - progress)
-            val blurRadius = snippetBlurRadius * (1f - blurProgress)
-            val saveCount = canvas.save()
-            canvas.translate(0f, translationY)
-            canvas.scale(scale, scale, snippet.dst.centerX(), snippet.dst.centerY())
-            snippetPaint.alpha = (progress * 255f).toInt().coerceIn(0, 255)
-            snippetPaint.maskFilter = if (supportsBlur && blurRadius > 0.1f) {
-                BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
-            } else {
-                null
+            val age = now - snippet.startTime
+            val sharpness = computeSharpness(age)
+            if (sharpness < 1f || snippet.charIndex >= limit) {
+                snippetPaint.alpha = toAlpha(computeOpacity(sharpness))
+                canvas.drawBitmap(snippet.bitmap, snippet.src, snippet.dst, snippetPaint)
             }
-            canvas.drawBitmap(snippet.bitmap, snippet.src, snippet.dst, snippetPaint)
-            canvas.restoreToCount(saveCount)
+            drawTint(
+                canvas,
+                snippet,
+                blueTintFilter,
+                AgentStreamedCharacterLook.computeBlueOpacity(age)
+            )
+            drawTint(
+                canvas,
+                snippet,
+                violetTintFilter,
+                AgentStreamedCharacterLook.computeVioletOpacity(age)
+            )
         }
     }
+
+    // The glow is the blur: the sharpening characters' copies in the Agent's blue, blurred together in one node sized
+    // to just them, each as strong as iOS's shadow of it, which fades as the character sharpens
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun drawGlow(canvas: Canvas, now: Double) {
+        glowRegion.setEmpty()
+        for (snippet in snippets) {
+            if (now - snippet.startTime < AgentStreamedCharacterLook.SHARPEN_S) {
+                glowRegion.union(snippet.dst)
+            }
+        }
+        val sigma = GLOW_BLUR.dp / 2
+        val radius = (sigma - BLUR_SIGMA_OFFSET) / BLUR_SIGMA_SCALE
+        if (glowRegion.isEmpty || radius <= 0f) return
+        glowRegion.inset(-sigma * BLUR_REACH, -sigma * BLUR_REACH)
+        val glow = streamedGlow ?: StreamedGlow().also { streamedGlow = it }
+        val recording = glow.beginRecording(glowRegion, radius)
+        glowPaint.colorFilter = blueTintFilter
+        for (snippet in snippets) {
+            val age = now - snippet.startTime
+            if (age >= AgentStreamedCharacterLook.SHARPEN_S) continue
+            val sharpness = computeSharpness(age)
+            val strength = AgentStreamedCharacterLook.INITIAL_GLOW_OPACITY * (1f - sharpness)
+            glowPaint.alpha = toAlpha(computeOpacity(sharpness) * strength)
+            recording.drawBitmap(snippet.bitmap, snippet.src, snippet.dst, glowPaint)
+        }
+        glow.endRecording(canvas)
+    }
+
+    private fun drawTint(canvas: Canvas, snippet: Snippet, filter: ColorFilter?, opacity: Float) {
+        val alpha = toAlpha(opacity)
+        if (alpha == 0) return
+        tintPaint.colorFilter = filter
+        tintPaint.alpha = alpha
+        canvas.drawBitmap(snippet.bitmap, snippet.src, snippet.dst, tintPaint)
+    }
+
+    private fun updateTintFilters() {
+        val blue = AgentGlowPalette.textBlue
+        if (blueTintFilter == null || blue != blueTint) {
+            blueTintFilter = PorterDuffColorFilter(blue, PorterDuff.Mode.SRC_IN)
+            blueTint = blue
+        }
+        val violet = AgentGlowPalette.textViolet
+        if (violetTintFilter == null || violet != violetTint) {
+            violetTintFilter = PorterDuffColorFilter(violet, PorterDuff.Mode.SRC_IN)
+            violetTint = violet
+        }
+    }
+
+    // How sharp a character is `age` seconds after it arrived, eased as iOS sharpens it
+    private fun computeSharpness(age: Double): Float =
+        sharpenInterpolator.getInterpolation(AgentStreamedCharacterLook.computeSharpness(age))
+
+    private fun computeOpacity(sharpness: Float): Float {
+        val initial = AgentStreamedCharacterLook.INITIAL_OPACITY
+        return initial + (1f - initial) * sharpness
+    }
+
+    private fun toAlpha(opacity: Float): Int = (opacity * MAX_CHANNEL).roundToInt().coerceIn(0, 255)
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -579,5 +694,74 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
             frameScheduled = false
             Choreographer.getInstance().removeFrameCallback(frameCallback)
         }
+    }
+
+    /** The blurred glow of the characters still sharpening, in a node sized to just them */
+    @RequiresApi(Build.VERSION_CODES.S)
+    private class StreamedGlow {
+        private val node = RenderNode("AgentStreamedGlow")
+        private val bounds = Rect()
+        private var radius = 0f
+
+        /** A canvas in the label's coordinates covering [region], whose drawing comes out blurred by [radius] */
+        fun beginRecording(region: RectF, radius: Float): Canvas {
+            region.roundOut(bounds)
+            node.setPosition(bounds)
+            if (this.radius != radius) {
+                node.setRenderEffect(
+                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.DECAL)
+                )
+                this.radius = radius
+            }
+            val recording = node.beginRecording(bounds.width(), bounds.height())
+            recording.translate(-bounds.left.toFloat(), -bounds.top.toFloat())
+            return recording
+        }
+
+        /** Draws what was recorded into [canvas] */
+        fun endRecording(canvas: Canvas) {
+            node.endRecording()
+            canvas.drawRenderNode(node)
+        }
+    }
+}
+
+/**
+ * How a streamed character comes in, as iOS's `AgentStreamedCharacterAppearance` has it: from [INITIAL_OPACITY] it is
+ * sharp within [SHARPEN_S], in the Agent's colours that then turn into the text's own within [COLOR_S]. It arrives in
+ * the Agent's blue, which turns violet by the middle of its way to the text's colours.
+ */
+internal object AgentStreamedCharacterLook {
+    const val SHARPEN_S = 0.15
+    const val COLOR_S = 0.5
+
+    /** How long a character takes to settle in its own colours */
+    const val DURATION_S = SHARPEN_S + COLOR_S
+    const val INITIAL_OPACITY = 0.15f
+    const val INITIAL_GLOW_OPACITY = 0.9f
+
+    /** How far the character is from its arrival to sharp, `age` seconds after it arrived */
+    fun computeSharpness(age: Double): Float = (age / SHARPEN_S).coerceIn(0.0, 1.0).toFloat()
+
+    /** How much of the Agent's colours the character still shows over its own */
+    fun computeAccent(age: Double): Float {
+        val opacity = INITIAL_OPACITY + (1f - INITIAL_OPACITY) * computeSharpness(age)
+        val toText = ((age - SHARPEN_S) / COLOR_S).coerceIn(0.0, 1.0).toFloat()
+        return opacity * (1f - toText)
+    }
+
+    /** How far the Agent's colours over the character have turned from blue to violet: violet by the middle */
+    fun computeViolet(age: Double): Float {
+        val progress = ((age - SHARPEN_S) / (COLOR_S / 2)).coerceIn(0.0, 1.0).toFloat()
+        return progress * progress * (3f - 2f * progress)
+    }
+
+    /** The opacity of the character's copy in the violet, over the blue one */
+    fun computeVioletOpacity(age: Double): Float = computeAccent(age) * computeViolet(age)
+
+    /** The opacity of the character's copy in the blue, which with the violet one over it shows [computeAccent] */
+    fun computeBlueOpacity(age: Double): Float {
+        val violet = computeVioletOpacity(age)
+        return if (violet < 1f) (computeAccent(age) - violet) / (1f - violet) else 0f
     }
 }

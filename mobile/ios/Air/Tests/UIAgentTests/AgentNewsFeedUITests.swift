@@ -3,13 +3,13 @@ import UIKit
 @testable import UIAgent
 import UIComponents
 import WalletContext
-import WalletCore
+@testable import WalletCore
 import WalletResources
 import Kingfisher
 
 @MainActor
 final class AgentNewsFeedUITests: XCTestCase {
-    func testCardCollapsesMissingImageAndReadsHeadlineBodySourceAndTime() throws {
+    func testCardCollapsesMissingImageAndReadsHeadlineBodyAndTime() throws {
         _ = WalletResourcesBundle.bundle.load()
         let cell = AgentNewsFeedCardCell(frame: CGRect(x: 0, y: 0, width: 370, height: 400))
         let item = ApiAgentV2NewsFeedItem(
@@ -24,9 +24,9 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertTrue(image.isHidden)
         XCTAssertFalse(image.isAccessibilityElement)
         let element = cell.newsView.accessibilityContentElement
-        XCTAssertEqual(element.accessibilityCustomActions?.count, 2)
+        XCTAssertEqual(element.accessibilityCustomActions?.count, 4)
         XCTAssertTrue(element.accessibilityLabel?.hasPrefix("Market news, Bitcoin is rising., ") == true)
-        XCTAssertFalse(element.accessibilityLabel?.contains("Market Source") == true)
+        XCTAssertTrue(element.accessibilityLabel?.contains(makeSourcesLineText(["example.com", "Market Source"])) == true)
         let body = try XCTUnwrap(descendants(cell).compactMap { $0 as? UILabel }.first {
             $0.attributedText?.string == "Bitcoin is rising."
         })
@@ -292,12 +292,25 @@ final class AgentNewsFeedUITests: XCTestCase {
             }
             let cell = try XCTUnwrap(collection.visibleCells.compactMap { $0 as? AgentNewsFeedCardCell }.first)
             delegate.openedURLs = []
-            cell.openSourceAction?()
+            cell.openSourceAction?(rawURL)
 
             XCTAssertEqual(delegate.openedURLs, expected == "screen" ? [url] : [], rawURL)
             XCTAssertEqual(browserURLs, expected == "browser" ? [url] : [], rawURL)
             XCTAssertEqual(telegramURLs, expected == "telegram" ? [url] : [], rawURL)
             XCTAssertEqual(errors.map(\.text), expected == "unsupported" ? [lang("Unsupported link")] : [], rawURL)
+
+            // The source line opens the same way, and leaves a link the app may not open as plain text
+            let line = try XCTUnwrap(descendants(cell).compactMap { $0 as? AgentNewsSourceLineLabel }.first)
+            delegate.openedURLs = []
+            browserURLs = []
+            telegramURLs = []
+            errors = []
+            if let entry = AgentNewsSourceLine(sources: item.sources)?.entries.first?.name {
+                try tap(entry, in: line)
+            }
+            let opened = expected == "unsupported" ? [] : [url]
+            XCTAssertEqual(delegate.openedURLs + browserURLs + telegramURLs, opened, rawURL)
+            XCTAssertEqual(errors.count, 0, rawURL)
         }
     }
 
@@ -345,7 +358,11 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertEqual(divider.frame.minY - collection.contentOffset.y, collection.adjustedContentInset.top, accuracy: 3)
         XCTAssertEqual(model.unreadEventId, 7)
         XCTAssertTrue(collection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsCard-7" })
-        XCTAssertNil(controller.navigationItem.rightBarButtonItem)
+        // The header's trailing slot holds the bell of the digest and notifications sheet, without a chat's menu
+        XCTAssertEqual(
+            AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem)?.accessibilityIdentifier,
+            AgentChatNavigation.digestSettingsButtonIdentifier
+        )
         XCTAssertFalse(descendants(controller.view).contains { $0 is AgentComposerView })
         XCTAssertEqual(controller.title, lang("News"))
         let titleView = try XCTUnwrap(controller.navigationItem.titleView)
@@ -372,7 +389,17 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertEqual(threadsCircle.button.accessibilityIdentifier, "agent_threads_button")
         XCTAssertEqual(threadsCircle.bounds.size, CGSize(width: 44, height: 44))
         XCTAssertTrue(controller.navigationItem.hidesBackButton)
-        XCTAssertNil(controller.navigationHandoffTrailingView)
+        let bell = try XCTUnwrap(controller.navigationHandoffTrailingView as? AgentGlassCircleButton)
+        XCTAssertEqual(bell.button.accessibilityIdentifier, AgentChatNavigation.digestSettingsButtonIdentifier)
+        XCTAssertEqual(bell.button.accessibilityLabel, lang("$agent_digest_settings_title"))
+        var presenters: [UIViewController] = []
+        let bellController = AgentNewsFeedVC(model: model, presentDigestSettings: { presenters.append($0) })
+        navigation.pushViewController(bellController, animated: false)
+        bellController.loadViewIfNeeded()
+        bellController.viewIsAppearing(false)
+        let bellButton = try XCTUnwrap(AgentChatNavigation.findButton(in: bellController.navigationItem.rightBarButtonItem))
+        bellButton.sendActions(for: .primaryActionTriggered)
+        XCTAssertTrue(presenters.first === bellController)
         for appearance in [controller.navigationItem.standardAppearance, controller.navigationItem.scrollEdgeAppearance] {
             let appearance = try XCTUnwrap(appearance)
             XCTAssertNil(appearance.backgroundEffect)
@@ -382,7 +409,6 @@ final class AgentNewsFeedUITests: XCTestCase {
         if #available(iOS 26.0, *) {
             XCTAssertTrue(collection.topEdgeEffect.isHidden)
         }
-        XCTAssertTrue(descendants(controller.view).contains { $0 is EdgeEffectView })
         controller.setNavigationHandoffHidden(true)
         XCTAssertEqual(threadsCircle.alpha, 0)
         controller.setNavigationHandoffHidden(false)
@@ -395,7 +421,10 @@ final class AgentNewsFeedUITests: XCTestCase {
         let cached = AgentNewsFeedModel(
             client: NewsFeedUIClient(first: .success(page)),
             readState: AgentNewsReadState(userDefaults: makeDefaults()),
-            cachedPage: (page, "en")
+            cachedPage: AgentNewsCachedPage(
+                page: page, language: "en",
+                schedule: AgentNewsFeedModel(readState: AgentNewsReadState(userDefaults: makeDefaults())).currentDigestSchedule
+            )
         )
         XCTAssertEqual(cached.items.map(\.eventId), [1, 2])
         XCTAssertEqual(cached.locale, "en")
@@ -481,6 +510,373 @@ final class AgentNewsFeedUITests: XCTestCase {
         XCTAssertEqual(AgentNewsFeedVC.errorText(SdkError.unexpected(message: "Failure")), lang("$agent_error_generic"))
     }
 
+    /// A feed that loads without news says so in the middle of its column, without Retry, in place of its placeholder,
+    /// and keeps saying so while it reads the news again, until they come
+    func testEmptyFeedSaysSoUntilNewsArrive() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = NewsFeedUIClient(first: .success(.init(locale: "en", items: [])))
+        let model = AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()))
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let skeleton = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentMessagesSkeletonView }.first)
+        let message = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentLoadErrorView }.first)
+        try await waitUntil { model.hasLoaded && !model.isLoading }
+        window.layoutIfNeeded()
+        XCTAssertFalse(skeleton.isShowing)
+        XCTAssertFalse(message.isHidden)
+        XCTAssertEqual(message.label.text, lang("$agent_news_empty"))
+        XCTAssertTrue(message.retryButton.isHidden)
+        XCTAssertEqual(message.frame.midX, controller.collectionView.frame.midX, accuracy: 1)
+        XCTAssertEqual(message.frame.midY, controller.collectionView.frame.midY, accuracy: 1)
+
+        var page: CheckedContinuation<Void, Never>?
+        client.beforeFirstPage = { await withCheckedContinuation { page = $0 } }
+        client.first = .success(.init(locale: "en", items: [makeItem(1)]))
+        WalletCoreData.notify(event: .applicationWillEnterForeground)
+        try await waitUntil { model.isLoading && page != nil }
+        XCTAssertFalse(skeleton.isShowing)
+        XCTAssertFalse(message.isHidden)
+        client.beforeFirstPage = nil
+        page?.resume()
+        try await waitUntil {
+            window.layoutIfNeeded()
+            return message.isHidden && controller.collectionView.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsCard-1" }
+        }
+        XCTAssertFalse(skeleton.isShowing)
+        XCTAssertEqual(client.cursors, [nil, nil])
+    }
+
+    /// Two fingers on the latest picture keep the feed where it rests at its end, over a home indicator: the list stops
+    /// scrolling for the pinch and keeps that indicator's height in its insets
+    func testPinchOnTheLatestPictureKeepsTheFeedAtItsEnd() async throws {
+        let imageKey = "https://example.invalid/news-pinch-\(UUID().uuidString).png"
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 9)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 16, height: 9))
+        }
+        try await ImageCache.default.store(image, forKey: imageKey, toDisk: false)
+        defer { ImageCache.default.removeImage(forKey: imageKey, fromDisk: false, completionHandler: nil) }
+        let items = (1...6).map { makeNewsItem($0, isLong: true, imageURL: $0 == 6 ? imageKey : nil) }
+        let feed = TestFeed(page: .init(locale: "en", items: items.reversed()), safeAreaBottom: 34)
+        defer { feed.close() }
+        let list = feed.controller.collectionView
+        var latestPicture: UIImageView?
+        try await feed.waitUntil {
+            latestPicture = list.visibleCells.compactMap { $0 as? AgentNewsFeedCardCell }
+                .first { $0.accessibilityIdentifier == "AgentNewsCard-6" }?.newsView.imageView
+            return latestPicture?.image != nil
+        }
+        try await feed.waitForStableLayout()
+        let restingY = list.contentOffset.y
+        let bottomInset = list.adjustedContentInset.bottom
+        XCTAssertEqual(restingY, feed.controller.maxContentOffsetY, accuracy: 0.5)
+        let touchGuard = try XCTUnwrap(latestPicture?.gestureRecognizers?.compactMap { $0 as? PinchTouchGuard }.first)
+
+        touchGuard.updateTouchCount(2)
+        feed.layout()
+        XCTAssertFalse(list.panGestureRecognizer.isEnabled)
+        XCTAssertEqual(list.adjustedContentInset.bottom, bottomInset, accuracy: 0.5)
+        XCTAssertEqual(list.contentOffset.y, restingY, accuracy: 0.5)
+
+        touchGuard.reset()
+        feed.layout()
+        XCTAssertTrue(list.panGestureRecognizer.isEnabled)
+        XCTAssertEqual(list.contentOffset.y, restingY, accuracy: 0.5)
+    }
+
+    /// A digest's headline opens its news item's discussion over the feed, as the item's card does, or once it loads
+    /// when the feed hasn't loaded the item. Discuss opens the digest's thread once the user has written there,
+    /// otherwise a visit that starts it, also over the feed.
+    func testDigestCardOpensItsNewsAndItsDiscussionOverTheFeed() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let started = try makeDigest(id: "en:2026-10-20T10:05:00.000Z", headlines: [1], discussion: "digest-thread")
+        let fresh = try makeDigest(id: "en:2026-10-20T10:06:00.000Z", headlines: [1, 42])
+        let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: Data("""
+        {"id":"digest-thread","revision":1,"createdAt":"2026-10-20T12:00:00Z","updatedAt":"2026-10-20T12:00:00Z",
+         "lastActivityAt":"2026-10-20T12:00:00Z","messageCount":2}
+        """.utf8))
+        let model = AgentNewsFeedModel(
+            client: NewsFeedUIClient(first: .success(.init(locale: "en", items: [makeItem(1)], digests: [started, fresh]))),
+            readState: AgentNewsReadState(userDefaults: makeDefaults()),
+            findThread: { $0 == thread.id ? thread : nil }
+        )
+        var newsChats: [Int] = []
+        var loadedNewsChats: [Int] = []
+        var digestChats: [String] = []
+        var chats: [UIViewController] = []
+        func makeChat() -> UIViewController {
+            let chat = UIViewController()
+            chats.append(chat)
+            return chat
+        }
+        let preloader = AgentPreloader(client: FakeAgentV2Client())
+        defer { preloader.setWalletReady(false) }
+        let controller = AgentNewsFeedVC(
+            model: model, preloader: preloader,
+            makeNewsChatViewController: { item, _, _ in
+                newsChats.append(item.eventId)
+                return makeChat()
+            },
+            loadNewsChatViewController: { eventId in
+                loadedNewsChats.append(eventId)
+                return makeChat()
+            },
+            makeDigestChatViewController: { id in
+                digestChats.append(id)
+                return makeChat()
+            }
+        )
+        let navigationController = PushRecordingNavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigationController)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil { !model.isLoading && model.digests.count == 2 }
+
+        /// Taps `identifier` on the card of `digest`, waits for the chat to be pushed onto the feed's own stack, and goes
+        /// back
+        func tap(_ identifier: String, on digest: ApiAgentV2NewsFeedDigest) async throws -> UIViewController {
+            // The feed refreshes as it comes back from a chat
+            try await waitUntil { !model.isLoading && collection.numberOfItems(inSection: 0) == 4 }
+            let cell = try await revealCell("AgentNewsDigest-\(digest.id)", in: collection)
+            try button(identifier, in: cell).sendActions(for: .touchUpInside)
+            try await waitUntil { navigationController.viewControllers.count == 2 }
+            XCTAssertTrue(navigationController.viewControllers.first === controller)
+            let chat = try XCTUnwrap(navigationController.topViewController)
+            // The screens appear and disappear a turn after the stack changes, which lets the feed open the next chat
+            try await waitUntil { chat.viewIfLoaded?.window != nil && controller.viewIfLoaded?.window == nil }
+            navigationController.popViewController(animated: false)
+            try await waitUntil { controller.viewIfLoaded?.window != nil && chat.viewIfLoaded?.window == nil }
+            try await Task.sleep(for: .milliseconds(50))
+            return chat
+        }
+
+        let loadedItemChat = try await tap("AgentNewsDigestHeadline-1", on: fresh)
+        XCTAssertTrue(loadedItemChat === chats.last)
+        XCTAssertEqual(newsChats, [1])
+        let otherItemChat = try await tap("AgentNewsDigestHeadline-42", on: fresh)
+        XCTAssertTrue(otherItemChat === chats.last)
+        XCTAssertEqual(loadedNewsChats, [42])
+        let digestChat = try await tap("AgentNewsDigestDiscussion-\(fresh.id)", on: fresh)
+        XCTAssertTrue(digestChat === chats.last)
+        XCTAssertEqual(digestChats, [fresh.id])
+
+        let chat = try await tap("AgentNewsDigestDiscussion-\(started.id)", on: started)
+        XCTAssertEqual(digestChats, [fresh.id])
+        XCTAssertEqual(((chat as? AgentVC)?.model as? AgentV2Model)?.threadId, thread.id)
+    }
+
+    /// The feed opened for a digest scrolls to its card once older pages bring it, and stops asking for pages once
+    /// they reach back past the digest without it
+    func testRequestedDigestScrollsIntoViewAfterOlderPagesAndTheSearchStops() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let digest = try makeDigest(id: "en:2026-10-20T10:01:30.000Z", headlines: [1])
+        let client = NewsFeedUIClient(first: .success(.init(
+            locale: "en", items: (5...9).reversed().map { makeItem($0, longBody: true) }, nextCursor: "older1"
+        )))
+        client.pagesByCursor = [
+            "older1": .init(locale: "en", items: [makeItem(4, longBody: true), makeItem(3, longBody: true)], nextCursor: "older2"),
+            "older2": .init(locale: "en", items: [makeItem(2, longBody: true), makeItem(1, longBody: true)], nextCursor: "older3", digests: [digest]),
+        ]
+        let model = AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()), requestedDigestId: digest.id)
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil {
+            window.layoutIfNeeded()
+            return collection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsDigest-\(digest.id)" }
+        }
+        let card = try XCTUnwrap(collection.visibleCells.first { $0.accessibilityIdentifier == "AgentNewsDigest-\(digest.id)" })
+        XCTAssertEqual(card.frame.minY - collection.contentOffset.y, collection.adjustedContentInset.top, accuracy: 3)
+        XCTAssertEqual(client.cursors, [nil, "older1", "older2"])
+
+        // A digest the pages reach back past without bringing it leaves the feed at its latest news
+        let missing = AgentNewsFeedModel(
+            client: NewsFeedUIClient(first: .success(.init(
+                locale: "en", items: (1...9).reversed().map { makeItem($0, longBody: true) }, nextCursor: "older"
+            ))),
+            readState: AgentNewsReadState(userDefaults: makeDefaults()),
+            requestedDigestId: "en:2026-10-20T10:05:30.000Z"
+        )
+        let missingController = AgentNewsFeedVC(model: missing)
+        let missingWindow = present(missingController)
+        defer { missingWindow.isHidden = true }
+        let missingCollection = try XCTUnwrap(descendants(missingController.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil {
+            missingWindow.layoutIfNeeded()
+            return !missing.isLoading && missingCollection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsCard-9" }
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertFalse(missing.isLoadingMore)
+        XCTAssertEqual(missing.items.count, 9)
+        XCTAssertEqual(missing.nextCursor, "older")
+        XCTAssertEqual(
+            missingCollection.contentOffset.y,
+            missingCollection.contentSize.height - missingCollection.bounds.height + missingCollection.adjustedContentInset.bottom,
+            accuracy: 3
+        )
+    }
+
+    /// The scroll button the user taps while older pages load leaves the feed at its latest news when the digest comes
+    func testScrollToLatestWhileOlderPagesLoadCancelsTheScrollToTheRequestedDigest() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let digest = try makeDigest(id: "en:2026-10-20T10:01:30.000Z", headlines: [1])
+        let client = NewsFeedUIClient(first: .success(.init(
+            locale: "en", items: (2...9).reversed().map { makeItem($0, longBody: true) }, nextCursor: "older"
+        )))
+        client.older = .init(locale: "en", items: [makeItem(1, longBody: true)], digests: [digest])
+        var release: CheckedContinuation<Void, Never>?
+        client.beforeOlderPage = { await withCheckedContinuation { release = $0 } }
+        let model = AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()), requestedDigestId: digest.id)
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil { release != nil }
+        controller.scrollToBottomButtonPressed()
+        release?.resume()
+        try await waitUntil { model.digests.count == 1 && !model.isLoadingMore }
+        try await Task.sleep(for: .milliseconds(100))
+        window.layoutIfNeeded()
+        XCTAssertFalse(collection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsDigest-\(digest.id)" })
+        XCTAssertTrue(collection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsCard-9" })
+    }
+
+    /// A feed that opens at its top takes its first older page by its own pagination; the search for the requested
+    /// digest goes on from there
+    func testRequestedDigestSearchGoesOnAfterTheFeedsOwnPagination() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let digest = try makeDigest(id: "en:2026-10-20T10:01:30.000Z", headlines: [1])
+        let client = NewsFeedUIClient(first: .success(.init(
+            locale: "en", items: (5...9).reversed().map { makeItem($0, longBody: true) }, nextCursor: "older1"
+        )))
+        client.pagesByCursor = [
+            // Tall enough that the feed, kept at its card, is no longer near its top after this page
+            "older1": .init(locale: "en", items: [makeItem(4, longBody: true), makeItem(3, longBody: true)], nextCursor: "older2"),
+            "older2": .init(locale: "en", items: [makeItem(2), makeItem(1)], digests: [digest]),
+        ]
+        // Everything on the first page is unread, so the feed opens at its top, at the unread line
+        let readState = AgentNewsReadState(userDefaults: makeDefaults())
+        readState.markRead(items: [makeItem(4)])
+        let model = AgentNewsFeedModel(client: client, readState: readState, requestedDigestId: digest.id)
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil {
+            window.layoutIfNeeded()
+            return collection.visibleCells.contains { $0.accessibilityIdentifier == "AgentNewsDigest-\(digest.id)" }
+        }
+        XCTAssertEqual(client.cursors, [nil, "older1", "older2"])
+    }
+
+    /// A new digest hour reloads the feed: the old hour's digest goes, the new one's comes and the news stay
+    func testNewDigestHourReplacesTheDigestsAndKeepsTheNews() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let settings = AgentNewsNotificationSettings(userDefaults: makeDefaults())
+        let evening = try makeDigest(id: "en:2026-10-20T10:05:00.000Z", headlines: [1])
+        let morning = try makeDigest(id: "en:2026-10-20T10:06:00.000Z", headlines: [1])
+        let client = NewsFeedUIClient(first: .success(.init(locale: "en", items: [makeItem(1)], digests: [evening])))
+        let model = AgentNewsFeedModel(client: client, readState: AgentNewsReadState(userDefaults: makeDefaults()), digestSettings: settings)
+        let controller = AgentNewsFeedVC(model: model)
+        let window = present(controller)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        func shows(_ identifier: String) -> Bool {
+            window.layoutIfNeeded()
+            return collection.visibleCells.contains { $0.accessibilityIdentifier == identifier }
+        }
+        try await waitUntil { shows("AgentNewsDigest-\(evening.id)") && shows("AgentNewsCard-1") }
+
+        client.first = .success(.init(locale: "en", items: [makeItem(1)], digests: [morning]))
+        let outcome = await settings.setDigestHour(9)
+        XCTAssertEqual(outcome, .ok)
+        try await waitUntil { shows("AgentNewsDigest-\(morning.id)") && !shows("AgentNewsDigest-\(evening.id)") && shows("AgentNewsCard-1") }
+        XCTAssertEqual(model.digests, [morning])
+        XCTAssertEqual(model.items.map(\.eventId), [1])
+        XCTAssertEqual(client.digestHours.last, 9)
+    }
+
+    /// Quick repeated taps open one chat; a failed opening releases the tap, which opens the chat when repeated
+    func testRepeatedTapsOpenOneChatAndAFailedOpeningCanBeRetried() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let digest = try makeDigest(id: "en:2026-10-20T10:06:00.000Z", headlines: [42])
+        let model = AgentNewsFeedModel(
+            client: NewsFeedUIClient(first: .success(.init(locale: "en", items: [makeItem(1)], digests: [digest]))),
+            readState: AgentNewsReadState(userDefaults: makeDefaults())
+        )
+        var loads = 0
+        var pendingLoad: CheckedContinuation<Void, Error>?
+        var digestChats = 0
+        let controller = AgentNewsFeedVC(
+            model: model,
+            loadNewsChatViewController: { _ in
+                loads += 1
+                try await withCheckedThrowingContinuation { pendingLoad = $0 }
+                return UIViewController()
+            },
+            makeDigestChatViewController: { _ in
+                digestChats += 1
+                return UIViewController()
+            }
+        )
+        let navigationController = PushRecordingNavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigationController)
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil { !model.isLoading && model.digests.count == 1 }
+        let cell = try await revealCell("AgentNewsDigest-\(digest.id)", in: collection)
+        let headline = try button("AgentNewsDigestHeadline-42", in: cell)
+        let discuss = try button("AgentNewsDigestDiscussion-\(digest.id)", in: cell)
+
+        headline.sendActions(for: .touchUpInside)
+        headline.sendActions(for: .touchUpInside)
+        discuss.sendActions(for: .touchUpInside)
+        try await waitUntil { pendingLoad != nil }
+        XCTAssertEqual(loads, 1)
+        XCTAssertEqual(digestChats, 0)
+        pendingLoad?.resume(throwing: CancellationError())
+        pendingLoad = nil
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(navigationController.viewControllers.count, 1)
+
+        discuss.sendActions(for: .touchUpInside)
+        discuss.sendActions(for: .touchUpInside)
+        headline.sendActions(for: .touchUpInside)
+        XCTAssertEqual(digestChats, 1)
+        XCTAssertEqual(loads, 1)
+        XCTAssertEqual(navigationController.viewControllers.count, 2)
+    }
+
+    private func makeDigest(id: String, headlines: [Int], discussion: String? = nil) throws -> ApiAgentV2NewsFeedDigest {
+        var digest: [String: Any] = [
+            "id": id, "deliveredAt": String(id.drop { $0 != ":" }.dropFirst()), "total": 12,
+            "top": headlines.map { ["eventId": $0, "headline": "Headline \($0)"] },
+        ]
+        digest["discussion"] = discussion.map { ["threadId": $0] }
+        return try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: JSONSerialization.data(withJSONObject: digest))
+    }
+
+    /// Scrolls the row with `identifier` into view and returns its cell
+    private func revealCell(_ identifier: String, in collection: UICollectionView) async throws -> UICollectionViewCell {
+        for _ in 0..<20 {
+            for item in 0..<collection.numberOfItems(inSection: 0) {
+                let indexPath = IndexPath(item: item, section: 0)
+                collection.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+                collection.layoutIfNeeded()
+                if let cell = collection.cellForItem(at: indexPath), cell.accessibilityIdentifier == identifier { return cell }
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTFail("No row \(identifier)")
+        throw NewsFeedUIError.timedOut
+    }
+
+    private func button(_ identifier: String, in cell: UIView) throws -> UIButton {
+        try XCTUnwrap(descendants(cell).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == identifier })
+    }
+
     private func makeDefaults() -> UserDefaults {
         let name = "AgentNewsFeedUITests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -519,6 +915,13 @@ final class AgentNewsFeedUITests: XCTestCase {
     }
 }
 
+/// Pushes without the animation, which a test window can't finish between taps
+private final class PushRecordingNavigationController: UINavigationController {
+    override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        super.pushViewController(viewController, animated: false)
+    }
+}
+
 private enum NewsFeedUIError: Error {
     case timedOut
 }
@@ -543,14 +946,26 @@ private final class NewsFeedLinkDelegate: NSObject, WalletContextDelegate {
 private final class NewsFeedUIClient: AgentNewsFeedClient {
     var first: Result<ApiAgentV2NewsFeedPage, Error>
     var older = ApiAgentV2NewsFeedPage(locale: "en", items: [])
+    var pagesByCursor: [String: ApiAgentV2NewsFeedPage] = [:]
     var cursors: [String?] = []
+    var digestHours: [Int] = []
+    /// Holds the first page back until it returns
+    var beforeFirstPage: (() async -> Void)?
+    /// Holds an older page back until it returns
+    var beforeOlderPage: (() async -> Void)?
 
     init(first: Result<ApiAgentV2NewsFeedPage, Error>) {
         self.first = first
     }
 
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
         cursors.append(cursor)
-        return try cursor == nil ? first.get() : older
+        digestHours.append(digestHour)
+        if cursor == nil, let beforeFirstPage {
+            await beforeFirstPage()
+        }
+        guard let cursor else { return try first.get() }
+        await beforeOlderPage?()
+        return pagesByCursor[cursor] ?? older
     }
 }

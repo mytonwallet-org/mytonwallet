@@ -1089,6 +1089,22 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                 case "tonConnectOnline":
                     break
 
+                case "updatePerpsPositions":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdatePerpsPositions.self, from: data)
+                        WalletCoreData.notify(event: .updatePerpsPositions(update))
+                    } catch {
+                        log.error("updatePerpsPositions: \(error, .public)")
+                    }
+
+                case "updatePerpsPositionsUnavailable":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdatePerpsPositionsUnavailable.self, from: data)
+                        WalletCoreData.notify(event: .updatePerpsPositionsUnavailable(update))
+                    } catch {
+                        log.error("updatePerpsPositionsUnavailable: \(error, .public)")
+                    }
+
                 case "updatePerpsAssets":
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.UpdatePerpsAssets.self, from: data)

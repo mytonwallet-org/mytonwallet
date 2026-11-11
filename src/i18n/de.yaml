@@ -139,8 +139,8 @@ You can always enable seasonal theming again in the appearance settings.: Sie k�
 Base Currency: Basiswährung
 Investor View: Investorenansicht
 Toggle Investor View: Investorenansicht umschalten
-Hide Tiny Transfers: Kleine Überweisungen ausblenden
-Toggle Hide Tiny Transfers: Kleine Überweisungen ausblenden umschalten
+Hide Tiny Transfers and Spam: Kleine Überweisungen und Spam ausblenden
+Toggle Hide Tiny Transfers and Spam: Ausblenden kleiner Überweisungen und von Spam umschalten
 Network: Netzwerk
 Developer Options: Entwickleroptionen
 All Wallet Versions: Alle Wallet-Versionen
@@ -1327,7 +1327,6 @@ Agent: Agent
 Learn more: Mehr erfahren
 Data shared with Agent: Mit Agent geteilte Daten
 $agent_consent_allow_button: Agent erlauben
-$agent_consent_subtitle: Fragen Sie Agent nach Wallet-Hilfe, Token-Informationen und unterstützten Aktionen.
 $agent_consent_feature_answers: Erhalten Sie Antworten zu %app_name%, Token und Wallet-Aktivitäten.
 $agent_consent_feature_actions: Bereiten Sie unterstützte Aktionen wie Senden, Empfangen und Staking vor.
 $agent_consent_feature_context: Verwenden Sie Wallet-Kontext, damit Antworten relevante Assets und Adressen berücksichtigen können.
@@ -1415,6 +1414,7 @@ $agent_dictation_no_speech: "Es war keine Sprache zu hören. Bitte näher am Mik
 $agent_dictation_time_left: "Noch %seconds% s"
 $agent_dictation_time_left_short: "%seconds% s"
 $agent_dictation_limit_reached: "Das Diktat wurde nach einer Minute beendet – das ist die maximale Aufnahmelänge."
+$agent_stop_answer: "Antwort stoppen"
 $agent_dictation_microphone_denied: "Für das Diktieren wird Zugriff auf das Mikrofon benötigt."
 $agent_dictation_hold_hint: "Zum Diktieren gedrückt halten. Nach oben wischen, um freihändig aufzunehmen."
 $agent_dictation_too_short: "Zu kurz. Beim Sprechen gedrückt halten."
@@ -2143,6 +2143,8 @@ News: "Nachrichten"
 Crypto Market News: "Nachrichten vom Kryptomarkt"
 $agent_news_new: "Neu"
 $agent_news_open_source: "Quelle öffnen"
+$agent_news_source: "Quelle: %sources%"
+$agent_news_sources: "Quellen: %sources%"
 $agent_news_unavailable: "Nachrichten sind derzeit nicht verfügbar"
 $agent_news_read_more: "Mehr erfahren"
 $agent_news_discuss: "Diskutieren"
@@ -2179,7 +2181,6 @@ $perps_open_interest_hint: "Der Gesamtwert der aktuell offenen Kontrakte auf die
 "Review": "Prüfen"
 "$perps_order_long": "%asset% Long"
 "$perps_order_short": "%asset% Short"
-"$perps_swap_fee_hint": "Die Gebühr für den Tausch eines Tokens in einen anderen im Rahmen dieser Transaktion."
 "$perps_trading_fee_hint": "Die Gebühr für das Eröffnen dieser Position."
 "$perps_position_size_hint": "Positionsgröße – Gesamtwert Ihrer gehebelten Position."
 "$perps_position_size_details_hint": "Der Gesamtwert deiner Position unter Berücksichtigung des Hebels.\n\nWenn du beispielsweise $100 mit einem 5x-Hebel investierst, beträgt deine Positionsgröße $500."
@@ -2189,14 +2190,13 @@ $perps_open_interest_hint: "Der Gesamtwert der aktuell offenen Kontrakte auf die
 "$perps_closing_value_hint": "Der nach der Liquidation deiner Position verbleibende Betrag. Je nach Ergebnis der Liquidation kann dieser Betrag geringer als dein investierter Betrag oder null sein."
 "$perps_fees_hint": "Die gesamten Gebühren für diese Transaktion. Je nach Transaktion können diese Handels-, Tausch- und Netzwerkgebühren umfassen."
 "$perps_liquidation_price_hint": "Der geschätzte Preis, bei dem deine Position automatisch geschlossen werden kann, weil nicht genügend Mittel vorhanden sind, um sie offen zu halten."
-"$perps_high_leverage_warning": "Hoher Hebel: Schon eine kleine Kursbewegung löst die Liquidation aus."
 "$perps_leverage_disclaimer": "Ein höherer Hebel erhöht mögliche Gewinne und Verluste. Schon eine kleine Preisänderung gegen Ihre Position kann dazu führen, dass sie automatisch geschlossen wird."
 
 # Perps order review
 "Open Position": "Position eröffnen"
 "$perps_asset_price": "%asset%-Preis"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Mit der Bestätigung erkenne ich an, dass diese Position liquidiert werden kann und ich mein eingesetztes Geld verlieren könnte."
+"$perps_liquidation_acknowledgment": "Mit der Bestätigung erkenne ich an, dass diese Position liquidiert werden kann und ich mein eingesetztes Geld verlieren könnte."
 
 # Perps position receipt
 "Position Opened": "Position eröffnet"
@@ -2267,7 +2267,16 @@ $perps_open_interest_hint: "Der Gesamtwert der aktuell offenen Kontrakte auf die
 "PerpsQuoteExpired": "Preise oder Ihre Position haben sich geändert. Gehen Sie zurück und prüfen Sie die Order erneut."
 "PerpsReviewChanged": "Die Order hat sich geändert. Gehen Sie zurück und prüfen Sie sie erneut."
 "PerpsInsufficientUsdc": "Nicht genug USDC auf Arbitrum, einschließlich der Bridge-Gebühr."
+"EvmUserOperationMismatch": "Die Gaszahlung stimmt nicht mit dieser Transaktion überein."
+"PerpsInsufficientBalance": "Nicht genug USDC in Ihrem Hyperliquid-Guthaben, einschließlich der Handelsgebühren."
+"PerpsMarketNeedsUnifiedAccount": "Dieser Markt kann mit deinem aktuellen Hyperliquid-Kontotyp nicht aus deinem Wallet finanziert werden."
+"PerpsRequiresMultichainWallet": "Für Futures benötigen Sie eine Multichain-Wallet. Wechseln Sie zu einer oder erstellen Sie eine neue, um mit dem Handel zu beginnen."
+"PerpsSwitchesToUnifiedAccount": "Diese Order stellt dein Hyperliquid-Konto außerdem auf Unified um, sodass ein USDC-Guthaben für alle Märkte gilt."
 "PerpsAmountTooSmall": "Dieser Betrag liegt unter dem Marktminimum."
+"$perps_minimum_amount": "Mindestbetrag: %amount% USDC."
+"$perps_minimum_reduction": "Verringern Sie den Betrag um mehr als %amount% USDC, um die Bridge-Gebühr zu decken."
+"$perps_required_balance": "Benötigt: %required% USDC einschließlich Gebühren. Auf Hyperliquid verfügbar: %available% USDC."
+"$perps_available_balance": "Auf Hyperliquid verfügbar: %available% USDC. Verringern Sie den Betrag, damit genügend Guthaben für Handelsgebühren bleibt."
 "PerpsUnchanged": "Geben Sie einen anderen Betrag ein, um die Position zu ändern."
 "PerpsPositionChanged": "Diese Position hat sich geändert. Aktualisieren Sie die Daten und versuchen Sie es erneut."
 "PerpsPositionExists": "Sie haben bereits eine Position auf diesem Markt. Bearbeiten Sie die bestehende Position."
@@ -2314,8 +2323,6 @@ Could not save the image. Please try again.: Das Bild konnte nicht gesichert wer
 "$perps_funding_usdc_increase": "Du benötigst mindestens %minUSDC% USDC auf Arbitrum, um diese Position zu erhöhen."
 "PerpsFundingGasTitle": "Nicht genug ETH für die Gebühr"
 "$perps_funding_gas": "Gebühren auf Arbitrum werden in ETH bezahlt. Empfange %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Mit USDC auf Arbitrum bezahlen"
-"PerpsFundingTokenDescription": "Andere Tokens werden noch nicht unterstützt. Empfange USDC, um fortzufahren."
 "Not Enough Funds": "Nicht genug Guthaben"
 "Unsupported Token": "Token nicht unterstützt"
 "PerpsReviewUpdated": "Die Preise wurden aktualisiert. Prüfen Sie die Order vor der Bestätigung erneut."
@@ -2334,13 +2341,14 @@ Could not save the image. Please try again.: Das Bild konnte nicht gesichert wer
 "PerpsExchangeFee": "Börsengebühr"
 "PerpsServiceFee": "Wallet-Gebühr"
 "PerpsBridgeFee": "Bridge-Gebühr"
+"PerpsFirstWithdrawalFee": "Gebühr für die erste Auszahlung"
 "PerpsTotalFees": "Gesamtgebühren in USDC"
 "PerpsFeeEstimateHint": "Mit ≈ markierte Gebühren sind Schätzungen und können sich bei Ausführung ändern. Arbitrum-Netzwerkgebühren werden separat in ETH bezahlt."
 "PerpsUnallocatedCollateral": "Nicht zugewiesene Sicherheit"
 "PerpsUnallocatedCollateralHint": "Durch Rundung auf die zulässige Handelsgröße können USDC außerhalb der Position verbleiben. Diese Mittel bleiben auf Ihrem Futures-Konto und sind keine Gebühr."
-"PerpsOnboardingTitle": "Neu bei Futures?"
-"PerpsOnboardingDescription": "Erfahre in weniger als 1 Minute, wie es funktioniert."
-"PerpsOnboardingOpen": "Einführung öffnen"
+"PerpsOnboardingTitle": "Futures\nin %app_name%!"
+"PerpsOnboardingDescription": "Long oder Short mit wenigen Fingertipps."
+"PerpsOnboardingOpen": "So funktioniert’s"
 "PerpsStoryIntroTitle": "Entdecke Perpetual Futures"
 "PerpsStoryIntroBody": "Eröffne Positionen auf steigende und fallende Kurse."
 "PerpsStoryLongTitle": "Kursanstieg erwartet? Geh Long"
@@ -2355,10 +2363,8 @@ Could not save the image. Please try again.: Das Bild konnte nicht gesichert wer
 "PerpsStoryFundingBody": "Bei einer positiven Funding-Rate zahlen Long-Positionen an Short-Positionen. Bei einer negativen Rate zahlen Short-Positionen an Long-Positionen."
 "PerpsStoryStart": "Starten"
 
-"Funding Payment": "Finanzierungszahlung"
 "Withdrawal": "Auszahlung"
 "Transfer": "Transfer"
-"Spot Balance": "Spot-Guthaben"
 "From": "Von"
 "To": "An"
 
@@ -2380,3 +2386,71 @@ $enclave_data_missing_message: |
   Wenn Sie die Geheimwörter Ihrer Wallets haben, können Sie alle Wallets schließen und sie erneut importieren.
 
 Install the TON App on your Ledger and try again.: Installieren Sie die TON App auf Ihrem Ledger und versuchen Sie es erneut.
+Liked: Positiv bewertet
+Disliked: Negativ bewertet
+$agent_feedback_liked_toast: "Der Agent wird öfter so antworten."
+$agent_feedback_disliked_toast: "Wir prüfen das, um den Agenten zu verbessern."
+$agent_voice_pause: "Aufnahme pausieren"
+$agent_voice_resume: "Aufnahme fortsetzen"
+$agent_message_copied: Nachricht kopiert.
+$agent_copied: "Kopiert."
+$agent_news_empty: "Noch keine Nachrichten"
+$agent_chats_unavailable: "Chats konnten nicht geladen werden"
+
+"PerpsAvailable": "Verfügbar"
+"PerpsWithdraw": "Auszahlen"
+"PerpsBalanceWithdrawalTitle": "Auf Wallet auszahlen"
+"PerpsWithdrawalFromHyperliquid": "Von Hyperliquid"
+"PerpsWithdrawalToWallet": "An Arbitrum-Wallet"
+"PerpsBalanceWithdrawalNote": "Die USDC erreichen Ihre Arbitrum-Wallet in wenigen Minuten. 0,03 USDC bleiben auf Hyperliquid, um das Gas der Auszahlung zu decken."
+"PerpsBalanceWithdrawalUpdated": "Ihr Hyperliquid-Guthaben hat sich geändert. Prüfen Sie die Auszahlung vor der Bestätigung erneut."
+"PerpsWithdrawalStatus": "Auszahlungsstatus"
+"PerpsWithdrawalCompleted": "Auszahlung gesendet"
+"PerpsWithdrawalOnItsWay": "Ihre USDC sind auf dem Weg zu Ihrer Arbitrum-Wallet. Das kann einige Minuten dauern."
+"PerpsWithdrawalProcessing": "Ihre Auszahlung wird verarbeitet. Der Bridge-Transfer kann einige Minuten dauern."
+"PerpsWithdrawalUnknown": "Das Ergebnis ist noch nicht bestätigt. Prüfen Sie Ihr Hyperliquid-Guthaben und Ihre Wallet, bevor Sie fortfahren."
+"PerpsAcknowledgeWithdrawalUnknown": "Die Auszahlung kann noch abgeschlossen werden. Prüfen Sie zuerst Ihr Hyperliquid-Guthaben und Ihre Wallet. Neue Orders zu erlauben storniert sie nicht."
+"PerpsNothingToWithdraw": "Derzeit gibt es nichts, was Sie von Ihrem Hyperliquid-Guthaben auszahlen können."
+"PerpsWithdrawalRejected": "Hyperliquid hat diese Auszahlung abgelehnt. Ihre USDC bleiben in Ihrem Hyperliquid-Guthaben."
+"View your assets and activity": "Sieh dir deine Vermögenswerte und Aktivitäten an"
+"Ask AI and follow the news": "Frag die KI und verfolge die Nachrichten"
+$underlying_stock: '%symbol%-Aktie'
+$agent_support_requested: "Du hast den Support angefragt. Ein Mitarbeiter wird hier antworten"
+$agent_support_operator_joined: "Der Support ist dem Chat beigetreten: %name%"
+$agent_support_closed_operator: "Der Support hat die Anfrage geschlossen. Ab jetzt antwortet der Agent"
+$agent_support_closed_inactivity: "Die Anfrage wurde nach 48 Stunden ohne Antwort geschlossen. Ab jetzt antwortet der Agent"
+$agent_support_waiting: "Support · wartet auf einen Mitarbeiter"
+$agent_support_with_operator: "Support · %name%"
+$agent_support_label: "Support"
+$agent_support_badge: "%app_name%-Support"
+$agent_support_placeholder: "Nachricht an den Support"
+"PerpsStoryFinaleTitle": "Bereit für Futures?"
+"PerpsStoryFinaleBody": "Wähle einen Markt, eröffne Positionen und verfolge sie direkt in %app_name%!"
+"PerpsStoryViewMarkets": "Märkte ansehen"
+Unlink Wallet: Wallet-Verknüpfung aufheben
+Confirm Unlinking: Aufhebung der Verknüpfung bestätigen
+Domain Unlinked: Verknüpfung der Domain wurde aufgehoben
+Drag here to add to the toolbar: Hierher ziehen, um zur Leiste hinzuzufügen
+$send_only_chain_and_token: Sende an diese Adresse nur %symbol%, %tokenSymbol% oder andere %chain%-basierte Assets. Andere Token gehen verloren.
+$agent_digest_unavailable: "Diese Zusammenfassung ist nicht mehr verfügbar"
+$agent_digest_title: "Das Wichtigste des Tages"
+$agent_digest_meta:
+  oneValue: "%count% Nachricht · %time%"
+  otherValue: "%count% Nachrichten · %time%"
+$agent_digest_more:
+  oneValue: "und %count% weitere — sie steht weiter oben im Feed"
+  otherValue: "und %count% weitere — sie stehen weiter oben im Feed"
+$agent_digest_settings_title: "Zusammenfassung und Mitteilungen"
+$agent_digest_settings_text: "Einmal am Tag erscheint im Feed eine Zusammenfassung mit den wichtigsten Nachrichten des Tages."
+$agent_digest_time: "Zeit der Zusammenfassung"
+$agent_digest_time_zone: "In der Zeitzone Ihres Telefons."
+$agent_digest_notifications_off: "Aus"
+$agent_digest_notifications_off_hint: "Die Zusammenfassung erscheint nur im Feed"
+$agent_digest_notifications_daily: "Tägliche Zusammenfassung"
+$agent_digest_notifications_daily_hint: "Um %time% die wichtigsten Nachrichten in einer Mitteilung"
+$agent_digest_notifications_every: "Jede Nachricht"
+$agent_digest_notifications_every_hint: "Eine eigene Mitteilung für jede Nachricht"
+$agent_digest_post_header: "MyPulse · Zusammenfassung · %time%"
+$agent_digest_sheet_title: "Tägliche Zusammenfassung"
+$agent_digest_device_time_zone: "In der Zeitzone dieses Geräts."
+$agent_dictation_microphone_denied_device: "Zum Diktieren den Mikrofonzugriff in den Geräteeinstellungen erlauben."

@@ -468,7 +468,7 @@ class SearchVC(
 
     private fun returnToWalletHome() {
         val navigationController = navigationController ?: return
-        navigationController.tabBarController?.switchToFirstTab()
+        navigationController.tabBarController?.switchToWallet()
         if (navigationController.searchOverlayHost?.searchResultNavigationController == null) {
             navigationController.popToRoot(false)
             return

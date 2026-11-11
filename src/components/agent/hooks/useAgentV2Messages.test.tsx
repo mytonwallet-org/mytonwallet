@@ -3,6 +3,7 @@ import TeactDOM from '../../../lib/teact/teact-dom';
 
 import type {
   AgentHintsResponseV2,
+  AgentPersistedActionV2,
   AgentThreadClearResponseV2,
   AgentThreadNewsCardV2,
   AgentThreadSummaryV2,
@@ -20,6 +21,7 @@ import type { LangFn } from '../../../hooks/useLang';
 
 import { buildAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
 import { buildAgentBuiltinDapps } from '../../../global/agentV2/builtinDapps';
+import { agentThreadListListeners, resetAgentV2LocalState } from '../../../util/agent/agentV2LocalState';
 import {
   cancelAgentV2ActiveRunReplays,
   publishAgentV2Update,
@@ -62,7 +64,11 @@ jest.mock('../../explore/helpers/utils', () => ({
   openSite: jest.fn(),
 }));
 jest.mock('../../../global/agentV2/builtinDapps', () => ({ buildAgentBuiltinDapps: jest.fn(() => []) }));
-jest.mock('../../../global/agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
+jest.mock('../../../global/agentV2/buildHostContext', () => {
+  // The hook reads the snapshot through the memoized selector, which the tests stub as the builder
+  const buildAgentV2HostContext = jest.fn();
+  return { buildAgentV2HostContext, selectAgentV2HostContext: buildAgentV2HostContext };
+});
 jest.mock('../../../global', () => ({
   ...jest.requireActual('../../../global'),
   getGlobal: () => ({
@@ -94,6 +100,15 @@ const INPUT_MESSAGE_ID = '99999999-9999-4999-8999-999999999991';
 const OLDER_MESSAGE_ID = '99999999-9999-4999-8999-999999999992';
 const SECOND_USER_MESSAGE_ID = '99999999-9999-4999-8999-999999999993';
 const SECOND_ASSISTANT_MESSAGE_ID = '99999999-9999-4999-8999-999999999994';
+const NEWS_TARGET: Extract<AgentV2ChatTarget, { kind: 'news' }> = {
+  kind: 'news',
+  news: { eventId: 7, locale: 'en' },
+  preview: { eventId: 7, headline: 'Feed headline', publishedAt: '2026-10-21T10:00:00.000Z' },
+};
+const DIGEST = {
+  id: 'digest-1', windowEnd: '2026-10-21T21:00:00.000Z', total: 2,
+  top: [{ eventId: 7, headline: 'News headline' }],
+};
 const NEWS_FOLLOWUP = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   kind: 'suggested_prompt' as const,
@@ -130,12 +145,14 @@ describe('useAgentV2Messages', () => {
   let hasAuthorityChanged: boolean | undefined;
   let isConsentAccepted: boolean;
   let isProblemReportAvailable: boolean;
+  let problemReportAvailabilityPromise: Promise<boolean> | undefined;
   let retryRunResponse: AgentV2RunResult | Promise<AgentV2RunResult | undefined> | undefined;
-  let setConsentResult: true | undefined;
   let startRunResponses: Array<AgentV2RunResult | Promise<AgentV2RunResult | undefined>>;
   let defaultThreadId: string;
   let threadRevision: number;
+  let threadSupport: AgentThreadSummaryV2['support'];
   let createdThreadNews: AgentThreadNewsCardV2 | undefined;
+  let createdThreadDigest: AgentThreadSummaryV2['digest'];
   let createThreadPromise: Promise<void> | undefined;
 
   beforeEach(() => {
@@ -155,12 +172,14 @@ describe('useAgentV2Messages', () => {
     hasAuthorityChanged = false;
     isConsentAccepted = true;
     isProblemReportAvailable = false;
+    problemReportAvailabilityPromise = undefined;
     retryRunResponse = undefined;
-    setConsentResult = true;
     startRunResponses = [];
     defaultThreadId = THREAD_ID;
     threadRevision = 5;
+    threadSupport = undefined;
     createdThreadNews = undefined;
+    createdThreadDigest = undefined;
     createThreadPromise = undefined;
     mockOpenReceiveModal.mockReset();
     mockSetSwapAmountIn.mockReset();
@@ -189,8 +208,6 @@ describe('useAgentV2Messages', () => {
       switch (method) {
         case 'getAgentV2Consent':
           return Promise.resolve(isConsentAccepted);
-        case 'acceptAgentV2Consent':
-          return Promise.resolve(setConsentResult);
         case 'getAgentV2DefaultThread':
           return Promise.resolve({ ok: true, value: {
             protocolVersion: 3,
@@ -205,6 +222,7 @@ describe('useAgentV2Messages', () => {
               id: defaultThreadId,
               messageCount: hydratedMessages.length,
               ...(createdThreadNews && { news: createdThreadNews }),
+              ...(createdThreadDigest && { digest: createdThreadDigest }),
             },
             created: true,
           } })) as never;
@@ -219,7 +237,10 @@ describe('useAgentV2Messages', () => {
             return Promise.resolve({
               ok: true,
               value: {
-                thread: { ...threadSummary(threadRevision), id: defaultThreadId, news: createdThreadNews },
+                thread: {
+                  ...threadSummary(threadRevision), id: defaultThreadId,
+                  news: createdThreadNews, digest: createdThreadDigest, support: threadSupport,
+                },
                 messages: olderHydratedMessages,
                 nextCursor: olderNextCursor,
               },
@@ -228,7 +249,10 @@ describe('useAgentV2Messages', () => {
           return Promise.resolve({
             ok: true,
             value: {
-              thread: { ...threadSummary(threadRevision), id: defaultThreadId, news: createdThreadNews },
+              thread: {
+                ...threadSummary(threadRevision), id: defaultThreadId,
+                news: createdThreadNews, digest: createdThreadDigest, support: threadSupport,
+              },
               messages: hydratedMessages,
               nextCursor: hydrationNextCursor,
             },
@@ -239,7 +263,9 @@ describe('useAgentV2Messages', () => {
         case 'getAgentV2UserQuota':
           return Promise.resolve(undefined);
         case 'getAgentV2ProblemReportAvailability':
-          return Promise.resolve(isProblemReportAvailable);
+          return problemReportAvailabilityPromise ?? Promise.resolve(isProblemReportAvailable);
+        case 'reportAgentV2Problem':
+          return Promise.resolve({ ok: true, value: undefined }) as never;
         case 'startAgentV2Run':
           return Promise.resolve(startRunResponses.shift() ?? {
             clientRunId: CLIENT_RUN_ID,
@@ -269,6 +295,9 @@ describe('useAgentV2Messages', () => {
     TeactDOM.render(undefined, root);
     root.remove();
     cancelAgentV2ActiveRunReplays();
+    // A chat left in one test does not open with its history in the next
+    resetAgentV2LocalState();
+    jest.useRealTimers();
   });
 
   it('restores snapshot synchronization after runtime recovery and stops on unmount', async () => {
@@ -392,6 +421,397 @@ describe('useAgentV2Messages', () => {
     expect(callApiMock).not.toHaveBeenCalledWith('createAgentV2Thread');
     expect(callApiMock).toHaveBeenCalledWith('getAgentV2Messages', REPLACEMENT_THREAD_ID);
     expect(onThreadResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps support messages and rates the stored operator reply by its own id', async () => {
+    const avatarUrl = 'https://agent.test/api/v2/support/operators/operator-id/avatar?v=hash';
+    const base = { threadId: THREAD_ID, status: 'complete' as const, createdAt: '2026-08-07T10:00:00.000Z' };
+    hydratedMessages = [
+      { ...base, id: MESSAGE_ID, role: 'event', code: 'support_requested' },
+      {
+        ...base, id: INPUT_MESSAGE_ID, role: 'event', code: 'operator_joined',
+        author: { operatorId: 'operator-id', name: 'Alice' },
+      },
+      {
+        ...base, id: ASSISTANT_MESSAGE_ID, role: 'operator', text: 'Hello **there**',
+        author: { operatorId: 'operator-id', name: 'Alice', avatarUrl }, feedback: 'like',
+      },
+      { ...base, id: SECOND_ASSISTANT_MESSAGE_ID, role: 'event', code: 'support_closed', reason: 'operator' },
+    ];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 4, 10, 20)).toBe(true);
+    expect(result!.messages).toMatchObject([
+      { text: '', isOutgoing: false, supportEvent: { code: 'support_requested' } },
+      { text: '', isOutgoing: false, supportEvent: { code: 'operator_joined', operatorName: 'Alice' } },
+      {
+        text: 'Hello **there**', isOutgoing: false, isComplete: true, feedback: 'like',
+        operator: { name: 'Alice', avatarUrl },
+      },
+      { text: '', isOutgoing: false, supportEvent: { code: 'support_closed', reason: 'operator' } },
+    ]);
+    result!.messages.forEach((message) => {
+      expect(result!.isMessageRegenerable(message.id)).toBe(false);
+      result!.retryMessage(message.id);
+      if (!message.supportEvent) return;
+      expect(message.followups).toBeUndefined();
+      expect(message.isComplete).toBeUndefined();
+      expect(message.feedback).toBeUndefined();
+      void result!.rateMessage(message.id, 'like');
+    });
+    const operator = result!.messages[2];
+    void result!.rateMessage(operator.id, 'dislike');
+    await pause(20);
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'setAgentV2MessageFeedback')).toEqual([
+      ['setAgentV2MessageFeedback', THREAD_ID, ASSISTANT_MESSAGE_ID, 'dislike'],
+    ]);
+    expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+  });
+
+  it('exposes the latest support summary and blocks regeneration during handoff', async () => {
+    hydratedMessages = [persistedUserMessage(), persistedAssistantTextMessage()];
+    hydrationNextCursor = 'older-page';
+    threadSupport = { state: 'waiting' };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    expect(result!.support).toEqual({ state: 'waiting' });
+    const [, answer] = result!.messages;
+    expect(result!.canEditMessages).toBe(false);
+    result!.retryMessage(answer.id);
+    expect(result!.isMessageRegenerable(answer.id)).toBe(false);
+
+    const support = { state: 'operator' as const, lastOperatorMessageAt: '2026-08-07T10:01:00.000Z' };
+    publishAgentV2Update({ kind: 'threadChanged', threadId: THREAD_ID, thread: { ...threadSummary(6), support } });
+    expect(await waitFor(() => result?.support === support, 10, 20)).toBe(true);
+    expect(result!.canEditMessages).toBe(false);
+    result!.retryMessage(answer.id);
+    expect(result!.isMessageRegenerable(answer.id)).toBe(false);
+    await pause(20);
+    expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+
+    threadSupport = { state: 'closed' };
+    threadRevision = 7;
+    await result!.loadOlderMessages();
+    expect(await waitFor(() => result?.support?.state === 'closed', 10, 20)).toBe(true);
+    expect(result!.canEditMessages).toBe(true);
+    expect(result!.isMessageRegenerable(answer.id)).toBe(true);
+  });
+
+  it.each(['waiting', 'operator'] as const)('sends an edit as a new message while support is %s', async (state) => {
+    hydratedMessages = [persistedUserMessage(), persistedAssistantTextMessage()];
+    threadSupport = { state };
+    startRunResponses = [{
+      clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'completed',
+    }];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    const [question, answer] = result!.messages;
+    expect(result!.canEditMessages).toBe(false);
+    const requests = callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
+
+    result!.sendMessage('The edited question', question.id);
+    expect(await waitFor(() => result?.messages.length === 3 && !result.isRunActive, 10, 20)).toBe(true);
+
+    expect(callApiMock).toHaveBeenCalledWith('startAgentV2Run', expect.objectContaining({
+      threadId: THREAD_ID, input: { kind: 'append', text: 'The edited question' },
+    }));
+    expect(result!.messages[0]).toBe(question);
+    expect(result!.messages[1]).toBe(answer);
+    expect(result!.messages[2]).toMatchObject({ text: 'The edited question', isOutgoing: true });
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages')).toHaveLength(requests + 1);
+  });
+
+  describe('support history polling', () => {
+    let visibilityState: DocumentVisibilityState;
+    let visibilitySpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      threadSupport = { state: 'waiting' };
+      visibilityState = 'visible';
+      visibilitySpy = jest.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState);
+      jest.useFakeTimers({
+        doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'setTimeout', 'clearTimeout'],
+      });
+    });
+
+    afterEach(() => {
+      TeactDOM.render(undefined, root);
+      jest.useRealTimers();
+      visibilitySpy.mockRestore();
+    });
+
+    it('merges saved messages every 15 seconds without duplicating or replacing messages already shown', async () => {
+      hydrationNextCursor = 'older-page';
+      olderHydratedMessages = [persistedMessage(OLDER_MESSAGE_ID, 'user', 'Older request', 1)];
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(await waitFor(() => jest.getTimerCount() > 0, 10, 20)).toBe(true);
+      await result!.loadOlderMessages();
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+      const [olderMessage, question] = result!.messages;
+      const initialRequests = countLatestHistoryRequests();
+      hydratedMessages = [
+        persistedUserMessage(),
+        {
+          id: INPUT_MESSAGE_ID, threadId: THREAD_ID, role: 'event', status: 'complete',
+          createdAt: '2026-08-07T10:00:00.500Z', code: 'operator_joined',
+          author: { operatorId: 'operator-id', name: 'Alice' },
+        },
+        persistedOperatorMessage(),
+        persistedMessage(
+          SECOND_USER_MESSAGE_ID, 'user', 'From another device', Date.parse('2026-08-07T10:00:02Z') / 1000,
+        ),
+      ];
+      threadRevision = 6;
+      threadSupport = { state: 'operator', lastOperatorMessageAt: '2026-08-07T10:00:01.000Z' };
+
+      await jest.advanceTimersByTimeAsync(14_999);
+      expect(countLatestHistoryRequests()).toBe(initialRequests);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(await waitFor(() => result?.messages.length === 5, 10, 20)).toBe(true);
+
+      expect(result!.messages[0]).toBe(olderMessage);
+      expect(result!.messages[1]).toBe(question);
+      expect(result!.messages.slice(2)).toMatchObject([
+        { supportEvent: { code: 'operator_joined', operatorName: 'Alice' } },
+        { text: 'An operator reply', operator: { name: 'Alice' } },
+        { text: 'From another device', isOutgoing: true },
+      ]);
+      expect(result!.support).toEqual(threadSupport);
+      const shownMessages = result!.messages;
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 2);
+      await pause(20);
+      expect(result!.messages).toBe(shownMessages);
+    });
+
+    it('gates polling by visibility, active runs and support closure, and refreshes on return', async () => {
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(await waitFor(() => jest.getTimerCount() > 0, 10, 20)).toBe(true);
+      const initialRequests = countLatestHistoryRequests();
+      visibilityState = 'hidden';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(30_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests);
+
+      visibilityState = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(await waitFor(() => countLatestHistoryRequests() === initialRequests + 1, 10, 20)).toBe(true);
+      await pause(20);
+      window.dispatchEvent(new Event('focus'));
+      expect(await waitFor(() => countLatestHistoryRequests() === initialRequests + 2, 10, 20)).toBe(true);
+      await pause(20);
+
+      publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+      expect(await waitFor(() => result?.isRunActive === true, 10, 20)).toBe(true);
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 2);
+
+      publishAgentV2Update({
+        kind: 'messageCompleted', ...routing(), messageId: INPUT_MESSAGE_ID, finishReason: 'delivered_to_support',
+      });
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 3);
+      threadRevision = 7;
+      threadSupport = { state: 'closed' };
+      publishAgentV2Update({
+        kind: 'threadChanged', threadId: THREAD_ID, thread: { ...threadSummary(7), support: threadSupport },
+      });
+      expect(await waitFor(() => result?.support?.state === 'closed', 10, 20)).toBe(true);
+      // The closure reads the newest history once for the closing event, then polling stops
+      expect(await waitFor(() => countLatestHistoryRequests() === initialRequests + 4, 10, 20)).toBe(true);
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(30_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 4);
+    });
+
+    it('does not poll while history is loading', async () => {
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(await waitFor(() => jest.getTimerCount() > 0, 10, 20)).toBe(true);
+      const defaultImplementation = callApiMock.getMockImplementation()!;
+      const pendingHistory = createDeferred<unknown>();
+      callApiMock.mockImplementation((...args) => (
+        args[0] === 'getAgentV2Messages' && !args[2] ? pendingHistory.promise as never : defaultImplementation(...args)
+      ));
+      const initialRequests = countLatestHistoryRequests();
+      publishAgentV2Update({ kind: 'runtimeReady', generation: 109 });
+      expect(await waitFor(() => countLatestHistoryRequests() === initialRequests + 1, 10, 20)).toBe(true);
+      expect(await waitFor(() => result?.isInputDisabled === true, 10, 20)).toBe(true);
+
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+      pendingHistory.resolve(await defaultImplementation('getAgentV2Messages', THREAD_ID));
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    });
+
+    it('refreshes when returning to the chat and stops when it leaves the screen or unmounts', async () => {
+      const target = { kind: 'thread' as const, threadId: THREAD_ID };
+      TeactDOM.render(<TargetHarness target={target} />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(await waitFor(() => jest.getTimerCount() > 0, 10, 20)).toBe(true);
+      const initialRequests = countLatestHistoryRequests();
+      TeactDOM.render(<TargetHarness target={target} isActive={false} />, root);
+      await pause(20);
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(30_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests);
+
+      TeactDOM.render(<TargetHarness target={target} />, root);
+      expect(await waitFor(() => countLatestHistoryRequests() === initialRequests + 1, 10, 20)).toBe(true);
+      TeactDOM.render(undefined, root);
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      await jest.advanceTimersByTimeAsync(30_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+    });
+
+    it('keeps a failed refresh invisible, deduplicates in-flight reads, and retries on the next tick', async () => {
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(await waitFor(() => jest.getTimerCount() > 0, 10, 20)).toBe(true);
+      const shownMessages = result!.messages;
+      const defaultImplementation = callApiMock.getMockImplementation()!;
+      let resolveRefresh!: (value: undefined) => void;
+      let shouldDelayRefresh = true;
+      callApiMock.mockImplementation((...args) => {
+        if (args[0] === 'getAgentV2Messages' && !args[2] && shouldDelayRefresh) {
+          shouldDelayRefresh = false;
+          return new Promise((resolve) => {
+            resolveRefresh = resolve;
+          }) as never;
+        }
+        return defaultImplementation(...args);
+      });
+      const initialRequests = countLatestHistoryRequests();
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+      window.dispatchEvent(new Event('focus'));
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+      resolveRefresh(undefined);
+      await jest.advanceTimersByTimeAsync(0);
+      await pause(20);
+      expect(result!.messages).toBe(shownMessages);
+      expect(result!.historyFailure).toBeUndefined();
+      expect(result!.isInputDisabled).toBe(false);
+      expect(mockShowError).not.toHaveBeenCalled();
+
+      hydratedMessages = [persistedUserMessage(), persistedOperatorMessage()];
+      threadRevision = 6;
+      threadSupport = { state: 'operator', lastOperatorMessageAt: '2026-08-07T10:00:01.000Z' };
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 2);
+    });
+
+    it('reads immediately when the list reports a different support state or operator timestamp', async () => {
+      threadSupport = undefined;
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      const initialRequests = countLatestHistoryRequests();
+      threadRevision = 6;
+      threadSupport = { state: 'waiting' };
+      notifyListedSupport();
+      expect(await waitFor(() => result?.support?.state === 'waiting', 10, 20)).toBe(true);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+      notifyListedSupport();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+
+      threadRevision = 7;
+      threadSupport = { state: 'operator', lastOperatorMessageAt: '2026-08-07T10:00:01.000Z' };
+      hydratedMessages = [persistedUserMessage(), persistedOperatorMessage()];
+      notifyListedSupport();
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 2);
+
+      threadRevision = 8;
+      threadSupport = { ...threadSupport, lastOperatorMessageAt: '2026-08-07T10:00:02.000Z' };
+      notifyListedSupport();
+      expect(await waitFor(() => result?.support?.lastOperatorMessageAt === threadSupport?.lastOperatorMessageAt,
+        10, 20)).toBe(true);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 3);
+    });
+
+    it('reads the newest history once when a live summary closes support', async () => {
+      threadSupport = { state: 'operator', lastOperatorMessageAt: '2026-08-07T10:00:00.000Z' };
+      TeactDOM.render(<Harness />, root);
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      const initialRequests = countLatestHistoryRequests();
+
+      threadRevision = 6;
+      threadSupport = { state: 'closed', lastOperatorMessageAt: '2026-08-07T10:00:01.000Z' };
+      hydratedMessages = [persistedUserMessage(), persistedOperatorMessage()];
+      const thread = { ...threadSummary(threadRevision), support: threadSupport };
+      publishAgentV2Update({ kind: 'threadChanged', threadId: THREAD_ID, thread });
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+
+      // Closure ends polling, and the same summary again reads nothing
+      publishAgentV2Update({ kind: 'threadChanged', threadId: THREAD_ID, thread });
+      await jest.advanceTimersByTimeAsync(15_000);
+      expect(countLatestHistoryRequests()).toBe(initialRequests + 1);
+    });
+
+    function countLatestHistoryRequests() {
+      return callApiMock.mock.calls.filter(([method, , cursor]) => method === 'getAgentV2Messages' && !cursor).length;
+    }
+
+    function notifyListedSupport() {
+      agentThreadListListeners.forEach((listener) => listener([
+        { ...threadSummary(threadRevision), support: threadSupport },
+      ]));
+    }
+  });
+
+  it.each(['waiting', 'operator'] as const)('refreshes support %s immediately after a run', async (state) => {
+    jest.useFakeTimers({
+      doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'setTimeout', 'clearTimeout'],
+    });
+    jest.setSystemTime(new Date('2026-08-07T10:01:00.000Z'));
+    hydratedMessages = [];
+    let resolveRun!: (value: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+    const countLatestHistoryRequests = () => callApiMock.mock.calls
+      .filter(([method, , cursor]) => method === 'getAgentV2Messages' && !cursor).length;
+    const requests = countLatestHistoryRequests();
+    result!.sendMessage('Please help');
+    expect(await waitFor(() => Boolean(resolveRun) && result?.isInputDisabled === true, 10, 20)).toBe(true);
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'threadChanged', ...routing(), thread: { ...threadSummary(6), support: { state } },
+    });
+    publishAgentV2Update({
+      kind: 'messageCompleted', ...routing(), messageId: INPUT_MESSAGE_ID, finishReason: 'delivered_to_support',
+    });
+    expect(await waitFor(() => result?.messages[0]?.shouldCommitMarkdownTail === false, 10, 20)).toBe(true);
+    const question = result!.messages[0];
+    threadRevision = 6;
+    threadSupport = { state };
+    hydratedMessages = [{
+      id: ASSISTANT_MESSAGE_ID, threadId: THREAD_ID, role: 'event', status: 'complete',
+      createdAt: '2026-08-07T10:00:00.000Z', code: 'support_requested',
+    }];
+    expect(countLatestHistoryRequests()).toBe(requests);
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'completed' });
+    expect(await waitFor(() => result?.isRunActive === false && !result.isInputDisabled, 10, 20)).toBe(true);
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    expect(result!.messages[0]).toBe(question);
+    expect(question).toMatchObject({ text: 'Please help', isOutgoing: true });
+    expect(question.error).toBeUndefined();
+    expect(question.isRetryAvailable).toBeUndefined();
+    expect(result!.messages[1]).toMatchObject({ supportEvent: { code: 'support_requested' } });
+    expect(result!.historyFailure).toBeUndefined();
+    expect(mockShowError).not.toHaveBeenCalled();
+    await pause(20);
+    expect(countLatestHistoryRequests()).toBe(requests + 1);
   });
 
   it('lets a stored answer be answered again, but not a question or a news post', async () => {
@@ -621,6 +1041,53 @@ describe('useAgentV2Messages', () => {
     expect(result!.messages.filter(({ isOutgoing }) => isOutgoing)).toHaveLength(1);
   });
 
+  it.each(['news', 'digest'] as const)('loads a %s discussion and its post before consent', async (kind) => {
+    isConsentAccepted = false;
+    if (kind === 'news') {
+      createdThreadNews = { eventId: 7, headline: 'Server headline', publishedAt: '2026-10-21T10:00:00.000Z' };
+    } else {
+      createdThreadDigest = DIGEST;
+    }
+    hydratedMessages = [{ ...persistedAssistantTextMessage(), newsPost: true, followups: [NEWS_FOLLOWUP] }];
+    const target: AgentV2ChatTarget = kind === 'news'
+      ? { kind, news: { eventId: 7, locale: 'en' } } : { kind, digest: { id: DIGEST.id } };
+    TeactDOM.render(<TargetHarness target={target} />, root);
+
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    expect(callApiMock).toHaveBeenCalledWith('createAgentV2Thread', kind === 'news'
+      ? { news: { eventId: 7, locale: 'en' } } : { digest: { id: DIGEST.id } });
+    expect(callApiMock).toHaveBeenCalledWith('getAgentV2Messages', THREAD_ID);
+    expect(result!.messages).toMatchObject([
+      { text: 'Retried response', isOutgoing: false, isNewsPost: true, followups: [NEWS_FOLLOWUP] },
+    ]);
+    expect(result!.hints).toBeUndefined();
+    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2Hints', expect.anything());
+    expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+  });
+
+  it.each([true, false])('loads a thread before consent only when it is a news discussion: %s', async (isNews) => {
+    isConsentAccepted = false;
+    if (isNews) {
+      createdThreadNews = { eventId: 7, headline: 'Server headline', publishedAt: '2026-10-21T10:00:00.000Z' };
+      hydratedMessages = [{ ...persistedAssistantTextMessage(), newsPost: true, followups: [NEWS_FOLLOWUP] }];
+    }
+    const target: AgentV2ChatTarget = { kind: 'thread', threadId: THREAD_ID, ...(isNews && { isNews }) };
+    TeactDOM.render(<TargetHarness target={target} />, root);
+
+    expect(await waitFor(() => result?.isConsentAccepted !== undefined, 10, 20)).toBe(true);
+    expect(result!.isConsentAccepted).toBe(isNews);
+    if (isNews) {
+      expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+      expect(result!.messages).toMatchObject([{ isNewsPost: true }]);
+      expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2Hints', expect.anything());
+    } else {
+      await pause(50);
+    }
+    expect(callApiMock.mock.calls.some(([method]) => method === 'getAgentV2Messages')).toBe(isNews);
+    expect(callApiMock).not.toHaveBeenCalledWith('createAgentV2Thread', expect.anything());
+    expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+  });
+
   it('shows a preview post at once and replaces it with the saved post without starting a run', async () => {
     defaultThreadId = REPLACEMENT_THREAD_ID;
     createdThreadNews = {
@@ -728,15 +1195,26 @@ describe('useAgentV2Messages', () => {
   it.each([
     {
       scenario: 'creation',
-      expected: { body: 'Creation body', sources: [{ url: 'https://example.com/creation' }] },
+      expected: {
+        body: 'Creation body',
+        sources: [{ url: 'https://example.com/creation' }],
+        imageUrl: 'https://example.com/feed.png',
+      },
     },
     {
       scenario: 'preview',
-      expected: { body: 'Feed body', sources: [{ url: 'https://example.com/feed' }] },
+      expected: {
+        body: 'Feed body', sources: [{ url: 'https://example.com/feed' }], imageUrl: 'https://example.com/feed.png',
+      },
     },
-    { scenario: 'explicit empty', expected: { body: '', sources: [] } },
-    { scenario: 'different event', expected: { body: undefined, sources: undefined } },
-  ])('fills missing news body and sources using $scenario', async ({ scenario, expected }) => {
+    { scenario: 'explicit empty', expected: { body: '', sources: [], imageUrl: 'https://example.com/feed.png' } },
+    {
+      scenario: 'different event',
+      expected: { body: undefined, sources: undefined, imageUrl: 'https://example.com/history.png' },
+    },
+  ])('fills missing news body and sources and keeps the feed\'s picture using $scenario', async ({
+    scenario, expected,
+  }) => {
     const preview: AgentThreadNewsCardV2 = {
       eventId: 7,
       headline: 'Feed headline',
@@ -755,6 +1233,7 @@ describe('useAgentV2Messages', () => {
       eventId: scenario === 'different event' ? 8 : 7,
       headline: 'History headline',
       excerpt: 'History excerpt',
+      imageUrl: 'https://example.com/history.png',
       publishedAt: '2026-10-21T11:00:00.000Z',
       ...(scenario === 'explicit empty' && { body: '', sources: [] }),
     };
@@ -961,10 +1440,16 @@ describe('useAgentV2Messages', () => {
     ]);
   });
 
-  it.each(['pending', 'complete'] as const)(
-    'enables the news composer once created and preserves a %s question through late history',
-    async (phase) => {
-      createdThreadNews = { eventId: 7, headline: 'Server headline', publishedAt: '2026-10-21T10:00:00.000Z' };
+  it.each([
+    { kind: 'news', phase: 'pending' }, { kind: 'news', phase: 'complete' }, { kind: 'digest', phase: 'complete' },
+  ] as const)(
+    'enables the $kind composer once created and preserves a $phase question through late history',
+    async ({ kind, phase }) => {
+      if (kind === 'news') {
+        createdThreadNews = { eventId: 7, headline: 'Server headline', publishedAt: '2026-10-21T10:00:00.000Z' };
+      } else {
+        createdThreadDigest = DIGEST;
+      }
       hydratedMessages = [{ ...persistedAssistantTextMessage(), newsPost: true }];
       const history = createDeferred<void>();
       const implementation = callApiMock.getMockImplementation()!;
@@ -972,7 +1457,9 @@ describe('useAgentV2Messages', () => {
         ? history.promise.then(() => implementation(...args)) as never
         : implementation(...args)));
       startRunResponses = [createDeferred<AgentV2RunResult>().promise];
-      TeactDOM.render(<TargetHarness target={{ kind: 'news', news: { eventId: 7, locale: 'en' } }} />, root);
+      const target: AgentV2ChatTarget = kind === 'news'
+        ? { kind, news: { eventId: 7, locale: 'en' } } : { kind, digest: { id: DIGEST.id } };
+      TeactDOM.render(<TargetHarness target={target} />, root);
       expect(await waitFor(() => result?.thread?.id === THREAD_ID && result.isInputDisabled === false, 10, 20))
         .toBe(true);
       expect(result!.isInitialLoadComplete).toBe(false);
@@ -1265,6 +1752,53 @@ describe('useAgentV2Messages', () => {
     expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
   });
 
+  it('keeps the chat waiting while the consent read has no answer, and reads again once the SDK is ready', async () => {
+    const defaultImplementation = callApiMock.getMockImplementation()!;
+    const consent: { answer?: boolean } = {};
+    callApiMock.mockImplementation((...args) => (args[0] === 'getAgentV2Consent'
+      ? Promise.resolve(consent.answer) as never
+      : defaultImplementation(...args)));
+    const countConsentReads = () => callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Consent').length;
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => countConsentReads() === 1, 10, 20)).toBe(true);
+    await pause(20);
+    expect(result!.isConsentAccepted).toBeUndefined();
+    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2Messages', expect.anything());
+
+    consent.answer = true;
+    publishAgentV2Update({ kind: 'runtimeReady', generation: 110 });
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    expect(countConsentReads()).toBe(2);
+    expect(result!.messages.some(({ text }) => text === 'Persisted request')).toBe(true);
+  });
+
+  it('loads as allowed without reading the consent the chat list has read', async () => {
+    TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} hasConsent />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    expect(result!.isConsentAccepted).toBe(true);
+    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2Consent');
+  });
+
+  it('loads a new chat whose consent read says no once the Agent is allowed, and sends its question then', async () => {
+    isConsentAccepted = false;
+    const target = { kind: 'new' as const };
+    TeactDOM.render(<TargetHarness target={target} initialMessage="What is TON?" hasConsent={false} />, root);
+    expect(await waitFor(() => result?.isConsentAccepted === false, 10, 20)).toBe(true);
+    await pause(20);
+    expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+
+    // Allow stores the consent and tells the chat
+    isConsentAccepted = true;
+    TeactDOM.render(<TargetHarness target={target} initialMessage="What is TON?" hasConsent />, root);
+    result!.checkConsentAgain();
+    expect(await waitFor(() => callApiMock.mock.calls.some(([method]) => method === 'startAgentV2Run'), 10, 20))
+      .toBe(true);
+    expect(result!.isConsentAccepted).toBe(true);
+    expect(callApiMock.mock.calls.find(([method]) => method === 'startAgentV2Run')![1]).toMatchObject({
+      input: { kind: 'append', text: 'What is TON?' },
+    });
+  });
+
   it('does not activate snapshot synchronization on recovery without consent', async () => {
     isConsentAccepted = false;
     TeactDOM.render(<Harness />, root);
@@ -1357,52 +1891,67 @@ describe('useAgentV2Messages', () => {
     }));
   });
 
-  it('hydrates after Agent consent is persisted', async () => {
-    isConsentAccepted = false;
-    TeactDOM.render(<Harness />, root);
-    expect(await waitFor(() => result?.isConsentAccepted === false, 10, 20)).toBe(true);
-
-    expect(result!.isConsentAccepted).toBe(false);
-    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2DefaultThread');
-
-    result!.acceptConsent();
-    expect(await waitFor(() => result?.isConsentAccepted === true, 10, 20)).toBe(true);
-
-    expect(callApiMock).toHaveBeenCalledWith('acceptAgentV2Consent');
-    expect(result!.isConsentAccepted).toBe(true);
-    expect(callApiMock).toHaveBeenCalledWith('getAgentV2DefaultThread');
-    expect(callApiMock).toHaveBeenCalledWith('getAgentV2Messages', THREAD_ID);
-  });
-
-  it.each([true, false])('offers problem reports only while the server takes them: %s', async (isAvailable) => {
+  it.each([true, false])('keeps problem reports offered only while the server takes them: %s', async (isAvailable) => {
     isProblemReportAvailable = isAvailable;
     TeactDOM.render(<Harness />, root);
     expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
     expect(await waitFor(() => callApiMock.mock.calls.some(
       ([method]) => method === 'getAgentV2ProblemReportAvailability',
     ), 10, 20)).toBe(true);
-    await waitFor(() => Boolean(result?.reportProblem), 5, 20);
+    await pause(20);
 
     expect(Boolean(result!.reportProblem)).toBe(isAvailable);
   });
 
-  it('keeps Agent consent rejected when persistence fails', async () => {
-    isConsentAccepted = false;
-    setConsentResult = undefined;
-    TeactDOM.render(<Harness />, root);
-    expect(await waitFor(() => result?.isConsentAccepted === false, 10, 20)).toBe(true);
+  it('offers no problem report in a news discussion before consent', async () => {
+    isProblemReportAvailable = true;
+    TeactDOM.render(<TargetHarness target={NEWS_TARGET} hasConsent={false} />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    await pause(20);
 
-    result!.acceptConsent();
-    expect(await waitFor(
-      () => callApiMock.mock.calls.some(([method]) => method === 'acceptAgentV2Consent'),
-      10,
-      20,
-    )).toBe(true);
+    expect(result!.reportProblem).toBeUndefined();
+    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2ProblemReportAvailability');
+  });
 
-    expect(callApiMock).toHaveBeenCalledWith('acceptAgentV2Consent');
-    expect(result!.isConsentAccepted).toBe(false);
-    expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2DefaultThread');
-    expect(callApiMock.mock.calls.some(([method]) => method === 'getAgentV2Messages')).toBe(false);
+  it('offers the report of a news discussion at once and takes it away once the server refuses reports', async () => {
+    const createThread = createDeferred<void>();
+    const availability = createDeferred<boolean>();
+    createThreadPromise = createThread.promise;
+    problemReportAvailabilityPromise = availability.promise;
+    TeactDOM.render(<TargetHarness target={NEWS_TARGET} hasConsent />, root);
+    await pause(20);
+
+    // The thread is still being created and the server has not said whether it takes reports
+    expect(callApiMock).toHaveBeenCalledWith('createAgentV2Thread', { news: NEWS_TARGET.news });
+    expect(callApiMock).toHaveBeenCalledWith('getAgentV2ProblemReportAvailability');
+    expect(result!.isOpeningNews).toBe(true);
+    expect(result!.reportProblem).toBeDefined();
+    const outcome = result!.reportProblem!(undefined, 'Wrong');
+
+    createThread.resolve();
+    availability.resolve(false);
+    expect(await outcome).toBe('failed');
+    expect(await waitFor(() => !result?.reportProblem, 10, 20)).toBe(true);
+    expect(callApiMock).not.toHaveBeenCalledWith('reportAgentV2Problem', expect.anything(), expect.anything());
+  });
+
+  it('sends a report held while the news discussion creates its thread once the thread comes', async () => {
+    isProblemReportAvailable = true;
+    const createThread = createDeferred<void>();
+    createThreadPromise = createThread.promise;
+    TeactDOM.render(<TargetHarness target={NEWS_TARGET} hasConsent />, root);
+    await pause(20);
+    const outcome = result!.reportProblem!(undefined, 'Wrong');
+    // The server has said that it takes reports; the report waits for the thread
+    await pause(20);
+    expect(callApiMock).not.toHaveBeenCalledWith('reportAgentV2Problem', expect.anything(), expect.anything());
+
+    createThread.resolve();
+    expect(await outcome).toBe('sent');
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'reportAgentV2Problem'))
+      .toEqual([['reportAgentV2Problem', THREAD_ID, { comment: 'Wrong' }]]);
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'createAgentV2Thread')).toHaveLength(1);
   });
 
   it('coalesces an older-page request and prepends normalized messages', async () => {
@@ -1612,6 +2161,169 @@ describe('useAgentV2Messages', () => {
     });
   });
 
+  it('sends a message again once when support has moved the thread on', async () => {
+    threadSupport = { state: 'operator' };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    let resolveResend!: (value: AgentV2RunResult) => void;
+    const historyRequestsByRun: number[] = [];
+    mockStartRuns(() => {
+      threadRevision = 6;
+      return conflictRun('conflicted-run');
+    }, () => new Promise((resolve) => {
+      resolveResend = resolve;
+    }), historyRequestsByRun);
+
+    result!.sendMessage('Question for support');
+    expect(await waitFor(() => Boolean(resolveResend) && result?.isInputDisabled === true, 10, 20)).toBe(true);
+    await pause(20);
+    expect(selectOutgoingTexts()).toEqual(['Persisted request', 'Question for support']);
+    expect(result!.messages.some(({ failureText, error }) => failureText || error)).toBe(false);
+
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 7, inputMessageId: INPUT_MESSAGE_ID });
+    threadRevision = 7;
+    hydratedMessages = [persistedUserMessage(), {
+      id: INPUT_MESSAGE_ID,
+      threadId: THREAD_ID,
+      role: 'user',
+      status: 'complete',
+      content: { kind: 'markdown', text: 'Question for support' },
+      createdAt: '2026-08-07T10:01:00.000Z',
+    }];
+    resolveResend({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'completed' });
+    expect(await waitFor(() => result?.isRunActive === false && !result.isInputDisabled, 10, 20)).toBe(true);
+    await pause(20);
+
+    const runCalls = callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run');
+    expect(runCalls.map(([, command]) => command)).toEqual([
+      expect.objectContaining({ expectedThreadRevision: 5, input: { kind: 'append', text: 'Question for support' } }),
+      expect.objectContaining({ expectedThreadRevision: 6, input: { kind: 'append', text: 'Question for support' } }),
+    ]);
+    expect(historyRequestsByRun[1] - historyRequestsByRun[0]).toBe(1);
+    expect(selectOutgoingTexts()).toEqual(['Persisted request', 'Question for support']);
+    expect(result!.messages.some(({ failureText, error }) => failureText || error)).toBe(false);
+  });
+
+  it('reports a second revision conflict of a support message without sending it a third time', async () => {
+    threadSupport = { state: 'waiting' };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    mockStartRuns(() => {
+      threadRevision = 6;
+      return conflictRun('first-run');
+    }, () => {
+      threadRevision = 7;
+      return conflictRun('second-run');
+    });
+
+    result!.sendMessage('Question for support');
+    expect(await waitFor(() => Boolean(result?.messages.some(({ failureText }) => failureText)), 10, 20)).toBe(true);
+    await pause(20);
+
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run')).toHaveLength(2);
+    expect(result!.messages.map(({ text, failureText }) => failureText ?? text)).toEqual([
+      'Persisted request',
+      'The conversation was updated. Please try the request again.',
+    ]);
+    expect(result!.isInputDisabled).toBe(false);
+  });
+
+  it('reports a revision conflict of a support message when the thread cannot be read again', async () => {
+    threadSupport = { state: 'operator' };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    let isHistoryUnavailable = false;
+    mockStartRuns(() => {
+      isHistoryUnavailable = true;
+      return conflictRun('conflicted-run');
+    }, () => conflictRun('unexpected-run'));
+    const baseImplementation = callApiMock.getMockImplementation()!;
+    callApiMock.mockImplementation((...args) => (isHistoryUnavailable && args[0] === 'getAgentV2Messages'
+      ? Promise.resolve({ ok: false, error: { code: 'network_error', retryable: true } }) as never
+      : baseImplementation(...args)));
+
+    result!.sendMessage('Question for support');
+    expect(await waitFor(() => Boolean(result?.messages.some(({ failureText }) => failureText)), 10, 20)).toBe(true);
+    await pause(20);
+
+    expect(callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run')).toHaveLength(1);
+    expect(result!.messages.filter(({ failureText }) => failureText).map(({ failureText }) => failureText)).toEqual([
+      'The conversation was updated. Please try the request again.',
+    ]);
+    expect(result!.isInputDisabled).toBe(false);
+  });
+
+  it.each([
+    ['a message without support', 'append', undefined],
+    ['a message after support closed the thread', 'append', { state: 'closed' as const }],
+    ['an edit without support', 'edit', undefined],
+    ['a regenerated answer without support', 'regenerate', undefined],
+    ['a regenerated answer after support closed the thread', 'regenerate', { state: 'closed' as const }],
+  ] as const)('reports a revision conflict of %s', async (_, command, support) => {
+    threadSupport = support;
+    if (command === 'regenerate') hydratedMessages = [persistedUserMessage(), persistedAssistantTextMessage()];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(
+      () => result?.isInputDisabled === false && result.messages.length === hydratedMessages.length,
+      10,
+      20,
+    )).toBe(true);
+    const shownTexts = result!.messages.map(({ text }) => text);
+    mockStartRuns(() => {
+      threadRevision = 6;
+      return conflictRun('conflicted-run');
+    }, () => conflictRun('unexpected-run'));
+    function countHistoryRequests() {
+      return callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
+    }
+    const historyRequests = countHistoryRequests();
+
+    if (command === 'append') result!.sendMessage('Stale request');
+    if (command === 'edit') result!.sendMessage('Edited request', result!.messages[0].id);
+    if (command === 'regenerate') result!.retryMessage(result!.messages[1].id);
+    expect(await waitFor(() => Boolean(result?.messages.some(({ failureText }) => failureText)), 10, 20)).toBe(true);
+    await pause(20);
+
+    const runCalls = callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run');
+    expect(runCalls).toHaveLength(1);
+    expect(runCalls[0][1]).toMatchObject({ input: { kind: command } });
+    expect(countHistoryRequests()).toBe(historyRequests + 1);
+    expect(result!.messages.map(({ text, failureText }) => failureText ?? text)).toEqual([
+      ...shownTexts,
+      'The conversation was updated. Please try the request again.',
+    ]);
+  });
+
+  function mockStartRuns(
+    firstRun: () => Promise<AgentV2RunResult | undefined>,
+    secondRun: () => Promise<AgentV2RunResult | undefined>,
+    historyRequestsByRun: number[] = [],
+  ) {
+    const baseImplementation = callApiMock.getMockImplementation()!;
+    const runs = [firstRun, secondRun];
+    callApiMock.mockImplementation((...args) => {
+      if (args[0] !== 'startAgentV2Run') return baseImplementation(...args);
+      historyRequestsByRun.push(callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length);
+      return runs.shift()!() as never;
+    });
+  }
+
+  // The runtime reports a failed admission before the run settles
+  function conflictRun(clientRunId: string) {
+    publishAgentV2Update({
+      kind: 'runFailed',
+      clientRunId,
+      threadId: THREAD_ID,
+      code: 'thread_revision_conflict',
+      retryable: true,
+    });
+    return Promise.resolve<AgentV2RunResult>({ clientRunId, state: 'failed' });
+  }
+
+  function selectOutgoingTexts() {
+    return result!.messages.filter(({ isOutgoing }) => isOutgoing).map(({ text }) => text);
+  }
+
   it('blocks clear, send and retry commands while a thread clear is pending', async () => {
     let resolveClear!: (value: AgentV2MutationResult<AgentThreadClearResponseV2>) => void;
     clearThreadResponse = new Promise((resolve) => {
@@ -1763,6 +2475,180 @@ describe('useAgentV2Messages', () => {
       input: { kind: 'append', text: 'Next question' },
     }));
     expect(await waitFor(() => result?.messages.map(({ text }) => text).join() === 'Next question', 10, 20)).toBe(true);
+  });
+
+  it.each([
+    ['keeps the text a stopped answer has shown, without a rating or suggestions', 'Partial answer'],
+    ['drops a stopped answer that has shown nothing', ''],
+  ])('%s, also once the history is read again', async (_name, shownText) => {
+    let resolveRun!: (result: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    expect(result!.canStopRun).toBe(false);
+
+    result!.sendMessage('Question');
+    expect(await waitFor(() => result?.canStopRun === true, 10, 20)).toBe(true);
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    if (shownText) {
+      publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: shownText });
+      publishAgentV2Update({
+        kind: 'followupsAvailable', ...routing(), messageId: ASSISTANT_MESSAGE_ID, items: [NEWS_FOLLOWUP],
+      });
+    }
+    expect(await waitFor(() => result?.messages.length === 3, 10, 20)).toBe(true);
+
+    result!.stopRun();
+    expect(callApiMock).toHaveBeenCalledWith('stopAgentV2Run', THREAD_ID);
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: ' late' });
+    publishAgentV2Update({ kind: 'runCancelled', ...routing() });
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'cancelled' });
+    expect(await waitFor(() => result?.canStopRun === false && !result.isInputDisabled, 10, 20)).toBe(true);
+    await pause(20);
+
+    const expectedAnswers = shownText ? [{ text: shownText }] : [];
+    const expectAnswers = () => {
+      const answers = result!.messages.filter(({ isOutgoing }) => !isOutgoing);
+      expect(answers).toEqual(expectedAnswers.map((answer) => expect.objectContaining(answer)));
+      answers.forEach((answer) => {
+        expect(answer).not.toHaveProperty('isComplete');
+        expect(answer.followups).toBeUndefined();
+        expect(answer.isStreaming).toBeUndefined();
+      });
+    };
+    expectAnswers();
+    expect(result!.activity).toBeUndefined();
+
+    hydratedMessages = [persistedUserMessage(), {
+      id: ASSISTANT_MESSAGE_ID,
+      threadId: THREAD_ID,
+      role: 'assistant',
+      status: 'cancelled',
+      content: { kind: 'markdown', text: shownText },
+      createdAt: '2026-08-07T10:00:01.000Z',
+    }];
+    threadRevision = 7;
+    const hydrationCount = callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
+    publishAgentV2Update({ kind: 'threadChanged', threadId: THREAD_ID, thread: threadSummary(7) });
+    expect(await waitFor(() => (
+      callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length > hydrationCount
+      && result?.thread?.revision === 7 && !result.isInputDisabled
+    ), 10, 20)).toBe(true);
+    expect(result!.messages).toHaveLength(shownText ? 2 : 1);
+    expectAnswers();
+  });
+
+  it('offers no stop for an answer that has ended while its run settles', async () => {
+    let resolveRun!: (result: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    result!.sendMessage('Question');
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: 'Answer' });
+    expect(await waitFor(() => result?.canStopRun === true && result.messages.at(-1)?.text === 'Answer', 10, 20))
+      .toBe(true);
+
+    publishAgentV2Update({
+      kind: 'messageCompleted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, finishReason: 'complete',
+    });
+    expect(await waitFor(() => result?.canStopRun === false, 10, 20)).toBe(true);
+    expect(result!.isRunActive).toBe(true);
+    result!.stopRun();
+    expect(callApiMock).not.toHaveBeenCalledWith('stopAgentV2Run', THREAD_ID);
+
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'completed' });
+    expect(await waitFor(() => result?.isRunActive === false && !result.isInputDisabled, 10, 20)).toBe(true);
+    expect(result!.canStopRun).toBe(false);
+    expect(result!.messages.at(-1)).toMatchObject({ text: 'Answer', isComplete: true });
+  });
+
+  it('stops an answer the chat follows after it opens again during the answer', async () => {
+    startRunResponses = [new Promise(() => undefined)];
+    TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    result!.sendMessage('Question');
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: 'Partial ' });
+    expect(await waitFor(() => result?.messages.at(-1)?.text === 'Partial ', 10, 20)).toBe(true);
+
+    TeactDOM.render(undefined, root);
+    await pause(20);
+    result = undefined;
+    TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+    expect(await waitFor(() => result?.canStopRun === true && result.messages.at(-1)?.text === 'Partial ', 10, 20))
+      .toBe(true);
+
+    result!.stopRun();
+    expect(callApiMock).toHaveBeenCalledWith('stopAgentV2Run', THREAD_ID);
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: 'late' });
+    expect(await waitFor(() => result?.canStopRun === false && !result.isInputDisabled, 10, 20)).toBe(true);
+    await pause(20);
+    expect(result!.activity).toBeUndefined();
+    expect(result!.messages.at(-1)).toMatchObject({ text: 'Partial ', isStreaming: undefined });
+  });
+
+  it('reads a stopped answer again from the server once the next answer has finished', async () => {
+    let resolveFirstRun!: (result: AgentV2RunResult) => void;
+    let resolveNextRun!: (result: AgentV2RunResult) => void;
+    startRunResponses = [
+      new Promise((resolve) => {
+        resolveFirstRun = resolve;
+      }),
+      new Promise((resolve) => {
+        resolveNextRun = resolve;
+      }),
+    ];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+    result!.sendMessage('Question');
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: 'Partial' });
+    expect(await waitFor(() => result?.messages.at(-1)?.text === 'Partial', 10, 20)).toBe(true);
+    result!.stopRun();
+    resolveFirstRun({
+      clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'cancelled',
+    });
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+
+    result!.sendMessage('Next question');
+    expect(await waitFor(() => result?.canStopRun === true, 10, 20)).toBe(true);
+    threadRevision = 7;
+    hydratedMessages = [persistedUserMessage(), {
+      id: ASSISTANT_MESSAGE_ID,
+      threadId: THREAD_ID,
+      role: 'assistant',
+      status: 'complete',
+      content: { kind: 'markdown', text: 'Partial answer the server finished' },
+      createdAt: '2026-08-07T10:00:01.000Z',
+    }];
+    const getHydrationCount = () => callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
+    const hydrationCount = getHydrationCount();
+    publishAgentV2Update({ kind: 'threadChanged', threadId: THREAD_ID, thread: threadSummary(7) });
+    await pause(40);
+    expect(getHydrationCount()).toBe(hydrationCount);
+
+    resolveNextRun({ clientRunId: CLIENT_RUN_ID, state: 'completed' });
+    expect(await waitFor(() => getHydrationCount() > hydrationCount, 10, 20)).toBe(true);
+    expect(await waitFor(() => result?.messages.some(
+      ({ text }) => text === 'Partial answer the server finished',
+    ) === true, 10, 20)).toBe(true);
   });
 
   it('restores the server chat with the clear failure after cancelling a running answer', async () => {
@@ -2021,9 +2907,9 @@ describe('useAgentV2Messages', () => {
     expect(answer).toMatchObject({ isComplete: true, feedback: 'like' });
     expect(cancelled.isComplete).toBeUndefined();
 
-    result!.rateMessage(cancelled.id, 'like');
-    result!.rateMessage(answer.id, 'dislike');
-    result!.rateMessage(answer.id);
+    expect(await result!.rateMessage(cancelled.id, 'like')).toBeUndefined();
+    const supersededRating = result!.rateMessage(answer.id, 'dislike');
+    const failedRating = result!.rateMessage(answer.id);
     expect(await waitFor(() => settleRequests.length === 2 && getFeedback() === undefined, 10, 20)).toBe(true);
     expect(callApiMock).toHaveBeenCalledWith('setAgentV2MessageFeedback', THREAD_ID, ASSISTANT_MESSAGE_ID, 'dislike');
     const countHydrations = () => callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
@@ -2033,14 +2919,22 @@ describe('useAgentV2Messages', () => {
     await pause(20);
     expect(getFeedback()).toBeUndefined();
     settleRequests[0]({ ok: true, value: { protocolVersion: 3, feedback: 'dislike' } });
-    await pause(20);
+    expect(await supersededRating).toBeUndefined();
     expect(getFeedback()).toBeUndefined();
     settleRequests[1]({ ok: false, error: { code: 'network_error', retryable: true } });
+    expect(await failedRating).toBeUndefined();
     expect(await waitFor(() => getFeedback() === 'dislike', 10, 20)).toBe(true);
     expect(countFailures()).toBe(1);
 
-    result!.rateMessage(answer.id, 'like');
+    const savedRating = result!.rateMessage(answer.id, 'like');
     expect(await waitFor(() => settleRequests.length === 3, 10, 20)).toBe(true);
+    settleRequests[2]({ ok: true, value: { protocolVersion: 3, feedback: 'like' } });
+    const checkRating = (await savedRating)!;
+    expect(checkRating()).toBe(true);
+
+    const clearedRating = result!.rateMessage(answer.id, 'dislike');
+    expect(checkRating()).toBe(false);
+    expect(await waitFor(() => settleRequests.length === 4, 10, 20)).toBe(true);
     hydratedMessages = [];
     clearThreadResponse = {
       ok: true,
@@ -2048,9 +2942,12 @@ describe('useAgentV2Messages', () => {
     };
     result!.clearChat();
     expect(await waitFor(() => result?.messages.length === 0, 10, 20)).toBe(true);
-    settleRequests[2]({ ok: false, error: { code: 'network_error', retryable: true } });
-    await pause(20);
+    settleRequests[3]({ ok: false, error: { code: 'network_error', retryable: true } });
+    expect(await clearedRating).toBeUndefined();
+    expect(checkRating()).toBe(false);
     expect(countFailures()).toBe(1);
+    TeactDOM.render(undefined, root);
+    expect(checkRating()).toBe(false);
   });
 
   it('keeps a historical failure without Retry after a newer user question is hydrated', async () => {
@@ -3531,20 +4428,458 @@ describe('useAgentV2Messages', () => {
     ), 10, 20)).toBe(true);
   });
 
+  describe('cached history', () => {
+    // Each read of the device's copy and of the latest history page settles when the test resolves it. A history
+    // read resolved without a value returns the history the suite prepares.
+    let cachedReads: Array<ReturnType<typeof createDeferred<unknown>>>;
+    let historyReads: Array<ReturnType<typeof createDeferred<unknown>>>;
+    let heldAvailability: Promise<unknown> | undefined;
+
+    beforeEach(() => {
+      cachedReads = [];
+      historyReads = [];
+      heldAvailability = undefined;
+      const implementation = callApiMock.getMockImplementation()!;
+      callApiMock.mockImplementation((...args) => {
+        if (args[0] === 'getAgentV2Availability' && heldAvailability) return heldAvailability as never;
+        if (args[0] === 'getAgentV2CachedMessages') {
+          const read = createDeferred<unknown>();
+          cachedReads.push(read);
+          return read.promise as never;
+        }
+        if (args[0] === 'getAgentV2Messages' && !args[2]) {
+          const read = createDeferred<unknown>();
+          historyReads.push(read);
+          return read.promise.then((value) => value ?? implementation(...args)) as never;
+        }
+        return implementation(...args);
+      });
+    });
+
+    it('shows the cached history until the history loads, then the history alone in its place', async () => {
+      hydratedMessages = conversationMessages();
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => historyReads.length === 1, 10, 20)).toBe(true);
+      expect(callApiMock).toHaveBeenCalledWith('getAgentV2CachedMessages', THREAD_ID);
+
+      cachedReads[0].resolve(cachedHistory([
+        persistedMessage(MESSAGE_ID, 'user', 'Cached request', 1),
+        {
+          ...persistedMessage(ASSISTANT_MESSAGE_ID, 'assistant', 'Cached response', 2),
+          actions: [persistedReceiveAction()],
+          followups: [NEWS_FOLLOWUP],
+        },
+      ]));
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+      expect(result!.messages.map(({ text }) => text)).toEqual(['Cached request', 'Cached response']);
+      expect(result!.messages[1].followups).toEqual([NEWS_FOLLOWUP]);
+      expect(result).toMatchObject({
+        isHistoryCached: true, isInitialLoadComplete: false, isInputDisabled: true, thread: { revision: 4 },
+      });
+      const cachedIds = result!.messages.map(({ id }) => id);
+
+      historyReads[0].resolve(undefined);
+      expect(await waitFor(() => result?.isHistoryCached === false, 10, 20)).toBe(true);
+      expect(result!.messages.map(({ text }) => text))
+        .toEqual(['First request', 'First response', 'Second request', 'Second response']);
+      // The messages the copy holds keep their places in the list
+      expect(result!.messages.slice(0, 2).map(({ id }) => id)).toEqual(cachedIds);
+      expect(result!.messages[1].actions).toBeUndefined();
+      expect(result).toMatchObject({ isInputDisabled: false, thread: { revision: 5 } });
+    });
+
+    it('ignores a cached copy read for an earlier hydration or settling after the history', async () => {
+      hydratedMessages = [];
+      const availability = createDeferred<unknown>();
+      heldAvailability = availability.promise;
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => historyReads.length === 1, 10, 20)).toBe(true);
+      publishAgentV2Update({ kind: 'runtimeReady', generation: 110 });
+      expect(await waitFor(() => cachedReads.length === 2 && historyReads.length === 2, 10, 20)).toBe(true);
+
+      cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
+      await pause(20);
+      expect(result!.messages).toEqual([]);
+
+      // The history has arrived while the availability it loads with is still on its way
+      historyReads[1].resolve(undefined);
+      await pause(20);
+      cachedReads[1].resolve(cachedHistory([persistedUserMessage()]));
+      await pause(20);
+      expect(result!.messages).toEqual([]);
+      expect(result!.isHistoryCached).toBe(false);
+
+      availability.resolve(undefined);
+      expect(await waitFor(() => result?.thread?.revision === 5, 10, 20)).toBe(true);
+      expect(result!.messages).toEqual([]);
+    });
+
+    it('does not show a cached copy over an answer that starts while it is read', async () => {
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+      publishAgentV2Update({
+        kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID,
+      });
+      expect(await waitFor(() => result?.isRunActive === true, 10, 20)).toBe(true);
+
+      cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
+      await pause(20);
+
+      expect(result!.messages).toEqual([]);
+      expect(result!.isHistoryCached).toBe(false);
+    });
+
+    it('offers no action of the cached history and loads actions only from the history', async () => {
+      const send = sendAction();
+      const receive = persistedReceiveAction();
+      const answer = persistedAssistantMessage(send);
+      answer.actions!.push(receive);
+      hydratedMessages = [persistedUserMessage(), answer];
+      actionPresentationPromise = Promise.resolve(sendPresentation());
+      resolvedAction = { kind: 'openReceive', chain: 'ton' } satisfies AgentV2ResolvedAction;
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+      cachedReads[0].resolve(cachedHistory([persistedUserMessage(), answer]));
+      expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+
+      const cachedAnswer = result!.messages[1];
+      expect(cachedAnswer.actionPresentations).toEqual({ [send.id]: { kind: 'inactive' } });
+      expect(result!.isInputDisabled).toBe(true);
+      result!.activateAction(cachedAnswer.id, receive);
+      result!.activateAction(cachedAnswer.id, send);
+      publishAgentV2Update({ kind: 'walletContextChanged' });
+      await pause(20);
+
+      expect(callApiMock).not.toHaveBeenCalledWith('resolveAgentV2Action', expect.anything(), expect.anything());
+      expect(callApiMock)
+        .not.toHaveBeenCalledWith('getAgentV2ActionPresentation', expect.anything(), expect.anything());
+      expect(mockOpenReceiveModal).not.toHaveBeenCalled();
+
+      historyReads[0].resolve(undefined);
+      expect(await waitFor(() => (
+        result?.messages[1]?.actionPresentations?.[send.id]?.kind === 'send'
+      ), 10, 20)).toBe(true);
+      expect(callApiMock).toHaveBeenCalledWith('getAgentV2ActionPresentation', ASSISTANT_MESSAGE_ID, send.id);
+      result!.activateAction(result!.messages[1].id, receive);
+      expect(await waitFor(() => mockOpenReceiveModal.mock.calls.length === 1, 10, 20)).toBe(true);
+      expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, receive.id);
+    });
+
+    it('offers no rating, regeneration, edit, older page or question over the cached history', async () => {
+      hydratedMessages = conversationMessages();
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+      cachedReads[0].resolve(cachedHistory(conversationMessages()));
+      expect(await waitFor(() => result?.messages.length === 4, 10, 20)).toBe(true);
+      const answerId = result!.messages[3].id;
+
+      expect(result).toMatchObject({ canEditMessages: false, hasOlderMessages: false, isInputDisabled: true });
+      expect(result!.isMessageRegenerable(answerId)).toBe(false);
+      await result!.rateMessage(answerId, 'like');
+      await result!.loadOlderMessages();
+      result!.sendMessage('New question');
+      await pause(20);
+
+      expect(callApiMock).not.toHaveBeenCalledWith(
+        'setAgentV2MessageFeedback', expect.anything(), expect.anything(), expect.anything(),
+      );
+      expect(callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages')).toHaveLength(1);
+      expect(callApiMock).not.toHaveBeenCalledWith('startAgentV2Run', expect.anything());
+      expect(result!.messages.map(({ text }) => text)).not.toContain('New question');
+      expect(result!.messages[3].feedback).toBeUndefined();
+
+      historyReads[0].resolve(undefined);
+      expect(await waitFor(() => result?.isHistoryCached === false, 10, 20)).toBe(true);
+      expect(result!.canEditMessages).toBe(true);
+      expect(result!.isMessageRegenerable(answerId)).toBe(true);
+    });
+
+    it.each([false, true])(
+      'keeps the cached history inactive with the failure and Retry until the history loads (runtime restart: %s)',
+      async (isRuntimeRestarted) => {
+        hydratedMessages = conversationMessages();
+        TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+        expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+        cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
+        expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
+        // The read after a runtime restart fails silently in a chat that shows its history
+        if (isRuntimeRestarted) {
+          publishAgentV2Update({ kind: 'runtimeReady', generation: 111 });
+          expect(await waitFor(() => historyReads.length === 2, 10, 20)).toBe(true);
+        }
+        const failedRead = historyReads.length - 1;
+
+        historyReads[failedRead].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
+        expect(await waitFor(() => result?.historyFailure !== undefined, 10, 20)).toBe(true);
+        expect(result).toMatchObject({
+          historyFailure: { text: '$agent_connection_lost', isRetrying: false },
+          messages: [{ text: 'Persisted request' }],
+          isHistoryCached: true,
+          isInitialLoadComplete: true,
+          isInputDisabled: true,
+        });
+
+        result!.retryHistory();
+        expect(await waitFor(() => historyReads.length === failedRead + 2, 10, 20)).toBe(true);
+        historyReads[failedRead + 1].resolve(undefined);
+        expect(await waitFor(() => result?.messages.length === 4, 10, 20)).toBe(true);
+        expect(result).toMatchObject({ historyFailure: undefined, isHistoryCached: false, isInputDisabled: false });
+        expect(cachedReads).toHaveLength(1);
+      },
+    );
+
+    it('shows no cached copy read after the history failed, leaving the failure and Retry as without it', async () => {
+      TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+      expect(await waitFor(() => historyReads.length === 1, 10, 20)).toBe(true);
+      historyReads[0].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
+      expect(await waitFor(() => result?.historyFailure !== undefined, 10, 20)).toBe(true);
+      // The read after a runtime restart fails silently, before its cached copy comes
+      publishAgentV2Update({ kind: 'runtimeReady', generation: 112 });
+      expect(await waitFor(() => cachedReads.length === 2 && historyReads.length === 2, 10, 20)).toBe(true);
+      historyReads[1].resolve({ ok: false, error: { code: 'network_error', retryable: true } });
+      await pause(20);
+      cachedReads[1].resolve(cachedHistory([persistedUserMessage()]));
+      await pause(20);
+
+      expect(result).toMatchObject({
+        messages: [],
+        isHistoryCached: false,
+        historyFailure: { text: '$agent_connection_lost', isRetrying: false },
+      });
+      result!.retryHistory();
+      expect(await waitFor(() => historyReads.length === 3, 10, 20)).toBe(true);
+      historyReads[2].resolve(undefined);
+      expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
+      expect(result).toMatchObject({ historyFailure: undefined, isHistoryCached: false, isInputDisabled: false });
+    });
+
+    it.each([true, false])(
+      'shows no cached history once the server no longer has the thread (copy read first: %s)',
+      async (isCopyReadFirst) => {
+        const onThreadNotFound = jest.fn();
+        TeactDOM.render(
+          <TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} onThreadNotFound={onThreadNotFound} />, root,
+        );
+        expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+        if (isCopyReadFirst) {
+          cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
+          expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
+        }
+
+        historyReads[0].resolve({ ok: false, error: { code: 'thread_not_found', retryable: false } });
+        expect(await waitFor(() => onThreadNotFound.mock.calls.length === 1, 10, 20)).toBe(true);
+        cachedReads[0].resolve(cachedHistory([persistedUserMessage()]));
+        await pause(20);
+
+        expect(result).toMatchObject({
+          messages: [], thread: undefined, isHistoryCached: false, isInputDisabled: true,
+        });
+      },
+    );
+
+    it.each<{ name: string; target?: AgentV2ChatTarget; initialThread?: AgentThreadSummaryV2 }>([
+      { name: 'the default chat' },
+      { name: 'a chat of the default thread', target: { kind: 'default' } },
+      { name: 'a new chat', target: { kind: 'new' } },
+      { name: 'a news discussion', target: { kind: 'news', news: { eventId: 7, locale: 'en' } } },
+      {
+        name: 'a discussion opened with its news',
+        target: {
+          kind: 'thread',
+          threadId: THREAD_ID,
+          preview: { eventId: 7, headline: 'Headline', publishedAt: '2026-10-21T10:00:00.000Z' },
+        },
+      },
+      {
+        name: 'a discussion the list knows',
+        target: { kind: 'thread', threadId: THREAD_ID },
+        initialThread: {
+          ...threadSummary(5), news: { eventId: 7, headline: 'Headline', publishedAt: '2026-10-21T10:00:00.000Z' },
+        },
+      },
+      { name: 'a digest discussion', target: { kind: 'digest', digest: { id: DIGEST.id } } },
+      {
+        name: 'a discussion the list opens by its thread',
+        target: { kind: 'thread', threadId: THREAD_ID, isNews: true },
+      },
+      {
+        name: 'a digest discussion the list knows',
+        target: { kind: 'thread', threadId: THREAD_ID },
+        initialThread: { ...threadSummary(5), digest: DIGEST },
+      },
+    ])('reads no cached history for $name', async ({ target, initialThread }) => {
+      TeactDOM.render(target ? <TargetHarness target={target} initialThread={initialThread} /> : <Harness />, root);
+      expect(await waitFor(() => historyReads.length === 1, 10, 20)).toBe(true);
+
+      expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2CachedMessages', expect.anything());
+    });
+
+    it.each<{ name: string; settle: (read: ReturnType<typeof createDeferred<unknown>>) => void }>([
+      { name: 'no copy', settle: (read) => read.resolve(undefined) },
+      { name: 'a copy that fails to read', settle: (read) => read.reject(new Error('Unreadable')) },
+      { name: 'an empty copy', settle: (read) => read.resolve(cachedHistory([])) },
+      {
+        name: 'a copy of a news discussion',
+        settle: (read) => read.resolve({
+          ...cachedHistory([persistedUserMessage()]),
+          thread: {
+            ...threadSummary(4), news: { eventId: 7, headline: 'Headline', publishedAt: '2026-10-21T10:00:00.000Z' },
+          },
+        }),
+      },
+      {
+        name: 'a copy of a digest discussion',
+        settle: (read) => read.resolve({
+          ...cachedHistory([persistedUserMessage()]), thread: { ...threadSummary(4), digest: DIGEST },
+        }),
+      },
+    ])('loads the history as usual after $name', async ({ settle }) => {
+      const onUnhandledRejection = jest.fn();
+      process.on('unhandledRejection', onUnhandledRejection);
+      try {
+        TeactDOM.render(<TargetHarness target={{ kind: 'thread', threadId: THREAD_ID }} />, root);
+        expect(await waitFor(() => cachedReads.length === 1, 10, 20)).toBe(true);
+        settle(cachedReads[0]);
+        await pause(20);
+
+        expect(result).toMatchObject({ messages: [], isHistoryCached: false });
+        historyReads[0].resolve(undefined);
+        expect(await waitFor(() => result?.messages.length === 1, 10, 20)).toBe(true);
+        expect(onUnhandledRejection).not.toHaveBeenCalled();
+      } finally {
+        process.off('unhandledRejection', onUnhandledRejection);
+      }
+    });
+  });
+
+  it.each([false, true])('waits for fresh history when unread state is unknown: %s', async (isUnreadStateUnknown) => {
+    const target = { kind: 'thread' as const, threadId: THREAD_ID };
+    TeactDOM.render(<TargetHarness target={target} />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true && result.messages.length === 1, 10, 20))
+      .toBe(true);
+    expect(result!.isOpenedWithCachedHistory).toBe(false);
+    const shownMessage = result!.messages[0];
+    TeactDOM.render(undefined, root);
+
+    callApiMock.mockClear();
+    hydratedMessages = [persistedUserMessage(), persistedAssistantTextMessage()];
+    const defaultImplementation = callApiMock.getMockImplementation()!;
+    const history = createDeferred<void>();
+    callApiMock.mockImplementation((...args) => (args[0] === 'getAgentV2Messages'
+      ? history.promise.then(() => defaultImplementation(...args)) as never
+      : defaultImplementation(...args)));
+    TeactDOM.render(<TargetHarness target={target} isUnreadStateUnknown={isUnreadStateUnknown} />, root);
+    expect(await waitFor(() => callApiMock.mock.calls.some(([method]) => method === 'getAgentV2Messages'), 10, 20))
+      .toBe(true);
+    expect(result!.isOpenedWithCachedHistory).toBe(!isUnreadStateUnknown);
+    expect(result!.isInitialLoadComplete).toBe(!isUnreadStateUnknown);
+    expect(result!.messages).toEqual(isUnreadStateUnknown ? [] : [shownMessage]);
+    if (!isUnreadStateUnknown) expect(callApiMock).not.toHaveBeenCalledWith('getAgentV2Consent');
+
+    // The newer history takes its place, and the message shown keeps its own
+    history.resolve();
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    expect(result!.messages[0].id).toBe(shownMessage.id);
+    expect(result!.isInputDisabled).toBe(false);
+  });
+
+  it('sends a message typed over a cached history at once, and keeps it when the history read ends', async () => {
+    const target = { kind: 'thread' as const, threadId: THREAD_ID };
+    TeactDOM.render(<TargetHarness target={target} />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true && result.messages.length === 1, 10, 20))
+      .toBe(true);
+    TeactDOM.render(undefined, root);
+
+    hydratedMessages = [persistedUserMessage(), persistedAssistantTextMessage()];
+    const defaultImplementation = callApiMock.getMockImplementation()!;
+    const history = createDeferred<void>();
+    callApiMock.mockImplementation((...args) => (args[0] === 'getAgentV2Messages'
+      ? history.promise.then(() => defaultImplementation(...args)) as never
+      : defaultImplementation(...args)));
+    startRunResponses = [new Promise(() => undefined)];
+    const countHistoryReads = () => callApiMock.mock.calls.filter(([method]) => method === 'getAgentV2Messages').length;
+    const historyReadsBefore = countHistoryReads();
+    TeactDOM.render(<TargetHarness target={target} />, root);
+    expect(await waitFor(() => result?.isOpenedWithCachedHistory === true, 1, 20)).toBe(true);
+    // The message is sent while the history is being read again
+    expect(await waitFor(() => countHistoryReads() > historyReadsBefore, 10, 20)).toBe(true);
+
+    // The field is open while the history loads again, and the message goes at once
+    expect(result!.isInputDisabled).toBe(false);
+    expect(result!.sendMessage('Asked at once')).toBe(true);
+    expect(await waitFor(() => callApiMock.mock.calls.some(([method]) => method === 'startAgentV2Run'), 10, 20))
+      .toBe(true);
+
+    // The read that the message outdated leaves the message and the history it was sent over
+    history.resolve();
+    await pause(50);
+    const texts = result!.messages.map(({ text }) => text);
+    expect(texts).toContain('Persisted request');
+    expect(texts).toContain('Asked at once');
+    expect(texts).not.toContain('Retried response');
+  });
+
+  it.each([
+    { kind: 'news', hasConsent: true }, { kind: 'news', hasConsent: false },
+    { kind: 'digest', hasConsent: true }, { kind: 'digest', hasConsent: false },
+  ])('restores a cached $kind discussion only with consent: $hasConsent', async ({ kind, hasConsent }) => {
+    if (kind === 'news') {
+      createdThreadNews = { eventId: 7, headline: 'Server headline', publishedAt: '2026-10-21T10:00:00.000Z' };
+    } else {
+      createdThreadDigest = DIGEST;
+    }
+    hydratedMessages = [{ ...persistedAssistantTextMessage(), newsPost: true }];
+    const target = { kind: 'thread' as const, threadId: THREAD_ID };
+    TeactDOM.render(<TargetHarness target={target} hasConsent />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true && result.messages.length === 1, 10, 20))
+      .toBe(true);
+    TeactDOM.render(undefined, root);
+
+    // Shown with its history, the chat keeps the wallet's state up to date on the server, which needs the consent
+    result = undefined;
+    TeactDOM.render(<TargetHarness target={target} hasConsent={hasConsent} />, root);
+    expect(await waitFor(() => result !== undefined, 1, 20)).toBe(true);
+    expect(result!.isOpenedWithCachedHistory).toBe(hasConsent);
+    expect(result!.messages.length).toBe(hasConsent ? 1 : 0);
+  });
+
+  it('opens a chat afresh once it was deleted', async () => {
+    const target = { kind: 'thread' as const, threadId: THREAD_ID };
+    TeactDOM.render(<TargetHarness target={target} />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true && result.messages.length === 1, 10, 20))
+      .toBe(true);
+    await result!.cancelPendingRequests();
+    TeactDOM.render(undefined, root);
+
+    callApiMock.mockClear();
+    TeactDOM.render(<TargetHarness target={target} />, root);
+    expect(await waitFor(() => callApiMock.mock.calls.some(([method]) => method === 'getAgentV2Consent'), 10, 20))
+      .toBe(true);
+    expect(result!.isOpenedWithCachedHistory).toBe(false);
+  });
+
   function Harness() {
     result = useAgentV2Messages({ isActive: true, lang });
     return <div />;
   }
 
-  function TargetHarness({ target, initialMessage, onInitialMessageSent, onThreadResolved, isActive = true }: {
+  function TargetHarness({
+    target, initialThread, initialMessage, onInitialMessageSent, onThreadResolved, onThreadNotFound, isActive = true,
+    hasConsent, isUnreadStateUnknown = false,
+  }: {
     target: AgentV2ChatTarget;
+    initialThread?: AgentThreadSummaryV2;
     initialMessage?: string;
     onInitialMessageSent?: NoneToVoidFunction;
     onThreadResolved?: (threadId: string) => void;
+    onThreadNotFound?: NoneToVoidFunction;
     isActive?: boolean;
+    hasConsent?: boolean;
+    isUnreadStateUnknown?: boolean;
   }) {
     result = useAgentV2Messages({
-      isActive, lang, target, initialMessage, onInitialMessageSent, onThreadResolved,
+      isActive, lang, target, initialThread, initialMessage, onInitialMessageSent, onThreadResolved, onThreadNotFound,
+      hasConsent, isUnreadStateUnknown,
     });
     return <div />;
   }
@@ -3643,6 +4978,18 @@ function receiveAction(): Extract<AgentV2LiveAction, { kind: 'receive' }> {
       activeAccountRef: 'current',
       activeNetwork: 'ton',
     },
+    localDraftRequired: false,
+    requiresConfirmation: false,
+  };
+}
+
+function persistedReceiveAction(): AgentPersistedActionV2 {
+  return {
+    id: receiveAction().id,
+    kind: 'receive',
+    title: 'Open Receive',
+    labelCode: 'open_receive',
+    effect: 'open_receive',
     localDraftRequired: false,
     requiresConfirmation: false,
   };
@@ -3780,6 +5127,14 @@ function persistedAssistantTextMessage(): AgentV2HydratedMessage {
   };
 }
 
+function persistedOperatorMessage(): AgentV2HydratedMessage {
+  return {
+    id: ASSISTANT_MESSAGE_ID, threadId: THREAD_ID, role: 'operator', status: 'complete',
+    text: 'An operator reply', author: { operatorId: 'operator-id', name: 'Alice' },
+    createdAt: '2026-08-07T10:00:01.000Z',
+  };
+}
+
 function persistedAssistantMessage(action: ReturnType<typeof sendAction>): AgentV2HydratedMessage {
   return {
     id: ASSISTANT_MESSAGE_ID,
@@ -3856,10 +5211,16 @@ function hydrationResult(text: string) {
   };
 }
 
+function cachedHistory(messages: AgentV2HydratedMessage[]) {
+  return { thread: threadSummary(4), messages, hasOlder: true };
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }

@@ -5,6 +5,7 @@ import React, {
 import buildClassName from '../../util/buildClassName';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../hooks/useInactivityTimeout';
 import useLang from '../../hooks/useLang';
 
 import CheckWordsForm from '../common/backup/CheckWordsForm';
@@ -32,6 +33,9 @@ function MnemonicCheck({
     isActive,
     onBack: onCancel,
   });
+
+  // The word options are taken from the mnemonic. `onCancel` would show the secret words again, so the modal closes.
+  useInactivityTimeout(onClose, isActive);
 
   return (
     <div className={modalStyles.transitionContentWrapper}>

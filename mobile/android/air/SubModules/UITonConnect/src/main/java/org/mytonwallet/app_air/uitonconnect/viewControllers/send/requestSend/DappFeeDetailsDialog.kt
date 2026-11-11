@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
@@ -101,15 +102,14 @@ private class DappFeeDetailsContentView(
             nativeToken.decimals,
             nativeToken.symbol,
             fullFee.smartDecimalsCount(nativeToken.decimals),
-            false,
-            roundUp = true
+            false
         )
         val excessFeeText = "~\u202F" + feeDetails.excessFee.toString(
             nativeToken.decimals,
             nativeToken.symbol,
             feeDetails.excessFee.smartDecimalsCount(nativeToken.decimals),
             false,
-            roundUp = false
+            rounding = RoundingMode.DOWN
         )
         return LocaleController.getSpannableStringWithKeyValues(
             "\$dapp_return_details",

@@ -62,6 +62,12 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         syncScrollDrivenChrome()
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Navigation transitions can move the title view without triggering its size-change callback
+        syncScrollDrivenChrome()
+    }
+
     public override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         isVisible = false
@@ -208,6 +214,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             image: UIImage.airBundle("QRIcon").withRenderingMode(.alwaysTemplate),
             primaryAction: UIAction { [weak self] _ in self?.showReceiveWithQR() }
         )
+        receiveBarButtonItem.accessibilityIdentifier = "settings_qr_button"
         navigationItem.trailingItemGroups = [
             UIBarButtonItemGroup(
                 barButtonItems: [receiveBarButtonItem, makeMoreBarButtonItem()],

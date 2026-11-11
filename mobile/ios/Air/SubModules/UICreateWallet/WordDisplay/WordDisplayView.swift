@@ -28,7 +28,7 @@ struct WordDisplayView: View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 20) {
-                    WUIAnimatedSticker("animation_bill", size: 96, loop: false)
+                    WUIAnimatedSticker("animation_bill", size: 96, loop: true)
                         .frame(width: 96, height: 96)
                         .padding(.top, 16)
 
@@ -198,7 +198,7 @@ struct WordListView: View {
     var halfCount: Int { count / 2 }
     
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+        Grid(alignment: .trailing, horizontalSpacing: 8, verticalSpacing: 6) {
             ForEach(0..<halfCount, id: \.self) { i in
                 GridRow {
                     WordListEntryView(

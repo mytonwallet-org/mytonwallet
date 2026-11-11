@@ -18,24 +18,16 @@ for (const width of [390, 1280]) {
       },
     }));
     await agentV2.open();
-    await expect(page.getByRole('heading', { name: 'Data shared with Agent' })).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('consent.png'), animations: 'disabled' });
+    await agentV2.waitForList();
     await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeHidden();
     const walletTab = page.getByRole('button', { name: 'Wallet', exact: true }).last();
     await expect(walletTab).toBeVisible();
-    if (width === 390) {
-      const allowBounds = await page.getByRole('button', { name: 'Allow Agent', exact: true }).boundingBox();
-      const tabBounds = await walletTab.boundingBox();
-      expect(allowBounds!.y + allowBounds!.height).toBeLessThanOrEqual(tabBounds!.y);
-    }
     await walletTab.click();
-    await expect(page.getByRole('heading', { name: 'Data shared with Agent' })).toBeHidden();
+    await expect(page.getByRole('region', { name: 'Chats', exact: true })).toBeHidden();
     const agentTab = page.getByRole('button', { name: 'Agent', exact: true }).last();
     await expect(agentTab).toBeVisible();
     await agentTab.click();
-    await expect(page.getByRole('heading', { name: 'Data shared with Agent' })).toBeVisible();
-    await agentV2.acceptConsent();
-    await expect(page.getByRole('button', { name: 'Allow Agent', exact: true })).toBeHidden();
+    await agentV2.waitForList();
     const hint = page.getByRole('button', { name: 'What can you do?', exact: true });
     await expect(hint).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Ask anything' })).not.toBeFocused();

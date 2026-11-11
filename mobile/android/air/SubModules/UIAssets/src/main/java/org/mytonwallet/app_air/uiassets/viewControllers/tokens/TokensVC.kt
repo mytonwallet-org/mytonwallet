@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells.TokenCell
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -43,6 +44,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.LastItemPaddingDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.SelectiveItemAnimator
+import org.mytonwallet.app_air.uicomponents.helpers.hideChromeOverlapping
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelectorHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -256,7 +258,8 @@ class TokensVC(
     }
 
     private val showAllView: ShowAllView by lazy {
-        val v = ShowAllView(context)
+        val v = ShowAllView(context, UIComponentsR.id.home_assets_more_button)
+        v.id = UIComponentsR.id.home_show_all
         v.configure(
             icon = R.drawable.ic_show_assets,
             text = LocaleController.getString("Show All Assets")
@@ -807,7 +810,7 @@ class TokensVC(
                 )
             ) {
                 openAddToken()
-            }
+            }.apply { testViewId = UIComponentsR.id.assets_menu_add_token }
         )
         items.add(
             WMenuPopup.Item(
@@ -821,7 +824,7 @@ class TokensVC(
                 hasSeparator = onReorderTapped != null
             ) {
                 openManageAssets()
-            }
+            }.apply { testViewId = UIComponentsR.id.assets_menu_manage_assets }
         )
         if (onReorderTapped != null) {
             items.add(
@@ -836,7 +839,7 @@ class TokensVC(
                     hasSeparator = false
                 ) {
                     onReorderTapped()
-                }
+                }.apply { testViewId = UIComponentsR.id.assets_menu_reorder_tabs }
             )
         }
         WMenuPopup.present(
@@ -868,6 +871,12 @@ class TokensVC(
             ) {
                 setHomeAssetsTopLimit(option)
             }.apply {
+                testViewId = when (option) {
+                    5 -> UIComponentsR.id.assets_menu_top_5
+                    10 -> UIComponentsR.id.assets_menu_top_10
+                    30 -> UIComponentsR.id.assets_menu_top_30
+                    else -> null
+                }
                 if (index == HOME_ASSETS_TOP_LIMITS.lastIndex) {
                     hasSeparator = false
                 }
@@ -879,6 +888,8 @@ class TokensVC(
         if (items.isEmpty()) {
             return
         }
+        var showChrome: (() -> Unit)? = null
+        var isMenuDismissed = false
         WMenuPopup.present(
             tokenView,
             items = items,
@@ -890,9 +901,14 @@ class TokensVC(
                 tokenView.frameAsPath(
                     ViewConstants.BLOCK_RADIUS.dp
                 )
-            )
-
+            ),
+            onWillDismiss = { showChrome?.invoke() },
+            onDidDismiss = {
+                isMenuDismissed = true
+                showChrome?.invoke()
+            }
         )
+        if (!isMenuDismissed) showChrome = hideChromeOverlapping(tokenView, navigationController)
     }
 
     private fun buildActions(tokenBalance: MTokenBalance, token: MToken): List<WMenuPopup.Item> {
@@ -909,21 +925,25 @@ class TokensVC(
                     WMenuPopup.Item(
                         R.drawable.ic_unpin_30,
                         LocaleController.getString("Unpin")
-                    ) { unPin(tokenBalance) }
+                    ) { unPin(tokenBalance) }.apply {
+                        testViewId = UIComponentsR.id.token_menu_unpin
+                    }
                 )
             } else {
                 add(
                     WMenuPopup.Item(
                         R.drawable.ic_pin_30,
                         LocaleController.getString("Pin")
-                    ) { pin(tokenBalance) }
+                    ) { pin(tokenBalance) }.apply { testViewId = UIComponentsR.id.token_menu_pin }
                 )
             }
             add(
                 WMenuPopup.Item(
                     R.drawable.ic_manage_30,
                     LocaleController.getString("Manage Assets")
-                ) { openManageAssets() }
+                ) { openManageAssets() }.apply {
+                    testViewId = UIComponentsR.id.token_menu_manage_assets
+                }
             )
         }
     }
@@ -947,19 +967,19 @@ class TokensVC(
             WMenuPopup.Item(
                 R.drawable.ic_plus_30,
                 LocaleController.getString("Add")
-            ) { openAdd(token) }
+            ) { openAdd(token) }.apply { testViewId = UIComponentsR.id.token_menu_add }
         )
         actions.add(
             WMenuPopup.Item(
                 R.drawable.ic_arrow_up_thin_30,
                 LocaleController.getString("Send")
-            ) { openSend(token) }
+            ) { openSend(token) }.apply { testViewId = UIComponentsR.id.token_menu_send }
         )
         actions.add(
             WMenuPopup.Item(
                 R.drawable.ic_transferable,
                 LocaleController.getString("Trade")
-            ) { openSwap(token) }
+            ) { openSwap(token) }.apply { testViewId = UIComponentsR.id.token_menu_trade }
         )
         if (token.isEarnAvailable) {
             val hasActiveStaking = AccountStore.stakingData?.hasActiveStaking(token.slug) == true
@@ -967,7 +987,9 @@ class TokensVC(
                 WMenuPopup.Item(
                     R.drawable.ic_stake_30,
                     LocaleController.getString("Stake")
-                ) { openStake(token, hasActiveStaking) }
+                ) { openStake(token, hasActiveStaking) }.apply {
+                    testViewId = UIComponentsR.id.token_menu_stake
+                }
             )
         }
         return actions

@@ -58,21 +58,53 @@ public struct ApiAgentV2NewsFeedItem: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+public struct ApiAgentV2DigestHeadline: Codable, Equatable, Hashable, Sendable {
+    public let eventId: Int
+    public let headline: String
+}
+
+public struct ApiAgentV2NewsFeedDigest: Codable, Equatable, Hashable, Sendable {
+    public let id: String
+    public let deliveredAt: String
+    public let top: [ApiAgentV2DigestHeadline]
+    public let total: Int
+    public let discussion: ApiAgentV2NewsFeedItem.Discussion?
+}
+
+public struct ApiAgentV2ThreadDigestCard: Codable, Equatable, Hashable, Sendable {
+    public let id: String
+    public let windowEnd: String
+    public let total: Int
+    public let top: [ApiAgentV2DigestHeadline]
+}
+
+public struct ApiAgentV2ThreadDigestRequest: Encodable, Equatable, Sendable {
+    public let id: String
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
 public struct ApiAgentV2NewsFeedPage: Codable, Equatable, Sendable {
     public let locale: String
     public let items: [ApiAgentV2NewsFeedItem]
     public let nextCursor: String?
+    public let digests: [ApiAgentV2NewsFeedDigest]?
 
-    public init(locale: String, items: [ApiAgentV2NewsFeedItem], nextCursor: String? = nil) {
+    public init(locale: String, items: [ApiAgentV2NewsFeedItem], nextCursor: String? = nil, digests: [ApiAgentV2NewsFeedDigest]? = nil) {
         self.locale = locale
         self.items = items
         self.nextCursor = nextCursor
+        self.digests = digests
     }
 }
 
 struct ApiAgentV2NewsFeedRequest: Encodable, Equatable, Sendable {
     let lang: String
     let cursor: String?
+    let digestHour: Int
+    let timeZone: String
 }
 
 public struct ApiAgentV2ThreadNewsCard: Codable, Equatable, Hashable, Sendable {
@@ -118,6 +150,7 @@ public struct ApiAgentV2ThreadNewsRequest: Encodable, Equatable, Sendable {
 
 struct ApiAgentV2ThreadCreateRequest: Encodable, Equatable, Sendable {
     let news: ApiAgentV2ThreadNewsRequest?
+    var digest: ApiAgentV2ThreadDigestRequest? = nil
 }
 
 public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
@@ -133,6 +166,14 @@ public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
     public let hasCustomTitle: Bool?
     public let isPinned: Bool?
     public let news: ApiAgentV2ThreadNewsCard?
+    public var digest: ApiAgentV2ThreadDigestCard? = nil
+
+    /// Whether the user has written in the thread, by the SDK's `getIsAgentV2ThreadStarted`: a news discussion starts
+    /// with its post alone, one message, until the user sends something there. The chat list leaves it out until then,
+    /// and its Discuss button offers to discuss rather than to continue.
+    public var isStarted: Bool {
+        (news == nil && digest == nil) || messageCount > 1
+    }
 
     /// The thread with `isPinned` changed, for a list that shows the change before the server confirms it
     public func makeCopy(isPinned: Bool) -> ApiAgentV2ThreadSummary {
@@ -148,7 +189,8 @@ public struct ApiAgentV2ThreadSummary: Codable, Equatable, Hashable, Sendable {
             icon: icon,
             hasCustomTitle: hasCustomTitle,
             isPinned: isPinned,
-            news: news
+            news: news,
+            digest: digest
         )
     }
 }
@@ -340,6 +382,7 @@ public enum ApiAgentV2ErrorCode: String, Codable, Equatable, Hashable, Sendable 
     case audioUnreadable = "audio_unreadable"
     case transcriptionUnavailable = "transcription_unavailable"
     case newsUnavailable = "news_unavailable"
+    case digestUnavailable = "digest_unavailable"
     case providerTimeout = "provider_timeout"
     case providerUnavailable = "provider_unavailable"
     case providerCapabilityUnavailable = "provider_capability_unavailable"
@@ -780,6 +823,12 @@ public struct ApiAgentV2ThreadHydration: Codable, Equatable, Sendable {
     public let nextCursor: String?
 }
 
+public struct ApiAgentV2CachedMessages: Codable, Equatable, Sendable {
+    public let thread: ApiAgentV2ThreadSummary
+    public let messages: [ApiAgentV2PersistedMessage]
+    public let hasOlder: Bool
+}
+
 public struct ApiAgentV2StarterHint: Codable, Equatable, Hashable, Sendable {
     public enum ID: String, Codable, Equatable, Hashable, Sendable {
         case agentCapabilities = "agent.capabilities"
@@ -1200,6 +1249,8 @@ public struct ApiAgentV2RunCommand: Encodable, Equatable, Sendable {
         }
     }
 
+    /// The run's id, which its updates and result carry
+    public let clientRunId: String
     public let threadId: String?
     public let expectedThreadRevision: Int
     public let input: ApiAgentV2RunInput
@@ -1207,12 +1258,14 @@ public struct ApiAgentV2RunCommand: Encodable, Equatable, Sendable {
     public let followupOf: FollowUpReference?
 
     public init(
+        clientRunId: String,
         threadId: String?,
         expectedThreadRevision: Int,
         input: ApiAgentV2RunInput,
         entryPoint: ApiAgentV2EntryPoint?,
         followupOf: FollowUpReference? = nil
     ) {
+        self.clientRunId = clientRunId
         self.threadId = threadId
         self.expectedThreadRevision = expectedThreadRevision
         self.input = input
@@ -1225,26 +1278,11 @@ public enum ApiAgentV2RunResultState: String, Codable, Equatable, Sendable {
     case completed, failed, cancelled, interrupted
 }
 
-public enum ApiAgentV2RunCancelState: String, Codable, Equatable, Sendable {
-    case completed
-    case completedWithToolError = "completed_with_tool_error"
-    case failed, cancelled
-    case runInterrupted = "run_interrupted"
-}
-
 public struct ApiAgentV2RunResult: Codable, Equatable, Sendable {
     public let clientRunId: String
     public let runId: String?
     public let inputMessageId: String?
     public let state: ApiAgentV2RunResultState
-}
-
-public struct ApiAgentV2RunCancelResponse: Codable, Equatable, Sendable {
-    public let protocolVersion: Int
-    public let runId: String
-    public let state: ApiAgentV2RunCancelState
-    public let lastSequence: Int
-    public let duplicate: Bool?
 }
 
 public struct ApiAgentV2ActionProposal: Codable, Equatable, Hashable, Sendable {

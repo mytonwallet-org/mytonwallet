@@ -11,6 +11,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import java.lang.ref.WeakReference
@@ -22,6 +23,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivitySingleTagView
+import org.mytonwallet.app_air.uicomponents.commonViews.toast.ToastManager
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
@@ -55,7 +57,8 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(context) {
+class LinkToWalletVC(context: Context, val nft: ApiNft, private val isUnlinking: Boolean = false) :
+    WViewController(context) {
     @Suppress("PropertyName")
     override val TAG = "LinkToWallet"
 
@@ -69,8 +72,14 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
     private val linkedAddress =
         NftStore.nftData?.linkedAddressByAddress?.get(nft.address)?.takeIf { it.isNotBlank() }
     var address: String? =
-        linkedAddress ?: AccountStore.accountById(displayedAccount.accountId)?.tonAddress
+        if (isUnlinking) {
+            linkedAddress
+        } else {
+            linkedAddress ?: AccountStore.accountById(displayedAccount.accountId)?.tonAddress
+        }
     private var realFee = BigInteger.ZERO
+    private val linkButtonTitle: String
+        get() = LocaleController.getString(if (isUnlinking) "Unlink Wallet" else "Link")
 
     private val nftTagView = ActivitySingleTagView(context).apply {
         configure(nft)
@@ -127,8 +136,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
     }
 
     private val linkButton = WButton(context).apply {
-        text =
-            LocaleController.getString("Link")
+        text = linkButtonTitle
         setOnClickListener {
             onRenewPressed()
         }
@@ -141,7 +149,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             this@LinkToWalletVC.address = address
             if (MBlockchain.ton.isValidAddress(address)) {
                 linkButton.isEnabled = false
-                linkButton.setText(LocaleController.getString("Link"))
+                linkButton.setText(linkButtonTitle)
                 calculateFee(address)
             } else {
                 linkButton.isEnabled = false
@@ -171,7 +179,11 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
 
         setNavTitle(
             LocaleController.getString(
-                if (linkedAddress != null) "Change Linked Wallet" else "Link to Wallet"
+                when {
+                    isUnlinking -> "Unlink Wallet"
+                    linkedAddress != null -> "Change Linked Wallet"
+                    else -> "Link to Wallet"
+                }
             )
         )
         setupNavBar(true)
@@ -196,6 +208,9 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             constrainedHeight(linkedWalletView.id, true)
         }
 
+        if (isUnlinking) {
+            addressInputView.setEditable(false)
+        }
         address?.let { address ->
             addressInputView.setText(address)
             updateAddressOverlay(address)
@@ -255,7 +270,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             ApiMethod.Domains.CheckDnsChangeWalletDraft(
                 accountId,
                 nft,
-                address
+                address.takeUnless { isUnlinking }
             ),
             callback = { res, err ->
                 if (this.address != address || isDestroyed) return@call
@@ -271,9 +286,9 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                             ?.get(TONCOIN_SLUG) ?: BigInteger.ZERO
                         ) >= realFee
                 ) {
-                    linkButton.isEnabled = address != linkedAddress
+                    linkButton.isEnabled = isUnlinking || address != linkedAddress
                     linkButton.isLoading = false
-                    linkButton.setText(LocaleController.getString("Link"))
+                    linkButton.setText(linkButtonTitle)
                     val tonToken = TokenStore.getToken(TONCOIN_SLUG) ?: return@call
                     val feeText =
                         "${LocaleController.getString("Fee")}: ${
@@ -306,6 +321,11 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
         }
     }
 
+    private val confirmTitle: String
+        get() = LocaleController.getString(
+            if (isUnlinking) "Confirm Unlinking" else "Confirm Linking"
+        )
+
     private val headerView: View
         get() {
             val availableHeight = window?.windowView?.height ?: 0
@@ -317,7 +337,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             ).apply {
                 config(
                     Content.ofUrl(nft.image ?: ""),
-                    LocaleController.getString("Confirm Linking"),
+                    confirmTitle,
                     nft.name ?: "",
                     Content.Rounding.Radius(12f.dp)
                 )
@@ -337,12 +357,12 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                 signData = LedgerConnectVC.SignData.LinkNftToWallet(
                     accountId = account.accountId,
                     nft = nft,
-                    address = address,
+                    address = address.takeUnless { isUnlinking },
                     realFee = realFee
                 ),
                 onDone = {
                     window.dismissLastNav {
-                        window.dismissLastNav { }
+                        window.dismissLastNav { showSuccessToast() }
                     }
                 }
             ),
@@ -378,7 +398,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                         context,
                         PasscodeViewState.CustomHeader(
                             headerView,
-                            LocaleController.getString("Confirm Linking")
+                            confirmTitle
                         ),
                         task = { token -> submitDnsChange(accountId, address, token, nav) }
                     )
@@ -400,7 +420,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                 accountId,
                 token,
                 nft,
-                address,
+                address.takeUnless { isUnlinking },
                 realFee
             ),
             callback = { res, err ->
@@ -426,7 +446,10 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                         .viewControllers.MfaActionConfirmVC(
                             context,
                             requestHash = mfaHash,
-                            onConfirmed = { window.dismissNav(navigationController) }
+                            onConfirmed = {
+                                window.dismissNav(navigationController)
+                                showSuccessToast()
+                            }
                         )
                     if (passcodeNav != null) {
                         passcodeNav.push(mfaVC, onCompletion = {
@@ -451,9 +474,10 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                     return@call
                 }
                 if (passcodeNav != null) {
-                    window.dismissLastNav { window.dismissLastNav { } }
+                    window.dismissLastNav { window.dismissLastNav { showSuccessToast() } }
                 } else {
                     window.dismissNav(navigationController)
+                    showSuccessToast()
                 }
             }
         )
@@ -469,6 +493,19 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             linkButton.unlockView()
             showError(error)
         }
+    }
+
+    private fun showSuccessToast() {
+        val text = LocaleController.getString(
+            if (isUnlinking) "Domain Unlinked" else "Domain Linked"
+        )
+        ToastManager.show(
+            ToastManager.Toast(
+                iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_check,
+                text = text
+            ),
+            onUndelivered = { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
+        )
     }
 
     override fun onDestroy() {

@@ -8,6 +8,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import java.math.BigInteger
 import kotlin.math.abs
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.FiatCurrencyIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -36,6 +37,10 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class TokenSelectorCell(context: Context) :
     WCell(context),
     WThemedView {
+
+    init {
+        id = UIComponentsR.id.token_selector_row
+    }
 
     private companion object {
         const val FIAT_RATE_PRECISION = 9

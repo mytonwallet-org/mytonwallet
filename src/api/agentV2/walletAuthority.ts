@@ -121,7 +121,7 @@ function buildAuthorityFingerprint(snapshot?: AgentV2HostContextSnapshot): strin
       isViewOnly: account.isViewOnly,
       chains: [...account.chains].sort(),
     })).sort((left, right) => left.accountId.localeCompare(right.accountId)),
-    isTestnet: snapshot.isTestnet,
+    isTestnet: snapshot.isTestnet ?? false,
   });
 }
 

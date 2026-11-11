@@ -5,6 +5,7 @@ import { pause } from '../../util/schedulers';
 import { waitForCondition } from '../../../tests/util/async';
 
 import AgentRunActivity, { createAgentRunActivityHandoff } from './AgentRunActivity';
+import AgentSpinningTop from './AgentSpinningTop';
 
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
@@ -18,10 +19,36 @@ jest.mock('../../hooks/useLang', () => ({
   }[key] ?? key),
 }));
 
+jest.mock('./AgentSpinningTop', () => ({
+  __esModule: true,
+  default: jest.fn(() => undefined),
+}));
+
 // A step stays at least 1.2 s before the next one replaces it
 const STEP_TIMEOUT = 2_000;
 
 describe('AgentRunActivity', () => {
+  it('stays stopped while it closes after a Stop', async () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const getTopState = () => jest.mocked(AgentSpinningTop).mock.calls.at(-1)![0].agentState;
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} />, root);
+    await pause(20);
+    expect(getTopState()).toBe('thinking');
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} isStopped />, root);
+    await pause(20);
+    expect(getTopState()).toBe('stopped');
+
+    TeactDOM.render(<AgentRunActivity />, root);
+    await pause(20);
+    expect(getTopState()).toBe('stopped');
+
+    TeactDOM.render(undefined, root);
+    root.remove();
+  });
+
   it('announces safe localized run phases without exposing tool details', async () => {
     const root = document.createElement('div');
     document.body.appendChild(root);
@@ -113,6 +140,55 @@ describe('AgentRunActivity', () => {
     TeactDOM.render(undefined, root);
     root.remove();
   });
+
+  it('stays over the answer taking its place for as long as the answer grows out of it', async () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'preparingResponse' }} isAnswerPlaceholder />, root);
+    // The indicator has come on screen, as one that an answer takes the place of has
+    await waitForCondition(() => root.querySelector('[role="status"]')?.classList.contains('open') === true);
+    expect(getStepText(root)).toBe('Preparing your answer…');
+
+    TeactDOM.render(<AgentRunActivity isAnswerPlaceholder />, root);
+    // Past the 200 ms an indicator at the chat's end takes to fade
+    await pause(300);
+    expect(root.querySelector('[role="status"]')?.classList.contains('closing')).toBe(true);
+    await waitForCondition(() => !root.querySelector('[role="status"]'));
+
+    TeactDOM.render(undefined, root);
+    root.remove();
+  });
+
+  it('lights each step with a glint once, as it comes into focus, as on iOS', async () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} />, root);
+    await waitForCondition(() => getStepText(root) === 'Analyzing your request…');
+    // The first step's glint waits for the indicator to rise into place as well
+    expect(getGlintDelays(root)).toEqual([480]);
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'tool', toolName: 'wallet.data.query' }} />, root);
+    await waitForCondition(() => getStepText(root) === 'Reading wallet data…', { timeout: STEP_TIMEOUT });
+    // The step that blurs away has none
+    expect(getLeavingStepText(root)).toBe('Analyzing your request…');
+    expect(getGlintDelays(root)).toEqual([300]);
+
+    TeactDOM.render(undefined, root);
+    root.remove();
+  });
+
+  it('lights a step standing in for the answer without waiting for an entrance', () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} isAnswerPlaceholder />, root);
+    expect(getGlintDelays(root)).toEqual([300]);
+
+    TeactDOM.render(undefined, root);
+    root.remove();
+  });
 });
 
 describe('AgentRunActivity handoff', () => {
@@ -152,6 +228,39 @@ describe('AgentRunActivity handoff', () => {
     footer.remove();
     message.remove();
   });
+
+  it('goes on with the glint of the step it takes over, and plays none once it has passed', async () => {
+    const footer = document.createElement('div');
+    const message = document.createElement('div');
+    document.body.append(message, footer);
+    const handoff = createAgentRunActivityHandoff();
+    const startedAt = Date.now();
+    const now = jest.spyOn(Date, 'now').mockReturnValue(startedAt);
+
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} handoff={handoff} />, footer);
+    expect(getGlintDelays(footer)).toEqual([480]);
+    now.mockReturnValue(startedAt + 100);
+
+    TeactDOM.render(
+      <AgentRunActivity activity={{ kind: 'analyzingRequest' }} isAnswerPlaceholder handoff={handoff} />,
+      message,
+    );
+    TeactDOM.render(undefined, footer);
+    // The glint keeps its time rather than starting over, which would put it 300 ms away
+    expect(getGlintDelays(message)).toEqual([380]);
+    now.mockRestore();
+
+    // Past the glint, a step that goes on has none
+    await pause(1_300);
+    TeactDOM.render(undefined, message);
+    TeactDOM.render(<AgentRunActivity activity={{ kind: 'analyzingRequest' }} handoff={handoff} />, footer);
+    expect(getStepText(footer)).toBe('Analyzing your request…');
+    expect(getGlintDelays(footer)).toEqual([]);
+
+    TeactDOM.render(undefined, footer);
+    footer.remove();
+    message.remove();
+  });
 });
 
 // The step that blurs away is hidden from assistive technology, as the top is
@@ -161,4 +270,12 @@ function getLeavingStepText(root: HTMLElement) {
 
 function getStepText(root: HTMLElement) {
   return root.querySelector('[data-agent-activity-step]')?.textContent;
+}
+
+// When the glints shown start, in milliseconds from their steps' coming
+function getGlintDelays(root: HTMLElement) {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>('[data-agent-activity-glint]'),
+    (glint) => parseFloat(glint.style.getPropertyValue('--glint-delay')),
+  );
 }

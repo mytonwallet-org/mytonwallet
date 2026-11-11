@@ -6,6 +6,15 @@ public enum ContextMenuIconRenderingMode {
     case original
 }
 
+/// A view that a row shows in place of its icon image and that plays once each time the row becomes highlighted
+@MainActor
+public protocol ContextMenuAnimatedIconView: UIView {
+    func playHighlightAnimation()
+}
+
+/// Makes a row's animated icon, or nil to keep the icon image
+public typealias ContextMenuAnimatedIconProvider = @MainActor () -> (any ContextMenuAnimatedIconView)?
+
 public enum ContextMenuIcon {
     case image(UIImage, renderingMode: ContextMenuIconRenderingMode = .template)
     case placeholder

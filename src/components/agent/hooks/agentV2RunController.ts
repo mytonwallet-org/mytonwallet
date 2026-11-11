@@ -26,6 +26,7 @@ import { agentUiTrace } from './agentDevelopmentTiming';
 import {
   getRunOperationId,
   selectIsAgentV2InputDisabled,
+  selectIsAgentV2RunActive,
 } from './agentV2MessagesState';
 
 type AgentV2RunAdmission =
@@ -53,11 +54,13 @@ export interface AgentV2RunControllerDependencies {
   dispatch: (action: AgentV2MessagesStateAction) => void;
   getErrorText: (code: AgentV2ErrorCode) => string;
   getState: () => AgentV2MessagesState;
-  hydrate: (shouldPreserveLiveContent?: boolean, isFailureSilent?: boolean) => Promise<void>;
+  hydrate: (shouldPreserveLiveContent?: boolean, isFailureSilent?: boolean) => Promise<boolean>;
   now: () => number;
   retryRun: (clientRunId: string) => Promise<AgentV2RunResult | undefined>;
   resetHistory: NoneToVoidFunction;
-  startRun: (command: AgentV2RunCommand) => Promise<AgentV2RunResult | undefined>;
+  /** `isStopped` tells whether the user stopped the answer before the run reached the runtime */
+  startRun: (command: AgentV2RunCommand, isStopped: () => boolean) => Promise<AgentV2RunResult | undefined>;
+  stopRun: (threadId: string) => Promise<unknown>;
   stream: AgentV2StreamController;
   // The message as it is shown and sent: a recovery phrase replaced with a placeholder before either
   hideSecretPhrases: (text: string) => string;
@@ -79,9 +82,13 @@ export interface AgentV2RunController {
   sendHint: (hint: AgentHint) => void;
   /** `shownMessage` is the question already on screen, which the sent message takes the place of */
   sendMessage: (text: string, editMessageId?: number, shownMessage?: AgentV2ShownMessage) => boolean;
+  /** An answer is being produced that `stopRun` stops; one that has ended or is already stopped is not */
+  canStopRun: () => boolean;
+  stopRun: NoneToVoidFunction;
 }
 
 type AgentV2ShownMessage = Pick<AgentMessage, 'id' | 'timestamp'>;
+type AgentV2RunFailedUpdate = Extract<AgentV2ClientUpdate, { kind: 'runFailed' }>;
 
 export function createAgentV2RunController(
   dependencies: AgentV2RunControllerDependencies,
@@ -92,6 +99,20 @@ export function createAgentV2RunController(
   const admissionsByOperation = new Map<number, AgentV2ActiveRunAdmission>();
   const retainedAdmissions = new Map<string, AgentV2RunAdmission>();
   const cancelledRunOperationIds = new Set<number>();
+  // Stopped operations, a subset of the cancelled ones, which never send a run they have not sent yet
+  const stoppedRunOperationIds = new Set<number>();
+  // Operator replies raise the revision of a thread with support, which the client learns only by polling
+  const supportResendOperationIds = new Set<number>();
+  const revisionConflictsByOperation = new Map<number, AgentV2RunFailedUpdate>();
+  // Stopped runs, whose later updates are dropped. The chat may follow a run it has not started, which it gets
+  // replayed when it opens during the run.
+  const stoppedClientRunIds = new Set<string>();
+  // The answer the latest run started
+  let latestAnswer: { clientRunId: string; messageId: number } | undefined;
+  // The thread of the answer stopped last, whose history is read again once the server has cancelled the answer
+  let stoppedThreadId: string | undefined;
+  // The thread whose history is read again once the chat is free
+  let refreshThreadId: string | undefined;
 
   return {
     clearChat,
@@ -105,6 +126,8 @@ export function createAgentV2RunController(
     sendFollowup,
     sendHint,
     sendMessage,
+    canStopRun,
+    stopRun,
   };
 
   function dispose() {
@@ -112,16 +135,22 @@ export function createAgentV2RunController(
     admissionsByOperation.clear();
     retainedAdmissions.clear();
     cancelledRunOperationIds.clear();
+    stoppedRunOperationIds.clear();
+    supportResendOperationIds.clear();
+    revisionConflictsByOperation.clear();
+    stoppedClientRunIds.clear();
   }
 
   function sendMessage(text: string, editMessageId?: number, shownMessage?: AgentV2ShownMessage) {
     const trimmed = text.trim();
     const thread = dependencies.getState().thread;
     if (!trimmed || !thread || isInputBlocked()) return false;
+    const canEditMessage = !isSupportActive(thread);
     const message = dependencies.hideSecretPhrases(trimmed);
 
-    const targetMessageId = editMessageId ? dependencies.stream.getSourceId(editMessageId) : undefined;
-    if (editMessageId && !targetMessageId) return false;
+    const targetMessageId = editMessageId && canEditMessage
+      ? dependencies.stream.getSourceId(editMessageId) : undefined;
+    if (editMessageId && canEditMessage && !targetMessageId) return false;
 
     if (targetMessageId) {
       void run(
@@ -133,7 +162,7 @@ export function createAgentV2RunController(
 
     const outgoingMessageId = addOptimisticMessage(message, shownMessage);
     const input = { kind: 'append', text: message } as const;
-    void run(thread.news ? { input } : {
+    void run(thread.news || thread.digest ? { input } : {
       input, entryPoint: { kind: 'agentTab' },
     }, { kind: 'append', messageId: outgoingMessageId });
     return true;
@@ -168,9 +197,12 @@ export function createAgentV2RunController(
   }
 
   function retryMessage(messageId: number) {
-    const thread = dependencies.getState().thread;
+    const { thread, messages } = dependencies.getState();
     const sourceMessageId = dependencies.stream.getSourceId(messageId);
     if (!thread || !sourceMessageId || isInputBlocked()) return;
+    if (thread.support?.state === 'waiting' || thread.support?.state === 'operator') return;
+    const message = messages.find(({ id }) => id === messageId);
+    if (!message || message.operator || message.supportEvent) return;
     const userMessageId = getAnsweredUserMessageId(messageId);
     void run(
       {
@@ -211,7 +243,7 @@ export function createAgentV2RunController(
       isDisposed
       || !thread
       || current.isLoading
-      || (thread.news && !current.hasHydratedHistory)
+      || ((thread.news || thread.digest) && !current.hasHydratedHistory)
       || current.threadMutation.phase === 'clearing'
     ) return;
 
@@ -223,19 +255,76 @@ export function createAgentV2RunController(
     const runOperationId = getRunOperationId(current.run);
     if (runOperationId !== undefined) cancelledRunOperationIds.add(runOperationId);
     retainedAdmissions.clear();
+    // The clear leaves no stopped answer to read again
+    stoppedThreadId = undefined;
+    refreshThreadId = undefined;
     dependencies.resetHistory();
     dependencies.stream.resetMessageArtifacts();
     dependencies.dispatch({ kind: 'threadClearStarted', ...operation });
     void clearThread(thread, operation);
   }
 
-  // The runtime emits nothing for the thread's runs once it sends a clear, and no run starts while a clear or a
-  // cancelled operation is pending, so a run update in that time is late output of the cancelled answer
+  // The answer stops at once, keeping the text it has shown. The operation of a run this chat started settles without
+  // presenting its result; a run the chat follows without one frees the chat at once. The runtime cancels the run on
+  // the server.
+  function stopRun() {
+    const { thread, run } = dependencies.getState();
+    if (!canStopRun() || run.phase === 'idle' || run.phase === 'terminal') return;
+    const { operationId } = run;
+    const clientRunId = run.phase === 'streaming' ? run.clientRunId : undefined;
+    if (operationId !== undefined) {
+      cancelledRunOperationIds.add(operationId);
+      stoppedRunOperationIds.add(operationId);
+    }
+    if (clientRunId !== undefined) stoppedClientRunIds.add(clientRunId);
+    stoppedThreadId = thread!.id;
+    dependencies.stream.flushDeltas();
+    dependencies.stream.terminalizeTextRevealPresentations();
+    dependencies.dispatch({
+      kind: 'runStopped',
+      ...(latestAnswer && latestAnswer.clientRunId === clientRunId ? { messageId: latestAnswer.messageId } : {}),
+    });
+    void dependencies.stopRun(thread!.id);
+  }
+
+  // A run that has ended waits only for its result, and a stopped or cleared one only to settle
+  function canStopRun() {
+    const { thread, run } = dependencies.getState();
+    if (isDisposed || !thread || (run.phase !== 'admitting' && run.phase !== 'streaming')) return false;
+    const { operationId } = run;
+    const clientRunId = run.phase === 'streaming' ? run.clientRunId : undefined;
+    return !(operationId !== undefined && cancelledRunOperationIds.has(operationId))
+      && !(clientRunId !== undefined && stoppedClientRunIds.has(clientRunId));
+  }
+
+  // The server keeps what a stopped answer has shown, or the whole answer when it finished first, so the history is
+  // read again once the server has cancelled the answer and the chat is free
+  function requestStoppedAnswerRefresh(thread: AgentThreadSummaryV2) {
+    if (thread.id !== stoppedThreadId) return;
+    stoppedThreadId = undefined;
+    refreshThreadId = thread.id;
+  }
+
+  function refreshStoppedAnswer() {
+    if (isDisposed || !refreshThreadId) return;
+    const current = dependencies.getState();
+    if (current.thread?.id !== refreshThreadId) {
+      refreshThreadId = undefined;
+      return;
+    }
+    if (selectIsAgentV2RunActive(current) || current.threadMutation.phase === 'clearing') return;
+    refreshThreadId = undefined;
+    void dependencies.hydrate(false, true);
+  }
+
+  // The runtime emits nothing for the thread's runs once it sends a clear or a stop, and no run starts while a clear
+  // or a cancelled operation is pending, so a run update in that time is late output of the cancelled answer
   function isCancelledRunUpdate(update: AgentV2ClientUpdate) {
     if (update.clientRunId === undefined) return false;
     const current = dependencies.getState();
     const runOperationId = getRunOperationId(current.run);
     return current.threadMutation.phase === 'clearing'
+      || stoppedClientRunIds.has(update.clientRunId)
       || (runOperationId !== undefined && cancelledRunOperationIds.has(runOperationId));
   }
 
@@ -258,15 +347,26 @@ export function createAgentV2RunController(
     const thread = dependencies.getState().thread;
     if (!thread || isDisposed) return;
     const operationId = requestRun('command', admission);
+    if (admission.kind === 'append' && isSupportActive(thread)) supportResendOperationIds.add(operationId);
     const trace = agentUiTrace();
     trace?.mark('ui_submit');
-    try {
-      const result = await dependencies.startRun({
+    function startRun(threadRevision: number) {
+      return dependencies.startRun({
         ...command,
         ...(trace ? { developmentTraceId: trace.traceId } : {}),
-        threadId: thread.id,
-        expectedThreadRevision: thread.revision,
-      });
+        threadId: thread!.id,
+        expectedThreadRevision: threadRevision,
+      }, () => stoppedRunOperationIds.has(operationId));
+    }
+    try {
+      let result = await startRun(thread.revision);
+      const revisionConflict = revisionConflictsByOperation.get(operationId);
+      if (revisionConflict) {
+        revisionConflictsByOperation.delete(operationId);
+        const revision = await refreshThreadForResend(operationId, thread.id, admission, revisionConflict);
+        if (revision === undefined) return;
+        result = await startRun(revision);
+      }
       await settleRunResult(result, operationId, false);
     } catch {
       setRunConnectionError(operationId);
@@ -274,6 +374,34 @@ export function createAgentV2RunController(
       finishRunOperation(operationId);
       trace?.mark('ui_complete');
     }
+  }
+
+  // The message stays on screen while the thread is read again, and is sent once more to its new revision.
+  // A read that fails or is superseded reports the conflict instead.
+  async function refreshThreadForResend(
+    operationId: number,
+    threadId: string,
+    admission: AgentV2RunAdmission,
+    revisionConflict: AgentV2RunFailedUpdate,
+  ) {
+    const messageId = admission.kind === 'append' ? admission.messageId : undefined;
+    const outgoingMessage = dependencies.getState().messages.find(({ id }) => id === messageId);
+    const isHydrated = await dependencies.hydrate(false, true);
+    const current = dependencies.getState();
+    if (
+      isDisposed
+      || cancelledRunOperationIds.has(operationId)
+      || getRunOperationId(current.run) !== operationId
+      || current.thread?.id !== threadId
+    ) return undefined;
+    if (!isHydrated) {
+      reportRunFailure(revisionConflict);
+      return undefined;
+    }
+    if (outgoingMessage && !current.messages.some(({ id }) => id === outgoingMessage.id)) {
+      dependencies.dispatch({ kind: 'optimisticMessageAdded', message: outgoingMessage });
+    }
+    return current.thread.revision;
   }
 
   async function retryAdmissionRun(clientRunId: string, operationId: number) {
@@ -347,7 +475,11 @@ export function createAgentV2RunController(
   function finishRunOperation(operationId: number) {
     admissionsByOperation.delete(operationId);
     cancelledRunOperationIds.delete(operationId);
+    stoppedRunOperationIds.delete(operationId);
+    supportResendOperationIds.delete(operationId);
+    revisionConflictsByOperation.delete(operationId);
     if (!isDisposed) dependencies.dispatch({ kind: 'runSettled', operationId });
+    refreshStoppedAnswer();
   }
 
   function bindRunInputMessage(inputMessageId: string | undefined, operationId: number) {
@@ -443,6 +575,7 @@ export function createAgentV2RunController(
         if (dependencies.getState().thread?.id !== update.thread.id) retainedAdmissions.clear();
         releaseStaleThreadClearOperation(update.thread, false);
         dependencies.dispatch({ kind: 'threadChanged', thread: update.thread });
+        if (!update.clientRunId) requestStoppedAnswerRefresh(update.thread);
         break;
       case 'runFailed':
         handleRunFailed(update);
@@ -456,8 +589,12 @@ export function createAgentV2RunController(
       case 'userQuotaChanged':
         dependencies.dispatch({ kind: 'userQuotaChanged', quota: update.quota });
         break;
+      case 'messageStarted': {
+        const messageId = dependencies.stream.findMessageId(update.messageId);
+        if (messageId !== undefined) latestAnswer = { clientRunId: update.clientRunId, messageId };
+        break;
+      }
       case 'runtimeReady':
-      case 'messageStarted':
       case 'answerTablesChanged':
       case 'answerLinkAdded':
       case 'textDelta':
@@ -472,9 +609,26 @@ export function createAgentV2RunController(
       default:
         assertUnreachable(update);
     }
+    refreshStoppedAnswer();
   }
 
-  function handleRunFailed(update: Extract<AgentV2ClientUpdate, { kind: 'runFailed' }>) {
+  function handleRunFailed(update: AgentV2RunFailedUpdate) {
+    const operationId = getRunOperationId(dependencies.getState().run);
+    if (
+      operationId !== undefined
+      && update.code === 'thread_revision_conflict'
+      && !update.runId
+      && !update.messageId
+      && !admissionsByOperation.get(operationId)?.isApplied
+      && supportResendOperationIds.delete(operationId)
+    ) {
+      revisionConflictsByOperation.set(operationId, update);
+      return;
+    }
+    reportRunFailure(update);
+  }
+
+  function reportRunFailure(update: AgentV2RunFailedUpdate) {
     const errorText = dependencies.getErrorText(update.code);
     const messageId = update.messageId ? dependencies.stream.findMessageId(update.messageId) : undefined;
     const operationId = getRunOperationId(dependencies.getState().run);
@@ -614,6 +768,10 @@ export function createAgentV2RunController(
     );
     return selectIsAgentV2InputDisabled(current, isAgentV2ComposerBlocked(composerStatus));
   }
+}
+
+function isSupportActive(thread: AgentThreadSummaryV2) {
+  return thread.support?.state === 'waiting' || thread.support?.state === 'operator';
 }
 
 function assertUnreachable(value: never): never {

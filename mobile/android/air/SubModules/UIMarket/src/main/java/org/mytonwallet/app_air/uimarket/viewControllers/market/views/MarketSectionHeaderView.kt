@@ -6,6 +6,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isGone
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -29,6 +30,7 @@ class MarketSectionHeaderView(context: Context, private val onSeeAll: () -> Unit
     }
 
     private val seeAllLabel = WLabel(context).apply {
+        id = UIComponentsR.id.market_see_all
         setStyle(14f, WFont.Regular)
         translationY = 1f.dp
         text = LocaleController.getString("See All")

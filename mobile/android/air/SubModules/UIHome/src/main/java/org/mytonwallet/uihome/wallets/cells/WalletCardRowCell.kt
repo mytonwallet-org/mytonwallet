@@ -17,6 +17,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONS
 import androidx.core.view.isGone
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.drawable.CheckboxDrawable
@@ -75,7 +76,7 @@ class WalletCardRowCell(
     }
 
     private val checkboxImageView = AppCompatImageView(context).apply {
-        id = generateViewId()
+        id = UIComponentsR.id.wallets_checkbox
         setImageDrawable(checkboxDrawable)
         translationX = reorderingOffset - REORDERING_OFFSET.dp * directionSign
         alpha = 0f
@@ -120,7 +121,7 @@ class WalletCardRowCell(
 
     private val handleButton: AppCompatImageView by lazy {
         AppCompatImageView(context).apply {
-            id = generateViewId()
+            id = UIComponentsR.id.wallets_drag_handle
             setImageDrawable(
                 context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_handle)
             )
@@ -255,6 +256,7 @@ class WalletCardRowCell(
     override var isShowingPopup = false
 
     init {
+        id = UIComponentsR.id.wallets_cell_list
         super.setupViews()
 
         addView(contentView, LayoutParams(MATCH_PARENT, MATCH_PARENT))

@@ -4,13 +4,14 @@ import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The Agent's spinning top as a smooth surface of revolution around the y axis, fitted to the flat mark: a rounded
- * point, flanks that curve in toward a thin rim low on the body, a long concave flare up into the stem, and a rounded
- * cap. The point sits at the origin, where the top pivots as it precesses.
+ * The Agent's spinning top as a smooth surface of revolution around the y axis: a rounded point, concave flanks that
+ * flare to a thin rim low on the body with a rounded edge, a long concave flare up into the stem, and a rounded cap.
+ * The point sits at the origin, where the top pivots as it precesses.
  */
 internal object AgentSpinningTopGeometry {
     /** The camera's elevation above the rim's plane, at which the top shows the mark's silhouette */
@@ -31,35 +32,45 @@ internal object AgentSpinningTopGeometry {
 
     /**
      * The profile in (radius, height), from the point up to the cap, through which a centripetal Catmull–Rom spline
-     * runs. Fitted so the top, leaning and seen from the camera's elevation, covers the mark.
+     * runs. The rim, 0.68 across from the axis, is the widest ring.
      */
     private val profile = arrayOf(
         floatArrayOf(0.0000f, 0.0000f),
-        floatArrayOf(0.0479f, 0.0134f),
-        floatArrayOf(0.0843f, 0.0652f),
-        floatArrayOf(0.1112f, 0.1073f),
-        floatArrayOf(0.1380f, 0.1610f),
-        floatArrayOf(0.1687f, 0.2223f),
-        floatArrayOf(0.2070f, 0.2798f),
-        floatArrayOf(0.2837f, 0.3527f),
-        floatArrayOf(0.4600f, 0.4447f),
+        floatArrayOf(0.0356f, 0.0067f),
+        floatArrayOf(0.0649f, 0.0318f),
+        floatArrayOf(0.0822f, 0.0627f),
+        floatArrayOf(0.1203f, 0.1331f),
+        floatArrayOf(0.1756f, 0.2413f),
+        floatArrayOf(0.2366f, 0.3151f),
+        floatArrayOf(0.2874f, 0.3543f),
+        floatArrayOf(0.3389f, 0.3844f),
+        floatArrayOf(0.4176f, 0.4191f),
+        floatArrayOf(0.5191f, 0.4496f),
+        floatArrayOf(0.6140f, 0.4676f),
         // The rim: its lower edge, its rounded outer edge and its upper edge
-        floatArrayOf(0.6747f, 0.4696f),
-        floatArrayOf(0.7283f, 0.4887f),
-        floatArrayOf(0.6747f, 0.5079f),
-        floatArrayOf(0.4907f, 0.5309f),
-        floatArrayOf(0.3450f, 0.5865f),
-        floatArrayOf(0.2722f, 0.6555f),
-        floatArrayOf(0.2300f, 0.7092f),
-        floatArrayOf(0.1955f, 0.7667f),
-        floatArrayOf(0.1687f, 0.8280f),
-        floatArrayOf(0.1418f, 0.9200f),
-        floatArrayOf(0.1265f, 1.0158f),
-        floatArrayOf(0.1169f, 1.1308f),
-        floatArrayOf(0.1112f, 1.2267f),
-        floatArrayOf(0.1054f, 1.3225f),
-        floatArrayOf(0.0862f, 1.4030f),
-        floatArrayOf(0.0479f, 1.4605f),
+        floatArrayOf(0.6467f, 0.4727f),
+        floatArrayOf(0.6630f, 0.4810f),
+        floatArrayOf(0.6747f, 0.4929f),
+        floatArrayOf(0.6791f, 0.5093f),
+        floatArrayOf(0.6747f, 0.5256f),
+        floatArrayOf(0.6630f, 0.5375f),
+        floatArrayOf(0.6467f, 0.5458f),
+        floatArrayOf(0.6102f, 0.5520f),
+        floatArrayOf(0.5190f, 0.5734f),
+        floatArrayOf(0.4677f, 0.5895f),
+        floatArrayOf(0.3864f, 0.6215f),
+        floatArrayOf(0.3408f, 0.6444f),
+        floatArrayOf(0.3082f, 0.6673f),
+        floatArrayOf(0.2333f, 0.7440f),
+        floatArrayOf(0.1967f, 0.7981f),
+        floatArrayOf(0.1761f, 0.8423f),
+        floatArrayOf(0.1556f, 0.9032f),
+        floatArrayOf(0.1271f, 1.0183f),
+        floatArrayOf(0.1060f, 1.1741f),
+        floatArrayOf(0.0917f, 1.3553f),
+        floatArrayOf(0.0740f, 1.4280f),
+        floatArrayOf(0.0526f, 1.4588f),
+        floatArrayOf(0.0353f, 1.4705f),
         floatArrayOf(0.0000f, 1.4797f)
     )
 
@@ -217,7 +228,8 @@ internal object AgentSpinningTopGeometry {
     /**
      * The top turned by [yaw] about its own axis, the axis leaning by [lean] toward [leanDirection] and pivoting on the
      * point at the origin, all seen from [pitch] above, into [out] as a column-major 4 × 4 matrix. Direction 0 leans to
-     * the right, as the mark does; it advances the way the top spins.
+     * the right, as the mark does. A growing yaw and lean direction turn counter-clockwise as seen from above; the
+     * top, which spins clockwise, passes both negated.
      */
     fun computeTransform(
         yaw: Float,
@@ -262,5 +274,31 @@ internal object AgentSpinningTopGeometry {
         out[13] = 0f
         out[14] = 0f
         out[15] = 1f
+    }
+}
+
+/** How far what grows in the chat keeps from a side of the screen, unless it rests nearer to it already, in dp */
+internal const val AGENT_SCREEN_EDGE_INSET = 16f
+
+/**
+ * How far something resting from [restingStart] to [restingEnd] moves, as it grows to span [grownStart] to [grownEnd],
+ * so as not to cross a side of the area from [areaStart] to [areaEnd]: toward the middle, keeping [inset] from that
+ * side, or as far from it as it rests already. All in px along one axis; the spinning top grows so.
+ */
+internal fun agentEdgeShift(
+    restingStart: Float,
+    restingEnd: Float,
+    grownStart: Float,
+    grownEnd: Float,
+    areaStart: Float,
+    areaEnd: Float,
+    inset: Float
+): Float {
+    val startInset = max(0f, min(inset, restingStart - areaStart))
+    val endInset = max(0f, min(inset, areaEnd - restingEnd))
+    return when {
+        grownStart < areaStart + startInset -> areaStart + startInset - grownStart
+        grownEnd > areaEnd - endInset -> areaEnd - endInset - grownEnd
+        else -> 0f
     }
 }

@@ -87,7 +87,8 @@ final class ContextMenuSwiftUISourceBridge: ObservableObject {
 
         switch value {
         case .first:
-            break
+            // A touch that may become a hold readies its haptic
+            ContextMenuHaptics.prepare()
         case let .second(true, nil):
             self.presentMenuIfNeeded(triggeredByLongPress: true)
         case let .second(true, drag?):

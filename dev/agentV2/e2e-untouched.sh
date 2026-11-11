@@ -26,7 +26,7 @@ for path in $changed; do
     src/i18n/en.yaml|.github/workflows/test.yml|deploy/copy_to_dist.sh) exit 1 ;;
     dev/agentV2/*|dev/locales/*|dev/loadEnv.ts|dev/buildStamp.ts) exit 1 ;;
     src/components/*|src/i18n/*.yaml|.github/*|deploy/*|dev/*) ;;
-    mobile/*|docs/*|.agents/*|.claude/*|.codex/*|.cursor/*|.milkignore) ;;
+    mobile/*|maestro/*|docs/*|.agents/*|.claude/*|.codex/*|.cursor/*|.milkignore) ;;
     */*) exit 1 ;;
     *.md) ;;
     *) exit 1 ;;

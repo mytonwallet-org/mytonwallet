@@ -1,7 +1,7 @@
 import UIKit
 
 @MainActor
-final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, ContextMenuPresentationSession {
+final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, ContextMenuPresentationSession, UIScrollViewDelegate {
     private static let externalSelectionActivationDistance: CGFloat = 4.0
     private static let panelDismissalSafetyMargin: CGFloat = 8.0
     private static let relocationTravelAnimationKey = "position.y.contextMenuSpring"
@@ -36,7 +36,13 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     private var blurView: UIVisualEffectView?
     private var portalView: ContextMenuPortalView?
     private var accessoryView: ContextMenuAccessoryView?
+    /// The accessory's frame in the overlay's coordinates, which the replica's clip view shares
     private(set) var accessoryFrame: CGRect?
+    /// While the menu moves its source's replica: the accessory's frame over the replica in the scrolling content, the
+    /// top limit the accessory stays under, and whether it stands there rather than over the replica
+    private var relocatedAccessoryFrame: CGRect?
+    private var relocationTopLimit: CGFloat = 0.0
+    private(set) var isAccessoryPinned = false
     private var hasAnimatedIn = false
     private var isDismissingMenu = false
     private var pendingExternalSelectionPoint: CGPoint?
@@ -54,6 +60,8 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     private(set) var relocationOffset: CGFloat?
     /// The portal source's frame as the menu opens, which the replica keeps while the menu is open
     private var relocationPortalFrame: CGRect?
+    /// Shows the source's parts under the bars while the source is hidden and its replica moves
+    private var barsStandIn: ContextMenuSourceBarsStandIn?
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
     })
@@ -139,6 +147,14 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.dimmingView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         self.addSubview(self.dimmingView)
 
+        if !self.configuration.preservesSourceAppearance, self.configuration.sourceRelocation != nil,
+           let portalSourceView {
+            self.barsStandIn = ContextMenuSourceBarsStandIn(
+                source: portalSourceView,
+                sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
+                appliesRightToLeftTransformCorrection: self.portalAppliesRightToLeftTransformCorrection
+            )
+        }
         if !self.configuration.preservesSourceAppearance,
            let portalSourceView,
            let portalView = ContextMenuPortalView(
@@ -149,7 +165,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             portalView.alpha = 0.0
             self.portalView = portalView
             if let sourceRelocation = self.configuration.sourceRelocation {
+                // The replica hides the source while it shows it, so it can move away without leaving the source behind
                 portalView.detachFromSourcePosition()
+                portalView.setSourceViewHidden(true)
                 self.relocation = sourceRelocation
                 self.setupRelocationViews()
             }
@@ -160,11 +178,27 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.contentHostView.addSubview(self.navigationView)
 
         if let accessory = self.configuration.accessory {
-            let accessoryContext = ContextMenuAccessoryContext(dismissHandler: { [weak self] in
-                self?.dismissMenu()
-            })
+            let accessoryContext = ContextMenuAccessoryContext(
+                dismissHandler: { [weak self] completion in
+                    guard let self else {
+                        completion?()
+                        return
+                    }
+                    guard let completion else {
+                        self.dismissMenu()
+                        return
+                    }
+                    self.dismissMenu { completion() }
+                },
+                sourceFrameHandler: { [weak self] rect in
+                    self?.getReplicaFrameOnScreen(of: rect)
+                }
+            )
             let accessoryView = ContextMenuAccessoryView(
                 capsules: accessory.backgroundCapsules,
+                tailCapsuleIndices: Set(accessory.tail?.capsuleIndices ?? []),
+                designSize: accessory.size,
+                motion: accessory.motion,
                 contentView: accessory.makeContentView(accessoryContext),
                 glassTint: accessory.glassTint ?? self.configuration.style.glassTint,
                 shadow: accessory.shadow,
@@ -172,7 +206,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
                 sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
             )
             accessoryView.alpha = 0.0
-            self.contentHostView.addSubview(accessoryView)
+            // Over the scrolling replica rather than in it, so that over a long source it can stay in reach while the
+            // replica scrolls; the replica's clip covers both as the menu opens and closes
+            (self.relocation == nil ? self : self.relocationClipView).addSubview(accessoryView)
             self.accessoryView = accessoryView
         }
 
@@ -201,6 +237,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         self.relocationScrollView.contentInsetAdjustmentBehavior = .never
         self.relocationScrollView.delaysContentTouches = false
         self.relocationScrollView.isScrollEnabled = false
+        self.relocationScrollView.delegate = self
         if #available(iOS 26.0, *) {
             self.relocationScrollView.topEdgeEffect.isHidden = true
             self.relocationScrollView.bottomEdgeEffect.isHidden = true
@@ -213,6 +250,13 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     override func accessibilityPerformEscape() -> Bool {
         self.dismissMenu()
         return true
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        if self.superview == nil {
+            self.barsStandIn?.removeFromSuperview()
+        }
     }
 
     override func layoutSubviews() {
@@ -289,7 +333,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
     }
 
     private func registerForSourceTraitChanges() {
-        guard #available(iOS 17.0, *), let appearanceSourceView else {
+        guard #available(iOS 17.0, *), self.configuration.userInterfaceStyle == nil, let appearanceSourceView else {
             return
         }
 
@@ -334,10 +378,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         guard let panelFrame else {
             return true
         }
-        let point = self.relocation == nil ? point : self.relocationContentView.convert(point, from: self)
+        let contentPoint = self.relocation == nil ? point : self.relocationContentView.convert(point, from: self)
         let isInsidePanel = panelFrame
             .insetBy(dx: -Self.panelDismissalSafetyMargin, dy: -Self.panelDismissalSafetyMargin)
-            .contains(point)
+            .contains(contentPoint)
         let isInsideAccessory = self.accessoryFrame?
             .insetBy(dx: -Self.panelDismissalSafetyMargin, dy: -Self.panelDismissalSafetyMargin)
             .contains(point) == true
@@ -363,7 +407,9 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
 
         let placement: PanelPlacement
         if let accessory = self.configuration.accessory, let accessoryView {
-            let accessoryFrame = self.accessoryFrame(for: accessory, in: safeFrame)
+            let accessoryPlacement = self.getAccessoryPlacement(for: accessory, in: safeFrame)
+            let accessoryFrame = accessoryPlacement.frame
+            accessoryView.apply(accessoryPlacement)
             accessoryView.frame = accessoryFrame
             self.accessoryFrame = accessoryFrame
             placement = self.panelPlacement(in: safeFrame, clearOf: accessoryFrame)
@@ -407,9 +453,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             width: min(style.maxWidth, horizontalFrame.width),
             height: max(1.0, bottomLimit - topLimit)
         ))
-        let sourceAccessoryFrame = self.configuration.accessory.map {
-            self.getRelocatedAccessoryFrame(for: $0, sourceRect: sourceRect)
+        let sourceAccessoryPlacement = self.configuration.accessory.map {
+            self.getRelocatedAccessoryPlacement(for: $0, sourceRect: sourceRect)
         }
+        let sourceAccessoryFrame = sourceAccessoryPlacement?.frame
         let attachmentRect = sourceAccessoryFrame.map { sourceRect.union($0) } ?? sourceRect
         let isFirstLayout = self.relocationOffset == nil
         let offset = self.relocationOffset ?? Self.getMinimalRelocationOffset(
@@ -423,11 +470,11 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
 
         let relocatedSourceRect = sourceRect.offsetBy(dx: 0.0, dy: offset)
         let relocatedAttachmentRect = attachmentRect.offsetBy(dx: 0.0, dy: offset)
-        if let accessoryView, let sourceAccessoryFrame {
-            let accessoryFrame = sourceAccessoryFrame.offsetBy(dx: 0.0, dy: offset)
-            accessoryView.frame = accessoryFrame
-            self.accessoryFrame = accessoryFrame
+        if let accessoryView, let sourceAccessoryPlacement {
+            accessoryView.apply(sourceAccessoryPlacement)
+            self.relocatedAccessoryFrame = sourceAccessoryPlacement.frame.offsetBy(dx: 0.0, dy: offset)
         }
+        self.relocationTopLimit = topLimit
         let placement = PanelPlacement(
             panelSize: panelSize,
             panelOrigin: CGPoint(
@@ -456,6 +503,36 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             // A replica and panel taller than the screen open scrolled to the panel
             self.relocationScrollView.contentOffset = CGPoint(x: 0.0, y: max(0.0, contentHeight - self.bounds.height))
         }
+        self.layoutRelocatedAccessory()
+    }
+
+    /// The accessory rides over the replica, and once the replica scrolls up past the top limit it stays at the
+    /// limit, in reach, with the replica scrolling under it, as Telegram's reactions do over a long message
+    private func layoutRelocatedAccessory() {
+        guard let accessoryView, let relocatedAccessoryFrame else {
+            return
+        }
+        let ridingFrame = relocatedAccessoryFrame.offsetBy(dx: 0.0, dy: -self.relocationScrollView.contentOffset.y)
+        let frame = Self.getPinnedAccessoryFrame(ridingFrame, topLimit: self.relocationTopLimit)
+        self.isAccessoryPinned = frame.minY > ridingFrame.minY + 0.5
+        if accessoryView.frame != frame {
+            accessoryView.frame = frame
+        }
+        self.accessoryFrame = frame
+    }
+
+    /// `ridingFrame`, the accessory's frame over the replica as it scrolls, kept from going above `topLimit`
+    static func getPinnedAccessoryFrame(_ ridingFrame: CGRect, topLimit: CGFloat) -> CGRect {
+        var frame = ridingFrame
+        frame.origin.y = max(topLimit, ridingFrame.minY)
+        return frame
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === self.relocationScrollView else {
+            return
+        }
+        self.layoutRelocatedAccessory()
     }
 
     /// The offset that moves a source's attachment rect, and the panel `sourceSpacing` below it, between `topLimit` and
@@ -478,18 +555,16 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
 
     /// The accessory over the source's top trailing corner, kept inside the screen insets and the safe area horizontally;
     /// vertically it moves with the replica
-    private func getRelocatedAccessoryFrame(for accessory: ContextMenuAccessory, sourceRect: CGRect) -> CGRect {
-        let minX = self.configuration.style.screenInsets.left + self.safeAreaInsets.left
-        let maxX = self.bounds.maxX - self.configuration.style.screenInsets.right - self.safeAreaInsets.right
-        let size = accessory.size
-        let x = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
-            ? sourceRect.minX - accessory.topTrailingOffset.dx
-            : sourceRect.maxX + accessory.topTrailingOffset.dx - size.width
-        return CGRect(
-            x: min(max(x, minX), maxX - size.width),
-            y: sourceRect.minY + accessory.topTrailingOffset.dy,
-            width: size.width,
-            height: size.height
+    private func getRelocatedAccessoryPlacement(
+        for accessory: ContextMenuAccessory,
+        sourceRect: CGRect
+    ) -> ContextMenuAccessoryPlacement {
+        accessory.getPlacement(
+            sourceRect: sourceRect,
+            minX: self.safeAreaInsets.left,
+            maxX: self.bounds.maxX - self.safeAreaInsets.right,
+            screenInsets: self.configuration.style.screenInsets,
+            isRightToLeft: self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
         )
     }
 
@@ -612,25 +687,14 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         )
     }
 
-    private func accessoryFrame(for accessory: ContextMenuAccessory, in safeFrame: CGRect) -> CGRect {
+    private func getAccessoryPlacement(
+        for accessory: ContextMenuAccessory,
+        in safeFrame: CGRect
+    ) -> ContextMenuAccessoryPlacement {
         let sourceRect = self.convert(self.sourceRectInWindow, from: nil)
-        let allowedFrame = safeFrame.inset(by: UIEdgeInsets(
-            top: 0.0,
-            left: self.safeAreaInsets.left,
-            bottom: 0.0,
-            right: self.safeAreaInsets.right
-        ))
-        let size = accessory.size
-        let x = self.sourceUserInterfaceLayoutDirection.contextMenuIsRightToLeft
-            ? sourceRect.minX - accessory.topTrailingOffset.dx
-            : sourceRect.maxX + accessory.topTrailingOffset.dx - size.width
-        let y = sourceRect.minY + accessory.topTrailingOffset.dy
-        return CGRect(
-            x: min(max(x, allowedFrame.minX), allowedFrame.maxX - size.width),
-            y: min(max(y, allowedFrame.minY), allowedFrame.maxY - size.height),
-            width: size.width,
-            height: size.height
-        )
+        var placement = self.getRelocatedAccessoryPlacement(for: accessory, sourceRect: sourceRect)
+        placement.frame.origin.y = min(max(placement.frame.minY, safeFrame.minY), safeFrame.maxY - placement.frame.height)
+        return placement
     }
 
     private func lockedVerticalDirection(preferred: VerticalDirection) -> VerticalDirection {
@@ -846,6 +910,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
 
         if let accessoryView {
             accessoryView.alpha = 1.0
+            guard accessoryView.motion == .scale else {
+                accessoryView.animateThoughtBubbleIn()
+                return
+            }
             accessoryView.layer.addContextMenuAlphaAnimation(
                 from: 0.0,
                 to: 1.0,
@@ -860,6 +928,10 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
                 additive: false
             )
         }
+    }
+
+    func dismiss() {
+        self.dismissMenu()
     }
 
     private func dismissMenu(completion: (() -> Void)? = nil) {
@@ -912,20 +984,24 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             removeOnCompletion: false
         )
 
-        self.accessoryView?.layer.addContextMenuAlphaAnimation(
-            from: 1.0,
-            to: 0.0,
-            duration: ContextMenuAnimationSupport.disappearDuration,
-            removeOnCompletion: false
-        )
-        self.accessoryView?.layer.addContextMenuBasicAnimation(
-            keyPath: "transform.scale",
-            from: 1.0 as NSNumber,
-            to: ContextMenuAnimationSupport.collapsedScale as NSNumber,
-            duration: ContextMenuAnimationSupport.disappearDuration,
-            timingFunction: .easeInEaseOut,
-            removeOnCompletion: false
-        )
+        if let accessoryView, accessoryView.motion == .thoughtBubble {
+            accessoryView.animateThoughtBubbleOut()
+        } else {
+            self.accessoryView?.layer.addContextMenuAlphaAnimation(
+                from: 1.0,
+                to: 0.0,
+                duration: ContextMenuAnimationSupport.disappearDuration,
+                removeOnCompletion: false
+            )
+            self.accessoryView?.layer.addContextMenuBasicAnimation(
+                keyPath: "transform.scale",
+                from: 1.0 as NSNumber,
+                to: ContextMenuAnimationSupport.collapsedScale as NSNumber,
+                duration: ContextMenuAnimationSupport.disappearDuration,
+                timingFunction: .easeInEaseOut,
+                removeOnCompletion: false
+            )
+        }
         self.blurView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
         if self.relocation != nil {
             self.animateRelocationOut()
@@ -948,24 +1024,43 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             return
         }
         let travel = relocationOffset - self.relocationScrollView.contentOffset.y
-        if self.isSourceBehindBars, abs(travel) <= 0.5 {
-            self.portalView?.setSourceViewHidden(false)
+        if self.isSourceBehindBars {
+            let isReplicaOnSource = abs(travel) <= 0.5
+            self.showSourceUnderBars(isReplicaOnSource: isReplicaOnSource)
+            if !isReplicaOnSource {
+                self.barsStandIn?.followReplica(from: 0.0, to: travel) { layer, from, to in
+                    layer.addContextMenuSpringAnimation(
+                        keyPath: "position.y",
+                        from: from as NSNumber,
+                        to: to as NSNumber,
+                        duration: ContextMenuAnimationSupport.appearDuration,
+                        damping: ContextMenuAnimationSupport.appearDamping,
+                        additive: true
+                    )
+                }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.backdropFadeDuration) { [weak self] in
                 guard let self, !self.isDismissingMenu else {
                     return
                 }
                 self.portalView?.setSourceViewHidden(true)
+                self.barsStandIn?.removeFromSuperview()
             }
         }
         if abs(travel) > 0.5 {
-            self.relocationContentView.layer.addContextMenuSpringAnimation(
-                keyPath: "position.y",
-                from: -travel as NSNumber,
-                to: 0.0 as NSNumber,
-                duration: ContextMenuAnimationSupport.appearDuration,
-                damping: ContextMenuAnimationSupport.appearDamping,
-                additive: true
-            )
+            // An accessory over the replica travels with it, while one kept at the top limit grows in place
+            let travellingLayers = [self.relocationContentView.layer]
+                + (self.isAccessoryPinned ? [] : self.accessoryView.map { [$0.layer] } ?? [])
+            for layer in travellingLayers {
+                layer.addContextMenuSpringAnimation(
+                    keyPath: "position.y",
+                    from: -travel as NSNumber,
+                    to: 0.0 as NSNumber,
+                    duration: ContextMenuAnimationSupport.appearDuration,
+                    damping: ContextMenuAnimationSupport.appearDamping,
+                    additive: true
+                )
+            }
         }
         if let relocationContentArea {
             self.animateRelocationClip(
@@ -974,6 +1069,16 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
                 shouldRemoveMaskOnCompletion: true
             )
         }
+    }
+
+    /// Where `rect`, in the portal source's coordinates, shows on the replica at the moment, in the window's coordinates
+    private func getReplicaFrameOnScreen(of rect: CGRect) -> CGRect? {
+        guard let portalView, let window = portalView.window else {
+            return nil
+        }
+        let layer = portalView.layer.presentation() ?? portalView.layer
+        let rootLayer = window.layer.presentation() ?? window.layer
+        return layer.convert(rect, to: rootLayer)
     }
 
     /// The replica travels back from where it shows, including a scroll or an unfinished arrival, onto the source, which
@@ -987,8 +1092,22 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             let replicaFrame = portalView.convert(portalView.bounds, to: self)
             let sourceFrame = portalSourceView.convert(portalSourceView.bounds, to: self)
             let returnTravel = sourceFrame.minY - replicaFrame.minY
-            if self.isSourceBehindBars, abs(returnTravel - currentTravel) <= 0.5 {
-                portalView.setSourceViewHidden(false)
+            if self.isSourceBehindBars {
+                let isReplicaOnSource = abs(returnTravel - currentTravel) <= 0.5
+                self.showSourceUnderBars(isReplicaOnSource: isReplicaOnSource)
+                if !isReplicaOnSource {
+                    self.barsStandIn?.followReplica(from: currentTravel - returnTravel, to: 0.0) { layer, from, to in
+                        layer.addContextMenuBasicAnimation(
+                            keyPath: "position.y",
+                            from: from as NSNumber,
+                            to: to as NSNumber,
+                            duration: ContextMenuAnimationSupport.disappearDuration,
+                            timingFunction: .easeInEaseOut,
+                            additive: true,
+                            removeOnCompletion: false
+                        )
+                    }
+                }
             }
             contentLayer.addContextMenuBasicAnimation(
                 keyPath: "position.y",
@@ -999,6 +1118,21 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
                 additive: true,
                 removeOnCompletion: false
             )
+            // An accessory over the replica goes back with it, while one kept at the top limit goes in place
+            if let accessoryLayer = self.accessoryView?.layer, !self.isAccessoryPinned {
+                let accessoryTravel = (accessoryLayer.presentation()?.position.y ?? accessoryLayer.position.y)
+                    - accessoryLayer.position.y
+                accessoryLayer.removeAnimation(forKey: Self.relocationTravelAnimationKey)
+                accessoryLayer.addContextMenuBasicAnimation(
+                    keyPath: "position.y",
+                    from: accessoryTravel as NSNumber,
+                    to: returnTravel as NSNumber,
+                    duration: ContextMenuAnimationSupport.disappearDuration,
+                    timingFunction: .easeInEaseOut,
+                    additive: true,
+                    removeOnCompletion: false
+                )
+            }
         } else {
             self.portalView?.layer.addContextMenuAlphaAnimation(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false)
         }
@@ -1011,10 +1145,22 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         }
     }
 
+    /// Keeps what the bars show of a source behind them while the menu's backdrop isn't over them. A source under a
+    /// replica that stays on it shows. One whose replica moves away stays hidden, so it never shows beside the replica in
+    /// the content area, and a copy of its parts outside that area stands in for it under the bars, moving with the
+    /// replica.
+    private func showSourceUnderBars(isReplicaOnSource: Bool) {
+        if isReplicaOnSource {
+            self.portalView?.setSourceViewHidden(false)
+        } else if let barsStandIn, let portalSourceView, let superview = portalSourceView.superview,
+                  let relocationContentArea {
+            barsStandIn.show(over: portalSourceView, clearOf: superview.convert(relocationContentArea, from: self))
+        }
+    }
+
     /// The source reaches under the header or the bottom bar around the content area, where it shows through the bars'
-    /// own blur. Hiding it at once would change the bars' backdrop in a blink, so a source under a replica that stays on
-    /// it shows until the menu's backdrop covers it, and again as the menu starts to go. A replica that moves away would
-    /// show the source beside it, so that source stays hidden until the replica is back on it and the overlay goes.
+    /// own blur. Hiding it at once would change the bars' backdrop in a blink, so the bars keep showing it until the
+    /// menu's backdrop covers them, and again as the menu starts to go.
     private var isSourceBehindBars: Bool {
         guard let contentArea = self.relocationContentArea, let portalSourceView, portalSourceView.window != nil else {
             return false

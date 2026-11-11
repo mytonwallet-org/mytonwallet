@@ -1,3 +1,5 @@
+import * as idb from 'idb-keyval';
+
 import type { Storage } from '../storages/types';
 import type { ClientTimingEvent } from './developmentTelemetry';
 import type {
@@ -18,8 +20,27 @@ import contractManifest from './generated/manifest.json';
 import { hostUiCapabilities } from './testing/hostUiCapabilities';
 import { runSafeAgentV2Operation } from './mutation';
 import { AgentV2Runtime, type AgentV2ToolExecutionContext } from './runtime';
+import { beginThreadMessagesCacheRequest, cacheMessages, clearThreadCache } from './threadCache';
 import { AgentV2WalletSession } from './walletSession';
 import { AgentV2WalletToolDispatcher } from './walletTools';
+
+const mockThreadCacheStore = new Map<string, unknown>();
+const mockUseThreadCacheStore = jest.fn(mockRunThreadCacheTransaction);
+let mockThreadCacheTransactions: Promise<unknown> = Promise.resolve();
+
+jest.mock('idb-keyval', () => ({
+  ...jest.requireActual('idb-keyval'),
+  createStore: () => mockUseThreadCacheStore,
+  get: jest.fn((key: string) => Promise.resolve(mockThreadCacheStore.get(key))),
+  set: jest.fn((key: string, value: unknown) => {
+    mockThreadCacheStore.set(key, value);
+    return Promise.resolve();
+  }),
+  clear: () => {
+    mockThreadCacheStore.clear();
+    return Promise.resolve();
+  },
+}));
 
 const DEVICE_ID = '11111111-1111-4111-8111-111111111111';
 const DEVICE_TOKEN_EXPIRES_AT = '2099-01-01T00:00:00.000Z';
@@ -130,6 +151,64 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
+  it('reads a refused consent again, so consent stored elsewhere shows, and keeps a given one', async () => {
+    const storage = createMemoryStorage();
+    const runtime = createConsentRuntime(storage);
+
+    await expect(runtime.getConsent()).resolves.toBe(false);
+    // As another tab of the app stores it
+    await storage.setItem('agentV2Consent', JSON.stringify({ version: 2, accepted: true }));
+    await expect(runtime.getConsent()).resolves.toBe(true);
+    await storage.removeItem('agentV2Consent');
+    await expect(runtime.getConsent()).resolves.toBe(true);
+    await runtime.destroy();
+  });
+
+  it('reads the consent again after a failed read', async () => {
+    const storage = createMemoryStorage();
+    await storage.setItem('agentV2Consent', JSON.stringify({ version: 2, accepted: true }));
+    const readItem = storage.getItem.bind(storage);
+    let isConsentReadFailing = true;
+    storage.getItem = (name) => {
+      if (name !== 'agentV2Consent' || !isConsentReadFailing) return readItem(name);
+      isConsentReadFailing = false;
+      return Promise.reject(new Error('Storage unavailable'));
+    };
+    const runtime = createConsentRuntime(storage);
+
+    await expect(runtime.getConsent()).rejects.toThrow('Storage unavailable');
+    await expect(runtime.getConsent()).resolves.toBe(true);
+    await runtime.destroy();
+  });
+
+  it('keeps consent given while an earlier read was on its way', async () => {
+    const storage = createMemoryStorage();
+    const readItem = storage.getItem.bind(storage);
+    let consentReadCount = 0;
+    let releaseRead!: () => void;
+    const readMayFinish = new Promise<void>((resolve) => {
+      releaseRead = resolve;
+    });
+    storage.getItem = async (name) => {
+      if (name !== 'agentV2Consent') return readItem(name);
+      consentReadCount += 1;
+      const value = await readItem(name);
+      await readMayFinish;
+      return value;
+    };
+    const runtime = createConsentRuntime(storage);
+
+    const earlierRead = runtime.getConsent();
+    await runtime.acceptConsent();
+    releaseRead();
+
+    // The caller that asked before consent was given hears the refusal, which leaves the given consent in place
+    await expect(earlierRead).resolves.toBe(false);
+    await expect(runtime.getConsent()).resolves.toBe(true);
+    expect(consentReadCount).toBe(1);
+    await runtime.destroy();
+  });
+
   it('fails a chat load that gets no response instead of waiting for it', async () => {
     jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
     const storage = createMemoryStorage();
@@ -205,6 +284,45 @@ describe('AgentV2Runtime transport', () => {
       ]);
     } finally {
       await runtime.destroy();
+      jest.useRealTimers();
+    }
+  });
+
+  it('starts syncing the wallet of a chat shown before consent once the user allows the Agent', async () => {
+    jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
+    let runtime: AgentV2Runtime | undefined;
+    try {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const snapshots: AgentWalletSnapshotV1[] = [];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
+        if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+        if (url.endsWith('/wallet-snapshots')) {
+          const snapshot = JSON.parse(init!.body as string) as AgentWalletSnapshotV1;
+          snapshots.push(snapshot);
+          const { instanceId, sessionId, revision, snapshotRevision } = snapshot;
+          return Promise.resolve(jsonResponse({
+            snapshotRef: { instanceId, sessionId, revision, snapshotRevision },
+          }));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      });
+      runtime = new AgentV2Runtime({
+        storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+      });
+      await runtime.updateHostContext(receiveHost('ton') as AgentV2HostContextSnapshot);
+      await runtime.getHints();
+      await runtime.setChatActive(true);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(snapshots).toHaveLength(0);
+
+      await runtime.acceptConsent();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(snapshots).toHaveLength(1);
+    } finally {
+      await runtime?.destroy();
       jest.useRealTimers();
     }
   });
@@ -2647,6 +2765,64 @@ describe('AgentV2Runtime transport', () => {
     expect(runtime.resolveAction(MESSAGE_ID, persistedAction.id)).toEqual({ kind: 'inactive' });
   });
 
+  it('gives operator photos by their full address on the agent origin and drops malformed ones', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const relativeUrl = '/api/v2/support/operators/operator-id/avatar?v=hash';
+    const absoluteUrl = 'https://cdn.test/operators/operator-id.png';
+    const operatorMessage = (id: string, avatarUrl: string) => ({
+      id,
+      threadId: THREAD_ID,
+      role: 'operator',
+      status: 'complete',
+      text: 'Hello',
+      createdAt: '2026-08-18T12:00:00.000Z',
+      author: { operatorId: 'operator-id', name: 'Alice', avatarUrl },
+    });
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/messages?')) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          thread: threadSummary(),
+          messages: [
+            {
+              id: MESSAGE_ID,
+              threadId: THREAD_ID,
+              role: 'event',
+              status: 'complete',
+              code: 'operator_joined',
+              createdAt: '2026-08-18T12:00:00.000Z',
+              author: { operatorId: 'operator-id', name: 'Alice', avatarUrl: relativeUrl },
+            },
+            operatorMessage(MESSAGE_ID_2, absoluteUrl),
+            operatorMessage(MESSAGE_ID_3, 'http://['),
+            operatorMessage(TOOL_CALL_ID, 'javascript:alert(1)'),
+            operatorMessage(TOOL_RESULT_ID, ' '),
+          ],
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    const { messages } = await runtime.getMessages(THREAD_ID);
+
+    expect(messages.map(({ author }) => author)).toEqual([
+      { operatorId: 'operator-id', name: 'Alice', avatarUrl: `https://agent.test${relativeUrl}` },
+      { operatorId: 'operator-id', name: 'Alice', avatarUrl: absoluteUrl },
+      { operatorId: 'operator-id', name: 'Alice' },
+      { operatorId: 'operator-id', name: 'Alice' },
+      { operatorId: 'operator-id', name: 'Alice' },
+    ]);
+  });
+
   it('keeps a hydrated Send review inactive without an in-memory draft', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -4852,6 +5028,65 @@ describe('AgentV2Runtime transport', () => {
       .toBeLessThan(updates.findIndex(({ kind }) => kind === 'messageCompleted'));
   });
 
+  it.each([
+    { from: undefined, to: false, acceptsHistory: true },
+    { from: false, to: undefined, acceptsHistory: true },
+    { from: false, to: true, acceptsHistory: false },
+    { from: true, to: false, acceptsHistory: false },
+    { from: undefined, to: true, acceptsHistory: false },
+    { from: true, to: undefined, acceptsHistory: false },
+  ])('accepts delayed history=$acceptsHistory when isTestnet changes from $from to $to', async ({
+    from, to, acceptsHistory,
+  }) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    let resolveMessages!: (response: Response) => void;
+    let markMessagesRequested!: () => void;
+    const messagesRequested = new Promise<void>((resolve) => {
+      markMessagesRequested = resolve;
+    });
+    const messagesPending = new Promise<Response>((resolve) => {
+      resolveMessages = resolve;
+    });
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: jest.fn((input: string | URL | Request) => {
+        const url = getRequestUrl(input);
+        if (url.includes('/messages?')) {
+          markMessagesRequested();
+          return messagesPending;
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      }) as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+    const host = { ...receiveHost('ton'), isTestnet: from };
+    await runtime.updateHostContext(host);
+    const hydration = runtime.getMessages(THREAD_ID);
+    await messagesRequested;
+    await runtime.updateHostContext({ ...host, isTestnet: to });
+    resolveMessages(jsonResponse({
+      protocolVersion: 3,
+      thread: threadSummary(),
+      messages: [{
+        id: MESSAGE_ID,
+        threadId: THREAD_ID,
+        role: 'assistant',
+        status: 'complete',
+        content: { kind: 'markdown', text: 'Saved answer' },
+        createdAt: '2026-08-11T12:00:00.000Z',
+      }],
+    }));
+
+    if (acceptsHistory) {
+      await expect(hydration).resolves.toMatchObject({ messages: [{ id: MESSAGE_ID }] });
+    } else {
+      await expect(hydration).rejects.toMatchObject({ code: 'wallet_context_changed' });
+    }
+  });
+
   it('rejects delayed message hydration before it restores persisted actions after authority change', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -5884,20 +6119,335 @@ describe('AgentV2Runtime transport', () => {
     }
   });
 
-  it('requires consent before reading the news feed', async () => {
-    const fetchMock = jest.fn();
+  it('sends the digest hour and time zone with every feed page only when both are given', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const digests = [{
+      id: 'ru:2026-11-04T08:00:00.000Z',
+      deliveredAt: '2026-11-04T08:00:00.000Z',
+      top: [{ eventId: 307, headline: 'MyPulse headline' }],
+      total: 3,
+    }];
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(jsonResponse({
+      protocolVersion: 3, locale: 'ru', items: [], digests,
+    })));
     const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
+      storage,
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock as unknown as typeof fetch,
       onUpdate: jest.fn(),
     });
     try {
-      await expect(runtime.getNewsFeed({ lang: 'ru' })).rejects.toThrow('Agent V2 consent is required');
-      expect(fetchMock).not.toHaveBeenCalled();
+      await runtime.acceptConsent();
+      const digestParams = { digestHour: 0, timeZone: 'Europe/Moscow' };
+
+      await expect(runtime.getNewsFeed({ lang: 'ru', ...digestParams }))
+        .resolves.toEqual({ locale: 'ru', items: [], digests });
+      await runtime.getNewsFeed({ lang: 'ru', cursor: 'next-page', ...digestParams });
+      await runtime.getNewsFeed({ lang: 'ru', digestHour: 21 });
+      await runtime.getNewsFeed({ lang: 'ru', cursor: 'next-page', timeZone: 'Europe/Moscow' });
+
+      expect(fetchMock.mock.calls.map(([input]) => getRequestUrl(input))).toEqual([
+        'https://agent.test/api/v2/news-feed?locale=ru&digestHour=0&timeZone=Europe%2FMoscow',
+        'https://agent.test/api/v2/news-feed?locale=ru&cursor=next-page&digestHour=0&timeZone=Europe%2FMoscow',
+        'https://agent.test/api/v2/news-feed?locale=ru',
+        'https://agent.test/api/v2/news-feed?locale=ru&cursor=next-page',
+      ]);
     } finally {
       await runtime.destroy();
     }
+  });
+
+  it.each([
+    {
+      status: 503,
+      response: { protocolVersion: 3, error: { code: 'news_unavailable', retryable: true } },
+      error: { code: 'news_unavailable' },
+    },
+    {
+      status: 200,
+      response: { protocolVersion: 3, locale: 'ru', items: [], digests: [{}] },
+      error: { name: 'AgentV2ContractError' },
+    },
+  ])('rejects a news feed page after an HTTP $status response', async ({ status, response, error }) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse(response, status),
+    ));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await runtime.acceptConsent();
+      await expect(runtime.getNewsFeed({ lang: 'ru', digestHour: 9, timeZone: 'UTC' })).rejects.toMatchObject(error);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('reads the news feed and opens a discussion before consent, sending nothing about the wallet', async () => {
+    const storage = createMemoryStorage();
+    const news = { eventId: 307, headline: 'Headline', publishedAt: '2026-10-19T08:00:00.000Z' };
+    const thread = threadSummary({ news, messageCount: 1 });
+    const fetchMock = jest.fn((input: string | URL | Request, _init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/device-token')) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3, deviceId: DEVICE_ID, deviceToken: `adt_v2.${'a'.repeat(43)}`,
+          expiresAt: DEVICE_TOKEN_EXPIRES_AT,
+        }));
+      }
+      if (url.endsWith('/threads')) {
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, thread, created: true }));
+      }
+      if (url.includes('/messages?')) {
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, thread, messages: [] }));
+      }
+      return Promise.resolve(jsonResponse({ protocolVersion: 3, locale: 'ru', items: [] }));
+    });
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => DEVICE_ID,
+    });
+    try {
+      await runtime.updateHostContext(receiveHost('ton') as AgentV2HostContextSnapshot);
+      await runtime.setChatActive(true);
+
+      await expect(runtime.getNewsFeed({ lang: 'ru' })).resolves.toEqual({ locale: 'ru', items: [] });
+      await expect(runtime.createThread({ news: { eventId: 307, locale: 'ru' } }))
+        .resolves.toMatchObject({ thread: { id: THREAD_ID } });
+      await expect(runtime.getMessages(THREAD_ID)).resolves.toMatchObject({ messages: [] });
+
+      const requests = fetchMock.mock.calls.map(([input, init]) => ({ url: getRequestUrl(input), init }));
+      expect(requests.map(({ url }) => url)).toEqual([
+        'https://agent.test/api/v2/device-token',
+        'https://agent.test/api/v2/news-feed?locale=ru',
+        'https://agent.test/api/v2/threads',
+        `https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=100`,
+      ]);
+      // The device registers with its random id alone, the discussion with its news reference alone, and the feed and
+      // the messages are read without a body
+      expect(JSON.parse(requests[0].init!.body as string)).toEqual({ protocolVersion: 3, deviceId: DEVICE_ID });
+      expect(requests[1].init?.body).toBeUndefined();
+      expect(JSON.parse(requests[2].init!.body as string)).toEqual({
+        protocolVersion: 3, news: { eventId: 307, locale: 'ru' },
+      });
+      expect(requests[3].init?.body).toBeUndefined();
+      const sent = JSON.stringify(requests.map(({ url, init }) => [
+        url, init?.body, [...new Headers(init?.headers).entries()],
+      ]));
+      ['view-account', 'EQ-view', 'T-view'].forEach((walletValue) => expect(sent).not.toContain(walletValue));
+      // Everything else stays behind consent
+      await expect(runtime.listThreads()).rejects.toThrow('Agent V2 consent is required');
+      await expect(runtime.createThread()).rejects.toThrow('Agent V2 consent is required');
+      expect(fetchMock).toHaveBeenCalledTimes(4);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('opens a digest discussion and reads its post before consent, and nothing else', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const digest = {
+      id: 'ru:2026-11-04T08:00:00.000Z',
+      windowEnd: '2026-11-04T08:00:00.000Z',
+      total: 24,
+      top: [{ eventId: 42, headline: 'TON network update' }],
+    };
+    const thread = threadSummary({ digest, messageCount: 1 });
+    const post = {
+      id: MESSAGE_ID,
+      threadId: THREAD_ID,
+      role: 'assistant',
+      status: 'complete',
+      content: { kind: 'markdown', text: '- TON network update' },
+      createdAt: '2026-11-04T09:00:00.000Z',
+      newsPost: true,
+    };
+    const fetchMock = jest.fn((input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      getRequestUrl(input).includes('/messages?')
+        ? jsonResponse({ protocolVersion: 3, thread, messages: [post] })
+        : jsonResponse({ protocolVersion: 3, thread, created: true }),
+    ));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await expect(runtime.createThread({ digest: { id: digest.id } })).resolves.toMatchObject({ thread: { digest } });
+      await expect(runtime.getMessages(THREAD_ID)).resolves.toMatchObject({ thread: { digest }, messages: [post] });
+
+      expect(fetchMock.mock.calls.map(([input, init]) => [getRequestUrl(input), init?.body])).toEqual([
+        ['https://agent.test/api/v2/threads', JSON.stringify({ protocolVersion: 3, digest: { id: digest.id } })],
+        [`https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=100`, undefined],
+      ]);
+      await expect(runtime.createThread()).rejects.toThrow('Agent V2 consent is required');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('reads only a news discussion\'s messages before consent, taking no actions of another thread', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const news = { eventId: 307, headline: 'Headline', publishedAt: '2026-10-19T08:00:00.000Z' };
+    const action = { ...navigationActionFixture.projectionCases[0].expectedPersisted, title: 'Open link' };
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      const isNews = url.includes(THREAD_ID_2);
+      const threadId = isNews ? THREAD_ID_2 : THREAD_ID;
+      return Promise.resolve(jsonResponse({
+        protocolVersion: 3,
+        thread: threadSummary({ id: threadId, ...(isNews && { news, messageCount: 1 }) }),
+        messages: [{
+          id: isNews ? MESSAGE_ID_2 : MESSAGE_ID,
+          threadId,
+          role: 'assistant',
+          status: 'complete',
+          content: { kind: 'markdown', text: 'Open link' },
+          createdAt: '2026-08-11T12:00:00.000Z',
+          actions: [action],
+        }],
+      }));
+    });
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => DEVICE_ID,
+    });
+    try {
+      await runtime.updateHostContext(receiveHost('ton'));
+      await expect(runtime.getMessages(THREAD_ID)).rejects.toThrow('Agent V2 consent is required');
+      expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+      await expect(runtime.getMessages(THREAD_ID_2)).resolves.toMatchObject({ thread: { news } });
+      expect(runtime.resolveAction(MESSAGE_ID_2, action.id)).toEqual({ kind: 'openDapp', url: action.url });
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  describe('chat list without untouched news discussions', () => {
+    const news = { eventId: 307, headline: 'Headline', publishedAt: '2026-10-19T08:00:00.000Z' };
+    const makeId = (index: number) => `11111111-1111-4111-8111-${String(index).padStart(12, '0')}`;
+    const makeChat = (index: number) => ({ thread: threadSummary({ id: makeId(index), messageCount: 2 }) });
+    const makeUntouched = (index: number) => ({ thread: threadSummary({ id: makeId(index), news, messageCount: 1 }) });
+    const makeDiscussed = (index: number) => ({ thread: threadSummary({ id: makeId(index), news, messageCount: 3 }) });
+
+    async function listWith(
+      respond: (cursor: string) => Response,
+      run: (runtime: AgentV2Runtime, fetchMock: jest.Mock) => Promise<void>,
+    ) {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const fetchMock = jest.fn((input: string | URL | Request) => Promise.resolve(
+        respond(new URL(getRequestUrl(input)).searchParams.get('cursor') ?? 'first'),
+      ));
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock as unknown as typeof fetch,
+        onUpdate: jest.fn(),
+      });
+      try {
+        await runtime.acceptConsent();
+        await run(runtime, fetchMock);
+      } finally {
+        await runtime.destroy();
+      }
+    }
+
+    it('collects the following pages\' chats up to the limit, with the cursor of the next unread page', async () => {
+      const pages: Record<string, unknown> = {
+        first: { protocolVersion: 3, threads: [makeUntouched(1), makeChat(2)], nextCursor: 'second' },
+        second: { protocolVersion: 3, threads: [makeDiscussed(3), makeUntouched(4)], nextCursor: 'third' },
+        third: { protocolVersion: 3, threads: [makeChat(5), makeUntouched(6), makeChat(7)], nextCursor: 'fourth' },
+        fourth: { protocolVersion: 3, threads: [makeChat(8)] },
+      };
+      await listWith((cursor) => jsonResponse(pages[cursor]), async (runtime, fetchMock) => {
+        // The third page joins whole, past the limit, so its last chat isn't lost
+        await expect(runtime.listThreads({ limit: 3 })).resolves.toEqual({
+          protocolVersion: 3,
+          threads: [makeChat(2), makeDiscussed(3), makeChat(5), makeChat(7)],
+          nextCursor: 'fourth',
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        // The next request goes on from the page after them, to the end of the list
+        await expect(runtime.listThreads({ cursor: 'fourth', limit: 3 }))
+          .resolves.toEqual({ protocolVersion: 3, threads: [makeChat(8)] });
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+
+        // Without a limit, a chat is enough
+        await expect(runtime.listThreads())
+          .resolves.toEqual({ protocolVersion: 3, threads: [makeChat(2)], nextCursor: 'second' });
+        // A page of untouched discussions alone at the end of the list leaves the chats found before it
+        await expect(runtime.listThreads({ cursor: 'second', limit: 10 })).resolves.toEqual({
+          protocolVersion: 3, threads: [makeDiscussed(3), makeChat(5), makeChat(7), makeChat(8)],
+        });
+      });
+    });
+
+    it('leaves out a digest discussion with only its post and keeps one the user wrote in', async () => {
+      const digest = {
+        id: 'ru:2026-11-04T08:00:00.000Z',
+        windowEnd: '2026-11-04T08:00:00.000Z',
+        total: 24,
+        top: [{ eventId: 42, headline: 'TON network update' }],
+      };
+      const makeDigest = (index: number, messageCount: number) => ({
+        thread: threadSummary({ id: makeId(index), digest, messageCount }),
+      });
+      const page = { protocolVersion: 3, threads: [makeDigest(1, 1), makeDigest(2, 2), makeChat(3)] };
+      await listWith(() => jsonResponse(page), async (runtime) => {
+        await expect(runtime.listThreads({ limit: 3 }))
+          .resolves.toEqual({ ...page, threads: [makeDigest(2, 2), makeChat(3)] });
+      });
+    });
+
+    it('returns a page without untouched news discussions as the server gave it, after one request', async () => {
+      const page = { protocolVersion: 3, threads: [makeChat(1)], nextCursor: 'second' };
+      await listWith(() => jsonResponse(page), async (runtime, fetchMock) => {
+        await expect(runtime.listThreads({ limit: 3 })).resolves.toEqual(page);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('stops after its page limit with the chats it has and the cursor of the next page', async () => {
+      await listWith((cursor) => {
+        const index = cursor === 'first' ? 0 : Number(cursor);
+        const threads = index ? [makeUntouched(index)] : [makeChat(100), makeUntouched(101)];
+        return jsonResponse({ protocolVersion: 3, threads, nextCursor: String(index + 1) });
+      }, async (runtime, fetchMock) => {
+        await expect(runtime.listThreads({ limit: 3 }))
+          .resolves.toEqual({ protocolVersion: 3, threads: [makeChat(100)], nextCursor: '11' });
+        expect(fetchMock).toHaveBeenCalledTimes(11);
+        await expect(runtime.listThreads({ cursor: '11', limit: 3 }))
+          .resolves.toEqual({ protocolVersion: 3, threads: [], nextCursor: '22' });
+        expect(new URL(getRequestUrl(fetchMock.mock.calls[11][0])).searchParams.get('cursor')).toBe('11');
+      });
+    });
+
+    it('fails when a following page fails, rather than returning the chats found so far', async () => {
+      await listWith((cursor) => (cursor === 'first'
+        ? jsonResponse({ protocolVersion: 3, threads: [makeChat(1), makeUntouched(2)], nextCursor: 'second' })
+        : jsonResponse({ protocolVersion: 3, error: { code: 'internal_error', retryable: false } }, 500)
+      ), async (runtime, fetchMock) => {
+        await expect(runtime.listThreads({ limit: 3 })).rejects.toThrow();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   it('creates and loads a news thread with its server post without starting a run', async () => {
@@ -5970,6 +6520,42 @@ describe('AgentV2Runtime transport', () => {
         body: { protocolVersion: 3, news: { eventId: news.eventId, locale: 'en' } },
       });
       expect(requests.filter(({ url }) => url.endsWith('/runs'))).toHaveLength(0);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('creates a digest thread and rejects a missing digest with digest_unavailable', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const digest = {
+      id: 'ru:2026-11-04T08:00:00.000Z',
+      windowEnd: '2026-11-04T08:00:00.000Z',
+      total: 24,
+      top: [{ eventId: 42, headline: 'TON network update' }],
+    };
+    const response = { protocolVersion: 3, thread: threadSummary({ digest, messageCount: 1 }), created: true };
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse({ protocolVersion: 3, error: { code: 'digest_unavailable', retryable: false } }, 404),
+    )).mockResolvedValueOnce(jsonResponse(response));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    try {
+      await runtime.acceptConsent();
+
+      await expect(runtime.createThread({ digest: { id: digest.id } })).resolves.toEqual(response);
+      await expect(runtime.createThread({ digest: { id: 'ru:2026-11-05T08:00:00.000Z' } }))
+        .rejects.toMatchObject({ name: 'AgentV2HttpError', code: 'digest_unavailable', retryable: false });
+
+      expect(fetchMock.mock.calls.map(([input, init]) => [getRequestUrl(input), JSON.parse(init!.body as string)]))
+        .toEqual([
+          ['https://agent.test/api/v2/threads', { protocolVersion: 3, digest: { id: digest.id } }],
+          ['https://agent.test/api/v2/threads', { protocolVersion: 3, digest: { id: 'ru:2026-11-05T08:00:00.000Z' } }],
+        ]);
     } finally {
       await runtime.destroy();
     }
@@ -6282,6 +6868,831 @@ describe('AgentV2Runtime transport', () => {
   });
 });
 
+describe('AgentV2Runtime thread cache', () => {
+  let runtime: AgentV2Runtime;
+  let fetchMock: jest.MockedFunction<typeof fetch>;
+
+  beforeEach(async () => {
+    await clearThreadCache();
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    fetchMock = jest.fn();
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+  });
+
+  afterEach(async () => {
+    await runtime.destroy();
+    await clearThreadCache();
+    jest.mocked(idb.get).mockClear();
+    jest.mocked(idb.set).mockClear();
+    mockUseThreadCacheStore.mockClear();
+  });
+
+  it('caches only unfiltered first pages and reads snapshots without network requests', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3,
+      threads: [{ thread: threadSummary({ messageCount: 1 }), preview: 'Cached preview' }],
+      nextCursor: 'next-threads',
+    }));
+    const firstPage = await runtime.listThreads();
+    await expect(runtime.getCachedThreads()).resolves.toEqual(firstPage.threads);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary({ messageCount: 1 }), messages: [{
+        id: MESSAGE_ID, threadId: THREAD_ID, role: 'user', status: 'complete',
+        content: { kind: 'markdown', text: 'Cached message' }, createdAt: '2026-08-15T12:00:00.000Z',
+      }], nextCursor: 'older-messages',
+    }));
+    const messages = await runtime.getMessages(THREAD_ID);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual({
+      thread: messages.thread, messages: messages.messages, hasOlder: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    for (const params of [{ cursor: 'older' }, { query: 'search' }]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [] }));
+      await runtime.listThreads(params);
+      await expect(runtime.getCachedThreads()).resolves.toEqual(firstPage.threads);
+    }
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+    await runtime.getMessages(THREAD_ID, 'older');
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual({
+      thread: messages.thread, messages: messages.messages, hasOlder: true,
+    });
+  });
+
+  it('caches operator photos by the full address the history gives', async () => {
+    const author = { operatorId: 'operator-id', name: 'Alice' };
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary({ messageCount: 1 }), messages: [{
+        id: MESSAGE_ID, threadId: THREAD_ID, role: 'operator', status: 'complete', text: 'Hello',
+        createdAt: '2026-08-15T12:00:00.000Z',
+        author: { ...author, avatarUrl: '/api/v2/support/operators/operator-id/avatar?v=hash' },
+      }],
+    }));
+    await runtime.getMessages(THREAD_ID);
+
+    const cached = await runtime.getCachedMessages(THREAD_ID);
+    expect(cached?.messages.map((message) => message.author)).toEqual([{
+      ...author, avatarUrl: 'https://agent.test/api/v2/support/operators/operator-id/avatar?v=hash',
+    }]);
+  });
+
+  it('gives the operator photos of a stored copy by their full address', async () => {
+    const author = { operatorId: 'operator-id', name: 'Alice' };
+    const avatarPath = '/api/v2/support/operators/operator-id/avatar?v=hash';
+    await cacheMessages(DEVICE_ID, THREAD_ID, {
+      thread: threadSummary({ messageCount: 1 }),
+      messages: [{
+        id: MESSAGE_ID, threadId: THREAD_ID, role: 'operator', status: 'complete', text: 'Hello',
+        createdAt: '2026-08-15T12:00:00.000Z', author: { ...author, avatarUrl: avatarPath },
+      }],
+    }, beginThreadMessagesCacheRequest(THREAD_ID));
+
+    const cached = await runtime.getCachedMessages(THREAD_ID);
+    expect(cached?.messages.map((message) => message.author)).toEqual([{
+      ...author, avatarUrl: `https://agent.test${avatarPath}`,
+    }]);
+  });
+
+  it.each(['news', 'digest'] as const)('caches the joined list after filtering %s discussions', async (kind) => {
+    const reference = kind === 'news'
+      ? { news: { eventId: 307, headline: 'Headline', publishedAt: '2026-10-19T08:00:00.000Z' } }
+      : { digest: {
+        id: 'ru:2026-11-06T08:00:00.000Z', windowEnd: '2026-11-06T08:00:00.000Z',
+        total: 1, top: [{ eventId: 307, headline: 'Headline' }],
+      } };
+    const untouched = { thread: threadSummary({ ...reference, messageCount: 1 }) };
+    const discussed = {
+      thread: threadSummary({ id: THREAD_ID_2, ...reference, messageCount: 3 }), preview: 'Discussed',
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, threads: [untouched], nextCursor: 'second',
+    })).mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, threads: [untouched, discussed], nextCursor: 'third',
+    }));
+
+    const result = await runtime.listThreads({ limit: 1 });
+
+    expect(result).toEqual({ protocolVersion: 3, threads: [discussed], nextCursor: 'third' });
+    await expect(runtime.getCachedThreads()).resolves.toEqual(result.threads);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [untouched, discussed] }));
+    const singlePage = await runtime.listThreads();
+    await expect(runtime.getCachedThreads()).resolves.toEqual(singlePage.threads);
+    expect(singlePage.threads).toEqual([discussed]);
+  });
+
+  it.each(['chat', 'news', 'digest'] as const)('keeps %s history out of cache before consent', async (kind) => {
+    await runtime.destroy();
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+    });
+    const reference = kind === 'news'
+      ? { news: { eventId: 307, headline: 'Headline', publishedAt: '2026-10-19T08:00:00.000Z' } }
+      : kind === 'digest'
+        ? { digest: {
+          id: 'ru:2026-11-06T08:00:00.000Z', windowEnd: '2026-11-06T08:00:00.000Z',
+          total: 1, top: [{ eventId: 307, headline: 'Headline' }],
+        } }
+        : {};
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary(reference), messages: [],
+    }));
+
+    if (kind === 'chat') {
+      await expect(runtime.getMessages(THREAD_ID)).rejects.toThrow('Agent V2 consent is required');
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+      expect(mockThreadCacheStore.has(`messages:${THREAD_ID}`)).toBe(false);
+    } else {
+      await expect(runtime.getMessages(THREAD_ID)).resolves.toMatchObject({ thread: threadSummary(reference) });
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+      await runtime.acceptConsent();
+      fetchMock.mockResolvedValueOnce(jsonResponse({
+        protocolVersion: 3, thread: threadSummary(reference), messages: [],
+      }));
+      await runtime.getMessages(THREAD_ID);
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+      expect(mockThreadCacheStore.has(`messages:${THREAD_ID}`)).toBe(false);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(kind === 'chat' ? 1 : 2);
+  });
+
+  it('keeps full histories and their pending writes when a short-limit refresh completes', async () => {
+    let resolveFull!: (response: Response) => void;
+    let markRequested!: () => void;
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve;
+    });
+    fetchMock.mockImplementationOnce(() => {
+      markRequested();
+      return new Promise<Response>((resolve) => {
+        resolveFull = resolve;
+      });
+    });
+    const fullRequest = runtime.getMessages(THREAD_ID, undefined, 50);
+    await requested;
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary(), messages: [], nextCursor: 'older',
+    }));
+    await runtime.getMessages(THREAD_ID, undefined, 1);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+    resolveFull(jsonResponse({ protocolVersion: 3, thread: threadSummary({ revision: 2 }), messages: [] }));
+    const full = await fullRequest;
+    const snapshot = { thread: full.thread, messages: full.messages, hasOlder: false };
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual(snapshot);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary({ revision: 3 }), messages: [], nextCursor: 'older',
+    }));
+    await runtime.getMessages(THREAD_ID, undefined, 1);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual(snapshot);
+  });
+
+  it('withholds an ordinary cached history while consent is missing', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+    await runtime.getMessages(THREAD_ID);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeDefined();
+    await runtime.destroy();
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+    });
+
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+    expect(mockThreadCacheStore.has(`messages:${THREAD_ID}`)).toBe(true);
+    await runtime.acceptConsent();
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('withholds the cached thread list while consent is missing', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [{ thread: threadSummary() }] }));
+    await runtime.listThreads();
+    await expect(runtime.getCachedThreads()).resolves.toHaveLength(1);
+    await runtime.destroy();
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+    });
+
+    await expect(runtime.getCachedThreads()).resolves.toBeUndefined();
+    await runtime.acceptConsent();
+    await expect(runtime.getCachedThreads()).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns fresh responses before an IndexedDB write completes', async () => {
+    let resolveWrite!: () => void;
+    const write = new Promise<void>((resolve) => {
+      resolveWrite = resolve;
+    });
+    jest.mocked(idb.set).mockImplementationOnce(() => write);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [] }));
+
+    const request = runtime.listThreads();
+    try {
+      const hasReturned = await Promise.race([
+        request.then(() => true),
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => resolve(false), 0);
+        }),
+      ]);
+      expect(hasReturned).toBe(true);
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      expect(idb.set).toHaveBeenCalled();
+    } finally {
+      resolveWrite();
+      await request;
+    }
+    await runtime.getCachedThreads();
+  });
+
+  it('keeps the fresh thread page when an earlier request finishes last', async () => {
+    let resolveFirst!: (response: Response) => void;
+    let markRequested!: () => void;
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve;
+    });
+    fetchMock.mockImplementationOnce(() => {
+      markRequested();
+      return new Promise<Response>((resolve) => {
+        resolveFirst = resolve;
+      });
+    });
+    const earlier = runtime.listThreads();
+    await requested;
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, threads: [{ thread: threadSummary({ revision: 2 }), preview: 'Fresh preview' }],
+    }));
+    const fresh = await runtime.listThreads();
+    resolveFirst(jsonResponse({ protocolVersion: 3, threads: [{ thread: threadSummary() }] }));
+    await earlier;
+
+    await expect(runtime.getCachedThreads()).resolves.toEqual(fresh.threads);
+  });
+
+  it('keeps a newer history when an earlier request reports thread_not_found', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, threads: [{ thread: threadSummary({ revision: 2 }) }],
+    }));
+    const list = await runtime.listThreads();
+    await runtime.getCachedThreads();
+    let resolveEarlier!: (response: Response) => void;
+    let markRequested!: () => void;
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve;
+    });
+    fetchMock.mockImplementationOnce(() => {
+      markRequested();
+      return new Promise<Response>((resolve) => {
+        resolveEarlier = resolve;
+      });
+    });
+    const earlier = runSafeAgentV2Operation(() => runtime.getMessages(THREAD_ID));
+    await requested;
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, thread: threadSummary({ revision: 2 }), messages: [],
+    }));
+    const fresh = await runtime.getMessages(THREAD_ID);
+    resolveEarlier(jsonResponse({
+      protocolVersion: 3, error: { code: 'thread_not_found', retryable: false, threadId: THREAD_ID },
+    }, 404));
+    await earlier;
+
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual({
+      thread: fresh.thread, messages: fresh.messages, hasOlder: false,
+    });
+    await expect(runtime.getCachedThreads()).resolves.toEqual(list.threads);
+  });
+
+  it('updates cached list and history summaries after renaming and pinning a thread', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3, threads: [{ thread: threadSummary({ messageCount: 1 }), preview: 'Preserved preview' }],
+    })).mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+    await runtime.listThreads();
+    await runtime.getMessages(THREAD_ID);
+    await runtime.getCachedMessages(THREAD_ID);
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      protocolVersion: 3,
+      thread: threadSummary({ title: 'Renamed chat', isPinned: true, revision: 2, messageCount: 1 }),
+    }));
+
+    const result = await runtime.updateThread(THREAD_ID, { title: 'Renamed chat', isPinned: true });
+
+    await expect(runtime.getCachedThreads()).resolves.toEqual([
+      { thread: result.thread, preview: 'Preserved preview' },
+    ]);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toEqual({
+      thread: result.thread, messages: [], hasOlder: false,
+    });
+  });
+
+  it.each(['delete', 'clear', 'thread_not_found'] as const)(
+    'invalidates cached history after %s', async (operation) => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({
+        protocolVersion: 3, threads: [{ thread: threadSummary({ messageCount: 1 }) }],
+      })).mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+      await runtime.listThreads();
+      await runtime.getMessages(THREAD_ID);
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeDefined();
+
+      if (operation === 'delete') {
+        fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threadId: THREAD_ID, duplicate: false }));
+        await runtime.deleteThread(THREAD_ID);
+      } else if (operation === 'clear') {
+        fetchMock.mockResolvedValueOnce(jsonResponse({
+          protocolVersion: 3, thread: threadSummary({ revision: 2, messageCount: 0 }), duplicate: false,
+        }));
+        await runtime.clearThread(THREAD_ID, 1);
+      } else {
+        fetchMock.mockResolvedValueOnce(jsonResponse({
+          protocolVersion: 3, error: { code: 'thread_not_found', retryable: false, threadId: THREAD_ID },
+        }, 404));
+        await expect(runtime.getMessages(THREAD_ID)).rejects.toMatchObject({ code: 'thread_not_found' });
+      }
+
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+      await expect(runtime.getCachedThreads()).resolves.toEqual([]);
+    },
+  );
+
+  it('clears every cache record when destroying the persistent identity and consent', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [{ thread: threadSummary() }] }))
+      .mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+    await runtime.listThreads();
+    await runtime.getMessages(THREAD_ID);
+    await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeDefined();
+
+    await runtime.destroy({ shouldClearPersistentIdentity: true });
+
+    expect(mockThreadCacheStore.size).toBe(0);
+  });
+
+  it('keeps API responses successful and cache getters empty when IndexedDB is unavailable', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, threads: [{ thread: threadSummary() }] }))
+      .mockResolvedValueOnce(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
+    const error = new Error('IndexedDB unavailable');
+    jest.mocked(idb.get).mockRejectedValue(error);
+    mockUseThreadCacheStore.mockRejectedValue(error);
+    try {
+      await expect(runSafeAgentV2Operation(() => runtime.listThreads())).resolves.toMatchObject({ ok: true });
+      await expect(runSafeAgentV2Operation(() => runtime.getMessages(THREAD_ID))).resolves.toMatchObject({ ok: true });
+      await expect(runtime.getCachedThreads()).resolves.toBeUndefined();
+      await expect(runtime.getCachedMessages(THREAD_ID)).resolves.toBeUndefined();
+    } finally {
+      mockUseThreadCacheStore.mockImplementation(mockRunThreadCacheTransaction);
+      jest.mocked(idb.get).mockImplementation((key) => Promise.resolve(
+        typeof key === 'string' ? mockThreadCacheStore.get(key) : undefined,
+      ));
+    }
+  });
+});
+
+describe('AgentV2Runtime stopRun', () => {
+  const RUN_CANCEL_URL = `https://agent.test/api/v2/runs/${RUN_ID}/cancel`;
+
+  it.each(['cancelled', 'completed'] as const)(
+    'stops a running answer at once and reads the thread the %s cancellation returns', async (cancelState) => {
+      const stream = openNdjsonResponse([runStart(), messageStart(), textDelta('Partial ')]);
+      const { runtime, updates, urls } = await createStopHarness((url) => {
+        if (url.endsWith('/runs')) return Promise.resolve(stream.response);
+        if (url === RUN_CANCEL_URL) return Promise.resolve(buildRunCancelResponse(cancelState, 2));
+        return undefined;
+      });
+      const textShown = waitForUpdate(updates, 'textDelta');
+      const run = runtime.startRun({
+        threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+      });
+      await textShown;
+
+      await expect(runtime.stopRun(THREAD_ID)).resolves.toBeUndefined();
+      await expect(run).resolves.toEqual({
+        clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: MESSAGE_ID, state: 'cancelled',
+      });
+      await runtime.stopRun(THREAD_ID);
+      stream.finish([textDelta('Hidden', 4), messageEnd(5)]);
+      await settle();
+
+      expect(urls().filter((url) => url.endsWith('/cancel'))).toEqual([RUN_CANCEL_URL]);
+      const cancelledIndex = updates.findIndex(({ kind }) => kind === 'runCancelled');
+      expect(updates[cancelledIndex]).toEqual({
+        kind: 'runCancelled', clientRunId: CLIENT_RUN_ID, runId: RUN_ID, threadId: THREAD_ID,
+      });
+      expect(updates.slice(cancelledIndex + 1)).toEqual([
+        { kind: 'threadChanged', threadId: THREAD_ID, thread: threadSummary({ revision: 2 }) },
+      ]);
+      await runtime.destroy();
+    },
+  );
+
+  it('keeps a stopped answer the server has not named out of the chat and cancels it once named', async () => {
+    let resolveRun!: (response: Response) => void;
+    let runSignal: AbortSignal | undefined;
+    const { runtime, updates, urls } = await createStopHarness((url, init) => {
+      if (url.endsWith('/runs')) {
+        runSignal = init.signal!;
+        return new Promise<Response>((resolve) => {
+          resolveRun = resolve;
+        });
+      }
+      if (url === RUN_CANCEL_URL) return Promise.resolve(buildRunCancelResponse('cancelled', 2));
+      return undefined;
+    });
+    const run = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await settle();
+    expect(resolveRun).toBeDefined();
+
+    await runtime.stopRun(THREAD_ID);
+    await expect(run).resolves.toEqual({ clientRunId: CLIENT_RUN_ID, inputMessageId: MESSAGE_ID, state: 'cancelled' });
+    expect(runSignal!.aborted).toBe(false);
+    expect(urls().some((url) => url.endsWith('/cancel'))).toBe(false);
+
+    resolveRun(ndjsonResponse([runStart(), messageStart(), textDelta('Hidden')]));
+    await settle();
+
+    expect(urls().filter((url) => url.endsWith('/cancel'))).toEqual([RUN_CANCEL_URL]);
+    expect(updates.filter(({ clientRunId }) => clientRunId)).toEqual([]);
+    expect(updates.at(-1)).toEqual({
+      kind: 'threadChanged', threadId: THREAD_ID, thread: threadSummary({ revision: 2 }),
+    });
+    await runtime.destroy();
+  });
+
+  it('never sends a run stopped while it is being prepared', async () => {
+    let resolveCapabilities!: (response: Response) => void;
+    const { runtime, urls } = await createStopHarness((url) => (url.endsWith('/capabilities')
+      ? new Promise<Response>((resolve) => {
+        resolveCapabilities = resolve;
+      })
+      : undefined));
+    const run = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await settle();
+    expect(resolveCapabilities).toBeDefined();
+
+    await runtime.stopRun(THREAD_ID);
+    await expect(run).resolves.toEqual({ clientRunId: CLIENT_RUN_ID, inputMessageId: MESSAGE_ID, state: 'cancelled' });
+    resolveCapabilities(featureCapabilitiesResponse('disabled'));
+    await settle();
+
+    expect(urls().some((url) => url.endsWith('/runs') || url.endsWith('/cancel'))).toBe(false);
+    await runtime.destroy();
+  });
+
+  it('cancels nothing in a thread without a running answer', async () => {
+    const { runtime, updates, urls } = await createStopHarness((url) => (url.endsWith('/runs')
+      ? Promise.resolve(ndjsonResponse([runStart(), messageStart(), textDelta('Done'), messageEnd(4)]))
+      : undefined));
+    await expect(runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    })).resolves.toMatchObject({ state: 'completed' });
+    const updateCount = updates.length;
+
+    await expect(runtime.stopRun(THREAD_ID)).resolves.toBeUndefined();
+    await expect(runtime.stopRun(THREAD_ID_2)).resolves.toBeUndefined();
+    await settle();
+
+    expect(urls().some((url) => url.endsWith('/cancel'))).toBe(false);
+    expect(updates).toHaveLength(updateCount);
+    await runtime.destroy();
+  });
+
+  it('stops an answer whose cancellation fails without throwing or sending it again', async () => {
+    const stream = openNdjsonResponse([runStart(), messageStart(), textDelta('Partial ')]);
+    const { runtime, updates, urls } = await createStopHarness((url) => {
+      if (url.endsWith('/runs')) return Promise.resolve(stream.response);
+      if (url === RUN_CANCEL_URL) return Promise.reject(new TypeError('Failed to fetch'));
+      return undefined;
+    });
+    const textShown = waitForUpdate(updates, 'textDelta');
+    const run = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await textShown;
+
+    await expect(runtime.stopRun(THREAD_ID)).resolves.toBeUndefined();
+    await expect(run).resolves.toMatchObject({ state: 'cancelled' });
+    await settle();
+
+    expect(urls().filter((url) => url.endsWith('/cancel'))).toEqual([RUN_CANCEL_URL]);
+    expect(updates.at(-1)).toMatchObject({ kind: 'runCancelled' });
+    await runtime.destroy();
+  });
+
+  it.each([
+    ['sends a run once more with the revision the cancellation returned', 'completed', [1, 3]],
+    ['reports a second revision conflict of the run', 'failed', [1, 3]],
+  ] as const)('%s', async (_name, expectedState, expectedRevisions) => {
+    const stream = openNdjsonResponse([runStart(), messageStart(), textDelta('Partial ')]);
+    let resolveCancel!: (response: Response) => void;
+    const runRevisions: number[] = [];
+    const { runtime, updates, urls } = await createStopHarness((url, init) => {
+      if (url.endsWith('/runs')) {
+        const body = JSON.parse(init.body as string);
+        runRevisions.push(body.expectedThreadRevision);
+        if (runRevisions.length === 1) return Promise.resolve(stream.response);
+        // The server's current revision differs from the cancellation's, which the run is sent once more with
+        if (runRevisions.length === 2 || expectedState === 'failed') {
+          return Promise.resolve(buildRevisionConflictResponse(9));
+        }
+        return Promise.resolve(ndjsonResponse([
+          boundEvent(RUN_ID_2, {
+            type: 'run_start', sequence: 1, clientRunId: body.clientRunId, threadId: THREAD_ID, threadRevision: 4,
+          }),
+          boundEvent(RUN_ID_2, { type: 'message_end', sequence: 2, messageId: MESSAGE_ID_3, finishReason: 'complete' }),
+        ]));
+      }
+      if (url === RUN_CANCEL_URL) {
+        return new Promise<Response>((resolve) => {
+          resolveCancel = resolve;
+        });
+      }
+      return undefined;
+    });
+    const textShown = waitForUpdate(updates, 'textDelta');
+    void runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 0, input: { kind: 'append', text: 'Hello' },
+    });
+    await textShown;
+
+    await runtime.stopRun(THREAD_ID);
+    const nextRun = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Next' },
+    });
+    await settle();
+    expect(urls().filter((url) => url.endsWith('/runs'))).toHaveLength(1);
+
+    resolveCancel(buildRunCancelResponse('cancelled', 3));
+    await expect(nextRun).resolves.toMatchObject({ state: expectedState });
+    expect(runRevisions).toEqual([0, ...expectedRevisions]);
+    await runtime.destroy();
+  });
+
+  it('starts a run under the id its caller chose and refuses an id that is not new', async () => {
+    const stream = openNdjsonResponse([
+      event({ type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID_2, threadId: THREAD_ID, threadRevision: 1 }),
+      messageStart(),
+      textDelta('Partial '),
+    ]);
+    const runIds: string[] = [];
+    const { runtime, updates, urls } = await createStopHarness((url, init) => {
+      if (url.endsWith('/runs')) {
+        runIds.push(JSON.parse(init.body as string).clientRunId);
+        return Promise.resolve(stream.response);
+      }
+      if (url === RUN_CANCEL_URL) return Promise.resolve(buildRunCancelResponse('cancelled', 2));
+      return undefined;
+    });
+    const textShown = waitForUpdate(updates, 'textDelta');
+    const command = {
+      clientRunId: CLIENT_RUN_ID_2, threadId: THREAD_ID, expectedThreadRevision: 1,
+      input: { kind: 'append' as const, text: 'Hello' },
+    };
+    const run = runtime.startRun(command);
+    await textShown;
+
+    await expect(runtime.startRun({ ...command, threadId: THREAD_ID_2 }))
+      .rejects.toMatchObject({ code: 'invalid_request' });
+    await expect(runtime.startRun({ ...command, clientRunId: 'run-1' }))
+      .rejects.toMatchObject({ code: 'invalid_request' });
+    await runtime.stopRun(THREAD_ID);
+    await expect(run).resolves.toMatchObject({ clientRunId: CLIENT_RUN_ID_2, runId: RUN_ID, state: 'cancelled' });
+    await settle();
+
+    expect(runIds).toEqual([CLIENT_RUN_ID_2]);
+    expect(urls().filter((url) => url.endsWith('/cancel'))).toEqual([RUN_CANCEL_URL]);
+    const runUpdates = updates.filter(({ clientRunId }) => clientRunId);
+    expect(runUpdates.map(({ kind }) => kind)).toEqual(['runStarted', 'messageStarted', 'textDelta', 'runCancelled']);
+    expect(runUpdates.every(({ clientRunId }) => clientRunId === CLIENT_RUN_ID_2)).toBe(true);
+    await runtime.destroy();
+  });
+
+  it('keeps the caller\'s id on a run stopped while its consent is checked', async () => {
+    const { runtime, urls } = await createStopHarness(() => undefined);
+
+    const run = runtime.startRun({
+      clientRunId: CLIENT_RUN_ID_2, threadId: THREAD_ID, expectedThreadRevision: 1,
+      input: { kind: 'append', text: 'Hello' },
+    });
+    await runtime.stopRun(THREAD_ID);
+
+    await expect(run).resolves.toEqual({ clientRunId: CLIENT_RUN_ID_2, state: 'cancelled' });
+    await settle();
+    expect(urls()).toEqual([]);
+    await runtime.destroy();
+  });
+
+  it.each([
+    ['a network error', () => Promise.reject(new TypeError('Failed to fetch'))],
+    ['an unavailable server', () => Promise.resolve(jsonResponse({}, 503))],
+  ])('reconnects a stopped run the server has not named after %s, to cancel it', async (_name, fail) => {
+    let failFirstRun!: () => void;
+    let runCount = 0;
+    const { runtime, updates, urls } = await createStopHarness((url) => {
+      if (url.endsWith('/runs')) {
+        runCount += 1;
+        if (runCount === 1) {
+          return new Promise<void>((resolve) => {
+            failFirstRun = resolve;
+          }).then(fail);
+        }
+        return Promise.resolve(ndjsonResponse([runStart(), messageStart(), textDelta('Hidden')]));
+      }
+      if (url === RUN_CANCEL_URL) return Promise.resolve(buildRunCancelResponse('cancelled', 2));
+      return undefined;
+    });
+    const run = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await settle();
+
+    await runtime.stopRun(THREAD_ID);
+    await expect(run).resolves.toMatchObject({ clientRunId: CLIENT_RUN_ID, state: 'cancelled' });
+    failFirstRun();
+    await settle();
+
+    expect(runCount).toBe(2);
+    expect(urls().filter((url) => url.endsWith('/cancel'))).toEqual([RUN_CANCEL_URL]);
+    expect(updates.filter(({ clientRunId }) => clientRunId)).toEqual([]);
+    expect(updates.at(-1)).toMatchObject({ kind: 'threadChanged', thread: { revision: 2 } });
+    await runtime.destroy();
+  });
+
+  it('gives up a stopped run the server does not name within the attempts before admission', async () => {
+    const runResponses: Array<() => void> = [];
+    const { runtime, updates, urls } = await createStopHarness((url) => (url.endsWith('/runs')
+      ? new Promise<void>((resolve) => {
+        runResponses.push(resolve);
+      }).then(() => Promise.reject(new TypeError('Failed to fetch')))
+      : undefined));
+    void runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await settle();
+    await runtime.stopRun(THREAD_ID);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      runResponses.shift()?.();
+      await settle();
+    }
+
+    expect(urls().filter((url) => url.endsWith('/runs'))).toHaveLength(3);
+    expect(urls().some((url) => url.endsWith('/cancel'))).toBe(false);
+    expect(updates.filter(({ clientRunId }) => clientRunId)).toEqual([]);
+    await runtime.destroy();
+  });
+
+  it('sends the next run once a stopped stream that never names its run has had the request timeout', async () => {
+    const silentStream = openNdjsonResponse([]);
+    let runCount = 0;
+    const { runtime, urls } = await createStopHarness((url, init) => {
+      if (!url.endsWith('/runs')) return undefined;
+      runCount += 1;
+      if (runCount === 1) return Promise.resolve(silentStream.response);
+      const { clientRunId } = JSON.parse(init.body as string);
+      return Promise.resolve(ndjsonResponse([
+        boundEvent(RUN_ID_2, { type: 'run_start', sequence: 1, clientRunId, threadId: THREAD_ID, threadRevision: 2 }),
+        boundEvent(RUN_ID_2, { type: 'message_end', sequence: 2, messageId: MESSAGE_ID_3, finishReason: 'complete' }),
+      ]));
+    }, 200);
+    void runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Hello' },
+    });
+    await settle();
+
+    await runtime.stopRun(THREAD_ID);
+    const stoppedAt = Date.now();
+    const nextRun = runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 1, input: { kind: 'append', text: 'Next' },
+    });
+    await settle();
+    expect(runCount).toBe(1);
+
+    await expect(nextRun).resolves.toMatchObject({ state: 'completed' });
+    expect(Date.now() - stoppedAt).toBeLessThan(1_000);
+    expect(silentStream.getIsCancelled()).toBe(true);
+    expect(urls().some((url) => url.endsWith('/cancel'))).toBe(false);
+    await runtime.destroy();
+  });
+
+  it('clears a thread after a stop once the answer is cancelled, again with the cancellation revision', async () => {
+    const stream = openNdjsonResponse([runStart(), messageStart(), textDelta('Partial ')]);
+    let resolveCancel!: (response: Response) => void;
+    const clearRevisions: number[] = [];
+    const { runtime, updates } = await createStopHarness((url, init) => {
+      if (url.endsWith('/runs')) return Promise.resolve(stream.response);
+      if (url === RUN_CANCEL_URL) {
+        return new Promise<Response>((resolve) => {
+          resolveCancel = resolve;
+        });
+      }
+      if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+        clearRevisions.push(JSON.parse(init.body as string).expectedThreadRevision);
+        return Promise.resolve(clearRevisions.length === 1
+          ? buildRevisionConflictResponse(9)
+          : jsonResponse({ protocolVersion: 3, thread: threadSummary({ revision: 4 }), duplicate: false }));
+      }
+      return undefined;
+    });
+    const textShown = waitForUpdate(updates, 'textDelta');
+    void runtime.startRun({
+      threadId: THREAD_ID, expectedThreadRevision: 0, input: { kind: 'append', text: 'Hello' },
+    });
+    await textShown;
+
+    await runtime.stopRun(THREAD_ID);
+    const clear = runtime.clearThread(THREAD_ID, 1);
+    await settle();
+    expect(clearRevisions).toEqual([]);
+
+    resolveCancel(buildRunCancelResponse('cancelled', 3));
+    await expect(clear).resolves.toMatchObject({ thread: { revision: 4 } });
+    expect(clearRevisions).toEqual([1, 3]);
+    await runtime.destroy();
+  });
+
+  async function createStopHarness(
+    handle: (url: string, init: RequestInit) => Promise<Response> | undefined,
+    requestTimeoutMs?: number,
+  ) {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      return handle(url, init ?? {}) ?? Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: (update) => updates.push(update),
+      randomUuid: () => ids.shift() ?? TOOL_RESULT_ID,
+      wait: () => Promise.resolve(),
+      requestTimeoutMs,
+    });
+    await runtime.acceptConsent();
+    return {
+      runtime,
+      updates,
+      urls: () => fetchMock.mock.calls.map(([input]) => getRequestUrl(input)),
+    };
+  }
+});
+
+function buildRunCancelResponse(state: 'cancelled' | 'completed', revision: number) {
+  return jsonResponse({
+    protocolVersion: 3, runId: RUN_ID, state, lastSequence: 3, thread: threadSummary({ revision }),
+  });
+}
+
+function buildRevisionConflictResponse(revision: number) {
+  return jsonResponse({
+    protocolVersion: 3,
+    error: {
+      code: 'thread_revision_conflict',
+      retryable: true,
+      threadId: THREAD_ID,
+      currentThread: threadSummary({ revision }),
+    },
+  }, 409);
+}
+
+function waitForUpdate(updates: AgentV2ClientUpdate[], kind: AgentV2ClientUpdate['kind']) {
+  return new Promise<void>((resolve) => {
+    const push = updates.push.bind(updates);
+    updates.push = (...items) => {
+      const length = push(...items);
+      if (items.some((update) => update.kind === kind)) resolve();
+      return length;
+    };
+  });
+}
+
+/** Lets the runtime's background work run to its next wait on a request */
+async function settle() {
+  for (let i = 0; i < 20; i++) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  }
+}
+
 function runStart() {
   return event({
     type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1,
@@ -6430,6 +7841,7 @@ function rawNdjsonResponse(contents: string): Response {
 
 function openNdjsonResponse(initialEvents: unknown[]) {
   let streamController!: ReadableStreamDefaultController<Uint8Array>;
+  let isCancelled = false;
   const encode = (events: unknown[]) => new TextEncoder().encode(
     events.map((item) => JSON.stringify(item)).join('\n').concat('\n'),
   );
@@ -6440,13 +7852,20 @@ function openNdjsonResponse(initialEvents: unknown[]) {
     body: new ReadableStream<Uint8Array>({
       start(controller) {
         streamController = controller;
-        controller.enqueue(encode(initialEvents));
+        if (initialEvents.length) controller.enqueue(encode(initialEvents));
+      },
+      cancel() {
+        isCancelled = true;
       },
     }),
   } as Response;
   return {
     response,
+    /** The runtime stopped reading the stream */
+    getIsCancelled: () => isCancelled,
+    // A stream the runtime has stopped reading takes nothing more
     finish(events: unknown[]) {
+      if (isCancelled) return;
       streamController.enqueue(encode(events));
       streamController.close();
     },
@@ -6488,6 +7907,56 @@ function featureCapabilitiesResponse(
   });
 }
 
+function mockRunThreadCacheTransaction<T>(
+  mode: IDBTransactionMode,
+  callback: (store: IDBObjectStore) => T | PromiseLike<T>,
+): Promise<T> {
+  const operation = mockThreadCacheTransactions.then(() => {
+    const values = new Map(mockThreadCacheStore);
+    const transaction: { oncomplete?: () => void } = {};
+    let pendingRequestCount = 0;
+    let hasCompleted = false;
+    const store = {
+      transaction,
+      get(key: string) {
+        pendingRequestCount += 1;
+        const request: { result?: unknown; onsuccess?: () => void } = {};
+        void Promise.resolve().then(() => {
+          request.result = values.get(key);
+          request.onsuccess?.();
+          pendingRequestCount -= 1;
+          scheduleCompletion();
+        });
+        return request;
+      },
+      put(value: unknown, key: string) {
+        values.set(key, value);
+      },
+      delete(key: string) {
+        values.delete(key);
+      },
+    };
+    const result = callback(store as unknown as IDBObjectStore);
+    scheduleCompletion();
+    return result;
+
+    function scheduleCompletion() {
+      if (pendingRequestCount) return;
+      void Promise.resolve().then(() => Promise.resolve()).then(() => {
+        if (hasCompleted || pendingRequestCount) return;
+        hasCompleted = true;
+        if (mode === 'readwrite') {
+          mockThreadCacheStore.clear();
+          values.forEach((value, key) => mockThreadCacheStore.set(key, value));
+        }
+        transaction.oncomplete?.();
+      });
+    }
+  });
+  mockThreadCacheTransactions = operation.catch(() => undefined);
+  return operation;
+}
+
 function threadSummary(extra: Record<string, unknown> = {}) {
   return {
     id: THREAD_ID,
@@ -6517,6 +7986,16 @@ function createMemoryStorage(): Storage {
       return Promise.resolve();
     },
   };
+}
+
+function createConsentRuntime(storage: Storage) {
+  return new AgentV2Runtime({
+    storage,
+    baseUrl: 'https://agent.test/api/v2',
+    fetch: jest.fn() as unknown as typeof fetch,
+    onUpdate: jest.fn(),
+    now: () => Date.parse('2026-08-10T10:00:00.000Z'),
+  });
 }
 
 async function storeIdentity(storage: Storage) {

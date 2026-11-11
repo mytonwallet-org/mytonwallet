@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -61,6 +62,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -213,7 +215,7 @@ class LedgerConnectVC(
         data class LinkNftToWallet(
             override val accountId: String,
             val nft: ApiNft,
-            val address: String,
+            val address: String?,
             val realFee: BigInteger
         ) : SignData()
     }
@@ -331,7 +333,7 @@ class LedgerConnectVC(
                 }
             }
 
-            connectionTypeValue.setOnClickListener {
+            connectionTypeValue.setOnMenuClickListener {
                 WMenuPopup.present(
                     connectionTypeView,
                     listOf(
@@ -658,16 +660,22 @@ class LedgerConnectVC(
             try {
                 window?.startActivity(enableBtIntent)
             } catch (_: SecurityException) {
-                onUpdate(
-                    LedgerManager.ConnectionState.Error(
-                        step = LedgerManager.ConnectionState.Error.Step.CONNECT,
-                        shortMessage = null
-                    )
-                )
+                onEnableBluetoothFailed()
+            } catch (_: ActivityNotFoundException) {
+                onEnableBluetoothFailed()
             }
         } else {
             startBleConnection()
         }
+    }
+
+    private fun onEnableBluetoothFailed() {
+        onUpdate(
+            LedgerManager.ConnectionState.Error(
+                step = LedgerManager.ConnectionState.Error.Step.CONNECT,
+                shortMessage = LocaleController.getString("\$bluetooth_enable_guide")
+            )
+        )
     }
 
     private fun startBleConnection() {
@@ -1038,7 +1046,7 @@ class LedgerConnectVC(
 
                 is SignData.LinkNftToWallet -> {
                     try {
-                        WalletCore.call(
+                        val result = WalletCore.call(
                             SubmitDnsChangeWallet(
                                 accountId = signData.accountId,
                                 enclaveToken = "",
@@ -1047,6 +1055,9 @@ class LedgerConnectVC(
                                 realFee = signData.realFee
                             )
                         )
+                        // The Ledger flow has no screen to wait for an MFA confirmation. Without this check, the
+                        // caller would report a change that is not sent yet as done.
+                        check(result.mfaRequestHash == null) { "Unexpected MFA request" }
                         Handler(Looper.getMainLooper()).post {
                             mode.onDone()
                         }

@@ -2,9 +2,10 @@ import { isAddress, TypedDataEncoder } from 'ethers';
 
 import type { ApiPerpsExchangeTypedData, ApiPerpsPermitData } from '../../types';
 
+import { HYPERLIQUID_BRIDGE_CHAIN_ID, HYPERLIQUID_BUILDER_ORDER_FEE } from '../../common/perps';
+
 const HYPERLIQUID_CHAIN = 'Mainnet';
-const HYPERLIQUID_SIGNATURE_CHAIN_ID = '0xa4b1';
-export const HYPERLIQUID_BRIDGE_CHAIN_ID = 42161;
+const HYPERLIQUID_SIGNATURE_CHAIN_ID = `0x${HYPERLIQUID_BRIDGE_CHAIN_ID.toString(16)}`;
 const HYPERLIQUID_CCTP_ARBITRUM_DOMAIN = 3;
 const HYPERLIQUID_CCTP_WITHDRAW_GAS_LIMIT = 200_000;
 const HYPERLIQUID_CCTP_WITHDRAW_SOURCE_DEX_PERPS = '';
@@ -12,8 +13,6 @@ const HYPERLIQUID_CCTP_WITHDRAW_SOURCE_DEX_SPOT = 'spot';
 
 const HYPERLIQUID_BUILDER_ADDRESS = '0x09e8ed1a77387a6e4be4f0ee7ad2f6e1917a768b';
 const HYPERLIQUID_BUILDER_MAX_FEE_RATE = '0.1%';
-/** Fee in bps / 10, so 88 = 0.088% */
-const HYPERLIQUID_BUILDER_ORDER_FEE = 88;
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const SEND_TO_EVM_PRIMARY_TYPE = 'HyperliquidTransaction:SendToEvmWithData';
@@ -52,6 +51,13 @@ const USD_CLASS_TRANSFER_FIELDS = [
   { name: 'nonce', type: 'uint64' },
 ] as const;
 
+const USER_SET_ABSTRACTION_FIELDS = [
+  { name: 'hyperliquidChain', type: 'string' },
+  { name: 'user', type: 'address' },
+  { name: 'abstraction', type: 'string' },
+  { name: 'nonce', type: 'uint64' },
+] as const;
+
 const HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS = [
   { name: 'hyperliquidChain', type: 'string' },
   { name: 'token', type: 'string' },
@@ -64,6 +70,36 @@ const HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS = [
   { name: 'data', type: 'bytes' },
   { name: 'nonce', type: 'uint64' },
 ] as const;
+
+type UserSignedAction = {
+  primaryType: string;
+  fields: ReadonlyArray<{ name: string; type: string }>;
+  readDomainChainId: (action: Record<string, unknown>) => number;
+};
+
+/** User-signed HL actions, whose typed data is reconstructed locally from wire fields. */
+const USER_SIGNED_ACTIONS = new Map<string, UserSignedAction>([
+  ['approveBuilderFee', {
+    primaryType: 'HyperliquidTransaction:ApproveBuilderFee',
+    fields: APPROVE_BUILDER_FEE_FIELDS,
+    readDomainChainId: (action) => readSignatureChainId(action, 'approveBuilderFee'),
+  }],
+  ['usdClassTransfer', {
+    primaryType: 'HyperliquidTransaction:UsdClassTransfer',
+    fields: USD_CLASS_TRANSFER_FIELDS,
+    readDomainChainId: (action) => readSignatureChainId(action, 'spotToPerp'),
+  }],
+  ['userSetAbstraction', {
+    primaryType: 'HyperliquidTransaction:UserSetAbstraction',
+    fields: USER_SET_ABSTRACTION_FIELDS,
+    readDomainChainId: (action) => readSignatureChainId(action, 'setAbstraction'),
+  }],
+  ['sendToEvmWithData', {
+    primaryType: SEND_TO_EVM_PRIMARY_TYPE,
+    fields: HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS,
+    readDomainChainId: () => HYPERLIQUID_BRIDGE_CHAIN_ID,
+  }],
+]);
 
 class HyperliquidPayloadValidationError extends Error {
   constructor(message: string) {
@@ -126,61 +162,29 @@ function buildUserSignedTypedData(
   };
 }
 
-/** User-signed HL actions only (reconstructed locally from wire fields). */
-function buildHyperliquidUserSignedTypedData(
-  action: Record<string, unknown>,
-  nonce: number,
-): ApiPerpsExchangeTypedData {
+function readSignatureChainId(action: Record<string, unknown>, label: string): number {
+  const chainId = Number.parseInt(String(action.signatureChainId), 16);
+  if (!Number.isFinite(chainId)) {
+    throw new HyperliquidPayloadValidationError(`${label} signatureChainId is invalid`);
+  }
+  return chainId;
+}
+
+function buildHyperliquidUserSignedTypedData(action: Record<string, unknown>): ApiPerpsExchangeTypedData {
   const actionType = action.type as string ?? '';
-
-  if (actionType === 'approveBuilderFee') {
-    const chainId = Number.parseInt(String(action.signatureChainId), 16);
-    if (!Number.isFinite(chainId)) {
-      throw new HyperliquidPayloadValidationError('approveBuilderFee signatureChainId is invalid');
-    }
-    return buildUserSignedTypedData(
-      'HyperliquidTransaction:ApproveBuilderFee',
-      APPROVE_BUILDER_FEE_FIELDS,
-      action,
-      chainId,
-    );
+  const userSignedAction = USER_SIGNED_ACTIONS.get(actionType);
+  if (!userSignedAction) {
+    throw new HyperliquidPayloadValidationError(`Unsupported exchange action type ${actionType}`);
   }
 
-  if (actionType === 'usdClassTransfer') {
-    const chainId = Number.parseInt(String(action.signatureChainId), 16);
-    if (!Number.isFinite(chainId)) {
-      throw new HyperliquidPayloadValidationError('spotToPerp signatureChainId is invalid');
-    }
-    return buildUserSignedTypedData(
-      'HyperliquidTransaction:UsdClassTransfer',
-      USD_CLASS_TRANSFER_FIELDS,
-      action,
-      chainId,
-    );
-  }
-
-  if (actionType === 'sendToEvmWithData') {
-    return buildUserSignedTypedData(
-      SEND_TO_EVM_PRIMARY_TYPE,
-      HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS,
-      action,
-      HYPERLIQUID_BRIDGE_CHAIN_ID,
-    );
-  }
-
-  throw new HyperliquidPayloadValidationError(`Unsupported exchange action type ${actionType}`);
+  const { primaryType, fields, readDomainChainId } = userSignedAction;
+  return buildUserSignedTypedData(primaryType, fields, action, readDomainChainId(action));
 }
 
 function hyperliquidExchangeSignDigest(typedData: ApiPerpsExchangeTypedData): string {
   const { EIP712Domain, ...typesForHash } = typedData.types;
   void EIP712Domain;
   return TypedDataEncoder.hash(typedData.domain, typesForHash, typedData.message);
-}
-
-function isUserSignedExchangeActionType(actionType: string): boolean {
-  return actionType === 'approveBuilderFee'
-    || actionType === 'usdClassTransfer'
-    || actionType === 'sendToEvmWithData';
 }
 
 function assertL1AgentTypedData(typedData: ApiPerpsExchangeTypedData): void {
@@ -343,6 +347,22 @@ function assertHyperliquidExecuteSpotToPerpAction(
   }
 }
 
+/** The only mode change a wallet signs: this account, to Unified. */
+function assertHyperliquidSetUnifiedAccountAction(action: Record<string, unknown>, expectedAccount: string): void {
+  if (action.hyperliquidChain !== HYPERLIQUID_CHAIN) {
+    throw new HyperliquidPayloadValidationError('setAbstraction hyperliquidChain is invalid');
+  }
+  if (action.signatureChainId !== HYPERLIQUID_SIGNATURE_CHAIN_ID) {
+    throw new HyperliquidPayloadValidationError('setAbstraction signatureChainId is invalid');
+  }
+  if (action.abstraction !== 'unifiedAccount') {
+    throw new HyperliquidPayloadValidationError('setAbstraction must switch to a unified account');
+  }
+  if (typeof action.user !== 'string' || !hyperliquidAddressMatches(action.user, expectedAccount)) {
+    throw new HyperliquidPayloadValidationError('setAbstraction must be for the signing account');
+  }
+}
+
 function assertHyperliquidExecuteSendToEvmWithdrawAction(
   action: Record<string, unknown>,
   expectedWalletRecipient: string,
@@ -399,6 +419,8 @@ function assertHyperliquidUserSignedNonceMatches(action: Record<string, unknown>
 
 export type HyperliquidExchangeSignOptions = {
   expectedSpotToPerpAmountUsdc?: string;
+  /** Required for userSetAbstraction — the account whose mode the signature changes. */
+  expectedAccount?: string;
   /** Required for sendToEvmWithData — the user's Arbitrum wallet that must receive USDC. */
   expectedWalletRecipient?: string;
 };
@@ -433,6 +455,15 @@ function assertHyperliquidExchangeActionForSigning(
 
   if (actionType === 'usdClassTransfer') {
     assertHyperliquidExecuteSpotToPerpAction(action, options?.expectedSpotToPerpAmountUsdc);
+    assertHyperliquidUserSignedNonceMatches(action, nonce);
+    return;
+  }
+
+  if (actionType === 'userSetAbstraction') {
+    if (!options?.expectedAccount) {
+      throw new HyperliquidPayloadValidationError('Signing a mode change requires the account address');
+    }
+    assertHyperliquidSetUnifiedAccountAction(action, options.expectedAccount);
     assertHyperliquidUserSignedNonceMatches(action, nonce);
     return;
   }
@@ -484,8 +515,8 @@ export function assertHyperliquidExchangeBuildIntegrity(
     return params.typedData;
   }
 
-  if (isUserSignedExchangeActionType(actionType)) {
-    const typedData = buildHyperliquidUserSignedTypedData(params.action, params.nonce);
+  if (USER_SIGNED_ACTIONS.has(actionType)) {
+    const typedData = buildHyperliquidUserSignedTypedData(params.action);
     assertTypedDataMatchesExpected(typedData, params.typedData);
     return typedData;
   }
@@ -493,68 +524,8 @@ export function assertHyperliquidExchangeBuildIntegrity(
   throw new HyperliquidPayloadValidationError(`Unsupported signed exchange action type ${actionType}`);
 }
 
-function assertSendToEvmPermitDomain(domain: Record<string, unknown>): void {
-  if (domain.name !== USER_SIGN_DOMAIN_BASE.name) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit domain name is invalid');
-  }
-  if (domain.version !== USER_SIGN_DOMAIN_BASE.version) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit domain version is invalid');
-  }
-  if (domain.verifyingContract !== ZERO_ADDRESS) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit verifyingContract is invalid');
-  }
-  const chainId = Number(domain.chainId);
-  if (chainId !== HYPERLIQUID_BRIDGE_CHAIN_ID) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit domain chainId must be Arbitrum One');
-  }
-}
-
-function assertSendToEvmPermitTypes(types: Record<string, unknown>): void {
-  const keys = Object.keys(types);
-  if (keys.length !== 1 || keys[0] !== SEND_TO_EVM_PRIMARY_TYPE) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit types must only define SendToEvmWithData');
-  }
-
-  const fields = types[SEND_TO_EVM_PRIMARY_TYPE];
-  if (!Array.isArray(fields)) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit SendToEvmWithData types are invalid');
-  }
-
-  const expected = HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS.map(({ name, type }) => ({ name, type }));
-  if (fields.length !== expected.length) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit field list length is invalid');
-  }
-
-  for (let i = 0; i < expected.length; i += 1) {
-    const actual = fields[i] as { name?: string; type?: string };
-    if (actual.name !== expected[i].name || actual.type !== expected[i].type) {
-      throw new HyperliquidPayloadValidationError('Withdraw permit field list does not match SendToEvmWithData schema');
-    }
-  }
-}
-
-function assertPermitValuesMatchAction(
-  values: Record<string, unknown>,
-  action: Record<string, unknown>,
-  nonce: number,
-): void {
-  const expectedMessage = eip712MessageFromAction(action, HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS);
-  if (Number(values.nonce) !== nonce) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit nonce must match envelope nonce');
-  }
-
-  for (const { name } of HYPERLIQUID_SEND_TO_EVM_EIP712_FIELDS) {
-    if (values[name] !== expectedMessage[name]) {
-      throw new HyperliquidPayloadValidationError(`Withdraw permit value ${name} does not match wire action`);
-    }
-  }
-}
-
-function buildHyperliquidSendToEvmPermitData(
-  action: Record<string, unknown>,
-  nonce: number,
-): ApiPerpsPermitData {
-  const typedData = buildHyperliquidUserSignedTypedData(action, nonce);
+function buildHyperliquidSendToEvmPermitData(action: Record<string, unknown>): ApiPerpsPermitData {
+  const typedData = buildHyperliquidUserSignedTypedData(action);
   return {
     domain: typedData.domain,
     types: typedData.types,
@@ -582,18 +553,16 @@ export function assertHyperliquidWithdrawPermitIntegrity(
     throw new HyperliquidPayloadValidationError('Withdraw payload destination must match the wallet address');
   }
 
-  assertHyperliquidExchangeActionForSigning(withdraw.action, withdraw.nonce, {
-    expectedWalletRecipient,
-  });
+  assertHyperliquidExecuteSendToEvmWithdrawAction(withdraw.action, expectedWalletRecipient);
+  assertHyperliquidUserSignedNonceMatches(withdraw.action, withdraw.nonce);
 
   assertRecord(withdraw.permitData.domain, 'permitData.domain');
-  assertSendToEvmPermitDomain(withdraw.permitData.domain);
   assertRecord(withdraw.permitData.types, 'permitData.types');
-  assertSendToEvmPermitTypes(withdraw.permitData.types);
   assertRecord(withdraw.permitData.values, 'permitData.values');
-  assertPermitValuesMatchAction(withdraw.permitData.values, withdraw.action, withdraw.nonce);
 
-  const permitData = buildHyperliquidSendToEvmPermitData(withdraw.action, withdraw.nonce);
+  // The permit is signed as rebuilt from the validated action. The backend's copy must hash identically,
+  // which fixes its domain, field schema and every field value to those of the action.
+  const permitData = buildHyperliquidSendToEvmPermitData(withdraw.action);
   const expectedDigest = hyperliquidExchangeSignDigest({
     domain: permitData.domain,
     types: permitData.types as ApiPerpsExchangeTypedData['types'],
@@ -609,15 +578,6 @@ export function assertHyperliquidWithdrawPermitIntegrity(
 
   if (expectedDigest !== buildDigest) {
     throw new HyperliquidPayloadValidationError('Withdraw permitData does not match the wire action');
-  }
-
-  if (
-    !hyperliquidAddressMatches(
-      String(withdraw.permitData.values.destinationRecipient),
-      expectedWalletRecipient,
-    )
-  ) {
-    throw new HyperliquidPayloadValidationError('Withdraw permit recipient must match the wallet address');
   }
 
   return permitData;

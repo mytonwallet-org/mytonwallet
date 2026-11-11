@@ -32,11 +32,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState.Default
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
+import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.appInfo.AppInfoVC
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.AppearanceVC
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.AssetsAndActivitiesVC
@@ -215,6 +217,7 @@ class SettingsVC(context: Context) :
 
     private val qrButton: WImageButton by lazy {
         val btn = WImageButton(context)
+        btn.id = R.id.settings_qr_button
         btn.setPadding(8.dp)
         btn.setOnClickListener {
             val receiveVC =
@@ -229,9 +232,10 @@ class SettingsVC(context: Context) :
 
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
+        btn.id = R.id.settings_more_button
         btn.background = moreButtonRipple
         btn.setPadding(8.dp)
-        btn.setOnClickListener {
+        btn.setOnMenuClickListener {
             WMenuPopup.present(
                 btn,
                 listOf(
@@ -240,7 +244,7 @@ class SettingsVC(context: Context) :
                         LocaleController.getString("Rename Wallet")
                     ) {
                         renameWalletPressed()
-                    },
+                    }.apply { testViewId = R.id.settings_menu_rename },
                     WMenuPopup.Item(
                         org.mytonwallet.app_air.icons.R.drawable.ic_exit,
                         LocaleController.getString("Remove Wallet")

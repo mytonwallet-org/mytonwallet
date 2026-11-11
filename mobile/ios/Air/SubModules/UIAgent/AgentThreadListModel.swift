@@ -5,6 +5,8 @@ import WalletCore
 @MainActor
 protocol AgentThreadListClient: AnyObject {
     func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse
+    /// The SDK's copy of the first page; `nil` when it has none or cannot read it
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]?
     func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse
     func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse
 }
@@ -13,6 +15,10 @@ protocol AgentThreadListClient: AnyObject {
 private final class LiveAgentThreadListClient: AgentThreadListClient {
     func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse {
         try await Api.listAgentV2Threads(cursor: cursor, limit: limit, query: query)
+    }
+
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? {
+        await Api.getAgentV2CachedThreads()
     }
 
     func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse {
@@ -31,8 +37,14 @@ final class AgentThreadListModel {
     private(set) var isLoading = false
     /// The first page of chats has loaded, or failed to: until then the list has nothing to say about them
     private(set) var hasLoaded = false
+    /// The latest load of the first page failed while the list had no chats to show
+    private(set) var hasLoadFailed = false
+    /// The next page failed to load: the list ends with a line that loads it again
+    private(set) var hasPageLoadFailed = false
+    /// The rows are the SDK's copy of the first page, shown until the first page loads
+    private(set) var isShowingCachedThreads = false
     private(set) var newsItems: [ApiAgentV2NewsFeedItem] = []
-    private var newsPage: (page: ApiAgentV2NewsFeedPage, language: String)?
+    private var newsPage: AgentNewsCachedPage?
 
     var latestNews: ApiAgentV2NewsFeedItem? {
         newsItems.max { AgentV2DateParser.date($0.deliveredAt) < AgentV2DateParser.date($1.deliveredAt) }
@@ -62,7 +74,20 @@ final class AgentThreadListModel {
     private var runRevisions: [String: Int] = [:]
     /// Loads started so far, for telling a load that knows a completed answer from one already under way
     private var startedLoadCount = 0
+    /// The first-page load whose page has not arrived yet, which the SDK's copy of the page may stand in for
+    private var cacheableLoadCount: Int?
+    /// A first page has loaded since the list started, after which the SDK's copy of it is older than what was shown
+    private var hasLoadedFirstPage = false
     private static let activityHoldLimit: Duration = .seconds(5)
+    /// How long a reported thread missing from the first page stays in the list, as the server may not have stored a
+    /// chat just created yet
+    private static let missingReportedThreadLimit: TimeInterval = 60
+    /// Threads as the SDK reported them, with the time of the report, kept through loads that don't have them yet or
+    /// have them at an older revision, as one the server answers before it has a chat just created
+    private var reportedThreads: [String: (item: ApiAgentV2ThreadListItem, reportedAt: Date)] = [:]
+    /// Threads the SDK reported out of the list, as a chat cleared of its messages, with the revision that took them out:
+    /// a load the server answers with an older or the same revision doesn't bring them back
+    private var leftThreadRevisions: [String: Int] = [:]
 
     init(
         client: AgentThreadListClient? = nil,
@@ -85,7 +110,7 @@ final class AgentThreadListModel {
     func refresh() async {
         syncActivitiesWithLoadedChats()
         requestGeneration += 1
-        await load(cursor: nil, generation: requestGeneration, minimumCount: items.count)
+        await load(cursor: nil, generation: requestGeneration, minimumCount: isShowingCachedThreads ? 0 : items.count)
     }
 
     func loadMore() async {
@@ -96,9 +121,14 @@ final class AgentThreadListModel {
     func refreshNews() async {
         do {
             let requestLanguage = language()
-            let page = try await newsClient.getNewsFeed(lang: requestLanguage, cursor: nil)
+            let schedule = AgentNewsDigestSchedule(
+                hour: AgentNewsNotificationSettings.shared.digestHour, timeZone: TimeZone.current.identifier
+            )
+            let page = try await newsClient.getNewsFeed(
+                lang: requestLanguage, cursor: nil, digestHour: schedule.hour, timeZone: schedule.timeZone
+            )
             guard !Task.isCancelled else { return }
-            newsPage = (page, requestLanguage)
+            newsPage = AgentNewsCachedPage(page: page, language: requestLanguage, schedule: schedule)
             newsItems = page.items
             readState.initializeIfNeeded(items: newsItems)
             onChange?()
@@ -108,10 +138,10 @@ final class AgentThreadListModel {
     }
 
     /// The feed opens with the page behind the News row while it loads the latest
-    func makeNewsFeedModel() -> AgentNewsFeedModel {
+    func makeNewsFeedModel(requestedDigestId: String? = nil) -> AgentNewsFeedModel {
         AgentNewsFeedModel(client: newsClient, readState: readState, language: language, findThread: { [weak self] threadId in
             self?.items.first { $0.thread.id == threadId }?.thread
-        }, cachedPage: newsPage)
+        }, cachedPage: newsPage, requestedDigestId: requestedDigestId)
     }
 
     // MARK: - Answering status
@@ -170,7 +200,14 @@ final class AgentThreadListModel {
         notifyActivityChange(activityTracker.remove(threadId: threadId).union(hasRemovedHeldActivity ? [threadId] : []))
     }
 
-    func removeAllActivities() {
+    func handleAccountsReset() {
+        hasLoadedFirstPage = false
+        removeAllActivities()
+        reportedThreads.removeAll()
+        leftThreadRevisions.removeAll()
+    }
+
+    private func removeAllActivities() {
         runRevisions.removeAll()
         let held = Set(heldActivities.keys)
         heldActivities.removeAll()
@@ -257,8 +294,55 @@ final class AgentThreadListModel {
         }
     }
 
+    /// A thread the SDK reports changed, as by a new message, a new title, its creation or its clearing: the list takes it
+    /// at once, before a load brings it with the server's preview, so a list off screen is current when it shows again.
+    /// As the SDK's list does, the list has a thread once the user has written in it and while it has messages, with
+    /// the preview its chat shows: a chat cleared of its messages, or a news discussion nobody has written in, leaves it.
+    func applyThreadChange(_ thread: ApiAgentV2ThreadSummary) {
+        guard !mutatingThreadIds.contains(thread.id), !preloader.isThreadDeleted(thread.id) else { return }
+        let listedIndex = items.firstIndex(where: { $0.thread.id == thread.id })
+        if let listedIndex, thread.revision < items[listedIndex].thread.revision { return }
+        // A report older than the one that took the thread out of the list
+        if let leftRevision = leftThreadRevisions[thread.id], thread.revision < leftRevision { return }
+        guard thread.isStarted, thread.messageCount > 0 else {
+            leftThreadRevisions[thread.id] = max(thread.revision, leftThreadRevisions[thread.id] ?? thread.revision)
+            reportedThreads.removeValue(forKey: thread.id)
+            guard let listedIndex else { return }
+            items.remove(at: listedIndex)
+            onChange?()
+            return
+        }
+        leftThreadRevisions.removeValue(forKey: thread.id)
+        let preview = getLoadedChatPreview(threadId: thread.id)
+        if let index = listedIndex {
+            let item = items[index]
+            guard thread != item.thread || preview != nil && preview != item.preview else { return }
+            items[index] = ApiAgentV2ThreadListItem(thread: thread, preview: preview ?? item.preview)
+            reportedThreads[thread.id] = (items[index], now())
+        } else {
+            let item = ApiAgentV2ThreadListItem(thread: thread, preview: preview)
+            items.append(item)
+            reportedThreads[thread.id] = (item, now())
+        }
+        items = sorted(items)
+        onChange?()
+    }
+
+    /// The text of the latest message a loaded chat of the thread shows, the list's preview of it
+    private func getLoadedChatPreview(threadId: String) -> String? {
+        guard let model = preloader.model(threadId: threadId) else { return nil }
+        for id in model.itemIDs.reversed() {
+            guard case .message(let message)? = model.item(for: id), message.role != .system else { continue }
+            let text = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { return text }
+        }
+        return nil
+    }
+
     func removeThread(id: String) {
         invalidateLoads()
+        reportedThreads.removeValue(forKey: id)
+        leftThreadRevisions.removeValue(forKey: id)
         let previousCount = items.count
         items.removeAll { $0.thread.id == id }
         removeActivity(threadId: id)
@@ -281,7 +365,7 @@ final class AgentThreadListModel {
             } else {
                 let title: String
                 switch id {
-                case .news:
+                case .news, .pageFailure:
                     title = ""
                 case .pinned:
                     title = lang("Pinned")
@@ -291,6 +375,9 @@ final class AgentThreadListModel {
                 result.append(AgentThreadListSection(id: id, title: title, items: [item]))
             }
         }
+        if hasPageLoadFailed, !items.isEmpty {
+            result.append(AgentThreadListSection(id: .pageFailure, title: "", items: []))
+        }
         return result
     }
 
@@ -298,6 +385,11 @@ final class AgentThreadListModel {
         startedLoadCount += 1
         let loadCount = startedLoadCount
         isLoading = true
+        if cursor != nil {
+            hasPageLoadFailed = false
+        } else if items.isEmpty, !hasLoadedFirstPage {
+            showCachedThreads(generation: generation, loadCount: loadCount)
+        }
         onChange?()
         do {
             var merged = cursor == nil ? [] : items
@@ -316,10 +408,41 @@ final class AgentThreadListModel {
                 }
                 pageCursor = response.nextCursor.flatMap { requestedCursors.contains($0) ? nil : $0 }
             } while merged.count < minimumCount && pageCursor != nil
+            // A thread that left the list stays out of it until the server has it past the change that took it out
+            merged.removeAll { item in
+                guard let leftRevision = leftThreadRevisions[item.thread.id] else { return false }
+                guard item.thread.revision > leftRevision else { return true }
+                leftThreadRevisions.removeValue(forKey: item.thread.id)
+                return false
+            }
+            let loadedAt = now()
+            for (id, reported) in reportedThreads {
+                if let index = merged.firstIndex(where: { $0.thread.id == id }) {
+                    if merged[index].thread.revision >= reported.item.thread.revision {
+                        reportedThreads.removeValue(forKey: id)
+                    } else {
+                        merged[index] = reported.item
+                    }
+                } else if cursor == nil {
+                    if loadedAt.timeIntervalSince(reported.reportedAt) <= Self.missingReportedThreadLimit {
+                        merged.append(reported.item)
+                    } else {
+                        reportedThreads.removeValue(forKey: id)
+                    }
+                }
+            }
             items = sorted(merged)
+            if cursor == nil {
+                cacheableLoadCount = nil
+                isShowingCachedThreads = false
+                hasLoadedFirstPage = true
+                preloader.prefetchCachedHistories(of: items.map(\.thread))
+            }
             nextCursor = pageCursor
             isLoading = false
             hasLoaded = true
+            hasLoadFailed = false
+            hasPageLoadFailed = false
             threadReadState.observe(items.map(\.thread), answeringThreadIds: Set(activityTracker.entries.keys))
             // The rows now have the previews of the answers that completed before this load started, and of those
             // the load has past their run's revision. Their statuses end in the change that brings the previews,
@@ -337,7 +460,34 @@ final class AgentThreadListModel {
             guard generation == requestGeneration else { return }
             isLoading = false
             hasLoaded = true
+            // A failed refresh keeps the chats shown without a word, and the SDK's copy no longer stands in for it
+            if cursor == nil {
+                cacheableLoadCount = nil
+                hasLoadFailed = items.isEmpty
+            } else {
+                hasPageLoadFailed = true
+            }
             onChange?()
+        }
+    }
+
+    /// Shows the SDK's copy of the first page while the first page loads. The copy leaves unread counts, held statuses
+    /// and pagination alone, and a failed load keeps it on screen.
+    private func showCachedThreads(generation: Int, loadCount: Int) {
+        cacheableLoadCount = loadCount
+        Task { [weak self, client] in
+            let threads = await client.cachedThreads()
+            guard let self, let threads, !threads.isEmpty,
+                  generation == self.requestGeneration,
+                  self.cacheableLoadCount == loadCount,
+                  self.items.isEmpty else { return }
+            self.items = self.sorted(threads)
+            self.nextCursor = nil
+            self.isShowingCachedThreads = true
+            self.hasLoaded = true
+            self.hasLoadFailed = false
+            self.preloader.prefetchCachedHistories(of: self.items.map(\.thread))
+            self.onChange?()
         }
     }
 
@@ -382,11 +532,14 @@ final class AgentThreadListModel {
 
 struct AgentThreadListSection {
     static let newsItemId = "agent:mypulse"
+    static let pageFailureItemId = "agent:page-failure"
 
     enum ID: Hashable {
         case news
         case pinned
         case day(Date)
+        /// The line at the list's end that loads a page that failed to load again
+        case pageFailure
     }
 
     let id: ID
@@ -394,7 +547,14 @@ struct AgentThreadListSection {
     var items: [ApiAgentV2ThreadListItem]
 
     var itemIdentifiers: [String] {
-        id == .news ? [Self.newsItemId] : items.map { $0.thread.id }
+        switch id {
+        case .news:
+            [Self.newsItemId]
+        case .pageFailure:
+            [Self.pageFailureItemId]
+        case .pinned, .day:
+            items.map { $0.thread.id }
+        }
     }
 }
 
@@ -512,8 +672,9 @@ struct AgentThreadActivityTracker {
 }
 
 enum AgentThreadDateFormatting {
-    /// How long a row stamped yesterday keeps showing its time
-    private static let recentYesterdayInterval: TimeInterval = 12 * 60 * 60
+    /// A pinned row of an earlier day fewer than this many days back names its weekday, and one of a day further back its
+    /// date
+    private static let weekdayRowDayCount = 7
 
     enum DayGroup: Equatable {
         case today
@@ -527,7 +688,8 @@ enum AgentThreadDateFormatting {
         let today = calendar.startOfDay(for: now)
         let daysAgo = calendar.dateComponents([.day], from: day, to: today).day ?? 0
         switch daysAgo {
-        case 0: return .today
+        // A time later than now, as a server clock running ahead stamps it, is today's, as on Android
+        case ...0: return .today
         case 1: return .yesterday
         case 2...6: return .weekday
         default: return .date
@@ -556,17 +718,38 @@ enum AgentThreadDateFormatting {
         }
     }
 
+    /// The day a chat's date line and a News day capsule name, the same on every platform: "Today", "Yesterday", then the
+    /// day and the month, with the year for another year. No weekdays.
+    static func formatDay(
+        for date: Date,
+        relativeTo now: Date = .now,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
+        locale: Locale = LocalizationSupport.shared.locale
+    ) -> String {
+        switch dayGroup(for: date, relativeTo: now, calendar: calendar) {
+        case .today:
+            return lang("Today")
+        case .yesterday:
+            return lang("Yesterday")
+        case .weekday, .date:
+            let isSameYear = calendar.isDate(date, equalTo: now, toGranularity: .year)
+            let formatter = makeFormatter(template: isSameYear ? "MMMMd" : "yMMMMd", calendar: calendar, locale: locale)
+            removeYearWord(from: formatter)
+            return capitalizeFirstLetter(formatter.string(from: date), locale: locale)
+        }
+    }
+
     private static func capitalizeFirstLetter(_ text: String, locale: Locale) -> String {
         guard let first = text.first else { return text }
         return String(first).uppercased(with: locale) + text.dropFirst()
     }
 
-    /// The time label of a list row, in Telegram's chat list format.
+    /// The time label of a list row, in the format all platforms share.
     ///
     /// Rows sit under day headers, so they show the time of the last message. Rows that stay at the top regardless of
-    /// their date (pinned chats and News) show the time for today and for yesterday less than 12 hours ago, "Yesterday"
-    /// for the rest of yesterday, then the weekday within the last week, then the date, with the year for a previous
-    /// year. Time and date follow the device's 24-hour setting and day/month order.
+    /// their date (pinned chats and News) show the time for today, the short weekday within the last week, the day and
+    /// the short month within the year, and the numeric date with the year before it. Time and the numeric date follow
+    /// the device's 24-hour setting and day/month order.
     static func formatRowTimestamp(
         for timestamp: String,
         shouldShowDateWhenNotToday: Bool,
@@ -600,17 +783,14 @@ enum AgentThreadDateFormatting {
         if daysAgo <= 0 {
             return timeText
         }
-        if daysAgo == 1 {
-            return now.timeIntervalSince(date) < recentYesterdayInterval ? timeText : lang("Yesterday")
-        }
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        guard calendar.isDate(date, equalTo: now, toGranularity: .year) else {
-            return deviceFormat.formatDate(day: components.day ?? 1, month: components.month ?? 1, year: components.year)
-        }
-        if daysAgo < 7 {
+        if daysAgo < weekdayRowDayCount {
             return formatted(date, template: "EEE", calendar: calendar, locale: locale)
         }
-        return deviceFormat.formatDate(day: components.day ?? 1, month: components.month ?? 1, year: nil)
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return makeDotlessFormatter(template: "MMMd", calendar: calendar, locale: locale).string(from: date)
+        }
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return deviceFormat.formatDate(day: components.day ?? 1, month: components.month ?? 1, year: components.year)
     }
 
     /// The time and numeric date conventions of the device, as Telegram derives them from the system settings
@@ -683,12 +863,50 @@ enum AgentThreadDateFormatting {
         }
     }
 
+    /// Russian abbreviates every month to three letters, as Telegram does: "7 ноя", "4 сен"
+    private static let russianShortMonthSymbols = [
+        "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек",
+    ]
+
+    /// A formatter of `template` whose abbreviated months go without their trailing dot and years without their
+    /// abbreviated word, as Telegram writes dates, as in "Nov 7", "7 ноя" and "7 ноя 2025". Russian months are cut to
+    /// three letters, where the system writes "нояб." and "сент.". A month with dots inside, as "ต.ค.", keeps them all.
+    static func makeDotlessFormatter(template: String, calendar: Calendar, locale: Locale) -> DateFormatter {
+        let formatter = makeFormatter(template: template, calendar: calendar, locale: locale)
+        removeYearWord(from: formatter)
+        if locale.language.languageCode == .russian && calendar.identifier == .gregorian {
+            formatter.shortMonthSymbols = russianShortMonthSymbols
+            formatter.shortStandaloneMonthSymbols = russianShortMonthSymbols
+            return formatter
+        }
+        func removeDots(_ symbols: [String]) -> [String] {
+            symbols.map { $0.hasSuffix(".") && !$0.dropLast().contains(".") ? String($0.dropLast()) : $0 }
+        }
+        formatter.shortMonthSymbols = removeDots(formatter.shortMonthSymbols)
+        formatter.shortStandaloneMonthSymbols = removeDots(formatter.shortStandaloneMonthSymbols)
+        return formatter
+    }
+
+    /// Leaves out the abbreviated word after a year, as Russian's "г." in "d MMMM y 'г'.", from the formatter's format.
+    /// The dot tells it from a word that joins the year to the time, as English's "at".
+    private static func removeYearWord(from formatter: DateFormatter) {
+        formatter.dateFormat = formatter.dateFormat.replacingOccurrences(
+            of: "(?<=y)\\s*'\\p{L}+'\\.",
+            with: "",
+            options: .regularExpression
+        )
+    }
+
     private static func formatted(_ date: Date, template: String, calendar: Calendar, locale: Locale) -> String {
+        makeFormatter(template: template, calendar: calendar, locale: locale).string(from: date)
+    }
+
+    private static func makeFormatter(template: String, calendar: Calendar, locale: Locale) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.locale = locale
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter.string(from: date)
+        return formatter
     }
 }

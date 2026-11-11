@@ -258,7 +258,6 @@ function TransferModal({
   return (
     <Modal
       isOpen={isOpen && !isMediaViewerOpen}
-      noBackdropClose
       dialogClassName={styles.modalDialog}
       onClose={handleClose}
       onCloseAnimationEnd={updateNextKey}

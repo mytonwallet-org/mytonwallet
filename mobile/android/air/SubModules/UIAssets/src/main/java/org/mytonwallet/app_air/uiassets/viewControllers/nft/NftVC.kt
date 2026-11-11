@@ -79,6 +79,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundSt
 import org.mytonwallet.app_air.uicomponents.widgets.scaleIn
 import org.mytonwallet.app_air.uicomponents.widgets.scaleOut
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uisend.sendNft.SendNftVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.NftAccentColors
@@ -181,7 +182,7 @@ class NftVC(
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
         btn.setPadding(8.dp)
-        btn.setOnClickListener {
+        btn.setOnMenuClickListener {
             presentMoreMenu()
         }
         val moreDrawable = context.getDrawableCompat(
@@ -481,7 +482,7 @@ class NftVC(
         AppCompatImageButton(context).apply {
             id = View.generateViewId()
             elevation = 8f.dp
-            setOnClickListener {
+            setOnMenuClickListener {
                 presentWearMenu()
             }
         }
@@ -1536,6 +1537,23 @@ class NftVC(
                             }
                         }
                     )
+                    if (!linkedAddress.isNullOrBlank()) {
+                        add(
+                            WMenuPopup.Item(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_link,
+                                LocaleController.getString("Unlink Wallet"),
+                                false
+                            ) {
+                                navigationController?.let {
+                                    CollectionsMenuHelpers.presentLinkToWalletModal(
+                                        it,
+                                        nft,
+                                        isUnlinking = true
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
                 if (NftStore.shouldHide(showingAccountId, nft)) {

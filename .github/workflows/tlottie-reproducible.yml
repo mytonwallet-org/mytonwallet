@@ -1,0 +1,41 @@
+name: Reproduce tlottie wasm
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - src/lib/tlottie/*.wasm
+      - deploy/tlottie_build.sh
+  pull_request:
+    paths:
+      - src/lib/tlottie/*.wasm
+      - deploy/tlottie_build.sh
+
+jobs:
+  rebuild:
+    name: Rebuild tlottie wasm from source
+    permissions:
+      contents: read
+    # AMO reviewers rebuild on Ubuntu, so the committed binaries have to come out of the recipe there
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          mkdir "$RUNNER_TEMP/tlottie"
+          bash deploy/tlottie_build.sh "$RUNNER_TEMP/tlottie"
+
+      - name: Compare with the committed binaries
+        run: |
+          cmp "$RUNNER_TEMP/tlottie/tlottie-simd.wasm" src/lib/tlottie/tlottie-simd.wasm
+          cmp "$RUNNER_TEMP/tlottie/tlottie-scalar.wasm" src/lib/tlottie/tlottie-scalar.wasm
+
+      - name: Upload the rebuilt binaries
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tlottie-rebuilt
+          path: ${{ runner.temp }}/tlottie

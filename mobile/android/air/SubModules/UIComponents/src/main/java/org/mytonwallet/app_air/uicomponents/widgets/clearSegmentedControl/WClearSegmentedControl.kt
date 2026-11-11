@@ -11,12 +11,15 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Region
 import android.os.Build
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -131,6 +134,20 @@ class WClearSegmentedControl(
     /** Tabs that overflow scroll to keep the thumb centred, following it as it moves between tabs */
     var centersThumb = false
     private var currentPosition: Float = 0f
+    private class ThumbCenterRequest(
+        var position: Float,
+        var shouldAnimate: Boolean,
+        val observer: ViewTreeObserver
+    )
+    private var pendingThumbCenter: ThumbCenterRequest? = null
+    class SelectionScroll internal constructor(internal val distance: Float) {
+        internal var consumedDistance = 0
+    }
+    private var selectionScroll: SelectionScroll? = null
+    private val thumbCenterPreDrawListener = ViewTreeObserver.OnPreDrawListener {
+        completePendingThumbCenter()
+        true
+    }
 
     // Used to animate dragMode enter/exit animations
     private var dragModePresentationFraction: Float = 0f
@@ -140,6 +157,76 @@ class WClearSegmentedControl(
     private var selectedItem: Int = 0
     private var delegate: Delegate? = null
     var isDragAllowed: Boolean = false
+    var onSelectedItemClick: ((View) -> Boolean)? = null
+    var onLongPress: ((View) -> Boolean)? = null
+        set(value) {
+            field = value
+            isLongClickable = value != null
+            removeCallbacks(longPressRunnable)
+        }
+    private var longPressDownX = 0f
+    private var longPressDownY = 0f
+    private var isLongPressConsumed = false
+    private val longPressSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val longPressRunnable = Runnable {
+        if (!isAttachedToWindow || !isEnabled || isInDragMode) return@Runnable
+        if (performLongClick()) {
+            isLongPressConsumed = true
+            recyclerView.stopScroll()
+            val now = SystemClock.uptimeMillis()
+            val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+            super.dispatchTouchEvent(cancel)
+            cancel.recycle()
+        }
+    }
+
+    override fun performLongClick(): Boolean {
+        if (onLongPress?.invoke(this) == true) {
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            return true
+        }
+        return super.performLongClick()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            cancelPendingThumbCenter()
+            isLongPressConsumed = false
+            longPressDownX = event.x
+            longPressDownY = event.y
+            removeCallbacks(longPressRunnable)
+            if (onLongPress != null && isEnabled && !isInDragMode) {
+                postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout().toLong())
+            }
+        } else if (event.actionMasked == MotionEvent.ACTION_MOVE) {
+            if (abs(event.x - longPressDownX) > longPressSlop ||
+                abs(event.y - longPressDownY) > longPressSlop
+            ) {
+                removeCallbacks(longPressRunnable)
+            }
+        } else if (event.actionMasked == MotionEvent.ACTION_UP ||
+            event.actionMasked == MotionEvent.ACTION_CANCEL ||
+            event.actionMasked == MotionEvent.ACTION_POINTER_DOWN
+        ) {
+            removeCallbacks(longPressRunnable)
+        }
+        if (isLongPressConsumed) {
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                isLongPressConsumed = false
+            }
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    override fun onDetachedFromWindow() {
+        cancelPendingThumbCenter()
+        removeCallbacks(longPressRunnable)
+        isLongPressConsumed = false
+        super.onDetachedFromWindow()
+    }
     var isAnimatingDragMode: Boolean = false
     var isInDragMode: Boolean = false
         private set
@@ -147,6 +234,7 @@ class WClearSegmentedControl(
     fun setDragMode(value: Boolean, animated: Boolean) {
         if (isInDragMode == value) return
         if (value && !isDragAllowed) return
+        cancelPendingThumbCenter()
         isInDragMode = value
         isAnimatingDragMode = true
         configureDragMode(animated)
@@ -232,7 +320,7 @@ class WClearSegmentedControl(
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
 
-            override fun isLongPressDragEnabled(): Boolean = isDragAllowed
+            override fun isLongPressDragEnabled(): Boolean = isDragAllowed && onLongPress == null
 
             override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
                 super.onSelectedChanged(viewHolder, actionState)
@@ -511,7 +599,7 @@ class WClearSegmentedControl(
 
         itemTouchHelper.attachToRecyclerView(this)
         itemTouchHelper.setBeforeLongPressListener {
-            delegate?.enterReorderingMode()
+            if (onLongPress == null) delegate?.enterReorderingMode()
         }
         itemTouchHelper.setExternalTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean = false
@@ -538,6 +626,7 @@ class WClearSegmentedControl(
         })
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                selectionScroll?.let { it.consumedDistance += dx }
                 if (dx != 0 || dy != 0) {
                     rvAdapter.updateVisibleCells()
                 }
@@ -552,6 +641,7 @@ class WClearSegmentedControl(
     }
 
     fun setItems(items: List<Item>, selectedItem: Int, delegate: Delegate) {
+        cancelPendingThumbCenter()
         this.items = items.toMutableList()
         this.items.forEach {
             it.arrowVisibility = null
@@ -577,6 +667,7 @@ class WClearSegmentedControl(
 
     var removingItem = false
     fun removeItem(index: Int, nextIndex: Int, onCompletion: () -> Unit) {
+        cancelPendingThumbCenter()
         removingItem = true
         val viewHolder = recyclerView.findViewHolderForAdapterPosition(mapPosition(index)) ?: run {
             items.removeAt(index)
@@ -707,6 +798,7 @@ class WClearSegmentedControl(
             return
         }
 
+        cancelPendingThumbCenter()
         val item = items.removeAt(fromPosition)
         items.add(toPosition, item)
 
@@ -863,11 +955,38 @@ class WClearSegmentedControl(
     private fun handleCellClick(row: Int, cell: WClearSegmentedControlItemView) {
         if (isInDragMode || !isEnabled) return
         if (selectedItem == row) {
-            items[row].onClick?.invoke(cell)
+            if (onSelectedItemClick?.invoke(this) != true) items[row].onClick?.invoke(cell)
         } else {
             // Animation is controlled from view-pager scroll
             delegate?.onIndexChanged(row, true)
         }
+    }
+
+    fun beginSelectionScroll(index: Int): SelectionScroll? {
+        cancelPendingThumbCenter()
+        recyclerView.stopScroll()
+        if (!isValidIndex(index) || recyclerView.isLayoutRequested ||
+            recyclerView.hasPendingAdapterUpdates()
+        ) {
+            return null
+        }
+        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return null
+        val target = layoutManager.findViewByPosition(mapPosition(index)) ?: return null
+        return SelectionScroll((target.left + target.right - recyclerView.width) / 2f).also {
+            selectionScroll = it
+        }
+    }
+
+    fun updateSelectionScroll(scroll: SelectionScroll, progress: Float) {
+        if (selectionScroll !== scroll) return
+        val distance = (scroll.distance * progress.coerceIn(0f, 1f)).roundToInt()
+        recyclerView.scrollBy(distance - scroll.consumedDistance, 0)
+    }
+
+    fun finishSelectionScroll(scroll: SelectionScroll): Boolean {
+        if (selectionScroll !== scroll) return false
+        selectionScroll = null
+        return true
     }
 
     fun updateThumbPosition(
@@ -876,7 +995,9 @@ class WClearSegmentedControl(
         targetIndex: Int?,
         force: Boolean,
         isAnimatingToPosition: Boolean,
-        animateScroll: Boolean = true
+        animateScroll: Boolean = true,
+        shouldFollowThumb: Boolean = false,
+        shouldAnimateCenter: Boolean = false
     ) {
         if (items.isEmpty() || !isValidIndex(index)) return
         selectedItem = index
@@ -887,7 +1008,9 @@ class WClearSegmentedControl(
             animated = false,
             force = force,
             isAnimatingToPosition = isAnimatingToPosition,
-            animateScroll = animateScroll
+            animateScroll = animateScroll,
+            shouldFollowThumb = shouldFollowThumb,
+            shouldAnimateCenter = shouldAnimateCenter
         )
     }
 
@@ -897,7 +1020,9 @@ class WClearSegmentedControl(
         animated: Boolean,
         force: Boolean,
         isAnimatingToPosition: Boolean,
-        animateScroll: Boolean = true
+        animateScroll: Boolean = true,
+        shouldFollowThumb: Boolean = false,
+        shouldAnimateCenter: Boolean = false
     ) {
         if (items.isEmpty()) return
 
@@ -913,9 +1038,11 @@ class WClearSegmentedControl(
             currentPosition = clampedPosition
             updateThumbPositionInternal(
                 clampedPosition,
-                ensureVisibleThumb = !isAnimatingToPosition,
+                ensureVisibleThumb = !isAnimatingToPosition || shouldFollowThumb,
                 if (isAnimatingToPosition) targetPosition else null,
-                animateScroll = animateScroll
+                animateScroll = animateScroll,
+                shouldFollowThumb = shouldFollowThumb,
+                shouldAnimateCenter = shouldAnimateCenter
             )
         }
         lastPosition = clampedPosition
@@ -930,7 +1057,9 @@ class WClearSegmentedControl(
         position: Float,
         ensureVisibleThumb: Boolean = true,
         targetIndex: Int?,
-        animateScroll: Boolean = true
+        animateScroll: Boolean = true,
+        shouldFollowThumb: Boolean = false,
+        shouldAnimateCenter: Boolean = false
     ) {
         if (items.isEmpty()) return
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
@@ -948,11 +1077,22 @@ class WClearSegmentedControl(
 
         val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
 
-        if (ensureVisibleThumb) {
-            if (centersThumb && currentView != null) {
-                centerThumb(currentView, nextView.takeIf { index != nextIndex }, fraction)
+        if (ensureVisibleThumb && selectionScroll == null) {
+            if ((centersThumb || shouldFollowThumb) && currentView != null &&
+                !recyclerView.isLayoutRequested && !recyclerView.hasPendingAdapterUpdates()
+            ) {
+                cancelPendingThumbCenter()
+                centerThumb(
+                    currentView,
+                    nextView.takeIf { index != nextIndex },
+                    fraction,
+                    shouldAnimateCenter
+                )
             } else {
                 ensureItemVisible(index, nextIndex, fraction, animateScroll)
+                if (centersThumb || shouldFollowThumb) {
+                    scheduleThumbCenter(position, animateScroll)
+                }
             }
         }
 
@@ -963,13 +1103,64 @@ class WClearSegmentedControl(
     }
 
     // The scroll stops at the tabs' ends, so the end tabs rest at the edges
-    private fun centerThumb(currentView: View, nextView: View?, fraction: Float) {
+    private fun centerThumb(
+        currentView: View,
+        nextView: View?,
+        fraction: Float,
+        shouldAnimate: Boolean = false
+    ) {
         val currentCenter = (currentView.left + currentView.right) / 2f
         val center = nextView?.let {
             currentCenter + ((it.left + it.right) / 2f - currentCenter) * fraction
         } ?: currentCenter
         val delta = (center - recyclerView.width / 2f).roundToInt()
-        if (delta != 0) recyclerView.scrollBy(delta, 0)
+        if (delta == 0) return
+        if (shouldAnimate && WGlobalStorage.getAreAnimationsActive()) {
+            recyclerView.smoothScrollBy(delta, 0)
+        } else {
+            recyclerView.scrollBy(delta, 0)
+        }
+    }
+
+    private fun scheduleThumbCenter(position: Float, shouldAnimate: Boolean) {
+        pendingThumbCenter?.let {
+            it.position = position
+            it.shouldAnimate = shouldAnimate
+            return
+        }
+        val observer = recyclerView.viewTreeObserver
+        pendingThumbCenter = ThumbCenterRequest(position, shouldAnimate, observer)
+        observer.addOnPreDrawListener(thumbCenterPreDrawListener)
+    }
+
+    private fun completePendingThumbCenter() {
+        val request = pendingThumbCenter ?: return
+        if (recyclerView.isLayoutRequested || recyclerView.hasPendingAdapterUpdates() ||
+            recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
+        ) {
+            return
+        }
+        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+        val (index, nextIndex, fraction) = calculatePositionParams(mapPosition(request.position))
+        val (currentView, nextView) = getViews(layoutManager, index, nextIndex)
+        val view = currentView ?: nextView ?: return
+        cancelPendingThumbCenter()
+        centerThumb(
+            view,
+            nextView.takeIf { currentView != null && index != nextIndex },
+            fraction,
+            request.shouldAnimate
+        )
+        updateThumbPositionInternal(currentPosition, false, targetPosition?.toInt())
+    }
+
+    private fun cancelPendingThumbCenter() {
+        selectionScroll = null
+        val request = pendingThumbCenter ?: return
+        pendingThumbCenter = null
+        val observer = request.observer.takeIf { it.isAlive } ?: recyclerView.viewTreeObserver
+        observer.removeOnPreDrawListener(thumbCenterPreDrawListener)
+        if (request.shouldAnimate) recyclerView.stopScroll()
     }
 
     private fun ensureItemVisible(

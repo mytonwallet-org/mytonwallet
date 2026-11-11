@@ -113,6 +113,10 @@ struct UniversalSearchAgentConversationSource: UniversalSearchSource {
         )
     }
 
+    static func entityID(threadID: String) -> SearchEntityID {
+        SearchEntityID("agent-chat:\(threadID)")
+    }
+
     static func document(
         _ item: ApiAgentV2ThreadListItem,
         matchingQuery: UniversalSearchQuery? = nil
@@ -141,7 +145,7 @@ struct UniversalSearchAgentConversationSource: UniversalSearchSource {
             ))
         }
         return SearchDocument(
-            id: SearchEntityID("agent-chat:\(thread.id)"),
+            id: entityID(threadID: thread.id),
             kind: .agentChat,
             fields: fields,
             attributes: [

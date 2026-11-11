@@ -83,6 +83,7 @@ interface PublicWireFixtureGroup {
 const PUBLIC_WIRE_FIXTURES = publicWireFixture.fixtures as PublicWireFixtureGroup[];
 const NEWS_FEED_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentNewsFeedPageV2')!;
 const THREAD_NEWS_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentThreadNewsCardV2')!;
+const THREAD_DIGEST_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentThreadDigestCardV2')!;
 const THREAD_SUMMARY_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentThreadSummaryV2')!;
 const THREAD_CREATE_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentThreadCreateResponseV2')!;
 const THREAD_MESSAGES_FIXTURE = PUBLIC_WIRE_FIXTURES.find(({ schema }) => schema === 'AgentThreadMessagesPageV2')!;
@@ -119,6 +120,27 @@ describe('Agent V2 thread contracts', () => {
     });
   });
 
+  it('validates the digest cards the server publishes and ignores their extensions', () => {
+    THREAD_DIGEST_FIXTURE.valid.forEach((digest) => {
+      const thread = { ...threadSummary(), digest };
+      expect(decodeAgentV2ThreadCreate({ protocolVersion: 3, thread, created: true }).thread).toEqual(thread);
+      const post = {
+        ...persistedMessage(MESSAGE_ID, 'assistant', { kind: 'markdown', text: '- TON update' }), newsPost: true,
+      };
+      expect(decodeAgentV2Messages({ protocolVersion: 3, thread, messages: [post] }))
+        .toEqual({ protocolVersion: 3, thread, messages: [post] });
+      const extended = { ...thread, digest: { ...readWireObject(digest, '$.digest'), futureField: true } };
+      expect(decodeAgentV2ThreadCreate({ protocolVersion: 3, thread: extended, created: true }).thread)
+        .toEqual(thread);
+    });
+    THREAD_DIGEST_FIXTURE.invalid.concat({ id: 'x'.repeat(65), windowEnd: '2026-11-04T08:00:00.000Z', total: 1,
+      top: [{ eventId: 42, headline: 'TON update' }] }).forEach((digest) => {
+      const thread = { ...threadSummary(), digest };
+      expect(() => decodeAgentV2ThreadCreate({ protocolVersion: 3, thread, created: true }))
+        .toThrow(AgentV2ContractError);
+    });
+  });
+
   it('preserves news posts and full cards in published creation and message responses', () => {
     THREAD_CREATE_FIXTURE.valid.forEach((response) => expect(decodeAgentV2ThreadCreate(response)).toEqual(response));
     THREAD_MESSAGES_FIXTURE.valid.forEach((response) => expect(decodeAgentV2Messages(response)).toEqual(response));
@@ -129,7 +151,9 @@ describe('Agent V2 thread contracts', () => {
     PERSISTED_MESSAGE_FIXTURE.invalid.forEach((message) => {
       const decoded = decodeAgentV2Messages({ protocolVersion: 3, thread: threadSummary(), messages: [message] });
       expect(decoded.messages).toEqual([]);
-      expect(decoded.incompatibleMessages).toEqual([expect.objectContaining({ boundary: '$.messages[0].newsPost' })]);
+      expect(decoded.incompatibleMessages).toEqual([
+        expect.objectContaining({ boundary: expect.stringMatching(/^\$\.messages\[0\]\./) }),
+      ]);
     });
   });
 
@@ -174,7 +198,8 @@ describe('Agent V2 thread contracts', () => {
   });
 
   it('preserves summary presentation fields in HTTP responses and thread events', () => {
-    const thread = { ...threadSummary(), title: 'My TON chats', icon: '💎', hasCustomTitle: true, isPinned: true };
+    const thread = { ...threadSummary(), title: 'My TON chats', icon: '💎', hasCustomTitle: true, isPinned: true,
+      support: { state: 'operator', lastOperatorMessageAt: '2026-10-28T09:00:00.000Z' } };
     const response = { protocolVersion: 3, thread, created: false };
 
     expect(decodeAgentV2DefaultThread(response).thread).toEqual(thread);
@@ -189,6 +214,7 @@ describe('Agent V2 thread contracts', () => {
     { title: '' }, { title: ' \t\n' }, { title: 'a\u0000b' }, { title: 'x'.repeat(81) }, { title: 123 },
     { icon: '' }, { icon: '💎'.repeat(17) }, { icon: 123 },
     { hasCustomTitle: false }, { hasCustomTitle: 'true' }, { isPinned: false }, { isPinned: 'true' },
+    { support: { state: 'unknown' } }, { support: { state: 'operator', lastOperatorMessageAt: 123 } },
   ])('rejects invalid summary presentation fields in responses and streams: %j', (change) => {
     const thread = { ...threadSummary(), ...change };
     expect(() => decodeAgentV2DefaultThread({ protocolVersion: 3, thread, created: false }))
@@ -203,6 +229,58 @@ describe('Agent V2 thread contracts', () => {
     const spacedTitle = { ...threadSummary(), title: ' My chats ' };
     expect(decodeAgentV2ThreadUpdate({ protocolVersion: 3, thread: spacedTitle }).thread).toEqual(spacedTitle);
   });
+
+  it.each([
+    { role: 'operator', text: 'Hello' },
+    { role: 'operator', author: { operatorId: 'support-42', name: 'Alex' } },
+    { role: 'event' },
+    { role: 'event', code: 'operator_joined' },
+    { role: 'event', code: 'support_closed' },
+    { role: 'event', code: 'support_requested', author: { operatorId: 'support-42', name: 'Alex' } },
+    { role: 'event', code: 'support_requested', reason: 'operator' },
+    { role: 'event', code: 'support_requested', feedback: 'like' },
+  ])('rejects support messages missing their role-specific shape: %j', (fields) => {
+    const decoded = decodeAgentV2Messages({
+      protocolVersion: 3, thread: threadSummary(),
+      messages: [{ id: MESSAGE_ID, threadId: THREAD_ID, status: 'complete',
+        createdAt: '2026-10-28T09:00:00.000Z', ...fields }],
+    });
+    expect(decoded.messages).toEqual([]);
+    expect(decoded.incompatibleMessages).toHaveLength(1);
+  });
+
+  it.each([
+    { content: { kind: 'markdown', text: 'Forbidden' } }, { runId: RUN_ID }, { actions: [] }, { followups: [] },
+    { status: 'error' },
+  ])('rejects agent fields on support messages: %j', (fields) => {
+    const common = { id: MESSAGE_ID, threadId: THREAD_ID, status: 'complete',
+      createdAt: '2026-10-28T09:00:00.000Z' };
+    const decoded = decodeAgentV2Messages({
+      protocolVersion: 3, thread: threadSummary(),
+      messages: [
+        { ...common, role: 'operator', text: 'Hello', author: { operatorId: 'support-42', name: 'Alex' }, ...fields },
+        { ...common, role: 'event', code: 'support_requested', ...fields },
+      ],
+    });
+    expect(decoded.messages).toEqual([]);
+    expect(decoded.incompatibleMessages).toHaveLength(2);
+  });
+
+  it.each([
+    { author: { operatorId: 'support-42', name: 'Alex' } }, { code: 'support_requested' }, { reason: 'operator' },
+  ])(
+    'rejects support fields on model and user messages: %j', (fields) => {
+      const decoded = decodeAgentV2Messages({
+        protocolVersion: 3, thread: threadSummary(),
+        messages: [
+          { ...persistedMessage(MESSAGE_ID, 'user'), ...fields },
+          { ...persistedMessage(MESSAGE_ID, 'assistant'), ...fields },
+        ],
+      });
+      expect(decoded.messages).toEqual([]);
+      expect(decoded.incompatibleMessages).toHaveLength(2);
+    },
+  );
 
   it('reads list entries with a preview, without one and with an empty preview', () => {
     const response = {
@@ -300,6 +378,42 @@ describe('Agent V2 news feed contracts', () => {
     })).toEqual(response);
   });
 
+  it('decodes digests with and without a discussion, and ignores their extensions', () => {
+    const digests = [
+      { ...newsFeedDigest(), discussion: { threadId: THREAD_ID, icon: '📰' } },
+      { ...newsFeedDigest(), id: 'en:2026-11-05T08:00:00.000Z', top: newsFeedDigest().top.slice(0, 1) },
+    ];
+    const response = { protocolVersion: 3, locale: 'en', items: [newsFeedItem()], digests };
+    expect(decodeAgentV2NewsFeed(response)).toEqual(response);
+    expect(decodeAgentV2NewsFeed({
+      ...response,
+      digests: digests.map((digest) => ({
+        ...digest, futureField: 'future', top: digest.top.map((headline) => ({ ...headline, futureField: 1 })),
+      })),
+    })).toEqual(response);
+  });
+
+  it('decodes a page without digests and accepts a cursor of up to 2070 characters', () => {
+    const response = { protocolVersion: 3, locale: 'en', items: [newsFeedItem()], nextCursor: 'x'.repeat(2070) };
+    const decoded = decodeAgentV2NewsFeed(response);
+    expect(decoded).toEqual(response);
+    expect(decoded).not.toHaveProperty('digests');
+  });
+
+  it.each([
+    JSON.parse('{"digests": null}') as Record<string, unknown>,
+    { digests: [{}] },
+    { top: [] }, { top: Array.from({ length: 6 }, (_, index) => ({ eventId: index + 1, headline: 'TON update' })) },
+    { top: [{ eventId: 0, headline: 'TON update' }] }, { top: [{ eventId: 42, headline: '' }] },
+    { id: '' }, { id: 'x'.repeat(65) }, { deliveredAt: 'invalid' }, { total: 0 }, { total: 1.5 },
+    JSON.parse('{"discussion": null}') as Record<string, unknown>,
+    { discussion: { threadId: 'not-a-thread' } },
+  ])('rejects malformed digests: %j', (change) => {
+    const digests = 'digests' in change ? change.digests : [{ ...newsFeedDigest(), ...change }];
+    expect(() => decodeAgentV2NewsFeed({ protocolVersion: 3, locale: 'en', items: [], digests }))
+      .toThrow(AgentV2ContractError);
+  });
+
   it('accepts an empty body, no sources and a discussion without an icon', () => {
     const response = { protocolVersion: 3, locale: 'en', items: [{
       ...newsFeedItem(), body: '', sources: [], discussion: { threadId: THREAD_ID },
@@ -311,7 +425,7 @@ describe('Agent V2 news feed contracts', () => {
     { locale: 'de' },
     JSON.parse('{"items": null}') as Record<string, unknown>,
     { items: Array.from({ length: 31 }, newsFeedItem) },
-    { nextCursor: '' }, { nextCursor: 'x'.repeat(2049) },
+    { nextCursor: '' }, { nextCursor: 'x'.repeat(2071) },
   ])('rejects malformed feed pages, case %#', (change) => {
     expect(() => decodeAgentV2NewsFeed({ protocolVersion: 3, locale: 'en', items: [], ...change }))
       .toThrow(AgentV2ContractError);
@@ -348,6 +462,13 @@ describe('Agent V2 news availability errors', () => {
       thread: threadSummary(),
       messages: [{ ...persistedMessage(MESSAGE_ID, 'assistant'), error }],
     }).messages[0].error).toEqual(error);
+  });
+
+  it('preserves digest_unavailable as a non-retryable API error and rejects a retryable one', () => {
+    const error = { code: 'digest_unavailable', retryable: false };
+    expect(decodeAgentV2ApiError({ protocolVersion: 3, error }).error).toEqual(error);
+    expect(() => decodeAgentV2ApiError({ protocolVersion: 3, error: { ...error, retryable: true } }))
+      .toThrow(AgentV2ContractError);
   });
 
   it('rejects a non-retryable news_unavailable API error', () => {
@@ -1227,6 +1348,14 @@ describe('Agent V2 semantic public contract', () => {
     });
   });
 
+  it('preserves support delivery in direct and streamed terminal events', () => {
+    const messageEnd = event({
+      type: 'message_end', sequence: 3, messageId: MESSAGE_ID, finishReason: 'delivered_to_support',
+    });
+    expect(decodeAgentV2StreamEvent(messageEnd)).toEqual(messageEnd);
+    expect(decodeAgentV2StreamFrame(messageEnd)).toEqual({ disposition: 'handle', event: messageEnd });
+  });
+
   it('decodes a bounded model-owned follow-up', () => {
     const marketFollowup = {
       id: 'adadadad-adad-4dad-8dad-adadadadadad',
@@ -1894,6 +2023,15 @@ function newsFeedItem() {
     body: 'The network update is available.',
     imageUrl: 'https://pulse.mytonwallet.org/images/42.jpg',
     sources: [{ name: 'TON Blog', url: 'https://blog.ton.org/network-update' }],
+  };
+}
+
+function newsFeedDigest() {
+  return {
+    id: 'en:2026-11-04T08:00:00.000Z',
+    deliveredAt: '2026-11-04T08:00:00.000Z',
+    top: [{ eventId: 42, headline: 'TON update' }, { eventId: 43, headline: 'Bitcoin update' }],
+    total: 12,
   };
 }
 

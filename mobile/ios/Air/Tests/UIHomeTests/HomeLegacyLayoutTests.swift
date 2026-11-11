@@ -140,7 +140,7 @@ final class HomeLegacyLayoutTests: XCTestCase {
                 window.layoutIfNeeded()
             }
             window.layoutIfNeeded()
-            let positionsFrame = try XCTUnwrap(home.firstItemFrame(inCustomSection: "home-perps-positions"))
+            let positionsFrame = try XCTUnwrap(home.lastItemFrame(inCustomSection: "home-perps-positions"))
             let collectiblesFrame = try XCTUnwrap(home.firstItemFrame(inCustomSection: "assets"))
             XCTAssertEqual(collectiblesFrame.minY - positionsFrame.maxY, 16, accuracy: 0.5)
             let ids = home.activeCustomSectionIDs

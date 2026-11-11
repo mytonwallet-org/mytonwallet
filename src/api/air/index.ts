@@ -4,9 +4,7 @@ import { AGENT_API_URL, APP_VERSION, SDK_BUILD_STAMP } from '../../config';
 import { bigintReviver } from '../../util/bigint';
 import { installFetchLogging } from '../../util/fetchLogging';
 import contractManifest from '../agentV2/generated/manifest.json';
-import {
-  callApi, captureInstallAttribution, captureInstallMetadata, initApi, setInstallChannel,
-} from '../providers/direct/connector';
+import { callApi, handleInstallationStateChange, initApi } from '../providers/direct/connector';
 
 export const airWindow = window as AirWindow;
 
@@ -43,9 +41,7 @@ function agentOrigin() {
 airWindow.airBridge = {
   initApi,
   callApi,
-  setInstallChannel,
-  captureInstallAttribution,
-  captureInstallMetadata,
+  handleInstallationStateChange,
   bigintReviver,
   nativeCallCallbacks: {},
 };

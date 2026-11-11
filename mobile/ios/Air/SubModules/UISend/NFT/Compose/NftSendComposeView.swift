@@ -2,6 +2,7 @@ import Perception
 import SwiftUI
 import UIComponents
 import WalletContext
+import WalletCore
 
 struct NftSendComposeView: View {
     let model: NftSendModel
@@ -55,9 +56,15 @@ private struct NftSendFormSections: View {
             }
             if model.shouldShowMultisigWarning {
                 MultisigWalletWarning()
+                    .padding(.horizontal, 16)
             }
             NftSendPayloadSection(model: model)
         }
+        .environment(\.openURL, OpenURLAction { url in
+            topViewController()?.view.endEditing(true)
+            AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
+            return .handled
+        })
     }
 }
 

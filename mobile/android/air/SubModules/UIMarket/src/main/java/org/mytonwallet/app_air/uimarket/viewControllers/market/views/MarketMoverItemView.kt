@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -40,6 +41,7 @@ class MarketMoverItemView(context: Context, private val onTap: (MarketToken) -> 
     private var marketToken: MarketToken? = null
 
     init {
+        id = UIComponentsR.id.market_mover
         background = ripple
         clipToOutline = true
         addView(chartView, LayoutParams(MATCH_PARENT, 42.dp))

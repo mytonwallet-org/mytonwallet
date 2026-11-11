@@ -106,6 +106,8 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     }
 
     public func configure(tokensCount: Int, menu: UIMenu? = nil) {
+        accessibilityIdentifier = "home_show_all"
+        menuButton.accessibilityIdentifier = "home_assets_more_button"
         configure(
             title: lang("Show All Assets"),
             count: tokensCount,
@@ -130,6 +132,8 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     }
 
     public func configureActivities(menu: UIMenu? = nil) {
+        accessibilityIdentifier = "home_activity_show_all"
+        menuButton.accessibilityIdentifier = "activity_menu_button"
         configure(
             title: lang("Show All Actions"),
             count: nil,

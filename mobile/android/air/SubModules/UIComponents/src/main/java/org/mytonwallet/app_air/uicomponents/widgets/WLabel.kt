@@ -18,6 +18,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.util.Date
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -128,7 +129,7 @@ open class WLabel(context: Context) :
             },
             showPositiveSign = showPositiveSign,
             forceCurrencyToRight = forceCurrencyToRight,
-            roundUp = false
+            rounding = RoundingMode.DOWN
         )
         if (text != newText) text = newText
     }

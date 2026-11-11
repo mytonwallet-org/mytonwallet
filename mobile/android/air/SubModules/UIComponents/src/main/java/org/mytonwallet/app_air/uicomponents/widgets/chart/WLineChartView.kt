@@ -10,6 +10,7 @@ import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.highlight.ChartHighlighter
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.github.mikephil.charting.listener.ChartTouchListener.ChartGesture
@@ -18,6 +19,7 @@ import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.github.mikephil.charting.renderer.XAxisRenderer
 import com.github.mikephil.charting.utils.MPPointF
 import java.util.Date
+import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -111,6 +113,11 @@ class WLineChartView(context: Context, labeled: Boolean) :
         axisRight.isEnabled = false
         legend.isEnabled = false
         isDoubleTapToZoomEnabled = false
+        // Each data set offers its closest point, and the finger height must not pick a data set: otherwise the edge
+        // point of one series holds the highlight while the finger moves along the other
+        setHighlighter(object : ChartHighlighter<LineChart>(this) {
+            override fun getDistance(x1: Float, y1: Float, x2: Float, y2: Float) = abs(x1 - x2)
+        })
 
         onChartGestureListener = object : OnChartGestureListener {
             override fun onChartGestureStart(me: MotionEvent, lastPerformedGesture: ChartGesture) {

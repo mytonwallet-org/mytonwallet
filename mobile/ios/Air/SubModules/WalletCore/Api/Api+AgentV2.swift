@@ -63,6 +63,15 @@ extension Api {
         return try requireAgentV2OperationValue(result, methodName: "getAgentV2Messages")
     }
 
+    /// The SDK's cached latest messages of the thread; `nil` when none are cached or they cannot be read
+    @concurrent public static func getAgentV2CachedMessages(threadId: String) async -> ApiAgentV2CachedMessages? {
+        try? await bridge.callApiOptional(
+            "getAgentV2CachedMessages",
+            threadId,
+            decodingOptional: ApiAgentV2CachedMessages.self
+        )
+    }
+
     @concurrent public static func listAgentV2Threads(
         cursor: String? = nil,
         limit: Int? = nil,
@@ -76,26 +85,37 @@ extension Api {
         return try requireAgentV2OperationValue(result, methodName: "listAgentV2Threads")
     }
 
+    /// The SDK's cached first page of the thread list; `nil` when none is cached or it cannot be read
+    @concurrent public static func getAgentV2CachedThreads() async -> [ApiAgentV2ThreadListItem]? {
+        try? await bridge.callApiOptional(
+            "getAgentV2CachedThreads",
+            decodingOptional: [ApiAgentV2ThreadListItem].self
+        )
+    }
+
     @concurrent public static func getAgentV2NewsFeed(
         lang: String,
-        cursor: String? = nil
+        cursor: String? = nil,
+        digestHour: Int,
+        timeZone: String
     ) async throws -> ApiAgentV2NewsFeedPage {
         let result = try await bridge.callApi(
             "getAgentV2NewsFeed",
-            ApiAgentV2NewsFeedRequest(lang: lang, cursor: cursor),
+            ApiAgentV2NewsFeedRequest(lang: lang, cursor: cursor, digestHour: digestHour, timeZone: timeZone),
             decoding: ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self
         )
         return try requireAgentV2OperationValue(result, methodName: "getAgentV2NewsFeed")
     }
 
     @concurrent public static func createAgentV2Thread(
-        news: ApiAgentV2ThreadNewsRequest? = nil
+        news: ApiAgentV2ThreadNewsRequest? = nil,
+        digest: ApiAgentV2ThreadDigestRequest? = nil
     ) async throws -> ApiAgentV2ThreadCreateResponse {
         let result: ApiAgentV2MutationResult<ApiAgentV2ThreadCreateResponse>
-        if let news {
+        if news != nil || digest != nil {
             result = try await bridge.callApi(
                 "createAgentV2Thread",
-                ApiAgentV2ThreadCreateRequest(news: news),
+                ApiAgentV2ThreadCreateRequest(news: news, digest: digest),
                 decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadCreateResponse>.self
             )
         } else {
@@ -145,8 +165,9 @@ extension Api {
         return result
     }
 
-    @concurrent public static func cancelAgentV2Run(runId: String) async throws -> ApiAgentV2RunCancelResponse {
-        try await bridge.callApi("cancelAgentV2Run", runId, decoding: ApiAgentV2RunCancelResponse.self)
+    /// Stops every run of the thread; the runtime cancels them on the server itself
+    @concurrent public static func stopAgentV2Run(threadId: String) async throws {
+        try await bridge.callApiVoid("stopAgentV2Run", threadId)
     }
 
     @concurrent public static func clearAgentV2Thread(

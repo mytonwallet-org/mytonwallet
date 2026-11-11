@@ -157,29 +157,31 @@ describe('wallet query materializer', () => {
     });
   });
 
-  it('returns safe inventory metadata for every account with reason-bound addresses', async () => {
-    const session = sessionWithHost();
-    const result = await runQuery(session, {
-      operation: 'account.inventory',
-      accountSelector: { kind: 'explicitAll' },
-      chains: [],
-      includePublicAddressReason: 'receive',
-    });
+  it.each(['receive', 'support_handoff'] as const)(
+    'returns safe inventory metadata for every account with %s addresses', async (reason) => {
+      const session = sessionWithHost();
+      const result = await runQuery(session, {
+        operation: 'account.inventory',
+        accountSelector: { kind: 'explicitAll' },
+        chains: [],
+        includePublicAddressReason: reason,
+      });
 
-    expect(result.operation).toBe('account.inventory');
-    if (result.operation !== 'account.inventory') return;
-    expect(result.accounts).toEqual([
-      expect.objectContaining({ accountLabel: 'Main', isCurrent: true, state: 'active' }),
-      expect.objectContaining({ accountLabel: 'Savings', isCurrent: false, state: 'active' }),
-      expect.objectContaining({ accountLabel: 'Old', isCurrent: false, state: 'stale' }),
-      expect.objectContaining({ accountLabel: 'Deleted', isCurrent: false, state: 'deleted' }),
-    ]);
-    expect(result.accounts[0].publicAddresses).toEqual([{
-      chain: 'ton', address: 'EQ-main-private-address', disclosureReason: 'receive',
-    }]);
-    expect(result.accounts.slice(2).every((account) => account.publicAddresses === undefined)).toBe(true);
-    expect(result.coverage).toMatchObject({ status: 'complete', accountsRequested: 4, accountsIncluded: 4 });
-  });
+      expect(result.operation).toBe('account.inventory');
+      if (result.operation !== 'account.inventory') return;
+      expect(result.accounts).toEqual([
+        expect.objectContaining({ accountLabel: 'Main', isCurrent: true, state: 'active' }),
+        expect.objectContaining({ accountLabel: 'Savings', isCurrent: false, state: 'active' }),
+        expect.objectContaining({ accountLabel: 'Old', isCurrent: false, state: 'stale' }),
+        expect.objectContaining({ accountLabel: 'Deleted', isCurrent: false, state: 'deleted' }),
+      ]);
+      expect(result.accounts[0].publicAddresses).toEqual([{
+        chain: 'ton', address: 'EQ-main-private-address', disclosureReason: reason,
+      }]);
+      expect(result.accounts.slice(2).every((account) => account.publicAddresses === undefined)).toBe(true);
+      expect(result.coverage).toMatchObject({ status: 'complete', accountsRequested: 4, accountsIncluded: 4 });
+    },
+  );
 
   it('returns one fiat overview row for each active regular or view-only wallet', async () => {
     const source = host();

@@ -99,6 +99,7 @@ const tonSdk: ChainSdk<'ton'> = {
   fetchWalletPermissions: notSupported,
   revokeWalletPermission: notSupported,
   fetchWalletPlugins,
+  estimatePerpsDepositNetworkFee: notSupported,
   fetchNftByAddress,
   dns: {
     clearCache: clearDnsCache,

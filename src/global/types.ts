@@ -63,6 +63,7 @@ import type {
   ApiPerpsListedAsset,
   ApiPerpsOperation,
   ApiPortfolioHistoryResponse,
+  ApiPriceHistoryBackfill,
   ApiPriceHistoryPeriod,
   ApiSite,
   ApiSiteCategory,
@@ -141,6 +142,7 @@ export type PortfolioState = {
 
 export type AnimationLevel = 0 | 1 | 2;
 export type Theme = 'light' | 'dark' | 'system';
+export type NavigationTab = 'wallet' | 'market' | 'agent' | 'explore' | 'settings';
 export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openReturnUrl' | 'exportLogs';
@@ -164,8 +166,18 @@ export type DeveloperSettingsOverridePayload = {
   };
 }[DeveloperSettingsOverrideKey];
 
+/** Telegram's animation in the place of a toast's icon, which plays once and rests on its last frame */
+export interface ToastAnimatedIcon {
+  tgsUrl: string;
+  /** The animation's last frame, which shows while it loads and where motion is off */
+  previewUrl: string;
+  /** The size the animation is drawn at, centred on the icon's place, past which it may reach */
+  size: number;
+}
+
 export type ToastType = {
   icon?: string;
+  animatedIcon?: ToastAnimatedIcon;
   message: string;
 } & (
   | { action?: undefined; actionText?: undefined }
@@ -359,7 +371,6 @@ export enum DomainLinkingState {
   ConnectHardware,
   ConfirmHardware,
   ConfirmMfa,
-  Complete,
 }
 
 export enum SwapState {
@@ -513,8 +524,7 @@ export enum MediaType {
 }
 
 /** The news a picture of the Agent's News belongs to, which the media viewer captions it with and offers actions on */
-export interface MediaViewerPictureNews
-  extends Pick<AgentThreadNewsCardV2, 'headline' | 'body' | 'sources' | 'source'> {
+export interface MediaViewerPictureNews extends Pick<AgentThreadNewsCardV2, 'headline' | 'body' | 'sources'> {
   /** When the news came, as its card or post dates it */
   timestamp: number;
 }
@@ -572,6 +582,7 @@ export type TokenPeriod = '1D' | '7D' | '1M' | '3M' | '1Y' | 'ALL';
 export type TokenChartMode = 'price' | 'netWorth';
 
 export type PriceHistoryPeriods = Partial<Record<ApiPriceHistoryPeriod, ApiHistoryList>>;
+export type PriceHistoryBackfillPeriods = Partial<Record<ApiPriceHistoryPeriod, ApiPriceHistoryBackfill>>;
 
 /** Absent while the first request is in flight; an entry with neither `data` nor `hasError` means there is no info */
 export type TokenDetailsState = {
@@ -629,6 +640,14 @@ export interface AgentMessage {
   text: string;
   shouldCommitMarkdownTail?: boolean;
   isOutgoing: boolean;
+  /** A reply of a support operator who joined the chat; `avatarUrl` is absolute */
+  operator?: { name: string; avatarUrl?: string };
+  /** A line about the chat's handover to support, shown in place of a bubble */
+  supportEvent?: {
+    code: 'support_requested' | 'operator_joined' | 'support_closed';
+    operatorName?: string;
+    reason?: 'operator' | 'inactivity';
+  };
   isNewsPost?: boolean;
   timestamp: number;
   isTyping?: boolean;
@@ -1169,6 +1188,7 @@ export type GlobalState = {
 
   currentDomainLinking: {
     address?: string;
+    isUnlinking?: boolean;
     state: DomainLinkingState;
     isLoading?: boolean;
     error?: string;
@@ -1243,6 +1263,8 @@ export type GlobalState = {
   tokenPriceHistory: {
     bySlug: Record<string, PriceHistoryPeriods>;
     restoredBySlug: Record<string, PriceHistoryPeriods>;
+    // Comes with the session series and is not cached, as a restored series is shown without it
+    backfillBySlug?: Record<string, PriceHistoryBackfillPeriods>;
   };
 
   tokenDetails: {
@@ -1281,6 +1303,8 @@ export type GlobalState = {
     isPasswordNumeric?: boolean; // Backwards compatibility for non-numeric passwords from older versions
     isTestnet?: boolean;
     isSecurityWarningHidden?: boolean;
+    /** The Agent's reactions whose toast has explained them, which it does once on this install */
+    shownAgentFeedbackToasts?: Partial<Record<AgentAnswerFeedbackV2, boolean>>;
     areTokensWithNoCostHidden: boolean;
     areUnverifiedNftsHidden?: boolean;
     areChainBadgesShown?: boolean;
@@ -1295,6 +1319,8 @@ export type GlobalState = {
     isAutoConfirmEnabled: boolean;
     isSensitiveDataHidden?: true;
     orderedAccountIds?: string[];
+    /** The order the user gave the navigation tabs, by holding and dragging them */
+    navigationTabOrder?: NavigationTab[];
     selectedExplorerIds?: Partial<Record<ApiChain, string>>;
     installMfa?: {
       requestId: string;
@@ -1643,6 +1669,7 @@ export interface ActionPayloads {
 
   openAgent: undefined;
   closeAgent: undefined;
+  showAgentFeedbackToast: { feedback: AgentAnswerFeedbackV2; animatedIcon: ToastAnimatedIcon };
   openExplore: undefined;
   closeExplore: undefined;
   openMarket: undefined;
@@ -1651,7 +1678,6 @@ export interface ActionPayloads {
   openPortfolio: { returnTo?: 'settings' } | undefined;
   closePortfolio: undefined;
   loadPortfolioHistory: { range?: ApiPriceHistoryPeriod } | undefined;
-  loadPortfolioPnlChange: undefined;
 
   closeAnyModal: undefined;
   submitSignature: { enclaveToken: string };
@@ -1731,6 +1757,7 @@ export interface ActionPayloads {
   setTheme: { theme: Theme };
   setAnimationLevel: { level: AnimationLevel };
   toggleSeasonalTheming: { isEnabled?: boolean };
+  setNavigationTabOrder: { order: NavigationTab[] };
   toggle3dCard: { isEnabled?: boolean };
   setDeveloperSettingsOverride: DeveloperSettingsOverridePayload;
   toggleTinyTransfersHidden: { isEnabled?: boolean } | undefined;
@@ -1984,7 +2011,7 @@ export interface ActionPayloads {
   cancelDomainsRenewal: undefined;
   updateDomainsRenewalMfaRequestStatus: undefined;
 
-  openDomainLinkingModal: { address: string };
+  openDomainLinkingModal: { address: string; isUnlinking?: boolean };
   startDomainLinking: undefined;
   checkDomainLinkingDraft: { nft: ApiNft };
   submitDomainLinking: { enclaveToken?: string } | undefined;

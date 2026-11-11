@@ -29,20 +29,40 @@ final class SegmentedControlInteractionView: UIView, UIGestureRecognizerDelegate
         title: String,
         accessibilityIdentifier: String? = nil,
         contextMenuProvider: SegmentedControlContextMenuProvider?,
+        hasControlContextMenu: Bool = false,
+        controlContextMenuAccessibilityLabel: String? = nil,
         segmentedControl: WSegmentedControl,
         allowsSimultaneousGlassInteraction: Bool = false,
         onSelect: @escaping @MainActor () -> Void
     ) {
-        self.onSelect = onSelect
+        let shouldOpenControlMenu = isSelected && hasControlContextMenu && contextMenuProvider == nil
+        if shouldOpenControlMenu {
+            self.onSelect = { [weak segmentedControl] in
+                _ = segmentedControl?.presentLongPressContextMenu()
+            }
+        } else {
+            self.onSelect = onSelect
+        }
         self.allowsSimultaneousGlassInteraction = allowsSimultaneousGlassInteraction
         self.accessibilityLabel = title
         self.accessibilityIdentifier = accessibilityIdentifier
         self.accessibilityTraits = isSelected ? [.button, .selected] : .button
-        self.updateSelectionTap(isSelected: isSelected)
+        if hasControlContextMenu, let controlContextMenuAccessibilityLabel {
+            self.accessibilityCustomActions = [UIAccessibilityCustomAction(
+                name: controlContextMenuAccessibilityLabel,
+                actionHandler: { [weak segmentedControl] _ in
+                    segmentedControl?.presentLongPressContextMenu() ?? false
+                }
+            )]
+        } else {
+            self.accessibilityCustomActions = nil
+        }
+        self.updateSelectionTap(isEnabled: !isSelected || shouldOpenControlMenu)
         self.updateContextMenuInteraction(
             isSelected: isSelected,
             itemId: itemId,
             contextMenuProvider: contextMenuProvider,
+            hasControlContextMenu: hasControlContextMenu,
             segmentedControl: segmentedControl
         )
     }
@@ -53,8 +73,8 @@ final class SegmentedControlInteractionView: UIView, UIGestureRecognizerDelegate
         return true
     }
 
-    private func updateSelectionTap(isSelected: Bool) {
-        if !isSelected {
+    private func updateSelectionTap(isEnabled: Bool) {
+        if isEnabled {
             if self.selectionTapGestureRecognizer == nil {
                 let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.handleSelectionTap))
                 gestureRecognizer.delegate = self
@@ -92,9 +112,13 @@ final class SegmentedControlInteractionView: UIView, UIGestureRecognizerDelegate
         isSelected: Bool,
         itemId: String,
         contextMenuProvider: SegmentedControlContextMenuProvider?,
+        hasControlContextMenu: Bool,
         segmentedControl: WSegmentedControl
     ) {
-        guard let contextMenuProvider else {
+        let menuTriggers: ContextMenuInteractionTriggers = hasControlContextMenu
+            ? (isSelected ? [.tap] : [])
+            : (isSelected ? [.tap, .longPress] : [.longPress])
+        guard let contextMenuProvider, !menuTriggers.isEmpty else {
             self.contextMenuInteraction?.detach()
             self.contextMenuInteraction = nil
             self.currentProvider = nil
@@ -102,7 +126,6 @@ final class SegmentedControlInteractionView: UIView, UIGestureRecognizerDelegate
             return
         }
 
-        let menuTriggers: ContextMenuInteractionTriggers = isSelected ? [.tap, .longPress] : [.longPress]
         let needsReattach =
             self.contextMenuInteraction == nil ||
             self.currentProvider !== contextMenuProvider ||

@@ -1,5 +1,5 @@
 import React, {
-  memo, useEffect, useMemo, useRef,
+  memo, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
@@ -8,6 +8,7 @@ import type {
 } from '../../api/agentV2/protocol/types';
 import type { AgentV2ComposerStatus } from '../../api/agentV2/types';
 import type { AgentMessage, AnimationLevel } from '../../global/types';
+import type { LangFn } from '../../hooks/useLang';
 import type {
   AgentConversationComposerHeightContext,
   AgentConversationComposerProps,
@@ -20,7 +21,9 @@ import type { AgentRunActivityType } from '../agent/AgentRunActivity';
 import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 import type { AgentThreadUnreadStart } from './agentThreadReadState';
 
-import { findAgentThreadFirstUnreadMessage } from './agentThreadReadState';
+import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
+import getCanAnimate from '../agent/helpers/getCanAnimate';
+import { findAgentThreadFirstUnreadMessage, getAgentThreadUnreadStart } from './agentThreadReadState';
 import { updateAgentV2InputBarSpacing } from './inputBarSpacing';
 import useRegenerationDissolve from './useRegenerationDissolve';
 
@@ -38,8 +41,8 @@ import AgentRunActivity, {
 import MessageBubble from '../agent/MessageBubble';
 import AgentNewsPost from './AgentNewsPost';
 import { AgentComposerStatus } from './AgentStatusNotice';
+import AgentSupportEventLine from './AgentSupportEventLine';
 import AgentV2Composer from './AgentV2Composer';
-import { AgentV2ConsentScreen } from './AgentV2Conversation';
 
 interface OwnProps {
   isActive: boolean;
@@ -53,6 +56,7 @@ interface OwnProps {
   initialThread?: AgentThreadSummaryV2;
   /** Where the messages the user has not seen start; the chat opens there, under the "New" line */
   unreadStart?: AgentThreadUnreadStart;
+  isUnreadStateUnknown?: boolean;
   /** Keeps the draft and the place in the conversation for the chat's next mount */
   session?: AgentConversationSessionStore;
   onInitialMessageSent?: (chatKey: number) => void;
@@ -71,6 +75,14 @@ interface OwnProps {
   onDelete?: (
     thread: AgentThreadSummaryV2 | undefined, cancelPendingRequests: () => Promise<string | undefined>,
   ) => void;
+  /** The user has allowed the Agent, as the chat list learns it */
+  hasConsent?: boolean;
+  /**
+   * Asks for the Agent's consent before `action`, which runs once the user allows it. A news discussion opened before
+   * consent sends, dictates and takes its suggestions through it; the `field` a question was sent from gets its focus
+   * back if the user closes the sheet, and `onDecline` runs then.
+   */
+  onRequestConsent?: (action: NoneToVoidFunction, field?: HTMLElement, onDecline?: NoneToVoidFunction) => void;
 }
 
 interface StateProps {
@@ -78,7 +90,10 @@ interface StateProps {
 }
 
 const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
+// A Stop while the Agent thinks keeps its indicator this long, while the top grows, is knocked and shrinks back
+const STOPPED_ACTIVITY_DURATION_MS = 1600;
 const WRITING_ACTIVITY_LANG_KEY = '$agent_activity_writing';
+const NO_MESSAGES: AgentMessage[] = [];
 // The limits whose status a request's failure stands for
 const STATUS_KIND_BY_ERROR_CODE: Partial<Record<AgentV2ErrorCode, AgentV2ComposerStatus['kind']>> = {
   agent_capacity_exhausted: 'capacity',
@@ -93,6 +108,7 @@ export function AgentV2Classic({
   initialMessage,
   initialThread,
   unreadStart,
+  isUnreadStateUnknown = false,
   session,
   animationLevel,
   onInitialMessageSent,
@@ -104,10 +120,12 @@ export function AgentV2Classic({
   onThreadNotFound,
   onAnswerChange,
   onDelete,
+  hasConsent,
+  onRequestConsent,
 }: OwnProps & StateProps) {
   const { switchToWallet } = getActions();
   const lang = useLang();
-  const requestLiveTailRef = useRef<NoneToVoidFunction>();
+  const requestLiveTailRef = useRef<AgentConversationMessageContext['onRequestLiveTail']>();
   const handleInitialMessageSent = useLastCallback(() => onInitialMessageSent?.(chatKey!));
   // Creation can resolve its original selection after this screen unmounts. Teact clears a component's refs on
   // unmount, and `useLastCallback` keeps its callback in a ref, so this callback is memoized instead.
@@ -122,10 +140,15 @@ export function AgentV2Classic({
     hints,
     activity,
     isInitialLoadComplete,
+    isHistoryCached,
+    isOpenedWithCachedHistory,
     hasPendingQuestion,
     isInputDisabled,
     isRunActive,
+    canStopRun,
+    stopRun,
     isConsentAccepted,
+    checkConsentAgain,
     textRevealPresentations,
     hasOlderMessages,
     isLoadingOlderMessages,
@@ -138,7 +161,6 @@ export function AgentV2Classic({
     cancelPendingRequests,
     reportProblem,
     rateMessage,
-    acceptConsent,
     composerStatus,
     retryMessage,
     isMessageRegenerable,
@@ -147,27 +169,44 @@ export function AgentV2Classic({
     activateAction,
     consumeTextRevealSession,
     settleTextRevealSession,
+    support,
+    canEditMessages,
   } = useAgentV2Messages({
-    isActive, lang, target, initialMessage,
+    isActive, lang, target, initialThread, initialMessage, hasConsent, isUnreadStateUnknown,
     onInitialMessageSent: handleInitialMessageSent, onThreadResolved: handleThreadResolved, onThreadNotFound,
   });
   const {
     messages, regeneratingMessageId, dissolvingMessageIds, markRegenerating, releaseMessages,
   } = useRegenerationDissolve(loadedMessages, isRunActive);
   const thread = loadedThread ?? initialThread;
+  // What the chat's list row says it holds, read once, so that its placeholder keeps one shape until the history comes
+  const [historyPlaceholderLayout] = useState(() => (initialThread ? {
+    messageCount: initialThread.messageCount, isNews: Boolean(initialThread.news),
+  } : undefined));
+  const isWithSupport = support?.state === 'waiting' || support?.state === 'operator';
+  // Once an operator has joined, every answer in the chat names its author, the agent's before it too, as in the design
+  const supportOperator = useMemo(() => findLatestOperator(messages), [messages]);
   const news = loadedNews ?? initialThread?.news;
   // The "New" line takes its place once the history loads and keeps it while the chat is open
   const firstUnreadRef = useRef<ReturnType<typeof findAgentThreadFirstUnreadMessage> | false>();
-  if (firstUnreadRef.current === undefined && unreadStart !== undefined && isInitialLoadComplete && loadedThread) {
-    firstUnreadRef.current = findAgentThreadFirstUnreadMessage(loadedMessages, loadedThread.messageCount, unreadStart)
-      ?? false;
+  // The device's copy of the history places no "New" line and is not the thread as loaded
+  const isUnreadStateReady = !isHistoryCached && (!isUnreadStateUnknown || (isInitialLoadComplete && !historyFailure));
+  if (firstUnreadRef.current === undefined && isInitialLoadComplete && loadedThread && isUnreadStateReady) {
+    const resolvedUnreadStart = isUnreadStateUnknown ? getAgentThreadUnreadStart(loadedThread) : unreadStart;
+    if (resolvedUnreadStart !== undefined) {
+      firstUnreadRef.current = findAgentThreadFirstUnreadMessage(
+        loadedMessages, loadedThread.messageCount, resolvedUnreadStart,
+      ) ?? false;
+    }
   }
   const firstUnread = firstUnreadRef.current || undefined;
   const firstOutgoingMessage = messages.find(({ isOutgoing }) => isOutgoing);
 
   const lastMessage = messages[messages.length - 1];
-  // Chats open once consent is given, so the composer waits at its place while the chat checks it, as on mobile
+  // Chats open once consent is given, so the composer waits at its place while the chat checks it, as on mobile. A news
+  // discussion opens before it, and asks for it before it sends, dictates or takes a suggestion.
   const isInputVisible = isConsentAccepted !== false;
+  const isAwaitingConsent = !hasConsent && Boolean(onRequestConsent);
   const visibleComposerStatus = isInputVisible ? composerStatus : undefined;
   // While a limit holds, no request can be retried, and the limit the latest request ran into tells its failure in
   // place of the failure's own caption
@@ -177,20 +216,50 @@ export function AgentV2Classic({
     : undefined;
   // Once the answer message exists, it hosts the run indicator in place of its bubble
   const isActivityInFooter = !lastMessage || lastMessage.isOutgoing;
+  // The indicator a Stop while the Agent thinks keeps for a moment at the chat's end, where it shows the Stop
+  const [stoppedActivity, setStoppedActivity] = useState<AgentRunActivityType>();
+  const stoppedActivityTimeoutRef = useRef<number>();
+  const handleStop = useLastCallback(() => {
+    // Before any of the answer has come, the Agent is still thinking
+    const isThinking = isRunActive && (!lastMessage || lastMessage.isOutgoing || !lastMessage.text);
+    if (isThinking && getCanAnimate()) {
+      setStoppedActivity(activity ?? ANALYZING_REQUEST_ACTIVITY);
+      window.clearTimeout(stoppedActivityTimeoutRef.current);
+      stoppedActivityTimeoutRef.current = window.setTimeout(
+        () => setStoppedActivity(undefined), STOPPED_ACTIVITY_DURATION_MS,
+      );
+    }
+    stopRun();
+  });
+  // A new run takes the chat's end at once
+  useEffect(() => {
+    if (!isRunActive) return;
+    window.clearTimeout(stoppedActivityTimeoutRef.current);
+    setStoppedActivity(undefined);
+  }, [isRunActive]);
+  useEffect(() => () => window.clearTimeout(stoppedActivityTimeoutRef.current), []);
   const answerLangKey = isRunActive
     ? (lastMessage?.isStreaming && !lastMessage.isOutgoing
       ? WRITING_ACTIVITY_LANG_KEY
       : getAgentRunActivityLangKey(activity ?? ANALYZING_REQUEST_ACTIVITY))
     : undefined;
   const loadedThreadId = loadedThread?.id;
+  const handleConsentDecline = useLastCallback(() => onBack?.());
+
+  // A chat other than a news discussion opens once the user allows the Agent: it asks at once, and closing the sheet
+  // leaves the chat, as on mobile
+  useEffect(() => {
+    if (!isActive || isConsentAccepted !== false) return;
+    onRequestConsent?.(checkConsentAgain, undefined, handleConsentDecline);
+  }, [checkConsentAgain, handleConsentDecline, isActive, isConsentAccepted, onRequestConsent]);
 
   useEffect(() => {
     if (loadedThreadId) onAnswerChange?.(loadedThreadId, answerLangKey);
   }, [answerLangKey, loadedThreadId, onAnswerChange]);
 
   useEffect(() => {
-    if (loadedThread) onThreadLoaded?.(loadedThread);
-  }, [loadedThread, onThreadLoaded]);
+    if (loadedThread && isUnreadStateReady) onThreadLoaded?.(loadedThread);
+  }, [isUnreadStateReady, loadedThread, onThreadLoaded]);
 
   const firstUnreadPosition = firstUnread?.position;
   useEffect(() => {
@@ -200,8 +269,13 @@ export function AgentV2Classic({
   }, [chatKey, firstUnreadPosition, onUnreadStartResolved, unreadStart]);
 
   const handleFollowup = useLastCallback((messageId: number, followup: AgentPublicFollowUpV2) => {
-    requestLiveTailRef.current?.();
-    sendFollowup(messageId, followup);
+    if (isAwaitingConsent) onRequestConsent(send);
+    else send();
+
+    function send() {
+      requestLiveTailRef.current?.(followup.id);
+      sendFollowup(messageId, followup);
+    }
   });
 
   // The answer and the messages after it turn to dust once the server takes the regeneration
@@ -223,14 +297,20 @@ export function AgentV2Classic({
     const isRegenerating = message.id === regeneratingMessageId;
     // Answering again needs the same free composer as a follow-up does
     const canRegenerate = !isInputDisabled && !isRunActive && isMessageRegenerable(message.id);
-    if (message.isNewsPost && news) {
+    if (message.supportEvent) {
+      return <AgentSupportEventLine key={message.id} event={message.supportEvent} timestamp={message.timestamp} />;
+    }
+    // A digest's discussion opens with the digest's post, which its thread describes
+    const digest = thread?.digest;
+    if (message.isNewsPost && (news || digest)) {
       return (
         <AgentNewsPost
           key={message.id}
-          news={news}
+          {...(news ? { news } : { digest: digest! })}
           message={message}
           isDisabled={isInputDisabled}
           shouldShowFollowups={isLatest && !isRunActive}
+          hasLoadFailed={Boolean(historyFailure)}
           shouldAnimateFollowups={context.shouldAnimateTextStreaming}
           onFollowup={handleFollowup}
           onFollowupsGrowthFrame={context.onTextRevealProgress}
@@ -245,20 +325,26 @@ export function AgentV2Classic({
         isDisabled={isInputDisabled}
         shouldAnimateTextStreaming={context.shouldAnimateTextStreaming}
         isLatest={isLatest}
-        areFollowupsHeld={isRunActive}
+        hasAuthor={Boolean(supportOperator)}
+        // A suggestion tapped while support has the chat would go to the operator, so none is offered then. The
+        // device's copy of the history left with a failure offers none either: the chat takes none until it loads.
+        areFollowupsHeld={isRunActive || isWithSupport || (isHistoryCached && Boolean(historyFailure))}
+        // The device's copy of the history shows its suggestions as the history does, out of reach until it loads
+        areFollowupsInactive={isHistoryCached}
         // The answer being answered again keeps its place until it turns to dust; the activity comes after it
         isRegenerating={isRegenerating}
         activity={isLatest && !isRegenerating ? activity : undefined}
         activityHandoff={activityHandoff}
         textRevealPresentation={context.textRevealPresentation}
         isJustAdded={context.isJustAdded}
-        onEdit={context.onEditMessage}
+        // Support reads every message as it was sent, so none is edited while support has the chat
+        onEdit={canEditMessages ? context.onEditMessage : undefined}
         onFollowup={handleFollowup}
         onAction={activateAction}
-        onRetry={message.isRetryAvailable && !isLimitHolding ? handleRegenerate : undefined}
+        onRetry={message.isRetryAvailable && !isLimitHolding && !isWithSupport ? handleRegenerate : undefined}
         noFailureCaption={message.id === statusFailedMessage?.id}
         onRegenerate={canRegenerate ? handleRegenerate : undefined}
-        onRate={rateMessage}
+        onRate={isHistoryCached ? undefined : rateMessage}
         onReport={context.onReportMessage}
         onTextRevealSessionConsumed={consumeTextRevealSession}
         onTextRevealSessionSettled={settleTextRevealSession}
@@ -322,15 +408,27 @@ export function AgentV2Classic({
       {...props}
       isActive={isActive}
       isDimmed={isLimitHolding}
+      placeholder={isWithSupport ? lang('$agent_support_placeholder') : undefined}
     />
   ));
+  // The device's copy of the history stands in for it only in a chat that opens at its end. One that opens at its first
+  // unread message, may do so as its list row is the device's copy too, or opens where it was left before it mounted
+  // again waits for the history, which alone places it there, and after a failed load shows the failure as without
+  // the copy.
+  const isCachedHistoryHidden = isHistoryCached
+    && (unreadStart !== undefined || isUnreadStateUnknown || Boolean(session?.initial));
   const conversation = useMemo(() => ({
-    messages,
+    messages: isCachedHistoryHidden ? NO_MESSAGES : messages,
     hints,
-    // A news discussion shows its post, and a new chat its question, while the server is still preparing the thread
-    isInitialLoadComplete: isInitialLoadComplete || isOpeningNews || hasPendingQuestion,
-    // A new chat has no history to wait for
-    hasHistoryPlaceholder: target?.kind === 'thread',
+    // A news discussion shows its post, a new chat its question, and a thread the device's copy of its history, while
+    // the server is still preparing them
+    isInitialLoadComplete: isInitialLoadComplete || isOpeningNews || hasPendingQuestion
+      || (isHistoryCached && !isCachedHistoryHidden),
+    hasOpeningQuestion: hasPendingQuestion,
+    // A new chat has no history to wait for, nor does a chat that opens with the history it had
+    hasHistoryPlaceholder: target?.kind === 'thread' && !isOpenedWithCachedHistory,
+    // The placeholder takes the shape of what the chat's list row says it holds
+    historyPlaceholderLayout,
     unreadMessageId: firstUnread?.messageId,
     loadFailure: historyFailure && { ...historyFailure, onRetry: retryHistory },
     isRunActive,
@@ -340,18 +438,25 @@ export function AgentV2Classic({
     onDissolveStart: handleDissolveStart,
     renderMessage,
   }), [
-    dissolvingMessageIds, firstUnread, handleDissolveStart, hasPendingQuestion, historyFailure, hints,
-    isInitialLoadComplete, isOpeningNews, isRunActive, isStatusDissolving, messages, renderMessage, retryHistory,
+    dissolvingMessageIds, firstUnread, handleDissolveStart, hasPendingQuestion, historyFailure,
+    historyPlaceholderLayout, hints, isCachedHistoryHidden, isHistoryCached, isInitialLoadComplete,
+    isOpenedWithCachedHistory, isOpeningNews, isRunActive, isStatusDissolving, messages, renderMessage, retryHistory,
     target, textRevealPresentations,
   ]);
   const composer = useMemo(() => ({
     isDisabled: isInputDisabled,
     shouldHide: !isInputVisible,
+    canStop: canStopRun,
+    onStop: handleStop,
     onSendMessage: sendMessage,
     onSendHint: sendHint,
     onHeightChange: handleComposerHeightChange,
+    onRequestConsent: isAwaitingConsent ? onRequestConsent : undefined,
     render: renderComposer,
-  }), [handleComposerHeightChange, isInputDisabled, isInputVisible, renderComposer, sendHint, sendMessage]);
+  }), [
+    canStopRun, handleComposerHeightChange, isAwaitingConsent, isInputDisabled, isInputVisible, onRequestConsent,
+    handleStop, renderComposer, sendHint, sendMessage,
+  ]);
   const history = useMemo<AgentConversationHistory>(() => ({
     hasOlderMessages,
     isLoading: isLoadingOlderMessages,
@@ -359,36 +464,47 @@ export function AgentV2Classic({
     loadOlderMessages,
   }), [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages]);
   const slots = useMemo(() => ({
-    body: isConsentAccepted === false
-      ? <AgentV2ConsentScreen onAccept={acceptConsent} />
-      : undefined,
     messageListFooter: chatStatus
       ?? (isActivityInFooter
-        ? <AgentRunActivity key="activity" activity={activity} handoff={activityHandoff} />
+        ? (
+          <AgentRunActivity
+            key="activity"
+            activity={stoppedActivity ?? activity}
+            isStopped={Boolean(stoppedActivity)}
+            handoff={activityHandoff}
+          />
+        )
         : undefined),
     bottomStickDependency: chatStatus ?? activity,
-  }), [acceptConsent, activity, activityHandoff, chatStatus, isActivityInFooter, isConsentAccepted]);
+  }), [activity, activityHandoff, chatStatus, isActivityInFooter, stoppedActivity]);
   // The server keeps a thread nameless until it holds a message; the question shows until then, as on mobile
   const isNamedThread = Boolean(thread?.messageCount);
   const firstQuestion = firstOutgoingMessage?.text ?? initialMessage ?? news?.headline;
   const hasMessages = messages.length > 0;
   // A chat whose thread is known or on its way has the menu
   const hasMenu = Boolean(target || thread) || hasMessages || isOpeningNews;
-  // The consent screen keeps the plain "Agent" header. Chats open once consent is given, so the chat's own header
-  // shows while the chat checks it.
+  // Chats open once consent is given, so the chat's own header shows while the chat checks it
   const header = useMemo<AgentConversationHeader | undefined>(() => (target ? {
-    // A known thread whose history has not loaded yet has a name that is not known yet either
-    // An empty name is no name, so the header keeps the question rather than going blank
-    title: isConsentAccepted === false ? lang('Agent') : ((isNamedThread ? thread?.title : undefined) || firstQuestion)
+    // A known thread whose history has not loaded yet has a name that is not known yet either.
+    // An empty name is no name, so the header keeps the question rather than going blank.
+    title: ((isNamedThread ? thread?.title : undefined) || firstQuestion)
       ?? (target.kind === 'thread' && !thread ? '' : lang('New Chat')),
-    icon: isConsentAccepted !== false && isNamedThread ? thread?.icon : undefined,
+    icon: isNamedThread ? thread?.icon : undefined,
+    subtitle: isWithSupport ? getSupportSubtitle(lang, support.state, supportOperator?.name) : undefined,
     hasBackButton: Boolean(onBack),
     hasMenu,
-  } : undefined), [firstQuestion, hasMenu, isConsentAccepted, isNamedThread, lang, onBack, target, thread]);
+  } : undefined), [
+    firstQuestion, hasMenu, isNamedThread, isWithSupport, lang, onBack, support, supportOperator, target, thread,
+  ]);
   const handleDelete = useLastCallback(() => {
     onDelete!(thread, cancelPendingRequests);
   });
-  const canDelete = Boolean(onDelete && hasMenu);
+  // A news discussion the user hasn't written in, before consent or after it, is left out of the chat list and has
+  // nothing to delete; a question sent here counts at once
+  const isUntouchedNews = Boolean(news || thread?.digest || target?.kind === 'digest'
+    || (target?.kind === 'thread' && target.isNews)) && !firstOutgoingMessage
+    && !(thread && getIsAgentV2ThreadStarted(thread));
+  const canDelete = Boolean(onDelete && hasMenu && !isUntouchedNews);
   const actions = useMemo(() => ({
     onBack: onBack ?? switchToWallet,
     onReportProblem: reportProblem,
@@ -407,6 +523,8 @@ export function AgentV2Classic({
       header={header}
       actions={actions}
       session={session}
+      // An operator answers in seconds or minutes, if at all, so the chat scrolls as a messenger does
+      noLiveTail={isWithSupport}
     />
   );
 }
@@ -424,4 +542,22 @@ function getIsFailure(message: AgentMessage | undefined) {
 function getStatusFailedMessage(lastMessage: AgentMessage | undefined, status: AgentV2ComposerStatus) {
   const code = lastMessage?.error?.code;
   return code && STATUS_KIND_BY_ERROR_CODE[code] === status.kind ? lastMessage : undefined;
+}
+
+function findLatestOperator(messages: AgentMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const { operator, supportEvent } = messages[index];
+    if (operator) return operator;
+    if (supportEvent?.code === 'operator_joined' && supportEvent.operatorName) {
+      return { name: supportEvent.operatorName };
+    }
+  }
+  return undefined;
+}
+
+function getSupportSubtitle(lang: LangFn, state: 'waiting' | 'operator' | 'closed', operatorName?: string): string {
+  if (state === 'operator' && operatorName) {
+    return lang('$agent_support_with_operator', { name: operatorName }) as string;
+  }
+  return state === 'operator' ? lang('$agent_support_label') : lang('$agent_support_waiting');
 }

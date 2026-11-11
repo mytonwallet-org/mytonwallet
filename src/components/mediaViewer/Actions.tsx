@@ -51,6 +51,7 @@ const SHOULD_CLOSE_VIEWER_HANDLERS: NftMenuHandler[] = [
   'collection',
   'select',
   'linkDomain',
+  'unlinkDomain',
 ];
 
 function Actions({

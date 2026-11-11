@@ -30,6 +30,14 @@ struct MarketSection: Hashable, Identifiable, Sendable {
         case largeHorizontal
         case grid
         case rows
+
+        init(_ layout: ApiMarketSectionLayout) {
+            self = switch layout {
+            case .largeHorizontal: .largeHorizontal
+            case .grid: .grid
+            case .rows: .rows
+            }
+        }
     }
 
     let id: String
@@ -50,9 +58,20 @@ struct MarketSection: Hashable, Identifiable, Sendable {
     }
 
     private func visibleLimit(columnCount: Int) -> Int? {
+        Self.visibleLimit(layout: layout, mobileLimit: mobileLimit, desktopLimit: desktopLimit, columnCount: columnCount)
+    }
+
+    /// Market and Futures previews share these limits; `nil` shows every item.
+    static func visibleLimit(layout: Layout, mobileLimit: Int?, desktopLimit: Int?, columnCount: Int) -> Int? {
         guard layout == .grid else { return mobileLimit }
         let limit = columnCount > 4 ? desktopLimit ?? mobileLimit : mobileLimit ?? desktopLimit
         return min(limit ?? columnCount * 2, columnCount * 2)
+    }
+
+    /// Backend limits, where zero or a negative value means no limit.
+    static func limits<Asset>(of section: ApiMarketSection<Asset>) -> (mobile: Int?, desktop: Int?) {
+        ((section.mobileLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil },
+         (section.desktopLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil })
     }
 }
 
@@ -236,18 +255,14 @@ enum MarketSectionBuilder {
             }
             guard !tokens.isEmpty else { return nil }
 
-            let layout: MarketSection.Layout = switch section.layout {
-            case .largeHorizontal: .largeHorizontal
-            case .grid: .grid
-            case .rows: .rows
-            }
+            let limits = MarketSection.limits(of: section)
             return MarketSection(
                 id: section.id,
                 title: section.title,
-                layout: layout,
+                layout: .init(section.layout),
                 tokens: tokens,
-                mobileLimit: (section.mobileLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil },
-                desktopLimit: (section.desktopLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil },
+                mobileLimit: limits.mobile,
+                desktopLimit: limits.desktop,
                 hasMore: section.hasMore
             )
         }

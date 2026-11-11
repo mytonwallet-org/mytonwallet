@@ -10,6 +10,7 @@ import androidx.core.view.isInvisible
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
@@ -44,16 +45,19 @@ class ExploreCategoryCell(
     private val img3Ripple = WRippleDrawable.create(18f.dp)
 
     private val img1 = WCustomImageView(context).apply {
+        id = UIComponentsR.id.explore_site_icon_1
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
         background = img1Ripple
     }
     private val img2 = WCustomImageView(context).apply {
+        id = UIComponentsR.id.explore_site_icon_2
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
         background = img2Ripple
     }
     private val img3 = WCustomImageView(context).apply {
+        id = UIComponentsR.id.explore_site_icon_3
         defaultRounding = Content.Rounding.Radius(18f.dp)
         setPadding(imagesPadding.dp)
         background = img3Ripple
@@ -73,6 +77,7 @@ class ExploreCategoryCell(
     private val imageSize = (cellWidth - 54.dp) / 2 + 2 * imagesPadding.dp
 
     private val otherSitesView = WView(context).apply {
+        id = UIComponentsR.id.explore_other_sites
         val smallImageSize = ((imageSize - 2 * imagesPadding.dp - 12f.dp) / 2).roundToInt()
         addView(otherImg1, ViewGroup.LayoutParams(smallImageSize, smallImageSize))
         addView(otherImg2, ViewGroup.LayoutParams(smallImageSize, smallImageSize))

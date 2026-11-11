@@ -97,6 +97,16 @@ to own the native replace/restore lifecycle. It does not install a second zoom
 transition. Backdrop and source-portal rendering remain specific to the overlay
 fallback because UIKit owns the popover's chrome and presentation.
 
+Set `ContextMenuConfiguration.popoverDisablesInteractiveDismissal` to `true` to
+keep the popover anchored without replacing this transition. The host enables
+`isModalInPresentation` and adds a transparent outside control beneath the popup
+in its presentation container. Only that control is registered in
+`passthroughViews`, allowing outside taps to invoke native dismissal while
+shielding the presenting screen. Content scrolling, row actions and VoiceOver
+Escape remain available. Cleanup removes the control and restores the previous
+passthrough views. This option
+defaults to `false` and does not affect overlay or sheet presentations.
+
 Set `ContextMenuConfiguration.popoverVerticalAlignment` to `.sourceTop` to align
 the popover's top edge with its source when the menu fits below it. UIKit keeps
 its automatic placement when there is insufficient space. The default is
@@ -149,6 +159,17 @@ ContextMenuPage(items: [
 Use `allowsContentInteraction` when the row has a default selection action but also contains an independent `UIControl`, such as an explorer accessory button.
 Use the `.submenu` interaction instead when a custom row should navigate to another `ContextMenuPage` while preserving independent controls.
 
+An action's `animatedIcon` replaces its icon image with a view conforming to `ContextMenuAnimatedIconView`, made when the row is. The image still sizes and places the icon, and the view gets `playHighlightAnimation()` each time its row becomes highlighted, whether by a tap, a finger sliding across the menu or one dragged on from the source. A provider that returns nil keeps the image:
+
+```swift
+ContextMenuAction(
+    title: "Wallet",
+    icon: .image(walletImage),
+    handler: openWallet,
+    animatedIcon: { reducesMotion ? nil : WalletIconAnimationView() }
+)
+```
+
 For portal-backed source cloning, provide `ContextMenuSourcePortal`:
 
 ```swift
@@ -167,7 +188,7 @@ By default, portal-backed menus keep the backdrop continuous and render only the
 
 If the visible source shape is not just a simple rounded rect, `mask` also supports `.customAttachmentPath { rect in ... }` so the portal clone and backdrop cutout can use the exact same shape.
 
-An overlay menu can show an accessory over its source's top edge, such as a row of reactions. The accessory is placed by the offset of its top trailing corner from the source's top trailing corner and kept inside the screen; the panel attaches clear of the source and the accessory whatever `verticalPlacementBehavior` says, and when neither side has room, as for a source taller than the screen, it overlaps the source at the bottom. The menu panel's material fills `backgroundCapsules`, merging the ones that overlap into one shape, the content view handles its own taps, and taps inside the accessory never dismiss the menu. Right-to-left layouts mirror the placement and the capsules:
+An overlay menu can show an accessory over its source's top edge, such as a row of reactions. The accessory is placed by the offset of its top trailing corner from the source's top trailing corner and kept inside the screen; the panel attaches clear of the source and the accessory whatever `verticalPlacementBehavior` says, and when neither side has room, as for a source taller than the screen, it overlaps the source at the bottom. The menu panel's material fills `backgroundCapsules`, merging the ones that overlap into one shape, with the panel's tint unless `glassTint` sets another and, before native glass, the panel's shadow; the content view handles its own taps, and taps inside the accessory never dismiss the menu. Right-to-left layouts mirror the placement and the capsules:
 
 ```swift
 ContextMenuConfiguration(
@@ -185,7 +206,9 @@ ContextMenuConfiguration(
 )
 ```
 
-A portal-backed overlay menu can move its source into view, as Telegram moves a message for its menu. With `sourceRelocation`, the portal replica stands in for the hidden source and, together with the accessory and the panel hanging below it, fits between the safe area's edges inset by `topInset` and `bottomInset`, moving no further than it must on Telegram's spring. A replica and panel taller than that scroll, opening at the panel. `contentAreaInWindow` clips the replica to where the source shows under the screen's bars as the menu opens and closes:
+A thought bubble keeps its `tail` capsules at the source's corner while the rest slides inward to stay `screenInset` from the safe area's sides; a tail that would then come nearer the sides than its `edgeSpacing`, or leave the capsule it hangs from, goes with the rest instead. Its `.thoughtBubble` motion pops the tail in from its smallest capsule, grows the rest out of a circle at its trailing end and shrinks it back toward the tail as the menu closes, fading instead with Reduce Motion. A content view that conforms to `ContextMenuAccessoryAnimating` gets the motion's timing to show its parts as the growing capsule reaches them, and `context.dismiss(completion:)` reports when the menu is gone. `context.getSourceFrameOnScreen(_:)` tells where a part of the source shows on screen at the moment, on its replica wherever the replica moves, for something to fly to it as the menu closes. With native glass, the capsule that holds the content is drawn over the tail, which is its background. An accessory's `shadow` fades out while a finger is on interactive glass, which swells and stretches toward the finger away from where the shadow is cut out for it, and comes back once the glass settles.
+
+A portal-backed overlay menu can move its source into view, as Telegram moves a message for its menu. With `sourceRelocation`, the portal replica stands in for the hidden source and, together with the accessory and the panel hanging below it, fits between the safe area's edges inset by `topInset` and `bottomInset`, moving no further than it must on Telegram's spring. A replica and panel taller than that scroll, opening at the panel, while the accessory stays in reach: it rides over the replica but never goes above the top limit, so the replica scrolls under it. `contentAreaInWindow` clips the replica to where the source shows under the screen's bars as the menu opens and closes. Until the menu's backdrop covers the bars, the bars keep showing the parts of the source under them: the source itself when its replica stays on it, or a copy of those parts that moves with the replica when the replica moves, so the bars never show the source where the replica has left it, and which leaves the content area clear even where the source draws beyond its bounds. Like the replica, the copy is a portal of the source, so it shows the source as the replica does all the way, the press's squeeze letting go included:
 
 ```swift
 ContextMenuConfiguration(

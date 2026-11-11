@@ -5,6 +5,9 @@ import WalletContext
 /// A chat screen whose composer the Agent list's question field turns into during a push or pop
 @MainActor
 public protocol AgentComposerHandoffTarget: AnyObject {
+    /// The screen's composer rides the keyboard. Going back to the list, it stays with the screen, above the keyboard
+    /// that leaves with it, as Telegram's input panel does, and the list's field doesn't stand in for it.
+    var isComposerOnKeyboard: Bool { get }
     /// Hides the screen's own composer while the list's field stands in for it
     func setComposerHandoffHidden(_ isHidden: Bool)
     /// Where the composer's field rests, in `window`'s coordinates, for the list's field to land on
@@ -12,6 +15,7 @@ public protocol AgentComposerHandoffTarget: AnyObject {
 }
 
 public extension AgentComposerHandoffTarget {
+    var isComposerOnKeyboard: Bool { false }
     func getComposerHandoffFrame(in window: UIWindow) -> CGRect? { nil }
 }
 
@@ -55,6 +59,22 @@ public final class AgentListBottomBar: UIView {
     public var onMorphFrame: ((CGFloat) -> Void)?
     /// The field grew or shrank with its text; it grows upward, past the bar's top
     var onFieldHeightChange: (() -> Void)?
+    /// `hasQuestion` changed. It comes once the changes of a moment are in, so a recognized recording that turns into
+    /// its transcript doesn't report a moment without a question.
+    public var onQuestionChange: (() -> Void)?
+
+    /// The field holds a question, being recorded or recognized or as text. The host keeps the field wide over the
+    /// search circle's place meanwhile, the circle away past the leading edge, as Telegram's attachment button leaves
+    /// while a voice message records. A touch on the microphone moves nothing until it is a tap or a hold.
+    public var hasQuestion: Bool { composerView.showsQuestion }
+    private var reportedHasQuestion = false
+    private var isQuestionReportScheduled = false
+
+    /// Telegram's input panel transition, 0.4 s on its list curve, for the search circle and the field to move for a
+    /// question
+    public static func makeQuestionAnimator() -> UIViewPropertyAnimator {
+        UIViewPropertyAnimator(duration: 0.4, timingParameters: AgentComposerMetrics.makeTelegramCubicTiming())
+    }
 
     /// The field's height; a field taller than the bar reaches above it
     public var fieldHeight: CGFloat { max(Self.height, composerView.inputHeight) }
@@ -112,7 +132,9 @@ public final class AgentListBottomBar: UIView {
         composerView.onDraftTextChanged = { [weak self] in
             guard let self else { return }
             composerView.setSendEnabled(!draftText.isEmpty)
+            scheduleQuestionReport()
         }
+        composerView.onDictationPhaseChanged = { [weak self] in self?.scheduleQuestionReport() }
         composerView.onSend = { [weak self] in self?.send() }
         composerView.onBeginEditing = { [weak self] in
             self?.onEditingChange?(true)
@@ -150,6 +172,7 @@ public final class AgentListBottomBar: UIView {
         // Hosted glass takes its touches in the host's container
         guard glassHost == nil, morphProgress > 0.99 else { return false }
         return composerView.frame.insetBy(dx: 0, dy: -6).contains(point)
+            || composerView.point(inside: convert(point, to: composerView), with: event)
     }
 
     public override func didMoveToWindow() {
@@ -208,6 +231,19 @@ public final class AgentListBottomBar: UIView {
     func clearDraft() {
         composerView.clearDraft()
         composerView.setSendEnabled(false)
+        scheduleQuestionReport()
+    }
+
+    private func scheduleQuestionReport() {
+        guard !isQuestionReportScheduled else { return }
+        isQuestionReportScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            isQuestionReportScheduled = false
+            guard hasQuestion != reportedHasQuestion else { return }
+            reportedHasQuestion = hasQuestion
+            onQuestionChange?()
+        }
     }
 
     public func resignEditing() {

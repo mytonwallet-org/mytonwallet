@@ -1,0 +1,59 @@
+// The field's text box over the field, in the chat's motion layer, which a sent question's bubble comes out of. It is
+// out of sight until the flight, and clips the text as the field did.
+.picture {
+  will-change: transform, opacity;
+  position: absolute;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.pictureFlying {
+  visibility: visible;
+}
+
+// The text keeps the field's lines
+.pictureLines {
+  margin: 0;
+  padding: 0;
+}
+
+// The flight over the layer, whose height clips it from below, rising from the layer's bottom to the list's
+.flight {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  overflow: hidden;
+
+  width: 100%;
+}
+
+// The bubble's body, growing from the field's box, with its tail hanging off its end
+.flightBubble {
+  will-change: transform, opacity;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.flightTail {
+  position: absolute;
+  bottom: 0;
+
+  mask-repeat: no-repeat;
+
+  mask-size: 100% 100%;
+}
+
+// The bubble's text, in its own lines, which the field's text gives way to
+.flightText {
+  will-change: transform, opacity;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  margin: 0;
+}

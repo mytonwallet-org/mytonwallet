@@ -83,6 +83,12 @@ $imageGapSize: 0.75rem;
   margin-inline-end: $imageGapSize;
   border-radius: var(--border-radius-normal);
 
+  box-shadow: 0 0 0 0.03rem var(--color-separator);
+
+  @media (max-resolution: 1dppx) {
+    box-shadow: 0 0 0 0.045rem var(--color-separator);
+  }
+
   .item.embedded & {
     margin-inline-end: 0.625rem;
   }

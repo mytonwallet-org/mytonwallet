@@ -72,6 +72,93 @@ describe('InfiniteScroll', () => {
     expect(onLoadMore).toHaveBeenCalledWith({ direction: LoadMoreDirection.Forwards });
   });
 
+  it('asks the list whether it is near the top of its items in place of measuring the sensitive area', async () => {
+    const onLoadMore = jest.fn();
+    let isNearTop = true;
+    const getIsNearTop = jest.fn(() => isNearTop);
+
+    TeactDOM.render(
+      <InfiniteScroll
+        items={[1, 2]}
+        itemSelector=".test-item"
+        loadMoreStrategy="scrollDirection"
+        preloadBackwards={0}
+        sensitiveArea={800}
+        getIsNearTop={getIsNearTop}
+        onLoadMore={onLoadMore}
+      >
+        <div className="test-item">First</div>
+        <div className="test-item">Last</div>
+      </InfiniteScroll>,
+      root,
+    );
+    await Promise.resolve();
+
+    const container = root.firstElementChild as HTMLDivElement;
+    const [firstItem, lastItem] = Array.from(container.querySelectorAll<HTMLElement>('.test-item'));
+    Object.defineProperties(container, {
+      scrollTop: { configurable: true, writable: true, value: 2000 },
+      scrollHeight: { configurable: true, value: 4000 },
+      offsetHeight: { configurable: true, value: 900 },
+    });
+    mockItemGeometry(firstItem, () => 100, container);
+    mockItemGeometry(lastItem, () => 3900, container);
+    dispatchScroll(container);
+    await resetDebounce();
+
+    // Far beyond the sensitive area
+    container.scrollTop = 1900;
+    dispatchScroll(container);
+
+    expect(getIsNearTop).toHaveBeenLastCalledWith(container);
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+    expect(onLoadMore).toHaveBeenCalledWith({ direction: LoadMoreDirection.Forwards });
+    await resetDebounce();
+
+    // Within the sensitive area
+    isNearTop = false;
+    container.scrollTop = 300;
+    dispatchScroll(container);
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the items where a scroll in the same frame left them, before its scroll event', async () => {
+    const renderList = (items: number[]) => TeactDOM.render(
+      <InfiniteScroll
+        items={items}
+        itemSelector=".test-item"
+        preloadBackwards={0}
+        onLoadMore={jest.fn()}
+      >
+        <div className="test-item">First</div>
+        <div className="test-item">Last</div>
+      </InfiniteScroll>,
+      root,
+    );
+
+    renderList([1, 2]);
+    await Promise.resolve();
+
+    const container = root.firstElementChild as HTMLDivElement;
+    const [firstItem, lastItem] = Array.from(container.querySelectorAll<HTMLElement>('.test-item'));
+    Object.defineProperties(container, {
+      scrollTop: { configurable: true, writable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 3000 },
+      offsetHeight: { configurable: true, value: 900 },
+    });
+    mockItemGeometry(firstItem, () => 100, container);
+    mockItemGeometry(lastItem, () => 2900, container);
+    dispatchScroll(container);
+
+    // A scroll's last step, whose event comes with the next frame, and an item added under the others in this one
+    container.scrollTop = 130;
+    renderList([1, 2, 3]);
+    await flushFasterdom();
+
+    expect(container.scrollTop).toBe(130);
+  });
+
   it.each([
     ['forwards restoration events when pagination follows scroll direction', 'scrollDirection', 1],
     ['keeps restoration events private when pagination follows anchor movement', 'anchorMovement', 0],

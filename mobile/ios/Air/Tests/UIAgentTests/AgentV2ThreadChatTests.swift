@@ -1,3 +1,5 @@
+import ContextMenuKit
+import Dependencies
 import XCTest
 import UIKit
 import Kingfisher
@@ -284,15 +286,18 @@ final class AgentV2ThreadChatTests: XCTestCase {
         let lowest = try XCTUnwrap(bubbles.first)
         XCTAssertEqual(lowest.frame.maxY, 700)
         XCTAssertEqual(lowest.frame.width, (402 * 0.86).rounded())
-        XCTAssertEqual(lowest.frame.height, 184 + AgentBubbleBackgroundView.tailBottomOverflow)
+        // The Agent's answers run several paragraphs and the user's questions a line or two
+        let heights: [CGFloat] = [248, 56, 216, 40, 264, 56, 232, 40]
+        let widthFractions: [CGFloat] = [0.86, 0.56, 0.92, 0.44, 0.80, 0.60, 0.86, 0.48]
+        XCTAssertGreaterThanOrEqual(bubbles.count, 5)
         // From the bottom, the Agent's bubbles and the user's take turns, each at its side with the chat's insets
         for (index, bubble) in bubbles.enumerated() {
+            XCTAssertEqual(bubble.frame.height, heights[index] + AgentBubbleBackgroundView.tailBottomOverflow)
             if index.isMultiple(of: 2) {
-                XCTAssertEqual(bubble.frame.height, 184 + AgentBubbleBackgroundView.tailBottomOverflow)
                 XCTAssertEqual(bubble.frame.minX, AgentMessageCellMetrics.horizontalInset)
                 XCTAssertLessThanOrEqual(bubble.frame.maxX, 402 - AgentMessageCellMetrics.incomingTrailingInset)
             } else {
-                XCTAssertEqual(bubble.frame.height, 120 + AgentBubbleBackgroundView.tailBottomOverflow)
+                XCTAssertEqual(bubble.frame.width, (402 * widthFractions[index]).rounded())
                 XCTAssertEqual(bubble.frame.maxX, 402 - AgentMessageCellMetrics.horizontalInset)
                 XCTAssertGreaterThanOrEqual(bubble.frame.minX, AgentMessageCellMetrics.outgoingOppositeInset)
             }
@@ -735,7 +740,6 @@ final class AgentV2ThreadChatTests: XCTestCase {
             client.releasePendingRequests()
         }
         let cell = try await waitForLandedNewsPost(in: chat, of: model, card: card, window: window)
-        XCTAssertEqual(cell.postTailOverflow, 0, "The loading suggestions already join the post")
 
         client.resumeNewsCreation(with: .success(response))
         var buttons: [AgentSuggestionButton] = []
@@ -824,7 +828,15 @@ final class AgentV2ThreadChatTests: XCTestCase {
             window.layoutIfNeeded()
             return client.pendingNewsCreation != nil && chat.hasPerformedInitialScroll
         }
-        try await Task.sleep(for: .milliseconds(300))
+        // The placeholders come once the suggestions have taken a second, and settle as they come in
+        var postCell: AgentNewsPostCell?
+        for _ in 0..<300 where postCell?.showsFollowupPlaceholders != true {
+            try await Task.sleep(for: .milliseconds(10))
+            window.layoutIfNeeded()
+            postCell = descendants(of: chat.view).compactMap { $0 as? AgentNewsPostCell }.first
+        }
+        XCTAssertEqual(postCell?.showsFollowupPlaceholders, true)
+        try await Task.sleep(for: .milliseconds(700))
         window.layoutIfNeeded()
         let loading = try XCTUnwrap(descendants(of: chat.view).compactMap { $0 as? AgentFollowupView }.first)
         XCTAssertEqual(loading.arrangedSubviews.count, 3)
@@ -837,13 +849,13 @@ final class AgentV2ThreadChatTests: XCTestCase {
             window.layoutIfNeeded()
             offsets.append(loading.convert(loading.bounds, to: window).minY)
             hasAnimatedButton = hasAnimatedButton || descendants(of: chat.view)
-                .compactMap { $0 as? AgentSuggestionButton }
-                .contains { $0.layer.animation(forKey: "loadingReveal") != nil }
+                .compactMap { $0 as? AgentFollowupView }
+                .contains { $0.isFillingPlaceholders }
         }
         let end = try XCTUnwrap(offsets.last)
         XCTAssertEqual(model.message(for: try XCTUnwrap(model.newsPostItemID))?.controls.count, 3)
         XCTAssertLessThan(abs(end - before), 1, "Replacing equal-height placeholders keeps the visible suggestions in place")
-        XCTAssertTrue(hasAnimatedButton, "The placeholders fade into the real suggestions")
+        XCTAssertTrue(hasAnimatedButton, "The real suggestions fill the placeholders' pills")
     }
 
     @MainActor
@@ -916,8 +928,103 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertTrue(client.startedCommands.isEmpty)
         XCTAssertTrue(client.hydratedThreadIds.isEmpty)
         XCTAssertTrue(model.canDeleteChat)
-        let menuButton = try XCTUnwrap(AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem))
-        XCTAssertTrue(menuButton.isEnabled)
+        // Untouched, the discussion has no Delete; with consent its menu has Report a Problem from the start
+        try await waitUntil { AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem) != nil }
+    }
+
+    /// A news discussion the user hasn't written in has no Delete, after consent as well: its menu has Report a Problem
+    /// alone, and its menu button shows for it
+    @MainActor
+    func testUntouchedNewsDiscussionOffersOnlyAProblemReport() async throws {
+        let response = try newsResponse(headline: newsItem().headline, messageCount: 1)
+        let client = try ThreadChatClient(threadId: "news-thread", news: response.thread.news)
+        client.isProblemReportAvailable = true
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        XCTAssertFalse(model.isStarted)
+        let chat = AgentVC(model: model)
+        let navigation = UINavigationController(rootViewController: chat)
+        let window = makeKeyWindow(showing: navigation)
+        defer {
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        try await waitUntil { AgentChatNavigation.findButton(in: chat.navigationItem.rightBarButtonItem) != nil }
+        let actions = AgentChatActions(model: model, viewController: chat, cancelDictation: {}, refreshNavigationItemMenu: {})
+        XCTAssertFalse(actions.canDeleteChat)
+        XCTAssertEqual(actions.makeOverflowMenu().children.compactMap { ($0 as? UIAction)?.title }, [lang("Report a Problem")])
+    }
+
+    /// With consent, a news discussion offers Report a Problem from the start, while its thread is still being created
+    /// and before the server's check has answered; a report sent then goes once the thread is there, and once
+    @MainActor
+    func testNewsDiscussionOffersAProblemReportBeforeItsThreadAndSendsItOnceItIsThere() async throws {
+        let item = newsItem()
+        let response = try newsResponse(headline: item.headline, messageCount: 1)
+        let client = try ThreadChatClient(threadId: "news-thread", news: response.thread.news)
+        client.blocksNewsCreation = true
+        client.isProblemReportAvailable = true
+        let model = AgentV2Model(client: client, news: item, locale: "en") { _ in }
+        let controller = AgentVC(model: model)
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigation)
+        defer {
+            model.stop()
+            client.releasePendingRequests()
+            window.isHidden = true
+            navigation.setViewControllers([], animated: false)
+        }
+        try await waitUntil { client.pendingNewsCreation != nil }
+        try await waitUntil { model.canReportProblem }
+        XCTAssertEqual(client.problemReportAvailabilityRequestCount, 0, "Before the server's check")
+        try await waitUntil { AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem) != nil }
+        let actions = AgentChatActions(model: model, viewController: controller, cancelDictation: {}, refreshNavigationItemMenu: {})
+        XCTAssertEqual(actions.makeOverflowMenu().children.compactMap { ($0 as? UIAction)?.title }, [lang("Report a Problem")])
+
+        let report = Task { await model.reportProblem(messageID: nil, comment: "Wrong summary") }
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(client.reports.isEmpty, "Held until the thread is there")
+        client.resumeNewsCreation(with: .success(response))
+        let isSent = await report.value
+        XCTAssertTrue(isSent)
+        XCTAssertEqual(client.reports.map(\.threadId), [response.thread.id], "Sent once, to the thread")
+        XCTAssertEqual(client.reports.first?.report.comment, "Wrong summary")
+    }
+
+    /// With the consent the app already knows, a news discussion's ⋯ is in its header from the start, before the chat
+    /// appears, its thread exists or its consent is read again
+    @MainActor
+    func testNewsDiscussionHasItsMenuButtonBeforeItAppears() throws {
+        let item = newsItem()
+        let response = try newsResponse(headline: item.headline, messageCount: 1)
+        let client = try ThreadChatClient(threadId: "news-thread", news: response.thread.news)
+        client.blocksNewsCreation = true
+        client.isConsentKnownGiven = true
+        let model = AgentV2Model(client: client, news: item, locale: "en") { _ in }
+        defer {
+            model.stop()
+            client.releasePendingRequests()
+        }
+        let controller = AgentVC(model: model)
+        controller.loadViewIfNeeded()
+        XCTAssertNotNil(AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem))
+        XCTAssertTrue(model.canReportProblem)
+    }
+
+    /// The server's check saying it takes no reports takes Report a Problem away, which shows until then
+    @MainActor
+    func testServerTakingNoReportsTakesTheProblemReportAway() async throws {
+        let response = try newsResponse(headline: newsItem().headline, messageCount: 1)
+        let client = try ThreadChatClient(threadId: "news-thread", news: response.thread.news)
+        client.isProblemReportAvailable = false
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        try await waitUntil { client.problemReportAvailabilityRequestCount > 0 && !model.canReportProblem }
+        let isSent = await model.reportProblem(messageID: nil, comment: nil)
+        XCTAssertFalse(isSent)
+        XCTAssertTrue(client.reports.isEmpty)
     }
 
     @MainActor
@@ -1347,45 +1454,219 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertTrue(client.startedCommands.isEmpty)
     }
 
+    /// Before consent a news discussion opens as it does after: its thread is created at once, with the post and its
+    /// suggestions, without asking. Its first message asks in the consent sheet: closing it sends nothing and keeps the
+    /// message; Allow records consent and sends the message there, and later messages don't ask.
     @MainActor
-    func testNewsConsentContinuesInTheSameChatWithoutStartingARun() async throws {
+    func testNewsDiscussionOpensBeforeConsentAndAsksAtTheFirstMessage() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let response = try newsResponse(headline: newsItem().headline, messageCount: 0)
         let client = try ThreadChatClient(threadId: "news-thread", messages: [], news: response.thread.news)
         client.hasConsent = false
         client.blocksNewsCreation = true
+        client.blocksRuns = true
         let preloader = AgentPreloader(client: client)
         let item = newsItem(imageUrl: nil)
-        let controller = AgentEntryPoint.makeNewsChatViewController(item: item, locale: "en", preloader: preloader) { _ in }
+        let controller = try XCTUnwrap(
+            AgentEntryPoint.makeNewsChatViewController(item: item, locale: "en", preloader: preloader) { _ in } as? AgentVC
+        )
         let model = preloader.acquireNewsModel(item: item, locale: "en") { _ in }
         let navigation = UINavigationController(rootViewController: controller)
-        controller.loadViewIfNeeded()
+        let window = makeKeyWindow(showing: navigation)
         defer {
+            window.isHidden = true
             navigation.setViewControllers([], animated: false)
             preloader.setWalletReady(false)
             client.releasePendingRequests()
         }
         let postID = try XCTUnwrap(model.newsPostItemID)
-        try await waitUntil { self.descendants(of: controller.view).contains { $0 is AgentConsentView } }
-        let consent = try XCTUnwrap(descendants(of: controller.view).compactMap { $0 as? AgentConsentView }.first)
-        XCTAssertTrue(model.needsOpeningConsent)
-        XCTAssertEqual(client.consentCallCount, 1)
-        XCTAssertEqual(client.newsThreadCreateCallCount, 0)
-        XCTAssertTrue(typingIndicatorIDs(in: model).isEmpty)
-
-        consent.onContinue?()
-        consent.onContinue?()
         try await waitUntil { client.pendingNewsCreation != nil }
+        XCTAssertEqual(client.newsThreadRequests.count, 1, "The thread comes at once, before consent")
         client.resumeNewsCreation(with: .success(response))
         await model.waitForInitialLoad()
+        try await waitUntil { model.canSendMessage(draftText: "Why does it matter?") }
+        XCTAssertTrue(model.needsConsentToSend)
+        XCTAssertTrue(presentation.presentedSheets.isEmpty, "The discussion opens without asking")
+        XCTAssertNotNil(model.message(for: postID), "With its post")
+        let actions = AgentChatActions(model: model, viewController: controller, cancelDictation: {}, refreshNavigationItemMenu: {})
+        XCTAssertTrue(actions.makeOverflowMenu().children.isEmpty, "Untouched and before consent, its menu has nothing")
+        XCTAssertNil(AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem), "So it has no menu button")
 
-        XCTAssertTrue(navigation.topViewController === controller)
-        XCTAssertTrue(model.delegate === controller)
-        XCTAssertTrue(preloader.model(threadId: "news-thread") === model)
-        XCTAssertEqual(model.newsPostItemID, postID)
-        XCTAssertEqual(client.acceptConsentCallCount, 1)
-        XCTAssertEqual(client.newsThreadRequests.count, 1)
+        let composer = controller.composerView
+        composer.setDraftText("Why does it matter?", focus: false)
+        composer.onSend?()
+        let closed = try await waitForConsentSheet(over: controller, in: self)
+        XCTAssertTrue(closed.accessibilityPerformEscape())
+        try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+        XCTAssertEqual(composer.draftText, "Why does it matter?", "Closing the sheet keeps the message")
         XCTAssertTrue(client.startedCommands.isEmpty)
-        XCTAssertTrue(model.canSendMessage(draftText: "A follow-up question"))
+
+        composer.onSend?()
+        let consent = try await waitForConsentSheet(over: controller, in: self).consentView
+        consent.onContinue?()
+        consent.onContinue?()
+        try await waitUntil { client.startedCommands.count == 1 }
+        try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+        XCTAssertEqual(client.startedCommands.count, 1, "Allow sends the message once")
+        XCTAssertEqual(presentation.presentedSheets.count, 2)
+        XCTAssertEqual(client.acceptConsentCallCount, 1)
+        XCTAssertFalse(model.needsConsentToSend)
+        XCTAssertTrue(composer.draftText?.isEmpty != false, "The message leaves the field")
+        XCTAssertEqual(client.newsThreadRequests.count, 1)
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Why does it matter?")])
+        XCTAssertEqual(client.startedCommands.map(\.entryPoint), [nil])
+        // Written in, the discussion can be deleted, and its menu button comes without reopening it
+        XCTAssertTrue(model.isStarted)
+        try await waitUntil { AgentChatNavigation.findButton(in: controller.navigationItem.rightBarButtonItem) != nil }
+        XCTAssertTrue(actions.makeOverflowMenu().children.contains { ($0 as? UIAction)?.title == lang("Delete Chat") })
+    }
+
+    /// While a news discussion's consent read hasn't answered, under way or failed, the microphone doesn't record: the
+    /// prompt reads the consent again, records hands-free at once when it is given, and asks in the sheet otherwise,
+    /// where closing records nothing and Allow records. With the consent known, it records at once, as a chat does.
+    @MainActor
+    func testRecordingWaitsForAnUnansweredConsentReadInANewsDiscussion() async throws {
+        enum Read { case pending, failed, knownGiven }
+        for (read, hasConsent) in [(Read.pending, true), (.pending, false), (.failed, false), (.knownGiven, true)] {
+            let moment = "\(read), consent: \(hasConsent)"
+            let presentation = AgentTestConsentSheetPresentation.install(in: self)
+            let response = try newsResponse(headline: newsItem().headline, messageCount: 0)
+            let client = try ThreadChatClient(threadId: "news-thread", messages: [], news: response.thread.news)
+            client.hasConsent = hasConsent
+            client.isConsentKnownGiven = read == .knownGiven
+            client.blocksFirstConsent = read == .pending
+            client.consentFailuresRemaining = read == .failed ? 1 : 0
+            client.blocksNewsCreation = true
+            var recordingStarts = 0
+            let dictation = AgentDictationController(
+                scheduler: AgentDictationTestScheduler(),
+                requestPermission: { true },
+                makeRecorder: {
+                    recordingStarts += 1
+                    return AgentDictationTestRecorder()
+                },
+                transcribe: { _ in ApiAgentV2TranscriptionResponse(outcome: .transcribed, text: "Dictated") },
+                haptic: {},
+                observeLifecycle: false
+            )
+            let preloader = AgentPreloader(client: client)
+            let item = newsItem(imageUrl: nil)
+            let model = preloader.acquireNewsModel(item: item, locale: "en") { _ in }
+            let controller = AgentVC(model: model, dictationController: dictation)
+            let navigation = UINavigationController(rootViewController: controller)
+            let window = makeKeyWindow(showing: navigation)
+            defer {
+                window.isHidden = true
+                navigation.setViewControllers([], animated: false)
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+            }
+            controller.loadViewIfNeeded()
+            if read == .failed {
+                try await waitUntil { client.consentCallCount == 1 }
+                for _ in 0..<20 { await Task.yield() }
+            }
+            let shouldStartDictation = try XCTUnwrap(controller.composerView.shouldStartDictation)
+
+            if read == .knownGiven {
+                XCTAssertTrue(shouldStartDictation(), "\(moment): records at once")
+                XCTAssertTrue(presentation.presentedSheets.isEmpty, moment)
+                continue
+            }
+            XCTAssertFalse(shouldStartDictation(), "\(moment): doesn't record before the consent is known")
+            if hasConsent {
+                try await waitUntil { recordingStarts == 1 }
+                XCTAssertTrue(presentation.presentedSheets.isEmpty, "\(moment): no sheet")
+                continue
+            }
+            let closed = try await waitForConsentSheet(over: controller, in: self)
+            XCTAssertTrue(closed.accessibilityPerformEscape())
+            try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertEqual(recordingStarts, 0, "\(moment): closing the sheet records nothing")
+
+            XCTAssertFalse(shouldStartDictation(), moment)
+            let consent = try await waitForConsentSheet(over: controller, in: self).consentView
+            consent.onContinue?()
+            try await waitUntil { recordingStarts == 1 }
+            XCTAssertEqual(client.acceptConsentCallCount, 1, moment)
+        }
+    }
+
+    /// A news discussion that goes from the screen while the microphone's consent read is under way doesn't record when
+    /// the read finds the consent, whether it is back by then or not, and the discussion still learns of the consent
+    @MainActor
+    func testRecordingDoesNotStartInANewsDiscussionLeftWhileItsConsentIsRead() async throws {
+        for isBack in [false, true] {
+            let presentation = AgentTestConsentSheetPresentation.install(in: self)
+            let response = try newsResponse(headline: newsItem().headline, messageCount: 0)
+            let client = try ThreadChatClient(threadId: "news-thread", messages: [], news: response.thread.news)
+            client.consentFailuresRemaining = 1
+            client.blocksNewsCreation = true
+            var recordingStarts = 0
+            let dictation = AgentDictationController(
+                scheduler: AgentDictationTestScheduler(),
+                requestPermission: { true },
+                makeRecorder: {
+                    recordingStarts += 1
+                    return AgentDictationTestRecorder()
+                },
+                transcribe: { _ in ApiAgentV2TranscriptionResponse(outcome: .transcribed, text: "Dictated") },
+                haptic: {},
+                observeLifecycle: false
+            )
+            let preloader = AgentPreloader(client: client)
+            let item = newsItem(imageUrl: nil)
+            let model = preloader.acquireNewsModel(item: item, locale: "en") { _ in }
+            let controller = AgentVC(model: model, dictationController: dictation)
+            let navigation = UINavigationController(rootViewController: controller)
+            let window = makeKeyWindow(showing: navigation)
+            defer {
+                window.isHidden = true
+                navigation.setViewControllers([], animated: false)
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+            }
+            controller.loadViewIfNeeded()
+            try await waitUntil { client.consentCallCount == 1 }
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertTrue(model.isConsentToSendUnknown, "isBack: \(isBack)")
+
+            client.blocksNextConsent = true
+            XCTAssertEqual(controller.composerView.shouldStartDictation?(), false)
+            try await waitUntil { client.consentCallCount == 2 }
+            navigation.pushViewController(UIViewController(), animated: false)
+            try await waitUntil {
+                window.layoutIfNeeded()
+                return controller.view.window == nil
+            }
+            if isBack {
+                navigation.popViewController(animated: false)
+                try await waitUntil {
+                    window.layoutIfNeeded()
+                    return controller.view.window != nil
+                }
+            }
+            client.resumeConsent()
+            try await waitUntil { !model.isConsentToSendUnknown }
+            for _ in 0..<20 { await Task.yield() }
+            try await Task.sleep(for: .milliseconds(50))
+            XCTAssertEqual(recordingStarts, 0, "isBack: \(isBack)")
+            XCTAssertEqual(controller.dictationController.state.phase, .idle, "isBack: \(isBack)")
+            XCTAssertTrue(presentation.presentedSheets.isEmpty, "isBack: \(isBack)")
+        }
+    }
+
+    /// A chat with consent records at once
+    @MainActor
+    func testRecordingStartsAtOnceInAChatWithConsent() async throws {
+        let client = try ThreadChatClient(threadId: "thread")
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        let controller = AgentVC(model: model)
+        controller.loadViewIfNeeded()
+        XCTAssertEqual(controller.composerView.shouldStartDictation?(), true)
     }
 
     @MainActor
@@ -1452,7 +1733,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertEqual(client.availabilityRequestCount, 0)
         XCTAssertEqual(client.userQuotaRequestCount, 0)
         XCTAssertEqual(client.problemReportAvailabilityRequestCount, 0)
-        XCTAssertFalse(coordinator.isProblemReportAvailable)
+        XCTAssertNil(coordinator.problemReportAvailability, "Not checked yet")
         XCTAssertTrue(client.startedCommands.isEmpty)
 
         coordinator.send(input: .append(text: "What does this mean?"), entryPoint: nil, visibleText: "What does this mean?")
@@ -1460,7 +1741,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
             client.pendingRun != nil
                 && client.availabilityRequestCount == 1
                 && client.userQuotaRequestCount == 1
-                && coordinator.isProblemReportAvailable
+                && coordinator.problemReportAvailability == true
         }
 
         XCTAssertEqual(client.hostContextUpdateCallCount, 4)
@@ -1477,7 +1758,7 @@ final class AgentV2ThreadChatTests: XCTestCase {
         XCTAssertEqual(client.availabilityRequestCount, 1)
         XCTAssertEqual(client.userQuotaRequestCount, 1)
         XCTAssertEqual(client.problemReportAvailabilityRequestCount, 1)
-        XCTAssertTrue(coordinator.isProblemReportAvailable)
+        XCTAssertEqual(coordinator.problemReportAvailability, true)
         XCTAssertEqual(client.startedCommands.map(\.entryPoint), [nil, nil])
     }
 
@@ -2060,12 +2341,12 @@ final class AgentV2ThreadChatTests: XCTestCase {
     }
 
     @MainActor
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(file: StaticString = #filePath, line: UInt = #line, _ condition: () -> Bool) async throws {
         for _ in 0..<200 {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(5))
         }
-        XCTFail("Timed out waiting for news opening")
+        XCTFail("Timed out waiting for news opening", file: file, line: line)
         throw ThreadChatClientError.unavailable
     }
 
@@ -2292,6 +2573,742 @@ final class AgentV2ThreadChatTests: XCTestCase {
         )
     }
 
+    /// The SDK's copy of the history shows while the history loads, with nothing in it to act on, and the history
+    /// replaces it
+    @MainActor
+    func testCachedHistoryShowsWhileTheHistoryLoadsWithNothingToActOnAndTheHistoryReplacesIt() async throws {
+        let client = try makeCachedHistoryClient(threadId: "cached-thread")
+        client.blocksMessages = true
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        defer {
+            model.stop()
+            client.releasePendingRequests()
+        }
+        try await waitUntil { client.pendingMessages != nil && self.message(in: model, text: "Cached answer") != nil }
+
+        let cachedAnswer = try XCTUnwrap(message(in: model, text: "Cached answer"))
+        XCTAssertEqual(cachedAnswer.controls.count, 3)
+        XCTAssertFalse(cachedAnswer.controls.contains { $0.kind == .action && $0.isEnabled })
+        XCTAssertFalse(cachedAnswer.canRate)
+        XCTAssertFalse(model.isReadyForPresentation)
+        XCTAssertFalse(model.canSendMessage(draftText: "Another question"))
+        XCTAssertFalse(model.canRegenerateMessage(cachedAnswer.id))
+        let controller = AgentVC(model: model)
+        let window = makeKeyWindow(showing: UINavigationController(rootViewController: controller))
+        defer { window.isHidden = true }
+        let cachedMenuTitles = try await getQuestionMenuTitles(in: controller, model: model)
+        XCTAssertFalse(cachedMenuTitles.contains(lang("Edit")))
+        // The suggestion looks as the loaded history's does and ignores a tap
+        let cachedSuggestions = cachedAnswer.controls.filter { $0.kind == .followup }
+        try await getSuggestionButton(in: controller).sendActions(for: .touchUpInside)
+        XCTAssertNil(controller.pendingSentSource)
+        XCTAssertNil(controller.suggestionMorph)
+        let didRate = await model.rateMessage(messageID: cachedAnswer.id, feedback: .like)
+        XCTAssertFalse(didRate)
+        let didLoadOlder = await model.loadOlderMessages()
+        XCTAssertFalse(didLoadOlder)
+        // A wallet change publishes the host context again, which refreshes the presentations of the shown actions
+        let publications = client.hostContextPublishedCallCount
+        WalletCoreData.notify(event: .accountNameChanged)
+        try await waitUntil { client.hostContextPublishedCallCount > publications }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.actionPresentationRequestCount, 0)
+        XCTAssertEqual(client.feedbackRequestCount, 0)
+        XCTAssertEqual(client.hydratedThreadIds, ["cached-thread"])
+
+        client.resumeMessages(with: .success(client.hydration))
+        try await waitUntil { model.isReadyForPresentation }
+        let answers = model.itemIDs.compactMap { model.message(for: $0) }.filter { $0.role == .assistant && !$0.isFailureCaption }
+        XCTAssertEqual(answers.map(\.text), ["Fresh answer"])
+        XCTAssertTrue(answers[0].controls.allSatisfy(\.isEnabled))
+        XCTAssertEqual(answers[0].controls.filter { $0.kind == .followup }, cachedSuggestions)
+        XCTAssertTrue(answers[0].canRate)
+        XCTAssertTrue(model.canSendMessage(draftText: "Another question"))
+        let freshMenuTitles = try await getQuestionMenuTitles(in: controller, model: model)
+        XCTAssertTrue(freshMenuTitles.contains(lang("Edit")))
+        try await waitUntil { client.actionPresentationRequestCount > 0 }
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        XCTAssertEqual(controller.composerView.draftText ?? "", "")
+        try await getSuggestionButton(in: controller).sendActions(for: .touchUpInside)
+        try await waitUntil { client.startedCommands.count == 1 }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Tell me more")])
+    }
+
+    /// The suggestion under the chat's answer, once the list lays it out
+    @MainActor
+    private func getSuggestionButton(in controller: AgentVC) async throws -> AgentSuggestionButton {
+        let controlID = "followup:adadadad-adad-4dad-8dad-adadadadadad"
+        var button: AgentSuggestionButton?
+        for _ in 0..<200 where button == nil {
+            try await Task.sleep(for: .milliseconds(10))
+            controller.collectionView.window?.layoutIfNeeded()
+            button = controller.collectionView.visibleCells.lazy
+                .compactMap { ($0 as? AgentMessageCell)?.getFollowupButton(controlID: controlID) }
+                .first { $0.window != nil && !$0.isHidden && $0.isEnabled }
+        }
+        return try XCTUnwrap(button)
+    }
+
+    /// A copy doesn't show once a history request has ended, even in failure or to be retried, once another load has
+    /// started, once the chat has live content of its own, or once the chat has closed
+    @MainActor
+    func testCachedHistoryArrivingAfterTheHistoryRequestOrTheChatEndedDoesNotShow() async throws {
+        for ending in ["failure", "retry", "superseded", "live", "closed"] {
+            let client = try makeCachedHistoryClient(threadId: "late-cache")
+            let thread = client.hydration.thread
+            client.blocksCachedHistory = true
+            if ending == "failure" {
+                client.messageFailuresRemaining = 1
+            } else {
+                client.blocksMessages = true
+            }
+            if ending == "retry" {
+                client.messageFailure = ApiAgentV2MutationError(code: .walletContextChanged, retryable: true)
+                client.messageFailuresRemaining = 1
+            }
+            let model = AgentV2Model(client: client, thread: thread)
+            defer {
+                model.stop()
+                client.releasePendingRequests()
+            }
+            try await waitUntil {
+                client.cachedHistoryThreadIds.count == 1
+                    && (ending == "failure" ? model.initialLoadError != nil : client.pendingMessages != nil)
+            }
+            switch ending {
+            case "retry":
+                XCTAssertEqual(client.hydratedThreadIds.count, 2)
+            case "superseded":
+                client.messageError = ThreadChatClientError.unavailable
+                model.refreshThreadIfNeeded(try decodeThread(id: thread.id, revision: thread.revision + 1))
+                try await waitUntil { client.hydratedThreadIds.count == 2 && model.initialLoadError != nil }
+            case "live":
+                let runStarted = try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: [
+                    "kind": "runStarted", "clientRunId": "live-client-run", "runId": "live-run", "threadId": thread.id,
+                    "threadRevision": thread.revision + 1,
+                ]))
+                WalletCoreData.notify(event: .agentV2(runStarted))
+                try await waitUntil { model.hasActiveRun }
+            case "closed":
+                model.stop()
+            default:
+                break
+            }
+            client.resumeCachedHistory()
+            for _ in 0..<20 { await Task.yield() }
+
+            XCTAssertFalse(model.hasMessages, ending)
+        }
+    }
+
+    /// A history that fails to load leaves the copy as it was, with the failure line whose Retry loads the history in
+    /// its place; a thread the server no longer has takes the copy away
+    @MainActor
+    func testFailedHistoryKeepsTheCachedHistoryInertUnlessTheThreadIsGone() async throws {
+        let client = try makeCachedHistoryClient(threadId: "failing-cache")
+        client.blocksMessages = true
+        let model = AgentV2Model(client: client, thread: client.hydration.thread)
+        defer {
+            model.stop()
+            client.releasePendingRequests()
+        }
+        try await waitUntil { client.pendingMessages != nil && model.hasMessages }
+        client.blocksMessages = false
+        client.resumeMessages(with: .failure(ThreadChatClientError.unavailable))
+        try await waitUntil { self.failureLine(in: model) != nil }
+
+        let line = try XCTUnwrap(failureLine(in: model))
+        XCTAssertEqual(line.controls.map(\.id), ["retry-load"])
+        XCTAssertNil(model.initialLoadError)
+        let cachedAnswer = try XCTUnwrap(message(in: model, text: "Cached answer"))
+        XCTAssertFalse(cachedAnswer.controls.contains { $0.kind == .action && $0.isEnabled })
+        XCTAssertFalse(model.canSendMessage(draftText: "Another question"))
+
+        model.performControl(messageID: line.id, controlID: "retry-load")
+        try await waitUntil { model.isReadyForPresentation }
+        XCTAssertNotNil(message(in: model, text: "Fresh answer"))
+        XCTAssertNil(message(in: model, text: "Cached answer"))
+        XCTAssertEqual(client.cachedHistoryThreadIds, ["failing-cache"])
+
+        let missingClient = try makeCachedHistoryClient(threadId: "missing-cache")
+        missingClient.blocksMessages = true
+        WalletCoreData.addImmediately(eventObserver: missingClient)
+        let missingModel = AgentV2Model(client: missingClient, thread: missingClient.hydration.thread)
+        defer {
+            missingModel.stop()
+            missingClient.releasePendingRequests()
+            WalletCoreData.remove(observer: missingClient)
+        }
+        try await waitUntil { missingClient.pendingMessages != nil && missingModel.hasMessages }
+        missingClient.resumeMessages(with: .failure(ApiAgentV2MutationError(code: .threadNotFound, retryable: false)))
+        try await waitUntil { missingClient.deletedThreadIds == ["missing-cache"] }
+        XCTAssertFalse(missingModel.hasMessages)
+    }
+
+    /// Only a chat opened on an existing thread reads the copy, and its loading screen gives way to the copy. A chat that
+    /// opens at its first unread message, which only the history places, doesn't read it.
+    @MainActor
+    func testOnlyAChatOpenedOnAnExistingThreadShowsTheCachedHistoryBeforeItsHistory() async throws {
+        let defaultClient = try makeCachedHistoryClient(threadId: "default-thread")
+        let defaultModel = AgentV2Model(client: defaultClient)
+        await defaultModel.waitForInitialLoad()
+        defaultModel.stop()
+        let newClient = try ThreadChatClient(threadId: "new-thread", messages: [])
+        newClient.cachedHistory = try makeCachedHistory(newClient.hydration.thread, answer: "Cached answer")
+        let newModel = AgentV2Model(client: newClient, thread: newClient.hydration.thread)
+        await newModel.waitForInitialLoad()
+        newModel.stop()
+        XCTAssertTrue(defaultClient.cachedHistoryThreadIds.isEmpty)
+        XCTAssertTrue(newClient.cachedHistoryThreadIds.isEmpty)
+
+        for isUnread in [false, true] {
+            let client = try makeCachedHistoryClient(threadId: "opened-\(UUID().uuidString)")
+            client.blocksMessages = true
+            let thread = client.hydration.thread
+            let readState = AgentThreadReadState.shared
+            readState.chatDidAppear(threadId: thread.id)
+            readState.chatDidDisappear(threadId: thread.id, seenMessageCount: isUnread ? 1 : thread.messageCount)
+            let preloader = AgentPreloader(client: client)
+            let root = AgentRootVC(thread: thread, preloader: preloader)
+            let navigation = UINavigationController(rootViewController: root)
+            defer {
+                navigation.setViewControllers([], animated: false)
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+                readState.remove(threadId: thread.id)
+            }
+            root.loadViewIfNeeded()
+            if isUnread {
+                // The unread chat doesn't show the copy even when its history then fails to load
+                try await waitUntil { client.pendingMessages != nil }
+                let model = try XCTUnwrap(preloader.model(threadId: thread.id))
+                try await Task.sleep(for: .milliseconds(50))
+                XCTAssertTrue(navigation.topViewController === root)
+                XCTAssertTrue(client.cachedHistoryThreadIds.isEmpty)
+                client.resumeMessages(with: .failure(ThreadChatClientError.unavailable))
+                try await waitUntil { navigation.topViewController is AgentVC }
+                XCTAssertFalse(model.hasMessages)
+                XCTAssertEqual(model.initialLoadError, lang("Failed to load chat"))
+            } else {
+                try await waitUntil { client.pendingMessages != nil && preloader.model(threadId: thread.id)?.hasMessages == true }
+                try await waitUntil { navigation.topViewController is AgentVC }
+                XCTAssertNotNil(client.pendingMessages)
+            }
+        }
+    }
+
+    /// A chat whose cached history is in memory opens with it in its first frame, without the loading screen, and keeps
+    /// every rule of a cached history: nothing to act on, the failure with Retry, and the history in its place
+    @MainActor
+    func testChatWithItsCachedHistoryInMemoryOpensWithItAtOnce() async throws {
+        let client = try makeCachedHistoryClient(threadId: "warm-thread")
+        client.blocksMessages = true
+        let thread = client.hydration.thread
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+        }
+        preloader.prefetchCachedHistories(of: [thread])
+        try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+
+        let controller = AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader)
+        let model = try XCTUnwrap(preloader.model(threadId: thread.id))
+        XCTAssertTrue(controller is AgentVC)
+        XCTAssertTrue(model.isShowingCachedMessages)
+        // Reopened while it still shows the copy, the chat opens with it again
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentVC)
+        let cachedAnswer = try XCTUnwrap(message(in: model, text: "Cached answer"))
+        XCTAssertFalse(cachedAnswer.controls.contains { $0.kind == .action && $0.isEnabled })
+        XCTAssertFalse(cachedAnswer.canRate)
+        XCTAssertFalse(model.canSendMessage(draftText: "Another question"))
+
+        try await waitUntil { client.pendingMessages != nil }
+        XCTAssertEqual(client.cachedHistoryThreadIds, [thread.id])
+        client.blocksMessages = false
+        client.resumeMessages(with: .failure(ThreadChatClientError.unavailable))
+        try await waitUntil { self.failureLine(in: model) != nil }
+        // The copy stays with the failure, without its suggestions until the history replaces it
+        XCTAssertTrue(cachedAnswer.controls.contains { $0.kind == .followup })
+        XCTAssertFalse(try XCTUnwrap(message(in: model, text: "Cached answer")).controls.contains { $0.kind == .followup })
+        let line = try XCTUnwrap(failureLine(in: model))
+        model.performControl(messageID: line.id, controlID: "retry-load")
+        XCTAssertFalse(try XCTUnwrap(message(in: model, text: "Cached answer")).controls.contains { $0.kind == .followup })
+        try await waitUntil { model.isReadyForPresentation }
+        XCTAssertNil(message(in: model, text: "Cached answer"))
+        XCTAssertTrue(try XCTUnwrap(message(in: model, text: "Fresh answer")).controls.contains { $0.kind == .followup })
+        // The loaded history takes the copy's place in memory
+        let history = try XCTUnwrap(preloader.getCachedHistory(threadId: thread.id))
+        XCTAssertEqual(history.messages.map { AgentV2NativeMessage(persisted: $0).text }, ["What can I do?", "Fresh answer"])
+    }
+
+    /// A chat opened on its cached history whose host context can't be published keeps the copy with the failure and
+    /// Retry, which starts the chat over and brings the history in its place
+    @MainActor
+    func testCachedChatWhoseAgentIsUnavailableKeepsTheCopyWithRetry() async throws {
+        let client = try makeCachedHistoryClient(threadId: "unavailable-thread")
+        client.hostContextFailuresRemaining = 3
+        let thread = client.hydration.thread
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+        }
+        preloader.prefetchCachedHistories(of: [thread])
+        try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentVC)
+        let model = try XCTUnwrap(preloader.model(threadId: thread.id))
+
+        // The chat publishes its host context three times, a second apart
+        for _ in 0..<100 where client.hostContextUpdateCallCount < 3 || failureLine(in: model) == nil {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let line = try XCTUnwrap(failureLine(in: model))
+        XCTAssertEqual(line.text, lang("Agent is unavailable"))
+        XCTAssertEqual(line.controls.map(\.id), ["retry-load"])
+        XCTAssertNil(model.initialLoadError)
+        XCTAssertNotNil(message(in: model, text: "Cached answer"))
+        XCTAssertTrue(client.hydratedThreadIds.isEmpty)
+
+        model.performControl(messageID: line.id, controlID: "retry-load")
+        try await waitUntil { model.isReadyForPresentation }
+        XCTAssertNil(message(in: model, text: "Cached answer"))
+        XCTAssertNotNil(message(in: model, text: "Fresh answer"))
+        XCTAssertNil(failureLine(in: model))
+    }
+
+    /// An action of the cached history isn't resolved, even when asked for directly; once the history loads, the same
+    /// action reaches the client
+    @MainActor
+    func testCachedHistoryActionReachesTheClientOnlyAfterTheHistoryLoads() async throws {
+        let client = try makeCachedHistoryClient(threadId: "resolving-thread")
+        client.blocksMessages = true
+        let cached = try XCTUnwrap(client.cachedHistory)
+        let account = MAccount(id: "0-mainnet", title: "Wallet", type: .mnemonic, byChain: [.ton: .init(address: "ton")])
+        // The host context reads the account and its saved addresses from their stores
+        try await withDependencies {
+            $0.accountStore = .makePreview(accounts: [account], selectedAccountId: account.id)
+            $0[SavedAddressesStore.self] = .liveValue
+        } operation: {
+            let coordinator = AgentV2Coordinator(
+                client: client,
+                thread: client.hydration.thread,
+                cachedHistory: AgentCachedHistory(thread: cached.thread, messages: cached.messages),
+                activeAccount: { account }
+            )
+            defer {
+                coordinator.stop()
+                client.releasePendingRequests()
+            }
+            XCTAssertTrue(coordinator.isShowingCachedMessages)
+            coordinator.start()
+            try await waitUntil { client.pendingMessages != nil }
+
+            let cachedResolution = await coordinator.resolveAction(messageId: "answer", actionId: "send")
+            XCTAssertNil(cachedResolution)
+            XCTAssertEqual(client.resolveActionRequestCount, 0)
+
+            client.resumeMessages(with: .success(client.hydration))
+            try await waitUntil { coordinator.hasHydratedMessages }
+            _ = await coordinator.resolveAction(messageId: "answer", actionId: "send")
+            XCTAssertEqual(client.resolveActionRequestCount, 1)
+        }
+    }
+
+    /// Without a usable history in memory a chat opens under the loading screen as before: one never read, an unread
+    /// chat, a news discussion and a new chat
+    @MainActor
+    func testChatWithoutAUsableCachedHistoryInMemoryOpensUnderTheLoadingScreen() async throws {
+        let client = try makeCachedHistoryClient(threadId: "cold-thread")
+        client.blocksMessages = true
+        let thread = client.hydration.thread
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        let readState = AgentThreadReadState.shared
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+            readState.remove(threadId: thread.id)
+        }
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentRootVC)
+        XCTAssertNil(preloader.model(threadId: thread.id))
+
+        preloader.prefetchCachedHistories(of: [thread])
+        try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+        // An answer that just completed marks the chat unread before its summary counts the answer
+        readState.chatDidAppear(threadId: thread.id)
+        readState.chatDidDisappear(threadId: thread.id, seenMessageCount: thread.messageCount)
+        readState.answerDidComplete(threadId: thread.id)
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentRootVC)
+        let unreadModel = try XCTUnwrap(preloader.model(threadId: thread.id))
+        XCTAssertFalse(unreadModel.isShowingCachedMessages)
+        XCTAssertFalse(unreadModel.hasMessages)
+
+        let response = try newsResponse(headline: newsItem().headline, messageCount: 1)
+        let newsClient = try ThreadChatClient(threadId: "news-thread", messages: [newsMessage(text: "Saved news")], news: response.thread.news)
+        newsClient.cachedHistory = try makeCachedHistory(newsClient.hydration.thread, answer: "Cached answer")
+        let newsPreloader = AgentPreloader(client: newsClient)
+        newsPreloader.setWalletReady(true)
+        defer { newsPreloader.setWalletReady(false) }
+        newsPreloader.prefetchCachedHistories(of: [newsClient.hydration.thread])
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(newsClient.cachedHistoryThreadIds.isEmpty)
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: newsClient.hydration.thread, preloader: newsPreloader) is AgentRootVC)
+
+        XCTAssertTrue(AgentEntryPoint.makeNewChatViewController(preloader: preloader) is AgentRootVC)
+
+        // A digest discussion, as a news one, shows no cached history
+        let digestThread = try makeSummary(id: "digest-thread", minute: 2, hasDigest: true)
+        let digestHistory = try makeCachedHistory(digestThread, answer: "Cached answer")
+        let digestCoordinator = AgentV2Coordinator(
+            client: client,
+            thread: digestThread,
+            cachedHistory: AgentCachedHistory(thread: digestHistory.thread, messages: digestHistory.messages)
+        )
+        defer { digestCoordinator.stop() }
+        XCTAssertFalse(digestCoordinator.isShowingCachedMessages)
+    }
+
+    /// The list's first page, the SDK's copy of it as well, reads the copies of its top ten threads with messages,
+    /// outside news, and a later page reads again only a thread whose summary changed; a thread without a copy has none
+    /// in memory
+    @MainActor
+    func testListReadsTheCachedHistoriesOfItsTopThreadsOnceUntilTheyChange() async throws {
+        let client = try makeCachedHistoryClient(threadId: "thread-0")
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer { preloader.setWalletReady(false) }
+        let response = try newsResponse(headline: newsItem().headline, messageCount: 1)
+        let news = try XCTUnwrap(response.thread.news)
+        func makeList(firstRevision: Int) throws -> ApiAgentV2ThreadListResponse {
+            let threads = try [
+                makeSummary(id: "empty", minute: 59, messageCount: 0),
+                makeSummary(id: "news", minute: 58, news: news),
+                makeSummary(id: "digest", minute: 57, hasDigest: true),
+            ] + (0..<12).map { index in
+                try makeSummary(id: "thread-\(index)", minute: 50 - index, revision: index == 0 ? firstRevision : 1)
+            }
+            return ApiAgentV2ThreadListResponse(
+                protocolVersion: 3,
+                threads: threads.map { ApiAgentV2ThreadListItem(thread: $0, preview: nil) },
+                nextCursor: nil
+            )
+        }
+        client.cachedThreadItems = try makeList(firstRevision: 1).threads
+        client.threadList = try makeList(firstRevision: 1)
+        client.blocksThreadList = true
+        let listModel = AgentThreadListModel(client: client, preloader: preloader)
+
+        let firstLoad = Task { await listModel.refresh() }
+        try await waitUntil { client.cachedHistoryThreadIds.count == 10 && preloader.getCachedHistory(threadId: "thread-0") != nil }
+        XCTAssertTrue(listModel.isShowingCachedThreads)
+        XCTAssertEqual(client.cachedHistoryThreadIds, (0..<10).map { "thread-\($0)" })
+        XCTAssertNil(preloader.getCachedHistory(threadId: "thread-1"))
+
+        client.resumeThreadList()
+        await firstLoad.value
+        await listModel.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.cachedHistoryThreadIds.count, 10)
+
+        client.cachedHistory = nil
+        client.threadList = try makeList(firstRevision: 2)
+        await listModel.refresh()
+        try await waitUntil { client.cachedHistoryThreadIds.count == 11 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.cachedHistoryThreadIds.last, "thread-0")
+        XCTAssertNil(preloader.getCachedHistory(threadId: "thread-0"))
+    }
+
+    /// A history a chat outside the list loads takes the place of the list's lowest thread, not its top one, and the
+    /// next prefetch reads the lowest one again
+    @MainActor
+    func testCachedHistoriesKeepTheListTopWhenAnotherChatsHistoryArrives() async throws {
+        let client = try ThreadChatClient(
+            threadId: "outside-thread",
+            messages: makeConversation(threadId: "outside-thread", answer: "Fresh answer")
+        )
+        let threads = try (0..<10).map { try makeSummary(id: "thread-\($0)", minute: 50 - $0) }
+        for thread in threads {
+            client.cachedHistoriesByThreadId[thread.id] = try makeCachedHistory(thread, answer: "Cached answer")
+        }
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+        }
+        preloader.prefetchCachedHistories(of: threads)
+        try await waitUntil { threads.allSatisfy { preloader.getCachedHistory(threadId: $0.id) != nil } }
+
+        let model = try XCTUnwrap(preloader.acquireModel(thread: client.hydration.thread))
+        defer { model.stop() }
+        try await waitUntil { preloader.getCachedHistory(threadId: "outside-thread") != nil }
+        XCTAssertNotNil(preloader.getCachedHistory(threadId: "thread-0"))
+        XCTAssertNil(preloader.getCachedHistory(threadId: "thread-9"))
+
+        let readCount = client.cachedHistoryThreadIds.count
+        preloader.prefetchCachedHistories(of: threads)
+        try await waitUntil { preloader.getCachedHistory(threadId: "thread-9") != nil }
+        XCTAssertEqual(Array(client.cachedHistoryThreadIds.dropFirst(readCount)), ["thread-9"])
+        XCTAssertNotNil(preloader.getCachedHistory(threadId: "thread-0"))
+    }
+
+    /// A row of the SDK's copy of the list has the summary of a past session, so a chat whose answer finished after the
+    /// app was closed counts there as read. The chat shows no cached history: it loads under the skeleton and opens
+    /// unread at the answer, or with its failure and Retry, leaving the chat unread.
+    @MainActor
+    func testChatFromACachedListRowLoadsItsHistoryBeforeOpening() async throws {
+        for isHistoryLoaded in [true, false] {
+            try await openChatFromACachedListRow(isHistoryLoaded: isHistoryLoaded)
+        }
+    }
+
+    @MainActor
+    private func openChatFromACachedListRow(isHistoryLoaded: Bool) async throws {
+        let threadId = "streamed-\(UUID().uuidString)"
+        let staleThread = try makeSummary(id: threadId, minute: 1)
+        let client = try ThreadChatClient(threadId: threadId, messages: makeConversation(threadId: threadId, answer: "Cached answer") + [[
+            "id": "finished", "threadId": threadId, "role": "assistant", "status": "complete",
+            "content": ["kind": "markdown", "text": "Finished answer"],
+            "createdAt": "2026-10-02T00:02:00.000Z",
+        ]])
+        client.cachedHistory = try makeCachedHistory(staleThread, answer: "Cached answer")
+        client.blocksMessages = true
+        let readState = AgentThreadReadState.shared
+        readState.chatDidAppear(threadId: threadId)
+        readState.chatDidDisappear(threadId: threadId, seenMessageCount: staleThread.messageCount)
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+            readState.remove(threadId: threadId)
+        }
+        preloader.prefetchCachedHistories(of: [staleThread])
+        try await waitUntil { preloader.getCachedHistory(threadId: threadId) != nil }
+
+        let root = AgentEntryPoint.makeRootViewController(thread: staleThread, preloader: preloader, isSummaryCached: true)
+        XCTAssertTrue(root is AgentRootVC)
+        let navigation = UINavigationController(rootViewController: root)
+        defer { navigation.setViewControllers([], animated: false) }
+        root.loadViewIfNeeded()
+        try await waitUntil { client.pendingMessages != nil }
+        let model = try XCTUnwrap(preloader.model(threadId: threadId))
+        // Opened again from the copy while it loads, the chat still waits for its history
+        XCTAssertTrue(
+            AgentEntryPoint.makeRootViewController(thread: staleThread, preloader: preloader, isSummaryCached: true) is AgentRootVC
+        )
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(navigation.topViewController === root)
+        // Its chat takes neither the copy in memory nor the SDK's one
+        XCTAssertFalse(model.hasMessages)
+        XCTAssertEqual(client.cachedHistoryThreadIds, [threadId])
+
+        if !isHistoryLoaded {
+            client.blocksMessages = false
+            client.resumeMessages(with: .failure(ThreadChatClientError.unavailable))
+            try await waitUntil { navigation.topViewController is AgentVC }
+            XCTAssertEqual(model.initialLoadError, lang("Failed to load chat"))
+            XCTAssertFalse(model.hasMessages)
+            XCTAssertEqual(readState.getSeenMessageCount(ifUnread: client.hydration.thread), staleThread.messageCount)
+            model.retryLoad()
+            try await waitUntil { model.isReadyForPresentation }
+            XCTAssertNotNil(message(in: model, text: "Finished answer"))
+            return
+        }
+        client.resumeMessages(with: .success(client.hydration))
+        try await waitUntil { navigation.topViewController is AgentVC }
+        XCTAssertNotNil(message(in: model, text: "Finished answer"))
+        let loadedThread = try XCTUnwrap(model.thread)
+        XCTAssertEqual(readState.getSeenMessageCount(ifUnread: loadedThread), staleThread.messageCount)
+    }
+
+    /// An answer that starts while the chat shows its cached history takes the copy's place, and the chat follows it
+    @MainActor
+    func testRunStartingOverTheCachedHistoryReplacesIt() async throws {
+        let client = try makeCachedHistoryClient(threadId: "live-\(UUID().uuidString)")
+        client.blocksMessages = true
+        let thread = client.hydration.thread
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+        }
+        preloader.prefetchCachedHistories(of: [thread])
+        try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentVC)
+        let model = try XCTUnwrap(preloader.model(threadId: thread.id))
+        XCTAssertNotNil(message(in: model, text: "Cached answer"))
+
+        let runStarted = try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: [
+            "kind": "runStarted", "clientRunId": "live-client-run", "runId": "live-run", "threadId": thread.id,
+            "threadRevision": thread.revision + 1,
+        ]))
+        WalletCoreData.notify(event: .agentV2(runStarted))
+        try await waitUntil { model.hasActiveRun }
+        XCTAssertFalse(model.isShowingCachedMessages)
+        XCTAssertNil(message(in: model, text: "Cached answer"))
+    }
+
+    /// A chat left on its cached history that gets an answer off screen is unread, so it reopens under the loading
+    /// screen to open at the answer
+    @MainActor
+    func testCachedChatThatGetsAnAnswerOffScreenReopensUnderTheLoadingScreen() async throws {
+        let client = try makeCachedHistoryClient(threadId: "answered-\(UUID().uuidString)")
+        client.blocksMessages = true
+        let thread = client.hydration.thread
+        let readState = AgentThreadReadState.shared
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        defer {
+            preloader.setWalletReady(false)
+            client.releasePendingRequests()
+            readState.remove(threadId: thread.id)
+        }
+        preloader.prefetchCachedHistories(of: [thread])
+        try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentVC)
+        XCTAssertEqual(preloader.model(threadId: thread.id)?.isShowingCachedMessages, true)
+
+        readState.answerDidComplete(threadId: thread.id)
+        XCTAssertTrue(readState.isUnread(thread))
+        XCTAssertTrue(AgentEntryPoint.makeRootViewController(thread: thread, preloader: preloader) is AgentRootVC)
+    }
+
+    /// A thread's history leaves memory as the chat clears it, as it is deleted or missing on the server, and as the
+    /// wallet stops being ready
+    @MainActor
+    func testCachedHistoryInMemoryLeavesWithItsThreadOrTheWallet() async throws {
+        for ending in ["cleared", "deleted", "missing", "wallet"] {
+            let client = try makeCachedHistoryClient(threadId: "leaving-\(ending)")
+            let thread = client.hydration.thread
+            if ending == "missing" {
+                client.messageError = ApiAgentV2MutationError(code: .threadNotFound, retryable: false)
+            }
+            let preloader = AgentPreloader(client: client)
+            preloader.setWalletReady(true)
+            defer {
+                preloader.setWalletReady(false)
+                client.releasePendingRequests()
+            }
+            preloader.prefetchCachedHistories(of: [thread])
+            try await waitUntil { preloader.getCachedHistory(threadId: thread.id) != nil }
+            // The chat stays open until its history leaves memory
+            var openChat: AgentV2Model?
+            switch ending {
+            case "cleared":
+                let model = try XCTUnwrap(preloader.acquireModel(thread: thread))
+                openChat = model
+                try await waitUntil { model.isReadyForPresentation }
+                XCTAssertNotNil(preloader.getCachedHistory(threadId: thread.id))
+                model.clearChat(animated: false)
+            case "deleted":
+                preloader.deleteThread(id: thread.id)
+            case "missing":
+                let model = try XCTUnwrap(preloader.acquireModel(thread: thread))
+                openChat = model
+                XCTAssertTrue(model.isShowingCachedMessages)
+            default:
+                preloader.setWalletReady(false)
+            }
+            for _ in 0..<400 where preloader.getCachedHistory(threadId: thread.id) != nil {
+                try await Task.sleep(for: .milliseconds(5))
+            }
+            XCTAssertNil(preloader.getCachedHistory(threadId: thread.id), ending)
+            openChat?.stop()
+        }
+    }
+
+    private func makeSummary(
+        id: String,
+        minute: Int,
+        revision: Int = 1,
+        messageCount: Int = 2,
+        news: ApiAgentV2ThreadNewsCard? = nil,
+        hasDigest: Bool = false
+    ) throws -> ApiAgentV2ThreadSummary {
+        let date = String(format: "2026-10-02T00:%02d:00.000Z", minute)
+        var thread: [String: Any] = [
+            "id": id, "revision": revision, "createdAt": date, "updatedAt": date, "lastActivityAt": date,
+            "messageCount": messageCount,
+        ]
+        if let news {
+            thread["news"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(news))
+        }
+        if hasDigest {
+            thread["digest"] = ["id": "digest-\(id)", "windowEnd": date, "total": 0, "top": []]
+        }
+        return try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: thread))
+    }
+
+    /// The titles of the menu a long press opens on the chat's question
+    @MainActor
+    private func getQuestionMenuTitles(in controller: AgentVC, model: AgentV2Model) async throws -> [String] {
+        let list = controller.collectionView
+        var cell: AgentMessageCell?
+        for _ in 0..<200 where cell == nil {
+            try await Task.sleep(for: .milliseconds(10))
+            list.window?.layoutIfNeeded()
+            cell = list.visibleCells.compactMap { $0 as? AgentMessageCell }.first { cell in
+                guard let indexPath = list.indexPath(for: cell), let id = controller.messageItemID(at: indexPath) else { return false }
+                return model.message(for: id)?.role == .user
+            }
+        }
+        let menu = try XCTUnwrap(try XCTUnwrap(cell).contextMenuConfigurationProvider?())
+        return menu.rootPage.items.compactMap { item in
+            guard case .action(let action) = item else { return nil }
+            return action.title
+        }
+    }
+
+    @MainActor
+    private func message(in model: AgentV2Model, text: String) -> AgentMessage? {
+        model.itemIDs.lazy.compactMap { model.message(for: $0) }.first { $0.text == text }
+    }
+
+    /// A client whose history has a question and its answer, "Fresh answer", and whose copy has the same messages with
+    /// "Cached answer". The answer has an action of each kind and a follow-up.
+    @MainActor
+    private func makeCachedHistoryClient(threadId: String) throws -> ThreadChatClient {
+        let client = try ThreadChatClient(threadId: threadId, messages: makeConversation(threadId: threadId, answer: "Fresh answer"))
+        client.cachedHistory = try makeCachedHistory(client.hydration.thread, answer: "Cached answer")
+        return client
+    }
+
+    private func makeCachedHistory(_ thread: ApiAgentV2ThreadSummary, answer: String) throws -> ApiAgentV2CachedMessages {
+        try JSONDecoder().decode(ApiAgentV2CachedMessages.self, from: JSONSerialization.data(withJSONObject: [
+            "thread": try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)),
+            "messages": makeConversation(threadId: thread.id, answer: answer),
+            "hasOlder": true,
+        ]))
+    }
+
+    private func makeConversation(threadId: String, answer: String) -> [[String: Any]] {
+        [
+            [
+                "id": "question", "threadId": threadId, "role": "user", "status": "complete",
+                "content": ["kind": "markdown", "text": "What can I do?"],
+                "createdAt": "2026-10-02T00:00:00.000Z",
+            ],
+            [
+                "id": "answer", "threadId": threadId, "role": "assistant", "status": "complete",
+                "content": ["kind": "markdown", "text": answer],
+                "createdAt": "2026-10-02T00:01:00.000Z",
+                "actions": [
+                    ["id": "receive", "kind": "receive", "labelCode": "open_receive", "title": "Receive", "requiresConfirmation": false],
+                    ["id": "send", "kind": "send", "labelCode": "open_send", "title": "Send", "requiresConfirmation": false],
+                ],
+                "followups": [[
+                    "id": "adadadad-adad-4dad-8dad-adadadadadad", "kind": "suggested_prompt", "text": "Tell me more",
+                ]],
+            ],
+        ]
+    }
+
     /// A tap on the discussion post's picture opens it alone in the media viewer, as the feed opens its pictures
     @MainActor
     func testDiscussionPostPictureOpensInTheMediaViewer() async throws {
@@ -2322,9 +3339,11 @@ final class AgentV2ThreadChatTests: XCTestCase {
         let viewer = try XCTUnwrap(window.subviews.compactMap { $0 as? MediaViewer }.first)
         XCTAssertEqual(viewer.currentIndex, 0)
         XCTAssertFalse(viewer.accessibilityScroll(.left))
-        // The post is the picture's caption, and the single picture has no counter
+        // The post is the picture's caption, and the single picture has no counter: its date is the capsule's title
         XCTAssertEqual(viewer.footerView.captionTextView.attributedText.string, "Picture news\nBody")
         XCTAssertNil(viewer.counterText)
+        XCTAssertNotNil(viewer.headerView.titleLabel.text)
+        XCTAssertNil(viewer.headerView.subtitleLabel.text)
         viewer.close()
     }
 
@@ -2377,7 +3396,7 @@ private enum ThreadChatClientError: Error {
 }
 
 @MainActor
-private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserver {
+private final class ThreadChatClient: AgentV2Client, AgentThreadListClient, WalletCoreData.EventsObserver {
     var hydration: ApiAgentV2ThreadHydration
     private(set) var defaultThreadCallCount = 0
     private(set) var hydratedThreadIds: [String] = []
@@ -2402,11 +3421,26 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
     var blocksRuns = false
     var blocksRetries = false
     var hasConsent = true
+    /// The first consent read waits for `resumeConsent`, and the next `consentFailuresRemaining` reads fail
+    var blocksFirstConsent = false
+    /// The next consent read waits for `resumeConsent`
+    var blocksNextConsent = false
+    var consentFailuresRemaining = 0
+    private var pendingConsent: CheckedContinuation<Void, Never>?
+    var isConsentKnownGiven = false
     var isProblemReportAvailable = false
+    private(set) var reports: [(threadId: String, report: ApiAgentV2ProblemReport)] = []
     var hostContextFailuresRemaining = 0
     var messageFailuresRemaining = 0
     var messageFailure: Error = ThreadChatClientError.unavailable
     var messageError: Error?
+    /// The SDK's copy of the thread's history, which `blocksCachedHistory` holds back until `resumeCachedHistory()`
+    var cachedHistory: ApiAgentV2CachedMessages?
+    var blocksCachedHistory = false
+    private(set) var cachedHistoryThreadIds: [String] = []
+    private var pendingCachedHistory: [CheckedContinuation<Void, Never>] = []
+    private(set) var feedbackRequestCount = 0
+    private(set) var actionPresentationRequestCount = 0
     private(set) var pendingNewsCreation: CheckedContinuation<ApiAgentV2ThreadCreateResponse, Error>?
     private(set) var pendingMessages: CheckedContinuation<ApiAgentV2ThreadHydration, Error>?
     private(set) var pendingHostContext: CheckedContinuation<Void, Error>?
@@ -2445,7 +3479,20 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
 
     func consent() async throws -> Bool {
         consentCallCount += 1
+        if (blocksFirstConsent && consentCallCount == 1) || blocksNextConsent {
+            blocksNextConsent = false
+            await withCheckedContinuation { pendingConsent = $0 }
+        }
+        if consentFailuresRemaining > 0 {
+            consentFailuresRemaining -= 1
+            throw ThreadChatClientError.unavailable
+        }
         return hasConsent
+    }
+    func resumeConsent() {
+        let continuation = pendingConsent
+        pendingConsent = nil
+        continuation?.resume()
     }
     func walletCore(event: WalletCoreData.Event) {
         if case .agentThreadDeleted(let threadId) = event {
@@ -2497,11 +3544,32 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
         )
     }
 
+    var threadList: ApiAgentV2ThreadListResponse?
+    /// Holds the list back until `resumeThreadList()`
+    var blocksThreadList = false
+    private var pendingThreadList: CheckedContinuation<Void, Never>?
     func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse {
+        if blocksThreadList {
+            await withCheckedContinuation { pendingThreadList = $0 }
+        }
+        guard let threadList else { throw ThreadChatClientError.unavailable }
+        return threadList
+    }
+
+    func resumeThreadList() {
+        blocksThreadList = false
+        pendingThreadList?.resume()
+        pendingThreadList = nil
+    }
+
+    var cachedThreadItems: [ApiAgentV2ThreadListItem]?
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? { cachedThreadItems }
+
+    func createThread() async throws -> ApiAgentV2ThreadCreateResponse { throw ThreadChatClientError.unavailable }
+    func createThread(digest: ApiAgentV2ThreadDigestRequest) async throws -> ApiAgentV2ThreadCreateResponse {
         throw ThreadChatClientError.unavailable
     }
 
-    func createThread() async throws -> ApiAgentV2ThreadCreateResponse { throw ThreadChatClientError.unavailable }
     func createThread(news: ApiAgentV2ThreadNewsRequest) async throws -> ApiAgentV2ThreadCreateResponse {
         newsThreadCreateCallCount += 1
         newsThreadRequests.append(news)
@@ -2519,6 +3587,8 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
     }
 
     func releasePendingRequests() {
+        resumeCachedHistory()
+        resumeConsent()
         resumeNewsCreation(with: .failure(CancellationError()))
         resumeMessages(with: .failure(CancellationError()))
         resumeHostContext(with: .failure(CancellationError()))
@@ -2566,6 +3636,24 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
         continuation?.resume(with: result)
     }
 
+    /// Copies of other threads than this client's
+    var cachedHistoriesByThreadId: [String: ApiAgentV2CachedMessages] = [:]
+    func cachedMessages(threadId: String) async -> ApiAgentV2CachedMessages? {
+        cachedHistoryThreadIds.append(threadId)
+        if blocksCachedHistory {
+            await withCheckedContinuation { pendingCachedHistory.append($0) }
+        }
+        return cachedHistoriesByThreadId[threadId] ?? cachedHistory
+    }
+
+    func resumeCachedHistory() {
+        blocksCachedHistory = false
+        let continuations = pendingCachedHistory
+        pendingCachedHistory.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
+    func makeClientRunId() -> String { "first-run" }
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
         hostContextPublishedCountsAtRunStart.append(hostContextPublishedCallCount)
         startedCommands.append(command)
@@ -2581,7 +3669,7 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
         try Task.checkCancellation()
         return result
     }
-    func cancelRun(_ runId: String) async {}
+    func stopRun(threadId: String) async {}
     func clearThread(
         id: String,
         revision: Int
@@ -2602,7 +3690,9 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
             ])
         )
     }
-    func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws {}
+    func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws {
+        reports.append((threadId, report))
+    }
     func transcribeAgentV2Audio(_ request: ApiAgentV2TranscriptionRequest) async throws -> ApiAgentV2TranscriptionResponse {
         throw ThreadChatClientError.unavailable
     }
@@ -2610,11 +3700,17 @@ private final class ThreadChatClient: AgentV2Client, WalletCoreData.EventsObserv
         threadId: String,
         messageId: String,
         feedback: ApiAgentV2AnswerFeedback?
-    ) async throws -> ApiAgentV2AnswerFeedback? { feedback }
+    ) async throws -> ApiAgentV2AnswerFeedback? {
+        feedbackRequestCount += 1
+        return feedback
+    }
     func actionPresentation(messageId: String, actionId: String) async throws -> ApiAgentV2ActionPresentation {
+        actionPresentationRequestCount += 1
         throw ThreadChatClientError.unavailable
     }
+    private(set) var resolveActionRequestCount = 0
     func resolveAction(messageId: String, actionId: String) async throws -> ApiAgentV2ResolvedAction {
+        resolveActionRequestCount += 1
         throw ThreadChatClientError.unavailable
     }
 }

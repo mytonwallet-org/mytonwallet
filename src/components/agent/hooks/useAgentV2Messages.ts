@@ -30,10 +30,16 @@ import type { AgentV2RunController } from './agentV2RunController';
 import type { AgentV2SendAction, AgentV2StreamController } from './agentV2StreamController';
 import type { TextRevealPresentations } from './textRevealPresentation';
 
-import { buildAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
+import { selectAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
 import { buildAgentBuiltinDapps } from '../../../global/agentV2/builtinDapps';
 import { selectCurrentAccountState } from '../../../global/selectors';
 import { isAgentLinkUrl } from '../../../util/agent/agentLinkUrl';
+import {
+  agentThreadListListeners,
+  forgetRecentAgentChat,
+  getRecentAgentChat,
+  keepRecentAgentChat,
+} from '../../../util/agent/agentV2LocalState';
 import {
   cancelAgentV2ActiveRunReplays,
   subscribeToAgentV2RuntimeReady,
@@ -54,6 +60,7 @@ import {
   isAgentV2ComposerBlocked,
   selectAgentV2ComposerStatus,
 } from '../../agentV2/agentComposerStatus';
+import { markAgentThreadSupportSeen } from '../../agentV2/agentThreadReadState';
 import {
   getAgentV2ErrorText,
   getAgentV2HintCopy,
@@ -69,13 +76,17 @@ import {
   findAgentV2MessageId,
   INITIAL_AGENT_V2_MESSAGES_STATE,
   reduceAgentV2MessagesState,
+  restoreAgentV2MessagesState,
   selectAgentV2Activity,
+  selectAgentV2CachedChat,
   selectIsAgentV2InputDisabled,
   selectIsAgentV2RunActive,
 } from './agentV2MessagesState';
 import { createAgentV2RunController } from './agentV2RunController';
 import { createAgentV2StreamController } from './agentV2StreamController';
 
+import useEffectWithPrevDeps from '../../../hooks/useEffectWithPrevDeps';
+import useInterval from '../../../hooks/useInterval';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 /** The rating requests of one answer that have not all settled yet */
@@ -94,7 +105,7 @@ interface AgentV2Controllers {
 
 /**
  * The thread a chat shows: a known one, the profile's default one, the profile's empty one for a new chat, or the
- * discussion of a MyPulse news item, which the server keeps one of per news item.
+ * discussion of a MyPulse news item or daily digest, which the server keeps one of per item.
  * A chat keeps the thread it resolved; showing another thread takes another chat.
  */
 export type AgentV2ChatTarget =
@@ -103,9 +114,12 @@ export type AgentV2ChatTarget =
     threadId: string;
     /** The feed's copy of the news of a discussion that holds its post alone, which it shows from its first frame */
     preview?: AgentThreadNewsCardV2;
+    /** A news or digest discussion, which loads before consent */
+    isNews?: boolean;
   }
   | { kind: 'default' }
   | { kind: 'new' }
+  | { kind: 'digest'; digest: { id: string } }
   | {
     kind: 'news';
     news: { eventId: number; locale: AgentNewsFeedLocaleV2 };
@@ -118,34 +132,51 @@ interface UseAgentV2MessagesProps {
   lang: LangFn;
   /** Without a target the chat follows the default thread and every update, as the single-chat host did */
   target?: AgentV2ChatTarget;
+  /**
+   * The list's copy of the target thread. It tells a news or digest discussion before the history loads, and such a
+   * discussion shows no cached history
+   */
+  initialThread?: AgentThreadSummaryV2;
   /** A question for a new chat: it shows at once and is sent once the chat's thread is ready */
   initialMessage?: string;
   onInitialMessageSent?: NoneToVoidFunction;
   onThreadResolved?: (threadId: string) => void;
   onThreadNotFound?: NoneToVoidFunction;
+  /** Problem reports need the user's consent, so a news discussion opened before it checks them once it comes */
+  hasConsent?: boolean;
+  isUnreadStateUnknown?: boolean;
 }
 
 export interface UseAgentV2MessagesResult {
   messages: AgentMessage[];
   thread?: AgentThreadSummaryV2;
+  support?: AgentThreadSummaryV2['support'];
+  canEditMessages: boolean;
   /** The news the chat discusses */
   news?: AgentThreadNewsCardV2;
   /** A news discussion shows its post while the thread's history is loading */
   isOpeningNews: boolean;
   hints?: AgentHint[];
   isInitialLoadComplete: boolean;
+  /** The messages are the device's copy of the history, which shows until the history loads and offers nothing to do */
+  isHistoryCached: boolean;
+  /** The chat opened with the history it had when it was last shown, so it has no history to wait for */
+  isOpenedWithCachedHistory: boolean;
   /** The question the chat opened with is on screen and not sent yet */
   hasPendingQuestion: boolean;
   isInputDisabled: boolean;
   isRunActive: boolean;
+  /** An answer is being produced in the chat, from the question's sending on, which `stopRun` stops at once */
+  canStopRun: boolean;
+  stopRun: NoneToVoidFunction;
   textRevealPresentations: TextRevealPresentations;
   clearChat: NoneToVoidFunction;
   /** Cancels this chat's work and returns only the thread already known or being created for deletion */
   cancelPendingRequests: () => Promise<string | undefined>;
   /** Present while the server takes problem reports */
   reportProblem?: (messageId: number | undefined, comment: string) => Promise<AgentProblemReportOutcome>;
-  /** Sets the user's rating of a complete answer, or withdraws it without `feedback` */
-  rateMessage: (messageId: number, feedback?: AgentAnswerFeedbackV2) => void;
+  /** Sets or withdraws a rating, resolving to a live check of a saved reaction for its landing toast */
+  rateMessage: (messageId: number, feedback?: AgentAnswerFeedbackV2) => Promise<(() => boolean) | undefined>;
   consumeTextRevealSession: (messageId: number, key: string) => void;
   settleTextRevealSession: (messageId: number, key: string) => void;
   activity?: AgentRunActivityType;
@@ -156,11 +187,12 @@ export interface UseAgentV2MessagesResult {
   historyFailure?: { text: string; isRetrying: boolean };
   retryHistory: NoneToVoidFunction;
   isConsentAccepted?: boolean;
+  /** Reads the consent again, after a chat without it asked for it, and loads the chat once it is given */
+  checkConsentAgain: NoneToVoidFunction;
   composerStatus?: AgentV2ComposerStatus;
   sendMessage: (text: string, editMessageId?: number) => void;
   sendHint: (hint: AgentHint) => void;
   sendFollowup: (messageId: number, followup: AgentPublicFollowUpV2) => void;
-  acceptConsent: NoneToVoidFunction;
   retryMessage: (messageId: number) => void;
   /** A finished answer the server stores, other than a news post, can be answered again with `retryMessage` */
   isMessageRegenerable: (messageId: number) => boolean;
@@ -174,6 +206,7 @@ export interface UseAgentV2MessagesResult {
 
 const ERROR_MESSAGE_ID = -1;
 const NEWS_POST_MESSAGE_ID = -2;
+const SUPPORT_POLLING_INTERVAL_MS = 15_000;
 
 // The chats on screen. Across the phone breakpoint the outgoing layout can unmount its chat after the incoming layout
 // has mounted its own, so the chat stays active until the last of them goes.
@@ -183,10 +216,13 @@ export default function useAgentV2Messages({
   isActive,
   lang,
   target,
+  initialThread,
   initialMessage,
   onInitialMessageSent,
   onThreadResolved,
   onThreadNotFound,
+  hasConsent,
+  isUnreadStateUnknown = false,
 }: UseAgentV2MessagesProps): UseAgentV2MessagesResult {
   const {
     openReceiveModal,
@@ -196,9 +232,20 @@ export default function useAgentV2Messages({
     startTransfer,
   } = getActions();
   const langCode = lang.code ?? 'en';
-  const [state, setState] = useState(INITIAL_AGENT_V2_MESSAGES_STATE);
+  // A chat shown recently opens with the history it had, as on iOS, and loads it again in place. A news discussion does
+  // so once the user has allowed the Agent, since a chat shown keeps the wallet's state on the server up to date.
+  const [state, setState] = useState(() => {
+    const cachedChat = !isUnreadStateUnknown && target?.kind === 'thread' && !target.preview
+      ? getRecentAgentChat(target.threadId) : undefined;
+    return cachedChat && (!(cachedChat.thread.news || cachedChat.thread.digest) || hasConsent)
+      ? restoreAgentV2MessagesState(cachedChat)
+      : INITIAL_AGENT_V2_MESSAGES_STATE;
+  });
+  const isOpenedWithCachedHistory = useRef(Boolean(state.isShowingCachedHistory)).current;
   const [textRevealPresentations, setTextRevealPresentations] = useState<TextRevealPresentations>({});
-  const [isProblemReportAvailable, setIsProblemReportAvailable] = useState(false);
+  // Reports are taken until the server says otherwise
+  const [isProblemReportAvailable, setIsProblemReportAvailable] = useState(true);
+  const problemReportAvailabilityRef = useRef<Promise<boolean>>();
   const stateRef = useRef(state);
   // Keyed by the answer's server id, which a cleared chat cannot hand over to another answer
   const feedbackRequestsRef = useRef(new Map<string, AgentV2FeedbackRequests>());
@@ -218,20 +265,41 @@ export default function useAgentV2Messages({
   const newsPostRef = useRef<{ messageId: number; timestamp: number }>();
   const onThreadResolvedRef = useRef(onThreadResolved);
   onThreadResolvedRef.current = onThreadResolved;
-  const handleThreadNotFound = useLastCallback(() => onThreadNotFound?.());
+  const handleThreadNotFound = useLastCallback(() => {
+    const threadId = stateRef.current.thread?.id ?? resolvedThreadIdRef.current;
+    if (threadId) forgetRecentAgentChat(threadId);
+    onThreadNotFound?.();
+  });
   const handleInitialMessageSent = useLastCallback(() => onInitialMessageSent?.());
   const dispatch = useLastCallback((action: AgentV2MessagesStateAction) => {
     if (deletionState.isRequested) return;
+    const wasRunActive = selectIsAgentV2RunActive(stateRef.current);
+    const previousThread = stateRef.current.thread;
     stateRef.current = reduceAgentV2MessagesState(stateRef.current, action);
     // History carries the rating the server keeps; a rating still being saved shows over it
     if (action.kind === 'hydrationSucceeded' || action.kind === 'historyPageSucceeded') {
       stateRef.current = applyPendingFeedback(stateRef.current, feedbackRequestsRef.current);
     }
     setState(stateRef.current);
+    const support = stateRef.current.thread?.support;
+    if (wasRunActive && !selectIsAgentV2RunActive(stateRef.current)
+      && (support?.state === 'waiting' || support?.state === 'operator')) {
+      void controllersRef.current?.hydration.refreshLatestMessages();
+    }
+    // A live summary announces a reply or a closure before its messages load; closure also ends polling
+    if (action.kind === 'threadChanged' && previousThread?.id === action.thread.id
+      && (support?.state !== previousThread.support?.state
+        || support?.lastOperatorMessageAt !== previousThread.support?.lastOperatorMessageAt)) {
+      controllersRef.current?.hydration.requestLatestRefresh();
+    }
+    controllersRef.current?.hydration.resumeLatestRefresh();
   });
   langRef.current = lang;
   const hideSecretPhrases = useLastCallback((text: string) => removeSecretPhrases(
     text, getSecretPhraseWordList(), langRef.current('$agent_secret_words_removed'),
+  ));
+  const isChatVisible = useLastCallback(() => Boolean(
+    isActive && !deletionState.isRequested && document.visibilityState === 'visible',
   ));
 
   if (!controllersRef.current) {
@@ -253,8 +321,12 @@ export default function useAgentV2Messages({
       dispatch,
       resolveThreadId,
       onThreadNotFound: handleThreadNotFound,
+      ...(canReadCachedHistory(targetRef.current, initialThread) && {
+        getCachedMessages: (threadId: string) => callApi('getAgentV2CachedMessages', threadId),
+      }),
       getHints: (currentLangCode) => (
-        targetRef.current?.kind === 'news' || createdNewsRef.current || stateRef.current.thread?.news
+        getIsNewsTarget(targetRef.current) || createdNewsRef.current
+        || stateRef.current.thread?.news || stateRef.current.thread?.digest
           ? Promise.resolve(undefined)
           : callApi('getAgentV2Hints', currentLangCode)
       ),
@@ -264,6 +336,7 @@ export default function useAgentV2Messages({
         : callApi('getAgentV2Messages', threadId),
       getState: () => stateRef.current,
       isConsentAccepted: () => stateRef.current.isConsentAccepted === true,
+      isChatVisible,
       loadAvailability: () => callApi('getAgentV2Availability'),
       loadUserQuota: () => callApi('getAgentV2UserQuota'),
       mapHints: (response, currentLangCode) => mapHints(response, currentLangCode, langRef.current),
@@ -288,14 +361,15 @@ export default function useAgentV2Messages({
       now: Date.now,
       retryRun: (clientRunId) => callApi('retryAgentV2Run', clientRunId),
       resetHistory: hydration.resetHistory,
-      startRun: async (command) => {
+      startRun: async (command, isStopped) => {
         // A chat being deleted never sends its opening question
         if (deletionState.isRequested) return undefined;
-        const hostContext = buildAgentV2HostContext(getGlobal());
+        const hostContext = selectAgentV2HostContext(getGlobal());
         const synchronized = await synchronizeHostContext(hostContext);
-        if (synchronized === undefined || deletionState.isRequested) return undefined;
+        if (synchronized === undefined || deletionState.isRequested || isStopped()) return undefined;
         return callApi('startAgentV2Run', command);
       },
+      stopRun: (threadId) => callApi('stopAgentV2Run', threadId),
       stream,
       hideSecretPhrases,
     });
@@ -304,6 +378,8 @@ export default function useAgentV2Messages({
   const controllers = controllersRef.current;
   const cancelPendingRequests = useLastCallback(() => {
     deletionState.isRequested = true;
+    const threadId = stateRef.current.thread?.id ?? resolvedThreadIdRef.current;
+    if (threadId) forgetRecentAgentChat(threadId);
     controllers.hydration.dispose();
     controllers.run.dispose();
     controllers.stream.dispose();
@@ -333,11 +409,14 @@ export default function useAgentV2Messages({
     const matchingPreview = preview?.eventId === authoritativeNews.eventId ? preview : undefined;
     return {
       ...authoritativeNews,
+      // The feed's picture, decoded already, stays through the card's flight into the chat and after, whatever
+      // address or none the thread's card gives it
+      imageUrl: matchingPreview?.imageUrl ?? authoritativeNews.imageUrl,
       body: authoritativeNews.body ?? matchingCreatedNews?.body ?? matchingPreview?.body,
       sources: authoritativeNews.sources ?? matchingCreatedNews?.sources ?? matchingPreview?.sources,
     };
   }, [authoritativeNews, createdNews, preview]);
-  const isNewsThread = chatTarget?.kind === 'news' || Boolean(news);
+  const isNewsThread = getIsNewsTarget(chatTarget) || Boolean(news || state.thread?.digest);
   if (news && !newsPostRef.current) {
     newsPostRef.current = {
       messageId: NEWS_POST_MESSAGE_ID, timestamp: Date.parse(news.publishedAt),
@@ -412,24 +491,62 @@ export default function useAgentV2Messages({
     return () => {
       isUnmountedRef.current = true;
       unsubscribe();
+      const cachedChat = deletionState.isRequested ? undefined : selectAgentV2CachedChat(stateRef.current);
+      const leftThreadId = stateRef.current.thread?.id;
+      // A chat left while it answers loads afresh, as the answer's updates come again on top of the history it reads
+      if (cachedChat) {
+        keepRecentAgentChat(cachedChat);
+      } else if (leftThreadId) {
+        forgetRecentAgentChat(leftThreadId);
+      }
       controllers.hydration.dispose();
       controllers.run.dispose();
       controllers.stream.dispose();
     };
-  }, [controllers]);
+  }, [controllers, deletionState]);
 
   useEffect(() => {
-    if (!isActive || deletionState.isRequested || state.isConsentAccepted !== undefined) return;
+    if (!isActive || !stateRef.current.isShowingCachedHistory) return;
+    void controllers.hydration.hydrate(true, true);
+  }, [controllers, isActive]);
 
-    dispatch({ kind: 'consentLoadingStarted' });
-    void callApi('getAgentV2Consent').then((isAccepted) => {
-      if (deletionState.isRequested) return;
-      const isConsentAccepted = Boolean(isAccepted);
-      dispatch({ kind: 'consentResolved', isAccepted: isConsentAccepted });
+  useEffect(() => {
+    if (!isActive || deletionState.isRequested || state.isConsentAccepted !== undefined) return undefined;
+
+    let isCurrent = true;
+    const resolveConsent = (isAccepted: boolean) => {
+      // A news discussion reads its thread and post without consent, so it loads as an allowed chat does; what it
+      // would send asks for consent first
+      const canLoad = isAccepted || getIsNewsTarget(targetRef.current);
+      dispatch({ kind: 'consentResolved', isAccepted: canLoad });
       // A bound chat that opens again during its thread's answer keeps the answer its updates replayed
-      if (isConsentAccepted) void controllers.hydration.hydrate(Boolean(targetRef.current));
-    });
-  }, [controllers, deletionState, dispatch, isActive, state.isConsentAccepted]);
+      if (canLoad) void controllers.hydration.hydrate(Boolean(targetRef.current));
+    };
+    // The chat list has read the consent already
+    if (hasConsent) {
+      resolveConsent(true);
+      return undefined;
+    }
+
+    // Asked again once the SDK is ready: before that the question has no answer
+    const checkConsent = () => {
+      void callApi('getAgentV2Consent').then((isAccepted) => {
+        if (!isCurrent || deletionState.isRequested || typeof isAccepted !== 'boolean') return;
+        resolveConsent(isAccepted);
+      });
+    };
+    dispatch({ kind: 'consentLoadingStarted' });
+    const unsubscribe = subscribeToAgentV2RuntimeReady(checkConsent);
+    checkConsent();
+    return () => {
+      isCurrent = false;
+      unsubscribe();
+    };
+  }, [controllers, deletionState, dispatch, hasConsent, isActive, state.isConsentAccepted]);
+
+  const checkConsentAgain = useLastCallback(() => {
+    dispatch({ kind: 'consentReset' });
+  });
 
   useEffect(() => {
     const wasActive = wasActiveRef.current;
@@ -450,42 +567,83 @@ export default function useAgentV2Messages({
   }, [controllers, isActive, isNewsThread, langCode, state.hintsLangCode, state.isConsentAccepted, state.thread]);
 
   const threadId = state.thread?.id;
-  useEffect(() => {
-    if (!isActive || !threadId) return undefined;
-
-    let isCurrent = true;
-    void callApi('getAgentV2ProblemReportAvailability').then((isAvailable) => {
-      if (isCurrent) setIsProblemReportAvailable(Boolean(isAvailable));
-    });
-    return () => {
-      isCurrent = false;
-    };
-  }, [isActive, threadId]);
-
-  const acceptConsent = useLastCallback(() => {
-    if (deletionState.isRequested) return;
-    void callApi('acceptAgentV2Consent').then((isConsentAccepted) => {
-      if (isConsentAccepted !== true || deletionState.isRequested) return;
-      dispatch({ kind: 'consentAccepted' });
-      void controllers.hydration.hydrate(Boolean(targetRef.current));
-    });
+  const { loadedOperatorMessageAt } = state;
+  const canEditMessages = state.thread?.support?.state !== 'waiting' && state.thread?.support?.state !== 'operator';
+  const markSupportSeen = useLastCallback(() => {
+    // A summary from the chat list or an older page announces a reply before it loads, so only loaded history counts
+    const { thread, loadedOperatorMessageAt: operatorMessageAt } = stateRef.current;
+    if (isChatVisible() && thread && operatorMessageAt) {
+      markAgentThreadSupportSeen(thread.id, operatorMessageAt);
+    }
   });
+  const refreshSupportHistory = useLastCallback(() => {
+    const support = stateRef.current.thread?.support;
+    if (support?.state === 'waiting' || support?.state === 'operator') {
+      void controllers.hydration.refreshLatestMessages();
+    } else {
+      controllers.hydration.resumeLatestRefresh();
+    }
+  });
+  useInterval(refreshSupportHistory, isActive && !canEditMessages ? SUPPORT_POLLING_INTERVAL_MS : undefined, true);
+  useEffect(() => {
+    markSupportSeen();
+  }, [isActive, loadedOperatorMessageAt, markSupportSeen, threadId]);
+  useEffectWithPrevDeps(([wasActive]) => {
+    if (isActive && wasActive === false) refreshSupportHistory();
+  }, [isActive, refreshSupportHistory]);
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const handleReturn = () => {
+      markSupportSeen();
+      refreshSupportHistory();
+    };
+    const handleList = (threads: AgentThreadSummaryV2[]) => {
+      const current = stateRef.current.thread;
+      const listed = threads.find(({ id }) => id === current?.id);
+      if (current && listed && listed.revision >= current.revision
+        && (listed.support?.state !== current.support?.state
+          || listed.support?.lastOperatorMessageAt !== current.support?.lastOperatorMessageAt)) {
+        void controllers.hydration.refreshLatestMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', handleReturn);
+    window.addEventListener('focus', handleReturn);
+    agentThreadListListeners.add(handleList);
+    return () => {
+      document.removeEventListener('visibilitychange', handleReturn);
+      window.removeEventListener('focus', handleReturn);
+      agentThreadListListeners.delete(handleList);
+      controllers.hydration.cancelLatestRefresh();
+    };
+  }, [controllers, isActive, markSupportSeen, refreshSupportHistory]);
+  const requestProblemReportAvailability = useLastCallback(() => {
+    const availability = callApi('getAgentV2ProblemReportAvailability').then(Boolean);
+    problemReportAvailabilityRef.current = availability;
+    void availability.then((isAvailable) => {
+      if (problemReportAvailabilityRef.current === availability) setIsProblemReportAvailable(isAvailable);
+    });
+    return availability;
+  });
+  useEffect(() => {
+    if (!isActive || hasConsent === false) return;
+    void requestProblemReportAvailability();
+  }, [hasConsent, isActive, requestProblemReportAvailability]);
 
   const activateAction = useLastCallback((
     messageId: number,
     action: AgentV2LiveAction | AgentPersistedActionV2,
   ) => {
     const sourceId = controllers.stream.getSourceId(messageId);
-    if (!sourceId) return;
+    if (!sourceId || stateRef.current.isHistoryCached) return;
     if (action.kind === 'send') {
       void activateSendAction(messageId, sourceId, action);
       return;
     }
-    const authorityKey = buildAgentV2ActionAuthorityKey(buildAgentV2HostContext(getGlobal()));
+    const authorityKey = buildAgentV2ActionAuthorityKey(selectAgentV2HostContext(getGlobal()));
     const generation = controllers.stream.getActionPresentationGeneration();
     void callApi('resolveAgentV2Action', sourceId, action.id).then((resolved) => {
       if (!resolved || generation !== controllers.stream.getActionPresentationGeneration()) return;
-      const currentAuthorityKey = buildAgentV2ActionAuthorityKey(buildAgentV2HostContext(getGlobal()));
+      const currentAuthorityKey = buildAgentV2ActionAuthorityKey(selectAgentV2HostContext(getGlobal()));
       if (currentAuthorityKey !== authorityKey) return;
       if (resolved.kind === 'inactive') {
         showActionUnavailable(sourceId, action.id, resolved, generation);
@@ -499,31 +657,33 @@ export default function useAgentV2Messages({
     messageId: number | undefined,
     comment: string,
   ): Promise<AgentProblemReportOutcome> => {
-    const { thread } = stateRef.current;
-    if (!thread) return 'failed';
     // The connection error bubble has no stored message and reports the conversation. An answer that lost its stored
     // message since the form opened is not reported as the conversation in its place.
     const sourceId = messageId === undefined || messageId === ERROR_MESSAGE_ID
       ? undefined
       : controllers.stream.getSourceId(messageId);
     if (messageId !== undefined && messageId !== ERROR_MESSAGE_ID && !sourceId) return 'failed';
-    const result = await callApi('reportAgentV2Problem', thread.id, {
+    // A report sent while the chat creates its thread, or before the server says whether it takes reports, waits
+    const [reportedThreadId, isAvailable] = await Promise.all([
+      waitForThreadId(),
+      problemReportAvailabilityRef.current ?? requestProblemReportAvailability(),
+    ]);
+    if (!reportedThreadId || !isAvailable) return 'failed';
+    const result = await callApi('reportAgentV2Problem', reportedThreadId, {
       ...(sourceId ? { messageId: sourceId } : {}),
       ...(comment ? { comment } : {}),
     });
     if (result?.ok) return 'sent';
     // A server that has switched reports off refuses them, and asking again takes the report items away
-    void callApi('getAgentV2ProblemReportAvailability').then((isAvailable) => {
-      setIsProblemReportAvailable(Boolean(isAvailable));
-    });
+    void requestProblemReportAvailability();
     return result?.error.code === 'rate_limited' ? 'rateLimited' : 'failed';
   });
 
   const rateMessage = useLastCallback(async (messageId: number, feedback?: AgentAnswerFeedbackV2) => {
-    const { thread, messages: currentMessages } = stateRef.current;
+    const { thread, messages: currentMessages, isHistoryCached } = stateRef.current;
     const message = currentMessages.find(({ id }) => id === messageId);
     const sourceId = controllers.stream.getSourceId(messageId);
-    if (!thread || !sourceId || !message?.isComplete) return;
+    if (!thread || !sourceId || !message?.isComplete || isHistoryCached) return;
     const request = { feedback };
     const requests = feedbackRequestsRef.current.get(sourceId) ?? { latest: request, saved: message.feedback };
     requests.latest = request;
@@ -538,6 +698,19 @@ export default function useAgentV2Messages({
     if (currentMessageId === undefined) return;
     dispatch({ kind: 'messageFeedbackChanged', messageId: currentMessageId, feedback: requests.saved });
     if (!result?.ok) showError({ error: '$agent_feedback_failed' });
+    if (!result?.ok || !feedback || requests.saved !== feedback) return;
+
+    return getIsCurrentFeedback;
+
+    function getIsCurrentFeedback() {
+      const current = stateRef.current;
+      if (!current) return false;
+
+      const ratedMessageId = findAgentV2MessageId(current, sourceId!);
+      return current.messages.some(({ id, feedback: currentFeedback }) => (
+        id === ratedMessageId && currentFeedback === feedback
+      ));
+    }
   });
 
   const refreshExpiredComposerStatus = useLastCallback(() => {
@@ -566,12 +739,17 @@ export default function useAgentV2Messages({
     const current = stateRef.current;
     const message = current.messages.find(({ id }) => id === messageId);
     return Boolean(
-      message && !message.isOutgoing && !message.isNewsPost && !message.isTyping && !message.isStreaming
+      current.thread?.support?.state !== 'waiting' && current.thread?.support?.state !== 'operator'
+      && !current.isHistoryCached
+      && message && !message.isOutgoing && !message.isNewsPost && !message.operator && !message.supportEvent
+      && !message.isTyping && !message.isStreaming
       && current.sourceIdByMessageId[messageId],
     );
   });
 
-  const isInitialLoadComplete = state.isConsentAccepted === true && !state.isLoading;
+  // A chat that shows its cached history is complete while that history loads again
+  const isInitialLoadComplete = state.isConsentAccepted === true
+    && (!state.isLoading || Boolean(state.isShowingCachedHistory));
 
   // The failure stays, saying it is being retried, until the history loads or fails again
   const [retriedHistoryFailure, setRetriedHistoryFailure] = useState<string | undefined>();
@@ -609,14 +787,20 @@ export default function useAgentV2Messages({
   return {
     messages: visibleMessages,
     thread: state.thread,
+    support: state.thread?.support,
+    canEditMessages: canEditMessages && !state.isHistoryCached,
     news,
     isOpeningNews,
     hints: isNewsThread ? undefined : state.hints,
     activity: selectAgentV2Activity(state) ?? (isQuestionWaiting ? ANALYZING_REQUEST_ACTIVITY : undefined),
     isInitialLoadComplete,
+    isHistoryCached: state.isHistoryCached,
+    isOpenedWithCachedHistory,
     hasPendingQuestion: Boolean(pendingQuestion),
     isInputDisabled,
     isRunActive: selectIsAgentV2RunActive(state) || isQuestionWaiting,
+    canStopRun: controllers.run.canStopRun(),
+    stopRun: controllers.run.stopRun,
     textRevealPresentations,
     hasOlderMessages: Boolean(state.nextCursor),
     isLoadingOlderMessages: state.isLoadingOlderMessages,
@@ -624,15 +808,15 @@ export default function useAgentV2Messages({
     historyFailure,
     retryHistory,
     isConsentAccepted: state.isConsentAccepted,
+    checkConsentAgain,
     composerStatus,
     sendMessage: controllers.run.sendMessage,
     sendHint: controllers.run.sendHint,
     sendFollowup,
     clearChat: controllers.run.clearChat,
     cancelPendingRequests,
-    reportProblem: isProblemReportAvailable ? reportProblem : undefined,
+    reportProblem: hasConsent !== false && isProblemReportAvailable ? reportProblem : undefined,
     rateMessage,
-    acceptConsent,
     retryMessage,
     isMessageRegenerable,
     retryAdmission: controllers.run.retryAdmission,
@@ -654,6 +838,12 @@ export default function useAgentV2Messages({
     return resolvingThreadIdRef.current;
   }
 
+  function waitForThreadId() {
+    const threadId = stateRef.current.thread?.id;
+    if (threadId) return Promise.resolve(threadId);
+    return resolveThreadId().then((result) => (result?.ok ? result.value : undefined));
+  }
+
   async function requestThreadId(): Promise<AgentV2MutationResult<string> | undefined> {
     const chatTarget = targetRef.current;
     const notifyThreadResolved = onThreadResolvedRef.current;
@@ -665,7 +855,9 @@ export default function useAgentV2Messages({
     if (chatTarget) {
       resolvedThreadIdRef.current = threadId;
       if (!isUnmountedRef.current) {
-        if (chatTarget.kind === 'news') dispatch({ kind: 'threadChanged', thread: result.value.thread });
+        if (chatTarget.kind === 'news' || chatTarget.kind === 'digest') {
+          dispatch({ kind: 'threadChanged', thread: result.value.thread });
+        }
       }
       // An in-flight creation can resolve its original selection after the chat has closed
       notifyThreadResolved?.(threadId);
@@ -679,6 +871,8 @@ export default function useAgentV2Messages({
         return callApi('createAgentV2Thread');
       case 'news':
         return callApi('createAgentV2Thread', { news: chatTarget.news });
+      case 'digest':
+        return callApi('createAgentV2Thread', { digest: chatTarget.digest });
       default:
         return callApi('getAgentV2DefaultThread');
     }
@@ -703,7 +897,7 @@ export default function useAgentV2Messages({
       return;
     }
 
-    const initialHostContext = buildAgentV2HostContext(getGlobal());
+    const initialHostContext = selectAgentV2HostContext(getGlobal());
     const initialAuthorityKey = buildAgentV2SendAuthorityKey(initialHostContext);
     if (!initialAuthorityKey) {
       showActionUnavailable(sourceId, action.id, { kind: 'inactive' });
@@ -712,7 +906,7 @@ export default function useAgentV2Messages({
 
     try {
       const hasAuthorityChanged = await synchronizeHostContext(initialHostContext);
-      const synchronizedAuthorityKey = buildAgentV2SendAuthorityKey(buildAgentV2HostContext(getGlobal()));
+      const synchronizedAuthorityKey = buildAgentV2SendAuthorityKey(selectAgentV2HostContext(getGlobal()));
       const synchronizedGeneration = controllers.stream.getActionPresentationGeneration();
       if (lifecycleGeneration !== controllers.stream.getActionLifecycleGeneration()) return;
       if (
@@ -726,9 +920,9 @@ export default function useAgentV2Messages({
 
       const resolved = await callApi('resolveAgentV2Action', sourceId, action.id);
       if (lifecycleGeneration !== controllers.stream.getActionLifecycleGeneration()) return;
-      const currentHostContext = buildAgentV2HostContext(getGlobal());
+      const currentHostContext = selectAgentV2HostContext(getGlobal());
       const hasCurrentAuthorityChanged = await synchronizeHostContext(currentHostContext);
-      const currentAuthorityKey = buildAgentV2SendAuthorityKey(buildAgentV2HostContext(getGlobal()));
+      const currentAuthorityKey = buildAgentV2SendAuthorityKey(selectAgentV2HostContext(getGlobal()));
       const currentGeneration = controllers.stream.getActionPresentationGeneration();
       if (lifecycleGeneration !== controllers.stream.getActionLifecycleGeneration()) return;
       if (
@@ -783,7 +977,7 @@ export default function useAgentV2Messages({
       case 'openSwap':
         if (isSelfDeeplink(resolved.url)) {
           const global = getGlobal();
-          if (!getAgentV2ActionAvailability(buildAgentV2HostContext(global)).canPrepareSwap) return;
+          if (!getAgentV2ActionAvailability(selectAgentV2HostContext(global)).canPrepareSwap) return;
           const tokensBySlug = global.swapTokenInfo?.bySlug;
           if ((resolved.tokenInSlug && !tokensBySlug?.[resolved.tokenInSlug])
             || (resolved.tokenOutSlug && !tokensBySlug?.[resolved.tokenOutSlug])) {
@@ -853,6 +1047,16 @@ export default function useAgentV2Messages({
         assertUnreachable(resolved);
     }
   }
+}
+
+// The device keeps the history of a thread the chat opens by its id; a news or digest discussion opens with its post
+function canReadCachedHistory(target?: AgentV2ChatTarget, thread?: AgentThreadSummaryV2) {
+  return target?.kind === 'thread' && !target.isNews && !target.preview && !thread?.news && !thread?.digest;
+}
+
+function getIsNewsTarget(target?: AgentV2ChatTarget) {
+  return target?.kind === 'news' || target?.kind === 'digest'
+    || (target?.kind === 'thread' && Boolean(target.isNews));
 }
 
 function buildAgentV2ActionAuthorityKey(host: AgentV2HostContextSnapshot) {

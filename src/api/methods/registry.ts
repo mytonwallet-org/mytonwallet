@@ -23,7 +23,7 @@ if (process.env.NO_EXTRA_FEATURES !== '1') {
   // Hidden Perps UI is not enough: a client calling by name would still reach backend-built signing
   if (!IS_PERPS_ENABLED) {
     for (const name of Object.keys(methods)) {
-      if (/^(init)?perps/i.test(name)) delete (methods as AnyLiteral)[name];
+      if (/perps/i.test(name) && name !== 'isPerpsSupported') delete (methods as AnyLiteral)[name];
     }
   }
 }

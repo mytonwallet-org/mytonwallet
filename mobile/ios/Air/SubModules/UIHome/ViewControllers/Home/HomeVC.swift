@@ -98,8 +98,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private let bannersSection = HomeBannersSection(topSpacing: 16, bottomSpacing: 0)
     private let perpsSections = HomePerpsSections()
     private var hasLivePerpsSections = false
-    private var perpsAccountId: String?
-    private var perpsPollingTask: Task<Void, Never>?
+    /// The account whose positions were read because none were known; cleared once they arrive.
+    private var perpsReadAccountId: String?
     private var pendingPerpsUpdate: (accountID: String, apply: () -> Void)?
 
     /// The SDK adapter supplies snapshots only for this home controller's currently selected account.
@@ -126,7 +126,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             guard let self, let snapshot = perpsSections.data,
                   snapshot.accountID == displayedActivitiesAccountId, snapshot.accountID == homeVM.account.id else { return }
             if case .position(let id) = action {
-                guard snapshot.status == .ready, snapshot.positions.contains(where: { $0.id == id && $0.canSelect }) else { return }
+                guard snapshot.status == .ready, snapshot.positions.contains(where: { $0.id == id }) else { return }
             }
             onPositionAction(action)
         }
@@ -151,43 +151,35 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             return
         }
         hasLivePerpsSections = true
-        if perpsAccountId != account.id {
-            perpsAccountId = account.id
-            Task { await PerpsStore.shared.refresh(accountId: account.id) }
-        }
         let store = PerpsStore.shared
+        // The SDK pushes the active account's positions when they change. Read them here only while none are known,
+        // as for an account without cached data or after caches were cleared.
+        if store.snapshots[account.id] != nil {
+            if perpsReadAccountId == account.id { perpsReadAccountId = nil }
+        } else if perpsReadAccountId != account.id {
+            perpsReadAccountId = account.id
+            Task {
+                await store.loadCapabilities()
+                guard PerpsAvailability.canRead(account, store: store), store.snapshots[account.id] == nil else { return }
+                await store.refresh(accountId: account.id, includesHistory: false)
+            }
+        }
         updatePerpsSections(data: PerpsHomeAdapter.positions(store: store, accountId: account.id),
-            exploreDestinations: [.market, .agent, .futures, .apps], onPositionAction: { action in
+            onPositionAction: { action in
                 switch action {
                 case .position(let id): AppActions.showPerps(accountId: account.id, positionId: id)
-                case .refresh: Task { await store.refresh(accountId: account.id) }
+                case .refresh: Task { await store.refresh(accountId: account.id, includesHistory: false) }
                 case .allPositions: AppActions.showPerps(accountId: account.id, showsAllPositions: true)
                 default: break
                 }
             }, onExplore: { destination in
                 switch destination {
                 case .market: AppActions.showMarket()
-                case .agent: AppActions.showAgent()
+                case .agent: AppActions.showAgentTab()
                 case .futures: AppActions.showPerps(accountId: account.id)
                 case .apps: AppActions.showExplore()
                 }
             })
-    }
-
-    private func startPerpsPolling() {
-        perpsPollingTask?.cancel()
-        renderLivePerpsSections()
-        perpsPollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                if UIApplication.shared.applicationState == .active {
-                    if !PerpsStore.shared.hasResolvedCapabilities { await PerpsStore.shared.loadCapabilities() }
-                    if let account = self?.homeVM.account, PerpsAvailability.canRead(account) {
-                        await PerpsStore.shared.refresh(accountId: account.id)
-                    }
-                }
-                try? await Task.sleep(for: .seconds(20))
-            }
-        }
     }
 
     private var activityPreviewViewModel: ActivityPreviewViewModel?
@@ -612,7 +604,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         headerViewModel.isVisible = true
-        startPerpsPolling()
+        Task { await PerpsStore.shared.loadCapabilities() }
         collectionView.traceHome("home.appeared", "account=\(homeVM.account.id)")
         if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
             updateSafeAreaInsets()
@@ -629,8 +621,6 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         headerViewModel.isVisible = false
-        perpsPollingTask?.cancel()
-        perpsPollingTask = nil
     }
 
     public override func viewDidLayoutSubviews() {
@@ -905,7 +895,12 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             }
             .margins(.all, 0)
         }
-        multisigWalletWarningCustomSectionDescriptor = CustomSectionDescriptor(id: multisigWalletWarningCustomSectionID) { [unowned self] collectionView, indexPath in
+        multisigWalletWarningCustomSectionDescriptor = CustomSectionDescriptor(
+            id: multisigWalletWarningCustomSectionID,
+            usesInsetGroupedMargins: true,
+            topSpacing: sectionSpacing,
+            bottomSpacing: 0
+        ) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: multisigWalletWarningCustomSectionCellRegistration, for: indexPath, item: .custom(multisigWalletWarningCustomSectionID))
         }
         // The shared assets view is hosted in `willDisplay` rather than at dequeue, so prefetched

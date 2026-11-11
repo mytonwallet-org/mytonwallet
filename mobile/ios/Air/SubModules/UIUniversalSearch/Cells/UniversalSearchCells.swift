@@ -37,6 +37,7 @@ class UniversalSearchBaseCell: WHighlightCollectionViewCell {
         contentView.backgroundColor = .clear
         contentView.clipsToBounds = false
         isAccessibilityElement = true
+        accessibilityIdentifier = "search_item_row"
 
         highlightView.translatesAutoresizingMaskIntoConstraints = false
         highlightView.isUserInteractionEnabled = false

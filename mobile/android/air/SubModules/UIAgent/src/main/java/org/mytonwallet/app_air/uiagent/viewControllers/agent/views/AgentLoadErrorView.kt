@@ -61,9 +61,16 @@ internal class AgentLoadErrorView(context: Context) :
         updateTheme()
     }
 
-    fun setError(text: String?) {
+    /** Shows [text] with Retry, or hides the view for null */
+    fun setError(text: String?) = show(text, hasRetry = true)
+
+    /** Shows [text] without Retry, or hides the view for null */
+    fun setMessage(text: String?) = show(text, hasRetry = false)
+
+    private fun show(text: String?, hasRetry: Boolean) {
         isGone = text == null
         if (text != null) label.text = text
+        retryButton.isGone = !hasRetry
     }
 
     override fun updateTheme() {

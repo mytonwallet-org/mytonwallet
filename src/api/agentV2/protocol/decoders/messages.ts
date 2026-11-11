@@ -41,7 +41,7 @@ import {
 } from './actions';
 import { decodeMessageLinks } from './answerLinks';
 import { decodeMessageTables } from './answerTables';
-import { threadNewsCard } from './newsFeed';
+import { threadDigestCard, threadNewsCard } from './newsFeed';
 import {
   ERROR_CODES,
   followupUuid,
@@ -95,6 +95,8 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
     : literal(result.hasCustomTitle, true, `${path}.hasCustomTitle`);
   const isPinned = result.isPinned === undefined ? undefined : literal(result.isPinned, true, `${path}.isPinned`);
   const news = result.news === undefined ? undefined : threadNewsCard(result.news, `${path}.news`);
+  const digest = result.digest === undefined ? undefined : threadDigestCard(result.digest, `${path}.digest`);
+  const support = result.support === undefined ? undefined : threadSupport(result.support, `${path}.support`);
 
   return {
     id,
@@ -109,7 +111,20 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
     ...(hasCustomTitle !== undefined && { hasCustomTitle }),
     ...(isPinned !== undefined && { isPinned }),
     ...(news !== undefined && { news }),
+    ...(digest !== undefined && { digest }),
+    ...(support !== undefined && { support }),
   };
+}
+
+function threadSupport(value: unknown, path: string): AgentThreadSummaryV2['support'] {
+  const result = object(value, path);
+  const state = oneOf<'waiting' | 'operator' | 'closed'>(
+    result.state, new Set(['waiting', 'operator', 'closed']), `${path}.state`,
+  );
+  const lastOperatorMessageAt = result.lastOperatorMessageAt === undefined
+    ? undefined
+    : timestamp(result.lastOperatorMessageAt, `${path}.lastOperatorMessageAt`);
+  return { state, ...(lastOperatorMessageAt !== undefined && { lastOperatorMessageAt }) };
 }
 
 export function followup(value: unknown, path: string) {
@@ -161,8 +176,16 @@ function validatePersistedMessage(
 ): asserts result is JsonObject & AgentPersistedMessageV2 {
   uuid(result.id, `${path}.id`);
   uuid(result.threadId, `${path}.threadId`);
-  oneOf(result.role, new Set(['user', 'assistant']), `${path}.role`);
+  const role = oneOf(result.role, new Set(['user', 'assistant', 'operator', 'event']), `${path}.role`);
   oneOf(result.status, new Set(['complete', 'error', 'cancelled']), `${path}.status`);
+  timestamp(result.createdAt, `${path}.createdAt`);
+  if (role === 'operator' || role === 'event') {
+    validateSupportMessage(result, path, role);
+    return;
+  }
+  for (const field of ['author', 'code', 'reason']) {
+    if (result[field] !== undefined) fail(`${path}.${field}`);
+  }
   if (result.content !== undefined) {
     const content = object(result.content, `${path}.content`);
     const kind = oneOf(content.kind, new Set(['markdown', 'semantic']), `${path}.content.kind`);
@@ -187,7 +210,6 @@ function validatePersistedMessage(
       content.content = semanticContent(content.content, `${path}.content.content`);
     }
   }
-  timestamp(result.createdAt, `${path}.createdAt`);
   if (result.runId !== undefined) uuid(result.runId, `${path}.runId`);
   if (result.newsPost !== undefined) literal(result.newsPost, true, `${path}.newsPost`);
   if (result.responseLanguage !== undefined) {
@@ -225,6 +247,36 @@ function validatePersistedMessage(
     }
   }
   if (result.error !== undefined) result.error = messageError(result.error, `${path}.error`);
+}
+
+function validateSupportMessage(result: JsonObject, path: string, role: 'operator' | 'event') {
+  literal(result.status, 'complete', `${path}.status`);
+  for (const field of ['content', 'runId', 'actions', 'followups', 'error', 'responseLanguage', 'newsPost', 'chains']) {
+    if (result[field] !== undefined) fail(`${path}.${field}`);
+  }
+  if (role === 'operator') {
+    string(result.text, `${path}.text`, 0);
+    supportAuthor(result.author, `${path}.author`);
+    if (result.code !== undefined) fail(`${path}.code`);
+    if (result.reason !== undefined) fail(`${path}.reason`);
+    if (result.feedback !== undefined) oneOf(result.feedback, ANSWER_FEEDBACK, `${path}.feedback`);
+    return;
+  }
+
+  const code = oneOf(result.code, new Set(['support_requested', 'operator_joined', 'support_closed']), `${path}.code`);
+  if (result.text !== undefined) fail(`${path}.text`);
+  if (result.feedback !== undefined) fail(`${path}.feedback`);
+  if (code === 'operator_joined') supportAuthor(result.author, `${path}.author`);
+  else if (result.author !== undefined) fail(`${path}.author`);
+  if (code === 'support_closed') oneOf(result.reason, new Set(['operator', 'inactivity']), `${path}.reason`);
+  else if (result.reason !== undefined) fail(`${path}.reason`);
+}
+
+function supportAuthor(value: unknown, path: string) {
+  const result = object(value, path);
+  string(result.operatorId, `${path}.operatorId`);
+  string(result.name, `${path}.name`);
+  if (result.avatarUrl !== undefined) string(result.avatarUrl, `${path}.avatarUrl`);
 }
 
 export function decodeResponseLanguage(value: unknown): string | undefined {

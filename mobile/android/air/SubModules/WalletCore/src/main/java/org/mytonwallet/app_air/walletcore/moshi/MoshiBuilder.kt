@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.BigIntegerJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONArrayAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONObjectAdapter
+import org.mytonwallet.app_air.walletcore.moshi.adapter.LenientJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdateAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAddressAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
@@ -32,6 +33,7 @@ class MoshiBuilder {
             .add(EnumJsonAdapterFactory())
             .add(JSONArrayAdapter())
             .add(JSONObjectAdapter())
+            .add(LenientJsonAdapterFactory(MApiPerpsOnboarding::class.java))
             .add(
                 PolymorphicJsonAdapterFactory.of(StakingState::class.java, "type")
                     .withSubtype(StakingState.Liquid::class.java, "liquid")
@@ -95,6 +97,11 @@ class MoshiBuilder {
                     .withSubtype(ApiUpdate.ApiUpdateStaking::class.java, "updateStaking")
                     .withSubtype(ApiUpdate.ApiUpdateConfig::class.java, "updateConfig")
                     .withSubtype(ApiUpdate.ApiUpdateNftSent::class.java, "nftSent")
+                    .withSubtype(ApiUpdate.ApiUpdatePerpsAssets::class.java, "updatePerpsAssets")
+                    .withSubtype(
+                        ApiUpdate.ApiUpdatePerpsOperationUpdated::class.java,
+                        "perpsOperationUpdated"
+                    )
                     .withSubtype(ApiUpdate.ApiUpdateNftReceived::class.java, "nftReceived")
                     .withSubtype(ApiUpdate.ApiUpdateNftChanged::class.java, "nftChanged")
                     .withSubtype(

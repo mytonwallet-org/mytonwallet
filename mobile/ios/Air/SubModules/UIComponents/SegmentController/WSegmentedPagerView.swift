@@ -774,6 +774,7 @@ public struct WSegmentedPagerItem: Equatable {
     public let contextMenuProvider: SegmentedControlContextMenuProvider?
     public let hidesMenuIcon: Bool
     public let isDeletable: Bool
+    public let accessibilityIdentifier: String?
     public let viewController: any WSegmentedControllerContent
 
     public init(
@@ -782,6 +783,7 @@ public struct WSegmentedPagerItem: Equatable {
         contextMenuProvider: SegmentedControlContextMenuProvider? = nil,
         hidesMenuIcon: Bool = false,
         isDeletable: Bool = true,
+        accessibilityIdentifier: String? = nil,
         viewController: any WSegmentedControllerContent
     ) {
         self.id = id
@@ -789,6 +791,7 @@ public struct WSegmentedPagerItem: Equatable {
         self.contextMenuProvider = contextMenuProvider
         self.hidesMenuIcon = hidesMenuIcon
         self.isDeletable = isDeletable
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.viewController = viewController
     }
 
@@ -799,6 +802,7 @@ public struct WSegmentedPagerItem: Equatable {
             contextMenuProvider: contextMenuProvider,
             hidesMenuIcon: hidesMenuIcon,
             isDeletable: isDeletable,
+            accessibilityIdentifier: accessibilityIdentifier,
             viewController: viewController
         )
     }
@@ -809,6 +813,7 @@ public struct WSegmentedPagerItem: Equatable {
             && lhs.contextMenuProvider === rhs.contextMenuProvider
             && lhs.hidesMenuIcon == rhs.hidesMenuIcon
             && lhs.isDeletable == rhs.isDeletable
+            && lhs.accessibilityIdentifier == rhs.accessibilityIdentifier
             && ObjectIdentifier(lhs.viewController as AnyObject) == ObjectIdentifier(rhs.viewController as AnyObject)
     }
 }

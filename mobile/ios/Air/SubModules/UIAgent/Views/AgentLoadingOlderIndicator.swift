@@ -1,6 +1,6 @@
 import UIKit
 
-/// The spinner under the header while a chat or the News feed loads what came before its first row
+/// The spinner under the header while a chat loads what came before its first row
 final class AgentLoadingOlderIndicator: UIActivityIndicatorView {
     private static let topInset: CGFloat = 8
 

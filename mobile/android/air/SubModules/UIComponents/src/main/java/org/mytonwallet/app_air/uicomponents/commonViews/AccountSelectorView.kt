@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
@@ -63,6 +64,15 @@ class AccountSelectorView(
     private var selectedAccountId: String? = null
     private var isLoading = false
 
+    var isSwitchable = true
+        set(value) {
+            if (field == value) return
+            field = value
+            isClickable = value
+            expandIcon.isVisible = value
+            requestLayout()
+        }
+
     init {
         addView(
             accountIconView,
@@ -82,7 +92,7 @@ class AccountSelectorView(
                 marginEnd = 14.dp
             }
         )
-        setOnClickListener { presentAccountSwitcher() }
+        setOnMenuClickListener { presentAccountSwitcher() }
         updateTheme()
     }
 
@@ -118,7 +128,7 @@ class AccountSelectorView(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(
-            75.dp.exactly,
+            (if (isSwitchable) 75 else 48).dp.exactly,
             48.dp.exactly
         )
     }

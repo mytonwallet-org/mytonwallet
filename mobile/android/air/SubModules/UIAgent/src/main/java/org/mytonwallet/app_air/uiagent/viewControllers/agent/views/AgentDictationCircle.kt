@@ -13,6 +13,7 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.view.Choreographer
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.PathInterpolator
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -38,19 +39,48 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
+// The finger's travel up over which the lock closes, in dp
+private const val LOCK_TRAVEL = 105f
+
+// The open shackle stands this far above the body, its short leg this much further, in dp
+private const val SHACKLE_LIFT = 3f
+private const val SHACKLE_LEG_GAP = 3f
+
+/** How far the finger has slid toward the lock, from 0 where it pressed to 1 at the lock, for [upDp] of travel up */
+internal fun agentDictationLockProgress(upDp: Float): Float = (upDp / LOCK_TRAVEL).coerceIn(0f, 1f)
+
+/** Where the padlock's shackle stands: how far above the body, and how far its short leg stops short of it, in dp */
+internal data class AgentLockShackle(val lift: Float, val legGap: Float)
+
+/**
+ * Telegram's lock closing as the finger slides up: the shackle comes down in proportion to [closing], from open at 0
+ * to shut at 1, where its short leg reaches into the body
+ */
+internal fun agentLockShackle(closing: Float): AgentLockShackle {
+    val openness = 1 - closing.coerceIn(0f, 1f)
+    return AgentLockShackle(
+        lift = SHACKLE_LIFT * openness,
+        legGap = (SHACKLE_LIFT + SHACKLE_LEG_GAP) * openness
+    )
+}
+
 /**
  * Telegram's recording circle, grown out of the microphone while a question is recorded: a solid
  * accent circle with the microphone, or a checkmark once locked, inside two voice waves that swell
  * with the voice, and the lock panel above it. It follows the finger up and toward cancelling,
- * shrinking as it goes. A recording that produced no transcript turns it red with a cross before it
- * shrinks back into the microphone.
+ * shrinking as it goes. Once locked, the panel turns into Telegram Android's pause button, which
+ * shows the microphone while the recording is paused. A recording that produced no transcript turns
+ * it red with a cross before it shrinks back into the microphone.
  *
  * It draws in [anchor]'s window overlay, centred on [anchor], so nothing clips it, and takes no
- * touches: the microphone under its centre finishes a locked recording.
+ * touches but the pause button's: the microphone under its centre finishes a locked recording.
  */
 internal class AgentDictationCircle(private val anchor: View) {
     /** The circle shows or has gone */
     var onVisibilityChanged: ((Boolean) -> Unit)? = null
+
+    /** The pause button is tapped, to pause the recording or resume it */
+    var onPauseToggled: (() -> Unit)? = null
 
     /**
      * How much the circle stands in for the microphone, from 0 to 1: it covers it as it grows out of it, keeps it
@@ -70,6 +100,7 @@ internal class AgentDictationCircle(private val anchor: View) {
 
     private var phase = AgentDictationPhase.IDLE
     private var isLocked = false
+    private var isPaused = false
     private var isPresented = false
     private var isShowingFailure = false
     private var lastFrameNanos = 0L
@@ -85,8 +116,10 @@ internal class AgentDictationCircle(private val anchor: View) {
     private val blobAlpha = Tween(1f)
     private val panelOffset = Tween(0f)
     private val panelAlpha = Tween(1f)
-    private val panelScale = Tween(1f)
     private val lockClose = Tween(0f)
+    private val pauseMorph = Tween(0f)
+    private val resumeMorph = Tween(0f)
+    private val wavesShown = Tween(1f)
     private val failureColor = Tween(0f)
     private val wavesAlpha = Tween(1f)
     private val presence = Tween(RESTING_PRESENCE)
@@ -106,6 +139,14 @@ internal class AgentDictationCircle(private val anchor: View) {
     private var error = WColor.Error.color
     private var panelColor = WColor.Background.color
     private var iconColor = WColor.SecondaryText.color
+
+    // The overlay takes no touches, so the pause button's own tap target lies over it in the window
+    private val pauseButton = View(anchor.context).apply {
+        isClickable = true
+        isFocusable = true
+        contentDescription = LocaleController.getString("\$agent_voice_pause")
+        setOnClickListener { onPauseToggled?.invoke() }
+    }
 
     private val isAnimated: Boolean
         get() = WGlobalStorage.getAreAnimationsActive() && anchor.isAttachedToWindow
@@ -134,6 +175,14 @@ internal class AgentDictationCircle(private val anchor: View) {
         if (isRecording && state.locked && !hasBeenLocked && isPresented) {
             lockPanel(shouldAnimate = isAnimated)
         }
+        val shouldPause = isRecording && state.isPaused
+        if (shouldPause != isPaused) {
+            isPaused = shouldPause
+            if (isRecording && isPresented) showPause(shouldAnimate = isAnimated)
+            pauseButton.contentDescription = LocaleController.getString(
+                if (shouldPause) "\$agent_voice_resume" else "\$agent_voice_pause"
+            )
+        }
         if (isRecording) setGlyph(resolveGlyph(state), shouldAnimate = isPresented && isAnimated)
         when {
             isRecording && !isPresented -> present()
@@ -147,6 +196,7 @@ internal class AgentDictationCircle(private val anchor: View) {
         error = WColor.Error.color
         panelColor = WColor.Background.color
         iconColor = WColor.SecondaryText.color
+        layer.updateTheme()
         layer.invalidateSelf()
     }
 
@@ -167,10 +217,13 @@ internal class AgentDictationCircle(private val anchor: View) {
         currentScale = 1f
         failureColor.set(0f)
         wavesAlpha.set(1f)
+        wavesShown.set(1f)
         blobAlpha.set(1f)
         setGlyph(resolveGlyph(), shouldAnimate = false)
+        // A hands-free recording starts locked, with the pause button
         lockClose.set(if (isLocked) 1f else 0f)
-        panelScale.set(if (isLocked) PANEL_CLOSED_SCALE else 1f)
+        pauseMorph.set(if (isLocked) 1f else 0f)
+        resumeMorph.set(0f)
         presentationLevel = 0f
         lastFrameNanos = 0L
         show()
@@ -179,7 +232,7 @@ internal class AgentDictationCircle(private val anchor: View) {
             presence.set(1f)
             blobScale.set(1f)
             panelOffset.set(0f)
-            panelAlpha.set(if (isLocked) 0f else 1f)
+            panelAlpha.set(1f)
             updateCover(now)
             return
         }
@@ -191,7 +244,7 @@ internal class AgentDictationCircle(private val anchor: View) {
         panelOffset.set((if (isLocked) PANEL_LOCKED_RISE else PANEL_RISE).dp.toFloat())
         panelOffset.animate(0f, now, PRESENT_MS, PRESENT_SPRING)
         panelAlpha.set(0f)
-        panelAlpha.animate(if (isLocked) 0f else 1f, now, PANEL_FADE_MS, WInterpolator.easeInOut)
+        panelAlpha.animate(1f, now, PANEL_FADE_MS, WInterpolator.easeInOut)
         updateCover(now)
     }
 
@@ -227,24 +280,36 @@ internal class AgentDictationCircle(private val anchor: View) {
         scheduleFrame()
     }
 
-    // Once locked, the panel closes into the padlock and goes away, as in Telegram
+    // Once locked, the panel closes from where the finger left it as its padlock turns into
+    // Telegram Android's pause button
     private fun lockPanel(shouldAnimate: Boolean) {
+        val dragLockness = agentDictationLockProgress(abs(currentTranslationY) / 1f.dp)
         if (!shouldAnimate) {
             lockClose.set(1f)
-            panelScale.set(PANEL_CLOSED_SCALE)
-            panelAlpha.set(0f)
+            pauseMorph.set(1f)
+            panelOffset.set(0f)
             return
         }
         val now = System.nanoTime()
+        lockClose.set(dragLockness)
         lockClose.animate(1f, now, PANEL_CLOSE_MS, WInterpolator.easeInOut, PANEL_CLOSE_DELAY_MS)
-        panelScale.animate(
-            PANEL_CLOSED_SCALE,
-            now,
-            PANEL_CLOSE_MS,
-            WInterpolator.easeInOut,
-            PANEL_CLOSE_DELAY_MS
-        )
-        panelAlpha.animate(0f, now, PANEL_CLOSE_MS, WInterpolator.easeInOut, PANEL_CLOSE_DELAY_MS)
+        pauseMorph.animate(1f, now, PANEL_CLOSE_MS, WInterpolator.easeInOut, PANEL_CLOSE_DELAY_MS)
+        // The panel followed the finger up; it settles back from there
+        panelOffset.set(currentTranslationY)
+        panelOffset.animate(0f, now, PANEL_CLOSE_MS, WInterpolator.easeInOut)
+    }
+
+    // Paused, the waves sink into the circle and the pause button shows the microphone that resumes, as in Telegram
+    private fun showPause(shouldAnimate: Boolean) {
+        val target = if (isPaused) 1f else 0f
+        if (!shouldAnimate) {
+            resumeMorph.set(target)
+            wavesShown.set(1f - target)
+            return
+        }
+        val now = System.nanoTime()
+        resumeMorph.animate(target, now, PAUSE_SWAP_MS, WInterpolator.easeInOut)
+        wavesShown.animate(1f - target, now, PAUSE_SWAP_MS, WInterpolator.easeInOut)
     }
 
     /**
@@ -340,6 +405,7 @@ internal class AgentDictationCircle(private val anchor: View) {
     private fun hide() {
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         isFrameScheduled = false
+        removePauseButton()
         val root = host ?: return
         host = null
         root.overlay.remove(layer)
@@ -382,6 +448,7 @@ internal class AgentDictationCircle(private val anchor: View) {
         }
         layer.invalidateSelf()
         updateCover(now)
+        updatePauseButton(now)
         val isFinishedDismissing = !isPresented && !isShowingFailure && !blobAlpha.isRunning(now)
         val isFinishedFailure = isShowingFailure &&
             (now - failureStartNanos) / NANOS_PER_MS > FAILURE_TOTAL_MS && !blobAlpha.isRunning(now)
@@ -395,6 +462,30 @@ internal class AgentDictationCircle(private val anchor: View) {
 
             else -> scheduleFrame()
         }
+    }
+
+    // The tap target follows the locked panel while it shows as the pause button
+    private fun updatePauseButton(now: Long) {
+        val root = host as? ViewGroup
+        if (root == null || !isPresented || !isLocked || anchor.width <= 0) {
+            removePauseButton()
+            return
+        }
+        val size = PAUSE_TARGET.dp
+        if (pauseButton.parent !== root) {
+            removePauseButton()
+            root.addView(pauseButton, ViewGroup.LayoutParams(size, size))
+        }
+        anchor.getLocationInWindow(location)
+        val centreX = location[0] + anchor.width / 2f
+        val centreY = location[1] + anchor.height / 2f - LOCK_PANEL_OFFSET.dp +
+            panelOffset.evaluate(now) + LOCKED_PANEL_CENTRE.dp
+        pauseButton.translationX = centreX - size / 2f
+        pauseButton.translationY = centreY - size / 2f
+    }
+
+    private fun removePauseButton() {
+        (pauseButton.parent as? ViewGroup)?.removeView(pauseButton)
     }
 
     private enum class Glyph { MICROPHONE, CHECKMARK, CROSS }
@@ -413,6 +504,8 @@ internal class AgentDictationCircle(private val anchor: View) {
         private val innerPath = Path()
         private val glyphPath = Path()
         private val rect = RectF()
+        private val leftBarRadii = FloatArray(CORNER_VALUES)
+        private val rightBarRadii = FloatArray(CORNER_VALUES)
 
         // White on the accent; its alpha follows the glyph's
         private val microphone = ContextCompat
@@ -420,14 +513,30 @@ internal class AgentDictationCircle(private val anchor: View) {
             ?.mutate()
             ?.apply { colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN) }
 
+        // The pause button's microphone, which resumes the recording; made once the circle's colours are set
+        private val resumeMicrophone by lazy {
+            ContextCompat.getDrawable(anchor.context, R.drawable.ic_agent_microphone)
+                ?.mutate()
+                ?.apply { setTint(iconColor) }
+        }
+
+        fun updateTheme() {
+            resumeMicrophone?.setTint(iconColor)
+        }
+
         override fun draw(canvas: Canvas) {
             if (anchor.width <= 0) return
             val now = System.nanoTime()
             anchor.getLocationInWindow(location)
-            val centreX = location[0] + anchor.width / 2f + currentCancelX
-            val centreY = location[1] + anchor.height / 2f + currentTranslationY
             val restingX = location[0] + anchor.width / 2f
-            drawLockPanel(canvas, restingX, location[1] + anchor.height / 2f, now)
+            val restingY = location[1] + anchor.height / 2f
+            // Locked, the panel is a button over the waves
+            if (!isLocked) drawLockPanel(canvas, restingX, restingY, now)
+            drawBlob(canvas, restingX + currentCancelX, restingY + currentTranslationY, now)
+            if (isLocked) drawLockPanel(canvas, restingX, restingY, now)
+        }
+
+        private fun drawBlob(canvas: Canvas, centreX: Float, centreY: Float, now: Long) {
             val scale = currentScale * blobScale.evaluate(now)
             val alpha = blobAlpha.evaluate(now).coerceIn(0f, 1f)
             if (scale <= 0f || alpha <= 0f) return
@@ -443,10 +552,13 @@ internal class AgentDictationCircle(private val anchor: View) {
         }
 
         private fun drawWaves(canvas: Canvas, alpha: Float, now: Long) {
-            if (alpha <= 0f) return
+            val shown = wavesShown.evaluate(now).coerceIn(0f, 1f)
+            if (alpha <= 0f || shown <= 0f) return
             val presenceValue = presence.evaluate(now)
-            val outer = (OUTER_WAVE_MIN + (OUTER_WAVE_MAX - OUTER_WAVE_MIN) * presentationLevel) *
+            val swell = (OUTER_WAVE_MIN + (OUTER_WAVE_MAX - OUTER_WAVE_MIN) * presentationLevel) *
                 presenceValue
+            // Sunk into the circle, the waves are as wide as it is
+            val outer = CENTRE_DIAMETER + (swell - CENTRE_DIAMETER) * shown
             val inner = sqrt(CENTRE_DIAMETER * outer)
             val isStill = !isAnimated
             outerMotion.buildPath(outerPath, outer.dp, isStill)
@@ -508,15 +620,14 @@ internal class AgentDictationCircle(private val anchor: View) {
         }
 
         // Telegram's lock panel: a capsule with an open padlock and an arrow that closes as the
-        // finger slides up
+        // finger slides up, then the pause button
         private fun drawLockPanel(canvas: Canvas, centreX: Float, restingY: Float, now: Long) {
             val alpha = panelAlpha.evaluate(now).coerceIn(0f, 1f)
-            val scale = panelScale.evaluate(now)
-            if (alpha <= 0f || scale <= 0f) return
+            if (alpha <= 0f) return
             val lockness = if (isLocked) {
                 lockClose.evaluate(now).coerceIn(0f, 1f)
             } else {
-                (abs(currentTranslationY) / LOCK_TRAVEL.dp).coerceIn(0f, 1f)
+                agentDictationLockProgress(abs(currentTranslationY) / 1f.dp)
             }
             val follow = if (isLocked || !isPresented) 0f else currentTranslationY
             val width = LOCK_PANEL_WIDTH.dp.toFloat()
@@ -525,7 +636,6 @@ internal class AgentDictationCircle(private val anchor: View) {
             val panelCentreY = restingY - LOCK_PANEL_OFFSET.dp + panelOffset.evaluate(now) + follow
             canvas.save()
             canvas.translate(centreX, panelCentreY)
-            canvas.scale(scale, scale)
             val top = -fullHeight / 2 + (fullHeight - height)
             rect.set(-width / 2, top, width / 2, fullHeight / 2)
             panelPaint.color = applyAlpha(panelColor, alpha)
@@ -536,7 +646,17 @@ internal class AgentDictationCircle(private val anchor: View) {
                 applyAlpha(Color.BLACK, PANEL_SHADOW_ALPHA * alpha)
             )
             canvas.drawRoundRect(rect, width / 2, width / 2, panelPaint)
-            drawPadlock(canvas, top + PADLOCK_TOP.dp, alpha)
+            val resume = resumeMorph.evaluate(now).coerceIn(0f, 1f)
+            val glyphCentreY = top + height / 2
+            drawPadlock(
+                canvas,
+                top + PADLOCK_TOP.dp,
+                glyphCentreY,
+                lockness,
+                pauseMorph.evaluate(now).coerceIn(0f, 1f),
+                alpha * (1 - resume)
+            )
+            drawResumeGlyph(canvas, glyphCentreY, alpha * resume)
             val arrowAlpha = alpha * (1 - lockness)
             if (arrowAlpha > 0f) {
                 val arrowY = -fullHeight / 2 + (ARROW_TOP - ARROW_TRAVEL * lockness).dp +
@@ -552,23 +672,81 @@ internal class AgentDictationCircle(private val anchor: View) {
             canvas.restore()
         }
 
-        // An open padlock while the panel waits, a closed one once locked; `top` is its box's top
-        private fun drawPadlock(canvas: Canvas, top: Float, alpha: Float) {
+        /**
+         * A padlock whose shackle closes as [closing] goes to 1, as the finger slides up to the lock and
+         * then as it locks, and Telegram Android's pause as [pause] goes to 1: the shackle sinks into
+         * the body as the body parts into two bars centred on [pauseCentreY]. [top] is the padlock's
+         * box's top.
+         */
+        private fun drawPadlock(
+            canvas: Canvas,
+            top: Float,
+            pauseCentreY: Float,
+            closing: Float,
+            pause: Float,
+            alpha: Float
+        ) {
+            if (alpha <= 0f) return
             val unit = 1f.dp
             val bodyTop = top + PADLOCK_BOX / 2 * unit
+            val shackleAlpha = alpha * (1 - pause)
+            if (shackleAlpha > 0f) {
+                strokePaint.strokeWidth = ICON_STROKE.dp
+                strokePaint.color = applyAlpha(iconColor, shackleAlpha)
+                val shackle = agentLockShackle(closing)
+                val lift = shackle.lift * unit
+                val shackleBottom = bodyTop + SHACKLE_SINK * unit * pause
+                glyphPath.rewind()
+                glyphPath.moveTo(-4 * unit, shackleBottom)
+                glyphPath.lineTo(-4 * unit, shackleBottom - 3 * unit - lift)
+                rect.set(
+                    -4 * unit,
+                    shackleBottom - 7 * unit - lift,
+                    4 * unit,
+                    shackleBottom + unit - lift
+                )
+                glyphPath.arcTo(rect, 180f, 180f)
+                glyphPath.lineTo(4 * unit, shackleBottom - shackle.legGap * unit)
+                canvas.drawPath(glyphPath, strokePaint)
+            }
             fillPaint.color = applyAlpha(iconColor, alpha)
-            rect.set(-6 * unit, bodyTop, 6 * unit, bodyTop + 10 * unit)
-            canvas.drawRoundRect(rect, 2.5f * unit, 2.5f * unit, fillPaint)
-            strokePaint.strokeWidth = ICON_STROKE.dp
-            strokePaint.color = fillPaint.color
-            val lift = if (isLocked) 0f else 3 * unit
+            // The body is as wide as the pause
+            val halfWidth = PAUSE_GLYPH / 2 * unit
+            val bodyBottom = bodyTop + PADLOCK_BODY_HEIGHT * unit
+            val barTop = bodyTop + (pauseCentreY - halfWidth - bodyTop) * pause
+            val barBottom = bodyBottom + (pauseCentreY + halfWidth - bodyBottom) * pause
+            val outerRadius = (PADLOCK_RADIUS + (PAUSE_RADIUS - PADLOCK_RADIUS) * pause) * unit
+            if (pause <= 0f) {
+                rect.set(-halfWidth, barTop, halfWidth, barBottom)
+                canvas.drawRoundRect(rect, outerRadius, outerRadius, fillPaint)
+                return
+            }
+            val innerRadius = PAUSE_RADIUS * unit * pause
+            val halfGap = PAUSE_GAP / 2 * unit * pause
+            setBarRadii(leftBarRadii, start = outerRadius, end = innerRadius)
+            setBarRadii(rightBarRadii, start = innerRadius, end = outerRadius)
             glyphPath.rewind()
-            glyphPath.moveTo(-4 * unit, bodyTop)
-            glyphPath.lineTo(-4 * unit, bodyTop - 3 * unit - lift)
-            rect.set(-4 * unit, bodyTop - 7 * unit - lift, 4 * unit, bodyTop + unit - lift)
-            glyphPath.arcTo(rect, 180f, 180f)
-            glyphPath.lineTo(4 * unit, if (isLocked) bodyTop else bodyTop - 3 * unit - lift)
-            canvas.drawPath(glyphPath, strokePaint)
+            rect.set(-halfWidth, barTop, -halfGap, barBottom)
+            glyphPath.addRoundRect(rect, leftBarRadii, Path.Direction.CW)
+            rect.set(halfGap, barTop, halfWidth, barBottom)
+            glyphPath.addRoundRect(rect, rightBarRadii, Path.Direction.CW)
+            canvas.drawPath(glyphPath, fillPaint)
+        }
+
+        // Top-left, top-right, bottom-right and bottom-left corners, each as x and y
+        private fun setBarRadii(radii: FloatArray, start: Float, end: Float) {
+            radii.fill(start)
+            radii.fill(end, fromIndex = 2, toIndex = 6)
+        }
+
+        private fun drawResumeGlyph(canvas: Canvas, centreY: Float, alpha: Float) {
+            val icon = resumeMicrophone ?: return
+            if (alpha <= 0f) return
+            val half = RESUME_GLYPH.dp / 2
+            val top = (centreY - half).roundToInt()
+            icon.setBounds(-half, top, half, top + 2 * half)
+            icon.alpha = (255 * alpha).roundToInt()
+            icon.draw(canvas)
         }
 
         override fun setAlpha(alpha: Int) = Unit
@@ -810,7 +988,6 @@ internal class AgentDictationCircle(private val anchor: View) {
         const val LOCK_PANEL_HEIGHT = 72
         const val LOCKED_PANEL_HEIGHT = 40
         const val LOCK_PANEL_OFFSET = 122
-        const val LOCK_TRAVEL = 105f
         const val PANEL_RISE = 100
         const val PANEL_LOCKED_RISE = 36
         const val PANEL_SHADOW_RADIUS = 6f
@@ -818,6 +995,19 @@ internal class AgentDictationCircle(private val anchor: View) {
         const val PANEL_SHADOW_ALPHA = 0.12f
         const val PADLOCK_TOP = 4f
         const val PADLOCK_BOX = 16f
+        const val PADLOCK_BODY_HEIGHT = 10f
+        const val PADLOCK_RADIUS = 2.5f
+        const val SHACKLE_SINK = 7f
+
+        // Telegram Android's pause: two bars in a 12 dp square, 3.32 dp apart
+        const val PAUSE_GLYPH = 12f
+        const val PAUSE_GAP = 3.32f
+        const val PAUSE_RADIUS = 1.5f
+        const val RESUME_GLYPH = 22
+        const val PAUSE_TARGET = 48
+
+        // The locked panel's centre below the full panel's
+        const val LOCKED_PANEL_CENTRE = (LOCK_PANEL_HEIGHT - LOCKED_PANEL_HEIGHT) / 2
         const val ARROW_TOP = 48f
         const val ARROW_TRAVEL = 39f
         const val ARROW_BOX = 16f
@@ -833,7 +1023,6 @@ internal class AgentDictationCircle(private val anchor: View) {
         const val FOLLOW_SHARE = 0.3f
         const val MIN_CANCEL_SCALE = 0.4f
         const val PRESENT_FROM_SCALE = 0.2f
-        const val PANEL_CLOSED_SCALE = 0.01f
         const val FAILURE_POP_SCALE = 1.1f
         const val GLYPH_FROM_SCALE = 0.3f
         const val GLYPH_GONE_SCALE = 0.001f
@@ -847,6 +1036,9 @@ internal class AgentDictationCircle(private val anchor: View) {
         const val DISMISS_MS = 180L
         const val PANEL_CLOSE_MS = 250L
         const val PANEL_CLOSE_DELAY_MS = 100L
+
+        // Telegram's microphone fades into the paused panel over the first half of its 580 ms
+        const val PAUSE_SWAP_MS = 290L
         const val FAILURE_COLOR_MS = 200L
         const val FAILURE_POP_MS = 120L
         const val FAILURE_SETTLE_MS = 300L
@@ -882,5 +1074,6 @@ internal class AgentDictationCircle(private val anchor: View) {
         )
 
         const val MAX_ALPHA = 255
+        const val CORNER_VALUES = 8
     }
 }

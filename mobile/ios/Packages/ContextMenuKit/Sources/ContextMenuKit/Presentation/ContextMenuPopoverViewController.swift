@@ -20,6 +20,16 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     private var didMoveFromInitialExternalSelectionPoint = false
     private var isReplacingContent = false
     private var defaultPopoverLayoutMargins: UIEdgeInsets = .zero
+    private var outsideDismissalControl: ContextMenuPopoverOutsideControl?
+    private weak var outsideDismissalPresentationController: UIPopoverPresentationController?
+    private var previousPassthroughViews: [UIView]?
+    private var backgroundMaterialView: UIVisualEffectView?
+    // Takes the popover's corners, which UIKit chooses, to read their radius
+    private let cornerProbeView = UIView()
+
+    private var usesAnchoredDismissal: Bool {
+        self.modalPresentationStyle == .popover && self.configuration.popoverDisablesInteractiveDismissal
+    }
 
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
@@ -50,7 +60,11 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         )
     ) {
         self.configuration = configuration
-        self.popoverSourceItem = UIBarButtonItem(customView: sourceView)
+        let popoverSourceItem = UIBarButtonItem(customView: sourceView)
+        if configuration.popoverUsesSourceViewBounds {
+            popoverSourceItem.width = sourceView.bounds.width
+        }
+        self.popoverSourceItem = popoverSourceItem
         self.sourceView = sourceView
         self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
         self.maximumContentHorizontalInsets = maximumContentHorizontalInsets
@@ -59,6 +73,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
 
         self.overrideUserInterfaceStyle = sourceUserInterfaceStyle
         self.modalPresentationStyle = modalPresentationStyle
+        self.isModalInPresentation = self.usesAnchoredDismissal
         self.navigationView.delegate = self
 
         self.presentationController?.delegate = self
@@ -82,9 +97,20 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
 
         self.view.backgroundColor = .clear
         self.view.isOpaque = false
+        if let material = self.configuration.popoverBackgroundMaterial {
+            let background = UIVisualEffectView(effect: UIBlurEffect(style: material))
+            background.isUserInteractionEnabled = false
+            background.cornerConfiguration = .corners(radius: .containerConcentric())
+            background.clipsToBounds = true
+            self.view.addSubview(background)
+            self.backgroundMaterialView = background
+        }
         self.navigationView.requestLayout = { [weak self] in
             self?.updatePreferredContentSize()
         }
+        self.cornerProbeView.isUserInteractionEnabled = false
+        self.cornerProbeView.cornerConfiguration = .uniformCorners(radius: .containerConcentric())
+        self.view.addSubview(self.cornerProbeView)
         self.view.addSubview(self.navigationView)
     }
 
@@ -93,10 +119,29 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         self.updatePopoverLayoutMargins()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        self.installOutsideDismissalControlIfNeeded()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        self.installOutsideDismissalControlIfNeeded()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         guard !self.isReplacingContent else { return }
 
+        self.installOutsideDismissalControlIfNeeded()
+
+        self.backgroundMaterialView?.frame = self.view.bounds
+        self.cornerProbeView.frame = self.navigationContentFrame
+        let menuCornerRadius = self.cornerProbeView.effectiveRadius(corner: .topLeft)
+        // Without a resolved shape the highlight keeps the style's panel radius
+        self.navigationView.menuCornerRadius = menuCornerRadius > self.configuration.style.highlightHorizontalInset
+            ? menuCornerRadius
+            : nil
         let contentFrame = self.navigationContentFrame
         self.navigationView.transform = .identity
         self.navigationView.bounds = CGRect(origin: .zero, size: contentFrame.size)
@@ -107,10 +152,98 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        self.removeOutsideDismissalControl()
 
         if self.isBeingDismissed || self.presentingViewController == nil {
             self.finishDismissalIfNeeded()
         }
+    }
+
+    override func accessibilityPerformEscape() -> Bool {
+        guard self.usesAnchoredDismissal, !self.isReplacingContent else {
+            return super.accessibilityPerformEscape()
+        }
+        self.dismissMenu()
+        return true
+    }
+
+    private var canDismissFromOutsideTap: Bool {
+        self.usesAnchoredDismissal && !self.isDismissingMenu && !self.didNotifyDismissal
+            && !self.isReplacingContent && self.presentedViewController == nil
+    }
+
+    private var currentPresentationController: UIPresentationController? {
+        self.activePresentationController ?? self.presentationController
+    }
+
+    private var popoverContentAndChromeView: UIView {
+        guard let presentedView = self.currentPresentationController?.presentedView,
+              let window = self.view.window,
+              presentedView.window === window,
+              self.view.isDescendant(of: presentedView),
+              !self.view.bounds.isEmpty else {
+            return self.view
+        }
+        let presentedRect = presentedView.convert(presentedView.bounds, to: window)
+        let contentRect = self.view.convert(self.view.bounds, to: window)
+        // Exclude the popup's chrome from outside taps, without treating its full-screen host as content.
+        guard presentedRect.insetBy(dx: -0.5, dy: -0.5).contains(contentRect),
+              presentedRect.width < window.bounds.width - 0.5,
+              presentedRect.height < window.bounds.height - 0.5 else {
+            return self.view
+        }
+        return presentedView
+    }
+
+    private func installOutsideDismissalControlIfNeeded() {
+        guard self.canDismissFromOutsideTap,
+              let containerView = self.currentPresentationController?.containerView,
+              !(containerView is UIWindow),
+              let window = self.view.window,
+              containerView.window === window,
+              self.view.isDescendant(of: containerView) else { return }
+        if let control = self.outsideDismissalControl, control.superview === containerView {
+            control.frame = containerView.bounds
+            return
+        }
+        self.removeOutsideDismissalControl()
+
+        // An empty popover container can pass outside hits to the presenting screen.
+        // Give those touches a presentation-scoped target beneath the popup chrome.
+        let control = ContextMenuPopoverOutsideControl(frame: containerView.bounds)
+        control.backgroundColor = .clear
+        control.isOpaque = false
+        control.isAccessibilityElement = false
+        control.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        control.contentViewProvider = { [weak self] in self?.popoverContentAndChromeView }
+        control.addTarget(self, action: #selector(self.handleOutsideDismissal(_:)), for: .touchUpInside)
+        containerView.insertSubview(control, at: 0)
+        self.outsideDismissalControl = control
+        if let popover = self.currentPresentationController as? UIPopoverPresentationController {
+            self.outsideDismissalPresentationController = popover
+            self.previousPassthroughViews = popover.passthroughViews
+            // UIKit must deliver outside touches to the dismissal control, while the
+            // presenting screen remains covered by that control.
+            popover.passthroughViews = [control]
+        }
+    }
+
+    private func removeOutsideDismissalControl() {
+        if let popover = self.outsideDismissalPresentationController,
+           let control = self.outsideDismissalControl,
+           let passthroughViews = popover.passthroughViews,
+           passthroughViews.count == 1, passthroughViews.first === control {
+            popover.passthroughViews = self.previousPassthroughViews
+        }
+        self.outsideDismissalPresentationController = nil
+        self.previousPassthroughViews = nil
+        self.outsideDismissalControl?.removeFromSuperview()
+        self.outsideDismissalControl = nil
+    }
+
+    @objc private func handleOutsideDismissal(_ control: UIControl) {
+        guard control === self.outsideDismissalControl, self.canDismissFromOutsideTap else { return }
+        self.dismissMenu()
     }
 
     func beginExternalSelection(at pointInWindow: CGPoint) {
@@ -266,6 +399,16 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         )
     }
 
+    func dismiss() {
+        if self.isBeingPresented, let transitionCoordinator,
+           transitionCoordinator.animate(alongsideTransition: nil, completion: { [weak self] _ in
+               self?.dismissMenu()
+           }) {
+            return
+        }
+        self.dismissMenu()
+    }
+
     private func dismissMenu(action: (() -> Void)? = nil) {
         guard self.beginDismissal(action: action) else {
             return
@@ -319,6 +462,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         guard !self.didNotifyDismissal else {
             return
         }
+        self.removeOutsideDismissalControl()
         self.dismissalReadinessWorkItem?.cancel()
         self.dismissalReadinessWorkItem = nil
         self.didNotifyDismissal = true
@@ -338,7 +482,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     }
 
     private func registerForSourceTraitChanges() {
-        guard let sourceView else {
+        guard self.configuration.userInterfaceStyle == nil, let sourceView else {
             return
         }
         sourceView.registerForTraitChanges(
@@ -355,5 +499,17 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         let userInterfaceStyle = ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection)
         self.overrideUserInterfaceStyle = userInterfaceStyle
         self.navigationView.updateUserInterfaceStyle(userInterfaceStyle)
+    }
+}
+
+@available(iOS 26.0, *)
+@MainActor
+private final class ContextMenuPopoverOutsideControl: UIControl {
+    var contentViewProvider: (() -> UIView?)?
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard super.point(inside: point, with: event) else { return false }
+        guard let contentView = self.contentViewProvider?(), contentView.window === self.window else { return true }
+        return !contentView.bounds.contains(self.convert(point, to: contentView))
     }
 }

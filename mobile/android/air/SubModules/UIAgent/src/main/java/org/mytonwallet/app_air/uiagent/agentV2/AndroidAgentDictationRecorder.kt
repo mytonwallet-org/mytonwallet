@@ -50,6 +50,14 @@ internal class AndroidAgentDictationRecorder(
 
     override fun amplitude(): Int = recorder?.maxAmplitude ?: 0
 
+    override fun pause() {
+        recorder?.pause()
+    }
+
+    override fun resume() {
+        recorder?.resume()
+    }
+
     override suspend fun finish(): String {
         val mediaRecorder = recorder ?: throw IllegalStateException("audio_unreadable")
         val file = recordingFile ?: throw IllegalStateException("audio_unreadable")

@@ -5,6 +5,41 @@ import WalletContext
 @Suite("WalletContext Number Formatting")
 struct WalletContextNumberFormattingTests {
     @Test(arguments: [
+        (0.0, "0"),
+        (12.346, "12.35"),
+        (999.0, "999"),
+        (1_000.0, "1K"),
+        (1_540.0, "1.54K"),
+        (999_990.0, "999.99K"),
+        (1_000_000.0, "1M"),
+        (1_540_000.0, "1.54M"),
+        (999_990_000.0, "999.99M"),
+        (1_000_000_000.0, "1B"),
+        (1_540_000_000.0, "1.54B"),
+        (999_990_000_000.0, "999.99B"),
+        (1_000_000_000_000.0, "1T"),
+        (1_540_000_000_000.0, "1.54T"),
+        (12_345_678_900_000.0, "12.35T"),
+        (-1_540_000_000_000.0, "-1.54T"),
+    ])
+    func `compact numbers use K M B T with a dot separator`(value: Double, expected: String) {
+        #expect(formatCompactNumber(value) == expected)
+    }
+
+    @Test(arguments: [
+        ("$", "$1.54T"),
+        ("€", "€1.54T"),
+        ("¥", "¥1.54T"),
+        ("₽", "1.54T ₽"),
+        ("BTC", "1.54T BTC"),
+        ("GRAM", "1.54T GRAM"),
+        ("", "1.54T"),
+    ])
+    func `compact currencies preserve symbol placement`(currency: String, expected: String) {
+        #expect(formatCompactNumber(1_540_000_000_000, currency: currency) == expected)
+    }
+
+    @Test(arguments: [
         ("en", "+\(signSpace)15.59%", "-\(signSpace)0.66%", "13.3%", "0.0%", "13%"),
         ("fa", "+\(signSpace)۱۵.۵۹%", "-\(signSpace)۰.۶۶%", "۱۳.۳%", "۰.۰%", "۱۳%"),
         ("ar@numbers=arab", "+\(signSpace)١٥.٥٩%", "-\(signSpace)٠.٦٦%", "١٣.٣%", "٠.٠%", "١٣%"),

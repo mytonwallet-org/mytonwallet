@@ -66,6 +66,7 @@ final class AirRuntimeCoordinator: NSObject {
         startupImportError = await AppWalletsExport.runStartupImportIfConfigured()
         #endif
         
+        AgentNewsNotificationSettings.shared.start()
         startupCoordinator.walletCoreBootstrapDidFinish()
         presentStartupImportErrorIfNeeded()
     }
@@ -78,6 +79,7 @@ final class AirRuntimeCoordinator: NSObject {
     // before `soarIntoAir` resets the coordinator (e.g. a cold-start deeplink) and must survive
     // until the wallet is ready and unlocked.
     func reset() {
+        AgentNewsNotificationSettings.shared.stop()
         TonConnect.shared.suspendRequests(discardingQueued: true)
         _isWalletReady = false
         if #available(iOS 18.4, *) {
@@ -403,9 +405,13 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
 extension AirRuntimeCoordinator: DeeplinkNavigator {
     func handle(deeplink: Deeplink, source: DeeplinkOpenSource) {
         // Exists to unlock the app, so it cannot wait for the unlock like other links.
-        if case .e2eUnlock(let passcode) = deeplink {
+        if case .e2eUnlock(let passcode, let next) = deeplink {
             // Only from outside the app: not from a QR scan or the in-app browser.
             if source == .generic {
+                // Queued first, so the unlock opens it
+                if let next, next.host != "e2e-unlock" {
+                    _ = handleUrl(next, source: source)
+                }
                 lockCoordinator.e2eUnlock(passcode: passcode)
             }
             return
@@ -427,6 +433,10 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             switch deeplink {
             case .agent:
                 AppActions.showAgent()
+            case .agentNews(let eventId):
+                AppActions.showAgentNewsChat(eventId: eventId)
+            case .agentDigest(let id):
+                AppActions.showAgentNewsFeed(digestId: id)
 
             case .invoice(address: let address, amount: let amount, comment: let comment, binaryPayload: let binaryPayload, token: let token, jetton: let jetton, stateInit: let stateInit):
                 AppActions.showSend(accountContext: accountContext, prefilledValues: SendPrefilledValues(
@@ -553,7 +563,7 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
         var slug: String?
         var chain: ApiChain?
         if let normalizedCode = deeplinkSellData.baseCurrencyCode?.lowercased() {
-            if normalizedCode == "ton" || normalizedCode == "toncoin" {
+            if normalizedCode == "gram" || normalizedCode == "ton" || normalizedCode == "toncoin" {
                 slug = TONCOIN_SLUG
                 chain = .ton
             } else if let token = TokenStore.getToken(slug: normalizedCode) {
@@ -649,31 +659,7 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
 extension AirRuntimeCoordinator: UNUserNotificationCenterDelegate {
     private func requestPushNotificationsPermission() {
-        if E2EPushPermission.isSuppressed {
-            return
-        }
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            switch settings.authorizationStatus {
-            case .authorized, .provisional:
-                DispatchQueue.main.async {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            case .denied:
-                break
-            case .notDetermined:
-                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-                    if granted {
-                        DispatchQueue.main.async {
-                            UIApplication.shared.registerForRemoteNotifications()
-                        }
-                    }
-                }
-            case .ephemeral:
-                break
-            @unknown default:
-                break
-            }
-        }
+        Task { _ = try? await requestPushNotificationPermission() }
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {

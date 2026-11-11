@@ -42,6 +42,9 @@ open class WZoomableImageView @JvmOverloads constructor(
 
     companion object {
         const val CHAIN_SIZE = 16
+
+        // A scale this close to the fitted one counts as fitted
+        private const val FITTED_SCALE_TOLERANCE = 1.01f
     }
 
     private var chainDrawable: Drawable? = null
@@ -59,31 +62,23 @@ open class WZoomableImageView @JvmOverloads constructor(
         isClickable = false
     }
 
+    /**
+     * Telegram's double tap at [e], in this view's coordinates: the fitted picture zooms to the most, the tapped point
+     * staying under the finger as far as the edges allow; any zoom goes back to the fitted picture
+     */
     fun doubleTapped(e: MotionEvent) {
         val zc = zoomableController as AbstractAnimatedZoomableController
         val vp = PointF(e.x, e.y)
         val ip = zc.mapViewToImage(vp)
-        val maxScale = zc.maxScaleFactor
-        val minScale = zc.minScaleFactor
-        if (zc.scaleFactor < (maxScale + minScale) / 2) {
-            zc.zoomToPoint(
-                maxScale,
-                ip,
-                vp,
-                DefaultZoomableController.LIMIT_ALL,
-                AnimationConstants.VERY_QUICK_ANIMATION.toLong(),
-                null
-            )
-        } else {
-            zc.zoomToPoint(
-                minScale,
-                ip,
-                vp,
-                DefaultZoomableController.LIMIT_ALL,
-                AnimationConstants.VERY_QUICK_ANIMATION.toLong(),
-                null
-            )
-        }
+        val isFitted = zc.scaleFactor <= zc.minScaleFactor * FITTED_SCALE_TOLERANCE
+        zc.zoomToPoint(
+            if (isFitted) zc.maxScaleFactor else zc.minScaleFactor,
+            ip,
+            vp,
+            DefaultZoomableController.LIMIT_ALL,
+            AbstractAnimatedZoomableController.ZOOM_DURATION_MS,
+            null
+        )
     }
 
     fun resetZoom() {

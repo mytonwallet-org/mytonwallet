@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.R
@@ -271,9 +272,10 @@ class SecurityVC(context: Context) : WViewController(context) {
     }
 
     private val lockTimeView = WEditableItemView(context).apply {
-        id = generateViewId()
+        id = R.id.security_auto_lock_value
         drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
         setText(WGlobalStorage.getAppLock().selectedDisplayName)
+        contentDescription = WGlobalStorage.getAppLock().selectedDisplayName
     }
 
     private val autoLockRow =
@@ -287,7 +289,7 @@ class SecurityVC(context: Context) : WViewController(context) {
         ).apply {
             isGone = !WGlobalStorage.isAppLockEnabled()
             setValueView(lockTimeView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 WMenuPopup.present(
                     lockTimeView,
                     listOf(
@@ -303,6 +305,7 @@ class SecurityVC(context: Context) : WViewController(context) {
                         ) {
                             WGlobalStorage.setAutoLock(it)
                             lockTimeView.setText(it.selectedDisplayName)
+                            lockTimeView.contentDescription = it.selectedDisplayName
                             AutoLockHelper.start(it.period)
                         }
                     },
@@ -409,7 +412,7 @@ class SecurityVC(context: Context) : WViewController(context) {
         ).apply {
             setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
             setValueView(autoExitValueView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 WMenuPopup.present(
                     autoExitValueView,
                     MAutoExitOption.entries.map {

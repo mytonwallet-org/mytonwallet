@@ -1,11 +1,13 @@
 import type { Methods } from './types';
 
-jest.mock('.', () => ({ ping: jest.fn() }));
+jest.mock('.', () => ({ ping: jest.fn(), isPerpsSupported: jest.fn() }));
 jest.mock('./extra', () => ({
   loadExploreSites: jest.fn(),
+  initPerps: jest.fn(),
+  initPerpsTrading: jest.fn(),
   perpsGetAssets: jest.fn(),
   perpsExecuteReviewedOrder: jest.fn(),
-  initPerpsTrading: jest.fn(),
+  perpsRefreshPositions: jest.fn(),
 }));
 jest.mock('./agentV2', () => ({ getAgentV2RuntimeStatus: jest.fn(), getAgentV2NewsFeed: jest.fn() }));
 
@@ -34,9 +36,7 @@ describe('API method registry', () => {
     delete process.env.NO_EXTRA_FEATURES;
     const methods = loadRegistry() as unknown as AnyLiteral;
 
-    expect(methods.perpsGetAssets).toBeUndefined();
-    expect(methods.perpsExecuteReviewedOrder).toBeUndefined();
-    expect(methods.initPerpsTrading).toBeUndefined();
+    expect(Object.keys(methods).filter((name) => /perps/i.test(name))).toEqual(['isPerpsSupported']);
     expect(methods.loadExploreSites).toEqual(expect.any(Function));
   });
 

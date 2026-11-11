@@ -42,7 +42,7 @@ data class TokenEquivalent(
         currency = token.symbol ?: "",
         currencyDecimals = tokenAmount.amountInteger.smartDecimalsCount(token.decimals),
         showPositiveSign = false,
-        roundUp = false
+        rounding = RoundingMode.DOWN
     )
 
     private val currencyFmt: String = currencyAmount.amountInteger.toString(
@@ -50,7 +50,7 @@ data class TokenEquivalent(
         currency = currency.sign,
         currencyDecimals = currencyAmount.amountInteger.smartDecimalsCount(currency.decimalsCount),
         showPositiveSign = false,
-        roundUp = false
+        rounding = RoundingMode.DOWN
     )
 
     fun getRaw(currency: Boolean): String =

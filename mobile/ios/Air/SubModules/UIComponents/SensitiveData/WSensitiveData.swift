@@ -256,6 +256,18 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     public override func layoutSubviews() {
         super.layoutSubviews()
+        if maskWidthConstraint != nil, let label = content as? UILabel {
+            // The label fills the reserved mask width, so its text must follow the mask alignment
+            let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+            let textAlignment: NSTextAlignment = switch _alignment {
+            case .leading: isRightToLeft ? .right : .left
+            case .trailing: isRightToLeft ? .left : .right
+            case .center: .center
+            }
+            if label.textAlignment != textAlignment {
+                label.textAlignment = textAlignment
+            }
+        }
         heroEffect?.maskSize = maskSize
         heroEffect?.layout(in: self)
     }

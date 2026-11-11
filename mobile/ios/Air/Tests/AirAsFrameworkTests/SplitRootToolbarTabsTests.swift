@@ -61,6 +61,8 @@ final class SplitRootToolbarTabsTests: XCTestCase {
         let tabs = AppTabManager.shared
         XCTAssertFalse(tabs.registeredTabIds.contains(.futures))
         XCTAssertEqual(tabs.validatedTabOrder(from: ["futures", "wallet", "settings"]), [.wallet, .settings])
+        XCTAssertEqual(tabs.validatedTabOrder(from: ["wallet", "market", "futures", "agent", "settings"]),
+                       [.wallet, .market, .agent, .settings])
     }
 
     func testMovingAccountsRemovesAndRestoresTheVerticalHeaderButton() throws {

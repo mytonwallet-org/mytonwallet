@@ -166,6 +166,7 @@ class SwapVC(
         expanded = true
     }
     private val estShowMore = SwapEstimatedHeader(context)
+    private var hasFeeError = false
     private val estLayout = SwapEstimatedInfo(context, onSlippageChange = {
         swapViewModel.setSlippage(it)
     }, onDialogShowListener = { title, info ->
@@ -428,6 +429,12 @@ class SwapVC(
                 est,
                 toToken = est?.request?.tokenToReceive ?: swapViewModel.tokenToReceive
             )
+            val hadFeeError = hasFeeError
+            hasFeeError = est?.hasInsufficientFeeError == true
+            if (hasFeeError && !hadFeeError && estShowMoreContainer.expanded) {
+                estLayout.expanded = true
+                estShowMore.isExpanded.animatedValue = true
+            }
             val debugSummary = est?.debugSummary
             if (!debugSummary.isNullOrEmpty()) {
                 estimateDebugSummaryView.configure(debugSummary)

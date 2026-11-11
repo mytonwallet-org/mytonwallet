@@ -4,6 +4,26 @@ import WalletCore
 
 @Suite("Deeplink Parser")
 struct DeeplinkParserTests {
+    @Test(arguments: ["mtw://agent", "https://my.tt/agent"])
+    func parsesAgentPushLinks(base: String) throws {
+        let newsUrl = try #require(URL(string: base + "?news=307"))
+        let news = try #require(Deeplink(url: newsUrl))
+        guard case .agentNews(let eventId) = news else { Issue.record("Expected news chat"); return }
+        #expect(eventId == 307)
+        let digestId = "ru:2026-11-08T18:00:00.000Z"
+        var components = try #require(URLComponents(string: base))
+        components.percentEncodedQuery = "digest=ru%3A2026-11-08T18%3A00%3A00.000Z"
+        let digestUrl = try #require(components.url)
+        let digest = try #require(Deeplink(url: digestUrl))
+        guard case .agentDigest(let id) = digest else { Issue.record("Expected digest feed"); return }
+        #expect(id == digestId)
+        for query in ["", "?news=", "?news=abc", "?news=-1", "?news=0", "?digest=", "?digest=%20", "?digest=%0A"] {
+            let fallbackUrl = try #require(URL(string: base + query))
+            let fallback = try #require(Deeplink(url: fallbackUrl))
+            guard case .agent = fallback else { Issue.record("Expected plain Agent for invalid value"); continue }
+        }
+    }
+
     @Test
     func parsesMultisend() throws {
         let url = try #require(URL(string: "mtw://multisend"))
@@ -193,12 +213,27 @@ struct DeeplinkParserTests {
         let url = try #require(URL(string: "mtw://e2e-unlock?passcode=1111"))
         let deeplink = try #require(Deeplink(url: url))
 
-        guard case .e2eUnlock(let passcode) = deeplink else {
+        guard case .e2eUnlock(let passcode, let next) = deeplink else {
             Issue.record("Expected e2eUnlock deeplink")
             return
         }
 
         #expect(passcode == "1111")
+        #expect(next == nil)
+    }
+
+    @Test
+    func parsesE2EUnlockDeeplinkWithNext() throws {
+        let url = try #require(URL(string: "mtw://e2e-unlock?passcode=1111&next=mtw%3A%2F%2Fswap%3Fin%3Dtoncoin%26amountIn%3D1"))
+        let deeplink = try #require(Deeplink(url: url))
+
+        guard case .e2eUnlock(let passcode, let next) = deeplink else {
+            Issue.record("Expected e2eUnlock deeplink")
+            return
+        }
+
+        #expect(passcode == "1111")
+        #expect(next?.absoluteString == "mtw://swap?in=toncoin&amountIn=1")
     }
     #endif
 

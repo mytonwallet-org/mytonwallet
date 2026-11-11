@@ -1,119 +1,149 @@
 import Foundation
 
-struct PerpsCachedChart: Codable, Sendable {
+struct PerpsCachedChart: Codable, Sendable, Equatable {
+    static let limit = 24
+    static let pointLimit = 2_000
+
     var points: [[Double]]
     var fetchedAt: Date
 
     static func boundedPoints(_ points: [[Double]]) -> [[Double]] {
-        let limit = PerpsCachedAccount.chartPointLimit
-        guard points.count > limit else { return points }
-        return (0..<limit).map { points[$0 * (points.count - 1) / (limit - 1)] }
+        guard points.count > pointLimit else { return points }
+        return (0..<pointLimit).map { points[$0 * (points.count - 1) / (pointLimit - 1)] }
+    }
+
+    static func isValid(_ points: [[Double]]) -> Bool {
+        points.allSatisfy { $0.count == 2 && $0.allSatisfy { $0.isFinite && $0 > 0 } }
+    }
+
+    /// The most recently read charts with valid points, each bounded to `pointLimit`.
+    static func bounded(_ charts: [String: PerpsCachedChart]) -> [String: PerpsCachedChart] {
+        Dictionary(uniqueKeysWithValues: charts
+            .filter { isValid($0.value.points) }
+            .sorted { $0.value.fetchedAt > $1.value.fetchedAt }
+            .prefix(limit)
+            .map { ($0.key, PerpsCachedChart(points: boundedPoints($0.value.points), fetchedAt: $0.value.fetchedAt)) })
     }
 }
 
-struct PerpsCachedAccount: Codable, Sendable {
+/// One account's positions and recent Activity.
+struct PerpsCachedAccount: Codable, Sendable, Equatable {
     static let historyLimit = 200
-    static let chartLimit = 24
-    static let chartPointLimit = 2_000
 
-    var snapshot: ApiPerpsSnapshot?
-    var snapshotFetchedAt: Date?
-    var history: ApiPerpsActivityHistory?
+    var snapshot: ApiPerpsAccountSnapshot?
+    var fills: [ApiPerpsFill]?
     var historyFetchedAt: Date?
     var hasActivityHistory: Bool?
-    var charts: [String: PerpsCachedChart]?
 
-    func sanitized(now: Date) -> Self? {
+    func sanitized() -> Self? {
         var value = self
-        if snapshot?.positions.isEmpty == false || history?.hasActivity == true || history?.fills.isEmpty == false || history?.cashFlows.isEmpty == false {
-            value.hasActivityHistory = true
-        }
-        if let date = snapshotFetchedAt, date > now { value.snapshotFetchedAt = now }
-        if let date = historyFetchedAt, date > now { value.historyFetchedAt = now }
-        if let history = value.history {
+        if let fills {
             var seen = Set<String>()
-            value.history = .init(
-                fills: Array(history.fills.filter { seen.insert($0.id).inserted }.prefix(Self.historyLimit)),
-                cashFlows: Array(history.cashFlows.filter { $0.kind != .funding && seen.insert($0.id).inserted }.prefix(Self.historyLimit))
-            )
+            value.fills = Array(fills.filter { seen.insert($0.id).inserted }.prefix(Self.historyLimit))
         }
-        if let charts = value.charts {
-            value.charts = Dictionary(uniqueKeysWithValues: charts
-                .filter { $0.value.points.allSatisfy { point in
-                    point.count == 2 && point.allSatisfy { $0.isFinite && $0 > 0 }
-                } }
-                .sorted { $0.value.fetchedAt > $1.value.fetchedAt }
-                .prefix(Self.chartLimit)
-                .map { ($0.key, PerpsCachedChart(points: PerpsCachedChart.boundedPoints($0.value.points), fetchedAt: $0.value.fetchedAt)) })
-        }
-        return value.snapshot == nil && value.history == nil && (value.charts?.isEmpty ?? true) ? nil : value
+        return value.snapshot == nil && value.fills == nil && value.hasActivityHistory == nil ? nil : value
     }
 }
 
-/// Persistent display data. Quotes and execution state are never restored from this cache.
-final class PerpsReadCache: Sendable {
-    private struct Contents: Codable {
-        var version = 3
-        var accounts: [String: PerpsCachedAccount]
+/// The catalogue shared by all accounts, in the language it was read in.
+struct PerpsCachedMarket: Codable, Sendable, Equatable {
+    var langCode: String
+    var market: ApiPerpsMarketSnapshot
+    /// Descriptions read with asset details; the catalogue carries them only for featured assets.
+    var descriptions: [String: String]
+}
+
+/// Persistent display data. Quotes and execution state are never restored from it.
+/// Account data is loaded before the first layout; charts are read when an asset page first needs them.
+struct PerpsReadCache: Sendable {
+    static let accountsVersion = 1
+    static let marketVersion = 1
+    static let chartsVersion = 1
+
+    let accounts: PerpsFileCache<[String: PerpsCachedAccount]>
+    let market: PerpsFileCache<PerpsCachedMarket>
+    let charts: PerpsFileCache<[String: PerpsCachedChart]>
+
+    init(directory: URL) {
+        accounts = .init(url: directory.appending(component: "accounts.json"), version: Self.accountsVersion)
+        market = .init(url: directory.appending(component: "market.json"), version: Self.marketVersion)
+        charts = .init(url: directory.appending(component: "charts.json"), version: Self.chartsVersion)
     }
 
-    private static let byteLimit = 32 * 1024 * 1024
-    private let url: URL
-    private let legacyURL: URL?
-    private let queue = DispatchQueue(label: "org.mytonwallet.perps-read-cache", qos: .utility)
+    func flush() async {
+        await accounts.flush()
+        await market.flush()
+        await charts.flush()
+    }
+}
 
-    init(url: URL, legacyURL: URL? = nil) {
+/// A versioned JSON file read and written on a background queue in the order requested,
+/// so a read sees every save requested before it and none requested after it.
+final class PerpsFileCache<Contents: Codable & Sendable>: Sendable {
+    private struct Envelope: Codable {
+        var version: Int
+        var contents: Contents
+    }
+
+    let url: URL
+    private let version: Int
+    private let queue: DispatchQueue
+
+    init(url: URL, version: Int) {
         self.url = url
-        self.legacyURL = legacyURL
+        self.version = version
+        queue = DispatchQueue(label: "org.mytonwallet.perps-cache." + url.lastPathComponent, qos: .utility)
     }
 
-    func load() async -> [String: PerpsCachedAccount] {
-        await withCheckedContinuation { continuation in
-            queue.async { [url, legacyURL] in
-                for source in [url, legacyURL].compactMap({ $0 }) {
-                    guard let attributes = try? FileManager.default.attributesOfItem(atPath: source.path()),
-                          let size = attributes[.size] as? NSNumber, size.intValue <= Self.byteLimit,
-                          let data = try? Data(contentsOf: source) else { continue }
-                    do {
-                        let contents = try JSONDecoder().decode(Contents.self, from: data)
-                        guard [2, 3].contains(contents.version) else { throw CocoaError(.coderReadCorrupt) }
-                        continuation.resume(returning: contents.accounts)
-                        return
-                    } catch {
-                        try? FileManager.default.removeItem(at: source)
-                    }
-                }
-                continuation.resume(returning: [:])
+    /// Queues the read at once; the task returns the contents. A file in another format is removed.
+    func load() -> Task<Contents?, Never> {
+        let contents = AsyncStream<Contents?>(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            queue.async { [self] in
+                continuation.yield(read())
+                continuation.finish()
             }
+        }
+        return Task {
+            for await value in contents { return value }
+            return nil
         }
     }
 
-    func save(_ accounts: [String: PerpsCachedAccount]) {
-            queue.async { [url, legacyURL] in
-            guard !accounts.isEmpty else {
-                try? FileManager.default.removeItem(at: url)
-                if let legacyURL { try? FileManager.default.removeItem(at: legacyURL) }
-                return
-            }
-            do {
-                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                let data = try JSONEncoder().encode(Contents(accounts: accounts))
-                guard data.count <= Self.byteLimit else { return }
-                try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                var storedURL = url
-                var resources = URLResourceValues()
-                resources.isExcludedFromBackup = true
-                try storedURL.setResourceValues(resources)
-                if let legacyURL { try? FileManager.default.removeItem(at: legacyURL) }
-            } catch {
-                // Preserve the last complete file if a display-cache write fails.
-            }
-        }
+    /// Saving nil removes the file.
+    func save(_ contents: Contents?) {
+        queue.async { [self] in store(contents) }
     }
 
     func flush() async {
         await withCheckedContinuation { continuation in
             queue.async { continuation.resume() }
+        }
+    }
+
+    private func read() -> Contents? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data), envelope.version == version else {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+        return envelope.contents
+    }
+
+    private func store(_ contents: Contents?) {
+        guard let contents else {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let data = try JSONEncoder().encode(Envelope(version: version, contents: contents))
+            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            var storedURL = url
+            var resources = URLResourceValues()
+            resources.isExcludedFromBackup = true
+            try storedURL.setResourceValues(resources)
+        } catch {
+            // Keep the last complete file if a display-cache write fails.
         }
     }
 }

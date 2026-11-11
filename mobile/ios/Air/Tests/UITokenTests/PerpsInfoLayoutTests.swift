@@ -7,7 +7,9 @@ import WalletContext
 import WalletResources
 @testable import UIToken
 
-@Suite(.serialized) @MainActor
+/// The futures pages host the token Info card: a market shows its metrics under the description,
+/// a position collapses them under the header (`collapsesMetrics`).
+@Suite(.serialized, .settingsStoreIsolation) @MainActor
 struct PerpsInfoLayoutTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
 
@@ -41,70 +43,73 @@ struct PerpsInfoLayoutTests {
 
     @Test(arguments: [false, true])
     func expansionKeepsContentMeasuredAndScrollPositionStable(collapsesMetrics: Bool) async throws {
-        let (window, layout, info) = try makeLayout(collapsesMetrics: collapsesMetrics)
+        let (window, layout, info, model) = try makeLayout(collapsesMetrics: collapsesMetrics)
         defer { window.isHidden = true; SettingsStore.liveValue.clean() }
         try await settle(window)
         let collapsedHeight = info.bounds.height
-        #expect(abs(collapsedHeight - (collapsesMetrics ? 64 : 365)) < 2)
-        if collapsesMetrics {
-            let header = try #require(info.subviews.compactMap { $0 as? UIButton }.first)
-            #expect(header.bounds.height == collapsedHeight)
-            #expect(header.accessibilityValue == lang("Collapsed"))
-            #expect(info.hitTest(CGPoint(x: 180, y: 32), with: nil) === header)
-        }
+        // A market shows the title, three description lines with their toggle, and four metric rows.
+        #expect(abs(collapsedHeight - (collapsesMetrics ? TokenInfoModel.collapsedHeight : 42 + 3 * 22 + 22 + 4 * 48)) < 2)
         let host = try #require(info.subviews.first)
-        let measuredHeight = host.bounds.height
-        #expect(measuredHeight > collapsedHeight + 50)
+        if collapsesMetrics {
+            #expect(host.bounds.height > collapsedHeight + 50)
+        }
         layout.scrollView.contentOffset.y = 180
         var heights: [CGFloat] = []
         var offsets: [CGFloat] = []
-        info.onHeightChange = { [weak layout, weak info] in
+        info.configure(model: model, onHeightChange: { [weak layout, weak info] in
             layout?.layoutKeepingScrollPosition()
             if let info { heights.append(info.bounds.height) }
             if let layout { offsets.append(layout.scrollView.contentOffset.y) }
-        }
+        })
 
-        info.toggleExpanded()
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
-        #expect(abs(info.bounds.height - measuredHeight) < 1)
-        #expect(abs(host.bounds.height - measuredHeight) < 1)
-        #expect(heights.allSatisfy { $0 >= collapsedHeight - 1 && $0 <= measuredHeight + 1 })
+        let expandedHeight = info.bounds.height
+        #expect(expandedHeight > collapsedHeight + 50)
+        #expect(abs(expandedHeight - model.measuredExpandedHeight) < 1)
+        #expect(abs(host.bounds.height - expandedHeight) < 1)
+        #expect(!heights.isEmpty)
+        #expect(heights.allSatisfy { $0 >= collapsedHeight - 1 && $0 <= expandedHeight + 1 })
         #expect(offsets.allSatisfy { abs($0 - 180) < 1 })
 
         var refreshed = fixture()
         refreshed.fundingRate = "0.0015% · 8h"
         refreshed.price = 66_000
-        info.configure(data: refreshed)
+        model.configure(state: .summary(refreshed.infoSummary))
+        info.modelStateDidChange()
         try await settle(window)
-        #expect(abs(info.bounds.height - measuredHeight) < 1)
-        info.toggleExpanded()
+        #expect(abs(info.bounds.height - expandedHeight) < 1)
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
         #expect(abs(info.bounds.height - collapsedHeight) < 1)
-        #expect(abs(host.bounds.height - measuredHeight) < 1)
+        // A position keeps its content measured at full size and clips it; a market remeasures the shorter description.
+        #expect(abs(host.bounds.height - (collapsesMetrics ? expandedHeight : collapsedHeight)) < 1)
         #expect(abs(layout.scrollView.contentOffset.y - 180) < 1)
     }
 
     @Test
     func descriptionMeasurementAdaptsToContentAndWidth() async throws {
-        let (window, layout, info) = try makeLayout(collapsesMetrics: false)
+        let (window, layout, info, model) = try makeLayout(collapsesMetrics: false)
         defer { window.isHidden = true; SettingsStore.liveValue.clean() }
         try await settle(window)
-        info.toggleExpanded()
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
         let expandedHeight = info.bounds.height
         var data = fixture()
         data.description = "Short description."
-        info.configure(data: data)
-        try await settle(window)
+        model.configure(state: .summary(data.infoSummary))
+        info.modelStateDidChange()
+        try await settle(window, milliseconds: 650)
         #expect(info.bounds.height < expandedHeight - 100)
         let shortHeight = info.bounds.height
-        info.toggleExpanded()
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
         #expect(abs(info.bounds.height - shortHeight) < 1)
         data.description = fixture().description
-        info.configure(data: data)
-        try await settle(window)
-        info.toggleExpanded()
+        model.configure(state: .summary(data.infoSummary))
+        info.modelStateDidChange()
+        try await settle(window, milliseconds: 650)
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
         window.frame.size.width = 320
         layout.setNeedsLayout()
@@ -123,14 +128,14 @@ struct PerpsInfoLayoutTests {
             AppStorageHelper.animations = previous
             SettingsStore.liveValue.clean()
         }
-        let (window, layout, info) = try makeLayout(collapsesMetrics: true, preparesSettings: false)
+        let (window, layout, info, model) = try makeLayout(collapsesMetrics: true, preparesSettings: false)
         defer { window.isHidden = true }
         try await settle(window)
-        info.toggleExpanded()
+        model.requestToggle()
         #expect(info.bounds.height > 400)
         layout.scrollView.contentOffset.y = layout.scrollView.contentSize.height + layout.scrollView.adjustedContentInset.bottom - layout.scrollView.bounds.height
-        info.toggleExpanded()
-        #expect(info.bounds.height == 64)
+        model.requestToggle()
+        #expect(info.bounds.height == TokenInfoModel.collapsedHeight)
         #expect(abs(layout.scrollView.contentOffset.y - (layout.scrollView.contentSize.height + layout.scrollView.adjustedContentInset.bottom - layout.scrollView.bounds.height)) < 1)
     }
 
@@ -141,20 +146,21 @@ struct PerpsInfoLayoutTests {
         SettingsStore.liveValue.use(db: db)
         defer { SettingsStore.liveValue.clean() }
         AppStorageHelper.isTokenInfoExpanded = true
-        let (window, _, info) = try makeLayout(collapsesMetrics: true, isExpanded: nil, preparesSettings: false)
+        let (window, _, info, model) = try makeLayout(collapsesMetrics: true, isExpanded: nil, preparesSettings: false)
         defer { window.isHidden = true }
         try await settle(window)
         #expect(info.bounds.height > 400)
-        info.toggleExpanded()
+        model.requestToggle()
         try await settle(window, milliseconds: 650)
         #expect(!AppStorageHelper.isTokenInfoExpanded)
-        let (secondWindow, _, secondInfo) = try makeLayout(collapsesMetrics: true, isExpanded: nil, preparesSettings: false)
+        let (secondWindow, _, secondInfo, _) = try makeLayout(collapsesMetrics: true, isExpanded: nil, preparesSettings: false)
         defer { secondWindow.isHidden = true }
         try await settle(secondWindow)
-        #expect(secondInfo.bounds.height == 64)
+        #expect(secondInfo.bounds.height == TokenInfoModel.collapsedHeight)
     }
 
-    private func makeLayout(collapsesMetrics: Bool, isExpanded: Bool? = false, preparesSettings: Bool = true) throws -> (UIWindow, AssetDetailsView, PerpsMarketInfoView) {
+    private func makeLayout(collapsesMetrics: Bool, isExpanded: Bool? = false, preparesSettings: Bool = true) throws
+        -> (UIWindow, AssetDetailsView, TokenInfoCardView, TokenInfoModel) {
         if preparesSettings {
             let db = try DatabaseQueue()
             try makeMigrator().migrate(db)
@@ -167,19 +173,14 @@ struct PerpsInfoLayoutTests {
         spacer.heightAnchor.constraint(equalToConstant: 600).isActive = true
         let footer = UIView()
         footer.heightAnchor.constraint(equalToConstant: 400).isActive = true
-        let info = PerpsMarketInfoView(data: fixture(), collapsesMetrics: collapsesMetrics, isExpanded: isExpanded)
+        let model = TokenInfoModel(state: .summary(fixture().infoSummary), isExpanded: isExpanded, hasBalance: collapsesMetrics)
+        let info = TokenInfoCardView(sizesItself: true)
         let layout = AssetDetailsView(sections: [spacer, info, footer], buttons: [])
-        controller.view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: controller.view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: controller.view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
-        ])
-        info.onHeightChange = { [weak layout] in layout?.layoutKeepingScrollPosition() }
+        layout.install(in: controller.view)
+        info.configure(model: model, onHeightChange: { [weak layout] in layout?.layoutKeepingScrollPosition() })
         window.isHidden = false
         window.layoutIfNeeded()
-        return (window, layout, info)
+        return (window, layout, info, model)
     }
 
     private func settle(_ window: UIWindow, milliseconds: Int = 200) async throws {
@@ -191,7 +192,6 @@ struct PerpsInfoLayoutTests {
     private func fixture() -> PerpsMarketDisplayData {
         .init(title: "Bitcoin Futures", token: .ETH, price: 64_845, percentChange24h: 3.23, history: [],
               description: "Bitcoin is the first cryptocurrency, created\u{2028}in 2009 by the pseudonymous Satoshi Nakamoto. It runs on its own network, without banks or intermediaries. Its supply is capped at 21 million coins — no one can issue more. Bitcoin is the largest crypto asset by market value and is more often held as a store of value than used for payments.",
-              fundingRate: "0.0012% · 8h", maxLeverage: "40x", volume24h: "$1.9B", openInterest: "$2.21B",
-              distribution: .init(longValue: 1_370, shortValue: 840, longLabel: "$1.37B Long", shortLabel: "$840M Short"))
+              fundingRate: "0.0012% · 8h", maxLeverage: "40x", volume24h: "$1.9B", openInterest: "$2.21B")
     }
 }

@@ -100,6 +100,16 @@ enum ContextMenuVisuals {
         }
     }
 
+    /// The pre-glass panel's drop shadow along `path`, which an accessory's capsules cast as well
+    @MainActor
+    static func applyLegacyPanelShadow(to layer: CALayer, path: CGPath?, traits: UITraitCollection) {
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = traits.userInterfaceStyle == .dark ? 0.22 : 0.12
+        layer.shadowRadius = 24.0
+        layer.shadowOffset = CGSize(width: 0.0, height: 12.0)
+        layer.shadowPath = path
+    }
+
     static func legacyPanelStrokeColor(for traits: UITraitCollection) -> UIColor {
         if traits.userInterfaceStyle == .dark {
             return UIColor.white.withAlphaComponent(0.14)

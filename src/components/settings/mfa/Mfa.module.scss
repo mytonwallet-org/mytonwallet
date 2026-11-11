@@ -1,3 +1,5 @@
+@use "../../../styles/mixins";
+
 .buttonsWrapper {
   display: flex;
   gap: 0.25rem;
@@ -169,6 +171,11 @@
   height: 5rem;
   border-radius: 6.25rem;
   font-size: 2.1875rem;
+}
+
+// The second avatar starts 1.6875rem before the first one ends, so its center is at 5.8125rem
+.avatar:first-child {
+  @include mixins.badgeCutout(5.8125rem, 2.5rem, 2.6875rem);
 }
 
 .avatar:nth-child(2) {

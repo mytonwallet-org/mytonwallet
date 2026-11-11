@@ -1,17 +1,22 @@
+import SwiftUI
 import UIKit
 import UIComponents
 
-/// Shared scrolling cards and persistent actions for asset detail screens.
+/// Scrolling cards above persistent actions, shared by asset pages and trade sheets.
 final class AssetDetailsView: UIView {
     let scrollView = UIScrollView()
     let content: UIStackView
-    private let actions: WActionButtonBar
     private let notice = NativeTradeNoticeView(frame: .zero)
     private let actionContent = UIStackView()
 
-    init(sections: [UIView], buttons: [WButton]) {
+    convenience init(sections: [UIView], buttons: [WButton], background: UIColor = .air.groupedBackground) {
+        let actions = buttons.isEmpty ? nil : WActionButtonBar(buttons: buttons)
+        actions?.heightAnchor.constraint(equalToConstant: WButton.height(for: .primary)).isActive = true
+        self.init(sections: sections, footer: actions, background: background)
+    }
+
+    init(sections: [UIView], footer: UIView?, background: UIColor) {
         content = UIStackView(arrangedSubviews: sections)
-        actions = WActionButtonBar(buttons: buttons)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -32,14 +37,14 @@ final class AssetDetailsView: UIView {
 
         let bottomEdgeEffect = EdgeEffectView()
         bottomEdgeEffect.translatesAutoresizingMaskIntoConstraints = false
-        bottomEdgeEffect.update(content: .air.groupedBackground, blur: true, alpha: 0.85, edge: .bottom, edgeSize: 48)
-        bottomEdgeEffect.isHidden = buttons.isEmpty
+        bottomEdgeEffect.update(content: background, blur: true, alpha: 0.85, edge: .bottom, edgeSize: 48)
+        bottomEdgeEffect.isHidden = footer == nil
         actionContent.axis = .vertical
         actionContent.spacing = 12
         actionContent.translatesAutoresizingMaskIntoConstraints = false
         actionContent.addArrangedSubview(notice)
-        actionContent.addArrangedSubview(actions)
-        actionContent.isHidden = buttons.isEmpty
+        if let footer { actionContent.addArrangedSubview(footer) }
+        actionContent.isHidden = footer == nil
         notice.isHidden = true
         addSubview(bottomEdgeEffect)
         addSubview(actionContent)
@@ -47,6 +52,8 @@ final class AssetDetailsView: UIView {
         contentWidth.priority = .defaultHigh
         let actionsWidth = actionContent.widthAnchor.constraint(equalTo: safeAreaLayoutGuide.widthAnchor, constant: -72)
         actionsWidth.priority = .defaultHigh
+        let actionsBottom = actionContent.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -2)
+        actionsBottom.priority = .defaultHigh
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -63,12 +70,27 @@ final class AssetDetailsView: UIView {
             actionContent.widthAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.widthAnchor, constant: -72),
             actionContent.widthAnchor.constraint(lessThanOrEqualToConstant: 500),
             actionContent.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
-            actionContent.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -2),
-            actions.heightAnchor.constraint(equalToConstant: WButton.height(for: .primary)),
+            actionContent.bottomAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.bottomAnchor, constant: -2),
+            actionContent.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -36),
+            actionsBottom,
             bottomEdgeEffect.leadingAnchor.constraint(equalTo: leadingAnchor),
             bottomEdgeEffect.trailingAnchor.constraint(equalTo: trailingAnchor),
             bottomEdgeEffect.topAnchor.constraint(equalTo: actionContent.topAnchor, constant: -16),
             bottomEdgeEffect.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    /// Fills `parent` edge to edge.
+    func install(in parent: UIView) {
+        parent.addSubview(self)
+        NSLayoutConstraint.activate([
+            topAnchor.constraint(equalTo: parent.topAnchor),
+            bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+            leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            trailingAnchor.constraint(equalTo: parent.trailingAnchor),
         ])
     }
 
@@ -81,9 +103,9 @@ final class AssetDetailsView: UIView {
         }
     }
 
-    func setActionNotice(_ message: String?) {
+    func setActionNotice(_ message: String?, isInformational: Bool = false) {
         notice.isHidden = message == nil
-        if let message { notice.update(.init(title: "", message: message), animated: false) }
+        if let message { notice.update(.init(title: "", message: message, isInformational: isInformational), animated: false) }
         setNeedsLayout()
     }
 
@@ -97,6 +119,10 @@ final class AssetDetailsView: UIView {
         }
     }
 
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { nil }
+    /// Hosted SwiftUI sections size to their content and leave safe areas to this view.
+    static func prepare<Content: View>(_ hosting: UIHostingController<Content>) {
+        hosting.sizingOptions = .intrinsicContentSize
+        if #available(iOS 16.4, *) { hosting.safeAreaRegions = [] }
+        else { hosting.disableSafeArea() }
+    }
 }

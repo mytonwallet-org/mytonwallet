@@ -5,7 +5,11 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -15,6 +19,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -23,6 +28,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
 import org.mytonwallet.app_air.uicomponents.extensions.suppressLayoutCompat
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
+import org.mytonwallet.app_air.uicomponents.helpers.HapticType
+import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -36,11 +43,19 @@ class WMenuPopupView(
     val items: List<WMenuPopup.Item>,
     private val onWillDismiss: (() -> Unit)?,
     private val onDismiss: () -> Unit,
-    private val hasExpandingHeader: Boolean = false
+    private val hasExpandingHeader: Boolean = false,
+    private val verticalContentPadding: Int = 0,
+    /** The theme the menu takes its colors from, dark (true) or light (false), or the app's */
+    val themeIsDark: Boolean? = null,
+    /** Lets a finger slide across the items, activating the one under it and choosing it on lift */
+    private val isSlideSelectionEnabled: Boolean = false,
+    private val onReorder: ((fromPosition: Int, toPosition: Int) -> Unit)? = null
 ) : WFrameLayout(context),
     WThemedView {
 
     companion object {
+        private const val LIFTED_SCALE = 1.04f
+
         fun measureWidth(context: Context, items: List<WMenuPopup.Item>): Int = WMenuPopupView(
             context,
             items,
@@ -74,10 +89,35 @@ class WMenuPopupView(
         private set
     var isDismissed = false
     private val contentContainer: FrameLayout
+    private val contentHeight: Int
     private val scrollView: ScrollView
     private val expandingBodyContainer = if (hasExpandingHeader) FrameLayout(context) else null
     private var expandingBodySpring: SpringAnimation? = null
     private var maxHeight: Int = 0
+    private var isSlideSelecting = false
+    private var activeItemView: WMenuPopupViewItem? = null
+    private val itemBounds = Rect()
+
+    // The items' indices in the order they show; a held item can be dragged to another place
+    private val itemOrder = items.indices.toMutableList()
+    private val canReorder = onReorder != null && !hasExpandingHeader && items.all {
+        it.config is Config.Item && it.getSubItems().isNullOrEmpty()
+    }
+    private var draggedIndex: Int? = null
+    private var dragStartRawY = 0f
+    private var dragStartTop = 0
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var heldItemView: WMenuPopupViewItem? = null
+    private var holdX = 0f
+    private var holdY = 0f
+    private val liftHeldItem = Runnable {
+        val itemView = heldItemView ?: return@Runnable
+        heldItemView = null
+        endSelection(performAction = false)
+        isSlideSelecting = false
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        startDrag(itemViews.indexOf(itemView))
+    }
 
     private fun makeExpandingHeaderItem(item: WMenuPopup.Item): WMenuPopup.Item {
         val config = item.config as? Config.Item ?: return item.copy()
@@ -103,7 +143,8 @@ class WMenuPopupView(
             nextItems,
             onWillDismiss = { onWillDismiss?.invoke() },
             onDismiss = { popupWindow?.dismiss() },
-            hasExpandingHeader = transition == WMenuPopup.SubmenuTransition.EXPAND_FROM_ITEM
+            hasExpandingHeader = transition == WMenuPopup.SubmenuTransition.EXPAND_FROM_ITEM,
+            themeIsDark = themeIsDark
         ).apply {
             popupWindow = window
         }
@@ -158,30 +199,39 @@ class WMenuPopupView(
         scrollView.addView(contentContainer, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(scrollView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
 
-        var totalHeight = 0
+        var totalHeight = verticalContentPadding
         items.forEachIndexed { index, item ->
             var itemHeight: Int
             var itemView: FrameLayout
             if (item.config is Config.CustomView) {
                 itemView = item.config.customView.apply {
+                    item.testViewId?.let { id = it }
                     alpha = 0f
                     visibility = INVISIBLE
                 }
                 itemHeight = item.config.height + if (item.hasSeparator) 7.dp else 0
             } else {
                 val itemContentHeight =
-                    if (item.config == Config.Back) {
+                    if (item.getRowStyle() == WMenuPopup.RowStyle.WALLET) {
+                        56.dp
+                    } else if (item.config == Config.Back) {
                         44.dp
                     } else {
                         if (item.getSubTitle().isNullOrEmpty()) 48.dp else 52.dp
                     }
                 itemHeight = itemContentHeight + if (item.hasSeparator) 7.dp else 0
 
-                itemView = WMenuPopupViewItem(context, item).apply {
+                itemView = WMenuPopupViewItem(context, item, themeIsDark).apply {
                     item.testViewId?.let { id = it }
                     alpha = 0f
                     visibility = INVISIBLE
                 }.apply {
+                    if (canReorder) {
+                        setOnLongClickListener {
+                            startDrag(index)
+                            true
+                        }
+                    }
                     setOnClickListener {
                         if (hasExpandingHeader && index == 0) {
                             popupWindow?.pop()
@@ -223,9 +273,39 @@ class WMenuPopupView(
             itemParent.addView(itemView, LayoutParams(WRAP_CONTENT, itemHeight))
         }
         expandingBodyContainer?.updateLayoutParams {
-            height = (totalHeight - (itemHeights.firstOrNull() ?: 0)).coerceAtLeast(0)
+            height = (
+                totalHeight - verticalContentPadding -
+                    (itemHeights.firstOrNull() ?: 0)
+                ).coerceAtLeast(0)
         }
-        finalHeight = min(totalHeight, maxHeight)
+        contentHeight = totalHeight + verticalContentPadding
+        finalHeight = min(contentHeight, maxHeight)
+    }
+
+    private var dragHighlightedItem: View? = null
+    private val dragHitRect = Rect()
+
+    fun updateDragSelection(x: Float, y: Float) {
+        val item = if (isAnimating || isDismissed || !isEnabled) null else findItem(x, y)
+        if (item === dragHighlightedItem) return
+        dragHighlightedItem?.isPressed = false
+        dragHighlightedItem = item
+        if (item == null) return
+        item.drawableHotspotChanged(x - dragHitRect.left, y - dragHitRect.top)
+        item.isPressed = true
+        Haptics.play(this, HapticType.SELECTION)
+    }
+
+    fun endDragSelection(performAction: Boolean) {
+        val item = dragHighlightedItem ?: return
+        dragHighlightedItem = null
+        item.isPressed = false
+        if (performAction) item.performClick()
+    }
+
+    private fun findItem(x: Float, y: Float): View? = itemViews.firstOrNull { view ->
+        view.hasOnClickListeners() && view.isShown &&
+            view.getGlobalVisibleRect(dragHitRect) && dragHitRect.contains(x.toInt(), y.toInt())
     }
 
     fun getItemTop(index: Int): Int = itemYPositions[index] - scrollView.scrollY
@@ -234,8 +314,7 @@ class WMenuPopupView(
 
     fun limitHeight(height: Int) {
         maxHeight = min(maxHeight, height)
-        val totalHeight = itemYPositions.lastOrNull()?.plus(itemHeights.lastOrNull() ?: 0) ?: 0
-        finalHeight = min(totalHeight, maxHeight)
+        finalHeight = min(contentHeight, maxHeight)
     }
 
     fun prepareForExpandingPresentation() {
@@ -318,10 +397,96 @@ class WMenuPopupView(
         onWillDismiss?.invoke()
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        lastTouchRawY = event.rawY
+        draggedIndex?.let { index ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_MOVE -> moveDraggedItem(index, event.rawY)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dropDraggedItem(index)
+            }
+            return true
+        }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            // A menu taller than the window scrolls under the finger instead
+            isSlideSelecting = isSlideSelectionEnabled && !isAnimating &&
+                !scrollView.canScrollVertically(-1) && !scrollView.canScrollVertically(1)
+        }
+        if (!isSlideSelecting) return super.dispatchTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN ->
+                activateItem(event.x, event.y, shouldPlayHaptic = false)
+
+            MotionEvent.ACTION_MOVE ->
+                activateItem(event.x, event.y, shouldPlayHaptic = true)
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                isSlideSelecting = false
+                endSelection(performAction = event.actionMasked == MotionEvent.ACTION_UP)
+            }
+        }
+        return true
+    }
+
+    private fun activateItem(x: Float, y: Float, shouldPlayHaptic: Boolean) {
+        val itemView = findItemView(x, y)
+        if (itemView !== activeItemView) {
+            activeItemView?.isPressed = false
+            activeItemView = itemView
+            if (itemView != null && shouldPlayHaptic) Haptics.play(this, HapticType.SELECTION)
+        }
+        holdItem(itemView, x, y)
+        itemView ?: return
+        updateItemBounds(itemView)
+        itemView.drawableHotspotChanged(x - itemBounds.left, y - itemBounds.top)
+        itemView.isPressed = true
+    }
+
+    // Only a finger resting on one item for the long-press time lifts it: moving off the item or
+    // past the touch slop starts the wait again, so sliding across the items never lifts one
+    private fun holdItem(itemView: WMenuPopupViewItem?, x: Float, y: Float) {
+        if (!canReorder) return
+        if (itemView != null && itemView === heldItemView &&
+            abs(x - holdX) <= touchSlop && abs(y - holdY) <= touchSlop
+        ) {
+            return
+        }
+        removeCallbacks(liftHeldItem)
+        heldItemView = itemView
+        if (itemView == null) return
+        holdX = x
+        holdY = y
+        postDelayed(liftHeldItem, ViewConfiguration.getLongPressTimeout().toLong())
+    }
+
+    private fun findItemView(x: Float, y: Float): WMenuPopupViewItem? {
+        if (x < 0 || y < 0 || x >= width || y >= height) return null
+        return itemViews.firstNotNullOfOrNull { itemView ->
+            (itemView as? WMenuPopupViewItem)?.takeIf {
+                it.isShown && it.isEnabled && updateItemBounds(it).contains(x.toInt(), y.toInt())
+            }
+        }
+    }
+
+    /** Sets `itemBounds` to [itemView]'s bounds in this view's coordinates and returns it */
+    private fun updateItemBounds(itemView: View): Rect = itemBounds.apply {
+        set(0, 0, itemView.width, itemView.height)
+        offsetDescendantRectToMyCoords(itemView, this)
+    }
+
+    private fun endSelection(performAction: Boolean) {
+        removeCallbacks(liftHeldItem)
+        heldItemView = null
+        val itemView = activeItemView ?: return
+        activeItemView = null
+        itemView.isPressed = false
+        if (performAction) itemView.performClick()
+    }
+
     fun present(
         initialHeight: Int,
         fromTop: Boolean,
-        updateListener: ((fraction: Float) -> Unit)? = null
+        updateListener: ((fraction: Float) -> Unit)? = null,
+        onPresented: (() -> Unit)? = null
     ) {
         presentFromTop = fromTop
         isAnimating = true
@@ -356,6 +521,7 @@ class WMenuPopupView(
                     }
                     contentContainer.suppressLayoutCompat(false)
                     prepareExpandingSubmenus()
+                    onPresented?.invoke()
                 }
             })
             start()
@@ -438,9 +604,81 @@ class WMenuPopupView(
         itemViews.filterIsInstance<WThemedView>().forEach { it.updateTheme() }
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val totalHeight = itemYPositions.lastOrNull()?.plus(itemHeights.lastOrNull() ?: 0) ?: 0
+    private var lastTouchRawY = 0f
 
+    override fun onDetachedFromWindow() {
+        removeCallbacks(liftHeldItem)
+        heldItemView = null
+        super.onDetachedFromWindow()
+    }
+
+    private fun startDrag(index: Int) {
+        if (draggedIndex != null || isAnimating) return
+        draggedIndex = index
+        dragStartRawY = lastTouchRawY
+        dragStartTop = itemYPositions[index]
+        // The item stops being pressed, and the list stops scrolling under the finger
+        val cancel = MotionEvent.obtain(0, 0, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+        super.dispatchTouchEvent(cancel)
+        cancel.recycle()
+        parent?.requestDisallowInterceptTouchEvent(true)
+        itemViews[index].apply {
+            bringToFront()
+            animate().cancel()
+            animate().scaleX(LIFTED_SCALE).scaleY(LIFTED_SCALE).translationZ(8f.dp)
+                .setDuration(AnimationConstants.QUICK_ANIMATION).start()
+        }
+    }
+
+    private fun moveDraggedItem(index: Int, rawY: Float) {
+        val position = itemOrder.indexOf(index)
+        val minTop = verticalContentPadding
+        val maxTop = contentHeight - verticalContentPadding - itemHeights[index]
+        val top = (dragStartTop + rawY - dragStartRawY).coerceIn(minTop.toFloat(), maxTop.toFloat())
+        val newPosition = findReorderPosition(
+            rowTops = itemOrder.map { itemYPositions[it] },
+            rowHeights = itemOrder.map { itemHeights[it] },
+            position = position,
+            top = top
+        )
+        if (newPosition != position) {
+            val oldTops = itemYPositions.copyOf()
+            itemOrder.removeAt(position)
+            itemOrder.add(newPosition, index)
+            updateItemPositions()
+            itemViews.forEachIndexed { i, itemView ->
+                val itemTop = itemYPositions[i]
+                itemView.layout(0, itemTop, itemView.width, itemTop + itemHeights[i])
+            }
+            itemViews.forEachIndexed { i, itemView ->
+                if (i == index || oldTops[i] == itemYPositions[i]) return@forEachIndexed
+                itemView.translationY += oldTops[i] - itemYPositions[i]
+                itemView.animate().translationY(0f).setDuration(AnimationConstants.QUICK_ANIMATION)
+                    .setInterpolator(WInterpolator.emphasized).start()
+            }
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            onReorder?.invoke(position, newPosition)
+        }
+        itemViews[index].translationY = top - itemYPositions[index]
+    }
+
+    private fun dropDraggedItem(index: Int) {
+        draggedIndex = null
+        itemViews[index].animate().scaleX(1f).scaleY(1f).translationZ(0f).translationY(0f)
+            .setDuration(AnimationConstants.QUICK_ANIMATION)
+            .setInterpolator(WInterpolator.emphasized)
+            .start()
+    }
+
+    private fun updateItemPositions() {
+        var top = verticalContentPadding
+        itemOrder.forEach { index ->
+            itemYPositions[index] = top
+            top += itemHeights[index]
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthMode = MeasureSpec.getMode(widthMeasureSpec)
         val widthSize = MeasureSpec.getSize(widthMeasureSpec)
 
@@ -448,7 +686,7 @@ class WMenuPopupView(
             MeasureSpec.EXACTLY -> widthSize
 
             else -> {
-                contentContainer.measure(0.unspecified, totalHeight.exactly)
+                contentContainer.measure(0.unspecified, contentHeight.exactly)
                 val contentWidth = contentContainer.measuredWidth
                 if (widthMode == MeasureSpec.AT_MOST) {
                     minOf(contentWidth + 16.dp, widthSize)
@@ -461,7 +699,7 @@ class WMenuPopupView(
         val height = if (isAnimating) {
             currentFrameHeight
         } else {
-            min(totalHeight, maxHeight)
+            min(contentHeight, maxHeight)
         }
 
         scrollView.measure(width.exactly, height.exactly)
@@ -473,15 +711,19 @@ class WMenuPopupView(
         val scrollOffset = scrollView.scrollY
         scrollView.layout(0, 0, measuredWidth, measuredHeight)
 
-        val totalHeight = itemYPositions.lastOrNull()?.plus(itemHeights.lastOrNull() ?: 0) ?: 0
-        contentContainer.layout(0, 0, measuredWidth, totalHeight)
+        contentContainer.layout(0, 0, measuredWidth, contentHeight)
 
         val bodyTop = if (expandingBodyContainer != null && itemViews.size > 1) {
             itemYPositions[1]
         } else {
-            itemHeights.firstOrNull() ?: 0
+            verticalContentPadding + (itemHeights.firstOrNull() ?: 0)
         }
-        expandingBodyContainer?.layout(0, bodyTop, measuredWidth, totalHeight)
+        expandingBodyContainer?.layout(
+            0,
+            bodyTop,
+            measuredWidth,
+            contentHeight - verticalContentPadding
+        )
 
         for (i in itemViews.indices) {
             val child = itemViews[i]
@@ -498,4 +740,29 @@ class WMenuPopupView(
         }
         if (scrollView.scrollY != scrollOffset) scrollView.scrollTo(0, scrollOffset)
     }
+}
+
+/**
+ * The place a row dragged from [position] takes with its top at [top], among rows whose tops and
+ * heights in their current order are [rowTops] and [rowHeights]. The row passes a neighbor once its
+ * near edge crosses the neighbor's middle, so with its top held inside the list it still reaches
+ * the first and the last place.
+ */
+internal fun findReorderPosition(
+    rowTops: List<Int>,
+    rowHeights: List<Int>,
+    position: Int,
+    top: Float
+): Int {
+    val bottom = top + rowHeights[position]
+    var newPosition = position
+    while (newPosition > 0 && top < rowTops[newPosition - 1] + rowHeights[newPosition - 1] / 2f) {
+        newPosition--
+    }
+    while (newPosition < rowTops.lastIndex &&
+        bottom > rowTops[newPosition + 1] + rowHeights[newPosition + 1] / 2f
+    ) {
+        newPosition++
+    }
+    return newPosition
 }

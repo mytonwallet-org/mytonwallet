@@ -18,6 +18,8 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     private let preferredBuyingToken: String?
 
     private var collectionView: UICollectionView!
+    private var collectionViewTopConstraint: NSLayoutConstraint?
+    private var currentHeaderHeight = headerHeight
     private var dataSource: UICollectionViewDiffableDataSource<Section, ReceiveItem>!
 
     public init(account: AccountContext, chain: ApiChain, preferredBuyingToken: String?) {
@@ -44,13 +46,17 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     }
 
     private var tokenWarning: String {
+        if isUtxoChain(chain) {
+            return L10n.sendOnlyChainNoTokens(symbol: chain.nativeToken.symbol)
+        }
+        if let token = preferredBuyingToken.flatMap(TokenStore.getToken(slug:)),
+           token.chain == chain, !token.isNative, !token.symbol.isEmpty {
+            return L10n.sendOnlyChainAndToken(symbol: chain.nativeToken.symbol, tokenSymbol: token.symbol, chain: chain.title)
+        }
         if chain == .ton {
             return lang("$send_only_ton")
-        } else if isUtxoChain(chain) {
-            return L10n.sendOnlyChainNoTokens(symbol: chain.nativeToken.symbol)
-        } else {
-            return L10n.sendOnlyChain(symbol: chain.nativeToken.symbol, chain: chain.title)
         }
+        return L10n.sendOnlyChain(symbol: chain.nativeToken.symbol, chain: chain.title)
     }
     
     private func setupViews() {
@@ -71,7 +77,6 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
         collectionView.delegate = self
-        collectionView.contentInset.top = headerHeight
         collectionView.contentInset.bottom = 16
         collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.bounces = false
@@ -79,12 +84,20 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         collectionView.translatesAutoresizingMaskIntoConstraints = false
 
         view.insertSubview(collectionView, at: 0)
+        let topConstraint = collectionView.topAnchor.constraint(equalTo: view.topAnchor, constant: currentHeaderHeight)
+        collectionViewTopConstraint = topConstraint
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            topConstraint,
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+    }
+
+    func setHeaderHeight(_ height: CGFloat) {
+        guard currentHeaderHeight != height else { return }
+        currentHeaderHeight = height
+        collectionViewTopConstraint?.constant = height
     }
 
     private func configureDataSource() {
@@ -193,13 +206,6 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
                 animated: true
             )
         }
-    }
-
-    public override func viewWillLayoutSubviews() {
-        UIView.performWithoutAnimation {
-            collectionView.frame = view.bounds
-        }
-        super.viewWillLayoutSubviews()
     }
 
     // MARK: - WSegmentedControllerContent

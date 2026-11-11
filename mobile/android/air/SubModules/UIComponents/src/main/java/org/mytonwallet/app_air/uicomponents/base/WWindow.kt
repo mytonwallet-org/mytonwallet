@@ -133,6 +133,7 @@ abstract class WWindow :
 
     override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
         lastInputAt = SystemClock.elapsedRealtime()
+        if (event != null && PopupHelpers.dispatchDragSelectionTouch(event)) return true
         return super.dispatchTouchEvent(event)
     }
 

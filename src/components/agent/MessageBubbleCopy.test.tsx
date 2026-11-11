@@ -4,7 +4,7 @@ import TeactDOM from '../../lib/teact/teact-dom';
 import type { AgentMessage } from '../../global/types';
 
 import { copyTextToClipboard } from '../../util/clipboard';
-import { pause } from '../../util/schedulers';
+import { pause, waitFor } from '../../util/schedulers';
 
 import MessageBubble from './MessageBubble';
 
@@ -71,10 +71,10 @@ describe('copying Agent answers', () => {
     const tableText = 'Partial data\n\nAsset\tValue\nA & B_[token]\t123456789.000000001 TON';
     expect(copyTextToClipboard).toHaveBeenCalledWith(text ? `🪙\n\n\n\n${tableText}\n\nAfter` : `\n\n${tableText}\n\n`);
     await pause(0);
-    expect(mockShowToast).toHaveBeenCalledWith({ message: 'Message Copied', icon: 'icon-copy' });
+    expect(mockShowToast).toHaveBeenCalledWith({ message: 'Message copied.', icon: 'icon-copy' });
   });
 
-  it('offers a finished answer for a problem report, but not one still being written', async () => {
+  it('offers a finished answer for a problem report, and opens no menu on one still being written', async () => {
     const onReport = jest.fn();
     const message: AgentMessage = {
       id: 7, text: 'You hold 12 TON', timestamp: 0, isOutgoing: false,
@@ -92,9 +92,11 @@ describe('copying Agent answers', () => {
       return Array.from(document.querySelectorAll('button'));
     };
 
-    const streamingMenu = (await openMenu(true)).map((button) => button.textContent);
-    expect(streamingMenu).toContain('Copy');
-    expect(streamingMenu).not.toContain('Report a Problem');
+    expect((await openMenu(true)).map((button) => button.textContent)).not.toContain('Copy');
+    // Nor does the browser open its own menu over it
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    root.querySelector('[data-agent-v2-message-id="7"] [data-agent-static-text]')!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
     (await openMenu(false)).find((button) => button.textContent === 'Report a Problem')!.click();
 
     expect(onReport).toHaveBeenCalledWith(7);
@@ -131,9 +133,9 @@ describe('copying Agent answers', () => {
     expect(labels.indexOf('Regenerate')).toBe(labels.indexOf('Copy') + 1);
     buttons.find((button) => button.textContent === 'Regenerate')!.click();
 
-    // The answer is answered again once its menu has faded out
+    // The answer is answered again once its menu has faded out, which a loaded machine draws late
     expect(onRegenerate).not.toHaveBeenCalled();
-    await pause(400);
+    expect(await waitFor(() => onRegenerate.mock.calls.length > 0, 20, 100)).toBe(true);
     expect(onRegenerate).toHaveBeenCalledWith(9);
   });
 });

@@ -45,7 +45,6 @@ internal class AgentNewsCell(context: Context) :
                 Date(),
                 shouldShowDateWhenNotToday = true,
                 is24HourFormat = is24HourFormat,
-                yesterday = LocaleController.getString("Yesterday"),
                 locale = Locale.forLanguageTag(LocaleController.activeLanguage.langCode)
             )
         }.orEmpty()

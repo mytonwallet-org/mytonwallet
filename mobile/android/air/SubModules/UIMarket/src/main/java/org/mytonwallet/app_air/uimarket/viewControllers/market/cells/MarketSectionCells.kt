@@ -28,15 +28,15 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
-private const val SECTION_HORIZONTAL_PADDING = 10
 private const val GRID_HORIZONTAL_PADDING = 6
-internal const val SECTION_BOTTOM_SPACING = 12
+const val SECTION_BOTTOM_SPACING = 12
 
 @SuppressLint("ViewConstructor")
 class MarketMoversSectionCell(
     context: Context,
     private val onSeeAll: (MarketSection) -> Unit,
-    private val onTokenTap: (MarketToken) -> Unit
+    private val onTokenTap: (MarketToken) -> Unit,
+    private val showsHeader: Boolean = true
 ) : WCell(context, RecyclerView.LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
     private var marketSection: MarketSection? = null
@@ -47,7 +47,7 @@ class MarketMoversSectionCell(
         layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         isHorizontalScrollBarEnabled = false
         clipToPadding = false
-        setPaddingLocalized(16.dp, 4.dp, 16.dp, 16.dp)
+        setPaddingLocalized(16.dp, if (showsHeader) 4.dp else 16.dp, 16.dp, 16.dp)
         addItemDecoration(object : RecyclerView.ItemDecoration() {
             override fun getItemOffsets(
                 outRect: Rect,
@@ -68,8 +68,11 @@ class MarketMoversSectionCell(
     private val container = LinearLayout(context).apply {
         id = generateViewId()
         orientation = LinearLayout.VERTICAL
-        addView(headerView, LinearLayout.LayoutParams(MATCH_PARENT, 48.dp))
-        addView(recyclerView, LinearLayout.LayoutParams(MATCH_PARENT, 180.dp))
+        if (showsHeader) addView(headerView, LinearLayout.LayoutParams(MATCH_PARENT, 48.dp))
+        addView(
+            recyclerView,
+            LinearLayout.LayoutParams(MATCH_PARENT, if (showsHeader) 180.dp else 192.dp)
+        )
     }
     private val itemsAdapter = object : RecyclerView.Adapter<MarketMoverHolder>() {
         var tokens = emptyList<MarketToken>()
@@ -91,12 +94,7 @@ class MarketMoversSectionCell(
     private class MarketMoverHolder(val view: MarketMoverItemView) : RecyclerView.ViewHolder(view)
 
     init {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            SECTION_BOTTOM_SPACING.dp
-        )
+        setPadding(0, 0, 0, SECTION_BOTTOM_SPACING.dp)
         recyclerView.adapter = itemsAdapter
         addView(container, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints { allEdges(container) }
@@ -105,12 +103,7 @@ class MarketMoversSectionCell(
 
     @SuppressLint("NotifyDataSetChanged")
     fun configure(section: MarketSection, bottomSpacing: Int = SECTION_BOTTOM_SPACING) {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            bottomSpacing.dp
-        )
+        setPadding(0, 0, 0, bottomSpacing.dp)
         marketSection = section
         headerView.configure(section.title, section.showsSeeAll)
         val visibleTokens = section.visibleTokens
@@ -160,24 +153,14 @@ class MarketGridSectionCell(
     }
 
     init {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            SECTION_BOTTOM_SPACING.dp
-        )
+        setPadding(0, 0, 0, SECTION_BOTTOM_SPACING.dp)
         addView(container, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints { allEdges(container) }
         updateTheme()
     }
 
     fun configure(section: MarketSection, bottomSpacing: Int = SECTION_BOTTOM_SPACING) {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            bottomSpacing.dp
-        )
+        setPadding(0, 0, 0, bottomSpacing.dp)
         val tokensChanged = marketSection?.tokens != section.tokens ||
             marketSection?.visibleLimit != section.visibleLimit
         marketSection = section
@@ -303,24 +286,14 @@ class MarketRowsSectionCell(
     }
 
     init {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            SECTION_BOTTOM_SPACING.dp
-        )
+        setPadding(0, 0, 0, SECTION_BOTTOM_SPACING.dp)
         addView(container, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         setConstraints { allEdges(container) }
         updateTheme()
     }
 
     fun configure(section: MarketSection, bottomSpacing: Int = SECTION_BOTTOM_SPACING) {
-        setPaddingLocalized(
-            SECTION_HORIZONTAL_PADDING.dp,
-            0,
-            SECTION_HORIZONTAL_PADDING.dp,
-            bottomSpacing.dp
-        )
+        setPadding(0, 0, 0, bottomSpacing.dp)
         marketSection = section
         headerView.configure(section.title, section.showsSeeAll)
         rowsView.removeAllViews()

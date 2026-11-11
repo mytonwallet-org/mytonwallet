@@ -60,6 +60,10 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showAddWallet(network: ApiNetwork, sourceView: UIView?)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?)
+    static func showAgentNewsChat(eventId: Int)
+    static func showAgentDigestChat(digestId: String)
+    static func showAgentNewsFeed(digestId: String)
+    static func showAgentTab()
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     static func showAssetsAndActivity()
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
@@ -78,6 +82,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showHome(popToRoot: Bool)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
+    static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool)
     static func showMarket()
     static func showMintCard(accountContext: AccountContext)
@@ -225,6 +230,10 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showAddWallet(network: ApiNetwork, sourceView: UIView?) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) { }
+    static func showAgentNewsChat(eventId: Int) { }
+    static func showAgentDigestChat(digestId: String) { }
+    static func showAgentNewsFeed(digestId: String) { }
+    static func showAgentTab() { }
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) { }
     static func showAssetsAndActivity() { }
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) { }
@@ -243,6 +252,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showHome(popToRoot: Bool) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
+    static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showPerps(accountId: String, positionId: String?, showsAllPositions: Bool) { }
     static func showMarket() { }
     static func showMintCard(accountContext: AccountContext) { }

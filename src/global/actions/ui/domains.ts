@@ -59,10 +59,11 @@ addActionHandler('cancelDomainsRenewal', (global) => {
   };
 });
 
-addActionHandler('openDomainLinkingModal', (global, actions, { address }) => {
+addActionHandler('openDomainLinkingModal', (global, actions, { address, isUnlinking }) => {
   return updateCurrentDomainLinking(global, {
     state: DomainLinkingState.Initial,
     address,
+    isUnlinking,
   });
 });
 

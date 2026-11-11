@@ -1,9 +1,9 @@
 import Foundation
 import simd
 
-/// The Agent's spinning top as a smooth surface of revolution around the y axis, fitted to the flat mark
-/// (`AgentSpinningTopIcon`): a rounded point, flanks that curve in toward a thin rim low on the body, a long concave
-/// flare up into the stem, and a rounded cap. The point sits at the origin, where the top pivots as it precesses.
+/// The Agent's spinning top as a smooth surface of revolution around the y axis: a rounded point, a neck above it from
+/// which concave flanks flare to a thin rim low on the body with a rounded edge, a long concave flare up into the stem,
+/// and a rounded cap. The point sits at the origin, where the top pivots as it precesses.
 struct SpinningTopGeometry {
     struct Vertex {
         var position: SIMD3<Float>
@@ -20,34 +20,44 @@ struct SpinningTopGeometry {
     static let boxHalfExtent: Float = 0.92
 
     /// The profile in (radius, height), from the point up to the cap, through which a centripetal Catmull–Rom spline
-    /// runs. Fitted so the top, leaning and seen from the camera's elevation, covers the mark.
+    /// runs. The rim, 0.68 across from the axis, is the widest ring, its outer edge rounded with a radius of about 0.03.
     private static let profile: [SIMD2<Float>] = [
         SIMD2(0.0000, 0.0000),
-        SIMD2(0.0479, 0.0134),
-        SIMD2(0.0843, 0.0652),
-        SIMD2(0.1112, 0.1073),
-        SIMD2(0.1380, 0.1610),
-        SIMD2(0.1687, 0.2223),
-        SIMD2(0.2070, 0.2798),
-        SIMD2(0.2837, 0.3527),
-        SIMD2(0.4600, 0.4447),
+        SIMD2(0.0356, 0.0067),
+        SIMD2(0.0649, 0.0318),
+        SIMD2(0.0822, 0.0627),
+        SIMD2(0.1203, 0.1331),
+        SIMD2(0.1756, 0.2413),
+        SIMD2(0.2366, 0.3151),
+        SIMD2(0.2874, 0.3543),
+        SIMD2(0.3389, 0.3844),
+        SIMD2(0.4176, 0.4191),
+        SIMD2(0.5191, 0.4496),
+        SIMD2(0.6140, 0.4676),
         // The rim: its lower edge, its rounded outer edge and its upper edge
-        SIMD2(0.6747, 0.4696),
-        SIMD2(0.7283, 0.4887),
-        SIMD2(0.6747, 0.5079),
-        SIMD2(0.4907, 0.5309),
-        SIMD2(0.3450, 0.5865),
-        SIMD2(0.2722, 0.6555),
-        SIMD2(0.2300, 0.7092),
-        SIMD2(0.1955, 0.7667),
-        SIMD2(0.1687, 0.8280),
-        SIMD2(0.1418, 0.9200),
-        SIMD2(0.1265, 1.0158),
-        SIMD2(0.1169, 1.1308),
-        SIMD2(0.1112, 1.2267),
-        SIMD2(0.1054, 1.3225),
-        SIMD2(0.0862, 1.4030),
-        SIMD2(0.0479, 1.4605),
+        SIMD2(0.6467, 0.4727),
+        SIMD2(0.6630, 0.4810),
+        SIMD2(0.6747, 0.4929),
+        SIMD2(0.6791, 0.5093),
+        SIMD2(0.6747, 0.5256),
+        SIMD2(0.6630, 0.5375),
+        SIMD2(0.6467, 0.5458),
+        SIMD2(0.6102, 0.5520),
+        SIMD2(0.5190, 0.5734),
+        SIMD2(0.4677, 0.5895),
+        SIMD2(0.3864, 0.6215),
+        SIMD2(0.3408, 0.6444),
+        SIMD2(0.3082, 0.6673),
+        SIMD2(0.2333, 0.7440),
+        SIMD2(0.1967, 0.7981),
+        SIMD2(0.1761, 0.8423),
+        SIMD2(0.1556, 0.9032),
+        SIMD2(0.1271, 1.0183),
+        SIMD2(0.1060, 1.1741),
+        SIMD2(0.0917, 1.3553),
+        SIMD2(0.0740, 1.4280),
+        SIMD2(0.0526, 1.4588),
+        SIMD2(0.0353, 1.4705),
         SIMD2(0.0000, 1.4797),
     ]
 

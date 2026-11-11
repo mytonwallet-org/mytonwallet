@@ -1,5 +1,6 @@
 import ContextMenuKit
 import Combine
+import Perception
 import SwiftUI
 import UIKit
 import UIComponents
@@ -9,16 +10,19 @@ import WalletContext
 @MainActor
 public final class PerpsOrderVC: WViewController {
     private let state: PerpsOrderState
-    private let accountButton = AccountSwitcherButton()
-    private var menuInteraction: ContextMenuInteraction?
-    private let orderTitle = PerpsOrderTitleView()
+    private let onSelectAccount: (@MainActor (String) async throws -> Void)?
+    private var isChangingAccount = false
+    private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .perps)) { [weak self] accountId in
+        Task { await self?.selectAccount(accountId) }
+    }
+    private var infoButton: TradeInfoBarButton?
     private var didRefreshInitialFunding = false
     private var isVisible = false
     private var estimateRefreshSuspended = false
     private var estimateRefreshFailures = 0
     private var applicationSubscription: AnyCancellable?
     private let loadEstimate: (@MainActor (PerpsOrderInput) async throws -> PerpsOrderDisplayData)?
-    private let loadLeverageEstimates: ((PerpsOrderInput) async throws -> [PerpsOrderDisplayData.LeverageOption])?
+    private let loadLeverageEstimate: ((PerpsOrderInput) async throws -> PerpsOrderDisplayData.LeverageEstimate)?
     private lazy var estimateRefresh = DraftEngine<PerpsOrderState.EstimateRefreshRequest, Bool>(
         debounce: { _, _ in .seconds(10) }, refreshInterval: .seconds(10), load: { [weak self] request, _ in
             guard let self, let loadEstimate = self.loadEstimate else { return false }
@@ -27,11 +31,13 @@ public final class PerpsOrderVC: WViewController {
         })
 
     public init(data: PerpsOrderDisplayData,
-                loadLeverageEstimates: ((PerpsOrderInput) async throws -> [PerpsOrderDisplayData.LeverageOption])? = nil,
+                loadLeverageEstimate: ((PerpsOrderInput) async throws -> PerpsOrderDisplayData.LeverageEstimate)? = nil,
                 loadEstimate: (@MainActor (PerpsOrderInput) async throws -> PerpsOrderDisplayData)? = nil,
+                onSelectAccount: (@MainActor (String) async throws -> Void)? = nil,
                 onRequest: @escaping (PerpsOrderRequest) -> Void) {
-        self.loadLeverageEstimates = loadLeverageEstimates
+        self.loadLeverageEstimate = loadLeverageEstimate
         self.loadEstimate = loadEstimate
+        self.onSelectAccount = onSelectAccount
         state = PerpsOrderState(data: data, onRequest: onRequest)
         super.init(nibName: nil, bundle: nil)
     }
@@ -52,6 +58,7 @@ public final class PerpsOrderVC: WViewController {
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         isVisible = false
+        infoButton?.interaction.dismiss()
         updateEstimateRefreshActivity()
     }
 
@@ -62,7 +69,7 @@ public final class PerpsOrderVC: WViewController {
 
     private func updateEstimateRefreshActivity() {
         guard loadEstimate != nil else { return }
-        let active = isVisible && !estimateRefreshSuspended && CardBackgroundAnimationEnvironment.shared.applicationActive
+        let active = isVisible && !estimateRefreshSuspended && !isChangingAccount && CardBackgroundAnimationEnvironment.shared.applicationActive
         state.setEstimateRefreshActive(active)
         if active { estimateRefresh.resume() } else { estimateRefresh.pause() }
     }
@@ -72,6 +79,7 @@ public final class PerpsOrderVC: WViewController {
     }
 
     public func refreshBlockedFunding() {
+        guard !isChangingAccount else { return }
         let isIdleOpening = state.data.status == .idle && state.data.editingPosition == nil && !state.data.input.hasAmount
         guard state.data.fundingRequirement != nil || state.canRetryFunding || isIdleOpening else { return }
         refreshFunding()
@@ -92,11 +100,27 @@ public final class PerpsOrderVC: WViewController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
             self?.dismiss(animated: true)
         })
-        accountButton.accessibilityIdentifier = "perps.order.account"
-        accountButton.addAction(UIAction { [weak self] _ in self?.state.request(.selectAccount) }, for: .touchUpInside)
-        navigationItem.leftBarButtonItem = UIBarButtonItem(customView: accountButton)
-        if #available(iOS 27.1, *) { navigationItem.leftBarButtonItem?.axisBehavior = .verticalPreferred }
-        navigationItem.titleView = orderTitle
+        accountSwitcher.button.accessibilityIdentifier = "perps.order.account"
+        if #available(iOS 27.1, *) { accountSwitcher.barButtonItem.axisBehavior = .verticalPreferred }
+        observe { [weak self] in self?.updateAccountSwitcher() }
+        let state = state
+        navigationItem.titleView = HostingView {
+            WithPerceptionTracking {
+                NavigationHeader {
+                    ViewThatFits(in: .horizontal) {
+                        Text(verbatim: state.data.title(compact: false))
+                        Text(verbatim: state.data.title(compact: true))
+                    }
+                } subtitle: {
+                    Text(verbatim: lang("Price") + " " + state.data.price)
+                }
+                .accessibilityElement(children: .combine)
+                // VoiceOver reads the full title even when the compact one is shown.
+                .accessibilityLabel(Text(verbatim: state.data.title(compact: false) + ", " + lang("Price") + " " + state.data.price))
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("perps.order.title")
+            }
+        }
         configureInfoButton()
         if loadEstimate != nil {
             estimateRefresh.onLoad = { [weak self] _ in
@@ -117,69 +141,57 @@ public final class PerpsOrderVC: WViewController {
         PerpsOrderView(state: state, selectLeverage: { [weak self] in
             self?.showLeverage()
         }).install(in: view)
-        observe { [weak self] in
-            guard let self else { return }
-            let data = state.data
-            let title: String
-            let compactTitle: String
-            if data.editingPosition != nil {
-                title = data.direction == .long
-                    ? L10n.perpsEditLong(asset: data.token.symbol)
-                    : L10n.perpsEditShort(asset: data.token.symbol)
-                compactTitle = title
-            } else {
-                title = data.direction == .long
-                    ? L10n.perpsOrderLong(asset: data.token.name)
-                    : L10n.perpsOrderShort(asset: data.token.name)
-                compactTitle = data.direction == .long
-                    ? L10n.perpsOrderLong(asset: data.token.symbol)
-                    : L10n.perpsOrderShort(asset: data.token.symbol)
-            }
-            orderTitle.configure(title: title, compactTitle: compactTitle, price: lang("Price") + " " + data.price)
-            accountButton.configure(account: data.account, showsChevron: data.canSelectAccount)
-            accountButton.isEnabled = data.canSelectAccount
-            accountButton.isHidden = data.account == nil
+    }
+
+    private func updateAccountSwitcher() {
+        guard state.data.editingPosition == nil, onSelectAccount != nil, let account = state.data.account else {
+            navigationItem.leftBarButtonItem = nil
+            return
+        }
+        accountSwitcher.update(selectedAccountId: account.id, isEnabled: !isChangingAccount)
+        navigationItem.leftBarButtonItem = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
+            ? accountSwitcher.barButtonItem : nil
+    }
+
+    func selectAccount(_ accountId: String) async {
+        guard !isChangingAccount, state.data.editingPosition == nil,
+              accountId != state.data.account?.id, let onSelectAccount else { return }
+        isChangingAccount = true
+        view.isUserInteractionEnabled = false
+        updateAccountSwitcher()
+        updateEstimateRefreshActivity()
+        defer {
+            isChangingAccount = false
+            view.isUserInteractionEnabled = true
+            updateAccountSwitcher()
+            updateEstimateRefreshActivity()
+        }
+        do {
+            try await onSelectAccount(accountId)
+        } catch {
+            AppActions.showError(error: error)
+            refreshFunding()
         }
     }
 
     private func configureInfoButton() {
-        let button = UIButton(type: .system)
-        if #available(iOS 26, *), IOS_26_MODE_ENABLED {
-            var configuration = UIButton.Configuration.glass()
-            configuration.cornerStyle = .capsule
-            configuration.contentInsets = .zero
-            configuration.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .medium)
-            button.configuration = configuration
-        }
-        button.setImage(UIImage(systemName: "info"), for: .normal)
-        button.tintColor = .label
-        button.accessibilityLabel = lang("Info")
-        button.accessibilityIdentifier = "perps.order.info"
-        let container = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
-        button.frame = container.bounds
-        button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        container.addSubview(button)
-        let item = UIBarButtonItem(customView: container)
-        if #available(iOS 26, *) { item.hidesSharedBackground = true }
-        if #available(iOS 27.1, *) { item.axisBehavior = .verticalPreferred }
-        navigationItem.rightBarButtonItems = (navigationItem.rightBarButtonItems ?? []) + [item]
-        let interaction = ContextMenuInteraction(triggers: [.tap, .longPress], presentationMode: .zoomPopover) { [weak self] _ in
-            guard let self else { return nil }
-            let isEditing = state.data.editingPosition != nil
+        let info = TradeInfoMenu.barButton(accessibilityIdentifier: "perps.order.info") { [weak self] in
+            guard let self, isVisible else { return nil }
+            let state = state
             var items: [ContextMenuItem] = []
-            if state.data.swapFee != nil {
-                items.append(TradeInfoMenu.row(title: lang("PerpsBridgeFee"), value: { [state] in state.data.swapFee ?? "—" }, help: lang("PerpsFeeEstimateHint")))
+            if state.data.bridgeFee != nil {
+                items.append(TradeInfoMenu.row(title: lang("PerpsBridgeFee"), value: { state.data.bridgeFee ?? "—" }, help: lang("PerpsFeeEstimateHint")))
+            }
+            if state.data.networkFee != nil {
+                items.append(TradeInfoMenu.row(title: lang("Network Fee"), value: { state.data.networkFee ?? "—" }, help: lang("$perps_network_fee_hint")))
             }
             items += [
-                TradeInfoMenu.row(title: lang("Network Fee"), value: { [state] in state.data.networkFee ?? "—" }, help: lang("$perps_network_fee_hint")),
-                TradeInfoMenu.row(title: lang("Trading Fee"), value: { [state] in state.data.tradingFee ?? "—" }, help: lang("$perps_trading_fee_hint")),
-                TradeInfoMenu.row(title: lang("Funding Payments"), value: { [state] in state.data.fundingPayments ?? "—" }, help: lang("$perps_funding_payments_hint")),
-            ]
-            items += [
+                TradeInfoMenu.row(title: lang("Trading Fee"), value: { state.data.tradingFee ?? "—" }, help: lang("$perps_trading_fee_hint")),
+                TradeInfoMenu.row(title: lang("Funding Rate"), value: { state.data.fundingRate ?? "—" }, help: lang("$perps_funding_rate_hint")),
                 .separator,
                 .custom(.swiftUI(preferredWidth: 242, sizing: .automatic(minHeight: 48), interaction: .contentHandlesTouches) { _ in
                     VStack(alignment: .leading, spacing: 20) {
-                        if isEditing { Text(lang("$perps_edit_liquidation_hint")) }
+                        if state.data.editingPosition != nil { Text(lang("$perps_edit_liquidation_hint")) }
                         Text(lang("$perps_position_size_hint"))
                     }
                     .textStyle(.footnote)
@@ -188,12 +200,12 @@ public final class PerpsOrderVC: WViewController {
                     .padding(.vertical, 10)
                 }),
             ]
-            return ContextMenuConfiguration(rootPage: .init(items: items), backdrop: .none,
-                style: .init(minWidth: 242, maxWidth: 300, glassTint: .strong, listVerticalPadding: 10, separatorHeight: 20))
+            return TradeInfoMenu.configuration(items: items)
         }
-        interaction.attach(to: button)
-        button.addAction(UIAction { [weak interaction] _ in interaction?.present() }, for: .primaryActionTriggered)
-        menuInteraction = interaction
+        info.button.setImage(UIImage(systemName: "info"), for: .normal)
+        info.button.accessibilityLabel = lang("Info")
+        navigationItem.rightBarButtonItems = (navigationItem.rightBarButtonItems ?? []) + [info.item]
+        infoButton = info
     }
 
     private func showLeverage() {
@@ -201,14 +213,24 @@ public final class PerpsOrderVC: WViewController {
         let controller = PerpsLeverageVC(data: state.data) { [weak self] in self?.state.selectLeverage($0) }
         setEstimateRefreshSuspended(true)
         controller.onDismiss = { [weak self] in self?.setEstimateRefreshSuspended(false) }
-        if let loadLeverageEstimates {
+        if let loadLeverageEstimate {
             let input = state.data.input
             controller.loadEstimate = { leverage in
                 var input = input
                 input.leverage = leverage
-                return try await loadLeverageEstimates(input)
+                return try await loadLeverageEstimate(input)
             }
         }
         present(WNavigationController(rootViewController: controller), animated: true)
+    }
+}
+
+private extension PerpsOrderDisplayData {
+    func title(compact: Bool) -> String {
+        if editingPosition != nil {
+            return direction == .long ? L10n.perpsEditLong(asset: token.symbol) : L10n.perpsEditShort(asset: token.symbol)
+        }
+        let asset = compact ? token.symbol : token.name
+        return direction == .long ? L10n.perpsOrderLong(asset: asset) : L10n.perpsOrderShort(asset: asset)
     }
 }

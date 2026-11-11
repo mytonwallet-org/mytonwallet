@@ -1,6 +1,24 @@
 import Foundation
 import WalletContext
 
+public enum ApiPerpsPositionSide: String, Codable, Sendable {
+    case long, short
+}
+
+/// Where an order's margin comes from: an Arbitrum USDC deposit, or USDC already on Hyperliquid.
+public enum ApiPerpsFundingSource: String, Codable, Sendable {
+    case wallet, balance
+}
+
+public enum ApiPerpsFillEvent: String, Codable, Sendable {
+    case opened, increased, reduced, closed, liquidated
+
+    /// Reductions, closes and liquidations realize profit or loss; openings and increases add to the position.
+    public var realizesProfitLoss: Bool { self == .reduced || self == .closed || self == .liquidated }
+    /// The position no longer exists after this event.
+    public var endsPosition: Bool { self == .closed || self == .liquidated }
+}
+
 public struct ApiPerpsTradingAvailability: Codable, Sendable, Equatable {
     public var isAvailable: Bool
     public var reason: String?
@@ -15,8 +33,6 @@ public struct ApiPerpsAsset: Codable, Sendable, Equatable {
     public var id: String
     public var name: String
     public var symbol: String
-    public var chain: String
-    public var provider: String
     public var dex: String
     public var image: String?
     public var displayName: String?
@@ -27,40 +43,28 @@ public struct ApiPerpsAsset: Codable, Sendable, Equatable {
     public var sparkline: [Double]?
     public var szDecimals: Int
     public var maxLeverage: Int
-    public var onlyIsolated: Bool?
-    public var isDelisted: Bool?
     public var tradingAvailability: ApiPerpsTradingAvailability?
-    public var marginMode: String?
     public var context: Context
 
     public struct Context: Codable, Sendable, Equatable {
         public var markPx: String
-        public var prevDayPx: String
-        public var funding: String?
         public var fundingPercent: String?
         public var fundingIntervalHours: Int?
         public var percentChange24h: Double?
-        public var openInterest: String?
         public var openInterestUsd: String?
         public var dayNtlVlm: String?
     }
 }
 
 public struct ApiPerpsPosition: Codable, Sendable, Equatable {
-    public var coin: String
     public var entryPx: String?
     public var liquidationPx: String?
     public var leverage: Leverage
-    public var marginUsed: String
     public var positionValue: String
-    public var returnOnEquity: String
-    public var szi: String
     public var unrealizedPnl: String
 
     public struct Leverage: Codable, Sendable, Equatable {
-        public var type: String
         public var value: Int
-        public var rawUsd: String?
     }
 }
 
@@ -68,7 +72,7 @@ public struct ApiPerpsAccountPosition: Codable, Sendable, Equatable, Identifiabl
     public var id: String
     public var assetId: String
     public var dex: String
-    public var side: String
+    public var side: ApiPerpsPositionSide
     public var size: String?
     public var collateral: String
     public var equity: String
@@ -78,55 +82,116 @@ public struct ApiPerpsAccountPosition: Codable, Sendable, Equatable, Identifiabl
     public var raw: ApiPerpsPosition
 }
 
-public struct ApiPerpsSnapshot: Codable, Sendable, Equatable {
+/// The account's positions, totals and Hyperliquid balances; market data comes from `ApiPerpsMarketSnapshot`.
+public struct ApiPerpsAccountSnapshot: Codable, Sendable, Equatable {
     public var tradingAvailability: ApiPerpsTradingAvailability?
     public var abstractionMode: String?
-    public var spotUsdcTotal: String?
-    public var spotUsdcAvailable: String?
-    public var withdrawable: String?
-    public var assets: [ApiPerpsAsset]
-    public var marketSections: [ApiMarketSection<ApiPerpsAsset>]?
-    public var assetsFetchedAt: Int64?
-    public var limits: Limits?
-    public struct Limits: Codable, Sendable, Equatable {
-        public var minOpenDepositUsdc: String
-        public var minIncreaseDepositUsdc: String
-        public var minPositionMarginUsdc: String?
-    }
     public var positions: [ApiPerpsAccountPosition]
     public var totalEquity: String
     public var totalPnl: String
     public var totalReturnOnEquity: String?
     public var timestamp: Int64
     public var unavailableDexs: [String]
+    /// USDC an order in each book can post from the Hyperliquid balance, keyed by dex (`""` is the native book).
+    public var spendableUsdcByDex: [String: String]?
+    /// Absent unless the balance exceeds the minimum a withdrawal is offered for.
+    public var balanceWithdrawal: ApiPerpsBalanceWithdrawalPreview?
+}
+
+/// What one withdrawal can send from the Hyperliquid balance to the wallet.
+public struct ApiPerpsBalanceWithdrawalPreview: Codable, Sendable, Equatable {
+    /// The larger of native `withdrawable` and free spot USDC.
+    public var balance: String
+    /// Gross USDC sent: `balance` less the gas reserve and `firstTransferFee`.
+    public var amount: String
+    public var bridgeFee: String
+    /// Hyperliquid's fee on the account's first outbound transfer, debited on top of `amount`.
+    public var firstTransferFee: String?
+    /// Net USDC delivered: `amount` less `bridgeFee`.
+    public var receiveAmount: String
+}
+
+public struct ApiPerpsBalanceWithdrawalQuote: Codable, Sendable, Equatable, Identifiable {
+    public var id: String
+    public var accountId: String
+    /// The account's Arbitrum wallet, which receives the USDC.
+    public var destination: String
+    public var balance: String
+    public var amount: String
+    public var bridgeFee: String
+    public var firstTransferFee: String?
+    public var receiveAmount: String
+    public var expiresAt: Int64
 }
 
 public struct ApiPerpsMarketSnapshot: Codable, Sendable, Equatable {
     public var assets: [ApiPerpsAsset]
     public var marketSections: [ApiMarketSection<ApiPerpsAsset>]?
-    public var limits: ApiPerpsSnapshot.Limits?
     public var assetsFetchedAt: Int64
+    public var onboarding: ApiPerpsOnboarding?
+
+    public init(assets: [ApiPerpsAsset], marketSections: [ApiMarketSection<ApiPerpsAsset>]? = nil, assetsFetchedAt: Int64,
+                onboarding: ApiPerpsOnboarding? = nil) {
+        self.assets = assets
+        self.marketSections = marketSections
+        self.assetsFetchedAt = assetsFetchedAt
+        self.onboarding = onboarding
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        assets = try container.decode([ApiPerpsAsset].self, forKey: .assets)
+        marketSections = try container.decodeIfPresent([ApiMarketSection<ApiPerpsAsset>].self, forKey: .marketSections)
+        assetsFetchedAt = try container.decode(Int64.self, forKey: .assetsFetchedAt)
+        // Stories are optional content; a shape they cannot be read in must not cost the market catalogue.
+        onboarding = try? container.decodeIfPresent(ApiPerpsOnboarding.self, forKey: .onboarding)
+    }
+}
+
+public struct ApiPerpsOnboarding: Codable, Sendable, Equatable {
+    public var stories: [ApiPerpsOnboardingStory]
+
+    public init(stories: [ApiPerpsOnboardingStory]) {
+        self.stories = stories
+    }
+}
+
+public struct ApiPerpsOnboardingStory: Codable, Sendable, Equatable, Identifiable {
+    public var id: String
+    public var url: URL
+    /// First frame of `url`, shown until the video has a frame of its own.
+    public var preview: URL
+    public var duration: TimeInterval
+    public var bytes: Int
+
+    public init(id: String, url: URL, preview: URL, duration: TimeInterval, bytes: Int) {
+        self.id = id
+        self.url = url
+        self.preview = preview
+        self.duration = duration
+        self.bytes = bytes
+    }
 }
 
 public struct ApiPerpsDraft: Encodable, Sendable {
     public var assetId: String
-    public var side: String
+    public var side: ApiPerpsPositionSide
     public var amount: String
-    public var unit: String
     public var leverage: Int
     public var editing: Bool?
     public var close: Bool?
     public var fraction: Int?
     public var reset: Bool?
-    public var convertFrom: String?
     public var leverageOnly: Bool?
+    /// Omitted for a wallet deposit.
+    public var funding: ApiPerpsFundingSource?
 
-    public init(assetId: String, side: String, amount: String, unit: String = "currency", leverage: Int,
+    public init(assetId: String, side: ApiPerpsPositionSide, amount: String, leverage: Int,
                 editing: Bool = false, close: Bool = false, fraction: Int? = nil, reset: Bool = false,
-                convertFrom: String? = nil, leverageOnly: Bool = false) {
-        self.assetId = assetId; self.side = side; self.amount = amount; self.unit = unit; self.leverage = leverage
-        self.editing = editing; self.close = close; self.fraction = fraction; self.reset = reset; self.convertFrom = convertFrom
-        self.leverageOnly = leverageOnly
+                leverageOnly: Bool = false, funding: ApiPerpsFundingSource? = nil) {
+        self.assetId = assetId; self.side = side; self.amount = amount; self.leverage = leverage
+        self.editing = editing; self.close = close; self.fraction = fraction; self.reset = reset
+        self.leverageOnly = leverageOnly; self.funding = funding
     }
 }
 
@@ -135,6 +200,8 @@ public struct ApiPerpsFees: Codable, Sendable, Equatable {
     public var service: String?
     public var trading: String
     public var bridge: String?
+    /// Hyperliquid's fee on the account's first outbound transfer, when a withdrawal the order makes pays it.
+    public var firstTransfer: String?
     public var total: String
 }
 
@@ -145,6 +212,8 @@ public struct ApiPerpsLeverageEstimate: Codable, Sendable, Equatable {
 
 public struct ApiPerpsFundingRequirements: Codable, Sendable, Equatable {
     public var requiredUsdc: String
+    /// Paymaster cost in USDC when the deposit is gasless. `"0"` when the wallet pays gas in ETH.
+    public var requiredGasUsdc: String
     public var requiredEth: String
     public var requiredEthUsd: String
     public var usdcBalance: String
@@ -168,22 +237,36 @@ public struct ApiPerpsReceiptInput: Encodable, Sendable {
 }
 
 public struct ApiPerpsQuote: Codable, Sendable, Equatable, Identifiable {
+    public enum ReceiveStatus: String, Codable, Sendable { case pending, available }
+
     public var id: String
     public var accountId: String
     public var assetId: String
     public var kind: String
-    public var side: String
+    public var side: ApiPerpsPositionSide
     public var leverage: Int
     public var inputAmount: String
     public var previousLeverage: Int?
-    public var currentInputAmount: String?
     public var collateral: String
     public var previousCollateral: String?
+    /// Margin of the resulting position.
     public var estimatedCollateral: String?
+    /// Deposited USDC left free on Hyperliquid after the order's margin and estimated trading fees.
     public var estimatedRemainingCollateral: String?
+    /// USDC a reduce or close should deliver to the wallet after trading and bridge fees.
+    public var estimatedReceiveAmount: String?
     public var estimatedFees: ApiPerpsFees?
-    public var leverageEstimates: [ApiPerpsLeverageEstimate]?
+    /// Arbitrum gas of the deposit, in ETH. Set when the wallet pays that gas.
+    public var estimatedNetworkFeeEth: String?
+    /// USD value of `estimatedNetworkFeeEth`.
+    public var estimatedNetworkFeeUsd: String?
+    /// Paymaster cost of the deposit, in USDC. Set when the wallet pays gas in USDC.
+    public var estimatedNetworkFeeUsdc: String?
     public var fundingRequirements: ApiPerpsFundingRequirements?
+    /// `.balance` when the margin comes from the Hyperliquid balance: `paymentAmount` is that margin, with no bridge fee.
+    public var funding: ApiPerpsFundingSource?
+    /// The order also switches the whole Hyperliquid account to Unified, which the review shows.
+    public var switchesToUnified: Bool?
     public var previousFunding: String?
     public var equity: String?
     public var profitLoss: String?
@@ -197,8 +280,8 @@ public struct ApiPerpsQuote: Codable, Sendable, Equatable, Identifiable {
     public var liquidationPrice: String?
     public var estimatedLiquidationPrice: String?
     public var paymentAmount: String
-    public var receiveStatus: String?
-    public var receiveAmount: String?
+    /// Released margin of a reduce or close is known only after it settles.
+    public var receiveStatus: ReceiveStatus?
     public var bridgeFee: String
     public var expiresAt: Int64
     public var createdAt: Int64
@@ -221,6 +304,8 @@ public struct ApiPerpsOperation: Codable, Sendable, Equatable, Identifiable {
     public var averagePrice: String?
     public var withdrawalAmount: String?
     public var withdrawalRequestedAmount: String?
+    /// The figures the user reviewed for a balance withdrawal.
+    public var balanceWithdrawal: ApiPerpsBalanceWithdrawalQuote?
     public var error: String?
     /// Native receipt context. Keep the reviewed values when SDK progress replaces this record.
     public var reviewedQuote: ApiPerpsQuote?
@@ -230,6 +315,12 @@ public struct ApiPerpsOperation: Codable, Sendable, Equatable, Identifiable {
 
     public var needsReconciliation: Bool { !["completed", "failed"].contains(state) }
     public var blocksTrading: Bool { needsReconciliation && !(state == "unknown" && acknowledgedAt != nil) }
+    public var isBalanceWithdrawal: Bool { kind == Self.balanceWithdrawalKind }
+    /// The order filled, and Hyperliquid refused to send its proceeds, which stay on the Hyperliquid balance.
+    public var isWithdrawalRejected: Bool { !isBalanceWithdrawal && error?.hasPrefix("PerpsWithdrawalRejected") == true }
+
+    static let balanceWithdrawalKind = "withdraw"
+    static let balanceWithdrawalAssetId = "USDC"
 
     public init(id: String, accountId: String, assetId: String, kind: String, createdAt: Int64) {
         self.id = id; self.accountId = accountId; self.assetId = assetId; self.kind = kind
@@ -238,6 +329,29 @@ public struct ApiPerpsOperation: Codable, Sendable, Equatable, Identifiable {
 }
 
 extension ApiUpdate {
+    /// Reads of the active account's positions failed for a minute. The next successful read publishes them again.
+    public struct UpdatePerpsPositionsUnavailable: Decodable, Sendable {
+        public let accountId: String
+    }
+
+    /// The SDK polls the active account and publishes its positions when they change.
+    public struct UpdatePerpsPositions: Decodable, Sendable {
+        public let accountId: String
+        public let snapshot: ApiPerpsAccountSnapshot
+
+        public init(accountId: String, snapshot: ApiPerpsAccountSnapshot) {
+            self.accountId = accountId
+            self.snapshot = snapshot
+        }
+
+        private enum CodingKeys: String, CodingKey { case accountId }
+
+        public init(from decoder: any Decoder) throws {
+            accountId = try decoder.container(keyedBy: CodingKeys.self).decode(String.self, forKey: .accountId)
+            snapshot = try ApiPerpsAccountSnapshot(from: decoder)
+        }
+    }
+
     public struct UpdatePerpsAssets: Decodable, Sendable {
         public let langCode: String?
         public let fetchedAt: Int64
@@ -250,13 +364,9 @@ extension ApiUpdate {
 
 public struct ApiPerpsFill: Codable, Sendable, Equatable, Identifiable {
     public var activityId: String?
-    public var assetId: String?
     public var leverage: Int?
     public var collateralBefore: String?
     public var collateralAfter: String?
-    /// USDC added on an increase or withdrawn on a reduce. Absent without a matching bridge row.
-    public var transferredAmount: String?
-    public var bridgeFee: String?
     public var receiptFees: ApiPerpsFees?
     public var deposit: Deposit?
     public var withdrawal: Withdrawal?
@@ -274,76 +384,33 @@ public struct ApiPerpsFill: Codable, Sendable, Equatable, Identifiable {
         public var status: String
     }
     public var coin: String
-    public var tid: Int64?
     public var oid: Int64?
     public var time: Int64
     public var px: String?
     public var sz: String?
-    public var side: String?
-    public var dir: String?
-    public var startPosition: String?
-    public var closedPnl: String?
     public var fee: String?
     public var feeToken: String
-    public var builderFee: String?
-    public var hash: String?
-    public var eventKind: String?
-    public var positionSide: String?
+    public var eventKind: ApiPerpsFillEvent
+    public var positionSide: ApiPerpsPositionSide
     public var netPnl: String?
     public var notional: String?
-    public var previousSize: String?
     public var positionSize: String?
     public var previousNotional: String?
     public var positionNotional: String?
-    public var endPosition: String?
     public var entryPrice: String?
     public var positionOpenedAt: Int64?
-    public var fillIds: [Int64]?
-    public var liquidation: Liquidation?
-    public var id: String { activityId ?? "\(coin)/\(time)/\(tid ?? 0)" }
-    public struct Liquidation: Codable, Sendable, Equatable {
-        public var liquidatedUser: String?
-        public var markPx: String
-        public var method: String
-    }
-}
-
-public struct ApiPerpsCashFlow: Codable, Sendable, Equatable, Identifiable {
-    public enum Kind: String, Codable, Sendable { case funding, deposit, withdrawal, transfer }
-    public enum Direction: String, Codable, Sendable { case incoming, outgoing, `internal` }
-    public struct Fee: Codable, Sendable, Equatable {
-        public var amount: String
-        public var token: String
-    }
-    public var id: String
-    public var kind: Kind
-    public var direction: Direction
-    public var time: Int64
-    public var amount: String
-    public var token: String
-    public var coin: String?
-    public var assetId: String?
-    public var positionSide: String?
-    public var fundingRate: String?
-    public var positionSize: String?
-    public var sourceDex: String?
-    public var destinationDex: String?
-    public var sourceAddress: String?
-    public var destinationAddress: String?
-    public var fees: [Fee]
-    public var hash: String?
+    public var id: String { activityId ?? "\(coin)/\(time)/\(oid ?? 0)" }
 }
 
 public struct ApiPerpsActivityHistory: Codable, Sendable, Equatable {
     public var fills: [ApiPerpsFill]
-    public var cashFlows: [ApiPerpsCashFlow]
     public var nextCursor: String?
-    public var hasActivity: Bool?
-    public init(fills: [ApiPerpsFill], cashFlows: [ApiPerpsCashFlow], nextCursor: String? = nil, hasActivity: Bool? = nil) {
-        self.nextCursor = nextCursor
-        self.hasActivity = hasActivity
+    /// Any trade on this page, including one without a catalogue market, or an older page.
+    public var hasActivity: Bool
+    public init(fills: [ApiPerpsFill], nextCursor: String? = nil, hasActivity: Bool? = nil) {
         self.fills = fills
-        self.cashFlows = cashFlows
+        self.nextCursor = nextCursor
+        self.hasActivity = hasActivity ?? (!fills.isEmpty || nextCursor != nil)
     }
 }
 
@@ -352,84 +419,61 @@ public struct ApiPerpsAssetDetail: Codable, Sendable {
     public var history: ApiPerpsActivityHistory
 }
 
-extension Api {
-    public static func isPerpsSupported() async throws -> Bool {
-        try await bridge.callApi("isPerpsSupported", decoding: Bool.self)
-    }
-
-    public static func perpsGetSnapshot(accountId: String) async throws -> ApiPerpsSnapshot {
-        try await bridge.callApi("perpsGetSnapshot", accountId, LocalizationSupport.shared.langCode, decoding: ApiPerpsSnapshot.self)
-    }
-    public static func perpsGetMarketSnapshot() async throws -> ApiPerpsMarketSnapshot {
-        try await bridge.callApi("perpsGetMarketSnapshot", LocalizationSupport.shared.langCode, decoding: ApiPerpsMarketSnapshot.self)
-    }
-    public static func perpsGetFills(accountId: String) async throws -> [ApiPerpsFill] {
-        try await bridge.callApi("perpsGetFills", accountId, decoding: [ApiPerpsFill].self)
-    }
-    public static func perpsGetActivityHistory(accountId: String, cursor: String? = nil) async throws -> ApiPerpsActivityHistory {
-        try await bridge.callApi("perpsGetActivityHistory", accountId, cursor.map { ["cursor": $0] } ?? [:], decoding: ApiPerpsActivityHistory.self)
-    }
-    public static func perpsGetAssetDetail(accountId: String, assetId: String, cursor: String? = nil) async throws -> ApiPerpsAssetDetail {
-        try await bridge.callApi("perpsGetAssetDetail", accountId, assetId, cursor.map { ["cursor": $0] } ?? [:], decoding: ApiPerpsAssetDetail.self)
-    }
-    public static func perpsGetCandles(assetId: String, period: String) async throws -> [[Double]] {
-        try await bridge.callApi("perpsGetCandles", assetId, period, decoding: [[Double]].self)
-    }
-    public static func perpsPrepareOrder(accountId: String, draft: ApiPerpsDraft) async throws -> ApiPerpsQuote {
-        try await bridge.callApi("perpsPrepareOrder", accountId, draft, decoding: ApiPerpsQuote.self)
-    }
-    public static func perpsPreviewOrder(accountId: String, draft: ApiPerpsDraft) async throws -> ApiPerpsQuote {
-        try await bridge.callApi("perpsPreviewOrder", accountId, draft, decoding: ApiPerpsQuote.self)
-    }
-    public static func perpsGetFundingRequirements(accountId: String, draft: ApiPerpsDraft) async throws -> ApiPerpsFundingRequirements {
-        try await bridge.callApi("perpsGetFundingRequirements", accountId, draft, decoding: ApiPerpsFundingRequirements.self)
-    }
-    public static func perpsGetLeverageEstimates(accountId: String, draft: ApiPerpsDraft) async throws -> [ApiPerpsLeverageEstimate] {
-        try await bridge.callApi("perpsGetLeverageEstimates", accountId, draft, decoding: [ApiPerpsLeverageEstimate].self)
-    }
-    public static func perpsGetReceiptDetails(_ input: ApiPerpsReceiptInput) async throws -> ApiPerpsReceiptDetails {
-        try await bridge.callApi("perpsGetReceiptDetails", input, decoding: ApiPerpsReceiptDetails.self)
-    }
-    public static func perpsExecuteReviewedOrder(accountId: String, enclaveToken: EnclaveToken, quoteId: String, operationId: String) async throws -> ApiPerpsOperation {
-        try await bridge.callApi("perpsExecuteReviewedOrder", accountId, enclaveToken, quoteId, operationId, decoding: ApiPerpsOperation.self)
-    }
-    public static func perpsReconcileOperation(accountId: String, saved: ApiPerpsOperation) async throws -> ApiPerpsOperation {
-        try await bridge.callApi("perpsReconcileOperation", accountId, saved, decoding: ApiPerpsOperation.self)
-    }
-    public static func perpsAcknowledgeOperation(accountId: String, saved: ApiPerpsOperation) async throws -> ApiPerpsOperation {
-        try await bridge.callApi("perpsAcknowledgeOperation", accountId, saved, decoding: ApiPerpsOperation.self)
-    }
-    public static func perpsPrepareWithdrawal(accountId: String, operationId: String) async throws -> String {
-        try await bridge.callApi("perpsPrepareWithdrawal", accountId, operationId, decoding: String.self)
-    }
-    public static func perpsRetryWithdrawal(accountId: String, enclaveToken: EnclaveToken, operationId: String) async throws -> ApiPerpsOperation {
-        try await bridge.callApi("perpsRetryWithdrawal", accountId, enclaveToken, operationId, decoding: ApiPerpsOperation.self)
-    }
-    public static func perpsGetOperation(accountId: String, id: String) async throws -> ApiPerpsOperation? {
-        try await bridge.callApiOptional("perpsGetOperation", accountId, id, decodingOptional: ApiPerpsOperation.self)
-    }
-}
-
 @MainActor public struct PerpsClient {
-    public var supported: () async throws -> Bool = { try await Api.isPerpsSupported() }
-    public var snapshot: (String) async throws -> ApiPerpsSnapshot = { try await Api.perpsGetSnapshot(accountId: $0) }
-    public var marketSnapshot: () async throws -> ApiPerpsMarketSnapshot = { try await Api.perpsGetMarketSnapshot() }
-    public var history: (String) async throws -> ApiPerpsActivityHistory = { try await Api.perpsGetActivityHistory(accountId: $0) }
-    public var historyPage: (String, String) async throws -> ApiPerpsActivityHistory = { try await Api.perpsGetActivityHistory(accountId: $0, cursor: $1) }
-    public var assetDetail: (String, String, String?) async throws -> ApiPerpsAssetDetail = { try await Api.perpsGetAssetDetail(accountId: $0, assetId: $1, cursor: $2) }
-    public var candles: (String, String) async throws -> [[Double]] = { try await Api.perpsGetCandles(assetId: $0, period: $1) }
-    public var prepare: (String, ApiPerpsDraft) async throws -> ApiPerpsQuote = { try await Api.perpsPrepareOrder(accountId: $0, draft: $1) }
-    public var preview: (String, ApiPerpsDraft) async throws -> ApiPerpsQuote = { try await Api.perpsPreviewOrder(accountId: $0, draft: $1) }
-    public var fundingRequirements: (String, ApiPerpsDraft) async throws -> ApiPerpsFundingRequirements = { try await Api.perpsGetFundingRequirements(accountId: $0, draft: $1) }
-    public var leverageEstimates: (String, ApiPerpsDraft) async throws -> [ApiPerpsLeverageEstimate] = { try await Api.perpsGetLeverageEstimates(accountId: $0, draft: $1) }
-    public var receiptDetails: (ApiPerpsReceiptInput) async throws -> ApiPerpsReceiptDetails = { try await Api.perpsGetReceiptDetails($0) }
-    public var execute: (String, EnclaveToken, String, String) async throws -> ApiPerpsOperation = {
-        try await Api.perpsExecuteReviewedOrder(accountId: $0, enclaveToken: $1, quoteId: $2, operationId: $3)
+    public var supported: () async throws -> Bool = { try await Api.bridge.callApi("isPerpsSupported", decoding: Bool.self) }
+    public var positions: (String) async throws -> ApiPerpsAccountSnapshot = {
+        try await Api.bridge.callApi("perpsRefreshPositions", $0, decoding: ApiPerpsAccountSnapshot.self)
     }
-    public var operation: (String, String) async throws -> ApiPerpsOperation? = { try await Api.perpsGetOperation(accountId: $0, id: $1) }
-    public var reconcile: (String, ApiPerpsOperation) async throws -> ApiPerpsOperation = { try await Api.perpsReconcileOperation(accountId: $0, saved: $1) }
-    public var acknowledge: (String, ApiPerpsOperation) async throws -> ApiPerpsOperation = { try await Api.perpsAcknowledgeOperation(accountId: $0, saved: $1) }
-    public var prepareWithdrawal: (String, String) async throws -> String = { try await Api.perpsPrepareWithdrawal(accountId: $0, operationId: $1) }
-    public var retryWithdrawal: (String, EnclaveToken, String) async throws -> ApiPerpsOperation = { try await Api.perpsRetryWithdrawal(accountId: $0, enclaveToken: $1, operationId: $2) }
+    public var marketSnapshot: () async throws -> ApiPerpsMarketSnapshot = {
+        try await Api.bridge.callApi("perpsGetMarketSnapshot", LocalizationSupport.shared.langCode, decoding: ApiPerpsMarketSnapshot.self)
+    }
+    public var history: (String) async throws -> ApiPerpsActivityHistory = {
+        try await Api.bridge.callApi("perpsGetActivityHistory", $0, [String: String](), decoding: ApiPerpsActivityHistory.self)
+    }
+    public var historyPage: (String, String) async throws -> ApiPerpsActivityHistory = {
+        try await Api.bridge.callApi("perpsGetActivityHistory", $0, ["cursor": $1], decoding: ApiPerpsActivityHistory.self)
+    }
+    public var assetDetail: (String, String, String?) async throws -> ApiPerpsAssetDetail = { accountId, assetId, cursor in
+        try await Api.bridge.callApi("perpsGetAssetDetail", accountId, assetId, cursor.map { ["cursor": $0] } ?? [:], decoding: ApiPerpsAssetDetail.self)
+    }
+    public var candles: (String, String) async throws -> [[Double]] = {
+        try await Api.bridge.callApi("perpsGetCandles", $0, $1, decoding: [[Double]].self)
+    }
+    public var prepare: (String, ApiPerpsDraft) async throws -> ApiPerpsQuote = {
+        try await Api.bridge.callApi("perpsPrepareOrder", $0, $1, decoding: ApiPerpsQuote.self)
+    }
+    public var preview: (String, ApiPerpsDraft) async throws -> ApiPerpsQuote = {
+        try await Api.bridge.callApi("perpsPreviewOrder", $0, $1, decoding: ApiPerpsQuote.self)
+    }
+    public var fundingRequirements: (String, ApiPerpsDraft) async throws -> ApiPerpsFundingRequirements = {
+        try await Api.bridge.callApi("perpsGetFundingRequirements", $0, $1, decoding: ApiPerpsFundingRequirements.self)
+    }
+    public var leverageEstimate: (String, ApiPerpsDraft) async throws -> ApiPerpsLeverageEstimate = {
+        try await Api.bridge.callApi("perpsGetLeverageEstimate", $0, $1, decoding: ApiPerpsLeverageEstimate.self)
+    }
+    public var receiptDetails: (ApiPerpsReceiptInput) async throws -> ApiPerpsReceiptDetails = {
+        try await Api.bridge.callApi("perpsGetReceiptDetails", $0, decoding: ApiPerpsReceiptDetails.self)
+    }
+    public var execute: (String, EnclaveToken, String, String) async throws -> ApiPerpsOperation = {
+        try await Api.bridge.callApi("perpsExecuteReviewedOrder", $0, $1, $2, $3, decoding: ApiPerpsOperation.self)
+    }
+    public var reconcile: (String, ApiPerpsOperation) async throws -> ApiPerpsOperation = {
+        try await Api.bridge.callApi("perpsReconcileOperation", $0, $1, decoding: ApiPerpsOperation.self)
+    }
+    public var acknowledge: (String, ApiPerpsOperation) async throws -> ApiPerpsOperation = {
+        try await Api.bridge.callApi("perpsAcknowledgeOperation", $0, $1, decoding: ApiPerpsOperation.self)
+    }
+    public var prepareWithdrawal: (String, String) async throws -> String = {
+        try await Api.bridge.callApi("perpsPrepareWithdrawal", $0, $1, decoding: String.self)
+    }
+    public var retryWithdrawal: (String, EnclaveToken, String) async throws -> ApiPerpsOperation = {
+        try await Api.bridge.callApi("perpsRetryWithdrawal", $0, $1, $2, decoding: ApiPerpsOperation.self)
+    }
+    public var prepareBalanceWithdrawal: (String) async throws -> ApiPerpsBalanceWithdrawalQuote = {
+        try await Api.bridge.callApi("perpsPrepareBalanceWithdrawal", $0, decoding: ApiPerpsBalanceWithdrawalQuote.self)
+    }
+    public var executeBalanceWithdrawal: (String, EnclaveToken, String, String) async throws -> ApiPerpsOperation = {
+        try await Api.bridge.callApi("perpsExecuteBalanceWithdrawal", $0, $1, $2, $3, decoding: ApiPerpsOperation.self)
+    }
     public init() {}
 }

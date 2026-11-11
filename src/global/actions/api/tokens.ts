@@ -61,7 +61,7 @@ addActionHandler('loadPriceHistory', async (global, actions, payload) => {
     return;
   }
 
-  global = updateTokenPriceHistory(global, slug, { [period]: history });
+  global = updateTokenPriceHistory(global, slug, { [period]: history.points }, { [period]: history.backfill });
   setGlobal(global);
 });
 

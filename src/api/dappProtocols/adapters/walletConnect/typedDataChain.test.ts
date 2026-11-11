@@ -196,6 +196,132 @@ describe('typed data for another chain', () => {
   });
 });
 
+describe('typed data domain normalization', () => {
+  const declaredDomain = [
+    { name: 'name', type: 'string' },
+    { name: 'version', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+  ];
+  const normalizedDomain = [...declaredDomain, { name: 'verifyingContract', type: 'address' }];
+
+  function undeclaredContractTypedData() {
+    const eip712 = typedData(1);
+    eip712.types.EIP712Domain = declaredDomain;
+    return eip712;
+  }
+
+  function expectedPayload() {
+    const eip712 = undeclaredContractTypedData();
+    return {
+      ...eip712,
+      type: 'eip712',
+      network: 'mainnet',
+      types: { ...eip712.types, EIP712Domain: normalizedDomain },
+    };
+  }
+
+  it('includes an undeclared verifyingContract in the relay confirmation domain', async () => {
+    const adapter = await createAdapter();
+    const eip712 = undeclaredContractTypedData();
+    const event = relayEvent('eip155:1', 1);
+    event.params.request.params[1] = JSON.stringify(eip712);
+
+    await processRelayEvent(adapter, event);
+
+    expect(updates).toContainEqual(expect.objectContaining({
+      type: 'dappSignData',
+      payloadToSign: expectedPayload(),
+    }));
+  });
+
+  it('includes an undeclared verifyingContract in the injected confirmation domain', async () => {
+    const adapter = await createAdapter();
+    const eip712 = undeclaredContractTypedData();
+    const message = signMessage(1);
+    message.payload.eip712 = eip712;
+
+    await expect(adapter.signData({ url: URL, accountId: ACCOUNT_ID }, message))
+      .resolves.toMatchObject({ success: true });
+
+    expect(updates).toContainEqual(expect.objectContaining({
+      type: 'dappSignData',
+      payloadToSign: expectedPayload(),
+    }));
+  });
+
+  // eslint-disable-next-line no-null/no-null -- Injected typed data arrives from an untrusted page
+  it.each([null, { name: 'Token', unknownField: 'hidden' }])(
+    'rejects an invalid injected domain %p before opening the popup or confirmation',
+    async (domain) => {
+      const adapter = await createAdapter();
+      const openExtensionPopup = jest.spyOn(
+        adapter as unknown as { openExtensionPopup(): Promise<void> },
+        'openExtensionPopup',
+      ).mockResolvedValue(undefined);
+      const message = signMessage(1);
+      message.payload.eip712!.domain = domain as unknown as Record<string, unknown>;
+
+      const result = await adapter.signData({ url: URL, accountId: ACCOUNT_ID }, message);
+
+      expect(result).toMatchObject({ success: false, error: { code: -32602, message: 'Invalid typed data' } });
+      expect(openExtensionPopup).not.toHaveBeenCalled();
+      expect(updates).toEqual([]);
+      expect(createDappPromise).not.toHaveBeenCalled();
+    },
+  );
+
+  it('marks a relay request with an unsupported domain key as failed', async () => {
+    const adapter = await createAdapter();
+    const eip712 = undeclaredContractTypedData();
+    eip712.domain.unknownField = 'hidden';
+    const event = relayEvent('eip155:1', 1);
+    event.params.request.params[1] = JSON.stringify(eip712);
+
+    await processRelayEvent(adapter, event);
+
+    expect(respondSessionRequest).toHaveBeenCalledTimes(1);
+    expect(respondSessionRequest).toHaveBeenCalledWith({
+      topic: TOPIC,
+      response: { id: 9, jsonrpc: '2.0', error: { code: -32602, message: 'Invalid typed data' } },
+    });
+    expect(updates).toEqual([{ type: 'showError', error: ApiCommonError.Unexpected }]);
+    expect(createDappPromise).not.toHaveBeenCalled();
+  });
+
+  async function processPayTypedData(eip712: WalletConnectEip712Params) {
+    const adapter = await createAdapter();
+    (adapter as unknown as { activePayContext: unknown }).activePayContext = {
+      accountId: ACCOUNT_ID,
+      paymentId: 'payment',
+      merchant: { name: 'Shop' },
+    };
+    return (adapter as unknown as {
+      processPaySignData(chain: string, network: string, params: unknown, method: string): Promise<string>;
+    }).processPaySignData('ethereum', 'mainnet', [ADDRESS, JSON.stringify(eip712)], 'eth_signTypedData_v4');
+  }
+
+  it('includes an undeclared verifyingContract in the WalletConnect Pay confirmation domain', async () => {
+    const eip712 = undeclaredContractTypedData();
+
+    await expect(processPayTypedData(eip712)).resolves.toBe('0xsignature');
+
+    expect(updates).toContainEqual(expect.objectContaining({
+      type: 'walletConnectPaySignData',
+      payloadToSign: expectedPayload(),
+    }));
+  });
+
+  it('rejects an unsupported WalletConnect Pay domain key before the confirmation', async () => {
+    const eip712 = undeclaredContractTypedData();
+    eip712.domain.unknownField = 'hidden';
+
+    await expect(processPayTypedData(eip712)).rejects.toThrow('Invalid typed data');
+
+    expect(updates).toEqual([]);
+    expect(createDappPromise).not.toHaveBeenCalled();
+  });
+});
+
 describe('typed data on a testnet session of a mainnet account', () => {
   const BASE_TESTNET_CAIP2 = 'eip155:84532';
 

@@ -89,7 +89,7 @@ it('never submits under a different live SDK client or acknowledges a cleared id
 });
 
 it('releases a stalled ACK body so the persisted event can retry', async () => {
-  jest.useFakeTimers();
+  jest.useFakeTimers({ now: occurredAt + 1000 });
   try {
     const original = mockSaved.webFirstLaunch?.event;
     mockFetch.mockResolvedValueOnce({ status: 200, json: () => new Promise(() => {}) });

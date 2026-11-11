@@ -254,9 +254,7 @@ class PasscodeHeaderSendView(
         subtitle: CharSequence,
         rounding: Content.Rounding? = null
     ) {
-        rounding.let {
-            tokenToSendIconView.defaultRounding = Content.Rounding.Radius(12f.dp)
-        }
+        tokenToSendIconView.defaultRounding = rounding ?: Content.Rounding.Round
         val hasIcon = content.image !is Content.Image.Empty
         customIconView?.let { removeView(it) }
         customIconView = null

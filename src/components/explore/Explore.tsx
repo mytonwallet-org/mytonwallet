@@ -6,7 +6,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type { ApiSite, ApiSiteCategory } from '../../api/types';
 
-import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../config';
+import { ANIMATED_STICKER_BIG_SIZE_PX, IS_TELEGRAM_APP } from '../../config';
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
@@ -175,6 +175,7 @@ function Explore({
             <div
               className={buildClassName(styles.slide, 'custom-scroll')}
             >
+              {IS_TELEGRAM_APP && isPortrait && <h1 className={styles.title}>{lang('Explore')}</h1>}
               {!isPortrait && (
                 <ExploreSearch sites={originalSites} />
               )}

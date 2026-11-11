@@ -121,6 +121,7 @@ final class ExploreCategoryVC: WViewController {
                             ExploreCategoryRow(site: site, openAction: {
                                 viewOutput.dappItemTap.send(site)
                             })
+                            .accessibilityIdentifier("explore_site_row")
                         }
                         .margins(.all, 0)
                         // Disable the default highlight effect on cell selection, while still allowing didSelectItemAt to trigger

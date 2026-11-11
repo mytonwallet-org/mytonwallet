@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.SettingsVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -57,6 +58,7 @@ class SettingsHeaderView(private val viewController: SettingsVC, private var top
 
     private val walletNameLabel: WLabel by lazy {
         WLabel(context).apply {
+            id = R.id.settings_wallet_name
             setStyle(22f, WFont.Medium)
             setSingleLine()
             ellipsize = TextUtils.TruncateAt.MARQUEE

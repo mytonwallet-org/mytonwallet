@@ -1,6 +1,7 @@
 import XCTest
 @testable import UIAgent
-import WalletCore
+@testable import WalletCore
+import WalletContext
 
 @MainActor
 final class AgentNewsFeedTests: XCTestCase {
@@ -329,6 +330,148 @@ final class AgentNewsFeedTests: XCTestCase {
         XCTAssertEqual(model.items.last?.discussion, retained.discussion)
     }
 
+    func testDigestEntriesMergeByDeliveryTimeAndRequestsCarryDeviceSchedule() async throws {
+        let client = NewsFeedTestClient()
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: Data("""
+        {"id":"en:2026-10-20T11:00:00Z","deliveredAt":"2026-10-20T11:00:00Z", "total":2,
+         "top":[{"eventId":1,"headline":"News 1"}]}
+        """.utf8))
+        client.pages = [
+            .success(ApiAgentV2NewsFeedPage(locale: "en", items: [item(2, hour: 12)], nextCursor: "older", digests: [digest])),
+            .success(page([item(1, hour: 10)]))
+        ]
+        let model = AgentNewsFeedModel(
+            client: client, readState: makeReadState(), requestedDigestId: digest.id,
+            timeZone: { "Europe/Moscow" }
+        )
+        await model.refresh()
+        await model.loadMore()
+        XCTAssertEqual(model.entries, [.news(item(1, hour: 10)), .digest(digest), .news(item(2, hour: 12))])
+        XCTAssertEqual(model.requestedDigestId, digest.id)
+        XCTAssertEqual(client.requests.map(\.digestHour), [21, 21])
+        XCTAssertEqual(client.requests.map(\.timeZone), ["Europe/Moscow", "Europe/Moscow"])
+    }
+
+    /// Older pages may bring the requested digest until it comes, the pages run out or they reach back past its window
+    func testRequestedDigestKeepsLoadingUntilFoundExhaustedOrOlderThanTheDigest() async throws {
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: Data("""
+        {"id":"en:2026-10-20T11:00:00.000Z","deliveredAt":"2026-10-20T11:00:00.000Z","total":3,"top":[]}
+        """.utf8))
+        let client = NewsFeedTestClient()
+        client.pages = [
+            .success(page([item(3, hour: 13)], cursor: "older")),
+            .success(ApiAgentV2NewsFeedPage(locale: "en", items: [item(2, hour: 10)], nextCursor: "oldest", digests: [digest])),
+        ]
+        let model = AgentNewsFeedModel(client: client, readState: makeReadState(), requestedDigestId: digest.id)
+        await model.refresh()
+        XCTAssertTrue(model.canLoadRequestedDigest)
+        await model.loadMore()
+        XCTAssertEqual(model.digests, [digest])
+        XCTAssertFalse(model.canLoadRequestedDigest)
+
+        let older = NewsFeedTestClient()
+        older.pages = [.success(page([item(2, hour: 12), item(1, hour: 10)], cursor: "older"))]
+        let pastTheDigest = AgentNewsFeedModel(client: older, readState: makeReadState(), requestedDigestId: digest.id)
+        await pastTheDigest.refresh()
+        XCTAssertFalse(pastTheDigest.canLoadRequestedDigest)
+
+        let exhausted = NewsFeedTestClient()
+        exhausted.pages = [.success(page([item(2, hour: 12)]))]
+        let lastPage = AgentNewsFeedModel(client: exhausted, readState: makeReadState(), requestedDigestId: digest.id)
+        await lastPage.refresh()
+        XCTAssertFalse(lastPage.canLoadRequestedDigest)
+        XCTAssertFalse(AgentNewsFeedModel(client: exhausted, readState: makeReadState()).canLoadRequestedDigest)
+
+        // A time the ID doesn't carry readably can't be placed among the pages: the digest counts as not found
+        let unreadable = NewsFeedTestClient()
+        unreadable.pages = [.success(page([item(3, hour: 13)], cursor: "older"))]
+        let unreadableId = AgentNewsFeedModel(client: unreadable, readState: makeReadState(), requestedDigestId: "en:yesterday")
+        await unreadableId.refresh()
+        XCTAssertEqual(unreadableId.nextCursor, "older")
+        XCTAssertFalse(unreadableId.canLoadRequestedDigest)
+    }
+
+    /// A first page loaded elsewhere for another digest hour or time zone shows its news without its digests
+    func testCachedPageOfAnotherDigestScheduleShowsNoDigests() throws {
+        let digest = try JSONDecoder().decode(ApiAgentV2NewsFeedDigest.self, from: Data("""
+        {"id":"en:2026-10-20T11:00:00.000Z","deliveredAt":"2026-10-20T11:00:00.000Z","total":3,"top":[]}
+        """.utf8))
+        let cached = ApiAgentV2NewsFeedPage(locale: "en", items: [item(1, hour: 10)], nextCursor: "older", digests: [digest])
+        let settings = AgentNewsNotificationSettings(userDefaults: makeDefaults())
+        func makeModel(hour: Int, timeZone: String) -> AgentNewsFeedModel {
+            AgentNewsFeedModel(
+                client: NewsFeedTestClient(), readState: makeReadState(),
+                cachedPage: AgentNewsCachedPage(page: cached, language: "en", schedule: AgentNewsDigestSchedule(hour: hour, timeZone: timeZone)),
+                digestSettings: settings, timeZone: { "Europe/Moscow" }
+            )
+        }
+        let same = makeModel(hour: 21, timeZone: "Europe/Moscow")
+        XCTAssertEqual(same.digests, [digest])
+        XCTAssertEqual(same.nextCursor, "older")
+        for other in [makeModel(hour: 9, timeZone: "Europe/Moscow"), makeModel(hour: 21, timeZone: "UTC")] {
+            XCTAssertEqual(other.items.map(\.eventId), [1])
+            XCTAssertTrue(other.digests.isEmpty)
+            XCTAssertNil(other.nextCursor)
+        }
+    }
+
+    /// Each choice of the sheet and its hour go to the settings; a choice turned down keeps the previous one, and while
+    /// one is applied no other is taken
+    func testDigestSheetAppliesChoicesAndHourAndKeepsThePreviousChoiceWhenOneFails() async throws {
+        let settings = DigestSettingsStub()
+        var errors = 0
+        let sheet = AgentDigestSettingsModel(settings: settings, showError: { errors += 1 })
+        XCTAssertEqual(sheet.mode, .off)
+        XCTAssertEqual(sheet.hint(of: .digest), L10n.agentDigestNotificationsDailyHint(time: "21:00"))
+
+        await sheet.selectMode(.digest)
+        await sheet.selectMode(.news)
+        await sheet.selectMode(.off)
+        XCTAssertEqual(settings.modes, [.digest, .news, .off])
+        XCTAssertEqual(sheet.mode, .off)
+        await sheet.selectHour(7)
+        XCTAssertEqual(settings.hours, [7])
+        XCTAssertEqual(sheet.digestHour, 7)
+        XCTAssertEqual(sheet.hint(of: .digest), L10n.agentDigestNotificationsDailyHint(time: "07:00"))
+
+        settings.outcome = .permissionDenied
+        await sheet.selectMode(.news)
+        XCTAssertEqual(sheet.mode, .off)
+        XCTAssertTrue(sheet.isPermissionDenied)
+        XCTAssertEqual(errors, 0)
+
+        settings.outcome = .failed
+        await sheet.selectMode(.digest)
+        XCTAssertEqual(sheet.mode, .off)
+        XCTAssertFalse(sheet.isPermissionDenied)
+        XCTAssertEqual(errors, 1)
+
+        settings.outcome = .ok
+        settings.isSuspended = true
+        let pending = Task { await sheet.selectMode(.digest) }
+        try await waitUntil { settings.pending != nil }
+        XCTAssertEqual(sheet.pendingMode, .digest)
+        await sheet.selectMode(.news)
+        settings.resume()
+        await pending.value
+        XCTAssertEqual(settings.modes, [.digest, .news, .off, .news, .digest, .digest])
+        XCTAssertEqual(sheet.mode, .digest)
+        XCTAssertNil(sheet.pendingMode)
+
+        // While an hour is applied no other is taken; one that fails to apply stays, as the settings keep it
+        settings.outcome = .failed
+        let pendingHour = Task { await sheet.selectHour(8) }
+        try await waitUntil { settings.pending != nil }
+        XCTAssertTrue(sheet.isApplyingHour)
+        await sheet.selectHour(10)
+        settings.resume()
+        await pendingHour.value
+        XCTAssertEqual(settings.hours, [7, 8])
+        XCTAssertEqual(sheet.digestHour, 8)
+        XCTAssertFalse(sheet.isApplyingHour)
+        XCTAssertEqual(errors, 2)
+    }
+
     private func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0..<100 {
             if condition() { return }
@@ -365,6 +508,36 @@ final class AgentNewsFeedTests: XCTestCase {
     }
 }
 
+@MainActor
+private final class DigestSettingsStub: AgentDigestNotificationSettings {
+    private(set) var mode: AgentNewsNotificationSettings.Mode = .off
+    private(set) var digestHour = 21
+    var outcome: AgentNewsNotificationSettings.Outcome = .ok
+    var isSuspended = false
+    private(set) var modes: [AgentNewsNotificationSettings.Mode] = []
+    private(set) var hours: [Int] = []
+    private(set) var pending: CheckedContinuation<Void, Never>?
+
+    func setMode(_ mode: AgentNewsNotificationSettings.Mode) async -> AgentNewsNotificationSettings.Outcome {
+        modes.append(mode)
+        if isSuspended { await withCheckedContinuation { pending = $0 } }
+        if outcome == .ok { self.mode = mode }
+        return outcome
+    }
+
+    func setDigestHour(_ hour: Int) async -> AgentNewsNotificationSettings.Outcome {
+        hours.append(hour)
+        digestHour = hour
+        if isSuspended { await withCheckedContinuation { pending = $0 } }
+        return outcome
+    }
+
+    func resume() {
+        pending?.resume()
+        pending = nil
+    }
+}
+
 private enum NewsFeedTestError: Error {
     case unavailable
 }
@@ -372,12 +545,12 @@ private enum NewsFeedTestError: Error {
 @MainActor
 private final class NewsFeedTestClient: AgentNewsFeedClient {
     var pages: [Result<ApiAgentV2NewsFeedPage, Error>] = []
-    var requests: [(lang: String, cursor: String?)] = []
+    var requests: [ApiAgentV2NewsFeedRequest] = []
     var shouldSuspend = false
     var pendingResponse: CheckedContinuation<ApiAgentV2NewsFeedPage, Never>?
 
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
-        requests.append((lang, cursor))
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
+        requests.append(.init(lang: lang, cursor: cursor, digestHour: digestHour, timeZone: timeZone))
         if shouldSuspend {
             return await withCheckedContinuation { pendingResponse = $0 }
         }

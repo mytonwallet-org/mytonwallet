@@ -68,6 +68,7 @@ public final class SubwalletsVC: SettingsBaseVC {
         super.viewDidLoad()
 
         navigationItem.title = navigationTitle
+        view.accessibilityIdentifier = "subwallets_title"
         addCloseNavigationItemIfNeeded()
 
         setupViews()

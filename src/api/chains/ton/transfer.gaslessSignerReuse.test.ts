@@ -72,7 +72,7 @@ function createStubSigner() {
   } as unknown as Awaited<ReturnType<typeof getSigner>>;
 }
 
-describe('submitGaslessTransfer secret reads', () => {
+describe('submitGaslessTransfer', () => {
   beforeEach(() => {
     jest.mocked(fetchStoredChainAccount).mockResolvedValue({
       type: 'mnemonic',
@@ -102,6 +102,28 @@ describe('submitGaslessTransfer secret reads', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('sends the diesel fee to the rotated collector', async () => {
+    jest.mocked(getSigner).mockImplementation(() => createStubSigner());
+
+    const result = await submitGaslessTransfer(buildTransferOptions());
+
+    expect(result).not.toHaveProperty('error');
+    expect(buildTokenTransfer).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      toAddress: 'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2',
+      amount: 500_000n,
+    }));
+  });
+
+  it('does not add a diesel fee when paying with Stars', async () => {
+    jest.mocked(getSigner).mockImplementation(() => createStubSigner());
+
+    const result = await submitGaslessTransfer({ ...buildTransferOptions(), isGaslessWithStars: true });
+
+    expect(result).not.toHaveProperty('error');
+    expect(buildTokenTransfer).toHaveBeenCalledTimes(1);
+    expect(buildTokenTransfer).toHaveBeenCalledWith(expect.objectContaining({ toAddress: TO_ADDRESS }));
   });
 
   // A signer reads the secret once, on its first signature, so one signer spends one Enclave session

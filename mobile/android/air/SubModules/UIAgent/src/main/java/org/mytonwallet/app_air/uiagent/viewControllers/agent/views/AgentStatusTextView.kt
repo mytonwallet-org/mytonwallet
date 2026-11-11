@@ -13,7 +13,8 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 /**
  * The Agent's status in its gradient. A new status replaces the old one with the blur transition: the old text goes
- * up and out, the new one comes in from below, as Telegram's typing status does.
+ * up and out, the new one comes in from below, as Telegram's typing status does. With [hasGlint], a glint of light
+ * crosses each new status once as it comes into focus, as iOS's thinking row passes one.
  */
 @SuppressLint("ViewConstructor")
 class AgentStatusTextView(
@@ -21,7 +22,8 @@ class AgentStatusTextView(
     private val labelTextSize: Float,
     private val labelFont: WFont,
     private val labelLineHeight: Float,
-    private val labelMaxLines: Int = 1
+    private val labelMaxLines: Int = 1,
+    private val hasGlint: Boolean = false
 ) : FrameLayout(context) {
     private var current = makeLabel(null)
     private val transitions = mutableListOf<Animator>()
@@ -54,12 +56,14 @@ class AgentStatusTextView(
         ) {
             finishTransitions()
             current.text = text
+            if (hasGlint) current.startGlint()
             return
         }
         val outgoing = current
         val incoming = makeLabel(text)
         addView(incoming, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         current = incoming
+        if (hasGlint) incoming.startGlint()
         transitions += AgentBlurTransition.animateOut(
             outgoing,
             OUT_DURATION_MS,
@@ -71,6 +75,11 @@ class AgentStatusTextView(
             delayMs = IN_DELAY_MS,
             fromOffsetDp = DRIFT_DP
         )
+    }
+
+    /** Lets the glint cross the status shown once more, as when it comes into focus in a new row */
+    fun startGlint() {
+        current.startGlint()
     }
 
     override fun onDetachedFromWindow() {

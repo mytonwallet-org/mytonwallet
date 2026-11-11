@@ -8,12 +8,13 @@ import WalletCore
 public final class PerpsMarketVC: WViewController {
     public var onVisibilityChanged: ((Bool) -> Void)?
     private var data: PerpsMarketDisplayData
-    private let onSelectPeriod: (ApiPriceHistoryPeriod) -> Void
+    let onSelectPeriod: (ApiPriceHistoryPeriod) -> Void
     private let onSelectDirection: (PerpsTradeDirection) -> Void
     private lazy var chartView = TokenExpandableChartView(usesStoredPresentation: false) { [weak self] in
         self?.view.layoutIfNeeded()
     }
-    private var infoView: PerpsMarketInfoView?
+    private lazy var infoModel = TokenInfoModel(state: .summary(data.infoSummary), hasBalance: false)
+    private let infoCard = TokenInfoCardView(sizesItself: true)
     private var detailsView: AssetDetailsView?
     private lazy var longButton = makeTradeButton(.long)
     private lazy var shortButton = makeTradeButton(.short)
@@ -36,19 +37,11 @@ public final class PerpsMarketVC: WViewController {
         super.viewDidLoad()
         configureNavigationItemWithTransparentBackground()
         view.backgroundColor = .air.groupedBackground
-        let info = PerpsMarketInfoView(data: data)
-        infoView = info
-        let layout = AssetDetailsView(sections: [chartView, info], buttons: [longButton, shortButton])
+        let layout = AssetDetailsView(sections: [chartView, infoCard], buttons: [longButton, shortButton])
         detailsView = layout
         layout.scrollView.accessibilityIdentifier = "Perps.Market.Content"
-        info.onHeightChange = { [weak layout] in layout?.layoutKeepingScrollPosition() }
-        view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+        infoCard.configure(model: infoModel, onHeightChange: { [weak layout] in layout?.layoutKeepingScrollPosition() })
+        layout.install(in: view)
         addCustomNavigationBarBackground(color: .air.groupedBackground)
         applyData()
     }
@@ -72,7 +65,8 @@ public final class PerpsMarketVC: WViewController {
 
     private func applyData() {
         title = data.title
-        infoView?.configure(data: data)
+        infoModel.configure(state: .summary(data.infoSummary))
+        infoCard.modelStateDidChange()
         chartView.configure(
             token: data.token, price: data.price, percentChange24h: data.percentChange24h,
             baseCurrency: data.baseCurrency, period: data.period, historyData: data.history,
@@ -81,7 +75,7 @@ public final class PerpsMarketVC: WViewController {
         )
         longButton.isEnabled = data.canTrade
         shortButton.isEnabled = data.canTrade
-        detailsView?.setActionNotice(data.tradingUnavailableReason)
+        detailsView?.setActionNotice(data.tradingUnavailableReason, isInformational: data.isUnavailableReasonInformational)
     }
 
     private func makeTradeButton(_ direction: PerpsTradeDirection) -> WButton {
@@ -96,10 +90,7 @@ public final class PerpsMarketVC: WViewController {
             button.configuration = configuration
         }
         button.accessibilityIdentifier = isLong ? "Perps.Long" : "Perps.Short"
-        button.addAction(UIAction { [weak self] _ in
-            guard let self, data.canTrade else { return }
-            onSelectDirection(direction)
-        }, for: .touchUpInside)
+        button.addAction(UIAction { [weak self] _ in self?.onSelectDirection(direction) }, for: .touchUpInside)
         return button
     }
 }

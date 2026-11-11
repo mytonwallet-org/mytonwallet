@@ -54,7 +54,11 @@ export interface AgentV2StreamController {
   handleUpdate: (update: AgentV2ClientUpdate) => void;
   invalidateActionPresentations: NoneToVoidFunction;
   loadSendActionPresentations: (messages: AgentV2HydratedMessage[], generation: number) => void;
-  mapPersistedMessageEntry: (message: AgentV2HydratedMessage) => AgentV2NormalizedMessageEntry;
+  /**
+   * The history's messages as the chat shows them: stopped answers without their suggestions, and without those that
+   * had shown nothing
+   */
+  mapPersistedMessageEntries: (messages: AgentV2HydratedMessage[]) => AgentV2NormalizedMessageEntry[];
   pruneMessageArtifacts: (retainedMessageIds: Set<number>) => void;
   resetMessageArtifacts: NoneToVoidFunction;
   setActionPresentation: (
@@ -97,7 +101,7 @@ export function createAgentV2StreamController(
     handleUpdate,
     invalidateActionPresentations,
     loadSendActionPresentations,
-    mapPersistedMessageEntry,
+    mapPersistedMessageEntries,
     pruneMessageArtifacts,
     resetMessageArtifacts,
     setActionPresentation,
@@ -305,11 +309,41 @@ export function createAgentV2StreamController(
     ));
   }
 
-  function mapPersistedMessageEntry(message: AgentV2HydratedMessage): AgentV2NormalizedMessageEntry {
-    return { message: mapPersistedMessage(message), sourceId: message.id };
+  function mapPersistedMessageEntries(messages: AgentV2HydratedMessage[]): AgentV2NormalizedMessageEntry[] {
+    return messages
+      .filter((message) => !isEmptyStoppedAnswer(message))
+      .map((message) => ({ message: mapPersistedMessage(message), sourceId: message.id }));
   }
 
   function mapPersistedMessage(message: AgentV2HydratedMessage): AgentMessage {
+    if (message.role === 'operator') {
+      const { name, avatarUrl } = message.author!;
+      return {
+        id: getMessageId(message.id),
+        text: message.text!,
+        isOutgoing: false,
+        isComplete: true,
+        timestamp: new Date(message.createdAt).getTime(),
+        operator: {
+          name,
+          ...(avatarUrl ? { avatarUrl } : {}),
+        },
+        ...(message.feedback ? { feedback: message.feedback } : {}),
+      };
+    }
+    if (message.role === 'event') {
+      return {
+        id: getMessageId(message.id),
+        text: '',
+        isOutgoing: false,
+        timestamp: new Date(message.createdAt).getTime(),
+        supportEvent: {
+          code: message.code!,
+          ...(message.author ? { operatorName: message.author.name } : {}),
+          ...(message.reason ? { reason: message.reason } : {}),
+        },
+      };
+    }
     const text = message.content?.kind === 'markdown' ? message.content.text : '';
     const semanticContent = message.content?.kind === 'semantic' ? message.content.content : undefined;
     const actionPresentations: Record<string, AgentV2ActionPresentation> = Object.fromEntries(
@@ -332,7 +366,8 @@ export function createAgentV2StreamController(
         ? { links: message.content.links } : {}),
       ...(message.actions?.length ? { actions: message.actions } : {}),
       ...(Object.keys(actionPresentations).length ? { actionPresentations } : {}),
-      ...(message.followups?.length ? { followups: message.followups } : {}),
+      // A stopped answer offers no suggestions
+      ...(message.followups?.length && message.status !== 'cancelled' ? { followups: message.followups } : {}),
       ...(message.error ? { error: message.error } : {}),
       ...(message.error?.retryable ? { isRetryAvailable: true } : {}),
       ...(message.role === 'assistant' && message.status === 'complete' ? { isComplete: true } : {}),
@@ -397,6 +432,8 @@ export function createAgentV2StreamController(
   }
 
   function reloadSendActionPresentations(generation: number) {
+    // The device's copy of the history offers no action until the history loads
+    if (dependencies.getState().isHistoryCached) return;
     dependencies.getState().messages.forEach((message) => {
       const sourceId = dependencies.getState().sourceIdByMessageId[message.id];
       if (!sourceId) return;
@@ -431,6 +468,11 @@ export function createAgentV2StreamController(
 
 function assertUnreachable(value: never): never {
   throw new Error(`Unsupported Agent V2 update: ${String(value)}`);
+}
+
+function isEmptyStoppedAnswer({ role, status, content, actions }: AgentV2HydratedMessage) {
+  return role === 'assistant' && status === 'cancelled' && !actions?.length
+    && (!content || (content.kind === 'markdown' && !content.text.trim() && !content.tables?.length));
 }
 
 export type AgentV2SendAction = Extract<

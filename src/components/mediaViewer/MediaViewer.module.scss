@@ -1,5 +1,8 @@
 @use "../../styles/mixins";
 
+// A News picture's header: its place over its date, two lines high
+$pictureInfoHeight: 2.6875rem;
+
 .root {
   position: fixed;
   z-index: var(--z-media-viewer);
@@ -571,24 +574,20 @@
 .pictureInfoTransition {
   flex: 1;
   min-width: 0;
-  // Both source labels are absolutely positioned while photos change
-  min-height: 2.75rem;
-
-  @include mixins.respond-below(xs) {
-    min-height: 2.6875rem;
-  }
+  // Both headers are absolutely positioned while photos change
+  min-height: $pictureInfoHeight;
 }
 
-// Telegram's sender over a photo: the avatar, then the name over the date, all faded until hovered
+// Telegram's sender over a photo, here the picture's place over its date, faded until hovered. The date alone of a
+// single picture stands in the middle of the same height.
 .pictureInfo {
-  --wallet-avatar-size: 2.75rem;
-
   cursor: var(--custom-cursor, pointer);
 
   display: flex;
   align-items: center;
 
   min-width: 0;
+  min-height: $pictureInfoHeight;
 
   color: rgba(255, 255, 255, 0.5);
 
@@ -596,14 +595,6 @@
 
   &:hover {
     color: #FFF;
-  }
-}
-
-.pictureInfoAvatar {
-  margin-inline-end: 1rem;
-
-  @include mixins.respond-below(xs) {
-    display: none;
   }
 }
 

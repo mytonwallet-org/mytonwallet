@@ -6,6 +6,35 @@ import WalletContext
 @Suite("Token send automatic selection")
 @MainActor
 struct TokenSendSelectionTests {
+    @Test("TRON recipients exclude SOL even when its balance is higher")
+    func excludeSolanaForTronRecipient() {
+        var tron = ApiChain.tron.nativeToken
+        tron.priceUsd = 1
+        var solana = ApiChain.solana.nativeToken
+        solana.priceUsd = 100
+        let chains = ApiChain.allCases.filter {
+            $0.isValidAddressOrDomain("TVQ1BBt6WEQ1gcbkLNaJAWumuQrfDo1MgW")
+        }
+        let selected = TokenSendModel.preferredToken(
+            tokens: [tron, solana],
+            balances: [tron.slug: 1_000_000, solana.slug: 1_000_000_000],
+            compatibleChains: chains
+        )
+
+        #expect(chains == [.tron])
+        #expect(selected?.slug == tron.slug)
+    }
+
+    @Test("Solana recipients include short addresses with leading zero bytes", arguments: [
+        "35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA",
+        "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG",
+        "11111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKL",
+        "11111111111111111111111111111111",
+    ])
+    func acceptSolanaRecipient(address: String) {
+        #expect(ApiChain.solana.isValidAddress(address))
+    }
+
     @Test("EVM addresses select the highest fiat balance across compatible chains")
     func highestCompatibleBalance() {
         var eth = ApiChain.ethereum.nativeToken

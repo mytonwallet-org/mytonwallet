@@ -156,6 +156,12 @@ export default function useDraggablePill({
     handleDragEnd(state, e.pointerId);
   });
 
+  /** Drops a pressed or dragged pill back to the active tab, for a gesture another one takes over */
+  const cancelDrag = useLastCallback(() => {
+    const state = dragStateRef.current;
+    if (state) handleDragEnd(state, state.pointerId);
+  });
+
   function handleDragEnd(state: DragState, pointerId: number) {
     detachAbortRef.current?.();
     dragStateRef.current = undefined;
@@ -181,6 +187,7 @@ export default function useDraggablePill({
     isDragging,
     squeeze,
     renderedActiveIndex: previewIndex ?? activeIndex,
+    cancelDrag,
     pointerHandlers: {
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,

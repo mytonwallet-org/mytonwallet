@@ -25,6 +25,8 @@
 
   // Until the composer is measured, its height is taken as that of an empty field
   padding: 0 0.5rem calc(var(--agent-input-bar-height, 3.5rem) + 1rem);
+  // The column ends where the list's does, before the room the list keeps for its scrollbar
+  padding-inline-end: max(0.5rem, var(--scrollbar-width));
 
   background-color: var(--skeleton-background);
 

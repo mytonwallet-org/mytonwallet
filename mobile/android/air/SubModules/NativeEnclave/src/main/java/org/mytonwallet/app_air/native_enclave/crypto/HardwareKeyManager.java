@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.native_enclave.crypto;
 import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
-import android.security.keystore.StrongBoxUnavailableException;
 import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Base64;
 
@@ -11,6 +10,7 @@ import org.mytonwallet.app_air.native_enclave.DeviceLockedException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.ProviderException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -93,7 +93,7 @@ public class HardwareKeyManager {
             try {
                 kg.init(builder.build());
                 return kg.generateKey();
-            } catch (StrongBoxUnavailableException e) {
+            } catch (ProviderException e) {
                 builder.setIsStrongBoxBacked(false);
             }
         }

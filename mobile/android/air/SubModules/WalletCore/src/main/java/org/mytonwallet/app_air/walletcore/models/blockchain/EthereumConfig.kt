@@ -2,8 +2,19 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.ETH_USDC_MAINNET_SLUG
+import org.mytonwallet.app_air.walletcore.ETH_USDT_MAINNET_SLUG
 
 object EthereumConfig : MBlockchainConfig {
+
+    override val usdtSlug = mapOf(
+        MBlockchainNetwork.MAINNET to ETH_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to ETH_USDT_MAINNET_SLUG
+    )
+
+    override val usdcSlug = mapOf(
+        MBlockchainNetwork.MAINNET to ETH_USDC_MAINNET_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = null,

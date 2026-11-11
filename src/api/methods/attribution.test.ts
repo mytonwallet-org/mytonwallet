@@ -15,7 +15,7 @@ import type { createStorage } from '../storages';
 import type { ApiInitArgs } from '../types';
 
 import {
-  acceptInstallAttribution, captureInstallAttribution, claimAttribution, claimInstallAttribution,
+  acceptInstallAttribution, captureInstallAttribution, claimInstallAttribution,
   isAllowedChannel, setInstallChannel,
 } from './attribution';
 
@@ -32,26 +32,6 @@ function makeStorage(seed: Record<string, string> = {}) {
 }
 
 const argsWith = (channel?: string) => ({ channel } as unknown as ApiInitArgs);
-
-describe('claimAttribution', () => {
-  afterEach(() => {
-    mockCallBackendPost.mockReset();
-  });
-
-  it('posts channel + platform and returns true when the backend accepts', async () => {
-    mockCallBackendPost.mockResolvedValue({ ok: true });
-    const ok = await claimAttribution('wc', 'web');
-    expect(mockCallBackendPost).toHaveBeenCalledWith(
-      '/attribution/claim', { channel: 'wc', platform: 'web', attributionKind: 'utm' },
-    );
-    expect(ok).toBe(true);
-  });
-
-  it('returns false when the backend defers (ok:false)', async () => {
-    mockCallBackendPost.mockResolvedValue({ ok: false });
-    expect(await claimAttribution('wc', 'web')).toBe(false);
-  });
-});
 
 describe('isAllowedChannel', () => {
   it('accepts any well-formed channel slug (format guard, not a fixed allowlist)', () => {

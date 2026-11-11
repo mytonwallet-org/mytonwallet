@@ -9,6 +9,7 @@ import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +21,7 @@ import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
@@ -65,6 +67,8 @@ class TabletSidePanelView(
     private var tabDefs: List<TabDef>,
     private val onTabSelected: (id: Int) -> Unit,
     private val onTabReselected: (id: Int) -> Unit,
+    /** A held tab dragged to another place, with every tab id in the new order */
+    private val onTabsReordered: (ids: List<Int>) -> Unit,
     private val onAccountSelected: (account: MAccount) -> Unit,
     private val onWalletSettings: () -> Unit,
     private val onAddAccount: () -> Unit,
@@ -85,6 +89,7 @@ class TabletSidePanelView(
         private val ADD_ACCOUNT_CELL = WCell.Type(4)
         private val SPACER_CELL = WCell.Type(5)
         private const val TAB_ROW_HEIGHT = 50
+        private const val LIFTED_TAB_SCALE = 1.03f
 
         private const val ADD_ICON_SIZE = 33
         private const val ADD_ICON_START = 17
@@ -204,6 +209,72 @@ class TabletSidePanelView(
             if (isHeightLocked) 0 else headerView.collapseExtraScrollPx
     }
 
+    // Holding a tab lifts it, and dragging it moves it among the tabs
+    private val tabTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+        ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+        0
+    ) {
+        private var didReorder = false
+
+        override fun getMovementFlags(
+            recyclerView: RecyclerView,
+            viewHolder: RecyclerView.ViewHolder
+        ): Int = if (isTabPosition(viewHolder.bindingAdapterPosition)) {
+            makeMovementFlags(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0)
+        } else {
+            makeMovementFlags(0, 0)
+        }
+
+        override fun onMove(
+            recyclerView: RecyclerView,
+            viewHolder: RecyclerView.ViewHolder,
+            target: RecyclerView.ViewHolder
+        ): Boolean {
+            val fromPosition = viewHolder.bindingAdapterPosition
+            val toPosition = target.bindingAdapterPosition
+            if (!isTabPosition(fromPosition) || !isTabPosition(toPosition)) return false
+            val defs = tabDefs.toMutableList()
+            defs.add(toPosition - 1, defs.removeAt(fromPosition - 1))
+            tabDefs = defs
+            rvAdapter.notifyItemMoved(fromPosition, toPosition)
+            recyclerView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            didReorder = true
+            return true
+        }
+
+        // Only tabs are drop targets: a fast drag that also covers the row above the first tab or
+        // below the last would otherwise pick that row, which refuses the move
+        override fun canDropOver(
+            recyclerView: RecyclerView,
+            current: RecyclerView.ViewHolder,
+            target: RecyclerView.ViewHolder
+        ): Boolean = isTabPosition(target.bindingAdapterPosition)
+
+        override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+        override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+            super.onSelectedChanged(viewHolder, actionState)
+            if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                viewHolder?.itemView?.apply {
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    animate().scaleX(LIFTED_TAB_SCALE).scaleY(LIFTED_TAB_SCALE)
+                        .translationZ(8f.dp).start()
+                }
+            }
+        }
+
+        override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+            super.clearView(recyclerView, viewHolder)
+            viewHolder.itemView.animate().scaleX(1f).scaleY(1f).translationZ(0f).start()
+            if (didReorder) {
+                didReorder = false
+                // The first row's margin goes with its place
+                rvAdapter.notifyItemRangeChanged(1, tabDefs.size)
+                onTabsReordered(tabDefs.map { it.id })
+            }
+        }
+    })
+
     init {
         recyclerView.clipChildren = false
         recyclerView.clipToPadding = false
@@ -216,6 +287,7 @@ class TabletSidePanelView(
             0
         )
         recyclerView.adapter = rvAdapter
+        tabTouchHelper.attachToRecyclerView(recyclerView)
         if (rvMode == HomeHeaderView.Mode.Collapsed) recyclerView.setupOverScroll()
 
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -413,6 +485,8 @@ class TabletSidePanelView(
         return super.dispatchTouchEvent(ev)
     }
 
+    private fun isTabPosition(position: Int) = position in 1..tabDefs.size
+
     // Public API //////////////////////////////////////////////////////////////////////////////////
     var gutterPadding: Int = ViewConstants.HORIZONTAL_PADDINGS.dp
         set(value) {
@@ -438,6 +512,7 @@ class TabletSidePanelView(
     }
 
     fun updateTabs(defs: List<TabDef>) {
+        if (defs == tabDefs) return
         tabDefs = defs
         tabRows.clear()
         rvAdapter.reloadData()

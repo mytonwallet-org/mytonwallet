@@ -3,12 +3,9 @@ package org.mytonwallet.uihome.tabs
 import android.view.Choreographer
 import android.view.View
 import androidx.core.view.isInvisible
-import androidx.core.view.updateLayoutParams
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.pow
-import kotlin.math.roundToInt
-import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.uihome.tabs.views.HomeSearchField
 
@@ -18,14 +15,20 @@ import org.mytonwallet.uihome.tabs.views.HomeSearchField
  * The search field shrinks into a search circle at its leading edge, the "+" button shrinks away where the bar's
  * microphone appears, and the list's field grows in beside the circle; all of them swell mid-way. The circle stays
  * at its leading anchor while it fades under a chat or a question being written, as the list's field widens over it.
+ * While the list's field records, recognizes or holds a draft, the circle slides off past the leading edge instead,
+ * as Telegram's attach button does.
  */
 internal class AgentRootBarMorph(
     private val searchView: HomeSearchField,
     private val actionsButton: View,
     private val actionsIcon: View,
+    private val toolbarButtons: List<View>,
+    /** Dragged or settling buttons keep their alpha and scale */
+    private val isHeld: (View) -> Boolean,
+    private val getButtonFade: (Int) -> Float,
     private val circleButton: View,
-    /** The search field's width as the toolbar lays it out on the other tabs */
-    private val fullSearchWidth: () -> Int,
+    /** Lays the toolbar out for the field's [collapse] into the circle and the search [focus] */
+    private val layoutToolbar: (collapse: Float, focus: Float) -> Unit,
     private val onProgress: (Float) -> Unit,
     private val applyTextAlpha: (Float) -> Unit,
     /** Called when the springs come to rest, when the toolbar may hide or show */
@@ -34,7 +37,8 @@ internal class AgentRootBarMorph(
     private val paging = Spring()
     private val away = Spring()
     private val dissolve = Spring()
-    private val springs = arrayOf(paging, away, dissolve)
+    private val slide = Spring()
+    private val springs = arrayOf(paging, away, dissolve, slide)
     private var lastFrameNanos = 0L
     private var isRunning = false
 
@@ -47,11 +51,12 @@ internal class AgentRootBarMorph(
         get() = isEngaged && !(away.target == 1f && away.isSettled)
 
     /**
-     * The search circle takes taps on its way into and at the list's bar, while no chat covers the list and no
-     * question is written; the toolbar's own field then takes none
+     * The search circle takes taps on its way into and at the list's bar, while no chat covers the list, no question
+     * is written and the bar's field is not in use; the toolbar's own field then takes none
      */
     val isCircleInteractive: Boolean
-        get() = paging.target == 1f && away.target == 0f && dissolve.target == 0f
+        get() = paging.target == 1f && away.target == 0f && dissolve.target == 0f &&
+            slide.target == 0f
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -78,17 +83,21 @@ internal class AgentRootBarMorph(
 
     /**
      * [isAgent] when paging has committed to the Agent tab with its list on top, [isCovered] while a chat is over the
-     * list, [isComposing] while a question is written in the list's bar
+     * list, [isComposing] while a question is written in the list's bar, [isSearchAway] while the bar's field records,
+     * recognizes or holds a draft
      */
     fun setTargets(
         isAgent: Boolean,
         isCovered: Boolean,
         isComposing: Boolean,
+        isSearchAway: Boolean,
         isAnimated: Boolean
     ) {
         paging.target = if (isAgent) 1f else 0f
         away.target = if (isAgent && isCovered) 1f else 0f
         dissolve.target = if (isAgent && isComposing && !isCovered) 1f else 0f
+        // It stays away under a chat and on the other tabs, where the toolbar's progress undoes it
+        slide.target = if (isSearchAway) 1f else 0f
         val shouldAnimate = isAnimated && WGlobalStorage.getAreAnimationsActive() &&
             searchView.isAttachedToWindow
         if (!shouldAnimate) {
@@ -120,39 +129,51 @@ internal class AgentRootBarMorph(
         val swell = (1 + SWELL * 4 * progress * (1 - progress)).coerceIn(0.9f, 1.2f)
         // The field shrinks into the circle ahead of its leading edge, so they part in the second half
         val collapse = 1 - (1 - clamped).pow(COLLAPSE_POWER)
-        val circle = CIRCLE.dp
-        val width = if (clamped <= 0f) {
-            0
-        } else {
-            (fullSearchWidth() + (circle - fullSearchWidth()) * collapse).roundToInt()
-                .coerceAtLeast(circle)
-        }
-        if (searchView.layoutParams.width != width) {
-            searchView.updateLayoutParams { this.width = width }
-        }
-        // The placeholder keeps to one line while the field narrows
-        searchView.editText.isHintSingleLine = clamped > 0f
+        val focus = searchView.focusProgress
+        layoutToolbar(collapse, focus)
         // The placeholder is gone before the field gets narrower than it
         val textFade = 1 - (clamped / TEXT_FADE_END).coerceIn(0f, 1f)
         applyTextAlpha(textFade * textFade)
         // The circle keeps its anchor through navigation and interrupted transitions.
         val awayValue = away.value.coerceIn(0f, 1f)
         val dissolveValue = dissolve.value.coerceIn(0f, 1f)
+        // The circle slides away only as far as the toolbar has become the list's bar
+        val slideValue = slide.value.coerceIn(0f, 1f) * clamped
         val circleScale = 1 + (DISSOLVE_SCALE - 1) * dissolveValue
-        searchView.translationX = 0f
+        // Sliding away, the circle clears the leading edge from where `layoutToolbar` has put it
+        val isRtl = searchView.layoutDirection == View.LAYOUT_DIRECTION_RTL
+        val slideTravel = if (isRtl) {
+            ((searchView.parent as? View)?.width ?: 0) - searchView.left
+        } else {
+            -searchView.right
+        }
+        searchView.translationX += slideTravel * slideValue
         searchView.scaleX = swell * circleScale
         searchView.scaleY = swell * circleScale
-        searchView.alpha = (1 - dissolveValue) * (1 - awayValue)
+        searchView.alpha = (1 - dissolveValue) * (1 - awayValue) * (1 - slideValue)
         // The plus shrinks away and turns over the first third, where the bar's microphone appears
         val fold = (clamped / PLUS_FOLD_END).coerceIn(0f, 1f)
         actionsIcon.scaleX = 1 - (1 - PLUS_MIN_SCALE) * fold
         actionsIcon.scaleY = actionsIcon.scaleX
         actionsIcon.alpha = 1 - fold
-        actionsIcon.rotation = (45f * maxOf(clamped, searchView.focusProgress))
-        actionsButton.scaleX = swell
-        actionsButton.scaleY = swell
-        actionsButton.alpha = 1 - smoothstep(PLUS_FOLD_END, BUTTON_GONE, clamped)
+        actionsIcon.rotation = (45f * maxOf(clamped, focus))
+        val buttonsAlpha = 1 - smoothstep(PLUS_FOLD_END, BUTTON_GONE, clamped)
+        if (!isHeld(actionsButton)) {
+            actionsButton.scaleX = swell
+            actionsButton.scaleY = swell
+            actionsButton.alpha = buttonsAlpha
+        }
         actionsButton.isClickable = clamped < 0.5f
+        val buttonScale = swell * (1 - (1 - FOCUSED_BUTTON_SCALE) * focus)
+        for ((index, button) in toolbarButtons.withIndex()) {
+            if (isHeld(button)) continue
+            val fade = getButtonFade(index)
+            val scale = buttonScale * (FADED_BUTTON_SCALE + (1 - FADED_BUTTON_SCALE) * fade)
+            button.scaleX = scale
+            button.scaleY = scale
+            button.alpha = buttonsAlpha * (1 - focus) * fade
+            button.isClickable = actionsButton.isClickable && focus < 0.5f
+        }
         // Bound for the list's bar, the toolbar's own field and button take no touches and are not read out
         val isBound = paging.target == 1f
         // Until the list's field appears where the toolbar's still is, a tap there does nothing at all
@@ -168,13 +189,19 @@ internal class AgentRootBarMorph(
         }
         searchView.importantForAccessibility = accessibility
         actionsButton.importantForAccessibility = accessibility
+        toolbarButtons.forEach { it.importantForAccessibility = accessibility }
         if (searchView.visibility != View.GONE) {
-            searchView.isInvisible = dissolve.target == 1f && dissolve.isSettled
+            val isSlidAway = slide.target == 1f && slide.isSettled && isBound && paging.isSettled
+            searchView.isInvisible = (dissolve.target == 1f && dissolve.isSettled) || isSlidAway
         }
-        if (actionsButton.visibility != View.GONE) {
-            actionsButton.isInvisible = isBound && clamped >= 1f && paging.isSettled
+        val shouldHideButtons = isBound && clamped >= 1f && paging.isSettled
+        if (actionsButton.visibility != View.GONE && !isHeld(actionsButton)) {
+            actionsButton.isInvisible = shouldHideButtons
         }
-        circleButton.translationX = searchView.translationX
+        for (button in toolbarButtons) {
+            if (button.visibility == View.GONE || isHeld(button)) continue
+            button.isInvisible = shouldHideButtons || focus >= 1f
+        }
         circleButton.isInvisible = !isCircleInteractive
         onProgress(progress)
     }
@@ -210,6 +237,8 @@ internal class AgentRootBarMorph(
     }
 
     private companion object {
+        const val FADED_BUTTON_SCALE = 0.6f
+
         // The glass transition spring: response 0.416 s, damping 0.75
         val OMEGA = 2 * PI.toFloat() / 0.416f
         val STIFFNESS = OMEGA * OMEGA
@@ -218,13 +247,13 @@ internal class AgentRootBarMorph(
         const val MAX_FRAME = 1 / 30f
         const val SETTLE = 0.001f
 
-        const val CIRCLE = 48
         const val SWELL = 0.2f
         const val COLLAPSE_POWER = 3.5f
         const val TEXT_FADE_END = 0.2f
         const val PLUS_FOLD_END = 0.35f
         const val PLUS_MIN_SCALE = 0.2f
         const val BUTTON_GONE = 0.7f
+        const val FOCUSED_BUTTON_SCALE = 0.6f
         const val DISSOLVE_SCALE = 1.2f
 
         // Where the list's field starts to appear (the list's `BAR_APPEAR_START`)

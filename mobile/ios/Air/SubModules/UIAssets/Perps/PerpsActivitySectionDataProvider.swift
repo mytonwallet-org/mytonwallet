@@ -6,17 +6,12 @@ import WalletContext
 @MainActor
 final class PerpsActivitySectionDataProvider: ActivityListViewController.CustomSectionDataProvider {
     let id = "activity"
-    var accountID = ""
-    var activities: [PerpsHomeActivity] = []
+    var activities: [PerpsTradeActivity] = []
+    var isStale = false
     var onSelect: ((String) -> Void)?
-    private var uniqueActivities: [PerpsHomeActivity] {
-        var seen = Set<String>()
-        return activities.filter { seen.insert($0.id).inserted }
-    }
-    private func rowID(_ activity: PerpsHomeActivity) -> String { accountID + ":" + activity.id }
-    var itemIdentifiers: [String] { uniqueActivities.map(rowID) }
-    private lazy var registration = UICollectionView.CellRegistration<PerpsActivityCell, PerpsHomeActivity> { cell, _, activity in
-        cell.configure(activity)
+    var itemIdentifiers: [String] { activities.map(\.id) }
+    private lazy var registration = UICollectionView.CellRegistration<PerpsTradeActivityCell, PerpsTradeActivity> { [weak self] cell, _, activity in
+        cell.configure(activity, isStale: self?.isStale == true, accessibilityPrefix: "perps.home.activity.")
         cell.configurationUpdateHandler = { cell, state in cell.isHighlighted = state.isHighlighted }
     }
     private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<InsetSectionHeaderCell>(elementKind: UICollectionView.elementKindSectionHeader) { view, _, _ in
@@ -39,7 +34,7 @@ final class PerpsActivitySectionDataProvider: ActivityListViewController.CustomS
         return section
     }
     func dequeueCell(_ collection: UICollectionView, _ indexPath: IndexPath, itemIdentifier: String) -> UICollectionViewCell {
-        guard let activity = uniqueActivities.first(where: { rowID($0) == itemIdentifier }) else { return UICollectionViewCell() }
+        guard let activity = activities.first(where: { $0.id == itemIdentifier }) else { return UICollectionViewCell() }
         return collection.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: activity)
     }
     func dequeueSupplementaryView(_ collection: UICollectionView, kind: String, indexPath: IndexPath) -> UICollectionReusableView? {
@@ -47,10 +42,10 @@ final class PerpsActivitySectionDataProvider: ActivityListViewController.CustomS
         return collection.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
     }
     func shouldSelect(itemIdentifier: String) -> Bool {
-        uniqueActivities.contains { rowID($0) == itemIdentifier && $0.canSelect }
+        activities.contains { $0.id == itemIdentifier }
     }
     func didSelect(itemIdentifier: String) {
-        guard let activity = uniqueActivities.first(where: { rowID($0) == itemIdentifier && $0.canSelect }) else { return }
-        onSelect?(activity.id)
+        guard shouldSelect(itemIdentifier: itemIdentifier) else { return }
+        onSelect?(itemIdentifier)
     }
 }

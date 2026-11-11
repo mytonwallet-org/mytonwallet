@@ -398,6 +398,37 @@ public actor UniversalSearchCoordinator {
         await remove(sourceID: sourceID)
     }
 
+    /// Drops an entity from every cached snapshot of every scope, query snapshots included, e.g. after the entity is
+    /// deleted. Returns whether any snapshot contained it.
+    @discardableResult
+    public func removeDocument(id: SearchEntityID) async -> Bool {
+        guard let context else { return false }
+        var replacements: [(scopeKey: String, snapshot: UniversalSearchSourceSnapshot)] = []
+        for (key, snapshot) in snapshotsBySlot where snapshot.documents.contains(where: { $0.id == id }) {
+            let replacement = UniversalSearchSourceSnapshot(
+                sourceID: snapshot.sourceID,
+                authority: snapshot.authority,
+                revision: snapshot.revision,
+                generatedAt: snapshot.generatedAt,
+                expiresAt: snapshot.expiresAt,
+                staleUntil: snapshot.staleUntil,
+                documents: snapshot.documents.filter { $0.id != id },
+                signalContributions: snapshot.signalContributions
+            )
+            setSlot(key: key, snapshot: replacement)
+            replacements.append((scopeKey: key.scopeKey, snapshot: replacement))
+        }
+        guard !replacements.isEmpty else { return false }
+        for replacement in replacements {
+            await persistReplacementIfNeeded(
+                replacement.snapshot,
+                scopeKey: replacement.scopeKey,
+                context: context
+            )
+        }
+        return true
+    }
+
     /// Drops cached snapshots scoped to the account, e.g. after the account is deleted
     public func removeAccountScopedSlots(scopeID: String) {
         removeSlots(where: { $0.hasSuffix("|scope=\(scopeID)") })
@@ -661,15 +692,24 @@ public actor UniversalSearchCoordinator {
         _ snapshot: UniversalSearchSourceSnapshot,
         context: UniversalSearchContext
     ) async {
+        await persistReplacementIfNeeded(
+            snapshot,
+            scopeKey: scopeKey(sourceID: snapshot.sourceID, context: context),
+            context: context
+        )
+    }
+
+    private func persistReplacementIfNeeded(
+        _ snapshot: UniversalSearchSourceSnapshot,
+        scopeKey: String,
+        context: UniversalSearchContext
+    ) async {
         guard persistedSourceIDs.contains(snapshot.sourceID), let indexStore else { return }
         persistenceMutationGeneration &+= 1
         let generation = persistenceMutationGeneration
         isPersistentIndexSynchronized = false
         do {
-            try await indexStore.replace(
-                snapshot,
-                scopeKey: scopeKey(sourceID: snapshot.sourceID, context: context)
-            )
+            try await indexStore.replace(snapshot, scopeKey: scopeKey)
             if generation == persistenceMutationGeneration, self.context == context {
                 isPersistentIndexSynchronized = true
             }

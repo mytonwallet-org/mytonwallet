@@ -22,6 +22,7 @@ class LinesChartRenderer: BaseChartRenderer {
     struct LineData {
         var color: GColor
         var points: [CGPoint]
+        var alpha: CGFloat = 1
     }
 
     struct FillGradient {
@@ -105,7 +106,7 @@ class LinesChartRenderer: BaseChartRenderer {
         }
         
         for (index, toLine) in toLines.enumerated() {
-            let alpha = linesAlphaAnimators[index].current * chartsAlpha
+            let alpha = linesAlphaAnimators[index].current * chartsAlpha * toLine.alpha
             if alpha == 0 { continue }
             context.setAlpha(alpha)
             context.setStrokeColor(toLine.color.cgColor)
@@ -492,7 +493,7 @@ class LinesChartRenderer: BaseChartRenderer {
         chartsAlpha: CGFloat
     ) {
         for (index, line) in toLines.enumerated() {
-            let alpha = linesAlphaAnimators[index].current * chartsAlpha
+            let alpha = linesAlphaAnimators[index].current * chartsAlpha * line.alpha
             guard alpha > 0 else { continue }
 
             guard let firstVisibleIndex = line.points.firstIndex(where: { $0.x >= renderRange.lowerBound }) else {

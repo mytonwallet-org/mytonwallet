@@ -1,24 +1,118 @@
 import Foundation
 import Testing
+import WalletContext
 @testable import WalletCore
 
 @Suite @MainActor
 struct PerpsReadCacheTests {
-    @Test func confirmedEmptyHistoryRestoresButLegacyEmptyHistoryRemainsUnknown() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
-        let cache = PerpsReadCache(url: url)
-        cache.save(["a": .init(snapshot: snapshot, history: .init(fills: [], cashFlows: []))])
-        let legacy = store(client: client(), url: url)
-        await legacy.loadFromCache(accountIds: ["a"])
-        #expect(legacy.hasActivityHistory["a"] == nil)
+    private let btc = "hyperliquid:hl:BTC"
+
+    // MARK: - Cached render
+
+    @Test func restoredPositionsActivityAndCatalogueNeedNoSDKCall() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let snapshot = account(positions: [try position()])
+        let history = try history()
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let confirmed = store(client: client, url: url)
+        client.marketSnapshot = { try self.market() }
+        client.positions = { _ in snapshot }
+        client.history = { _ in history }
+        let original = store(client: client, directory: directory)
+        await original.refresh(accountId: "a")
+        let restored = store(client: offlineClient(), directory: directory)
+        await restored.loadFromCache(accountIds: ["a", "b"])
+        #expect(restored.snapshots["a"] == snapshot)
+        #expect(restored.snapshots["b"] == nil)
+        #expect(restored.fills["a"] == history.fills)
+        #expect(restored.market == original.market)
+        #expect(restored.asset(id: btc)?.symbol == "BTC")
+        #expect(restored.asset(named: "BTC")?.id == btc)
+        #expect(restored.loading.isEmpty)
+        #expect(restored.snapshotErrors.isEmpty)
+        #expect(!restored.isSnapshotStale(accountId: "a"))
+        #expect(!restored.isHistoryStale(accountId: "a"))
+        #expect(!restored.isMarketStale())
+    }
+
+    // MARK: - Persistence format
+
+    @Test func accountsCatalogueAndChartsArePersistedSeparatelyWithTheCatalogueStoredOnce() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var client = client()
+        client.marketSnapshot = { try self.market() }
+        client.positions = { _ in self.account(positions: [try self.position()]) }
+        client.history = { _ in try self.history() }
+        client.candles = { _, _ in [[1, 60_000], [2, 61_000]] }
+        let value = PerpsStore(client: client, cacheDirectory: directory.appending(component: "perps"),
+                               currentAccountId: { nil }, load: { [] }, save: { _ in },
+                               loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
+        await value.loadFromCache(accountIds: ["a", "b"])
+        await value.refresh(accountId: "a")
+        await value.refresh(accountId: "b")
+        await value.refreshChart(assetId: btc, period: "1D")
+        await value.cache?.flush()
+
+        let accounts = try contents(of: directory.appending(components: "perps", "accounts.json"), version: PerpsReadCache.accountsVersion)
+        let byAccount = try #require(accounts as? [String: [String: Any]])
+        #expect(Set(byAccount.keys) == ["a", "b"])
+        let stored = try #require(byAccount["a"])
+        #expect(Set(stored.keys) == ["snapshot", "fills", "historyFetchedAt", "hasActivityHistory"])
+        let storedSnapshot = try #require(stored["snapshot"] as? [String: Any])
+        #expect(storedSnapshot["assets"] == nil)
+        #expect(storedSnapshot["marketSections"] == nil)
+        #expect((storedSnapshot["positions"] as? [Any])?.count == 1)
+
+        let market = try #require(try contents(of: directory.appending(components: "perps", "market.json"),
+                                               version: PerpsReadCache.marketVersion) as? [String: Any])
+        #expect(market["langCode"] as? String == LocalizationSupport.shared.langCode)
+        #expect(((market["market"] as? [String: Any])?["assets"] as? [Any])?.count == 1)
+
+        let charts = try #require(try contents(of: directory.appending(components: "perps", "charts.json"),
+                                               version: PerpsReadCache.chartsVersion) as? [String: Any])
+        #expect(Set(charts.keys) == [btc + "/1D"])
+
+        for file in ["accounts.json", "market.json", "charts.json"] {
+            let url = directory.appending(components: "perps", file)
+            #expect(try url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+        }
+    }
+
+    @Test func aFileInAnotherFormatIsDiscardedAndReplacedByTheNextSave() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let accountsURL = directory.appending(component: "accounts.json")
+        let marketURL = directory.appending(component: "market.json")
+        let snapshot = try JSONSerialization.jsonObject(with: JSONEncoder().encode(account()))
+        try JSONSerialization.data(withJSONObject: ["version": PerpsReadCache.accountsVersion + 1,
+                                                    "contents": ["a": ["snapshot": snapshot]]]).write(to: accountsURL)
+        try Data("not json".utf8).write(to: marketURL)
+        var client = client()
+        client.marketSnapshot = { try self.market() }
+        client.positions = { _ in self.account() }
+        let value = store(client: client, directory: directory)
+        await value.loadFromCache(accountIds: ["a"])
+        #expect(value.snapshots["a"] == nil)
+        #expect(value.market == nil)
+        #expect(!FileManager.default.fileExists(atPath: marketURL.path()))
+        await value.refresh(accountId: "a")
+        #expect(await PerpsReadCache(directory: directory).accounts.load().value?.keys.sorted() == ["a"])
+        #expect(await PerpsReadCache(directory: directory).market.load().value?.market == value.market)
+    }
+
+    // MARK: - Activity evidence
+
+    @Test func confirmedEmptyHistoryRestoresUntilTheAccountIsRemoved() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var client = client()
+        client.positions = { _ in self.account() }
+        client.history = { _ in .init(fills: []) }
+        let confirmed = store(client: client, directory: directory)
         await confirmed.refresh(accountId: "a")
-        let restored = store(client: self.client(), url: url)
+        let restored = store(client: self.client(), directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
         #expect(restored.hasActivityHistory["a"] == false)
         #expect(restored.hasActivityHistory["b"] == nil)
@@ -26,26 +120,20 @@ struct PerpsReadCacheTests {
         #expect(restored.hasActivityHistory["a"] == nil)
     }
 
-    @Test(arguments: [false, true])
-    func hiddenFundingHistoryStillDisqualifiesFirstTimeOnboardingAfterRestart(normalized: Bool) async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
-        let funding = try JSONDecoder().decode(ApiPerpsActivityHistory.self, from: Data("""
-        {"fills":[],"cashFlows":[{"id":"funding/1","kind":"funding","direction":"incoming","time":1,
-        "amount":"0.01","token":"USDC","fees":[]}]}
-        """.utf8))
-        var response = normalized ? ApiPerpsActivityHistory(fills: [], cashFlows: [], hasActivity: true) : funding
+    @Test func unrenderedActivityEvidenceSurvivesALaterEmptyPageAndRestart() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var response = ApiPerpsActivityHistory(fills: [], hasActivity: true)
         var client = client()
-        client.snapshot = { _ in snapshot }
+        client.positions = { _ in self.account() }
         client.history = { _ in response }
-        let original = store(client: client, url: url)
+        let original = store(client: client, directory: directory)
         await original.refresh(accountId: "a")
-        #expect(original.cashFlows["a"]?.isEmpty == true)
+        #expect(original.fills["a"]?.isEmpty == true)
         #expect(original.hasActivityHistory["a"] == true)
-        response = .init(fills: [], cashFlows: [])
+        response = .init(fills: [])
         await original.refresh(accountId: "a")
-        let restored = store(client: self.client(), url: url)
+        let restored = store(client: self.client(), directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
         #expect(restored.hasActivityHistory["a"] == true)
         await restored.clearCache()
@@ -53,128 +141,120 @@ struct PerpsReadCacheTests {
     }
 
     @Test func failedAndAssetOnlyHistoryReadsCannotConfirmAnEmptyAccount() async throws {
-        let snapshot = try snapshot()
+        let asset = try #require(try market().assets.first)
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.assetDetail = { _, _, _ in .init(asset: snapshot.assets[0], history: .init(fills: [], cashFlows: [])) }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
+        client.positions = { _ in self.account() }
+        client.assetDetail = { _, _, _ in .init(asset: asset, history: .init(fills: [])) }
+        let value = store(client: client)
         await value.refresh(accountId: "a")
-        await value.refreshAsset(accountId: "a", assetId: snapshot.assets[0].id)
+        await value.refreshAsset(accountId: "a", assetId: asset.id)
         #expect(value.hasActivityHistory["a"] == nil)
     }
 
     @Test func partialPositionEvidencePersistsEvenWhenHistoryFails() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        var response = try snapshot()
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var response = account()
         var historyFails = false
         var client = client()
-        client.snapshot = { _ in response }
+        client.positions = { _ in response }
         client.history = { _ in
             if historyFails { throw PerpsError.invalidResponse }
-            return .init(fills: [], cashFlows: [])
+            return .init(fills: [])
         }
-        let value = store(client: client, url: url)
+        let value = store(client: client, directory: directory)
         await value.refresh(accountId: "a")
         #expect(value.hasActivityHistory["a"] == false)
-        response.unavailableDexs = ["xyz"]
-        response.positions = [try JSONDecoder().decode(ApiPerpsAccountPosition.self, from: Data("""
-        {"id":"a/hyperliquid:hl:BTC","assetId":"hyperliquid:hl:BTC","dex":"","side":"long","size":"0.01",
-         "collateral":"100","equity":"102","raw":{"coin":"BTC","leverage":{"type":"isolated","value":2},
-         "marginUsed":"102","positionValue":"600","returnOnEquity":"0.02","szi":"0.01","unrealizedPnl":"2"}}
-        """.utf8))]
+        response = account(positions: [try position()], unavailableDexs: ["xyz"])
         historyFails = true
         await value.refresh(accountId: "a")
-        let restored = store(client: self.client(), url: url)
+        let restored = store(client: self.client(), directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
         #expect(restored.snapshots["a"]?.positions.isEmpty == true)
         #expect(restored.hasActivityHistory["a"] == true)
     }
 
-    @Test func restoredPortfolioAndHistoryAreAvailableBeforeTheFirstRefresh() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
-        let history = try history()
-        var client = client()
-        client.snapshot = { _ in snapshot }
-        client.history = { _ in history }
-        let original = store(client: client, url: url)
-        await original.refresh(accountId: "a")
-        let restored = store(client: self.client(), url: url)
-        await restored.loadFromCache(accountIds: ["a", "b"])
-        #expect(restored.snapshots["a"] == snapshot)
-        #expect(restored.fills["a"] == history.fills)
-        #expect(restored.cashFlows["a"] == history.cashFlows)
-        #expect(restored.snapshots["b"] == nil)
-        #expect(restored.loading.isEmpty)
-        #expect(restored.errors.isEmpty)
-        #expect(!restored.isSupported)
-        #expect(!restored.isSnapshotStale(accountId: "a"))
-        #expect(!restored.isHistoryStale(accountId: "a"))
-        #expect(!original.isSnapshotStale(accountId: "a"))
-        #expect(!original.isHistoryStale(accountId: "a"))
+    // MARK: - Restoration and removal
 
-        await restored.refresh(accountId: "a")
-        #expect(restored.snapshots["a"] == snapshot)
-        #expect(restored.cashFlows["a"] == history.cashFlows)
-        #expect(restored.errors["a"] == "PerpsUnavailable")
-        #expect(!restored.isSnapshotStale(accountId: "a"))
-        #expect(!restored.isHistoryStale(accountId: "a"))
-    }
-
-    @Test func hydrationCannotOverwriteANewerLiveSnapshot() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        var live = try snapshot()
+    @Test func dataThatArrivesWhileTheCacheIsReadWinsAndTheFilesAreWrittenBackWhole() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date.now
+        let cache = PerpsReadCache(directory: directory)
+        cache.accounts.save(["a": .init(snapshot: account(equity: "100")), "b": .init(snapshot: account(equity: "50")),
+                             "removed": .init(snapshot: account())])
+        cache.market.save(.init(langCode: LocalizationSupport.shared.langCode,
+                                market: try market(fetchedAt: now.addingTimeInterval(-600)), descriptions: [btc: "Bitcoin"]))
+        await cache.flush()
         var client = client()
-        client.snapshot = { _ in live }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let value = store(client: client, url: url)
-        await value.refresh(accountId: "a")
-        live.totalEquity = "200"
-        await value.refresh(accountId: "a")
-        await value.loadFromCache(accountIds: ["a"])
+        client.marketSnapshot = { try self.market(fetchedAt: now, markPx: "61000") }
+        let value = store(client: client, directory: directory)
+        var started = false
+        let hydration = Task {
+            started = true
+            await value.loadFromCache(accountIds: ["a", "b"])
+        }
+        while !started { await Task.yield() }
+        // Both save their files from memory that does not hold the restored data yet.
+        push(account(equity: "200"), to: value, accountId: "a")
+        await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: Self.milliseconds(now)))
+        await hydration.value
         #expect(value.snapshots["a"]?.totalEquity == "200")
+        #expect(value.snapshots["b"]?.totalEquity == "50")
+        #expect(value.snapshots["removed"] == nil)
+        #expect(value.asset(id: btc)?.context.markPx == "61000")
+        #expect(value.asset(id: btc)?.description == "Bitcoin")
+        await value.cache?.flush()
+        let restored = store(client: offlineClient(), directory: directory)
+        await restored.loadFromCache(accountIds: ["a", "b", "removed"])
+        #expect(restored.snapshots["a"]?.totalEquity == "200")
+        #expect(restored.snapshots["b"]?.totalEquity == "50")
+        #expect(restored.snapshots["removed"] == nil)
+        #expect(restored.asset(id: btc)?.context.markPx == "61000")
     }
 
-    @Test func deletingAnAccountRemovesItsPersistedDataAndAllowsANewAccountWithThatID() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
+    @Test func deletingAnAccountRemovesOnlyItsDataAndAllowsANewAccountWithThatID() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let snapshot = account()
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let value = store(client: client, url: url)
+        client.marketSnapshot = { try self.market() }
+        client.positions = { _ in snapshot }
+        client.history = { _ in .init(fills: []) }
+        client.candles = { _, _ in [[1, 60_000]] }
+        let value = store(client: client, directory: directory)
         await value.refresh(accountId: "a")
         await value.refresh(accountId: "b")
+        await value.refreshChart(assetId: btc, period: "1D")
         value.walletCore(event: .accountDeleted(accountId: "a"))
-        // Loading on the same storage queue waits for its queued deletion write.
-        await value.loadFromCache(accountIds: ["a", "b"])
-        let restored = store(client: client, url: url)
+        push(account(equity: "300"), to: value, accountId: "a")
+        await value.refresh(accountId: "a")
+        #expect(value.snapshots["a"] == nil)
+        #expect(value.market != nil)
+        #expect(value.chart(assetId: btc, period: "1D") != nil)
+        await value.cache?.flush()
+        let restored = store(client: offlineClient(), directory: directory)
         await restored.loadFromCache(accountIds: ["a", "b"])
         #expect(restored.snapshots["a"] == nil)
         #expect(restored.snapshots["b"] == snapshot)
-        await value.refresh(accountId: "a")
-        #expect(value.snapshots["a"] == nil)
+        #expect(restored.market != nil)
         value.walletCore(event: .accountChanged(accountId: "a", isNew: true))
         await value.refresh(accountId: "a")
         #expect(value.snapshots["a"] == snapshot)
     }
 
     @Test(arguments: [false, true])
-    func clearingOrResettingDuringHydrationDoesNotRestoreBalances(reset: Bool) async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
+    func clearingOrResettingDuringHydrationDoesNotRestoreAccounts(reset: Bool) async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let original = store(client: client, url: url)
+        client.marketSnapshot = { try self.market() }
+        client.positions = { _ in self.account() }
+        client.history = { _ in .init(fills: []) }
+        let original = store(client: client, directory: directory)
         await original.refresh(accountId: "a")
-        let operation = ApiPerpsOperation(id: "pending", accountId: "a", assetId: "BTC", kind: "increase", createdAt: 1)
-        let restored = PerpsStore(client: client, cacheURL: url, load: { [operation] }, save: { _ in },
-                                 loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
+        let operation = ApiPerpsOperation(id: "pending", accountId: "a", assetId: btc, kind: "increase", createdAt: 1)
+        let restored = store(client: client, directory: directory, operations: [operation])
         var started = false
         let hydration = Task {
             started = true
@@ -190,259 +270,176 @@ struct PerpsReadCacheTests {
         await restored.loadFromCache(accountIds: ["a"])
         #expect(restored.snapshots.isEmpty)
         #expect(restored.fills.isEmpty)
-        #expect(restored.cashFlows.isEmpty)
         #expect(restored.pendingOperation(accountId: "a")?.id == operation.id)
+        // The catalogue belongs to no account and survives a reset.
+        #expect((restored.market != nil) == reset)
     }
 
     @Test func deletingOrClearingWhileRefreshIsSuspendedCannotRepopulateCache() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         for delete in [false, true] {
-            let snapshot = try snapshot()
-            var response: CheckedContinuation<ApiPerpsSnapshot, Error>?
+            var response: CheckedContinuation<ApiPerpsAccountSnapshot, Error>?
             var client = client()
-            client.snapshot = { _ in try await withCheckedThrowingContinuation { response = $0 } }
-            let value = store(client: client, url: url)
+            client.positions = { _ in try await withCheckedThrowingContinuation { response = $0 } }
+            let value = store(client: client, directory: directory)
             let refresh = Task { await value.refresh(accountId: "a") }
             while response == nil { await Task.yield() }
             if delete { value.removeAccount("a") } else { await value.clearCache() }
-            response?.resume(returning: snapshot)
+            response?.resume(returning: account())
             await refresh.value
             await value.loadFromCache(accountIds: ["a"])
             #expect(value.snapshots.isEmpty)
             #expect(value.loading.isEmpty)
-            let restored = store(client: self.client(), url: url)
+            await value.cache?.flush()
+            let restored = store(client: self.client(), directory: directory)
             await restored.loadFromCache(accountIds: ["a"])
             #expect(restored.snapshots.isEmpty)
         }
     }
 
-    @Test func oldDisplayDataSurvivesButCorruptAndUnownedDataAreIgnored() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let now = Date.now
-        let snapshot = try snapshot()
-        let cache = PerpsReadCache(url: url)
-        cache.save([
-            "old": .init(snapshot: snapshot, snapshotFetchedAt: now.addingTimeInterval(-365 * 24 * 60 * 60)),
-            "future": .init(snapshot: snapshot, snapshotFetchedAt: now.addingTimeInterval(60)),
-            "deleted": .init(snapshot: snapshot, snapshotFetchedAt: now),
-            "current": .init(snapshot: snapshot, snapshotFetchedAt: now)
-        ])
-        await cache.flush()
-        let value = store(client: client(), url: url)
-        await value.loadFromCache(accountIds: ["old", "future", "current"], now: now)
-        #expect(Set(value.snapshots.keys) == ["old", "future", "current"])
-        #expect(value.isSnapshotStale(accountId: "old"))
-        #expect(Set(await cache.load().keys) == ["old", "future", "current"])
-        await value.clearCache()
-        try Data("not json".utf8).write(to: url)
-        let invalid = store(client: client(), url: url)
-        await invalid.loadFromCache(accountIds: ["current"])
-        #expect(invalid.snapshots.isEmpty)
-        #expect(!FileManager.default.fileExists(atPath: url.path()))
-    }
+    // MARK: - Partial reads and freshness
 
     @Test func partialSnapshotsRemainUnavailableAndHistoryIsBounded() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        var snapshot = try snapshot()
-        snapshot.unavailableDexs = ["xyz"]
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let fill = try #require(history().fills.first)
-        let cashFlow = try #require(history().cashFlows.first)
-        var history = ApiPerpsActivityHistory(fills: [], cashFlows: [])
+        var history = ApiPerpsActivityHistory(fills: [])
         for index in 0..<(PerpsCachedAccount.historyLimit + 1) {
             var nextFill = fill
-            nextFill.tid = Int64(index)
+            nextFill.activityId = "fill/\(index)"
             history.fills.append(nextFill)
-            var nextFlow = cashFlow
-            nextFlow.id = "deposit/\(index)"
-            history.cashFlows.append(nextFlow)
         }
         var client = client()
-        client.snapshot = { _ in snapshot }
+        client.positions = { _ in self.account(unavailableDexs: ["xyz"]) }
         client.history = { _ in history }
-        let value = store(client: client, url: url)
+        let value = store(client: client, directory: directory)
         await value.refresh(accountId: "a")
         #expect(value.fills["a"]?.count == PerpsCachedAccount.historyLimit + 1)
-        let restored = store(client: self.client(), url: url)
+        let restored = store(client: self.client(), directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
-        #expect(restored.errors["a"] == "PerpsIncompleteData")
+        #expect(restored.snapshotErrors["a"] == "PerpsIncompleteData")
         #expect(restored.snapshots["a"]?.unavailableDexs == ["xyz"])
+        #expect(restored.isSnapshotStale(accountId: "a"))
         #expect(restored.fills["a"]?.count == PerpsCachedAccount.historyLimit)
-        #expect(restored.cashFlows["a"]?.count == PerpsCachedAccount.historyLimit)
     }
 
-    @Test func versionTwoCacheMigratesToPersistentStorageAfterFilteringAccounts() async throws {
-        let url = cacheURL()
-        let legacyURL = url.deletingLastPathComponent().appending(path: "legacy.json")
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        struct Legacy: Encodable {
-            var version = 2
-            var accounts: [String: PerpsCachedAccount]
-        }
-        let old = PerpsCachedAccount(snapshot: try snapshot(), snapshotFetchedAt: .distantPast)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try JSONEncoder().encode(Legacy(accounts: ["a": old, "removed": old])).write(to: legacyURL)
-        let value = PerpsStore(client: client(), cacheURL: url, legacyCacheURL: legacyURL, load: { [] }, save: { _ in },
-                              loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
-        await value.loadFromCache(accountIds: ["a"])
-        #expect(value.snapshots["a"] == old.snapshot)
-        #expect(value.isSnapshotStale(accountId: "a"))
-        #expect(!FileManager.default.fileExists(atPath: legacyURL.path()))
-        #expect(Set(await PerpsReadCache(url: url).load().keys) == ["a"])
-        #expect(try url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
-    }
-
-    @Test func partialRefreshKeepsTheLastCompletePortfolioUntilACompleteEmptyResponse() async throws {
-        var snapshot = try snapshot()
-        snapshot.positions = [try JSONDecoder().decode(ApiPerpsAccountPosition.self, from: Data("""
-        {"id":"a/hyperliquid:hl:BTC","assetId":"hyperliquid:hl:BTC","dex":"","side":"long","size":"0.01",
-         "collateral":"100","equity":"102","raw":{"coin":"BTC","leverage":{"type":"isolated","value":2},
-         "marginUsed":"102","positionValue":"600","returnOnEquity":"0.02","szi":"0.01","unrealizedPnl":"2"}}
-        """.utf8))]
-        var response = snapshot
+    @Test func partialReadKeepsTheLastCompletePortfolioUntilACompleteEmptyResponse() async throws {
+        let complete = account(positions: [try position()])
+        var response = complete
         var client = client()
-        client.snapshot = { _ in response }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
+        client.positions = { _ in response }
+        client.history = { _ in .init(fills: []) }
+        let value = store(client: client)
         await value.refresh(accountId: "a")
-        response.positions = []
-        response.totalEquity = "0"
-        response.unavailableDexs = [""]
+        response = account(equity: "0", unavailableDexs: [""])
         await value.refresh(accountId: "a")
-        #expect(value.snapshots["a"] == snapshot)
+        #expect(value.snapshots["a"] == complete)
         #expect(!value.isSnapshotStale(accountId: "a"))
         #expect(value.snapshotErrors["a"] == "PerpsIncompleteData")
         #expect(!value.isHistoryStale(accountId: "a"))
-        response.unavailableDexs = []
+        push(account(equity: "0", unavailableDexs: ["xyz"]), to: value, accountId: "a")
+        #expect(value.snapshots["a"] == complete)
+        response = account(equity: "0")
         await value.refresh(accountId: "a")
         #expect(value.snapshots["a"]?.positions.isEmpty == true)
+        #expect(value.snapshotErrors["a"] == nil)
         #expect(!value.isSnapshotStale(accountId: "a"))
     }
 
-    @Test func snapshotAndHistoryFreshnessResolveIndependently() async throws {
-        let snapshot = try snapshot()
+    @Test func positionsAndHistoryFreshnessResolveIndependently() async throws {
         var historyResponse: CheckedContinuation<ApiPerpsActivityHistory, Error>?
         var client = client()
-        client.snapshot = { _ in snapshot }
+        client.positions = { _ in self.account() }
         client.history = { _ in try await withCheckedThrowingContinuation { historyResponse = $0 } }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
+        let value = store(client: client)
         let refresh = Task { await value.refresh(accountId: "a") }
-        while historyResponse == nil || value.snapshotLoading.contains("a") { await Task.yield() }
+        while historyResponse == nil || value.snapshots["a"] == nil { await Task.yield() }
         #expect(!value.isSnapshotStale(accountId: "a"))
         #expect(value.isHistoryStale(accountId: "a"))
-        #expect(value.historyLoading.contains("a"))
+        #expect(value.loading.contains("a"))
         historyResponse?.resume(throwing: PerpsError.invalidResponse)
         await refresh.value
         #expect(value.snapshotErrors["a"] == nil)
-        #expect(value.historyErrors["a"] == "PerpsUnavailable")
-        #expect(value.historyLoading.isEmpty)
+        #expect(value.loading.isEmpty)
         #expect(!value.isSnapshotStale(accountId: "a"))
+        #expect(value.isHistoryStale(accountId: "a"))
     }
 
-    @Test func subsequentRefreshKeepsRecentDataFreshWhileItsSourceIsPending() async throws {
-        let snapshot = try snapshot()
-        var response: CheckedContinuation<ApiPerpsSnapshot, Error>?
-        var deferSnapshot = false
-        var client = client()
-        client.snapshot = { _ in
-            if deferSnapshot { return try await withCheckedThrowingContinuation { response = $0 } }
-            return snapshot
-        }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        await value.refresh(accountId: "a")
-        #expect(!value.isSnapshotStale(accountId: "a"))
-        deferSnapshot = true
-        let refresh = Task { await value.refresh(accountId: "a") }
-        while response == nil { await Task.yield() }
-        #expect(value.snapshots["a"] == snapshot)
-        #expect(!value.isSnapshotStale(accountId: "a"))
-        response?.resume(returning: snapshot)
-        await refresh.value
-        #expect(!value.isSnapshotStale(accountId: "a"))
-    }
-
-    @Test func restoredFreshnessUsesFetchAgeAndKeepsAccountsAndPeriodsIsolated() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+    @Test func restoredFreshnessUsesReadTimesAndKeepsAccountsAndPeriodsIsolated() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let now = Date.now
-        let snapshot = try snapshot()
         let history = try history()
-        var partial = snapshot
-        partial.unavailableDexs = ["xyz"]
-        let cache = PerpsReadCache(url: url)
-        cache.save([
-            "recent": .init(snapshot: snapshot, snapshotFetchedAt: now.addingTimeInterval(-59),
-                            history: history, historyFetchedAt: now.addingTimeInterval(-299),
-                            charts: ["BTC/1D": .init(points: [[1, 60_000]], fetchedAt: now.addingTimeInterval(-299))]),
-            "old": .init(snapshot: snapshot, snapshotFetchedAt: now.addingTimeInterval(-60),
-                         history: history, historyFetchedAt: now.addingTimeInterval(-300),
-                         charts: ["BTC/1D": .init(points: [[1, 60_000]], fetchedAt: now.addingTimeInterval(-300))]),
-            "unknown": .init(snapshot: snapshot, history: history),
-            "partial": .init(snapshot: partial, snapshotFetchedAt: now),
+        let cache = PerpsReadCache(directory: directory)
+        cache.accounts.save([
+            "recent": .init(snapshot: account(at: now.addingTimeInterval(-59)), fills: history.fills,
+                            historyFetchedAt: now.addingTimeInterval(-299)),
+            "old": .init(snapshot: account(at: now.addingTimeInterval(-60)), fills: history.fills,
+                         historyFetchedAt: now.addingTimeInterval(-300)),
+            "unknown": .init(snapshot: account(at: now), fills: history.fills),
+            "partial": .init(snapshot: account(at: now, unavailableDexs: ["xyz"])),
         ])
+        cache.charts.save([btc + "/1D": .init(points: [[1, 60_000]], fetchedAt: now.addingTimeInterval(-299))])
         await cache.flush()
-        let value = store(client: client(), url: url)
-        await value.loadFromCache(accountIds: ["recent", "old", "unknown", "partial"], now: now)
+        var client = client()
+        client.candles = { _, _ in throw PerpsError.invalidResponse }
+        let value = store(client: client, directory: directory)
+        await value.loadFromCache(accountIds: ["recent", "old", "unknown", "partial"])
+        await value.refreshChart(assetId: btc, period: "1D")
         #expect(!value.isSnapshotStale(accountId: "recent", now: now))
         #expect(!value.isHistoryStale(accountId: "recent", now: now))
-        #expect(!value.isChartRestored(accountId: "recent", assetId: "BTC", period: "1D", now: now))
-        #expect(value.isChartRestored(accountId: "recent", assetId: "BTC", period: "7D", now: now))
-        for accountId in ["old", "unknown", "missing"] {
+        #expect(!value.isChartRestored(assetId: btc, period: "1D", now: now))
+        #expect(value.isChartRestored(assetId: btc, period: "7D", now: now))
+        #expect(!value.isSnapshotStale(accountId: "unknown", now: now))
+        for accountId in ["old", "missing"] {
             #expect(value.isSnapshotStale(accountId: accountId, now: now))
             #expect(value.isHistoryStale(accountId: accountId, now: now))
-            #expect(value.isChartRestored(accountId: accountId, assetId: "BTC", period: "1D", now: now))
         }
+        #expect(value.isHistoryStale(accountId: "unknown", now: now))
         #expect(value.isSnapshotStale(accountId: "partial", now: now))
         #expect(value.isSnapshotStale(accountId: "recent", now: now.addingTimeInterval(1)))
         #expect(value.isHistoryStale(accountId: "recent", now: now.addingTimeInterval(1)))
-        #expect(value.isChartRestored(accountId: "recent", assetId: "BTC", period: "1D", now: now.addingTimeInterval(1)))
+        #expect(value.isChartRestored(assetId: btc, period: "1D", now: now.addingTimeInterval(1)))
         value.removeAccount("old")
         #expect(!value.isSnapshotStale(accountId: "recent", now: now))
         await value.clearCache()
         #expect(value.isSnapshotStale(accountId: "recent", now: now))
+        #expect(value.chart(assetId: btc, period: "1D") == nil)
     }
 
-    @Test func failedOrPartialRefreshCannotRenewOldDataTimestamps() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+    @Test func failedOrPartialRefreshCannotRenewOldData() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let now = Date.now
-        let snapshot = try snapshot()
+        let old = account(at: now.addingTimeInterval(-61))
         let history = try history()
-        let cache = PerpsReadCache(url: url)
-        cache.save(["a": .init(snapshot: snapshot, snapshotFetchedAt: now.addingTimeInterval(-61),
-                               history: history, historyFetchedAt: now.addingTimeInterval(-301),
-                               charts: ["BTC/1D": .init(points: [[1, 60_000]], fetchedAt: now.addingTimeInterval(-301))])])
+        let cache = PerpsReadCache(directory: directory)
+        cache.accounts.save(["a": .init(snapshot: old, fills: history.fills, historyFetchedAt: now.addingTimeInterval(-301))])
         await cache.flush()
         var complete = false
-        var response: CheckedContinuation<ApiPerpsSnapshot, Error>?
+        var response: CheckedContinuation<ApiPerpsAccountSnapshot, Error>?
         var client = client()
-        client.snapshot = { _ in
-            if complete { return snapshot }
+        client.positions = { _ in
+            if complete { return self.account() }
             return try await withCheckedThrowingContinuation { response = $0 }
         }
         client.history = { _ in
             guard complete else { throw PerpsError.invalidResponse }
             return history
         }
-        client.candles = { _, _ in throw PerpsError.invalidResponse }
-        let value = store(client: client, url: url)
+        let value = store(client: client, directory: directory)
         await value.loadFromCache(accountIds: ["a"])
         let refresh = Task { await value.refresh(accountId: "a") }
         while response == nil { await Task.yield() }
         #expect(value.isSnapshotStale(accountId: "a"))
-        var partial = snapshot
-        partial.unavailableDexs = ["xyz"]
-        response?.resume(returning: partial)
+        response?.resume(returning: account(unavailableDexs: ["xyz"]))
         await refresh.value
-        await value.refreshChart(accountId: "a", assetId: "BTC", period: "1D")
-        #expect(value.snapshots["a"] == snapshot)
+        #expect(value.snapshots["a"] == old)
         #expect(value.isSnapshotStale(accountId: "a"))
         #expect(value.isHistoryStale(accountId: "a"))
-        #expect(value.isChartRestored(accountId: "a", assetId: "BTC", period: "1D"))
-        let restored = store(client: self.client(), url: url)
+        await value.cache?.flush()
+        let restored = store(client: self.client(), directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
         #expect(restored.isSnapshotStale(accountId: "a"))
         #expect(restored.isHistoryStale(accountId: "a"))
@@ -453,64 +450,150 @@ struct PerpsReadCacheTests {
         #expect(!value.isHistoryStale(accountId: "a"))
     }
 
-    @Test func capabilityUnknownAllowsCachedReadButNeverTradingOrUncachedAccounts() async throws {
+    @Test func capabilityIsAssumedUntilTheSDKReportsItAndTradingNeedsAnEligibleSnapshot() async throws {
         let account = MAccount(id: "a-mainnet", title: "Wallet", type: .mnemonic,
                                byChain: [.arbitrum: AccountChain(address: "0x1234")])
-        let other = MAccount(id: "b-mainnet", title: "Wallet", type: .mnemonic,
-                             byChain: [.arbitrum: AccountChain(address: "0x5678")])
-        let snapshot = try snapshot()
-        var supported = false
-        var fail = true
+        let testnet = MAccount(id: "b-testnet", title: "Wallet", type: .mnemonic,
+                               byChain: [.arbitrum: AccountChain(address: "0x5678")])
+        var snapshot = self.account()
+        var supported: Bool?
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.supported = { if fail { throw PerpsError.invalidResponse }; return supported }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        await value.refresh(accountId: account.id)
-        #expect(!PerpsAvailability.canRead(account, store: value))
+        client.positions = { _ in snapshot }
+        client.supported = {
+            guard let supported else { throw PerpsError.invalidResponse }
+            return supported
+        }
+        let value = store(client: client)
         await value.loadCapabilities()
         #expect(!PerpsAvailability.canRead(account, store: value))
-        fail = false
+        #expect(!PerpsAvailability.canRead(testnet, store: value))
+        await value.refresh(accountId: account.id)
+        #expect(!PerpsAvailability.canTrade(account, store: value))
+        snapshot.tradingAvailability = .init(isAvailable: true)
+        await value.refresh(accountId: account.id)
+        #expect(!PerpsAvailability.canTrade(account, store: value))
+        supported = false
+        await value.loadCapabilities()
+        #expect(!PerpsAvailability.canRead(account, store: value))
+        #expect(!PerpsAvailability.canTrade(account, store: value))
         supported = true
         await value.loadCapabilities()
         #expect(!PerpsAvailability.canRead(account, store: value))
-        #expect(!PerpsAvailability.canRead(other, store: value))
-        #expect(!PerpsAvailability.canTrade(account, store: value))
     }
 
-    @Test func chartsRestoreByAccountAndPeriodAndRemainVisibleAfterFailure() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+    // MARK: - Pushed positions
+
+    @Test func failedPollingEndsFreshnessUntilTheNextPush() async throws {
+        let value = store(client: client(), current: CurrentAccount("a"))
+        let later = Date.now.addingTimeInterval(3_600)
+        push(account(), to: value, accountId: "a")
+        #expect(!value.isSnapshotStale(accountId: "a", now: later))
+        value.walletCore(event: .updatePerpsPositionsUnavailable(.init(accountId: "b")))
+        #expect(!value.isSnapshotStale(accountId: "a", now: later))
+        value.walletCore(event: .updatePerpsPositionsUnavailable(.init(accountId: "a")))
+        #expect(value.isSnapshotStale(accountId: "a", now: later))
+        push(account(), to: value, accountId: "a")
+        #expect(!value.isSnapshotStale(accountId: "a", now: later))
+    }
+
+    @Test func pushedPositionsDecodeFromTheSDKShapeAndApplyOnlyToTheirAccount() async throws {
+        let update = try JSONDecoder().decode(ApiUpdate.UpdatePerpsPositions.self, from: Data("""
+        {"type":"updatePerpsPositions","accountId":"a","abstractionMode":"unifiedAccount",
+         "tradingAvailability":{"isAvailable":true},
+         "positions":[{"id":"a/hyperliquid:hl:BTC","assetId":"hyperliquid:hl:BTC","dex":"","side":"long","size":"0.01",
+          "collateral":"100","equity":"102","raw":{"coin":"BTC","leverage":{"type":"isolated","value":2},
+          "marginUsed":"102","positionValue":"600","returnOnEquity":"0.02","szi":"0.01","unrealizedPnl":"2"}}],
+         "totalEquity":"102","totalPnl":"2","totalReturnOnEquity":"0.02","timestamp":1792760045000,"unavailableDexs":[]}
+        """.utf8))
+        #expect(update.accountId == "a")
+        #expect(update.snapshot.abstractionMode == "unifiedAccount")
+        #expect(update.snapshot.positions.first?.size == "0.01")
+        let value = store(client: offlineClient())
+        value.walletCore(event: .updatePerpsPositions(update))
+        #expect(value.snapshots["a"] == update.snapshot)
+        #expect(value.snapshots["b"] == nil)
+        #expect(value.snapshotErrors["a"] == nil)
+        #expect(value.hasActivityHistory["a"] == true)
+    }
+
+    @Test func theActiveAccountStaysLiveBetweenPushesUntilTheAccountChanges() async throws {
+        let current = CurrentAccount("a")
+        let longAgo = Date.now.addingTimeInterval(-600)
+        var positionReads: [String] = []
+        var client = client()
+        client.marketSnapshot = { try self.market() }
+        client.positions = { accountId in
+            positionReads.append(accountId)
+            return self.account(at: longAgo)
+        }
+        client.history = { _ in .init(fills: []) }
+        let value = store(client: client, current: current)
+        push(account(at: longAgo), to: value, accountId: "a")
+        #expect(!value.isSnapshotStale(accountId: "a"))
+        await value.refresh(accountId: "a")
+        #expect(positionReads.isEmpty)
+
+        // The SDK does not poll an account that is not active, even if it pushed its positions after an operation.
+        push(account(at: longAgo), to: value, accountId: "b")
+        #expect(value.isSnapshotStale(accountId: "b"))
+        await value.refresh(accountId: "b")
+        #expect(positionReads == ["b"])
+
+        current.id = "b"
+        value.walletCore(event: .accountChanged(accountId: "b", isNew: false))
+        #expect(value.isSnapshotStale(accountId: "a"))
+        #expect(value.isSnapshotStale(accountId: "b"))
+        await value.refresh(accountId: "a")
+        #expect(positionReads == ["b", "a"])
+
+        // The first push after a switch may arrive before the switch event.
+        current.id = "a"
+        push(account(at: longAgo), to: value, accountId: "a")
+        value.walletCore(event: .accountChanged(accountId: "a", isNew: false))
+        #expect(!value.isSnapshotStale(accountId: "a"))
+
+        // An incomplete push keeps the last complete portfolio but no longer counts as live.
+        push(account(at: .now, unavailableDexs: ["xyz"]), to: value, accountId: "a")
+        #expect(value.snapshots["a"]?.unavailableDexs.isEmpty == true)
+        #expect(value.snapshotErrors["a"] == "PerpsIncompleteData")
+        #expect(value.isSnapshotStale(accountId: "a"))
+    }
+
+    // MARK: - Charts
+
+    @Test func chartsAreSharedByAccountsAndRestoredWhenFirstNeeded() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let points = [[1.0, 60_000.0], [2.0, 61_000.0]]
         var client = client()
         client.candles = { _, _ in points }
-        let value = store(client: client, url: url)
-        await value.refreshChart(accountId: "a", assetId: "BTC", period: "1D")
-        #expect(value.isChartFresh(accountId: "a", assetId: "BTC", period: "1D", maxAge: 300))
+        let value = store(client: client, directory: directory)
+        await value.refreshChart(assetId: btc, period: "1D")
+        #expect(!value.isChartRestored(assetId: btc, period: "1D"))
+        value.removeAccount("a")
+        #expect(value.chart(assetId: btc, period: "1D") == points)
         client.candles = { _, _ in throw PerpsError.invalidResponse }
-        let restored = store(client: client, url: url)
+        let restored = store(client: client, directory: directory)
         await restored.loadFromCache(accountIds: ["a"])
-        #expect(restored.chart(accountId: "a", assetId: "BTC", period: "1D") == points)
-        #expect(restored.chart(accountId: "b", assetId: "BTC", period: "1D") == nil)
-        #expect(restored.chart(accountId: "a", assetId: "BTC", period: "7D") == nil)
-        #expect(!restored.isChartRestored(accountId: "a", assetId: "BTC", period: "1D"))
-        await restored.refreshChart(accountId: "a", assetId: "BTC", period: "1D")
-        #expect(restored.chart(accountId: "a", assetId: "BTC", period: "1D") == points)
-        #expect(restored.isChartFresh(accountId: "a", assetId: "BTC", period: "1D", maxAge: 300))
-        #expect(restored.isChartRestored(accountId: "a", assetId: "BTC", period: "1D", now: .now.addingTimeInterval(301)))
+        #expect(restored.chart(assetId: btc, period: "1D") == nil)
+        await restored.refreshChart(assetId: btc, period: "1D")
+        #expect(restored.chart(assetId: btc, period: "1D") == points)
+        #expect(restored.chart(assetId: btc, period: "7D") == nil)
+        #expect(!restored.isChartRestored(assetId: btc, period: "1D"))
+        #expect(restored.isChartRestored(assetId: btc, period: "1D", now: .now.addingTimeInterval(301)))
     }
 
-    @Test(arguments: [false, true])
-    func clearingOrDeletingDuringChartFetchCannotRestoreItsData(delete: Bool) async {
+    @Test func clearingDuringAChartFetchDiscardsIt() async {
         var response: CheckedContinuation<[[Double]], Error>?
         var client = client()
         client.candles = { _, _ in try await withCheckedThrowingContinuation { response = $0 } }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        let request = Task { await value.refreshChart(accountId: "a", assetId: "BTC", period: "1D") }
+        let value = store(client: client)
+        let request = Task { await value.refreshChart(assetId: btc, period: "1D") }
         while response == nil { await Task.yield() }
-        if delete { value.removeAccount("a") } else { await value.clearCache() }
+        await value.clearCache()
         response?.resume(returning: [[1, 60_000]])
         await request.value
-        #expect(value.chart(accountId: "a", assetId: "BTC", period: "1D") == nil)
+        #expect(value.chart(assetId: btc, period: "1D") == nil)
     }
 
     @Test func longChartsRetainTheirTimeRangeAndRefreshWithoutDimmingRecentData() async {
@@ -522,109 +605,113 @@ struct PerpsReadCacheTests {
             if deferChart { return try await withCheckedThrowingContinuation { response = $0 } }
             return points
         }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        await value.refreshChart(accountId: "a", assetId: "BTC", period: "ALL")
-        let chart = value.chart(accountId: "a", assetId: "BTC", period: "ALL")
-        #expect(chart?.count == PerpsCachedAccount.chartPointLimit)
+        let value = store(client: client)
+        await value.refreshChart(assetId: btc, period: "ALL")
+        let chart = value.chart(assetId: btc, period: "ALL")
+        #expect(chart?.count == PerpsCachedChart.pointLimit)
         #expect(chart?.first == points.first)
         #expect(chart?.last == points.last)
         deferChart = true
-        let refresh = Task { await value.refreshChart(accountId: "a", assetId: "BTC", period: "ALL") }
+        let refresh = Task { await value.refreshChart(assetId: btc, period: "ALL") }
         while response == nil { await Task.yield() }
-        #expect(!value.isChartRestored(accountId: "a", assetId: "BTC", period: "ALL"))
-        #expect(value.chart(accountId: "a", assetId: "BTC", period: "ALL") == chart)
+        #expect(!value.isChartRestored(assetId: btc, period: "ALL"))
+        #expect(value.chart(assetId: btc, period: "ALL") == chart)
         response?.resume(returning: points)
         await refresh.value
-        #expect(!value.isChartRestored(accountId: "a", assetId: "BTC", period: "ALL"))
+        #expect(!value.isChartRestored(assetId: btc, period: "ALL"))
     }
 
-    @Test func assetDescriptionsPersistWithoutClaimingTheWholeAccountIsFresh() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let snapshot = try snapshot()
-        var asset = try #require(snapshot.assets.first)
-        asset.description = "Bitcoin perpetual futures."
+    // MARK: - Catalogue
+
+    @Test func assetDescriptionsSurviveCataloguePushesAndRestartWithoutRenewingTheAccount() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let now = Date.now
+        var detail = try #require(try market().assets.first)
+        detail.description = "Bitcoin perpetual futures."
+        var fetchedAt = now.addingTimeInterval(-10)
         var client = client()
-        client.snapshot = { _ in snapshot }
-        client.assetDetail = { _, _, _ in .init(asset: asset, history: .init(fills: [], cashFlows: [])) }
-        let cache = PerpsReadCache(url: url)
-        cache.save(["a": .init(snapshot: snapshot, snapshotFetchedAt: .distantPast,
-                               history: .init(fills: [], cashFlows: []), historyFetchedAt: .distantPast)])
+        client.marketSnapshot = { try self.market(fetchedAt: fetchedAt) }
+        client.assetDetail = { _, _, _ in .init(asset: detail, history: .init(fills: [])) }
+        let cache = PerpsReadCache(directory: directory)
+        cache.accounts.save(["a": .init(snapshot: account(at: .distantPast), fills: [], historyFetchedAt: .distantPast)])
         await cache.flush()
-        let restored = store(client: client, url: url)
-        await restored.loadFromCache(accountIds: ["a"])
-        await restored.refreshAsset(accountId: "a", assetId: asset.id)
-        await restored.loadFromCache(accountIds: ["a"])
-        #expect(restored.isSnapshotStale(accountId: "a"))
-        #expect(restored.isHistoryStale(accountId: "a"))
-        let reopened = store(client: client, url: url)
+        let value = store(client: client, directory: directory)
+        await value.loadFromCache(accountIds: ["a"])
+        await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: Self.milliseconds(fetchedAt)))
+        await value.refreshAsset(accountId: "a", assetId: btc)
+        #expect(value.asset(id: btc)?.description == detail.description)
+        #expect(value.isSnapshotStale(accountId: "a"))
+        #expect(value.isHistoryStale(accountId: "a"))
+        fetchedAt = now
+        await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: Self.milliseconds(now)))
+        #expect(value.market?.assetsFetchedAt == Self.milliseconds(now))
+        #expect(value.asset(id: btc)?.description == detail.description)
+        await value.cache?.flush()
+        let reopened = store(client: offlineClient(), directory: directory)
         await reopened.loadFromCache(accountIds: ["a"])
-        #expect(reopened.snapshots["a"]?.assets.first?.description == asset.description)
+        #expect(reopened.asset(id: btc)?.description == detail.description)
     }
 
     @Test func clearingDuringAnAssetOnlyFetchInvalidatesItsGeneration() async throws {
-        let asset = try #require(snapshot().assets.first)
+        let asset = try #require(try market().assets.first)
         var response: CheckedContinuation<ApiPerpsAssetDetail, Error>?
         var client = client()
         client.assetDetail = { _, _, _ in try await withCheckedThrowingContinuation { response = $0 } }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
+        let value = store(client: client)
         let request = Task { await value.refreshAsset(accountId: "a", assetId: asset.id) }
         while response == nil { await Task.yield() }
         await value.clearCache()
-        response?.resume(returning: .init(asset: asset, history: try history()))
+        var described = asset
+        described.description = "Bitcoin"
+        response?.resume(returning: .init(asset: described, history: try history()))
         await request.value
-        #expect(value.fills["a"] == nil)
-        #expect(value.cashFlows["a"] == nil)
+        #expect(value.fills(accountId: "a", assetId: asset.id) == nil)
+        #expect(value.asset(id: asset.id) == nil)
     }
 
     @Test func marketFreshnessUsesTheCatalogueFetchTimeIndependentlyOfPositions() async throws {
         let now = Date.now
-        var response = try snapshot()
-        response.assetsFetchedAt = Int64(now.addingTimeInterval(-120).timeIntervalSince1970 * 1_000)
+        var fetchedAt = now.addingTimeInterval(-120)
         var client = client()
-        client.snapshot = { _ in response }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
+        client.marketSnapshot = { try self.market(fetchedAt: fetchedAt) }
+        client.positions = { _ in self.account() }
+        let value = store(client: client)
         await value.refresh(accountId: "a")
         #expect(!value.isSnapshotStale(accountId: "a"))
-        #expect(value.isMarketStale(accountId: "a", now: now))
+        #expect(value.isMarketStale(now: now))
 
-        response.assetsFetchedAt = Int64(now.addingTimeInterval(-119).timeIntervalSince1970 * 1_000)
-        await value.refresh(accountId: "a")
-        #expect(!value.isMarketStale(accountId: "a", now: now))
-        #expect(value.isMarketStale(accountId: "a", now: now.addingTimeInterval(2)))
+        fetchedAt = now.addingTimeInterval(-119)
+        await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: Self.milliseconds(fetchedAt)))
+        #expect(!value.isMarketStale(now: now))
+        #expect(value.isMarketStale(now: now.addingTimeInterval(2)))
 
-        response.assetsFetchedAt = nil
-        await value.refresh(accountId: "a")
-        #expect(value.isMarketStale(accountId: "a", now: now))
+        let unknown = store(client: client)
+        fetchedAt = Date(timeIntervalSince1970: 0)
+        await unknown.refresh(accountId: "a")
+        #expect(unknown.market != nil)
+        #expect(unknown.isMarketStale(now: now))
     }
 
-    @Test func pushedMarketUpdatesAllCachedAccountsWithoutRefreshingPositionsOrHistory() async throws {
-        let url = cacheURL()
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+    @Test func pushedCatalogueServesEveryAccountWithoutReadingPositionsOrHistory() async throws {
+        let directory = cacheDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
         let now = Date.now
-        let fetchedAt = Int64(now.timeIntervalSince1970 * 1_000)
-        var original = try snapshot()
-        original.assetsFetchedAt = fetchedAt - 180_000
-        original.assets[0].description = "Bitcoin description"
-        var updatedAsset = original.assets[0]
-        updatedAsset.description = nil
-        updatedAsset.context.markPx = "61000"
-        updatedAsset.context.percentChange24h = 1.6667
-        updatedAsset.sparkline = [60000, 61000]
-        let market = ApiPerpsMarketSnapshot(assets: [updatedAsset], marketSections: [], assetsFetchedAt: fetchedAt)
-        let cache = PerpsReadCache(url: url)
-        cache.save([
-            "a": .init(snapshot: original, snapshotFetchedAt: now.addingTimeInterval(-61)),
-            "b": .init(snapshot: original, snapshotFetchedAt: now),
-        ])
+        let fetchedAt = Self.milliseconds(now)
+        let cache = PerpsReadCache(directory: directory)
+        cache.accounts.save(["a": .init(snapshot: account(positions: [try position()])), "b": .init(snapshot: account())])
+        cache.market.save(.init(langCode: LocalizationSupport.shared.langCode,
+                                market: try market(fetchedAt: now.addingTimeInterval(-180)), descriptions: [:]))
         await cache.flush()
-        var client = client()
         var reads = 0
-        client.marketSnapshot = { reads += 1; return market }
-        client.snapshot = { _ in Issue.record("Market pushes must not fetch positions"); return original }
-        client.history = { _ in Issue.record("Market pushes must not fetch history"); return .init(fills: [], cashFlows: []) }
-        let value = store(client: client, url: url)
-        await value.loadFromCache(accountIds: ["a", "b"], now: now)
+        var client = offlineClient()
+        client.marketSnapshot = {
+            reads += 1
+            return try self.market(fetchedAt: now, markPx: "61000")
+        }
+        let value = store(client: client, directory: directory)
+        await value.loadFromCache(accountIds: ["a", "b"])
+        #expect(value.isMarketStale(now: now))
         let update = try JSONDecoder().decode(ApiUpdate.UpdatePerpsAssets.self, from: Data("""
         {"type":"updatePerpsAssets","assets":{"assetsByChain":{}},"fetchedAt":\(fetchedAt)}
         """.utf8))
@@ -633,91 +720,106 @@ struct PerpsReadCacheTests {
         await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: fetchedAt - 1))
         await value.receiveAssetsUpdate(.init(langCode: "unsupported-language", fetchedAt: fetchedAt + 1))
         #expect(reads == 1)
-        #expect(value.isSnapshotStale(accountId: "a", now: now))
-        #expect(!value.isSnapshotStale(accountId: "b", now: now))
-        for account in ["a", "b"] {
-            #expect(value.snapshots[account]?.assets.first?.context.markPx == "61000")
-            #expect(value.snapshots[account]?.assets.first?.context.percentChange24h == 1.6667)
-            #expect(value.snapshots[account]?.assets.first?.description == "Bitcoin description")
-            #expect(value.snapshots[account]?.assets.first?.sparkline == [60000, 61000])
-            #expect(!value.isMarketStale(accountId: account, now: now))
-        }
-        let restored = store(client: client, url: url)
-        await restored.loadFromCache(accountIds: ["a", "b"], now: now)
-        #expect(restored.snapshots["a"] == value.snapshots["a"])
-        #expect(!restored.isMarketStale(accountId: "a", now: now))
-        #expect(restored.isSnapshotStale(accountId: "a", now: now))
+        #expect(value.asset(id: btc)?.context.markPx == "61000")
+        #expect(!value.isMarketStale(now: now))
+        #expect(value.snapshots["a"]?.positions.count == 1)
+        let restored = store(client: offlineClient(), directory: directory)
+        await restored.loadFromCache(accountIds: ["a", "b"])
+        #expect(restored.market == value.market)
+        #expect(!restored.isMarketStale(now: now))
     }
 
-    @Test func delayedAccountSnapshotCannotReplaceANewerMarketPush() async throws {
-        var original = try snapshot()
-        original.assetsFetchedAt = 100
-        var asset = original.assets[0]
-        asset.context.markPx = "61000"
-        let market = ApiPerpsMarketSnapshot(assets: [asset], marketSections: [], assetsFetchedAt: 200)
-        var response: CheckedContinuation<ApiPerpsSnapshot, Error>?
-        var client = client()
-        client.snapshot = { _ in try await withCheckedThrowingContinuation { response = $0 } }
-        client.marketSnapshot = { market }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        let request = Task { await value.refresh(accountId: "a") }
-        while response == nil { await Task.yield() }
-        await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: 200))
-        response?.resume(returning: original)
-        await request.value
-        #expect(value.snapshots["a"]?.assets.first?.context.markPx == "61000")
-        #expect(value.snapshots["a"]?.assetsFetchedAt == 200)
-        #expect(value.snapshots["a"]?.totalEquity == original.totalEquity)
-    }
-
-    @Test func clearingDuringAMarketPushDiscardsItsResponse() async throws {
-        let original = try snapshot()
-        let market = ApiPerpsMarketSnapshot(assets: original.assets, assetsFetchedAt: 200)
+    @Test func clearingDuringACatalogueReadDiscardsItsResponse() async throws {
+        let market = try market()
         var response: CheckedContinuation<ApiPerpsMarketSnapshot, Error>?
         var client = client()
-        client.snapshot = { _ in original }
         client.marketSnapshot = { try await withCheckedThrowingContinuation { response = $0 } }
-        let value = PerpsStore(client: client, load: { [] }, save: { _ in })
-        let request = Task { await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: 200)) }
+        let value = store(client: client)
+        let request = Task { await value.receiveAssetsUpdate(.init(langCode: nil, fetchedAt: market.assetsFetchedAt)) }
         while response == nil { await Task.yield() }
         await value.clearCache()
         response?.resume(returning: market)
         await request.value
-        await value.refresh(accountId: "a")
-        #expect(value.snapshots["a"]?.assetsFetchedAt == nil)
+        #expect(value.market == nil)
     }
 
-    private func cacheURL() -> URL {
-        URL.temporaryDirectory.appending(components: UUID().uuidString, "perps.json")
+    // MARK: - Fixtures
+
+    private final class CurrentAccount {
+        var id: String?
+        init(_ id: String?) { self.id = id }
     }
 
-    private func store(client: PerpsClient, url: URL) -> PerpsStore {
-        PerpsStore(client: client, cacheURL: url, load: { [] }, save: { _ in },
-                   loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
+    private static func milliseconds(_ date: Date) -> Int64 {
+        Int64(date.timeIntervalSince1970 * 1_000)
+    }
+
+    private func cacheDirectory() -> URL {
+        URL.temporaryDirectory.appending(components: UUID().uuidString)
+    }
+
+    private func store(client: PerpsClient, directory: URL? = nil, current: CurrentAccount? = nil,
+                       operations: [ApiPerpsOperation] = []) -> PerpsStore {
+        PerpsStore(client: client, cacheDirectory: directory, currentAccountId: { current?.id }, load: { operations },
+                   save: { _ in }, loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
+    }
+
+    private func push(_ snapshot: ApiPerpsAccountSnapshot, to store: PerpsStore, accountId: String) {
+        store.walletCore(event: .updatePerpsPositions(.init(accountId: accountId, snapshot: snapshot)))
     }
 
     private func client() -> PerpsClient {
         var client = PerpsClient()
-        client.snapshot = { _ in throw PerpsError.invalidResponse }
+        client.marketSnapshot = { throw PerpsError.invalidResponse }
+        client.positions = { _ in throw PerpsError.invalidResponse }
         client.history = { _ in throw PerpsError.invalidResponse }
         client.receiptDetails = { _ in .init() }
         return client
     }
 
-    private func snapshot() throws -> ApiPerpsSnapshot {
-        try JSONDecoder().decode(ApiPerpsSnapshot.self, from: Data("""
+    /// A client for data that must render before the SDK answers anything.
+    private func offlineClient() -> PerpsClient {
+        var client = PerpsClient()
+        client.marketSnapshot = { Issue.record("Restored data must not read the catalogue"); throw PerpsError.invalidResponse }
+        client.positions = { _ in Issue.record("Restored data must not read positions"); throw PerpsError.invalidResponse }
+        client.history = { _ in Issue.record("Restored data must not read Activity"); throw PerpsError.invalidResponse }
+        client.candles = { _, _ in throw PerpsError.invalidResponse }
+        client.receiptDetails = { _ in .init() }
+        return client
+    }
+
+    private func contents(of url: URL, version: Int) throws -> Any? {
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        #expect(object["version"] as? Int == version)
+        return object["contents"]
+    }
+
+    private func market(fetchedAt: Date = .now, markPx: String = "60000") throws -> ApiPerpsMarketSnapshot {
+        try JSONDecoder().decode(ApiPerpsMarketSnapshot.self, from: Data("""
         {"assets":[{"id":"hyperliquid:hl:BTC","name":"BTC","symbol":"BTC","chain":"hyperliquid","provider":"hyperliquid",
-        "dex":"","szDecimals":5,"maxLeverage":40,"context":{"markPx":"60000","prevDayPx":"60000"}}],
-        "marketSections":[],"positions":[],"totalEquity":"100","totalPnl":"2","timestamp":1,"unavailableDexs":[]}
+        "dex":"","szDecimals":5,"maxLeverage":40,"context":{"markPx":"\(markPx)","prevDayPx":"60000"}}],
+        "marketSections":[],"assetsFetchedAt":\(Self.milliseconds(fetchedAt))}
+        """.utf8))
+    }
+
+    private func account(equity: String = "100", positions: [ApiPerpsAccountPosition] = [], at date: Date = .now,
+                         unavailableDexs: [String] = []) -> ApiPerpsAccountSnapshot {
+        .init(positions: positions, totalEquity: equity, totalPnl: "2", timestamp: Self.milliseconds(date),
+              unavailableDexs: unavailableDexs)
+    }
+
+    private func position() throws -> ApiPerpsAccountPosition {
+        try JSONDecoder().decode(ApiPerpsAccountPosition.self, from: Data("""
+        {"id":"a/hyperliquid:hl:BTC","assetId":"hyperliquid:hl:BTC","dex":"","side":"long","size":"0.01",
+         "collateral":"100","equity":"102","raw":{"coin":"BTC","leverage":{"type":"isolated","value":2},
+         "marginUsed":"102","positionValue":"600","returnOnEquity":"0.02","szi":"0.01","unrealizedPnl":"2"}}
         """.utf8))
     }
 
     private func history() throws -> ApiPerpsActivityHistory {
         try JSONDecoder().decode(ApiPerpsActivityHistory.self, from: Data("""
-        {"fills":[{"coin":"BTC","tid":10,"oid":20,"time":1,"px":"60000","sz":"0.01","side":"B","dir":"Open Long",
-        "startPosition":"0","closedPnl":"0","fee":"0.2","feeToken":"USDC","eventKind":"opened","positionSize":"0.01"}],
-        "cashFlows":[{"id":"deposit/1","kind":"deposit","direction":"incoming","time":1,
-        "amount":"10.1","token":"USDC","fees":[]}]}
+        {"fills":[{"activityId":"BTC/20/open","coin":"BTC","oid":20,"time":1,"px":"60000","sz":"0.01",
+        "fee":"0.2","feeToken":"USDC","eventKind":"opened","positionSide":"long","positionSize":"0.01"}],"hasActivity":true}
         """.utf8))
     }
 }

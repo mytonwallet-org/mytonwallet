@@ -751,24 +751,22 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             HeaderActionsView.Identifier.SCAN_QR -> {
                 if (currentActivityListView.skeletonVisible) return
                 QrScannerDialog.build(context) { qr ->
-                    for (blockchain in MBlockchain.supportedChains) {
-                        if (blockchain.isValidAddress(qr)) {
-                            val navVC = WNavigationController(
-                                window,
-                                WNavigationController.PresentationConfig.PreferredFullScreen
-                            )
-                            navVC.setRoot(
-                                SendVC(
-                                    context,
-                                    blockchain.nativeSlug,
-                                    SendVC.InitialValues(
-                                        address = qr
-                                    )
+                    MBlockchain.chainForAddress(qr)?.let { blockchain ->
+                        val navVC = WNavigationController(
+                            window,
+                            WNavigationController.PresentationConfig.PreferredFullScreen
+                        )
+                        navVC.setRoot(
+                            SendVC(
+                                context,
+                                blockchain.nativeSlug,
+                                SendVC.InitialValues(
+                                    address = qr
                                 )
                             )
-                            window.present(navVC)
-                            return@build
-                        }
+                        )
+                        window.present(navVC)
+                        return@build
                     }
                     val validDeeplink = WalletContextManager.delegate?.get()?.handleDeeplink(
                         qr,

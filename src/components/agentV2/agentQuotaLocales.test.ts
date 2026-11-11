@@ -58,7 +58,7 @@ describe('Agent quota locale catalogs', () => {
   });
 
   it('describes partial quota insufficiency in units', () => {
-    expect(english.$agent_user_quota_exhausted_title).toBe('Not enough Agent quota');
+    expect(english.$agent_user_quota_exhausted_title).toBe('Not enough agent quota');
     expect(english.$agent_user_quota_exhausted_body).toContain('enough quota for this request');
     expect(english.$agent_user_quota_exhausted_body).not.toContain('used all');
   });

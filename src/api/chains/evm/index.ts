@@ -22,6 +22,7 @@ import {
   streamAllAccountNfts,
   submitNftTransfers,
 } from './nfts';
+import { estimatePerpsDepositNetworkFee } from './perps';
 import { setupActivePolling, setupInactivePolling } from './polling';
 import { buildOnchainSwapTransfer, resolveSwapNeedsBatch, submitOnchainSwapTransfer } from './swap';
 import { fetchTransactionById } from './transactionInfo';
@@ -113,6 +114,8 @@ class EVMChainSdk<T extends EVMChain> implements ChainSdk<T> {
   revokeWalletPermission = this.#bindChain(revokeEvmWalletPermission);
 
   fetchWalletPlugins = notSupported;
+
+  estimatePerpsDepositNetworkFee = this.#bindChain(estimatePerpsDepositNetworkFee);
 }
 
 export default EVMChainSdk;

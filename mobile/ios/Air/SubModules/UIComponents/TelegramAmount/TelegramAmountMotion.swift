@@ -990,10 +990,18 @@ enum TelegramAmountRolling {
                 1, dash * 3, &context)
 
         case let .drum(column):
+            let face = cell.fontTo ?? cell.font
+            let isResizing = face != cell.font
+            let ratio = cell.font.ui.pointSize / face.ui.pointSize
+            let scale = now.lerp(ratio, 1)
+            let scaleWas = was.lerp(ratio, 1)
+            let pitch = face.pitch * scale
+            let pitchWas = face.pitch * scaleWas
             let steps = CGFloat(column.count - 1)
             guard steps > 0 else {
                 put(column[0], face, color, center,
-                    Pose(dy: 0), Pose(dy: 0), 1, 0, &context)
+                    Pose(dy: 0, scale: scaleWas), Pose(dy: 0, scale: scale),
+                    1, 0, &context, shouldScaleFromBaseline: isResizing)
                 return
             }
             let direction: CGFloat = up ? 1 : -1
@@ -1002,19 +1010,22 @@ enum TelegramAmountRolling {
             }
             let open = opening(now), openWas = opening(was)
             let haze = face.capHeight * 0.65
-            let spread = cell.squeeze ? (1 - open) * haze : 0
-            let spreadWas = cell.squeeze ? (1 - openWas) * haze : 0
+            let spread = cell.squeeze ? (1 - open) * haze * scale : 0
+            let spreadWas = cell.squeeze ? (1 - openWas) * haze * scaleWas : 0
             let pace = now.speed / Motion.peakSpeed
-            let soft = face.capHeight * 0.45 * pace * pace
+            let soft = face.capHeight * scale * 0.45 * pace * pace
             for (index, character) in column.enumerated() {
-                let dy = (CGFloat(index) - now.p * steps) * face.pitch * direction
-                let dyWas = (CGFloat(index) - was.p * steps) * face.pitch * direction
-                let visible = window(dy, face.pitch)
+                let dy = (CGFloat(index) - now.p * steps) * pitch * direction
+                let dyWas = (CGFloat(index) - was.p * steps) * pitchWas * direction
+                let visible = window(dy, pitch)
                 guard visible > 0 else { continue }
-                put(character, face, color, center,
-                    Pose(dy: dyWas + arcWas, dx: slideWas, spread: spreadWas),
-                    Pose(dy: dy + arc, dx: slide, spread: spread),
-                    visible * pow(Double(open), 2.2), soft, &context)
+                // Outgoing affixes retain the font of their cached mask
+                let font = index == 0 ? cell.font : face
+                let fontScale = face.ui.pointSize / font.ui.pointSize
+                put(character, font, color, center,
+                    Pose(dy: dyWas + arcWas, dx: slideWas, spread: spreadWas, scale: scaleWas * fontScale),
+                    Pose(dy: dy + arc, dx: slide, spread: spread, scale: scale * fontScale),
+                    visible * pow(Double(open), 2.2), soft, &context, shouldScaleFromBaseline: isResizing)
             }
 
         case let .pop(old, new):
@@ -1070,12 +1081,12 @@ enum TelegramAmountRolling {
     private func put(_ character: Character, _ font: GlyphFont, _ color: UIColor,
                      _ centerX: CGFloat, _ was: Pose, _ now: Pose,
                      _ alpha: CGFloat, _ soft: CGFloat,
-                     _ context: inout [TelegramAmountSprite]) {
+                     _ context: inout [TelegramAmountSprite], shouldScaleFromBaseline: Bool = false) {
         guard alpha > 0.006, character != " " else { return }
         context.append(TelegramAmountSprite(
             glyph: TelegramAmountGlyph(text: String(character), font: font.ui, color: color,
                 position: CGPoint(x: centerX + now.dx, y: baseline + now.dy), group: .integer),
-            alpha: alpha, scale: now.scale, spread: now.spread,
+            alpha: alpha, scale: now.scale, scalesFromBaseline: shouldScaleFromBaseline, spread: now.spread,
             travel: CGPoint(x: now.dx - was.dx, y: now.dy - was.dy),
             scaleTravel: now.scale - was.scale, spreadTravel: now.spread - was.spread, soft: soft
         ))

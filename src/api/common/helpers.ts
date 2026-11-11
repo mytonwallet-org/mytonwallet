@@ -13,7 +13,6 @@ import { IS_AIR_APP, IS_EXTENSION, IS_GRAM_WALLET, MAIN_ACCOUNT_ID } from '../..
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { areDeepEqual } from '../../util/areDeepEqual';
-import { assert } from '../../util/assert';
 import { logDebugError } from '../../util/logs';
 import { getEnvironment } from '../environment';
 import * as migrations from '../migrations';
@@ -371,12 +370,6 @@ export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[
     await storage.setItem('stateVersion', version);
   }
 
-  let isIosKeychainModeMigrated = false;
-  if (getEnvironment().isIosApp && version >= 10 && version <= 13) {
-    await iosBackupAndMigrateKeychainMode();
-    isIosKeychainModeMigrated = true;
-  }
-
   if (version === 10 || version === 11 || version === 12) {
     const accounts:
       | Record<
@@ -441,10 +434,6 @@ export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[
   }
 
   if (version === 14 || version === 15) {
-    if (getEnvironment().isIosApp && !isIosKeychainModeMigrated) {
-      await iosBackupAndMigrateKeychainMode();
-    }
-
     version = 16;
     await storage.setItem('stateVersion', version);
   }
@@ -503,40 +492,4 @@ export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[
 function buildOldAccountId(account: { id: number; network: string }) {
   const { id, network } = account;
   return `${id}-ton-${network}`;
-}
-
-async function iosBackupAndMigrateKeychainMode() {
-  const keys = await airStorage.getKeys();
-
-  if (keys?.length) {
-    const items: [string, any][] = [];
-
-    for (const key of keys) {
-      if (key.startsWith('backup_')) {
-        continue;
-      }
-
-      const backupKey = `backup_${key}` as StorageKey;
-      const value = await airStorage.getItem(key as StorageKey, true);
-
-      assert(value !== undefined, 'Empty value!');
-      await airStorage.setItem(backupKey, value);
-      const backupValue = await airStorage.getItem(backupKey);
-      assert(areDeepEqual(value, backupValue), 'Data has not been saved!');
-
-      items.push([key, value]);
-    }
-
-    for (const [key, value] of items) {
-      let shouldRewrite = false;
-      await airStorage.setItem(key as StorageKey, value).catch(() => {
-        shouldRewrite = true;
-      });
-
-      if (shouldRewrite) {
-        await airStorage.removeItem(key as StorageKey);
-        await airStorage.setItem(key as StorageKey, value);
-      }
-    }
-  }
 }

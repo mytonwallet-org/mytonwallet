@@ -4,6 +4,10 @@ import WalletCore
 @MainActor
 protocol AgentV2Client: AnyObject, Sendable {
     func consent() async throws -> Bool
+    /// The user's consent as the app last read or gave it, known at once: false until then
+    var isConsentKnownGiven: Bool { get }
+    /// Forgets the known consent, which a reset of the accounts deletes
+    func forgetKnownConsent()
     func acceptConsent() async throws
     func updateHostContext(_ context: ApiAgentV2HostContext?) async throws
     func hints() async throws -> ApiAgentV2HintsResponse
@@ -15,12 +19,18 @@ protocol AgentV2Client: AnyObject, Sendable {
     func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse
     func createThread() async throws -> ApiAgentV2ThreadCreateResponse
     func createThread(news: ApiAgentV2ThreadNewsRequest) async throws -> ApiAgentV2ThreadCreateResponse
+    func createThread(digest: ApiAgentV2ThreadDigestRequest) async throws -> ApiAgentV2ThreadCreateResponse
     func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse
     func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse
     func messages(threadId: String, cursor: String?, limit: Int) async throws -> ApiAgentV2ThreadHydration
+    /// The SDK's copy of the thread's latest messages; `nil` when it has none or cannot read it
+    func cachedMessages(threadId: String) async -> ApiAgentV2CachedMessages?
+    /// The id of a new run, chosen before it starts
+    func makeClientRunId() -> String
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult
     func retryRun(clientRunId: String) async throws -> ApiAgentV2RunResult?
-    func cancelRun(_ runId: String) async
+    /// Stops every run of the thread
+    func stopRun(threadId: String) async
     func clearThread(id: String, revision: Int) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse>
     func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws
     func transcribeAgentV2Audio(_ request: ApiAgentV2TranscriptionRequest) async throws -> ApiAgentV2TranscriptionResponse
@@ -34,14 +44,33 @@ protocol AgentV2Client: AnyObject, Sendable {
     func resolveAction(messageId: String, actionId: String) async throws -> ApiAgentV2ResolvedAction
 }
 
+extension AgentV2Client {
+    var isConsentKnownGiven: Bool { false }
+    func forgetKnownConsent() {}
+}
+
 @MainActor
 final class LiveAgentV2Client: AgentV2Client {
+    /// The consent as the app last read or gave it, shared by every chat and list
+    private static var isConsentKnownGiven = false
+
+    var isConsentKnownGiven: Bool {
+        Self.isConsentKnownGiven
+    }
+
     func consent() async throws -> Bool {
-        try await Api.getAgentV2Consent()
+        let isGiven = try await Api.getAgentV2Consent()
+        Self.isConsentKnownGiven = isGiven
+        return isGiven
+    }
+
+    func forgetKnownConsent() {
+        Self.isConsentKnownGiven = false
     }
 
     func acceptConsent() async throws {
         _ = try await Api.acceptAgentV2Consent()
+        Self.isConsentKnownGiven = true
     }
 
     func updateHostContext(_ context: ApiAgentV2HostContext?) async throws {
@@ -84,6 +113,10 @@ final class LiveAgentV2Client: AgentV2Client {
         try await Api.createAgentV2Thread(news: news)
     }
 
+    func createThread(digest: ApiAgentV2ThreadDigestRequest) async throws -> ApiAgentV2ThreadCreateResponse {
+        try await Api.createAgentV2Thread(digest: digest)
+    }
+
     func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse {
         try await Api.updateAgentV2Thread(threadId: id, update: update)
     }
@@ -96,6 +129,14 @@ final class LiveAgentV2Client: AgentV2Client {
         try await Api.getAgentV2Messages(threadId: threadId, cursor: cursor, limit: limit)
     }
 
+    func cachedMessages(threadId: String) async -> ApiAgentV2CachedMessages? {
+        await Api.getAgentV2CachedMessages(threadId: threadId)
+    }
+
+    func makeClientRunId() -> String {
+        UUID().uuidString.lowercased()
+    }
+
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
         try await Api.startAgentV2Run(command)
     }
@@ -104,8 +145,8 @@ final class LiveAgentV2Client: AgentV2Client {
         try await Api.retryAgentV2Run(clientRunId: clientRunId)
     }
 
-    func cancelRun(_ runId: String) async {
-        _ = try? await Api.cancelAgentV2Run(runId: runId)
+    func stopRun(threadId: String) async {
+        try? await Api.stopAgentV2Run(threadId: threadId)
     }
 
     func clearThread(id: String, revision: Int) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse> {

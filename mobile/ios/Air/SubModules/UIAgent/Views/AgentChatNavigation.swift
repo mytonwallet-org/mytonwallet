@@ -98,6 +98,7 @@ enum AgentChatNavigation {
     static let buttonSize = WGlassButtonMetrics.size
     static let threadsButtonIdentifier = "agent_threads_button"
     static let menuButtonIdentifier = "agent_menu_button"
+    static let digestSettingsButtonIdentifier = "agent_digest_settings_button"
 
     /// The back chevron of the button that returns to the chat list, drawn as the "…" button's glyph is. It points
     /// toward the leading edge, so it turns around in right-to-left layouts.
@@ -159,6 +160,15 @@ enum AgentChatNavigation {
         return makeItem(with: circle)
     }
 
+    /// The News feed's trailing bell, which opens the digest and notifications sheet
+    static func makeDigestSettingsItem(primaryAction: UIAction) -> UIBarButtonItem {
+        let image = UIImage(systemName: "bell", withConfiguration: WGlassButtonMetrics.symbolConfiguration)
+        let circle = makeButton(image: image, primaryAction: primaryAction)
+        circle.button.accessibilityLabel = lang("$agent_digest_settings_title")
+        circle.button.accessibilityIdentifier = digestSettingsButtonIdentifier
+        return makeItem(with: circle)
+    }
+
     /// The glass circle of an item made by `installThreadsButton` or `makeMenuItem`
     static func findCircle(in item: UIBarButtonItem?) -> AgentGlassCircleButton? {
         item?.customView?.subviews.first as? AgentGlassCircleButton
@@ -176,13 +186,17 @@ enum AgentChatNavigation {
     }
 
     static func makeButton(image: UIImage?, primaryAction: UIAction?) -> AgentGlassCircleButton {
+        AgentGlassCircleButton(button: makeGlyphButton(image: image, primaryAction: primaryAction))
+    }
+
+    /// The button of a round glass button: `image`, drawn in the label colour in its middle
+    static func makeGlyphButton(image: UIImage?, primaryAction: UIAction?) -> UIButton {
         var configuration = UIButton.Configuration.plain()
         configuration.image = image
         configuration.baseForegroundColor = .label
         configuration.contentInsets = .zero
         configuration.cornerStyle = .capsule
-        let button = UIButton(configuration: configuration, primaryAction: primaryAction)
-        return AgentGlassCircleButton(button: button)
+        return UIButton(configuration: configuration, primaryAction: primaryAction)
     }
 
     /// A fixed square slot keeps the button a circle, independent of its image's size

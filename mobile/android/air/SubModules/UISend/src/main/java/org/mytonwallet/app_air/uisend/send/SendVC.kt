@@ -65,6 +65,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
@@ -295,8 +296,8 @@ class SendVC(
     private val gap2 by lazy { ListGapCell(context, ViewConstants.GAP.dp) }
 
     private val title2 = HeaderCell(context).apply {
-        setOnClickListener {
-            if (!supportsCommentEncryption) return@setOnClickListener
+        setOnMenuClickListener {
+            if (!supportsCommentEncryption) return@setOnMenuClickListener
             WMenuPopup.present(
                 this@apply,
                 listOf(
@@ -1023,6 +1024,7 @@ class SendVC(
         }
         commentInputView.setReadOnly()
         title2.setOnClickListener(null)
+        title2.setOnLongClickListener(null)
     }
 
     private var didConfirmDomainScamWarning = false
@@ -1458,18 +1460,14 @@ class SendVC(
     private fun switchTokenBasedOnChain(address: String) {
         val token =
             TokenStore.getToken(viewModel.getTokenSlug())
-        if (token?.mBlockchain?.isValidAddress(address) != true) {
-            for (blockchain in MBlockchain.supportedChains) {
-                if (blockchain.isValidAddress(address)) {
-                    viewModel.onInputToken(blockchain.nativeSlug)
-                    addressInputView.activeChain = blockchain
-                    suggestionsBoxView.activeChain = blockchain
-                    suggestionsBoxView.search(addressInputView.getKeyword())
-                    updateCommentViews()
-                    break
-                }
-            }
-        }
+        val current = token?.mBlockchain
+        val blockchain = MBlockchain.chainForAddress(address, current) ?: return
+        if (blockchain == current) return
+        viewModel.onInputToken(blockchain.nativeSlug)
+        addressInputView.activeChain = blockchain
+        suggestionsBoxView.activeChain = blockchain
+        suggestionsBoxView.search(addressInputView.getKeyword())
+        updateCommentViews()
     }
 
     private var sentActivityId: String? = null

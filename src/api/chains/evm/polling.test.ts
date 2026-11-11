@@ -1,4 +1,11 @@
-import type { ApiAccountWithChain, ApiActivity, ApiNft, OnApiUpdate, OnUpdatingStatusChange } from '../../types';
+import type {
+  ApiAccountWithChain,
+  ApiActivity,
+  ApiNft,
+  EVMChain,
+  OnApiUpdate,
+  OnUpdatingStatusChange,
+} from '../../types';
 
 import { getChainConfig } from '../../../util/chain';
 import { fetchEvmWallet } from './util/account';
@@ -8,7 +15,7 @@ import { applyPendingBalances, clearPendingBalances } from '../../common/pending
 import { balanceRefreshRequests } from '../../common/polling/balanceRefresh';
 import { swapReplaceActivities } from '../../common/swap';
 import { BalanceStream } from '../../common/websocket/balanceStream';
-import { MINUTE } from '../../constants';
+import { MINUTE, SEC } from '../../constants';
 import { initTransfer, submitTransfer } from '../../methods/transfer';
 import chains from '../index';
 import { getTokenActivitySlice } from './activities';
@@ -88,6 +95,17 @@ jest.mock('./wallet', () => ({
 }));
 
 const ADDRESS = '0x5819e5Ff34198F315322e1863Be6C3dC927cC5C3';
+const NEWEST_ACTIVITY_TIMESTAMP = 1_773_000_000_000;
+const LATE_ACTIVITY = {
+  id: '0xlate-indexed',
+  timestamp: NEWEST_ACTIVITY_TIMESTAMP + SEC,
+  kind: 'transaction',
+  slug: getChainConfig('bnb').nativeToken.slug,
+} as ApiActivity;
+const FAST_CATCH_UP_DURATION = 59 * 2 * SEC;
+const CATCH_UP_TAIL_DELAYS = [
+  30 * SEC, MINUTE, 2 * MINUTE, 4 * MINUTE, 8 * MINUTE, ...Array<number>(11).fill(15 * MINUTE),
+];
 
 const mockedFetchEvmWallet = jest.mocked(fetchEvmWallet);
 const mockedGetIsWalletActive = jest.mocked(getIsWalletActive);
@@ -95,6 +113,7 @@ const mockedSwapReplaceActivities = jest.mocked(swapReplaceActivities);
 const mockedGetTokenActivitySlice = jest.mocked(getTokenActivitySlice);
 const MockedBalanceStream = jest.mocked(BalanceStream);
 const MockedNftStream = jest.mocked(NftStream);
+const pollingCleanups: NoneToVoidFunction[] = [];
 
 type MockedBalanceStreamInstance = jest.Mocked<{
   onUpdate: jest.Mock;
@@ -133,10 +152,23 @@ async function flushPromises(count = 10) {
   }
 }
 
+afterEach(() => {
+  for (const stop of pollingCleanups) {
+    stop();
+  }
+  pollingCleanups.length = 0;
+});
+
+function startActivePolling<C extends EVMChain>(...args: Parameters<typeof setupActivePolling<C>>) {
+  const stop = setupActivePolling(...args);
+  pollingCleanups.push(stop);
+  return stop;
+}
+
 describe('EVM polling', () => {
   it('refreshes the requested wallet and stops listening when its stream is removed', () => {
     const account = { type: 'view', byChain: { bnb: { address: ADDRESS, index: 0 } } } as ApiAccountWithChain<'bnb'>;
-    const stop = setupActivePolling('bnb', 'perps-refresh-mainnet', account, jest.fn(), jest.fn(), {});
+    const stop = startActivePolling('bnb', 'perps-refresh-mainnet', account, jest.fn(), jest.fn(), {});
     const stream = getBalanceStreamInstance();
     balanceRefreshRequests.runCallbacks('other-mainnet', 'bnb');
     balanceRefreshRequests.runCallbacks('perps-refresh-mainnet', 'arbitrum');
@@ -150,6 +182,8 @@ describe('EVM polling', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // `clearAllMocks` keeps implementations, so one test's history response would answer the next test's catch-up
+    mockedGetTokenActivitySlice.mockReset().mockResolvedValue({ activities: [], hasMore: false });
     mockedFetchEvmWallet.mockResolvedValue({ address: ADDRESS, index: 0 });
     // The cases below all describe an address that has history to load, so the cheap
     // has-anything-happened-here probe answers yes; the case that answers no is its own test.
@@ -169,7 +203,7 @@ describe('EVM polling', () => {
     jest.mocked(chains.arbitrum.submitGasfullTransfer).mockResolvedValue({ txId: '0xsent' });
     mockedGetTokenActivitySlice.mockResolvedValue({ activities: [], hasMore: false });
     initTransfer(onUpdate);
-    const stop = setupActivePolling('ethereum', accountId, account, (update) => {
+    const stop = startActivePolling('ethereum', accountId, account, (update) => {
       onUpdate(update.type === 'updateBalances' ? applyPendingBalances(update) : update);
     }, jest.fn(), { [ethereumSlug]: 1000 });
     const emit = getBalanceStreamInstance().onUpdate.mock.calls[0][0] as (
@@ -218,7 +252,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    const stop = setupActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
+    const stop = startActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
 
     expect(MockedBalanceStream).toHaveBeenCalledWith(expect.objectContaining({
       fallbackPollingOptions: expect.objectContaining({
@@ -242,7 +276,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
 
     expect(mockedGetTokenActivitySlice).not.toHaveBeenCalled();
@@ -270,7 +304,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
 
     expect(getInitialActivitiesUpdate(onUpdate)?.mainHistoryHasMore).toBe(false);
@@ -289,7 +323,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
 
     expect(getInitialActivitiesUpdate(onUpdate)?.mainHistoryHasMore).toBeUndefined();
@@ -314,7 +348,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
 
     expect(mockedGetTokenActivitySlice).toHaveBeenCalled();
@@ -336,7 +370,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
     expect(mockedGetTokenActivitySlice).not.toHaveBeenCalled();
 
@@ -368,7 +402,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     expect(MockedBalanceStream).toHaveBeenCalledTimes(1);
     expect(MockedNftStream).toHaveBeenCalledTimes(1);
@@ -404,7 +438,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -430,7 +464,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -460,7 +494,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -496,7 +530,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -524,7 +558,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -564,7 +598,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, { bnb: startTimestamp });
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, { bnb: startTimestamp });
 
     const balanceUpdate = getBalanceStreamInstance().onUpdate.mock.calls[0][0] as (
       balances: Record<string, bigint>,
@@ -608,7 +642,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
 
     await flushPromises();
 
@@ -651,7 +685,7 @@ describe('EVM polling', () => {
       },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, { bnb: 1_773_000_000_000 });
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, { bnb: 1_773_000_000_000 });
 
     const balanceUpdate = getBalanceStreamInstance().onUpdate.mock.calls[0][0] as (
       balances: Record<string, bigint>,
@@ -680,7 +714,7 @@ describe('EVM polling', () => {
     mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [activity], hasMore: false });
     const account = { type: 'view', byChain: { bnb: { address: ADDRESS, index: 0 } } } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
+    startActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
     await flushPromises();
 
     expect(getNftStreamInstance().activate).toHaveBeenCalledTimes(1);
@@ -696,7 +730,7 @@ describe('EVM polling', () => {
       byChain: { bnb: { address: ADDRESS, index: 0 } },
     } as ApiAccountWithChain<'bnb'>;
 
-    setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+    startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
     await flushPromises();
 
     expect(getBalanceStreamInstance().markWalletActiveAndForcePoll).not.toHaveBeenCalled();
@@ -737,7 +771,7 @@ describe('EVM polling', () => {
     } as ApiAccountWithChain<'bnb'>;
 
     try {
-      setupActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
+      startActivePolling('bnb', '0-mainnet', account, onUpdate, onUpdatingStatusChange, {});
       await jest.advanceTimersByTimeAsync(1);
       await flushPromises();
       expect(mockedGetTokenActivitySlice).not.toHaveBeenCalled();
@@ -764,5 +798,192 @@ describe('EVM polling', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  describe('balance-triggered history catch-up tail', () => {
+    let stop: NoneToVoidFunction;
+    let onUpdate: jest.Mock<void, Parameters<OnApiUpdate>>;
+    let emitBalanceUpdate: (balances: Record<string, bigint>, source: 'poll' | 'socket') => void;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      onUpdate = jest.fn();
+      const account: ApiAccountWithChain<'bnb'> = {
+        type: 'view', byChain: { bnb: { address: ADDRESS, index: 0 } },
+      };
+      stop = startActivePolling('bnb', '0-mainnet', account, onUpdate, jest.fn(), {
+        [getChainConfig('bnb').nativeToken.slug]: NEWEST_ACTIVITY_TIMESTAMP,
+      });
+      emitBalanceUpdate = getBalanceStreamInstance().onUpdate.mock.calls[0][0];
+    });
+
+    afterEach(() => {
+      try {
+        stop();
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it.each([
+      { tailDelay: 30 * SEC, attempt: 61 },
+      { tailDelay: 60.5 * MINUTE, attempt: 68 },
+    ])('finds indexed activity after $tailDelay ms of the socket tail', async ({ tailDelay, attempt }) => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(60);
+
+      await jest.advanceTimersByTimeAsync(tailDelay - 1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(attempt - 1);
+
+      const activity = {
+        id: '0xlate-indexed',
+        timestamp: NEWEST_ACTIVITY_TIMESTAMP + SEC,
+        kind: 'transaction',
+        slug: getChainConfig('bnb').nativeToken.slug,
+      } as ApiActivity;
+      mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [activity], hasMore: false });
+      await jest.advanceTimersByTimeAsync(1);
+      await flushPromises();
+
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(attempt);
+      expect(mockedGetTokenActivitySlice.mock.calls.at(-1)![5]).toBe(NEWEST_ACTIVITY_TIMESTAMP);
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'newActivities', chain: 'bnb', accountId: '0-mainnet', activities: [activity],
+      });
+
+      await jest.advanceTimersByTimeAsync(4 * 60 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(attempt);
+    });
+
+    it('exhausts exactly 60 fast and 16 slow attempts when no activity is indexed', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(60);
+
+      for (const delay of CATCH_UP_TAIL_DELAYS) {
+        const previousCalls = mockedGetTokenActivitySlice.mock.calls.length;
+        await jest.advanceTimersByTimeAsync(delay - 1);
+        await flushPromises();
+        expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(previousCalls);
+
+        await jest.advanceTimersByTimeAsync(1);
+        await flushPromises();
+        expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(previousCalls + 1);
+      }
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(76);
+
+      await jest.advanceTimersByTimeAsync(4 * 60 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(76);
+    });
+
+    it('cancels the old tail when another socket balance event starts a new catch-up', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION + 15.5 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(65);
+
+      await jest.advanceTimersByTimeAsync(MINUTE);
+      await flushPromises();
+      emitBalanceUpdate({ bnb: 2n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION + 7.5 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(129);
+
+      // The old tail is due in this window while the new catch-up is in its eight-minute pause
+      await jest.advanceTimersByTimeAsync(5 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(129);
+
+      await jest.advanceTimersByTimeAsync(3 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(130);
+    });
+
+    it('stops the tail during its fifteen-minute pause when active polling is cleaned up', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION + 15.5 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(65);
+
+      stop();
+      await jest.advanceTimersByTimeAsync(4 * 60 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(65);
+    });
+
+    it('makes only one history request for a poll balance event', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'poll');
+      await jest.advanceTimersByTimeAsync(3 * 60 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the socket tail running when a poll balance event finds nothing', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION + 30 * SEC);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(61);
+
+      emitBalanceUpdate({ bnb: 2n }, 'poll');
+      await jest.advanceTimersByTimeAsync(1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(62);
+
+      mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [LATE_ACTIVITY], hasMore: false });
+      await jest.advanceTimersByTimeAsync(MINUTE - 1);
+      await flushPromises();
+
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(63);
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'newActivities', chain: 'bnb', accountId: '0-mainnet', activities: [LATE_ACTIVITY],
+      });
+    });
+
+    it('stops the socket tail when a poll balance event finds the activity', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION + 30 * SEC);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(61);
+
+      mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [LATE_ACTIVITY], hasMore: false });
+      emitBalanceUpdate({ bnb: 2n }, 'poll');
+      await jest.advanceTimersByTimeAsync(1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(62);
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'newActivities', chain: 'bnb', accountId: '0-mainnet', activities: [LATE_ACTIVITY],
+      });
+
+      await jest.advanceTimersByTimeAsync(4 * 60 * MINUTE);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(62);
+    });
+
+    it('continues the tail on schedule after a history request fails', async () => {
+      emitBalanceUpdate({ bnb: 1n }, 'socket');
+      await jest.advanceTimersByTimeAsync(FAST_CATCH_UP_DURATION);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(60);
+
+      mockedGetTokenActivitySlice.mockRejectedValueOnce(new Error('Indexer unavailable'));
+      await jest.advanceTimersByTimeAsync(30 * SEC);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(61);
+
+      await jest.advanceTimersByTimeAsync(MINUTE - 1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(61);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await flushPromises();
+      expect(mockedGetTokenActivitySlice).toHaveBeenCalledTimes(62);
+    });
   });
 });

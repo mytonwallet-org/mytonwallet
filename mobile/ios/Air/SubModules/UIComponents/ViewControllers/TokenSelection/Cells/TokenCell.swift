@@ -215,7 +215,7 @@ public final class TokenCell: UICollectionViewCell {
                            onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
         marketRowHeight.isActive = secondaryAmountMode == .balanceValueOrPrice
-        accessibilityIdentifier = nil
+        accessibilityIdentifier = "token_selector_row"
         amountLabelContainer.isDisabled = false
         secondaryAmountLabelContainer.isDisabled = secondaryAmountMode == .balanceValueOrPrice && balance <= 0
         fiatIconView?.removeFromSuperview()

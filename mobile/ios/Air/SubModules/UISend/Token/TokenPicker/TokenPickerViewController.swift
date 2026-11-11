@@ -51,9 +51,8 @@ final class TokenPickerViewController: WViewController {
         WalletCoreData.add(eventObserver: self)
         balanceChanged()
     }
-    
-    private let searchController = UISearchController(searchResultsController: nil)
-    private var collectionView: UICollectionView!
+
+    private var contentView: TokenPickerContentView!
 
     private enum Section: Hashable {
         case main
@@ -72,13 +71,13 @@ final class TokenPickerViewController: WViewController {
         let tokenSlug: String
     }
 
-    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var dataSources: [TokenPickerCategory: UICollectionViewDiffableDataSource<Section, Item>] = [:]
 
-    private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { sectionIndex, environment in
+    private func makeLayout(for category: TokenPickerCategory) -> UICollectionViewLayout {
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             var listConfig = UICollectionLayoutListConfiguration(appearance: .plain)
             listConfig.showsSeparators = true
-            listConfig.headerMode = sectionIndex == 1 ? .supplementary : .none
+            listConfig.headerMode = self?.dataSources[category]?.sectionIdentifier(for: sectionIndex) == .hidden ? .supplementary : .none
 
             let separatorInsets = NSDirectionalEdgeInsets(top: 0, leading: 62, bottom: 0, trailing: IOS_26_MODE_ENABLED ? 12 : 0)
             var separatorConfig = UIListSeparatorConfiguration(listAppearance: .plain)
@@ -101,32 +100,20 @@ final class TokenPickerViewController: WViewController {
         title = lang("Select Token")
         addCloseNavigationItemIfNeeded()
 
-        searchController.searchBar.delegate = self
-        searchController.searchBar.isTranslucent = false
-        searchController.searchResultsUpdater = self
-        searchController.hidesNavigationBarDuringPresentation = false
-        searchController.searchBar.searchBarStyle = .minimal
-        searchController.searchBar.autocorrectionType = .no
-        searchController.searchBar.spellCheckingType = .no
-        searchController.searchBar.setShowsCancelButton(false, animated: false)
+        contentView = TokenPickerContentView(parent: self) { [unowned self] category in
+            makeCollectionView(for: category)
+        }
+        contentView.searchBar.onTextChange = { [weak self] text in
+            guard let self else { return }
+            keyword = text
+            filterWalletTokens()
+        }
+        view.backgroundColor = .air.pickerBackground
+        addCustomNavigationBarBackground(color: .air.pickerBackground)
+    }
 
-        navigationItem.searchController = searchController
-        navigationItem.hidesSearchBarWhenScrolling = false
-
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
-        collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.keyboardDismissMode = .onDrag
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
-        tapGesture.cancelsTouchesInView = false
-        collectionView.addGestureRecognizer(tapGesture)
-        view.addSubview(collectionView)
-        NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
-            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-
+    private func makeCollectionView(for category: TokenPickerCategory) -> UICollectionView {
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout(for: category))
         let cellRegistration = UICollectionView.CellRegistration<TokenCell, Item> { [weak self] cell, _, item in
             guard let self else { return }
             guard let walletToken = self.walletTokensBySlug[item.tokenSlug] else {
@@ -147,7 +134,7 @@ final class TokenPickerViewController: WViewController {
                     if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         tokenSearch.recordSelection(tokenSlug: token.slug, accountID: accountId)
                     }
-                    self.searchController.isActive = false // to prevent ui animation glitch on push
+                    self.view.endEditing(true)
                     self.onSelect(token)
                 }
             }
@@ -157,7 +144,7 @@ final class TokenPickerViewController: WViewController {
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] headerView, _, indexPath in
             guard let self,
-                  let section = dataSource?.sectionIdentifier(for: indexPath.section) else {
+                  let section = dataSources[category]?.sectionIdentifier(for: indexPath.section) else {
                 return
             }
             var content = UIListContentConfiguration.plainHeader()
@@ -166,9 +153,10 @@ final class TokenPickerViewController: WViewController {
             headerView.contentConfiguration = content
         }
 
-        dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
+        let dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
         }
+        dataSources[category] = dataSource
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(
                 using: headerRegistration,
@@ -176,19 +164,13 @@ final class TokenPickerViewController: WViewController {
             )
         }
 
-        updateTheme()
+        return collectionView
     }
 
-    private func updateTheme() {
-        view.backgroundColor = .air.pickerBackground
-        collectionView?.backgroundColor = .air.pickerBackground
-    }
-    
-    @objc func hideKeyboard() {
-        searchController.searchBar.endEditing(false)
-    }
-    
     func filterWalletTokens() {
+        contentView.updateCategories(TokenPickerCategory.getAvailableCategories(
+            tokenSlugs: selectableWalletTokens(walletTokens + hiddenWalletTokens).map(\.tokenSlug)
+        ))
         let normalizedKeyword = keyword.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKeyword.isEmpty else {
             showingTokenSlugs = selectableWalletTokens(walletTokens).map(\.tokenSlug)
@@ -225,38 +207,22 @@ final class TokenPickerViewController: WViewController {
     }
     
     private func applySnapshot(animated: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        snapshot.appendSections([.main])
-        snapshot.appendItems(showingTokenSlugs.map { Item(tokenSlug: $0) }, toSection: .main)
-        if !showingHiddenTokenSlugs.isEmpty {
-            snapshot.appendSections([.hidden])
-            snapshot.appendItems(
-                showingHiddenTokenSlugs.map { Item(tokenSlug: $0) },
-                toSection: .hidden
-            )
+        for category in contentView.categories {
+            guard let dataSource = dataSources[category] else { continue }
+            var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+            let visibleSlugs = showingTokenSlugs.filter { category.shouldInclude(tokenSlug: $0) }
+            let hiddenSlugs = showingHiddenTokenSlugs.filter { category.shouldInclude(tokenSlug: $0) }
+            snapshot.appendSections([.main])
+            snapshot.appendItems(visibleSlugs.map { Item(tokenSlug: $0) }, toSection: .main)
+            if !hiddenSlugs.isEmpty {
+                snapshot.appendSections([.hidden])
+                snapshot.appendItems(hiddenSlugs.map { Item(tokenSlug: $0) }, toSection: .hidden)
+            }
+            let existingItems = Set(dataSource.snapshot().itemIdentifiers)
+            snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { existingItems.contains($0) })
+            dataSource.apply(snapshot, animatingDifferences: animated)
+            contentView.updateEmptyState(snapshot.numberOfItems == 0, for: category)
         }
-        dataSource.apply(snapshot, animatingDifferences: animated)
-    }
-}
-
-extension TokenPickerViewController: UISearchBarDelegate, UISearchResultsUpdating {
-    
-    func searchBarShouldBeginEditing(_ searchBar: UISearchBar) -> Bool {
-        searchController.searchBar.setPositionAdjustment(.init(horizontal: 8, vertical: 0), for: .search)
-        return true
-    }
-    
-    func searchBarShouldEndEditing(_ searchBar: UISearchBar) -> Bool {
-        guard searchController.searchBar.text?.isEmpty != false else {
-            return true
-        }
-        searchController.searchBar.setCenteredPlaceholder()
-        return true
-    }
-    
-    public func updateSearchResults(for searchController: UISearchController) {
-        keyword = searchController.searchBar.text ?? ""
-        filterWalletTokens()
     }
 }
 

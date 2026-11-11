@@ -32,6 +32,7 @@ import androidx.core.view.updateLayoutParams
 import com.facebook.drawee.drawable.ScalingUtils
 import com.facebook.drawee.generic.RoundingParams
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -44,15 +45,34 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.image.WZoomableImageView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
+import org.mytonwallet.app_air.uicomponents.widgets.zoomable.DefaultZoomableController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
+// Telegram's side zones: an eighth of the viewer's width on each side, up to 135 px
+private const val EDGE_TAP_MAX_PX = 135
+private const val EDGE_TAP_WIDTH_DIVISOR = 8f
+
+/** How wide each side's tap zone is in a viewer [width] px wide */
+internal fun mediaViewerEdgeTapSide(width: Float): Float =
+    min(EDGE_TAP_MAX_PX.toFloat(), width / EDGE_TAP_WIDTH_DIVISOR)
+
+/**
+ * Whether a tap at [x] lies in a side zone of a viewer [width] px wide. As in Telegram, a tap there pages, or shows or
+ * hides the bars, as soon as the finger lifts and never makes half of a double tap: only outside them does a double
+ * tap zoom.
+ */
+internal fun isMediaViewerEdgeTap(x: Float, width: Float): Boolean {
+    val side = mediaViewerEdgeTapSide(width)
+    return x < side || x > width - side
+}
+
 /** [caption] takes the text size in px. Without [menuItems] there is no ⋮ button. */
 class MediaViewerItem(
     val url: String,
-    val title: String? = null,
-    val subtitle: (() -> String?)? = null,
+    val date: (() -> String?)? = null,
     val caption: ((textSize: Float) -> CharSequence)? = null,
     val accessibilityLabel: String? = null,
     val menuItems: ((host: View) -> List<WMenuPopup.Item>)? = null
@@ -107,9 +127,8 @@ class MediaViewerVC(
     private val pressedEdges = MediaViewerPressedEdges(context)
     private val actionBar = MediaViewerActionBar(context).apply {
         backButton.setOnClickListener { close() }
-        menuButton.setOnClickListener { showMenu() }
+        menuButton.setOnMenuClickListener { showMenu() }
     }
-    private val countView = MediaViewerCountView(context)
     private val caption = MediaViewerCaptionView(context)
 
     private val navigationScrim = View(context).apply { setBackgroundColor(CHROME_SCRIM_COLOR) }
@@ -131,7 +150,6 @@ class MediaViewerVC(
             navigationScrim,
             FrameLayout.LayoutParams(MATCH_PARENT, 0, Gravity.BOTTOM)
         )
-        chrome.addView(countView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         chrome.addView(actionBar, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         chrome.alpha = 0f
         layout.addView(chrome, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -186,7 +204,7 @@ class MediaViewerVC(
     private fun setUpAccessibility() {
         actionBar.backButton.contentDescription = LocaleController.getString("Close")
         actionBar.menuButton.contentDescription = LocaleController.getString("More actions")
-        listOf<View>(background, pressedEdges, flyer, countView, navigationScrim).forEach {
+        listOf<View>(background, pressedEdges, flyer, navigationScrim).forEach {
             it.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         updatePageAccessibility()
@@ -239,7 +257,6 @@ class MediaViewerVC(
         actionBar.setInsets(bars.top, start, end)
         chrome.setPadding(bars.left, 0, bars.right, 0)
         val barBottom = bars.top + actionBar.contentHeight
-        countView.bandTop = barBottom
         caption.updateLayoutParams<FrameLayout.LayoutParams> {
             topMargin = barBottom
             bottomMargin = bars.bottom
@@ -256,9 +273,14 @@ class MediaViewerVC(
         return false
     }
 
+    // Telegram's photo viewer: zooms up to 3x, and a pinch past either limit goes on, slowed, until it springs back
     private fun makePage() = WZoomableImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(0f)
         defaultPlaceholder = Content.Placeholder.Color(WColor.Transparent)
+        (zoomableController as DefaultZoomableController).apply {
+            maxScaleFactor = MAX_ZOOM
+            isOverzoomEnabled = true
+        }
     }
 
     private val centerPage get() = pages[1]
@@ -299,7 +321,7 @@ class MediaViewerVC(
     private fun hasPage(step: Int) = urls.getOrNull(index + step) != null
 
     private val edgeTapSide: Float
-        get() = min(EDGE_TAP_MAX_PX.toFloat(), layout.width / EDGE_TAP_WIDTH_DIVISOR)
+        get() = mediaViewerEdgeTapSide(layout.width.toFloat())
 
     private fun onTap(x: Float, y: Float) {
         if (isClosing || motion?.isRunning == true) return
@@ -353,11 +375,10 @@ class MediaViewerVC(
     /** [direction]: 1 to the next picture, -1 to the previous one, 0 at once. */
     private fun bindChrome(direction: Int) {
         val item = items[index]
-        actionBar.setTitle(item.title.orEmpty(), direction)
-        actionBar.setSubtitle(item.subtitle?.invoke(), direction)
+        val (title, subtitle) = mediaViewerTitles(index + 1, items.size, item.date?.invoke())
+        actionBar.setTitle(title, direction)
+        actionBar.setSubtitle(subtitle, direction)
         actionBar.menuButton.isInvisible = item.menuItems == null
-        countView.set(index + 1, items.size, animated = direction != 0)
-        countView.setShown(items.size > 1, animated = direction != 0)
         caption.setText(item.caption?.invoke(caption.textView.textSize))
         if (direction != 0) {
             caption.textView.alpha = 0f
@@ -365,13 +386,15 @@ class MediaViewerVC(
         }
     }
 
+    // Telegram's viewer menu: dark over the dark viewer in either theme, opening over the button from its top corner
     private fun showMenu() {
         val menuItems = items[index].menuItems?.invoke(view) ?: return
         WMenuPopup.present(
             actionBar.menuButton,
             menuItems,
-            positioning = WMenuPopup.Positioning.BELOW,
-            isAlignedToEnd = true
+            positioning = WMenuPopup.Positioning.ALIGNED,
+            isAlignedToEnd = true,
+            themeIsDark = true
         )
     }
 
@@ -384,12 +407,10 @@ class MediaViewerVC(
         val alpha = if (show) 1f else 0f
         if (show) {
             actionBar.isVisible = true
-            countView.isVisible = true
             caption.isVisible = caption.hasText
         }
         val targets = listOf(
             Triple(actionBar, -offset, true),
-            Triple(countView, -offset, true),
             Triple(caption, offset, true),
             Triple(navigationScrim, 0f, false)
         )
@@ -435,7 +456,6 @@ class MediaViewerVC(
     // Hidden chrome takes no touches
     private fun hideChromeViews() {
         actionBar.visibility = View.INVISIBLE
-        countView.visibility = View.INVISIBLE
         caption.visibility = View.INVISIBLE
     }
 
@@ -687,6 +707,12 @@ class MediaViewerVC(
 
         // A touch starting on the bar's buttons or the caption's text is theirs
         private var isTouchOnChrome = false
+
+        // A touch starting in a side zone is a tap there until it moves, lasts or a second finger comes
+        private var isEdgeTouch = false
+        private var isEdgeTapCancelled = false
+        private var edgeTapX = 0f
+        private var edgeTapY = 0f
         private val gestures = GestureDetector(
             context,
             object : GestureDetector.SimpleOnGestureListener() {
@@ -696,7 +722,14 @@ class MediaViewerVC(
                 }
 
                 override fun onDoubleTap(e: MotionEvent): Boolean {
-                    if (!isClosing && motion?.isRunning != true) centerPage.doubleTapped(e)
+                    // A double tap zooms rather than pages, so the edge it lands on isn't shaded
+                    pressedEdges.release()
+                    if (!isClosing && motion?.isRunning != true) {
+                        val pageEvent = MotionEvent.obtain(e)
+                        pageEvent.offsetLocation(-centerPage.x, -centerPage.y)
+                        centerPage.doubleTapped(pageEvent)
+                        pageEvent.recycle()
+                    }
                     return true
                 }
             }
@@ -717,13 +750,46 @@ class MediaViewerVC(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     isTouchOnChrome = isChromeAt(event.x, event.y)
+                    isEdgeTouch = !isTouchOnChrome &&
+                        isMediaViewerEdgeTap(event.x, width.toFloat())
+                    isEdgeTapCancelled = false
+                    edgeTapX = event.x
+                    edgeTapY = event.y
                     if (!isTouchOnChrome) pressEdge(event.x)
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pressedEdges.release()
             }
-            if (!isTouchOnChrome) gestures.onTouchEvent(event)
-            return super.dispatchTouchEvent(event)
+            // The page takes each touch first. Its zoom stops any zoom animation as a finger comes down, so a double
+            // tap, recognised on its second finger down, zooms only after the page has had that touch.
+            val isHandled = super.dispatchTouchEvent(event)
+            if (isEdgeTouch) {
+                trackEdgeTap(event)
+            } else if (!isTouchOnChrome) {
+                gestures.onTouchEvent(event)
+            }
+            return isHandled
+        }
+
+        // A tap in a side zone pages, or shows or hides the bars, as the finger lifts, as in Telegram, without waiting
+        // to see whether a second tap follows, so quick taps there page once each
+        private fun trackEdgeTap(event: MotionEvent) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_MOVE -> {
+                    val travel = hypot(event.x - edgeTapX, event.y - edgeTapY)
+                    if (travel > touchSlop) isEdgeTapCancelled = true
+                }
+
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
+                    isEdgeTapCancelled = true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    val heldMs = event.eventTime - event.downTime
+                    val isHeld = heldMs > ViewConfiguration.getLongPressTimeout()
+                    if (!isEdgeTapCancelled && !isHeld) onTap(event.x, event.y)
+                }
+            }
         }
 
         private fun isChromeAt(x: Float, y: Float): Boolean {
@@ -827,9 +893,8 @@ class MediaViewerVC(
 
     companion object {
         private const val PAGE_COUNT = 3
+        private const val MAX_ZOOM = 3f
         private const val PAGE_GAP = 30
-        private const val EDGE_TAP_MAX_PX = 135
-        private const val EDGE_TAP_WIDTH_DIVISOR = 8f
         private const val EDGE_TAP_TOP_GAP = 40
         private const val CHROME_SCRIM_COLOR = 0x7F000000
         private const val CHROME_SLIDE = 24

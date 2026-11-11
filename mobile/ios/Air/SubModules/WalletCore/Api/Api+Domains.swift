@@ -18,11 +18,13 @@ extension Api {
         try await bridge.callApi("submitDnsRenewal", accountId, enclaveToken, nfts, realFee, decoding: [ApiMfaProtectedResult].self)
     }
     
-    public static func checkDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String) async throws -> ApiDnsChangeWalletDraft {
+    /// A `nil` address deletes the wallet record, unlinking the domain
+    public static func checkDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String?) async throws -> ApiDnsChangeWalletDraft {
         try await bridge.callApi("checkDnsChangeWalletDraft", accountId, nft, address, decoding: ApiDnsChangeWalletDraft.self)
     }
     
-    public static func submitDnsChangeWallet(accountId: String, enclaveToken: EnclaveToken?, nft: ApiNft, address: String, realFee: BigInt?) async throws -> ApiDnsChangeWalletResult {
+    /// A `nil` address deletes the wallet record, unlinking the domain
+    public static func submitDnsChangeWallet(accountId: String, enclaveToken: EnclaveToken?, nft: ApiNft, address: String?, realFee: BigInt?) async throws -> ApiDnsChangeWalletResult {
         return try await bridge.callApi("submitDnsChangeWallet", accountId, enclaveToken, nft, address, realFee, decoding: ApiDnsChangeWalletResult.self)
     }
 }

@@ -8,12 +8,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isInvisible
 import androidx.core.view.setPadding
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.net.URI
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
@@ -32,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView
 import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView.AnimateConfig
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
@@ -141,11 +144,12 @@ class TokenHeaderView(
 
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
+        btn.id = UIComponentsR.id.token_more_button
         btn.setPadding(8.dp)
-        btn.setOnClickListener {
+        btn.setOnMenuClickListener {
             val items = buildMoreMenuItems()
             if (items.isEmpty()) {
-                return@setOnClickListener
+                return@setOnMenuClickListener
             }
             WMenuPopup.present(
                 btn,
@@ -441,7 +445,8 @@ class TokenHeaderView(
                 forceCurrencyToRight = true,
                 decimalsCount = if (showsFullBalance) token.decimals else null,
                 morphingDurationOverride =
-                    if (fastBalanceMorph) FULL_BALANCE_MORPH_DURATION.toInt() else null
+                    if (fastBalanceMorph) FULL_BALANCE_MORPH_DURATION.toInt() else null,
+                rounding = RoundingMode.DOWN
             )
         )
         prevBalance = balance

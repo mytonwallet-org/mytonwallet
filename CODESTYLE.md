@@ -278,6 +278,7 @@ Follow this pattern for PR titles and commit messages:
 - Each sentence starts with a capital letter.
 - If a commit contains more than one task, separate them with a semicolon.
 - No trailing period or semicolon.
+- No Conventional Commits prefixes such as `fix:` and `feat:`, no past-tense descriptions, and no missing space after `]`.
 
 ### Examples
 
@@ -285,9 +286,9 @@ Follow this pattern for PR titles and commit messages:
 Video Player: Hide download button in fullscreen
 Message / Round Video: Fix progressive loading
 PWA: Support system sharing menu
-[SEO] Replace `meta[noindex]` with `link[canonical]`
+TON Connect: Pair over the SSE bridge as well as the injected one
 [iOS] Startup: Add logs and signposts
-[Refactoring] Fix @typescript-eslint/await-thenable errors
+[Refactoring] Comments: Remove redundant and history-framed comments
 [Classic] Accounts: Allow view-only accounts to connect to dapps
 ```
 
@@ -295,7 +296,7 @@ PWA: Support system sharing menu
 
 A bug fix starts its description with `Fix`, followed by the problem as a user or developer sees it. How the code now avoids the problem belongs in the PR description. A title is change history, so the rule against history framing in docs and comments does not apply to it.
 
-The word `Fix` opening the description is the only fix marker: no `fix/`, `fix:` or `Fixed`.
+The word `Fix` opening the description is the only fix marker: no `fix/`, `fix:` or `Fixed`. The `fix/` and `feat/` prefixes belong to branch names only.
 
 ```
 [Android] Token / Chart: Fix squashed price chart on tablet

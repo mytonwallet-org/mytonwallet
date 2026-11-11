@@ -24,6 +24,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.addRippleEffect
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
@@ -67,6 +68,7 @@ class WActionBar(
         val iconResId: Int? = null,
         val iconDrawable: Drawable? = null,
         val isEnabled: Boolean = true,
+        val opensMenu: Boolean = false,
         val onClick: ((view: View) -> Unit)? = null
     )
 
@@ -486,7 +488,9 @@ class WActionBar(
                 }
                 isEnabled = action.isEnabled
                 setPadding(ACTION_ICON_PADDING_DP.dp)
-                if (action.onClick != null) {
+                if (action.onClick != null && action.opensMenu) {
+                    setOnMenuClickListener { action.onClick.invoke(this) }
+                } else if (action.onClick != null) {
                     setOnClickListener {
                         action.onClick.invoke(this)
                     }

@@ -27,6 +27,7 @@ final class PlainWebView: WViewController {
         super.viewDidLoad()
 
         webView = WKWebView()
+        webView.accessibilityIdentifier = "plain_web_view"
         view.addStretchedToSafeArea(subview: webView,
                                     top: \.topAnchor,
                                     bottom: \.bottomAnchor)

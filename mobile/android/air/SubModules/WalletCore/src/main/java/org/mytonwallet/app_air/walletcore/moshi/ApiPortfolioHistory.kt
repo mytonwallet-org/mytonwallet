@@ -4,6 +4,13 @@ import com.squareup.moshi.JsonClass
 
 typealias ApiHistoryList = List<List<Double?>>
 
+/** Daily USD closes of the underlying stock, all earlier than the first point of the token's own history */
+@JsonClass(generateAdapter = true)
+data class ApiPriceHistoryBackfill(val symbol: String, val points: List<List<Double>>)
+
+@JsonClass(generateAdapter = true)
+data class ApiPriceHistory(val points: List<List<Double>>, val backfill: ApiPriceHistoryBackfill?)
+
 @JsonClass(generateAdapter = true)
 data class ApiPortfolioHistoryResponse(
     val status: String,

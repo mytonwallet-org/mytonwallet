@@ -26,11 +26,42 @@ data class AgentV2NewsFeedItem(
 data class AgentV2NewsFeedPage(
     val locale: String,
     val items: List<AgentV2NewsFeedItem>,
-    val nextCursor: String? = null
+    val nextCursor: String? = null,
+    val digests: List<AgentV2NewsFeedDigest>? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class AgentV2NewsFeedRequest(val lang: String, val cursor: String? = null)
+data class AgentV2NewsDigestHeadline(val eventId: Int, val headline: String)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2NewsFeedDigest(
+    val id: String,
+    val deliveredAt: String,
+    val top: List<AgentV2NewsDigestHeadline>,
+    val total: Int,
+    val discussion: AgentV2NewsFeedItem.Discussion? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2NewsFeedRequest(
+    val lang: String,
+    val cursor: String? = null,
+    val digestHour: Int? = null,
+    val timeZone: String? = null
+) {
+    init {
+        require((digestHour == null) == (timeZone == null))
+        require(digestHour == null || digestHour in 0..23)
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadDigestCard(
+    val id: String,
+    val windowEnd: String,
+    val total: Int,
+    val top: List<AgentV2NewsDigestHeadline>
+)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2ThreadNewsCard(
@@ -48,7 +79,16 @@ data class AgentV2ThreadNewsCard(
 data class AgentV2ThreadNewsRequest(val eventId: Int, val locale: String)
 
 @JsonClass(generateAdapter = true)
-data class AgentV2ThreadCreateRequest(val news: AgentV2ThreadNewsRequest)
+data class AgentV2ThreadDigestRequest(val id: String)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadCreateRequest(
+    val news: AgentV2ThreadNewsRequest? = null,
+    val digest: AgentV2ThreadDigestRequest? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2ThreadSupport(val state: String, val lastOperatorMessageAt: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class AgentV2ThreadSummary(
@@ -63,7 +103,9 @@ data class AgentV2ThreadSummary(
     val icon: String? = null,
     val hasCustomTitle: Boolean? = null,
     val isPinned: Boolean? = null,
-    val news: AgentV2ThreadNewsCard? = null
+    val news: AgentV2ThreadNewsCard? = null,
+    val digest: AgentV2ThreadDigestCard? = null,
+    val support: AgentV2ThreadSupport? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -177,6 +219,13 @@ data class AgentV2FollowUp(val id: String, val kind: String, val text: String)
 data class AgentV2FollowUpReference(val messageId: String, val followupId: String)
 
 @JsonClass(generateAdapter = true)
+data class AgentV2OperatorAuthor(
+    val operatorId: String,
+    val name: String,
+    val avatarUrl: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class AgentV2PersistedMessage(
     val id: String,
     val threadId: String,
@@ -190,7 +239,11 @@ data class AgentV2PersistedMessage(
     val followups: List<AgentV2FollowUp>? = null,
     /** `like` or `dislike` on a rated complete answer */
     val feedback: String? = null,
-    val newsPost: Boolean? = null
+    val newsPost: Boolean? = null,
+    val text: String? = null,
+    val author: AgentV2OperatorAuthor? = null,
+    val code: String? = null,
+    val reason: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -198,6 +251,13 @@ data class AgentV2ThreadHydration(
     val thread: AgentV2ThreadSummary,
     val messages: List<AgentV2PersistedMessage>,
     val nextCursor: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentV2CachedMessages(
+    val thread: AgentV2ThreadSummary,
+    val messages: List<AgentV2PersistedMessage>,
+    val hasOlder: Boolean
 )
 
 @JsonClass(generateAdapter = true)

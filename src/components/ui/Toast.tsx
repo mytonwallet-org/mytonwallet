@@ -3,6 +3,8 @@ import React, {
   memo, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
 
+import type { ToastAnimatedIcon } from '../../global/types';
+
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { stopEvent } from '../../util/domEvents';
@@ -11,6 +13,7 @@ import { IS_ELECTRON } from '../../util/windowEnvironment';
 import useLastCallback from '../../hooks/useLastCallback';
 import useShowTransition from '../../hooks/useShowTransition';
 
+import AnimatedIconWithPreview from './AnimatedIconWithPreview';
 import Portal from './Portal';
 
 import styles from './Toast.module.scss';
@@ -19,6 +22,7 @@ type OwnProps = {
   containerId?: string;
   message: string;
   icon?: string;
+  animatedIcon?: ToastAnimatedIcon;
   isPersistent?: boolean;
   actionText?: string;
   onAction?: NoneToVoidFunction;
@@ -29,7 +33,7 @@ const DURATION_MS = 5000;
 const ANIMATION_DURATION = 250;
 
 const Toast: FC<OwnProps> = ({
-  icon, message, containerId, actionText, onAction, onDismiss,
+  icon, animatedIcon, message, containerId, actionText, onAction, onDismiss,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const timerRef = useRef<number | undefined>();
@@ -92,6 +96,19 @@ const Toast: FC<OwnProps> = ({
       >
         <div className={buildClassName(styles.content, withAction && styles.content_withAction)}>
           {icon && <i className={buildClassName(styles.icon, icon)} aria-hidden />}
+          {animatedIcon && (
+            <span className={styles.animatedIcon} aria-hidden>
+              <span className={styles.animatedIconFrame}>
+                <AnimatedIconWithPreview
+                  tgsUrl={animatedIcon.tgsUrl}
+                  previewUrl={animatedIcon.previewUrl}
+                  size={animatedIcon.size}
+                  nonInteractive
+                  forceOnHeavyAnimation
+                />
+              </span>
+            </span>
+          )}
           {message}
         </div>
         {withAction && (

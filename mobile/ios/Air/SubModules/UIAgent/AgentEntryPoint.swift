@@ -1,25 +1,42 @@
 import UIKit
 import WalletCore
+import WalletContext
 
 public enum AgentEntryPoint {
+    /// With `isSummaryCached`, the summary is the SDK's copy from a past session, whose unread state is unknown until
+    /// the history loads: the chat loads under the skeleton rather than opening on its cached history
     @MainActor
-    public static func makeRootViewController(thread: ApiAgentV2ThreadSummary) -> UIViewController {
-        makeRootViewController(thread: thread, preloader: .shared)
+    public static func makeRootViewController(
+        thread: ApiAgentV2ThreadSummary,
+        isSummaryCached: Bool = false
+    ) -> UIViewController {
+        makeRootViewController(thread: thread, preloader: .shared, isSummaryCached: isSummaryCached)
     }
 
     @MainActor
     static func makeRootViewController(
         thread: ApiAgentV2ThreadSummary,
-        preloader: AgentPreloader
+        preloader: AgentPreloader,
+        isSummaryCached: Bool = false
     ) -> UIViewController {
         if let model = preloader.model(threadId: thread.id) {
             model.refreshThreadIfNeeded(thread)
-            if model.isReadyForPresentation {
+            // A chat that got an answer since it took its cached history waits for its history, as an unread chat does
+            if model.isReadyForPresentation
+                || model.isShowingCachedMessages && !isSummaryCached && !AgentThreadReadState.shared.isUnread(thread) {
                 preloader.keepRecent(model)
                 return AgentVC(model: model)
             }
+        } else if !isSummaryCached,
+                  preloader.getCachedHistory(threadId: thread.id) != nil,
+                  let model = preloader.acquireModel(thread: thread) {
+            // A chat that may show its cached history opens with it; one that may not loads under the skeleton
+            preloader.keepRecent(model)
+            if model.isShowingCachedMessages {
+                return AgentVC(model: model)
+            }
         }
-        return AgentRootVC(thread: thread, preloader: preloader)
+        return AgentRootVC(thread: thread, preloader: preloader, isSummaryCached: isSummaryCached)
     }
 
     @MainActor
@@ -55,6 +72,30 @@ public enum AgentEntryPoint {
     }
 
     @MainActor
+    public static func makeNewsChatViewController(eventId: Int) async throws -> UIViewController {
+        try await makeNewsChatViewController(eventId: eventId, client: LiveAgentNewsFeedClient(), preloader: .shared)
+    }
+
+    @MainActor
+    static func makeNewsChatViewController(eventId: Int, client: AgentNewsFeedClient, preloader: AgentPreloader) async throws -> UIViewController {
+        let generation = preloader.sessionGeneration
+        let page = try await client.getNewsFeed(
+            lang: LocalizationSupport.shared.langCode, cursor: nil,
+            digestHour: AgentNewsNotificationSettings.shared.digestHour, timeZone: TimeZone.current.identifier
+        )
+        guard preloader.sessionGeneration == generation else { throw CancellationError() }
+        if let item = page.items.first(where: { $0.eventId == eventId }) {
+            return makeNewsChatViewController(item: item, locale: page.locale, preloader: preloader, onThreadCreated: { _ in })
+        }
+        return AgentVC(model: preloader.acquireNewsModel(request: .init(eventId: eventId, locale: page.locale)))
+    }
+
+    @MainActor
+    public static func makeDigestChatViewController(digestId: String) -> UIViewController {
+        AgentVC(model: AgentPreloader.shared.acquireDigestModel(id: digestId))
+    }
+
+    @MainActor
     public static func setWalletReady(_ isReady: Bool) {
         AgentPreloader.shared.setWalletReady(isReady)
     }
@@ -68,6 +109,20 @@ public enum AgentEntryPoint {
                   let navigationController = controller.navigationController,
                   let index = navigationController.viewControllers.firstIndex(of: controller) else {
                 completion?()
+                return
+            }
+            // The consent sheet an opening waits on goes with the chat
+            let presentation = AgentConsentSheetPresentation.current
+            if let presented = presentation.presentedViewController(of: controller), !presented.isBeingDismissed,
+               (presented as? UINavigationController)?.viewControllers.first is AgentConsentSheetVC {
+                if presentation.whenPresented(presented, {
+                    removeDeletedChat(controller, animated: animated, completion: completion)
+                }) {
+                    return
+                }
+                presentation.dismiss(presented, animated: animated) {
+                    removeDeletedChat(controller, animated: animated, completion: completion)
+                }
                 return
             }
             if index > 0, index == navigationController.viewControllers.count - 1 {

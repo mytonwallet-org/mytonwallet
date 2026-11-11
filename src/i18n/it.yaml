@@ -138,8 +138,8 @@ You can always enable seasonal theming again in the appearance settings.: Puoi s
 Base Currency: Valuta di base
 Investor View: Modalità investitore
 Toggle Investor View: Attiva/disattiva modalità investitore
-Hide Tiny Transfers: Nascondi trasferimenti minimi
-Toggle Hide Tiny Transfers: Attiva/disattiva nascondi trasferimenti minimi
+Hide Tiny Transfers and Spam: Nascondi trasferimenti minimi e spam
+Toggle Hide Tiny Transfers and Spam: Attiva/disattiva nascondi trasferimenti minimi e spam
 Network: Rete
 Developer Options: Opzioni sviluppatore
 All Wallet Versions: Tutte le versioni del wallet
@@ -1358,13 +1358,12 @@ Ask a Question: Fai una domanda
 Ask anything: Chiedi qualsiasi cosa
 Agent: Agent
 Learn more: Scopri di più
-Data shared with Agent: Dati condivisi con Agent
-$agent_consent_allow_button: Consenti ad Agent
-$agent_consent_subtitle: Chiedi ad Agent assistenza per il wallet, informazioni sui token e azioni supportate.
+Data shared with Agent: Dati condivisi con l'agente
+$agent_consent_allow_button: Consenti all'agente
 $agent_consent_feature_answers: Ottieni risposte su %app_name%, token e attività del wallet.
 $agent_consent_feature_actions: Prepara azioni supportate come invio, ricezione e staking.
 $agent_consent_feature_context: Usa il contesto del wallet affinché le risposte possano fare riferimento ad asset e indirizzi pertinenti.
-$agent_consent_disclosure_text: Toccando Consenti ad Agent, consenti a %app_name% di inviare i tuoi messaggi ad Agent e il contesto pertinente del wallet a %app_name% Agent (agent.mywallet.io) e all'API Claude di Anthropic, il nostro fornitore di intelligenza artificiale terzo, per elaborare le tue richieste. Il contesto del wallet può includere indirizzi del wallet, saldi, token, attività e dettagli dell'azione richiesta. I dati vengono utilizzati esclusivamente per fornire risposte di Agent e preparare le azioni richieste.
+$agent_consent_disclosure_text: Toccando “Consenti all'agente”, consenti a %app_name% di inviare i tuoi messaggi all'agente e il contesto pertinente del wallet a %app_name% Agent (agent.mywallet.io) e all'API Claude di Anthropic, il nostro fornitore di intelligenza artificiale terzo, per elaborare le tue richieste. Il contesto del wallet può includere indirizzi del wallet, saldi, token, attività e dettagli dell'azione richiesta. I dati vengono utilizzati esclusivamente per fornire le risposte dell'agente e preparare le azioni richieste.
 $agent_consent_search_disclosure_text: Per le ricerche web, a Serper possono essere inviate solo le query di ricerca; il contesto del wallet e la cronologia chat non vengono inviati.
 $settings_token_change_threshold: Soglia variazione %
 $settings_token_change_threshold_description: Nasconde le variazioni percentuali nelle 24 ore inferiori alla soglia selezionata.
@@ -1381,7 +1380,7 @@ Collectibles Section: Sezione collezionabili
 $settings_wallet_card_description: Personalizza cosa visualizzare sulla card del tuo wallet e se mostrare i pulsanti di azione.
 Retry: Riprova
 $agent_chat_running: In esecuzione in background
-$agent_connection_interrupted: La connessione con Agent è stata interrotta. Riprova.
+$agent_connection_interrupted: La connessione con l'agente è stata interrotta. Riprova.
 $agent_history_unavailable: Impossibile caricare la cronologia chat. Riprova.
 $agent_secret_words_removed: "[parole segrete rimosse e non inviate]"
 $agent_activity_analyzing_request: Analisi della richiesta in corso…
@@ -1433,11 +1432,11 @@ $agent_hint_receive_title: Ricevi token
 $agent_hint_receive_prompt: Aiutami a ricevere token.
 $agent_notice_content_over_budget: Il risultato è troppo ampio per essere visualizzato completamente.
 $agent_notice_web_search_no_results: Non è stata trovata alcuna informazione corrispondente alla tua richiesta.
-$agent_error_session: La sessione di Agent è scaduta. Riapri Agent e riprova.
-$agent_error_limit: Impossibile completare la richiesta perché è stato raggiunto un limite di Agent.
+$agent_error_session: La sessione dell'agente è scaduta. Riapri l'agente e riprova.
+$agent_error_limit: Impossibile completare la richiesta perché è stato raggiunto un limite dell'agente.
 $agent_error_tool: Impossibile completare un'operazione del wallet. Riprova.
 $agent_error_conversation_updated: La conversazione è stata aggiornata. Riprova con la richiesta.
-$agent_error_generic: Agent non è riuscito a completare la richiesta. Riprova.
+$agent_error_generic: L'agente non è riuscito a completare la richiesta. Riprova.
 $agent_error_recording_too_large: "La registrazione è troppo lunga. Detta al massimo un minuto alla volta."
 $agent_error_audio_unreadable: "Impossibile elaborare la registrazione. Registrala di nuovo."
 $agent_error_transcription_unavailable: "L’input vocale non è disponibile al momento. Riprova più tardi."
@@ -1448,12 +1447,13 @@ $agent_dictation_no_speech: "Nessuna voce rilevata. Parla più vicino al microfo
 $agent_dictation_time_left: "Mancano %seconds% s"
 $agent_dictation_time_left_short: "%seconds% s"
 $agent_dictation_limit_reached: "La dettatura si è interrotta dopo un minuto, la durata massima consentita."
+$agent_stop_answer: "Interrompi risposta"
 $agent_dictation_microphone_denied: "Consenti l’accesso al microfono per dettare."
 $agent_dictation_hold_hint: "Tieni premuto per dettare. Scorri verso l’alto per registrare a mani libere."
 $agent_dictation_too_short: "Troppo breve. Tieni premuto mentre parli."
 $agent_dictation_slide_to_cancel: "Scorri verso sinistra per annullare"
 $agent_dictation_deleted: "Registrazione eliminata"
-$agent_error_invalid_response: Impossibile leggere la risposta di Agent. Riprova.
+$agent_error_invalid_response: Impossibile leggere la risposta dell'agente. Riprova.
 $agent_error_update_required: Aggiorna l'app per continuare.
 $agent_wallet_page_navigation: Pagine dati del wallet
 $agent_wallet_page_indicator: "%current% di %total%"
@@ -1790,7 +1790,7 @@ $period_year: 1 anno
 Token: Token
 All Tokens: Tutti i token
 Customize Widget: Personalizza widget
-Ask Agent: Chiedi ad Agent
+Ask Agent: Chiedi all'agente
 Chats: Chat
 Recent Searches: Ricerche recenti
 Clear All: Cancella tutto
@@ -1993,14 +1993,14 @@ $token_info_no_description: Nessuna descrizione disponibile
 $swap_cex_aml_kyc_policy_with_provider: "%provider% AML/KYC"
 Hide Unverified NFTs: Nascondi NFT non verificati
 Unverified: Non verificato
-$agent_capacity_limit_title: Agent è temporaneamente non disponibile
+$agent_capacity_limit_title: L'agente è temporaneamente non disponibile
 $agent_capacity_limit_known: Nuove richieste saranno disponibili tra %duration%.
-$agent_capacity_degraded_title: Agent potrebbe essere instabile
+$agent_capacity_degraded_title: L'agente potrebbe essere instabile
 $agent_capacity_limit_unknown: Puoi riprovare, ma la risposta potrebbe non caricarsi.
 $agent_retry_request: Riprova richiesta
-$agent_rate_limit_title: Troppe richieste ad Agent
+$agent_rate_limit_title: Troppe richieste all'agente
 $agent_rate_limit_body: Riprova tra %duration%.
-$agent_user_quota_exhausted_title: Quota Agent insufficiente
+$agent_user_quota_exhausted_title: Quota dell'agente insufficiente
 $agent_user_quota_exhausted_body: Quota insufficiente per questa richiesta. Il limite giornaliero è di %limit% unità e si azzera tra %duration%.
 $agent_time_hours: "%value% h"
 $agent_time_minutes: "%value% min"
@@ -2008,7 +2008,7 @@ $agent_time_seconds: "%value% sec"
 Switched to %account%: Passato a %account%
 See All: Vedi tutti
 Add an **extra layer of security** for your wallet in TON network.: Aggiungi un **ulteriore livello di sicurezza** per il tuo wallet sulla rete TON.
-Agent is unavailable: Agent non è disponibile
+Agent is unavailable: L'agente non è disponibile
 Another transaction was sent from this wallet simultaneously. Please try again.: Un'altra transazione è stata inviata contemporaneamente da questo wallet. Riprova.
 Telegram Wallet contract was not found at this address.: Il contratto Telegram Wallet non è stato trovato a questo indirizzo.
 Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: La chiave pubblica di Telegram Wallet non corrisponde a questo seed. Il wallet potrebbe aver ruotato la chiave.
@@ -2131,6 +2131,8 @@ News: "Notizie"
 Crypto Market News: "Notizie sul mercato crypto"
 $agent_news_new: "Nuove"
 $agent_news_open_source: "Apri fonte"
+$agent_news_source: "Fonte: %sources%"
+$agent_news_sources: "Fonti: %sources%"
 $agent_news_unavailable: "Le notizie non sono disponibili al momento"
 $agent_news_read_more: "Scopri di più"
 $agent_news_discuss: "Discuti"
@@ -2167,7 +2169,6 @@ $perps_open_interest_hint: "Il valore totale dei contratti attualmente aperti in
 "Review": "Verifica"
 "$perps_order_long": "%asset% Long"
 "$perps_order_short": "%asset% Short"
-"$perps_swap_fee_hint": "La commissione per convertire un token in un altro nell’ambito di questa transazione."
 "$perps_trading_fee_hint": "La commissione per aprire questa posizione."
 "$perps_position_size_hint": "Dimensione della posizione: valore totale della posizione con leva."
 "$perps_position_size_details_hint": "Il valore totale della tua posizione, tenendo conto della leva.\n\nAd esempio, se investi $100 con una leva di 5x, la dimensione della tua posizione è $500."
@@ -2177,14 +2178,13 @@ $perps_open_interest_hint: "Il valore totale dei contratti attualmente aperti in
 "$perps_closing_value_hint": "L’importo rimanente dopo la liquidazione della tua posizione. A seconda dell’esito della liquidazione, questo importo può essere inferiore a quello investito oppure pari a zero."
 "$perps_fees_hint": "Le commissioni totali addebitate per questa transazione. A seconda della transazione, possono includere commissioni di trading, scambio e rete."
 "$perps_liquidation_price_hint": "Il prezzo stimato al quale la tua posizione può essere chiusa automaticamente perché i fondi non sono sufficienti a mantenerla aperta."
-"$perps_high_leverage_warning": "Leva alta: un piccolo movimento di prezzo causerà la liquidazione."
 "$perps_leverage_disclaimer": "Una leva maggiore aumenta i potenziali profitti e le perdite. Anche una piccola variazione di prezzo contraria alla tua posizione può causarne la chiusura automatica."
 
 # Perps order review
 "Open Position": "Apri posizione"
 "$perps_asset_price": "Prezzo di %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Confermando, comprendo che questa posizione può essere liquidata e che potrei perdere il denaro investito."
+"$perps_liquidation_acknowledgment": "Confermando, comprendo che questa posizione può essere liquidata e che potrei perdere il denaro investito."
 
 # Perps position receipt
 "Position Opened": "Posizione aperta"
@@ -2255,7 +2255,16 @@ $perps_open_interest_hint: "Il valore totale dei contratti attualmente aperti in
 "PerpsQuoteExpired": "I prezzi o la tua posizione sono cambiati. Torna indietro e verifica di nuovo l’ordine."
 "PerpsReviewChanged": "L’ordine è cambiato. Torna indietro e verificalo di nuovo."
 "PerpsInsufficientUsdc": "USDC insufficienti su Arbitrum, inclusa la commissione del bridge."
+"EvmUserOperationMismatch": "Il pagamento del gas non corrisponde a questa transazione."
+"PerpsInsufficientBalance": "USDC insufficienti nel tuo saldo Hyperliquid, incluse le commissioni di trading."
+"PerpsMarketNeedsUnifiedAccount": "Questo mercato non può essere finanziato dal tuo wallet con il tuo attuale tipo di account Hyperliquid."
+"PerpsRequiresMultichainWallet": "I Futures richiedono un wallet multichain. Passa a uno di questi o creane uno nuovo per iniziare a fare trading."
+"PerpsSwitchesToUnifiedAccount": "Questo ordine passa anche il tuo account Hyperliquid a Unified, così un unico saldo USDC copre tutti i mercati."
 "PerpsAmountTooSmall": "Questo importo è inferiore al minimo del mercato."
+"$perps_minimum_amount": "Importo minimo: %amount% USDC."
+"$perps_minimum_reduction": "Riduci l’importo di oltre %amount% USDC per coprire la commissione del bridge."
+"$perps_required_balance": "Necessari: %required% USDC, incluse le commissioni. Disponibili su Hyperliquid: %available% USDC."
+"$perps_available_balance": "Disponibili su Hyperliquid: %available% USDC. Riduci l’importo per lasciare fondi sufficienti per le commissioni di trading."
 "PerpsUnchanged": "Inserisci un importo diverso per modificare la posizione."
 "PerpsPositionChanged": "Questa posizione è cambiata. Aggiorna e riprova."
 "PerpsPositionExists": "Hai già una posizione su questo mercato. Modifica quella esistente."
@@ -2302,8 +2311,6 @@ Could not save the image. Please try again.: Impossibile salvare l’immagine. R
 "$perps_funding_usdc_increase": "Hai bisogno di almeno %minUSDC% USDC su Arbitrum per aumentare questa posizione."
 "PerpsFundingGasTitle": "ETH insufficiente per la commissione"
 "$perps_funding_gas": "Le commissioni su Arbitrum si pagano in ETH. Ricevi %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Paga con USDC su Arbitrum"
-"PerpsFundingTokenDescription": "Gli altri token non sono ancora supportati. Ricevi USDC per continuare."
 "Not Enough Funds": "Fondi insufficienti"
 "Unsupported Token": "Token non supportato"
 "PerpsReviewUpdated": "I prezzi sono stati aggiornati. Verifica di nuovo l’ordine prima di confermare."
@@ -2322,13 +2329,14 @@ Could not save the image. Please try again.: Impossibile salvare l’immagine. R
 "PerpsExchangeFee": "Commissione dell’exchange"
 "PerpsServiceFee": "Commissione del wallet"
 "PerpsBridgeFee": "Commissione del bridge"
+"PerpsFirstWithdrawalFee": "Commissione del primo prelievo"
 "PerpsTotalFees": "Commissioni totali in USDC"
 "PerpsFeeEstimateHint": "Le commissioni contrassegnate con ≈ sono stimate e possono cambiare all’esecuzione. Le commissioni di rete Arbitrum si pagano separatamente in ETH."
 "PerpsUnallocatedCollateral": "Garanzia non allocata"
 "PerpsUnallocatedCollateralHint": "L’arrotondamento alla dimensione di scambio del mercato può lasciare alcuni USDC fuori dalla posizione. Questi fondi restano sul conto futures e non sono una commissione."
-"PerpsOnboardingTitle": "Non conosci i futures?"
-"PerpsOnboardingDescription": "Scopri come funzionano in meno di 1 minuto."
-"PerpsOnboardingOpen": "Apri la guida introduttiva"
+"PerpsOnboardingTitle": "Futures\nin %app_name%!"
+"PerpsOnboardingDescription": "Vai long o short in pochi tocchi."
+"PerpsOnboardingOpen": "Scopri come funziona"
 "PerpsStoryIntroTitle": "Scopri i futures perpetui"
 "PerpsStoryIntroBody": "Apri posizioni sia sul rialzo sia sul ribasso del prezzo di un asset."
 "PerpsStoryLongTitle": "Prevedi un rialzo? Vai Long"
@@ -2343,17 +2351,15 @@ Could not save the image. Please try again.: Impossibile salvare l’immagine. R
 "PerpsStoryFundingBody": "Quando il tasso di funding è positivo, le posizioni Long pagano le Short. Quando è negativo, le Short pagano le Long."
 "PerpsStoryStart": "Inizia"
 
-"Funding Payment": "Pagamento di finanziamento"
 "Withdrawal": "Prelievo"
 "Transfer": "Trasferimento"
-"Spot Balance": "Saldo spot"
 "From": "Da"
 "To": "A"
 
 Delete Chat: Elimina chat
 Unread: Non letto
-$agent_connection_lost: La connessione con Agent è stata interrotta.
-$agent_daily_limit_reached: Limite giornaliero di Agent raggiunto
+$agent_connection_lost: La connessione con l'agente è stata interrotta.
+$agent_daily_limit_reached: Limite giornaliero dell'agente raggiunto
 $media_viewer_date_at_time: "%date% alle %time%"
 Picture: Immagine
 
@@ -2368,3 +2374,71 @@ $enclave_data_missing_message: |
   Se hai le parole segrete dei tuoi wallet, puoi uscire da tutti i wallet e importarli di nuovo.
 
 Install the TON App on your Ledger and try again.: Installa l'app TON sul tuo Ledger e riprova.
+Liked: Ti è piaciuto
+Disliked: Non ti è piaciuto
+$agent_feedback_liked_toast: "L'agente risponderà più spesso così."
+$agent_feedback_disliked_toast: "Lo esamineremo per migliorare l'agente."
+$agent_voice_pause: "Metti in pausa la registrazione"
+$agent_voice_resume: "Riprendi la registrazione"
+$agent_message_copied: Messaggio copiato.
+$agent_copied: "Copiato."
+$agent_news_empty: "Ancora nessuna notizia"
+$agent_chats_unavailable: "Impossibile caricare le chat"
+
+"PerpsAvailable": "Disponibile"
+"PerpsWithdraw": "Preleva"
+"PerpsBalanceWithdrawalTitle": "Preleva sul wallet"
+"PerpsWithdrawalFromHyperliquid": "Da Hyperliquid"
+"PerpsWithdrawalToWallet": "Al wallet Arbitrum"
+"PerpsBalanceWithdrawalNote": "Gli USDC arrivano sul tuo wallet Arbitrum in pochi minuti. 0,03 USDC restano su Hyperliquid per coprire il gas del prelievo."
+"PerpsBalanceWithdrawalUpdated": "Il tuo saldo Hyperliquid è cambiato. Verifica di nuovo il prelievo prima di confermare."
+"PerpsWithdrawalStatus": "Stato del prelievo"
+"PerpsWithdrawalCompleted": "Prelievo inviato"
+"PerpsWithdrawalOnItsWay": "I tuoi USDC stanno arrivando sul tuo wallet Arbitrum. Può richiedere alcuni minuti."
+"PerpsWithdrawalProcessing": "Elaborazione del prelievo. Il trasferimento tramite bridge può richiedere alcuni minuti."
+"PerpsWithdrawalUnknown": "Il risultato non è ancora confermato. Controlla il saldo Hyperliquid e il wallet prima di un’altra azione."
+"PerpsAcknowledgeWithdrawalUnknown": "Il prelievo potrebbe ancora completarsi. Controlla prima il saldo Hyperliquid e il wallet. Consentire nuovi ordini non lo annulla."
+"PerpsNothingToWithdraw": "Al momento non c’è nulla da prelevare dal tuo saldo Hyperliquid."
+"PerpsWithdrawalRejected": "Hyperliquid ha rifiutato questo prelievo. I tuoi USDC restano nel saldo Hyperliquid."
+"View your assets and activity": "Visualizza i tuoi asset e le attività"
+"Ask AI and follow the news": "Chiedi all’IA e segui le notizie"
+$underlying_stock: 'Azione %symbol%'
+$agent_support_requested: "Hai chiesto assistenza. Un operatore risponderà qui"
+$agent_support_operator_joined: "L’assistenza si è unita alla chat: %name%"
+$agent_support_closed_operator: "L’assistenza ha chiuso la richiesta. Da ora risponde l’agente"
+$agent_support_closed_inactivity: "La richiesta è stata chiusa dopo 48 ore senza risposte. Da ora risponde l’agente"
+$agent_support_waiting: "Assistenza · in attesa di un operatore"
+$agent_support_with_operator: "Assistenza · %name%"
+$agent_support_label: "Assistenza"
+$agent_support_badge: "Assistenza %app_name%"
+$agent_support_placeholder: "Messaggio all’assistenza"
+"PerpsStoryFinaleTitle": "Vuoi provare i futures?"
+"PerpsStoryFinaleBody": "Scegli un mercato, apri posizioni e seguile direttamente in %app_name%!"
+"PerpsStoryViewMarkets": "Visualizza mercati"
+Unlink Wallet: Scollega wallet
+Confirm Unlinking: Conferma scollegamento
+Domain Unlinked: Dominio scollegato
+Drag here to add to the toolbar: Trascina qui per aggiungere alla barra
+$send_only_chain_and_token: Invia solo %symbol%, %tokenSymbol% o altri asset basati su %chain% a questo indirizzo. L'invio di altri token comporterà la loro perdita.
+$agent_digest_unavailable: "Questo riepilogo non è più disponibile"
+$agent_digest_title: "Le notizie principali del giorno"
+$agent_digest_meta:
+  oneValue: "%count% notizia · %time%"
+  otherValue: "%count% notizie · %time%"
+$agent_digest_more:
+  oneValue: "e altra %count% — è più in alto nel feed"
+  otherValue: "e altre %count% — sono più in alto nel feed"
+$agent_digest_settings_title: "Riepilogo e notifiche"
+$agent_digest_settings_text: "Una volta al giorno nel feed compare un riepilogo con le notizie principali della giornata."
+$agent_digest_time: "Orario del riepilogo"
+$agent_digest_time_zone: "Nel fuso orario del telefono."
+$agent_digest_notifications_off: "Disattivate"
+$agent_digest_notifications_off_hint: "Il riepilogo sarà solo nel feed"
+$agent_digest_notifications_daily: "Riepilogo giornaliero"
+$agent_digest_notifications_daily_hint: "Alle %time%, le notizie principali in una notifica"
+$agent_digest_notifications_every: "Ogni notizia"
+$agent_digest_notifications_every_hint: "Una notifica per ogni notizia"
+$agent_digest_post_header: "MyPulse · riepilogo · %time%"
+$agent_digest_sheet_title: "Riepilogo giornaliero"
+$agent_digest_device_time_zone: "Nel fuso orario di questo dispositivo."
+$agent_dictation_microphone_denied_device: "Consenti l’accesso al microfono nelle impostazioni del dispositivo per dettare."

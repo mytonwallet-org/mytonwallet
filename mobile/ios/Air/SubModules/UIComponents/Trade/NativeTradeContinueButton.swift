@@ -16,14 +16,7 @@ public final class NativeTradeContinueButton: UIView {
         button.customTitleFont = WButton.capsuleFont
         button.accessibilityIdentifier = "tokenTrade.continue"
         addSubview(button)
-        titleView.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(titleView)
-        NSLayoutConstraint.activate([
-            titleView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 40),
-            titleView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -40),
-            titleView.topAnchor.constraint(equalTo: button.topAnchor),
-            titleView.bottomAnchor.constraint(equalTo: button.bottomAnchor)
-        ])
+        button.setCustomContentView(titleView)
         button.addAction(UIAction { [weak self] _ in
             guard let self, lastConfiguration?.isEnabled == true else { return }
             onPress()
@@ -43,6 +36,7 @@ public final class NativeTradeContinueButton: UIView {
         let changesEnabled = lastConfiguration?.isEnabled != configuration.isEnabled
         lastConfiguration = configuration
         lastTint = tintColor
+        button.areLoadingAnimationsEnabled = animated && TradeMotion.enabled
         var foreground: UIColor = .white
         let updateAppearance = {
             // Keep UIKit's configured title empty while glass rebuilds its internal content.
@@ -58,9 +52,6 @@ public final class NativeTradeContinueButton: UIView {
                 foreground = appearsEnabled ? .white : .air.secondaryLabel
                 self.button.configuration = appearance
             }
-            // WButton creates its spinner lazily. Resolve its trailing constraints
-            // before the button's appearance or presence animation can capture them.
-            UIView.performWithoutAnimation { self.button.layoutIfNeeded() }
         }
         if animated && changesEnabled && TradeMotion.enabled {
             UIView.transition(with: button, duration: 0.24,
@@ -68,13 +59,14 @@ public final class NativeTradeContinueButton: UIView {
                               animations: updateAppearance)
         } else { updateAppearance() }
         titleView.update(title: configuration.title, foreground: foreground, animated: animated && TradeMotion.enabled)
+        button.invalidateIntrinsicContentSize()
+        button.setNeedsLayout()
         button.accessibilityLabel = titleView.text
         onRender?(configuration, button, titleView.text)
     }
 }
 
-/// A fixed text surface keeps both sides of a replacement centered, independently
-/// of UIButton's glass configuration and its internal title layout.
+/// A text surface independent of UIButton's glass configuration.
 public final class NativeTradeButtonTitleView: UILabel {
     private var title: DraftButtonConfiguration.Title?
 

@@ -12,7 +12,7 @@ enum AgentClipboard {
 
     /// Telegram's copy toast
     static var copiedToast: ToastConfig {
-        ToastConfig(style: .overlay, icon: .animatedCopy, message: lang("Message Copied"), transition: .scale)
+        ToastConfig(style: .overlay, icon: .animatedCopy, message: lang("$agent_message_copied"), transition: .scale)
     }
 
     /// Copies `text` with the wallet's copy haptic and Telegram's toast, over the screen or where `showToast` puts it

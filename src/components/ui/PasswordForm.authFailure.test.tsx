@@ -4,7 +4,7 @@ import TeactDOM from '../../lib/teact/teact-dom';
 
 import type { AuthType } from '../../global/types';
 
-import { pause } from '../../util/schedulers';
+import { pause, waitFor } from '../../util/schedulers';
 import { EnclaveError } from '../../enclave/errors';
 
 import PasswordForm from './PasswordForm';
@@ -58,7 +58,6 @@ const PasswordFormWithState = PasswordForm as FC<Parameters<typeof PasswordForm>
   isBiometricAuthEnabled: boolean;
 }>;
 
-const BIOMETRIC_PROMPT_DELAY_MS = 350;
 const DATA_MISSING_DIALOG = {
   title: '$enclave_data_missing_title',
   buttons: { confirm: { action: 'exportLogs' }, cancel: { title: 'Close' } },
@@ -103,6 +102,15 @@ describe('PasswordForm unlock', () => {
     await pause(20);
     [...root.querySelectorAll('button')].find((button) => button.textContent === 'Send')!.click();
     await pause(20);
+  }
+
+  async function waitForBiometricOutcome(getHasSettled: () => boolean) {
+    expect(await waitFor(getHasSettled, 10, 300)).toBe(true);
+    await pause(20);
+  }
+
+  function getHasRetryButton() {
+    return [...root.querySelectorAll('button')].some((button) => button.textContent === 'Try Again');
   }
 
   function isLogOutOffered() {
@@ -169,7 +177,7 @@ describe('PasswordForm unlock', () => {
     );
 
     renderForm(true);
-    await pause(BIOMETRIC_PROMPT_DELAY_MS);
+    await waitForBiometricOutcome(() => mockShowDialog.mock.calls.length > 0);
 
     expect(mockAuthorizeOrThrow).toHaveBeenCalledWith('biometric', undefined, undefined, undefined);
     expect(mockShowDialog).toHaveBeenCalledWith(expect.objectContaining(DATA_MISSING_DIALOG));
@@ -184,7 +192,7 @@ describe('PasswordForm unlock', () => {
     mockIsAuthProvisioned.mockImplementation((authType: AuthType) => Promise.resolve(authType === 'passcode'));
 
     renderForm(true);
-    await pause(BIOMETRIC_PROMPT_DELAY_MS);
+    await waitForBiometricOutcome(() => mockIsAuthProvisioned.mock.calls.length > 0);
 
     expect(mockIsAuthProvisioned).toHaveBeenCalledWith('passcode');
     expect(mockShowDialog).not.toHaveBeenCalled();
@@ -211,11 +219,10 @@ describe('PasswordForm unlock', () => {
     mockIsAuthProvisioned.mockRejectedValue(new Error('Internal error opening backing store'));
 
     renderForm(true);
-    await pause(BIOMETRIC_PROMPT_DELAY_MS);
+    await waitForBiometricOutcome(getHasRetryButton);
 
     expect(mockShowDialog).not.toHaveBeenCalled();
     expect(isLogOutOffered()).toBe(false);
-    expect([...root.querySelectorAll('button')].some((button) => button.textContent === 'Try Again')).toBe(true);
   });
 
   it('keeps the prompt wording and a retry for a refused biometric prompt', async () => {
@@ -225,9 +232,8 @@ describe('PasswordForm unlock', () => {
     );
 
     renderForm(true);
-    await pause(BIOMETRIC_PROMPT_DELAY_MS);
+    await waitForBiometricOutcome(getHasRetryButton);
 
     expect(root.textContent).toContain('Biometric confirmation failed');
-    expect([...root.querySelectorAll('button')].some((button) => button.textContent === 'Try Again')).toBe(true);
   });
 });

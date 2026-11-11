@@ -2,48 +2,20 @@ import UIComponents
 import UIKit
 import WalletContext
 
-final class PerpsPositionActivityCell: ActivitySummaryCell {
-    override init(frame: CGRect) { super.init(frame: frame, iconSize: 44, maximumAmountWidthRatio: 0.5) }
-    @available(*, unavailable) required init?(coder: NSCoder) { nil }
-
-    func configure(_ activity: PerpsPositionDisplayData.Activity, isStale: Bool = false) {
-        let image: UIImage
-        let colors: [UIColor]
-        switch activity.kind {
-        case .opened, .increased:
-            image = UIImage(systemName: "arrow.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))!
-            colors = UIColor.air.blueGradient
-        case .reduced, .closed:
-            image = UIImage(systemName: "arrow.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))!
-            colors = UIColor.air.blueGradient
-        case .liquidated:
-            image = .airBundle("PerpsActivityLiquidated")
-            colors = UIColor.air.redGradient
-        }
-        let color: UIColor = switch activity.amount.tone {
-        case .positive: .air.positiveAmount
-        case .negative: .air.negativeAmount
-        case .neutral: .label
-        }
-        configure(title: activity.title, date: activity.date,
-                  amount: NSAttributedString(string: activity.amount.text, attributes: [.foregroundColor: color]),
-                  detail: activity.detail, image: image, gradientColors: colors,
-                  accessibilityIdentifier: "perps.position.activity." + activity.id, canSelect: activity.canSelect, isStale: isStale)
-    }
-}
-
 /// A non-scrolling history card; the asset page owns scrolling and bar insets.
 final class PerpsPositionActivitySectionView: UIView, UICollectionViewDelegate {
     let collectionView: UICollectionView
     private let header = InsetSectionHeaderCell()
-    private var activities: [String: PerpsPositionDisplayData.Activity] = [:]
+    private var activities: [String: PerpsTradeActivity] = [:]
     private var isStale = false
     private var collectionHeight: NSLayoutConstraint!
     private var collectionTopToHeader: NSLayoutConstraint!
     private var collectionTopToSelf: NSLayoutConstraint!
     private let onSelect: (String) -> Void
-    private lazy var registration = UICollectionView.CellRegistration<PerpsPositionActivityCell, PerpsPositionDisplayData.Activity> {
-        [weak self] cell, _, activity in cell.configure(activity, isStale: self?.isStale == true)
+    private lazy var dateRefreshController = ActivityDateRefreshController(collectionView: collectionView)
+    private lazy var registration = UICollectionView.CellRegistration<PerpsTradeActivityCell, PerpsTradeActivity> {
+        [weak self] cell, _, activity in
+        cell.configure(activity, isStale: self?.isStale == true, accessibilityPrefix: "perps.position.activity.")
     }
     private lazy var dataSource = UICollectionViewDiffableDataSource<Int, String>(collectionView: collectionView) { [weak self] collection, index, id in
         guard let self, let activity = activities[id] else { return nil }
@@ -55,7 +27,7 @@ final class PerpsPositionActivitySectionView: UIView, UICollectionViewDelegate {
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewCompositionalLayout { _, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.backgroundColor = .clear
-            configuration.separatorConfiguration.bottomSeparatorInsets.leading = 66
+            configuration.separatorConfiguration.bottomSeparatorInsets.leading = 62
             configuration.separatorConfiguration.bottomSeparatorInsets.trailing = 12
             if !IOS_26_MODE_ENABLED { configuration.separatorConfiguration.color = .air.separator }
             let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
@@ -94,7 +66,13 @@ final class PerpsPositionActivitySectionView: UIView, UICollectionViewDelegate {
 
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
 
-    func configure(activities: [PerpsPositionDisplayData.Activity], title: String = lang("Activity"), isStale: Bool = false) {
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { dateRefreshController.start() }
+        else { dateRefreshController.stop() }
+    }
+
+    func configure(activities: [PerpsTradeActivity], title: String = lang("Activity"), isStale: Bool = false) {
         self.isStale = isStale
         header.configure(title: title)
         var ids: [String] = []
@@ -113,17 +91,18 @@ final class PerpsPositionActivitySectionView: UIView, UICollectionViewDelegate {
         collectionTopToHeader.isActive = !ids.isEmpty
         collectionTopToSelf.isActive = ids.isEmpty
         collectionHeight.constant = CGFloat(ids.count) * ActivitySummaryCell.rowHeight
-        dataSource.apply(snapshot, animatingDifferences: false)
-    }
-
-    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        guard let id = dataSource.itemIdentifier(for: indexPath) else { return false }
-        return activities[id]?.canSelect == true
+        dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+            self?.dateRefreshController.setNeedsUpdate()
+        }
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: false)
-        guard let id = dataSource.itemIdentifier(for: indexPath), activities[id]?.canSelect == true else { return }
+        guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
         onSelect(id)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        dateRefreshController.setNeedsUpdate()
     }
 }

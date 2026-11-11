@@ -18,9 +18,9 @@ final class AgentScrollToBottomButton: UIControl {
     private static let chevronColor = UIColor { traits in
         traits.userInterfaceStyle == .dark ? .white : UIColor(hex: "#1A1A1A")
     }
-    private static let hiddenScale: CGFloat = 0.2
+    static let hiddenScale: CGFloat = 0.2
     /// Telegram's `.animated(duration: 0.3, curve: .spring)`: a critically damped spring
-    private static let animationDuration: TimeInterval = 0.3
+    static let animationDuration: TimeInterval = 0.3
     /// The glass is gone by the time the shrinking button gets small
     private static let dematerializeDuration: TimeInterval = 0.15
 
@@ -33,13 +33,8 @@ final class AgentScrollToBottomButton: UIControl {
     private(set) var isButtonVisible = false
 
     override init(frame: CGRect) {
-        if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
-            glassView = WGlassView(cornerRadius: nil)
-            plainBackgroundView = nil
-        } else {
-            glassView = nil
-            plainBackgroundView = UIView()
-        }
+        glassView = Self.makeGlassView()
+        plainBackgroundView = glassView == nil ? UIView() : nil
         super.init(frame: frame)
         setupViews()
         applyTheme()
@@ -71,12 +66,26 @@ final class AgentScrollToBottomButton: UIControl {
     func applyTheme() {
         chevronView.tintColor = Self.chevronColor
         if let plainBackgroundView {
-            plainBackgroundView.backgroundColor = .air.groupedItem
-            plainBackgroundView.layer.shadowColor = UIColor.black.cgColor
-            plainBackgroundView.layer.shadowOpacity = 0.08
-            plainBackgroundView.layer.shadowRadius = 8
-            plainBackgroundView.layer.shadowOffset = CGSize(width: 0, height: 4)
+            Self.stylePlainBackground(plainBackgroundView)
         }
+    }
+
+    /// The glass of the chat's floating buttons, this one and the floating microphone: Liquid Glass, or nil before it,
+    /// where they are a plain circle
+    static func makeGlassView() -> WGlassView? {
+        if #available(iOS 26, iOSApplicationExtension 26, *), IOS_26_MODE_ENABLED {
+            return WGlassView(cornerRadius: nil)
+        }
+        return nil
+    }
+
+    /// The plain circle of the chat's floating buttons without Liquid Glass, with a soft shadow
+    static func stylePlainBackground(_ view: UIView) {
+        view.backgroundColor = .air.groupedItem
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.08
+        view.layer.shadowRadius = 8
+        view.layer.shadowOffset = CGSize(width: 0, height: 4)
     }
 
     func setButtonVisible(_ isVisible: Bool, animated: Bool) {

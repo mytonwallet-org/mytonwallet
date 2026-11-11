@@ -7,16 +7,19 @@ import kotlinx.coroutines.CancellationException
 import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapViewModel
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapUiInputState
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
+import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -63,6 +66,11 @@ class TokenTradeModel internal constructor(
         private set
     private var estimate: SwapEstimateResponse? = null
     private var status: SwapViewModel.UiStatus? = null
+    private var swapHint: SwapHint? = null
+
+    /** The swap's funding or routing hint; a card payment needs none. */
+    val hint: SwapHint?
+        get() = if (cardCurrency == null) swapHint else null
 
     val isBuying: Boolean
         get() = direction == TokenTradeDirection.BUY
@@ -128,7 +136,7 @@ class TokenTradeModel internal constructor(
                 currency = token.symbol ?: "",
                 currencyDecimals = amount.smartDecimalsCount(token.decimals),
                 showPositiveSign = false,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
         }
 
@@ -166,27 +174,52 @@ class TokenTradeModel internal constructor(
     private val feeAmountText: String?
         get() = feeEstimate?.transactionFeeFmt2
 
+    private val shownFee: MFee?
+        get() {
+            val estimate = feeEstimate ?: return null
+            val explainedFee = estimate.explainedFee
+            return if (estimate.hasInsufficientFeeError) {
+                explainedFee.fullFee
+            } else {
+                explainedFee.realFee ?: explainedFee.fullFee
+            }
+        }
+
     /** USD value of the shown fee, or null while a price it depends on is unknown. */
     private val feeUsd: Double?
         get() {
             val estimate = feeEstimate ?: return null
-            val explainedFee = estimate.explainedFee
-            val fee = (
-                if (estimate.hasInsufficientFeeError) {
-                    explainedFee.fullFee
-                } else {
-                    explainedFee.realFee ?: explainedFee.fullFee
-                }
-                ) ?: return null
+            val fee = shownFee ?: return null
             val sending = estimate.request.tokenToSend
             val nativeAmount = fee.networkTerms?.native?.takeIf { it > BigInteger.ZERO }
                 ?: fee.terms.native ?: BigInteger.ZERO
             var usd = valueUsd(nativeAmount, sending.nativeToken ?: return null) ?: return null
-            if (explainedFee.isGasless) {
+            if (estimate.explainedFee.isGasless) {
                 usd += valueUsd(fee.terms.token ?: BigInteger.ZERO, sending) ?: return null
             }
             return usd
         }
+
+    /** A native-only fee in the base currency, or null while its price is unknown. */
+    private val feeBaseCurrencyText: String?
+        get() {
+            val fee = shownFee?.takeIf { it.isNativeOnly } ?: return null
+            val usd = feeUsd?.takeIf { it > 0 } ?: return null
+            val baseCurrency = WalletCore.baseCurrency
+            val rate = TokenStore.currencyRates?.get(baseCurrency.currencyCode) ?: return null
+            val amount = (usd * rate).toBigInteger(baseCurrency.decimalsCount) ?: return null
+            return fee.precision.prefix + amount.toString(
+                decimals = baseCurrency.decimalsCount,
+                currency = baseCurrency.sign,
+                currencyDecimals = baseCurrency.decimalsCount,
+                showPositiveSign = false
+            )
+        }
+
+    private var isFeeInBaseCurrency = false
+
+    val canToggleFeeCurrency: Boolean
+        get() = feeBaseCurrencyText != null
 
     /** Fees below SMALL_FEE_USD move from the amount card to the settings menu. */
     private val isFeeInMenu: Boolean
@@ -195,7 +228,8 @@ class TokenTradeModel internal constructor(
     val feeText: String?
         get() {
             if (isFeeInMenu) return null
-            val fee = feeAmountText ?: return null
+            val fee = feeBaseCurrencyText?.takeIf { isFeeInBaseCurrency } ?: feeAmountText
+                ?: return null
             val label = LocaleController.getString("Fee")
             return when {
                 fee.startsWith("<") -> "$label $fee"
@@ -227,7 +261,7 @@ class TokenTradeModel internal constructor(
                 currency = "",
                 currencyDecimals = amount.smartDecimalsCount(payment.decimals),
                 showPositiveSign = false,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             ).trim()
         }
 
@@ -365,13 +399,15 @@ class TokenTradeModel internal constructor(
     fun update(
         state: SwapUiInputState? = swapState,
         estimate: SwapEstimateResponse? = this.estimate,
-        status: SwapViewModel.UiStatus? = this.status
+        status: SwapViewModel.UiStatus? = this.status,
+        hint: SwapHint? = swapHint
     ) {
         val hadState = swapState != null
         val accountChanged = state != null && state.wallet.accountId != swapState?.wallet?.accountId
         swapState = state
         this.estimate = estimate
         this.status = status
+        swapHint = hint
         if (accountChanged) state.let(::selectDefaultCardIfEmpty)
         if (!hadState && state != null && hasAmount) updateSwapAmount()
     }
@@ -398,6 +434,10 @@ class TokenTradeModel internal constructor(
         retainedTokenAmount = null
         isSellingAll = false
         updateSwapAmount()
+    }
+
+    fun toggleFeeCurrency() {
+        if (canToggleFeeCurrency) isFeeInBaseCurrency = !isFeeInBaseCurrency
     }
 
     fun toggleUnit() {

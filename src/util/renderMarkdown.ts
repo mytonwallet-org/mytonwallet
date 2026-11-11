@@ -11,6 +11,8 @@ import { SELF_PROTOCOL } from './deeplink/constants';
 // Bold and italics stay within a line, so a marker the text never closes cannot reach into the next one
 export const MARKDOWN_BOLD_PATTERN = /\*\*(\S(?:[^*\n]|\*(?!\*))*?)\*\*/gu;
 export const MARKDOWN_ITALIC_PATTERN = /(^|[^\w*])\*(\S(?:[^*\n]|\*(?!\*))*?)\*(?!\*)/gu;
+// One to six hashes and a space open a heading
+const MARKDOWN_HEADING_PATTERN = /^(#{1,6}) +(\S.*)$/u;
 
 function escapeHtml(text: string): string {
   return text
@@ -22,6 +24,8 @@ function escapeHtml(text: string): string {
 
 interface RenderMarkdownOptions {
   areLinksEnabled: boolean;
+  /** Names a code block without a language in the strip over it, which copies the code */
+  codeCopyLabel: string;
 }
 
 interface RenderedMarkdown {
@@ -74,7 +78,7 @@ function parseDeterministicTableRow(row: string) {
 
 export default function renderMarkdown(
   text: string,
-  { areLinksEnabled }: RenderMarkdownOptions,
+  { areLinksEnabled, codeCopyLabel }: RenderMarkdownOptions,
 ): RenderedMarkdown {
   const trailingInlineWhitespace = text.match(/[^\S\r\n]+$/u)?.[0] ?? '';
   const codeBlocks: string[] = [];
@@ -83,7 +87,7 @@ export default function renderMarkdown(
     (_match, language: string, code: string) => {
       const index = codeBlocks.length;
       const literalCode = removeAnswerLinkMarkers(code.trimEnd());
-      codeBlocks.push(`<pre data-language="${escapeHtml(language)}"><code>${escapeHtml(literalCode)}</code></pre>`);
+      codeBlocks.push(renderCodeBlock(language, literalCode, codeCopyLabel));
       return `\n%%AGENT_CODE_BLOCK_${index}%%\n`;
     },
   );
@@ -122,6 +126,16 @@ export default function renderMarkdown(
       continue;
     }
 
+    const heading = MARKDOWN_HEADING_PATTERN.exec(trimmed);
+    if (heading) {
+      flushParagraph();
+      const level = heading[1].length;
+      html.push(`<h${level} class="agent-text-heading agent-text-heading-${level}">`
+        + `${renderAgentV2Inline(heading[2], areLinksEnabled)}</h${level}>`);
+      index += 1;
+      continue;
+    }
+
     const unordered = /^[-+*]\s+(\S[\s\S]*)$/u.exec(line);
     const ordered = /^(\d+)[.)]\s+(\S[\s\S]*)$/u.exec(line);
     if (unordered || ordered) {
@@ -151,6 +165,16 @@ export default function renderMarkdown(
   flushParagraph();
 
   return { html: html.join('') + escapeHtml(trailingInlineWhitespace) };
+}
+
+// A code block as Telegram draws it, with a strip over the code that names its language and copies it
+function renderCodeBlock(language: string, code: string, copyLabel: string) {
+  return '<div class="agent-code-block">'
+    + `<button type="button" class="agent-code-header" data-agent-code-copy aria-label="${escapeHtml(copyLabel)}">`
+    + `<span class="agent-code-language">${escapeHtml(language || copyLabel)}</span>`
+    + '<i class="icon-copy agent-code-copy-icon" aria-hidden="true"></i></button>'
+    + `<pre class="agent-code-body custom-scroll-x" data-language="${escapeHtml(language)}">`
+    + `<code class="agent-code-text">${escapeHtml(code)}</code></pre></div>`;
 }
 
 interface AgentV2Table {
@@ -233,7 +257,9 @@ function renderAgentV2Inline(text: string, areLinksEnabled: boolean): string {
       const literalCode = code
         .replace(/\n/gu, ' ')
         .replace(escapedPattern, (_token, index: string) => escapedCharacters[Number(index)]);
-      protectedContent.push(`<code>${escapeHtml(removeAnswerLinkMarkers(literalCode))}</code>`);
+      protectedContent.push(
+        `<code class="agent-code-inline">${escapeHtml(removeAnswerLinkMarkers(literalCode))}</code>`,
+      );
       return `${tokenPrefix}CONTENT_${protectedContent.length - 1}%%`;
     })
     .replace(

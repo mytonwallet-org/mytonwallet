@@ -3,7 +3,7 @@ import SwiftUI
 import UIComponents
 import WalletContext
 
-/// Reuse with the existing ProtectedAction/UnlockVC authentication flow. It only renders the quote.
+/// The reviewed quote shown above ProtectedAction's authentication.
 public struct PerpsTradeConfirmationHeader: ConfirmationContent {
     public let data: PerpsOrderReviewDisplayData
 

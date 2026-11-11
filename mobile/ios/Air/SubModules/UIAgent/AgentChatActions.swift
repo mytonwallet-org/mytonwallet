@@ -31,14 +31,18 @@ final class AgentChatActions {
         self.showToast = showToast
     }
 
+    /// A news discussion the user hasn't written in has no Delete: the chat list leaves it out, and it has nothing of
+    /// the user's to delete
     var canDeleteChat: Bool {
-        !isDeletingChat && (model as? AgentV2Model)?.canDeleteChat == true
+        guard !isDeletingChat, let model = model as? AgentV2Model else { return false }
+        return model.canDeleteChat && model.isStarted
     }
 
-    /// A chat whose thread is on its way: it has its question or its news post, or is opening
+    /// A chat whose thread is on its way: it has its question or its news post, or is opening. A news discussion the
+    /// user hasn't written in has its menu only once there is something in it.
     var willHaveMenu: Bool {
         if isDeletingChat { return true }
-        guard let model = model as? AgentV2Model else { return false }
+        guard let model = model as? AgentV2Model, model.isStarted else { return false }
         return model.hasMessages || model.isOpening || model.threadId != nil
     }
 
@@ -143,12 +147,19 @@ final class AgentChatActions {
         }
     }
 
-    func rateMessage(_ messageID: AgentItemID, feedback: ApiAgentV2AnswerFeedback?) {
+    /// Saves the answer's rating; `onCompletion` learns whether the rating is saved
+    func rateMessage(
+        _ messageID: AgentItemID,
+        feedback: ApiAgentV2AnswerFeedback?,
+        onCompletion: @escaping (Bool) -> Void
+    ) {
         Task { [weak self, model, showError] in
-            let didFail = await !model.rateMessage(messageID: messageID, feedback: feedback)
-            guard didFail else { return }
-            self?.cancelDictation()
-            showError(DisplayError(text: lang("$agent_feedback_failed")))
+            let didSave = await model.rateMessage(messageID: messageID, feedback: feedback)
+            if !didSave {
+                self?.cancelDictation()
+                showError(DisplayError(text: lang("$agent_feedback_failed")))
+            }
+            onCompletion(didSave)
         }
     }
 }

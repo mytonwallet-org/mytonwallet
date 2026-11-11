@@ -15,10 +15,12 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.core.view.isGone
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.math.abs
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -125,6 +127,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
     var onLongPress: ((tokenBalance: MTokenBalance) -> Unit)? = null
 
     init {
+        if (mode == TokensVC.Mode.HOME) id = UIComponentsR.id.home_token_row
         layoutParams.apply {
             height = 60.dp
         }
@@ -329,7 +332,8 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
                 currencyDecimals = tokenBalance.amountValue.smartDecimalsCount(
                     token?.decimals ?: 9
                 ),
-                showPositiveSign = false
+                showPositiveSign = false,
+                rounding = RoundingMode.DOWN
             ),
             animateTexts
         )

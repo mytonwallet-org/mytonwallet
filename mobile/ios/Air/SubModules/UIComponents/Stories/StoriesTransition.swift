@@ -26,10 +26,11 @@ final class StoriesTransition: NSObject, UIViewControllerAnimatedTransitioning {
         let container = context.containerView
         let source = controller.presentationSource
         let anchor = TradeMotion.enabled ? source?.resolve(in: container) : nil
-        guard let anchor, let card = source?.makeSnapshot(anchor) else {
+        guard let anchor, let card = source?.makeSnapshot(anchor),
+              let background = source?.makeBackgroundSnapshot(anchor) else {
             return fallback(context: context, controller: controller)
         }
-        let fullFrame = isPresenting ? context.finalFrame(for: controller) : container.bounds
+        let fullFrame = isPresenting ? context.finalFrame(for: controller) : context.initialFrame(for: controller)
         if isPresenting {
             view.frame = fullFrame
             container.addSubview(view)
@@ -38,17 +39,21 @@ final class StoriesTransition: NSObject, UIViewControllerAnimatedTransitioning {
         }
         let currentFrame = view.convert(view.bounds, to: container)
         let fullSize = view.bounds.size
+        controller.finishActionTransition()
         let action = controller.transitionActionButton
+        let isActionHidden = action.isHidden
         let currentActionFrame = action.convert(action.bounds, to: container)
         let originalTint = action.glassTintColor
         let sourceTint = (anchor.button as? WInteractiveGlassButton)?.glassTintColor ?? anchor.button.tintColor ?? originalTint
         let sourceRadius = source?.cornerRadius ?? 26
         let deviceRadius = controller.dismissalCornerRadius > 0
-            ? controller.dismissalCornerRadius : Self.deviceCornerRadius(for: view)
+            ? controller.dismissalCornerRadius : controller.presentationCornerRadius
         let fromFrame = isPresenting ? anchor.frame : currentFrame
         let toFrame = isPresenting ? fullFrame : anchor.frame
         let velocity = controller.dismissalVelocity
         let restoreAction = controller.liftTransitionAction(into: container)
+        action.isHidden = false
+        action.setGlassMaterialized(isPresenting || !isActionHidden)
         let flight = UIView(frame: fromFrame)
         flight.isUserInteractionEnabled = false
         flight.clipsToBounds = true
@@ -56,14 +61,16 @@ final class StoriesTransition: NSObject, UIViewControllerAnimatedTransitioning {
         Self.setCornerRadius(isPresenting ? sourceRadius : deviceRadius, on: flight)
         container.insertSubview(flight, belowSubview: action)
         view.removeFromSuperview()
+        Self.setSnapshotSize(fromFrame.size, on: background)
+        flight.addSubview(background)
         flight.addSubview(view)
         controller.resetDismissalGeometry()
         view.bounds = CGRect(origin: .zero, size: fullSize)
-        view.center = CGPoint(x: fromFrame.width / 2, y: fromFrame.height / 2)
-        view.transform = CGAffineTransform(scaleX: fromFrame.width / fullSize.width, y: fromFrame.height / fullSize.height)
+        view.center = CGPoint(x: currentFrame.midX - fromFrame.minX, y: currentFrame.midY - fromFrame.minY)
         view.alpha = isPresenting ? 0 : 1
         card.autoresizingMask = []
-        Self.setSnapshotSize(fromFrame.size, on: card)
+        Self.setSnapshotSize(anchor.frame.size, on: card)
+        card.center = CGPoint(x: anchor.frame.midX - fromFrame.minX, y: anchor.frame.midY - fromFrame.minY)
         card.alpha = isPresenting ? 1 : 0
         flight.addSubview(card)
         action.frame = isPresenting ? anchor.buttonFrame : currentActionFrame
@@ -96,13 +103,14 @@ final class StoriesTransition: NSObject, UIViewControllerAnimatedTransitioning {
         animator.addAnimations {
             flight.frame = toFrame
             Self.setCornerRadius(self.isPresenting ? deviceRadius : sourceRadius, on: flight)
-            view.center = CGPoint(x: toFrame.width / 2, y: toFrame.height / 2)
-            view.transform = CGAffineTransform(scaleX: toFrame.width / fullSize.width, y: toFrame.height / fullSize.height)
+            view.center = CGPoint(x: currentFrame.midX - toFrame.minX, y: currentFrame.midY - toFrame.minY)
             view.alpha = self.isPresenting ? 1 : 0
-            Self.setSnapshotSize(toFrame.size, on: card)
+            Self.setSnapshotSize(toFrame.size, on: background)
+            card.center = CGPoint(x: anchor.frame.midX - toFrame.minX, y: anchor.frame.midY - toFrame.minY)
             card.alpha = self.isPresenting ? 0 : 1
             action.frame = self.isPresenting ? currentActionFrame : anchor.buttonFrame
             action.setGlassTintColor(self.isPresenting ? originalTint : sourceTint)
+            action.setGlassMaterialized(!self.isPresenting || !isActionHidden)
             destinationTitle.alpha = self.isPresenting ? 1 : 0
             sourceTitle.alpha = self.isPresenting ? 0 : 1
             action.layoutIfNeeded()
@@ -119,6 +127,8 @@ final class StoriesTransition: NSObject, UIViewControllerAnimatedTransitioning {
                 sourceTitle.removeFromSuperview()
                 destinationTitle.removeFromSuperview()
                 restoreAction()
+                action.isHidden = isActionHidden
+                action.setGlassMaterialized(!isActionHidden)
                 action.glassTitleLabel.alpha = 1
                 flight.removeFromSuperview()
                 if self.isPresenting ? !completed : completed { source?.restore() }

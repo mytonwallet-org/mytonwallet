@@ -2,8 +2,9 @@ import UIKit
 import UIComponents
 import WalletContext
 
-/// The failure and Retry in the middle of a chat or of the News feed that couldn't load and has nothing to show. With
-/// something to show, the failure is the chat's failure line under it instead.
+/// The failure and Retry in the middle of a chat, the News feed or the chat list that couldn't load and has nothing to
+/// show. With something to show, the failure is the chat's failure line under it instead. Without Retry, it is the
+/// message of a feed that loaded with nothing to show.
 final class AgentLoadErrorView: UIStackView {
     var onRetry: (() -> Void)?
 
@@ -49,7 +50,17 @@ final class AgentLoadErrorView: UIStackView {
 
     /// Shows `text` with Retry, or hides the view for nil
     func show(_ text: String?) {
+        show(text, hasRetry: true)
+    }
+
+    /// Shows `text` without Retry, or hides the view for nil
+    func showMessage(_ text: String?) {
+        show(text, hasRetry: false)
+    }
+
+    private func show(_ text: String?, hasRetry: Bool) {
         label.text = text
+        retryButton.isHidden = !hasRetry
         isHidden = text == nil
     }
 

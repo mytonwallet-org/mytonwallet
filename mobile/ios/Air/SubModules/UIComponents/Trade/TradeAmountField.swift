@@ -2,72 +2,6 @@ import SwiftUI
 import UIKit
 import WalletContext
 
-public struct TradeAmountField: UIViewRepresentable {
-    @ObservedObject private var environment = CardBackgroundAnimationEnvironment.shared
-    let input: TradeAmountInput
-    let editor: TradeEditor
-    let decimals: Int
-    let prefix: String
-    let suffix: String
-    let hasAmount: Bool
-    let maximumHeight: CGFloat
-    let accessibilityLabel: String
-    let accessibilityPrefix: String
-    let showsClearButton: Bool
-    let isError: Bool
-    let onChange: (TradeAmountInput) -> Void
-
-    public init(input: TradeAmountInput, editor: TradeEditor, decimals: Int, prefix: String, suffix: String,
-                hasAmount: Bool, maximumHeight: CGFloat, accessibilityLabel: String,
-                accessibilityPrefix: String = "tokenTrade", showsClearButton: Bool = true, isError: Bool = false,
-                onChange: @escaping (TradeAmountInput) -> Void) {
-        self.input = input
-        self.editor = editor
-        self.decimals = decimals
-        self.prefix = prefix
-        self.suffix = suffix
-        self.hasAmount = hasAmount
-        self.maximumHeight = maximumHeight
-        self.accessibilityLabel = accessibilityLabel
-        self.accessibilityPrefix = accessibilityPrefix
-        self.isError = isError
-        self.showsClearButton = showsClearButton
-        self.onChange = onChange
-    }
-
-    public func makeUIView(context: Context) -> TradeTextField {
-        let field = TradeTextField()
-        editor.field = field
-        return field
-    }
-
-    public func updateUIView(_ field: TradeTextField, context: Context) {
-        field.onChange = onChange
-        field.maximumHeight = maximumHeight
-        field.caretColor = AirTintColor
-        field.isError = isError
-        field.accessibilityLabel = accessibilityLabel
-        field.accessibilityIdentifier = accessibilityPrefix + ".amount"
-        field.clearAccessibilityIdentifier = accessibilityPrefix + ".clear"
-        field.showsClearButton = showsClearButton
-        field.configure(input: input, decimals: decimals, prefix: prefix, suffix: suffix, hasAmount: hasAmount)
-        field.configureAnimation(active: environment.applicationActive,
-            animated: CardBackgroundMotionPolicy(requested: true, animationsEnabled: environment.animationsEnabled,
-                lowPowerMode: environment.lowPowerMode, reduceMotion: environment.reduceMotion,
-                applicationActive: environment.applicationActive, visible: true).canAnimate)
-    }
-
-    public func sizeThatFits(_ proposal: ProposedViewSize, uiView: TradeTextField, context: Context) -> CGSize? {
-        let width = proposal.width ?? uiView.intrinsicContentSize.width
-        return CGSize(width: width, height: uiView.fittingHeight(forWidth: width))
-    }
-
-    public static func dismantleUIView(_ field: TradeTextField, coordinator: ()) {
-        field.amountPresentation.cancelInteraction()
-        field.resignFirstResponder()
-    }
-}
-
 @MainActor public final class TradeEditor {
     public weak var field: TradeTextField?
 
@@ -108,21 +42,6 @@ public final class TradeTextField: HeroAmountField {
         self.decimals = decimals
         configure(text: input.text, prefix: prefix, suffix: suffix, hasAmount: hasAmount)
     }
-}
-
-public struct TradeKeypadView: UIViewRepresentable {
-    let editor: TradeEditor
-    let hasText: Bool
-    let accessibilityPrefix: String
-
-    public init(editor: TradeEditor, hasText: Bool, accessibilityPrefix: String = "tokenTrade") {
-        self.editor = editor
-        self.hasText = hasText
-        self.accessibilityPrefix = accessibilityPrefix
-    }
-
-    public func makeUIView(context: Context) -> TradeKeypad { TradeKeypad(editor: editor, accessibilityPrefix: accessibilityPrefix) }
-    public func updateUIView(_ view: TradeKeypad, context: Context) { view.updateDelete(isEnabled: hasText) }
 }
 
 public final class TradeKeypad: UIView {

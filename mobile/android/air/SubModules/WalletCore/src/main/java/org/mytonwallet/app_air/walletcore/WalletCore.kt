@@ -32,6 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
+import org.mytonwallet.app_air.walletcontext.PerpsAvailability
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -43,6 +44,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.getStablecoinSlugs
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -58,6 +60,7 @@ import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.IStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
+import org.mytonwallet.app_air.walletcore.stores.PerpsStore
 import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -206,41 +209,11 @@ val PRICELESS_TOKEN_HASHES = setOf(
     "ddf80de336d580ab3c11d194f189c362e2ca1225cae224ea921deeaba7eca818"
 )
 
-private val TRUSTED_USDT_TOKENS = mapOf(
-    MBlockchainNetwork.MAINNET to setOf(
-        TON_USDT_SLUG,
-        TRON_USDT_SLUG,
-        SOLANA_USDT_SLUG,
-        SOLANA_USDC_SLUG,
-        ETH_USDT_MAINNET_SLUG,
-        ETH_USDC_MAINNET_SLUG,
-        BASE_USDT_MAINNET_SLUG,
-        BASE_USDC_MAINNET_SLUG,
-        BSC_USDT_MAINNET_SLUG,
-        AVALANCHE_USDT_MAINNET_SLUG,
-        HYPERLIQUID_USDC_MAINNET_SLUG
-    ),
-    MBlockchainNetwork.TESTNET to setOf(
-        TON_USDT_TESTNET_SLUG,
-        TRON_USDT_TESTNET_SLUG,
-        ETH_USDT_MAINNET_SLUG,
-        BASE_USDT_MAINNET_SLUG,
-        BASE_USDC_MAINNET_SLUG,
-        BSC_USDT_MAINNET_SLUG,
-        AVALANCHE_USDT_MAINNET_SLUG,
-        HYPERLIQUID_USDC_MAINNET_SLUG
-    )
-)
-
-fun getTrustedUsdtTokens(network: MBlockchainNetwork?): Set<String> = network?.let {
-    TRUSTED_USDT_TOKENS[it]
-} ?: TRUSTED_USDT_TOKENS.values.flatten().toSet()
-
 val ALL_DEFAULT_TOKENS = mapOf(
     MBlockchainNetwork.MAINNET to MBlockchain.supportedChains.map { it.nativeSlug } +
-        getTrustedUsdtTokens(MBlockchainNetwork.MAINNET),
+        getStablecoinSlugs(MBlockchainNetwork.MAINNET),
     MBlockchainNetwork.TESTNET to MBlockchain.supportedChains.map { it.nativeSlug } +
-        getTrustedUsdtTokens(MBlockchainNetwork.TESTNET)
+        getStablecoinSlugs(MBlockchainNetwork.TESTNET)
 )
 
 private val CHAIN_DEFAULT_USDT_SLUGS: Map<MBlockchain, Map<MBlockchainNetwork, String>> = mapOf(
@@ -304,8 +277,8 @@ object WalletCore {
 
     val stores = listOf<IStore>(
         AccountStore, ActivityStore, AddressStore, AgentMessageStore, AuthStore, BalanceStore,
-        ConfigStore, DappsStore, ExploreHistoryStore, NftStore, PortfolioStore, StakingStore,
-        TokenStore
+        ConfigStore, DappsStore, ExploreHistoryStore, NftStore, PerpsStore, PortfolioStore,
+        StakingStore, TokenStore
     )
 
     var bridge: JSWebViewBridge? = null
@@ -518,8 +491,8 @@ object WalletCore {
                     "setupBridge: promoted bridgeId=${newBridge.id} previousBridgeId=${previousBridge?.id} callbacks=$readyCallbackCount"
                 )
                 TokenStore.onBridgeReady()
+                if (PerpsAvailability.isAvailable()) PerpsStore.onBridgeReady()
                 setupWalletCore()
-                InstallAttributionDelivery.bridgeReady()
                 completePendingBridgeSetup(true)
             }
         } else {
@@ -977,6 +950,12 @@ object WalletCore {
                     }
                     NftStore.add(update.accountId, nft)
                 }
+            }
+
+            is ApiUpdate.ApiUpdatePerpsAssets -> notifyEvent(WalletEvent.PerpsAssetsUpdated)
+
+            is ApiUpdate.ApiUpdatePerpsOperationUpdated -> {
+                ensureMainThread { PerpsStore.receiveOperationUpdate(update.operation) }
             }
 
             is ApiUpdate.ApiUpdateNftChanged -> {

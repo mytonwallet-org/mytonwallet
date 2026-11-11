@@ -220,6 +220,19 @@ public class NftDetailsVC: NftDetailsBaseVC {
                                 )
                             )
                         )
+                        if linkedAddress != nil {
+                            items.append(
+                                .action(
+                                    ContextMenuAction(
+                                        title: lang("Unlink Wallet"),
+                                        icon: .system("link"),
+                                        handler: {
+                                            AppActions.showUnlinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address, nft: nft)
+                                        }
+                                    )
+                                )
+                            )
+                        }
                     }
                     
                     if isOwned {

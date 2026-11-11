@@ -42,6 +42,39 @@ const STAKING_STATES: ApiStakingState[] = [
 const SETTINGS: AccountSettings = { deletedSlugs: [DELETED_SLUG] };
 const CURRENCY_RATES = { ...INITIAL_STATE.currencyRates, USD: RATE } as ApiCurrencyRates;
 
+describe('calculateFullBalance 24-hour change', () => {
+  it.each([
+    { price: 11, change: 10, expectedChange: 9, expectedPercent: 10 },
+    { price: 9, change: -10, expectedChange: -9, expectedPercent: -10 },
+    { price: 10, change: 0, expectedChange: 0, expectedPercent: 0 },
+  ])('uses the same liquid and staked holdings at a $price price', ({
+    price, change, expectedChange, expectedPercent,
+  }) => {
+    const info = {
+      bySlug: {
+        [TONCOIN.slug]: { ...TONCOIN, priceUsd: price, percentChange24h: change },
+        [STAKED_TON_SLUG]: {
+          ...TONCOIN, slug: STAKED_TON_SLUG, priceUsd: 100, percentChange24h: 50,
+        },
+      },
+    };
+    const balances = { [TONCOIN.slug]: 2n * ONE_TON, [STAKED_TON_SLUG]: 7n * ONE_TON };
+    const states = [
+      { ...DEFAULT_STAKING_STATE, balance: 3n * ONE_TON, loyaltyBalance: ONE_TON },
+      { ...DEFAULT_STAKING_STATE, id: 'other-pool', balance: 4n * ONE_TON },
+    ];
+    const tokens = selectAccountTokensMemoizedFor(ACCOUNT_ID)(
+      balances, info, {}, false, 'USD', CURRENCY_RATES, true,
+    );
+    const actual = calculateFullBalance(tokens, states, RATE);
+
+    expect(Number(actual.primaryValue)).toBeCloseTo(10 * price * Number(RATE));
+    expect(actual.changeValue).toBe(expectedChange);
+    expect(actual.changePercent).toBe(expectedPercent);
+    expect(actual.changePrefix).toBe(change > 0 ? 'up' : change < 0 ? 'down' : undefined);
+  });
+});
+
 describe('calculateTotalBalanceValue', () => {
   it('matches `calculateFullBalance` over the account token list', () => {
     const tokens = selectAccountTokensMemoizedFor(ACCOUNT_ID)(

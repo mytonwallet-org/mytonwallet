@@ -15,6 +15,7 @@ final class AgentRegenerateTests: XCTestCase {
             AgentMessageMenuItems.makeItems(
                 for: message,
                 copyText: "Visible copy text",
+                canEdit: true,
                 canRegenerate: canRegenerate,
                 canReportProblem: canReportProblem,
                 edit: { invoked.append("edit") },

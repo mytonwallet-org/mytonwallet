@@ -57,6 +57,8 @@ interface WalletContextManagerDelegate {
         name: String?
     )
 
+    fun requestNotificationPermission(onResult: (Boolean) -> Unit)
+
     fun walletIsReady()
     fun isWalletReady(): Boolean
     fun showError(error: String?)

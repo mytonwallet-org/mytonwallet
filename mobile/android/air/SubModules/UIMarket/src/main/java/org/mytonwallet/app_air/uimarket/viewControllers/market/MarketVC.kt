@@ -23,6 +23,7 @@ import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -43,6 +44,7 @@ import org.mytonwallet.app_air.uimarket.viewControllers.market.cells.MarketMover
 import org.mytonwallet.app_air.uimarket.viewControllers.market.cells.MarketRowsSectionCell
 import org.mytonwallet.app_air.uimarket.viewControllers.market.cells.SECTION_BOTTOM_SPACING
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
@@ -86,6 +88,7 @@ class MarketVC(context: Context) :
         }
     }
     private val recyclerView = WRecyclerView(this).apply {
+        id = UIComponentsR.id.market_list
         adapter = rvAdapter
         layoutManager = LinearLayoutManager(context)
         clipToPadding = false
@@ -226,9 +229,9 @@ class MarketVC(context: Context) :
             PHONE_SEARCH_CONTENT_PADDING
         }
         recyclerView.setPaddingLocalized(
-            additionalTabletPadding + systemBarStartInset,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + systemBarStartInset,
             top,
-            systemBarEndInset,
+            ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             bottom + searchContentPadding.dp
         )
         val availableWidth = (

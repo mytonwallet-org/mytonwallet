@@ -15,6 +15,8 @@ import {
 } from './SignDataStructuredView';
 
 const MAX_EIP712_DEPTH = 32;
+// EIP-712 fixes the domain fields and their order
+const EIP712_DOMAIN_FIELD_ORDER = ['name', 'version', 'chainId', 'verifyingContract', 'salt'];
 
 type Eip712TypeDefinitions = EvmEip712SignDataPayload['types'];
 
@@ -141,14 +143,32 @@ function renderEip712Struct(
   );
 }
 
-function renderEip712DomainBlock(
-  domain: Record<string, unknown>,
-  types: Eip712TypeDefinitions,
-): TeactNode {
-  if (types.EIP712Domain?.length) {
-    return renderEip712Struct(domain, 'EIP712Domain', types, 0, 'domain');
-  }
-  return renderEip712LeafUnknown(domain);
+function getEip712DomainFieldRank(key: string): number {
+  const index = EIP712_DOMAIN_FIELD_ORDER.indexOf(key);
+  return index === -1 ? EIP712_DOMAIN_FIELD_ORDER.length : index;
+}
+
+/**
+ * The `domain` keys that are signed, in their signed order. ethers derives the domain type from `domain` itself:
+ * it hashes every key whose value is not `null` or `undefined` and ignores `types.EIP712Domain`.
+ */
+function getSignedEip712DomainKeys(domain: Record<string, unknown>): string[] {
+  return Object.keys(domain)
+    // eslint-disable-next-line no-null/no-null -- dApps send JSON, and ethers omits a null domain field
+    .filter((key) => domain[key] !== undefined && domain[key] !== null)
+    .sort((a, b) => getEip712DomainFieldRank(a) - getEip712DomainFieldRank(b));
+}
+
+function renderEip712DomainBlock(domain: Record<string, unknown>): TeactNode {
+  return (
+    <SignDataStruct>
+      {getSignedEip712DomainKeys(domain).map((key) => (
+        <SignDataFieldRow key={`domain-${key}`} name={key}>
+          {renderEip712LeafUnknown(domain[key])}
+        </SignDataFieldRow>
+      ))}
+    </SignDataStruct>
+  );
 }
 
 function renderEip712MessageBlock(
@@ -176,7 +196,7 @@ function Eip712TypedDataView({
       </SignDataPayloadField>
 
       <SignDataStructuredBlock label={lang('EIP-712 domain')} isExpanded>
-        {renderEip712DomainBlock(domain, types)}
+        {renderEip712DomainBlock(domain)}
       </SignDataStructuredBlock>
 
       <SignDataStructuredBlock label={lang('Message')} isExpanded isText>

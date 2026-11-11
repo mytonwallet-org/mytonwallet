@@ -59,9 +59,22 @@ struct AgentMessageTable: Equatable {
     }
 }
 
+/// A fenced code block of an answer, with the language its fence names
+struct AgentMessageCode: Equatable {
+    let language: String?
+    let text: String
+}
+
 enum AgentMessageBlock: Equatable {
     case text(String)
     case table(AgentMessageTable)
+    case code(AgentMessageCode)
+
+    /// A table or a code block, which stands as a view of its own between the text around it
+    var standsApart: Bool {
+        if case .text = self { return false }
+        return true
+    }
 }
 
 struct AgentPlacedTableCell: Equatable {
@@ -178,6 +191,90 @@ enum AgentMessageBlockParser {
             to: &blocks
         )
         return blocks.isEmpty ? [.text(normalizedSource)] : blocks
+    }
+
+    /// How many of a streaming answer's first lines its tables and code have closed, so that they can stand as blocks
+    /// while the lines after them still arrive. A table closes at the first complete line that is not one of its rows, a
+    /// code block at its closing fence, and the blank lines after them go with them. The last line may still be growing,
+    /// so it never closes anything.
+    static func countSettledLines(in source: String) -> Int {
+        let completeLines = source.components(separatedBy: "\n").dropLast().map { line in
+            line.hasSuffix("\r") ? String(line.dropLast()) : line
+        }
+        var settledCount = 0
+        var activeCodeFence: ActiveCodeFence?
+        var lineIndex = 0
+        while lineIndex < completeLines.count {
+            if updateCodeFenceState(for: completeLines[lineIndex], activeFence: &activeCodeFence) {
+                lineIndex += 1
+                if activeCodeFence == nil {
+                    settledCount = lineIndex
+                }
+                continue
+            }
+            if activeCodeFence == nil, lineIndex + 1 < completeLines.count,
+               let table = parseMarkdownTable(lines: completeLines, headerIndex: lineIndex) {
+                lineIndex = table.nextLineIndex
+                if lineIndex < completeLines.count {
+                    settledCount = lineIndex
+                }
+                continue
+            }
+            lineIndex += 1
+        }
+        while settledCount > 0, settledCount < completeLines.count,
+              completeLines[settledCount].trimmingCharacters(in: .whitespaces).isEmpty {
+            settledCount += 1
+        }
+        return settledCount
+    }
+
+    /// `blocks` with each fenced code of their text made a code block of its own. A fence still open runs to the end of
+    /// its text.
+    static func separatingCode(_ blocks: [AgentMessageBlock]) -> [AgentMessageBlock] {
+        blocks.flatMap { block -> [AgentMessageBlock] in
+            guard case .text(let text) = block else { return [block] }
+            return separatingCode(in: text)
+        }
+    }
+
+    private static func separatingCode(in text: String) -> [AgentMessageBlock] {
+        let lines = text.components(separatedBy: "\n")
+        var blocks: [AgentMessageBlock] = []
+        var textLines: [String] = []
+        var index = 0
+
+        func flushText() {
+            let value = textLines.joined(separator: "\n").trimmingCharacters(in: .newlines)
+            if !value.isEmpty {
+                blocks.append(.text(value))
+            }
+            textLines.removeAll()
+        }
+
+        while index < lines.count {
+            let fence = lines[index]
+            guard fence.range(of: AgentMessageTextRenderer.codeFenceStartPattern, options: .regularExpression) != nil else {
+                textLines.append(fence)
+                index += 1
+                continue
+            }
+            flushText()
+            var codeLines: [String] = []
+            index += 1
+            while index < lines.count, lines[index].trimmingCharacters(in: .whitespaces) != "```" {
+                codeLines.append(lines[index])
+                index += 1
+            }
+            index += 1
+            let language = String(fence.trimmingCharacters(in: .whitespaces).dropFirst(3))
+            blocks.append(.code(AgentMessageCode(
+                language: language.isEmpty ? nil : language,
+                text: AgentTextLinks.removingLinks(from: codeLines.joined(separator: "\n"))
+            )))
+        }
+        flushText()
+        return blocks
     }
 
     static func resolveGrid(_ table: AgentMessageTable) -> AgentMessageTableGrid {

@@ -18,7 +18,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentConsentView
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -26,10 +25,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
@@ -49,13 +46,6 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
     private var preparedChat: AgentPreparedChat? = null
     private var hasStarted = false
     private var shouldAcceptConsentOnRetry = false
-
-    private val consentView by lazy {
-        AgentConsentView(context).apply {
-            isGone = true
-            onAllow = { load(shouldAcceptConsent = true) }
-        }
-    }
     private val progress by lazy {
         ProgressBar(context).apply { id = UIComponentsR.id.agent_new_chat_progress }
     }
@@ -95,11 +85,9 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
         setupNavBar(true)
         navigationBar?.setTitleGravity(Gravity.CENTER)
         navigationBar?.titleLabel?.setStyle(TITLE_SIZE, WFont.Medium)
-        view.addView(consentView, ConstraintLayout.LayoutParams(0, 0))
         view.addView(errorView, ConstraintLayout.LayoutParams(0, 0))
         view.addView(progress, ConstraintLayout.LayoutParams(40.dp, 40.dp))
         view.setConstraints {
-            allEdges(consentView)
             allEdges(errorView)
             toCenterX(progress)
             toCenterY(progress)
@@ -120,31 +108,28 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
     private fun load(shouldAcceptConsent: Boolean = false) {
         if (request?.isActive == true) return
         shouldAcceptConsentOnRetry = shouldAcceptConsent
-        progress.isGone = !consentView.isGone
+        progress.isGone = false
         errorView.isGone = true
-        consentView.showError(null)
-        consentView.setLoading(true)
         request = scope.launch {
             try {
                 preparedChat = loader.load(shouldAcceptConsent)
                 if (preparedChat == null) {
-                    consentView.isGone = false
+                    // The Agent asks for consent before it starts the chat
+                    AgentConsentSheetVC.present(
+                        this@AgentNewChatVC,
+                        onAllowed = { load(shouldAcceptConsent = true) },
+                        onDeclined = { leaveDeclinedChat() }
+                    )
                 } else {
                     presentChat()
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                val errorText = agentUnavailableText()
-                if (consentView.isGone) {
-                    errorLabel.text = errorText
-                    errorView.isGone = false
-                } else {
-                    consentView.showError(errorText)
-                }
+                errorLabel.text = agentUnavailableText()
+                errorView.isGone = false
             } finally {
                 progress.isGone = true
-                consentView.setLoading(false)
             }
         }
     }
@@ -164,20 +149,6 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
     override fun insetsUpdated() {
         super.insetsUpdated()
         if (window?.isWideLayout == true) topReversedCornerView?.setBlurAlpha(1f)
-        val bottom = navigationController?.getSystemBars()?.bottom ?: 0
-        val endsAboveBottomBar =
-            additionalTabletPadding > 0 && !WGlobalStorage.isGradientNavigationBarActive()
-        val gutter = if (additionalTabletPadding > 0) ViewConstants.HORIZONTAL_PADDINGS.dp else 0
-        view.setConstraints {
-            toStartPx(consentView, additionalTabletPadding + systemBarStartInset + gutter)
-            toEndPx(consentView, systemBarEndInset + gutter)
-            toBottomPx(consentView, if (endsAboveBottomBar) bottom else 0)
-        }
-        consentView.updateInsets(
-            agentHeaderBottom() + AGENT_LIST_TOP_INSET.dp,
-            bottom,
-            endsAboveBottomBar
-        )
     }
 
     override fun updateTheme() {
@@ -189,7 +160,6 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
                 agentChatBackgroundColor
             }
         )
-        consentView.updateTheme()
         errorLabel.setTextColor(WColor.SecondaryText)
         retryButton.updateTheme()
     }
@@ -205,14 +175,19 @@ class AgentNewChatVC(context: Context) : WViewController(context) {
     }
 }
 
+/**
+ * Creates a chat's thread once the user has allowed the Agent, or a news discussion's at once: its post and suggestions
+ * show before consent, and what the user sends there asks for it
+ */
 internal class AgentNewChatLoader(
     private val consent: suspend () -> Boolean,
     private val acceptConsent: suspend () -> Unit,
     private val createThread: suspend (AgentV2ThreadNewsRequest?) -> AgentV2ThreadSummary,
-    private val news: AgentV2ThreadNewsRequest? = null
+    private val news: AgentV2ThreadNewsRequest? = null,
+    private val hasDiscussion: Boolean = false
 ) {
     suspend fun load(shouldAcceptConsent: Boolean = false): AgentPreparedChat? {
-        if (!consent()) {
+        if (news == null && !hasDiscussion && !consent()) {
             if (!shouldAcceptConsent) return null
             acceptConsent()
         }

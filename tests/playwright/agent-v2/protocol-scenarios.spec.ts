@@ -1,4 +1,9 @@
+import type { Page } from '@playwright/test';
+
 import { expect, getAgentV2Conversation, test } from './fixtures';
+
+// The microphone and Stop trade faces in 200 ms, after the frame that renders the change
+const STOP_SETTLE_MS = 600;
 
 test.describe('Agent V2 deterministic protocol scenarios', () => {
   test('shows one active server progress line until the answer starts', async ({ agentV2, page }) => {
@@ -6,7 +11,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('run-activity');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Research the latest TON update');
     // A step comes every 650 ms and blurs away as the next one comes in, so each step is awaited as it comes in
@@ -51,7 +56,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset();
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     const input = page.getByRole('textbox', { name: 'Ask anything' });
     for (let index = 1; index <= 4; index++) {
@@ -160,12 +165,12 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('quota-retry');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('First quota request');
     // The quota the denial carries has reset already, so the question offers Retry as a failed request does
-    await expect(getAgentV2Conversation(page).getByText('Daily Agent limit reached', { exact: true })).toBeVisible();
-    await expect(page.getByRole('status').filter({ hasText: 'Daily Agent limit reached' })).toHaveCount(0);
+    await expect(getAgentV2Conversation(page).getByText('Daily agent limit reached', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Daily agent limit reached' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Retry request', exact: true }).click();
     await expect(page.getByText('Quota request completed: First quota request', { exact: true })).toBeVisible();
 
@@ -187,7 +192,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('admission-retry');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Retry after provider recovery');
     await expect(page.getByText('You can try again, but the response may not load.', { exact: true }))
@@ -226,7 +231,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('terminal-action-error');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Trigger terminal error');
     await expect(page.getByText('This response will fail.', { exact: true })).toBeVisible();
@@ -263,13 +268,13 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('capacity-error');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Trigger capacity failure');
     await expect(page.getByText('A partial response was started.', { exact: true })).toBeVisible();
     // The capacity status ends the chat in place of the answer's own caption, without Retry while the limit holds
     await expect(page.getByText(
-      'The request cannot be completed because an Agent limit was reached.', { exact: true },
+      'The request cannot be completed because an agent limit was reached.', { exact: true },
     )).toHaveCount(0);
     await expect(getAgentV2Conversation(page).getByText('Agent is temporarily unavailable', { exact: true }))
       .toBeVisible();
@@ -311,7 +316,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.getByText('A partial response was started.', { exact: true })).toBeVisible();
     // The capacity status ends the chat in place of the answer's own caption, without Retry while the limit holds
     await expect(page.getByText(
-      'The request cannot be completed because an Agent limit was reached.', { exact: true },
+      'The request cannot be completed because an agent limit was reached.', { exact: true },
     )).toHaveCount(0);
     await expect(getAgentV2Conversation(page).getByText('Agent is temporarily unavailable', { exact: true }))
       .toBeVisible();
@@ -323,10 +328,10 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('run-interrupted');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Interrupt this request');
-    const failure = page.getByText('Connection to the Agent was interrupted.', { exact: true });
+    const failure = page.getByText('Connection to the agent was interrupted.', { exact: true });
     const retry = page.getByRole('button', { name: 'Retry request', exact: true });
     // The history read after the interruption holds the failed run, which offers Retry; the connection's own
     // failure does not show beside it
@@ -341,6 +346,54 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.locator('[data-agent-v2-message-status="error"]')).toHaveCount(1);
   });
 
+  test('stops an answer being written, keeping what it wrote, and the chat goes on', async ({ agentV2, page }) => {
+    await agentV2.reset('stop');
+    await agentV2.seedWallet();
+    await agentV2.open();
+    await agentV2.waitForList();
+
+    const partialText = 'The answer written before the stop.';
+    const assistantMessage = page.locator('[data-agent-v2-message-role="assistant"]:visible');
+    const input = page.locator('textarea[placeholder="Ask anything"]:visible');
+    const stop = page.getByRole('button', { name: 'Stop response', exact: true });
+    await agentV2.send('Start an answer to stop');
+    await expect(assistantMessage).toContainText(partialText);
+    await expect(assistantMessage).toHaveAttribute('data-agent-v2-message-status', 'streaming');
+
+    // A draft keeps Stop in place of its send button while the answer runs, and the microphone never shows
+    const microphoneRecording = recordStopMicrophone(page);
+    await input.fill('A draft');
+    await expect(stop).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toHaveCount(0);
+    // The recording samples the draft in the frames before it goes
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await input.fill('');
+    await expect(stop).toBeVisible();
+    expect(await microphoneRecording).toEqual({ hasMicrophone: true, isDraftCleared: true, maxOpacity: 0 });
+    await stop.click();
+
+    await expect.poll(async () => (await agentV2.getState()).cancelBodies.length).toBe(1);
+    const { runBodies, cancelBodies } = await agentV2.getState();
+    expect(runBodies).toHaveLength(1);
+    expect(cancelBodies[0].runId).toMatch(/^[0-9a-f-]{36}$/u);
+    // The button turns back, and the answer ends as it was written
+    await expect(stop).toHaveCount(0);
+    await expect(assistantMessage).toHaveAttribute('data-agent-v2-message-status', 'complete');
+    await expect(assistantMessage).toContainText(partialText);
+    await expect(assistantMessage).not.toContainText('This part is never written.');
+
+    await input.fill('The next question');
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+
+    // The server keeps the same answer
+    await agentV2.open();
+    await agentV2.openThread();
+    await expect(assistantMessage).toContainText(partialText);
+    await expect(assistantMessage).toHaveAttribute('data-agent-v2-message-status', 'complete');
+  });
+
   test('keeps the response active while switching wallets and drafting the next question', async ({
     agentV2,
     page,
@@ -348,13 +401,14 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('wallet-switch');
     await agentV2.seedWallet(true);
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     const walletOptions = page.getByRole('dialog').getByRole('button', { name: 'Switch Account', exact: true });
     const partialText = 'Partial response before switching wallets.';
     const assistantMessage = page.locator('[data-agent-v2-message-role="assistant"]:visible');
     const input = page.locator('textarea[placeholder="Ask anything"]:visible');
     const sendButton = page.getByRole('button', { name: 'Send', exact: true });
+    const stopButton = page.getByRole('button', { name: 'Stop response', exact: true });
     await agentV2.send('Start a response on the first account');
     await expect(assistantMessage).toContainText(partialText);
     await page.locator('button[aria-label="Switch Account"]:visible').click();
@@ -375,7 +429,9 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
       .filter({ hasText: 'Synthetic View Wallet' })).toBeVisible();
     const draft = 'Next question after switching back';
     await input.fill(draft);
-    await expect(sendButton).toBeDisabled();
+    // The stop button stands in place of send while the response is active
+    await expect(stopButton).toBeVisible();
+    await expect(sendButton).toHaveCount(0);
     await input.press('Enter');
     await expect(input).toHaveValue(draft);
     const activeState = await agentV2.getState();
@@ -386,6 +442,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(assistantMessage).toContainText(`${partialText} The response continued after switching wallets.`);
     await expect(assistantMessage).toHaveAttribute('data-agent-v2-message-status', 'complete');
     await expect(input).toHaveValue(draft);
+    await expect(stopButton).toHaveCount(0);
     await expect(sendButton).toBeEnabled();
 
     await sendButton.click();
@@ -403,7 +460,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.reset('receive-navigation');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     await agentV2.send('Show wallet actions');
     await page.getByRole('button', { name: 'Open receive', exact: true }).click();
@@ -416,3 +473,29 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.getByText('Theme', { exact: true })).toBeVisible();
   });
 });
+
+// The highest opacity the microphone in Stop's button takes in any frame while a draft is written and cleared
+function recordStopMicrophone(page: Page) {
+  return page.evaluate(async ({ settleMs, timeoutMs }) => {
+    const stop = Array.from(document.querySelectorAll('button[aria-label="Stop response"]'))
+      .find((button) => button.getAttribute('aria-hidden') !== 'true')!;
+    const microphone = stop.querySelector('svg');
+    const field = stop.closest('[data-agent-composer]')!.querySelector('textarea')!;
+    const startedAt = performance.now();
+    let hasDraft = false;
+    let clearedAt: number | undefined;
+    let maxOpacity = 0;
+    while (microphone && performance.now() - startedAt < timeoutMs
+      && (clearedAt === undefined || performance.now() - clearedAt < settleMs)) {
+      maxOpacity = Math.max(maxOpacity, Number(getComputedStyle(microphone).opacity));
+      if (field.value) {
+        hasDraft = true;
+      } else if (hasDraft) {
+        clearedAt ??= performance.now();
+      }
+      await new Promise(requestAnimationFrame);
+    }
+
+    return { hasMicrophone: Boolean(microphone), isDraftCleared: clearedAt !== undefined, maxOpacity };
+  }, { settleMs: STOP_SETTLE_MS, timeoutMs: 10_000 });
+}

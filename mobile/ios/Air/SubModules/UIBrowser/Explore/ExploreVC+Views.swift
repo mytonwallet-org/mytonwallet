@@ -496,6 +496,7 @@ extension ExploreVC {
                                             iconURL: dapp.iconUrl,
                                             layoutVariant: layoutVariant,
                                             onTap: { viewOutput.connectedDappDidTap.send(dapp.url) })
+                        .accessibilityIdentifier("explore_connected_item")
                     }
 
                     ConnectedDappsSettingsButton(layoutVariant: layoutVariant,
@@ -539,6 +540,7 @@ extension ExploreVC {
                 HStack(spacing: trendingDappsInterItemHSpacing) {
                     ForEach(sites, id: \.url) { site in
                         trendingDappView_below_iOS17(site: site, screenGeometryProxy: screenGeometryProxy)
+                            .accessibilityIdentifier("explore_trending_item")
                     }
                 }
             }
@@ -596,6 +598,7 @@ private struct AutoScrollingTrendingView: View {
                         ExploreScreenFeaturedDappView(site: site, onTap: {
                             viewOutput.trendingDappDidTap.send(site)
                         })
+                        .accessibilityIdentifier("explore_trending_item")
                         .aspectRatio(2, contentMode: .fill)
                         .containerRelativeFrame(.horizontal) { hScrollWidth, _ in
                             itemWidth(hScrollWidth)

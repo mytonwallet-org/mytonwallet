@@ -44,7 +44,8 @@ AGENTS.md
 .xcodebuildmcp/
 .build
 /worktrees/
-maestro/.venv
 /.local/
 /.derived-data/
 /artifacts/
+
+__pycache__/

@@ -44,11 +44,12 @@ final class SVGGroup: SVGContainerElement {
     fileprivate static let groupAttributes: [String : (SVGGroup) -> (String, CAShapeLayer) -> ()] = [
         "fill": SVGGroup.fillGroup,
         "fill-rule": SVGGroup.fillRuleGroup,
-        "opacity": SVGGroup.fillOpacityGroup,
+        "fill-opacity": SVGGroup.fillOpacityGroup,
         "stroke": SVGGroup.strokeColorGroup,
         "stroke-linecap": SVGGroup.strokeLineCapGroup,
         "stroke-linejoin": SVGGroup.strokeLineJoinGroup,
         "stroke-miterlimit": SVGGroup.strokeMiterLimitGroup,
+        "stroke-opacity": SVGGroup.strokeOpacityGroup,
         "stroke-width": SVGGroup.strokeWidthGroup
     ]
 
@@ -64,24 +65,32 @@ final class SVGGroup: SVGContainerElement {
     /// :nodoc:
     internal var supportedAttributes = [String : (String) -> ()]()
 
+    /// Resolves `fill: url(#id)` inherited from this group.
+    internal var renderContext: SVGRenderContext?
+
     /**
-     The function that is called after all of this group's subelements have been processed. It will apply all stored `delayedAttributes` on all sublayers
+     The function that is called after all of this group's subelements have been processed. Shapes inherit each stored `delayedAttributes` value unless they or a nearer group set it.
      */
     internal func didProcessElement(in container: SVGContainerElement?) {
-
-        guard let containerSublayers = self.containerLayer.sublayers else {
-            return
-        }
-
-        for thisSublayer in containerSublayers {
-            guard let thisShapeSublayer = thisSublayer as? CAShapeLayer else {
-                continue
-            }
-            for (attribute, value) in self.delayedAttributes {
-                self.applyAttribute(attribute, value: value, on: thisShapeSublayer)
-            }
+        if !delayedAttributes.isEmpty {
+            inherit(Array(delayedAttributes), in: containerLayer)
         }
         container?.containerLayer.addSublayer(self.containerLayer)
+    }
+
+    private func inherit(_ attributes: [(key: String, value: String)], in layer: CALayer) {
+        for sublayer in layer.sublayers ?? [] {
+            guard let shape = sublayer as? CAShapeLayer else {
+                inherit(attributes, in: sublayer)
+                continue
+            }
+            var explicitAttributes = shape.svgExplicitAttributes
+            for (attribute, value) in attributes where !explicitAttributes.contains(attribute) {
+                applyAttribute(attribute, value: value, on: shape)
+                explicitAttributes.insert(attribute)
+            }
+            shape.svgExplicitAttributes = explicitAttributes
+        }
     }
 
     /**
@@ -101,10 +110,11 @@ fileprivate extension SVGGroup {
      Function that applies the fill color on all of this group's subelements
      */
     func fillGroup(_ fillColor: String, on layer: CAShapeLayer) {
-        guard let fillColor = UIColor(svgString: fillColor) else {
-            return
+        if let renderContext {
+            renderContext.setPaint(fillColor, on: layer, isStroke: false) { SVGPath.applyFill($0, to: layer) }
+        } else {
+            SVGPath.applyFill(fillColor, to: layer)
         }
-        layer.fillColor = fillColor.cgColor
     }
 
     /**
@@ -121,10 +131,10 @@ fileprivate extension SVGGroup {
      Function that applies the fill opacity on all of this group's subelements
      */
     func fillOpacityGroup(_ opacity: String, on layer: CAShapeLayer) {
-        guard let opacity = Float(opacity) else {
+        guard let opacity = CGFloat(opacity) else {
             return
         }
-        layer.opacity = opacity
+        layer.svgFillOpacity = opacity
     }
 
 }
@@ -142,10 +152,18 @@ fileprivate extension SVGGroup {
      Function that applies the stroke color on all of this group's subelements
      */
     func strokeColorGroup(strokeColor: String, on layer: CAShapeLayer) {
-        guard let strokeColor = UIColor(svgString: strokeColor) else {
+        if let renderContext {
+            renderContext.setPaint(strokeColor, on: layer, isStroke: true) { SVGPath.applyStroke($0, to: layer) }
+        } else {
+            SVGPath.applyStroke(strokeColor, to: layer)
+        }
+    }
+
+    func strokeOpacityGroup(opacity: String, on layer: CAShapeLayer) {
+        guard let opacity = CGFloat(opacity) else {
             return
         }
-        layer.strokeColor = strokeColor.cgColor
+        layer.svgStrokeOpacity = opacity
     }
 
     /**
@@ -169,10 +187,29 @@ fileprivate extension SVGGroup {
      Function that applies the streoke width on all of this group's subelements
      */
     func strokeWidthGroup(strokeWidth: String, on layer: CAShapeLayer) {
-        guard let strokeWidth = CGFloat(strokeWidth) else {
+        guard let strokeWidth = CGFloat(lengthString: strokeWidth.trimWhitespace()) else {
             return
         }
         layer.lineWidth = strokeWidth
     }
 
+}
+
+extension CALayer {
+    /// Presentation attributes the element or a nearer group set, which values inherited from an outer group must not replace.
+    var svgExplicitAttributes: Set<String> {
+        get { value(forKey: "svgExplicitAttributes") as? Set<String> ?? [] }
+        set { setValue(newValue, forKey: "svgExplicitAttributes") }
+    }
+
+    /// `fill-opacity` and `stroke-opacity`, kept apart from the colors until inheritance settles.
+    var svgFillOpacity: CGFloat? {
+        get { (value(forKey: "svgFillOpacity") as? NSNumber).map { CGFloat($0.doubleValue) } }
+        set { setValue(newValue.map { NSNumber(value: Double($0)) }, forKey: "svgFillOpacity") }
+    }
+
+    var svgStrokeOpacity: CGFloat? {
+        get { (value(forKey: "svgStrokeOpacity") as? NSNumber).map { CGFloat($0.doubleValue) } }
+        set { setValue(newValue.map { NSNumber(value: Double($0)) }, forKey: "svgStrokeOpacity") }
+    }
 }

@@ -4,14 +4,10 @@
   align-items: center;
   justify-content: space-between;
 
-  height: 1.125rem;
+  min-height: 1.125rem;
 }
 
 .label {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
-
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.23;

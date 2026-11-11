@@ -1,6 +1,5 @@
-import type { ApiEvmSwapCall, ApiEvmSwapTransactionRequest, ApiPriceHistoryPeriod } from './backend';
+import type { ApiEvmSwapTransactionRequest, ApiPriceHistoryPeriod } from './backend';
 import type { ApiMarketSection } from './market';
-import type { ApiChain } from './misc';
 import type { ApiPerpsFees } from './perpsTrading';
 
 export const API_PERPS_CHAINS = ['hyperliquid'] as const;
@@ -16,6 +15,12 @@ export type ApiPerpsProvider = typeof API_PERPS_PROVIDERS[number];
 export type ApiPerpsAssetId = string;
 
 export type ApiPerpsPositionSide = 'long' | 'short';
+
+/**
+ * Where an open, increase or leverage change takes its margin from: a CCTP deposit from the wallet, or the book's
+ * spendable HyperCore balance (`spendableUsdcByDex`).
+ */
+export type ApiPerpsFundingSource = 'wallet' | 'balance';
 
 export type ApiPerpsExchangeSignature = {
   r: string;
@@ -93,7 +98,7 @@ export type ApiPerpsPosition = {
   /** Venue-signed cumulative funding amounts, passed through unchanged; not normalized to positive income. */
   cumFunding?: { allTime: string; sinceChange: string; sinceOpen: string };
   entryPx: string | null;
-  leverage: { type: string; value: number; rawUsd?: string };
+  leverage: { type: string; value: number };
   liquidationPx: string | null;
   marginUsed: string;
   maxTradeSzs: [string, string];
@@ -119,6 +124,13 @@ export type ApiPerpsClearinghouseState = {
   /** HyperCore spot USDC total (not in perps `marginSummary.accountValue`). */
   spotUsdcTotal?: string;
   spotUsdcAvailable?: string;
+  /**
+   * USDC an order in each book (`''` is the native book) can post as margin without a wallet deposit: free spot USDC
+   * on unified and portfolio-margin accounts, the book's own `withdrawable` on standard accounts, `"0"` otherwise.
+   */
+  spendableUsdcByDex?: Record<string, string>;
+  /** What Hyperliquid will charge on the account's first outbound transfer. `"0"` once paid. */
+  firstTransferFeeUsdc?: string;
   spotClearinghouse?: ApiPerpsSpotClearinghouseState;
   assetPositions: Array<{ position: ApiPerpsPosition; type: string }>;
   crossMaintenanceMarginUsed: string;
@@ -146,20 +158,7 @@ export type ApiPerpsGetPositionsResult = {
   positionsByChain: Partial<Record<ApiPerpsChain, ApiPerpsClearinghouseState>>;
 };
 
-export type ApiPerpsActivityKind = 'fill' | 'historicalOrder' | 'fundingPayment' | 'ledgerUpdate';
-
-/** One Hyperliquid `/info` row plus routing metadata (`dex`: `''` = native perps book). */
-export type ApiPerpsRawActivityItem = Record<string, unknown> & {
-  kind: ApiPerpsActivityKind;
-  dex: string;
-  time: number;
-  /** Catalogue id from `GET /perps/assets` when the row maps to a listed perp. */
-  asset?: ApiPerpsAssetId;
-};
-
 export type ApiPerpsTradeActivity = ApiPerpsAssetActivity;
-
-export type ApiPerpsActivityItem = ApiPerpsRawActivityItem | ApiPerpsTradeActivity;
 
 export type ApiPerpsActivityPageRequest = {
   startTime?: number;
@@ -170,9 +169,8 @@ export type ApiPerpsActivityPageRequest = {
 
 export type ApiPerpsActivitiesSnapshot = {
   address: string;
-  activities: ApiPerpsActivityItem[];
+  activities: ApiPerpsTradeActivity[];
   nextCursor?: string;
-  hasActivity?: boolean;
 };
 
 export type ApiPerpsGetActivitiesRequest = ApiPerpsActivityPageRequest & {
@@ -263,11 +261,27 @@ export type ApiPerpsLimits = {
   minPositionMarginUsdc: string;
 };
 
+export type ApiPerpsOnboardingStory = {
+  id: string;
+  url: string;
+  /** First frame of `url`, shown until the video has a frame of its own. */
+  preview: string;
+  /** Seconds. */
+  duration: number;
+  bytes: number;
+};
+
+export type ApiPerpsOnboarding = {
+  stories: ApiPerpsOnboardingStory[];
+};
+
 export type ApiPerpsGetAssetsResult = {
   assetsByChain: Partial<Record<ApiPerpsChain, ApiPerpsAssetsSnapshot>>;
   /** An empty list means no market sections are shown. */
   sections: ApiPerpsMarketSection[];
   limitsByChain: Record<ApiPerpsChain, ApiPerpsLimits>;
+  /** Absent from backends and cached catalogues that predate the onboarding stories. */
+  onboarding?: ApiPerpsOnboarding;
 };
 
 /** Open perp on one catalogue asset. Omitted from `POST /perps/asset` when the leg is flat. */
@@ -365,9 +379,9 @@ export type ApiPerpsGetAssetChartRequest = {
 
 /**
  * Quote for the order ticket, before `/perps/position/build` or `/perps/position/modify/build`.
- * An open or increase sends `depositAmount`: the credit after the 0.2 fee is the margin, and the
- * order notional is that margin times leverage. A reduce sends `depositAmount` as the margin to
- * release; that same gross is withdrawn to Arbitrum.
+ * An open or increase sends `depositAmount`: the credit after the 0.2 fee is the margin, or the whole amount with
+ * `fundingSource: 'balance'`, and the order notional is that margin times leverage. A reduce sends `depositAmount`
+ * as the margin to release, which sizes its order; what the order frees is withdrawn to Arbitrum.
  */
 export type ApiPerpsEstimatePositionRequest = {
   /** Quote the exact open size without partial-reduction minimums. */
@@ -378,12 +392,17 @@ export type ApiPerpsEstimatePositionRequest = {
   asset: ApiPerpsAssetId;
   /** Required for a new position. An open position uses its own side when omitted. */
   side?: ApiPerpsPositionSide;
-  /** Gross USDC about to be bridged, or the margin a reduce releases. Must exceed the CCTP fee. */
+  /**
+   * Gross USDC about to be bridged, which must exceed the CCTP fee, the margin taken from the balance, or the
+   * margin a reduce releases.
+   */
   depositAmount?: number | string;
   reduceOnly?: boolean;
   leverage?: number;
   /** Required for a new position. An open position keeps its margin mode when omitted. */
   isCross?: boolean;
+  /** `balance`: an open or increase posts the whole `depositAmount` from the balance. Not used with a reduce or close. */
+  fundingSource?: ApiPerpsFundingSource;
 };
 
 /**
@@ -397,6 +416,8 @@ export type ApiPerpsEstimateModifyPositionRequest = {
   /** Catalogue row id from `GET /perps/assets`. */
   asset: ApiPerpsAssetId;
   leverage: number;
+  /** `balance`: the extra margin comes from the book's spendable balance and `marginAmount` reports it. */
+  fundingSource?: ApiPerpsFundingSource;
 };
 
 export type ApiPerpsEstimateModifyPositionResult = {
@@ -404,9 +425,11 @@ export type ApiPerpsEstimateModifyPositionResult = {
   estimatedFees?: ApiPerpsFees;
   /**
    * Gross CCTP deposit. The credit after the fee is the margin added to the position.
-   * `"0"` when increasing leverage needs no top-up.
+   * `"0"` when increasing leverage needs no top-up, and always with `fundingSource: 'balance'`.
    */
   depositAmount: string;
+  /** Only with `fundingSource: 'balance'`: the margin the new leverage takes from the balance, `"0"` when none. */
+  marginAmount?: string;
 };
 
 /** Hyperliquid order-ticket figures for the position this order would produce. */
@@ -424,6 +447,8 @@ export type ApiPerpsEstimatePositionResult = {
   size: string;
   /** Resulting position. Omitted when the order flattens it or the price cannot be resolved. */
   liquidationPrice?: string;
+  /** The build of this order will carry `setAbstraction`, which the review has to show. */
+  switchesToUnified?: boolean;
 };
 
 export type ApiPerpsBuildPositionRequest = {
@@ -450,6 +475,12 @@ export type ApiPerpsBuildPositionResult = ApiPerpsExchangeBuild & {
    * before the perps order when the bridge credit is detected on spot.
    */
   spotToPerp?: ApiPerpsExchangeActionPayload;
+  /**
+   * Present when the order switches the account to Unified first: it never chose a mode and holds nothing the switch
+   * could affect. Signed for this account only, and only when the reviewed quote has `switchesToUnified`. Execute
+   * submits it once the deposit lands; `spotToPerp` still moves a deposit credited on spot if the switch is refused.
+   */
+  setAbstraction?: ApiPerpsExchangeActionPayload;
   /** Sign and submit before the open order (pairs with `leverage` / `isCross` on build). */
   updateLeverage: ApiPerpsExchangeActionPayload;
 };
@@ -523,10 +554,18 @@ export type ApiPerpsBuildModifyPositionRequest = {
    * is bridged and added to the isolated position before `updateLeverage`. `"0"` needs no top-up.
    */
   depositAmount?: number | string;
+  /** The USDC reviewed for a leverage change with `fundingSource: 'balance'`, added to an isolated position. */
+  marginAmount?: string;
   reduceOnly?: boolean;
   slippage?: number;
   /** New leverage. Keeps the position's cross/isolated mode. Pair with the estimate `depositAmount`. */
   leverage?: number;
+  /**
+   * `balance`: nothing is bridged. An increase takes `depositAmount` from the book's spendable balance in full as
+   * margin; a leverage change sends no `depositAmount`, and an isolated position's top-up is `updateIsolatedMargin`.
+   * Not used with `reduceOnly`.
+   */
+  fundingSource?: ApiPerpsFundingSource;
 };
 
 export type ApiPerpsBuildModifyPositionResult = {
@@ -537,8 +576,8 @@ export type ApiPerpsBuildModifyPositionResult = {
   /** Present when `leverage` is set on build. */
   updateLeverage?: ApiPerpsExchangeActionPayload;
   /**
-   * Adds the CCTP credit to the isolated position. Present when a leverage decrease
-   * is funded from the wallet. Sign and pass to execute with `updateLeverage`.
+   * Adds margin to the isolated position: the CCTP credit of a leverage decrease funded from the wallet, or the
+   * top-up a balance-funded one takes from the balance. Sign and pass to execute with `updateLeverage`.
    */
   updateIsolatedMargin?: ApiPerpsExchangeActionPayload;
 } & Partial<ApiPerpsExchangeBuild>;
@@ -577,6 +616,8 @@ export type ApiPerpsCloseWithdrawAction = {
 export type ApiPerpsBuildClosePositionResult = ApiPerpsExchangeBuild & {
   address: string;
   action: ApiPerpsCloseOrderAction & Record<string, unknown>;
+  /** Sign and send with `close/execute` while the account has not approved the builder fee. */
+  approveBuilderFee?: ApiPerpsExchangeActionPayload;
 };
 
 export type ApiPerpsExecutePositionRequest = {
@@ -597,6 +638,8 @@ export type ApiPerpsExecutePositionRequest = {
   depositAmount?: number | string;
   /** Signed `spotToPerp` from build — required on execute when CCTP credits spot USDC. */
   spotToPerp?: ApiPerpsSignedExchangeAction;
+  /** Signed `setAbstraction` from build — submitted once the deposit lands, before anything else. */
+  setAbstraction?: ApiPerpsSignedExchangeAction;
   /** Signed `updateLeverage` from build — submit before the open order when leverage was set on build. */
   updateLeverage?: ApiPerpsSignedExchangeAction;
   /**
@@ -604,6 +647,11 @@ export type ApiPerpsExecutePositionRequest = {
    * the CCTP credit is in perps margin and before `updateLeverage`.
    */
   updateIsolatedMargin?: ApiPerpsSignedExchangeAction;
+  /**
+   * `balance`: the build took its margin from the HyperCore balance. Execute refuses `depositAmount` and
+   * `spotToPerp`, and accepts `updateIsolatedMargin` only with the `updateLeverage` of the same asset and no order.
+   */
+  fundingSource?: ApiPerpsFundingSource;
 };
 
 export type ApiPerpsCctpCreditSurface = 'perps_withdrawable' | 'spot_usdc';
@@ -643,8 +691,7 @@ export type ApiPerpsExecuteClosePositionRequest = {
   destination?: string;
   /** Partial reduce from modify/build — skip flat wait before optional CCTP withdraw. */
   skipPositionFlatWait?: boolean;
-  /** Requested gross partial withdrawal, matching the reviewed modify depositAmount. */
-  depositAmount?: number | string;
+  approveBuilderFee?: ApiPerpsSignedExchangeAction;
 };
 
 export type ApiPerpsExecuteClosePhase = 'awaiting_withdraw_signature' | 'completed' | 'withdraw_unavailable';
@@ -665,40 +712,6 @@ export type ApiPerpsExecuteClosePositionResult = {
   withdrawResult?: ApiPerpsExecutePositionResult;
 };
 
-export type ApiPerpsClosePositionResult =
-  | {
-    phase: 'completed';
-    close: ApiPerpsExecutePositionResult;
-    withdrawResult: ApiPerpsExecutePositionResult;
-  }
-  | {
-    phase: 'withdraw_unavailable';
-    close: ApiPerpsExecutePositionResult;
-  }
-  | { error: string };
-
-/** Arbitrum CCTP burn for Hyperliquid perps open. */
-export type ApiPerpsCctpDepositChain = Extract<ApiChain, 'arbitrum'>;
-
-export type ApiBuildPerpsCctpDepositTransferResult = {
-  chain: ApiPerpsCctpDepositChain;
-  /** Signed CCTP call, submitted as an EIP-7702 batch. */
-  calls: ApiEvmSwapCall[];
-};
-
-export type ApiSubmitPerpsCctpDepositTransferOptions = {
-  accountId: string;
-  enclaveToken: string;
-  deposit: ApiPerpsCctpDeposit;
-  calls?: ApiEvmSwapCall[];
-  /** Same unlock as prepare step; avoids a second enclave read in one open flow. */
-  privateKey?: string;
-};
-
-export type ApiSubmitPerpsCctpDepositTransferResult =
-  | { txHash: string }
-  | { error: string };
-
 export type ApiPerpsModifyPositionResult =
-  | (ApiPerpsExecutePositionResult & { depositTxHash?: string; withdrawalPhase?: 'completed' | 'withdraw_unavailable' })
+  | (ApiPerpsExecutePositionResult & { depositTxHash?: string })
   | { error: string };

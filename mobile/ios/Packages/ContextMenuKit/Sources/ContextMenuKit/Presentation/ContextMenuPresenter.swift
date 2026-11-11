@@ -14,7 +14,8 @@ enum ContextMenuPresenter {
         }
         let configuration = configuration.resolved(for: sourceView)
         let resolvedPresentationReference = presentationReference ?? ContextMenuPresentationReference.from(view: sourceView)
-        let sourceUserInterfaceStyle = ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection)
+        let sourceUserInterfaceStyle = configuration.userInterfaceStyle
+            ?? ContextMenuVisuals.resolvedUserInterfaceStyle(for: sourceView.traitCollection)
         let sourceUserInterfaceLayoutDirection = sourceView.effectiveUserInterfaceLayoutDirection
 
         let usesRegularWidthLayout: Bool = switch sourceView.traitCollection.horizontalSizeClass {

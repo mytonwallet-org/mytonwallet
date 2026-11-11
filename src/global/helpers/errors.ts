@@ -6,6 +6,7 @@ import {
   ApiTokenImportError,
   ApiTransactionDraftError,
   ApiTransactionError,
+  EvmSmartAccountError,
 } from '../../api/types';
 
 import { getDoesUsePinPad } from '../../util/biometrics';
@@ -66,6 +67,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
       return 'The time on your device is incorrect, sync it and try again.';
 
     case ApiTransactionError.UnsuccesfulTransfer:
+    case EvmSmartAccountError.UserOperationFailed:
       return 'Transfer was unsuccessful. Try again later.';
 
     case ApiTransactionError.ConcurrentTransaction:
@@ -107,6 +109,7 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
         : 'No internet connection. Please check your connection and try again.';
 
     case ApiCommonError.DebugError:
+    case EvmSmartAccountError.BundlerNotConfigured:
       return 'Unexpected error. Please let the support know.';
 
     case ApiCommonError.Unexpected:

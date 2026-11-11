@@ -280,6 +280,7 @@ let package = Package(
                 .process("TelegramDiamond/GramDiamond.metal"),
                 .process("AgentSpinningTop/AgentSpinningTop.metal"),
                 .process("AgentEdgeGlow/AgentEdgeGlow.metal"),
+                .process("AgentFieldGlow/AgentFieldGlow.metal"),
                 .process("TelegramAmount/TelegramAmount.metal"),
                 .process("DustEffect/DustEffectShaders.metal"),
                 .process("DustEffect/DustFluidShaders.metal"),
@@ -535,6 +536,7 @@ let package = Package(
                 "WalletCore",
                 .product(name: "BigInt", package: "swift-bigint"),
                 .product(name: "GraphKit", package: "GraphKit"),
+                .product(name: "Perception", package: "swift-perception"),
             ]
         ),
         airTarget(
@@ -606,6 +608,8 @@ let package = Package(
         airTarget(
             "AirUILab",
             dependencies: [
+                contextMenuKitDependency,
+                .product(name: "Dependencies", package: "swift-dependencies"),
                 "UIBrowser",
                 .product(name: "Kingfisher", package: "kingfisher"),
                 "ProtectedAction",
@@ -674,11 +678,13 @@ let package = Package(
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "AirAsFramework",
+                "ProtectedAction",
                 "UIComponents",
                 "UIToken",
                 "UIBrowser",
                 "UIInAppBrowser",
                 "UIAgent",
+                "UIReceive",
                 "WalletCore",
                 "WalletContext",
                 "WalletResources",
@@ -760,6 +766,7 @@ let package = Package(
         airTestTarget(
             "UISendTests",
             dependencies: [
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "UISend",
                 "UIComponents",
                 "WalletCore",
@@ -778,6 +785,7 @@ let package = Package(
         airTestTarget(
             "UIComponentsIntegrationTests",
             dependencies: [
+                contextMenuKitDependency,
                 "UIComponents",
                 "WalletResources",
             ]
@@ -785,6 +793,7 @@ let package = Package(
         airTestTarget(
             "UISettingsTests",
             dependencies: [
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "UISettings",
                 "WalletCore",
                 "WalletContext",

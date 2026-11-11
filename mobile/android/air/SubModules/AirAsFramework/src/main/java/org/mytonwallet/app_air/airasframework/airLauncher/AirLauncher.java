@@ -172,7 +172,7 @@ public class AirLauncher {
         if (attribution != null) {
             Deeplink dataDeeplink = businessIntent.getData() != null
                 ? DeeplinkParser.Companion.parse(businessIntent.getData()) : null;
-            attribution.captureIfAdmitted(dataDeeplink, DeeplinkOpenSource.OS_EXTERNAL);
+            attribution.captureIfAdmitted(applicationContext, dataDeeplink, DeeplinkOpenSource.OS_EXTERNAL);
             if (attribution.isGet()) {
                 if (isOnTheAir && currentActivity != null) bringAirToFront(currentActivity);
                 return true;

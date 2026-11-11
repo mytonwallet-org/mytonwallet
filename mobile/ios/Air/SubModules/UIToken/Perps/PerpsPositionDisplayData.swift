@@ -1,3 +1,4 @@
+import UIComponents
 import WalletCore
 import WalletContext
 
@@ -14,50 +15,17 @@ public struct PerpsPositionDisplayData {
     public var liquidationPrice: String?
     public var positionSize: String
     public var fundingPayments: Value
-    public var activities: [Activity]
+    public var activities: [PerpsTradeActivity]
     public var activityTitle: String
     public var isActivityStale = false
-    public var canEdit: Bool
-    public var canClose: Bool
 
-    public struct Value {
-        public enum Tone { case positive, negative, neutral }
-        public var text: String
-        public var tone: Tone
-
-        public init(_ text: String, tone: Tone = .neutral) {
-            self.text = text
-            self.tone = tone
-        }
-    }
-
-    public struct Activity: Identifiable {
-        public enum Kind { case opened, increased, reduced, closed, liquidated }
-        public var id: String
-        public var kind: Kind
-        public var title: String
-        public var date: String
-        public var amount: Value
-        public var detail: String
-        public var canSelect: Bool
-
-        public init(id: String, kind: Kind, title: String, date: String, amount: Value, detail: String, canSelect: Bool = false) {
-            self.id = id
-            self.kind = kind
-            self.title = title
-            self.date = date
-            self.amount = amount
-            self.detail = detail
-            self.canSelect = canSelect
-        }
-    }
+    public typealias Value = PerpsValue
 
     public init(
         id: String, market: PerpsMarketDisplayData, direction: PerpsTradeDirection, leverage: Int,
         equity: BaseCurrencyAmount, profitLoss: Value, invested: String, entryPrice: String,
         liquidationPrice: String?, positionSize: String, fundingPayments: Value,
-        activities: [Activity] = [], canEdit: Bool = false, canClose: Bool = false,
-        activityTitle: String = lang("Activity")
+        activities: [PerpsTradeActivity] = [], activityTitle: String = lang("Activity")
     ) {
         self.id = id
         self.market = market
@@ -72,8 +40,6 @@ public struct PerpsPositionDisplayData {
         self.fundingPayments = fundingPayments
         self.activities = activities
         self.activityTitle = activityTitle
-        self.canEdit = canEdit
-        self.canClose = canClose
     }
 }
 

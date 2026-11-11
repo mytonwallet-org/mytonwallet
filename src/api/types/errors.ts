@@ -59,6 +59,7 @@ export enum EvmSmartAccountError {
   BundlerNotConfigured = 'EvmBundlerNotConfigured',
   ForeignDelegation = 'EvmForeignDelegation',
   UserOperationFailed = 'EvmUserOperationFailed',
+  UserOperationMismatch = 'EvmUserOperationMismatch',
 }
 
 export type ApiAnyDisplayError =

@@ -1,8 +1,11 @@
 // The look of the Agent's menus, as in the design: a softer shadow than the app's menus, and a lighter gap between
 // the groups of items
 
+// The menus' shadow in both themes, which the reactions' cloud over a message shares
+$shadow: 0 0 1.25rem #0000001F;
+
 @mixin look {
-  --default-shadow: 0 0 1.25rem #0000001F;
+  --default-shadow: #{$shadow};
   --dropdown-delimiter-color: rgba(44, 51, 62, 0.084);
 
   :global(html.theme-dark) & {

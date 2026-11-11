@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from '../../lib/teact/teact';
 import type { AgentThreadListItemV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
 import type { AgentV2OperationError } from '../../api/agentV2/types';
 
-import { getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
+import { agentThreadListListeners, getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
 import { subscribeToAgentV2Updates } from '../../util/agentV2Updates';
 import { getIsInBackground } from '../../util/backgroundMode';
 import { callApi } from '../../api';
+import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
 import { compareAgentThreadListItems, mergeAgentThreadListRefresh } from './agentThreadListSections';
 import {
   forgetAgentThreadReadState,
@@ -47,6 +48,15 @@ interface AgentV2ThreadListState {
 
 interface UseAgentV2ThreadListResult extends AgentV2ThreadListState {
   hasMore: boolean;
+  isCacheShown: boolean;
+  /** The latest first-page load failed while the list was empty or showed cached rows */
+  hasLoadFailed: boolean;
+  /** The next page failed to load: the list ends with a line that loads it again */
+  hasPageLoadFailed: boolean;
+  /** The list loads again after its failure, as the user asked */
+  isRetrying: boolean;
+  /** Loads the chats again after the first page failed, or else the page that failed */
+  retry: NoneToVoidFunction;
   /** What the Agent is doing in each chat that answers, as a localization key */
   activityLangKeys: Record<string, string>;
   loadMore: NoneToVoidFunction;
@@ -66,6 +76,10 @@ export default function useAgentV2ThreadList({
 }: UseAgentV2ThreadListProps): UseAgentV2ThreadListResult {
   const [list, setList] = useState<AgentV2ThreadListState>({});
   const [nextCursor, setNextCursor] = useState<string | undefined>();
+  const [hasLoadFailed, setHasLoadFailed] = useState(false);
+  const [hasPageLoadFailed, setHasPageLoadFailed] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [isCacheShown, setIsCacheShown] = useState(false);
   const [activityLangKeys, setActivityLangKeys] = useState<Record<string, string>>({});
   // The latest first-page load, which a newer one supersedes
   const firstPageRequestIdRef = useRef(0);
@@ -81,6 +95,8 @@ export default function useAgentV2ThreadList({
   // List loads started so far, which tell a load that brings a completed answer's preview from one that does not
   const loadCountRef = useRef(0);
   const loadedChatRef = useRef<string | undefined>();
+  // The local state a fresh first page last came back for: from then on an empty list is confirmed, not missing
+  const freshPageLocalStateRef = useRef<ReturnType<typeof getAgentV2LocalState>>();
 
   const updateItems = useLastCallback((
     update: (items?: AgentThreadListItemV2[]) => AgentThreadListItemV2[] | undefined,
@@ -124,15 +140,33 @@ export default function useAgentV2ThreadList({
       isLoadingPageRef.current = false;
     }
     const loadCount = ++loadCountRef.current;
+    let hasFreshPage = false;
+    if (!list.items?.length && freshPageLocalStateRef.current !== localState) {
+      void callApi('getAgentV2CachedThreads').then((threads) => {
+        if (!threads?.length || hasFreshPage || requestId !== firstPageRequestIdRef.current
+          || localState !== getAgentV2LocalState()) return;
+
+        setIsCacheShown(true);
+        updateItems(() => threads);
+        setNextCursor(undefined);
+      });
+    }
     const result = await callApi('listAgentV2Threads', { limit: THREAD_LIST_PAGE_SIZE });
     if (localState !== getAgentV2LocalState() || requestId !== firstPageRequestIdRef.current) return;
+    setIsRetrying(false);
     if (!result?.ok) {
       handleFirstPageFailure(result?.error);
       return;
     }
 
+    hasFreshPage = true;
+    freshPageLocalStateRef.current = localState;
+    setIsCacheShown(false);
+    setHasLoadFailed(false);
     const { threads, nextCursor: pageCursor } = result.value;
-    observeAgentThreadCounts(threads.map(({ thread }) => thread), tracker.getAnsweringThreadIds());
+    const summaries = threads.map(({ thread }) => thread);
+    observeAgentThreadCounts(summaries, tracker.getAnsweringThreadIds());
+    agentThreadListListeners.forEach((listener) => listener(summaries));
     // The rows get the previews of the answers that completed before this load started, and the statuses held for
     // them end in the same change
     applyActivityChange(tracker.releaseAnswered(
@@ -148,24 +182,23 @@ export default function useAgentV2ThreadList({
     hasLoadedMorePagesRef.current = false;
     updateItems(() => threads);
     setNextCursor(pageCursor);
+    setHasPageLoadFailed(false);
   });
 
   /**
-   * A failed refresh keeps the chats already shown. A list that has not loaded yet keeps its placeholder and tries
-   * again, after the delay the server asked for, rather than telling the user that there are no chats.
+   * A failed refresh keeps fresh rows without a failure. Cached rows keep the failure with Retry below them; an
+   * empty list shows it in place. Both retry after the delay the server asked for.
    *
-   * A failure that retrying cannot fix, as an app that must be updated first, leaves the list empty. A list that is
-   * disabled, off screen or in a hidden tab reads the chats again as it comes back.
+   * A failure that retrying cannot fix, as an app that must be updated first, is not tried again by itself. A list
+   * that is disabled, off screen or in a hidden tab reads the chats again as it comes back.
    *
    * It runs as the request ends, so it sees the list as it is by then rather than as it was when the request started.
    */
   const handleFirstPageFailure = useLastCallback((error?: AgentV2OperationError) => {
-    if (list.items) return;
+    if (list.items?.length && !isCacheShown) return;
 
-    if (error && !error.retryable) {
-      updateItems((current) => current ?? []);
-      return;
-    }
+    setHasLoadFailed(true);
+    if (error && !error.retryable) return;
     if (!isEnabled || !isVisible || getIsInBackground()) return;
 
     window.clearTimeout(refreshTimeoutRef.current);
@@ -179,13 +212,15 @@ export default function useAgentV2ThreadList({
     const localState = getAgentV2LocalState();
     const requestId = ++pageRequestIdRef.current;
     isLoadingPageRef.current = true;
+    setHasPageLoadFailed(false);
     const result = await callApi('listAgentV2Threads', { limit: THREAD_LIST_PAGE_SIZE, cursor });
     if (localState !== getAgentV2LocalState() || requestId !== pageRequestIdRef.current) return;
     if (!result?.ok) {
-      // A failure that retrying cannot fix ends the paging, and the list keeps the chats it has loaded
+      // The list keeps the chats it has loaded and ends with the failure, whose Retry asks for the page again
+      setHasPageLoadFailed(true);
+      // A failure that retrying cannot fix waits for the user to ask for the page again
       if (result && !result.error.retryable) {
         isLoadingPageRef.current = false;
-        setNextCursor(undefined);
         return;
       }
 
@@ -201,7 +236,9 @@ export default function useAgentV2ThreadList({
     isLoadingPageRef.current = false;
 
     const { threads, nextCursor: pageCursor } = result.value;
-    observeAgentThreadCounts(threads.map(({ thread }) => thread), tracker.getAnsweringThreadIds());
+    const summaries = threads.map(({ thread }) => thread);
+    observeAgentThreadCounts(summaries, tracker.getAnsweringThreadIds());
+    agentThreadListListeners.forEach((listener) => listener(summaries));
     hasLoadedMorePagesRef.current = true;
     updateItems((current) => (current ? appendPage(current, threads) : threads));
     setNextCursor(pageCursor);
@@ -240,8 +277,9 @@ export default function useAgentV2ThreadList({
       if (!current) return current;
       firstPageRequestIdRef.current += 1;
       const index = current.findIndex((item) => item.thread.id === thread.id);
-      // The list leaves out empty chats, so a cleared chat goes and a new one comes once it has a message
-      if (!thread.messageCount) {
+      // The list leaves out empty chats and the news discussions the user has not written in, as the SDK's list does,
+      // so a cleared chat goes and a new one comes once it has a message from the user
+      if (!thread.messageCount || !getIsAgentV2ThreadStarted(thread)) {
         return index < 0 ? current : current.filter((item) => item.thread.id !== thread.id);
       }
       if (index < 0) return [...current, { thread }].sort(compareAgentThreadListItems);
@@ -276,8 +314,22 @@ export default function useAgentV2ThreadList({
     if (loadedChatRef.current === threadId) loadedChatRef.current = undefined;
   });
 
+  // A page that failed to load waits for its failure line's Retry
   const loadMore = useLastCallback(() => {
-    if (nextCursor && !isLoadingPageRef.current) void loadPage(nextCursor);
+    if (nextCursor && !isLoadingPageRef.current && !hasPageLoadFailed) void loadPage(nextCursor);
+  });
+
+  const retry = useLastCallback(() => {
+    if (hasLoadFailed) {
+      window.clearTimeout(refreshTimeoutRef.current);
+      setIsRetrying(true);
+      void load(true);
+      return;
+    }
+    if (!hasPageLoadFailed || !nextCursor) return;
+
+    window.clearTimeout(pageRetryTimeoutRef.current);
+    void loadPage(nextCursor);
   });
 
   useEffect(() => {
@@ -332,6 +384,11 @@ export default function useAgentV2ThreadList({
   return {
     ...list,
     hasMore: Boolean(nextCursor),
+    isCacheShown,
+    hasLoadFailed,
+    hasPageLoadFailed,
+    isRetrying,
+    retry,
     activityLangKeys,
     loadMore,
     removeThread,
@@ -369,6 +426,8 @@ function getIsSameItem(currentItem: AgentThreadListItemV2, nextItem: AgentThread
     && currentThread.messageCount === nextThread.messageCount
     && currentThread.title === nextThread.title
     && currentThread.icon === nextThread.icon
+    && currentThread.support?.state === nextThread.support?.state
+    && currentThread.support?.lastOperatorMessageAt === nextThread.support?.lastOperatorMessageAt
     && currentThread.isPinned === nextThread.isPinned;
 }
 

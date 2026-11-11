@@ -10,6 +10,11 @@
         {
           "locale": "en",
           "cursor": "2026-10-19T09:00:00.000Z:42=="
+        },
+        {
+          "locale": "ru",
+          "digestHour": 21,
+          "timeZone": "Europe/Moscow"
         }
       ],
       "invalid": [
@@ -23,6 +28,19 @@
         {
           "locale": "ru",
           "limit": 10
+        },
+        {
+          "locale": "ru",
+          "digestHour": 21
+        },
+        {
+          "locale": "ru",
+          "timeZone": "Europe/Moscow"
+        },
+        {
+          "locale": "ru",
+          "digestHour": 24,
+          "timeZone": "Europe/Moscow"
         }
       ]
     },
@@ -63,6 +81,23 @@
                   "url": "https://mytonwallet.io/news/wallet-update"
                 }
               ]
+            }
+          ],
+          "digests": [
+            {
+              "id": "en:2026-10-19T09:00:00.000Z",
+              "deliveredAt": "2026-10-19T09:00:00.000Z",
+              "top": [
+                {
+                  "eventId": 42,
+                  "headline": "TON network update"
+                }
+              ],
+              "total": 2,
+              "discussion": {
+                "threadId": "44444444-4444-4444-8444-444444444444",
+                "icon": "🗞️"
+              }
             }
           ]
         },
@@ -615,6 +650,12 @@
             "eventId": 2147483647,
             "locale": "en"
           }
+        },
+        {
+          "protocolVersion": 3,
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z"
+          }
         }
       ],
       "invalid": [
@@ -670,6 +711,27 @@
           "news": {
             "eventId": 42,
             "locale": "en",
+            "headline": "Untrusted title"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "news": {
+            "eventId": 42,
+            "locale": "ru"
+          },
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "digest": {}
+        },
+        {
+          "protocolVersion": 3,
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z",
             "headline": "Untrusted title"
           }
         }
@@ -798,6 +860,73 @@
       ]
     },
     {
+      "schema": "AgentThreadDigestCardV2",
+      "valid": [
+        {
+          "id": "ru:2026-11-04T08:00:00.000Z",
+          "windowEnd": "2026-11-04T08:00:00.000Z",
+          "total": 24,
+          "top": [
+            {
+              "eventId": 42,
+              "headline": "TON network update"
+            },
+            {
+              "eventId": 43,
+              "headline": "Bitcoin reaches a new high"
+            }
+          ]
+        }
+      ],
+      "invalid": [
+        {
+          "id": "ru:2026-11-04T08:00:00.000Z",
+          "windowEnd": "2026-11-04T08:00:00.000Z",
+          "total": 24,
+          "top": []
+        },
+        {
+          "id": "ru:2026-11-04T08:00:00.000Z",
+          "windowEnd": "2026-11-04T08:00:00.000Z",
+          "total": 0,
+          "top": [
+            {
+              "eventId": 42,
+              "headline": "TON network update"
+            },
+            {
+              "eventId": 43,
+              "headline": "Bitcoin reaches a new high"
+            }
+          ]
+        },
+        {
+          "id": "ru:2026-11-04T08:00:00.000Z",
+          "windowEnd": "2026-11-04T08:00:00.000Z",
+          "total": 24,
+          "top": [
+            {
+              "eventId": 42
+            }
+          ]
+        },
+        {
+          "id": "ru:2026-11-04T08:00:00.000Z",
+          "total": 24,
+          "top": [
+            {
+              "eventId": 42,
+              "headline": "TON network update"
+            },
+            {
+              "eventId": 43,
+              "headline": "Bitcoin reaches a new high"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "schema": "AgentThreadSummaryV2",
       "valid": [
         {
@@ -873,6 +1002,41 @@
             "imageUrl": "https://pulse.mytonwallet.org/images/42.jpg",
             "publishedAt": "2026-10-19T09:00:00.000Z",
             "source": "MyPulse News"
+          }
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 5,
+          "createdAt": "2026-07-12T00:00:00.000Z",
+          "updatedAt": "2026-07-12T00:00:00.000Z",
+          "lastActivityAt": "2026-07-12T00:00:00.000Z",
+          "messageCount": 1,
+          "support": {
+            "state": "closed",
+            "lastOperatorMessageAt": "2026-10-28T09:00:00.000Z"
+          }
+        },
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "revision": 2,
+          "createdAt": "2026-11-04T09:00:00.000Z",
+          "updatedAt": "2026-11-04T09:00:00.000Z",
+          "lastActivityAt": "2026-11-04T09:00:00.000Z",
+          "messageCount": 1,
+          "digest": {
+            "id": "ru:2026-11-04T08:00:00.000Z",
+            "windowEnd": "2026-11-04T08:00:00.000Z",
+            "total": 24,
+            "top": [
+              {
+                "eventId": 42,
+                "headline": "TON network update"
+              },
+              {
+                "eventId": 43,
+                "headline": "Bitcoin reaches a new high"
+              }
+            ]
           }
         }
       ],
@@ -1154,6 +1318,13 @@
             "code": "news_unavailable",
             "retryable": true
           }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "digest_unavailable",
+            "retryable": false
+          }
         }
       ],
       "invalid": [
@@ -1183,6 +1354,13 @@
           "error": {
             "code": "news_unavailable",
             "retryable": false
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "error": {
+            "code": "digest_unavailable",
+            "retryable": true
           }
         }
       ]
@@ -3689,6 +3867,63 @@
             }
           ],
           "series": []
+        },
+        {
+          "operation": "account.inventory",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "current",
+            "accounts": [
+              {
+                "accountRef": "account-current",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-07-31T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-07-31T00:00:00.000Z",
+            "source": "network",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "complete",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [],
+            "sourceOutcomes": [
+              {
+                "domain": "accounts",
+                "status": "complete",
+                "attempts": 1,
+                "accountsRequested": 1,
+                "accountsIncluded": 1
+              }
+            ]
+          },
+          "accounts": [
+            {
+              "rowId": "support-account",
+              "kind": "account",
+              "accountRef": "account-current",
+              "accountLabel": "Main",
+              "accountType": "regular",
+              "isCurrent": true,
+              "state": "active",
+              "isViewOnly": false,
+              "chains": [
+                "ton"
+              ],
+              "publicAddresses": [
+                {
+                  "chain": "ton",
+                  "address": "EQ-support-wallet",
+                  "disclosureReason": "support_handoff"
+                }
+              ]
+            }
+          ]
         }
       ],
       "invalid": [
@@ -5013,6 +5248,50 @@
           },
           "createdAt": "2026-10-19T09:00:00.000Z",
           "newsPost": true
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000001",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "event",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "code": "support_requested"
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000002",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "event",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "code": "operator_joined",
+          "author": {
+            "operatorId": "support-42",
+            "name": "Alex",
+            "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+          }
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000003",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "operator",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "text": "I can help you check that transfer.",
+          "author": {
+            "operatorId": "support-42",
+            "name": "Alex",
+            "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+          },
+          "feedback": "like"
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000004",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "event",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "code": "support_closed",
+          "reason": "operator"
         }
       ],
       "invalid": [
@@ -5027,6 +5306,32 @@
           },
           "createdAt": "2026-10-19T09:00:00.000Z",
           "newsPost": false
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000003",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "operator",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "text": "I can help you check that transfer.",
+          "feedback": "like"
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000001",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "event",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "code": "support_requested",
+          "text": "This event has no text."
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000004",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "role": "event",
+          "status": "complete",
+          "createdAt": "2026-10-28T09:00:00.000Z",
+          "code": "support_closed"
         }
       ]
     },
@@ -5076,6 +5381,81 @@
               "newsPost": true
             }
           ]
+        },
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 5,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1,
+            "support": {
+              "state": "closed",
+              "lastOperatorMessageAt": "2026-10-28T09:00:00.000Z"
+            }
+          },
+          "messages": [
+            {
+              "id": "44444444-4444-4444-8444-000000000001",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "support_requested"
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000002",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "operator_joined",
+              "author": {
+                "operatorId": "support-42",
+                "name": "Alex",
+                "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+              }
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000003",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "operator",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "text": "I can help you check that transfer.",
+              "author": {
+                "operatorId": "support-42",
+                "name": "Alex",
+                "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+              },
+              "feedback": "like"
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000004",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "support_closed",
+              "reason": "operator"
+            }
+          ]
+        }
+      ],
+      "invalid": []
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "valid": [
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "44444444-4444-4444-8444-000000000005",
+          "sequence": 3,
+          "finishReason": "delivered_to_support"
         }
       ],
       "invalid": []

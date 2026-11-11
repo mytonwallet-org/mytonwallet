@@ -185,6 +185,11 @@ extension SimpleGroupCell {
             get { switchControl.isOn }
             set { switchControl.isOn = newValue }
         }
+
+        public var switchAccessibilityIdentifier: String? {
+            get { switchControl.accessibilityIdentifier }
+            set { switchControl.accessibilityIdentifier = newValue }
+        }
         
         override public var intrinsicContentSize: CGSize {
             let cs = switchControl.intrinsicContentSize

@@ -337,7 +337,8 @@ export async function fetchActivityDetails(accountId: string, activity: ApiActiv
     }
   }
 
-  return activity;
+  // No chain has details to add, so the activity stops waiting for them
+  return { ...activity, shouldLoadDetails: undefined };
 }
 
 export async function fetchTransactionById(

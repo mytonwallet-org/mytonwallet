@@ -18,6 +18,7 @@ import type {
 import type { AgentHint, AgentMessage } from '../../../global/types';
 import type { AgentRunActivityType } from '../AgentRunActivity';
 
+import { areDeepEqual } from '../../../util/areDeepEqual';
 import memoize from '../../../util/memoize';
 
 type AgentV2RunWithOperation = {
@@ -96,12 +97,30 @@ export interface AgentV2MessagesState {
   isLoading: boolean;
   isOpeningHistory: boolean;
   hasHydratedHistory: boolean;
+  /** The messages are the device's copy of the history, which shows until the history loads and offers nothing to do */
+  isHistoryCached: boolean;
+  /** The chat shows the history it had when it was last open, which loads again in place */
+  isShowingCachedHistory?: boolean;
+  /** `support.lastOperatorMessageAt` of the newest history page loaded, so a reply is marked read only once it shows */
+  loadedOperatorMessageAt?: string;
   nextCursor?: string;
   isLoadingOlderMessages: boolean;
   historyPageRequest?: AgentV2HistoryPageRequest;
   sourceIdByMessageId: Record<number, string>;
+  /**
+   * The answers the user stopped in this chat, as they were shown when stopped. The server may keep less of such an
+   * answer than was shown, or nothing, so a history read keeps the shown text until the server's holds as much.
+   */
+  stoppedAnswers?: AgentV2StoppedAnswer[];
   run: AgentV2RunState;
   threadMutation: AgentV2ThreadMutationState;
+}
+
+interface AgentV2StoppedAnswer {
+  message: AgentMessage;
+  sourceId: string;
+  /** The message before it, after which it goes again when the server leaves it out */
+  previousSourceId?: string;
 }
 
 interface HydrationHints {
@@ -112,8 +131,8 @@ interface HydrationHints {
 
 export type AgentV2MessagesStateAction =
   | { kind: 'consentLoadingStarted' }
+  | { kind: 'consentReset' }
   | { kind: 'consentResolved'; isAccepted: boolean }
-  | { kind: 'consentAccepted' }
   | { kind: 'hydrationStarted'; shouldClearError: boolean; shouldPreserveOpeningMessages?: boolean }
   | {
     kind: 'hydrationSucceeded';
@@ -124,6 +143,15 @@ export type AgentV2MessagesStateAction =
     hints?: HydrationHints;
   }
   | { kind: 'hydrationFailed' }
+  | { kind: 'cachedHistoryApplied'; thread: AgentThreadSummaryV2; entries: AgentV2NormalizedMessageEntry[] }
+  | { kind: 'cachedHistoryDiscarded' }
+  | {
+    kind: 'latestMessagesReceived';
+    thread: AgentThreadSummaryV2;
+    entries: AgentV2NormalizedMessageEntry[];
+    /** Every message the refresh read, in the server's history order */
+    sourceIds: string[];
+  }
   | { kind: 'hintsLoaded'; hints: HydrationHints }
   | { kind: 'optimisticMessageAdded'; message: AgentMessage }
   | { kind: 'messageSourceBound'; messageId: number; sourceId: string }
@@ -138,6 +166,8 @@ export type AgentV2MessagesStateAction =
     threadId: string;
     cursor: string;
     entries: AgentV2NormalizedMessageEntry[];
+    threadRevision: number;
+    support?: AgentThreadSummaryV2['support'];
     nextCursor?: string;
   }
   | {
@@ -218,6 +248,8 @@ export type AgentV2MessagesStateAction =
       timestamp: number;
     }
     | { kind: 'runCancelled'; clientRunId: string }
+    /** `messageId` is the answer the stopped run has started */
+    | { kind: 'runStopped'; messageId?: number }
     | { kind: 'runSettled'; operationId: number }
     | { kind: 'admissionRetryConsumed'; operationId: number }
     | { kind: 'composerStatusExpired' }
@@ -240,12 +272,75 @@ export const INITIAL_AGENT_V2_MESSAGES_STATE: AgentV2MessagesState = {
   isLoading: false,
   isOpeningHistory: false,
   hasHydratedHistory: false,
+  isHistoryCached: false,
   isLoadingOlderMessages: false,
   sourceIdByMessageId: {},
   run: { phase: 'idle' },
   threadMutation: { phase: 'idle' },
   availability: { state: 'available' },
 };
+
+/** A chat's history as it was last shown, which the chat shows at once when it opens again, as on iOS */
+export type AgentV2CachedChat = Pick<
+  AgentV2MessagesState,
+  'messages' | 'sourceIdByMessageId' | 'nextCursor' | 'loadedOperatorMessageAt' | 'hints' | 'hintsResponse'
+  | 'hintsLangCode' | 'stoppedAnswers'
+> & { thread: AgentThreadSummaryV2 };
+
+/**
+ * The history a chat leaves to show when it opens again, as iOS keeps its recent chats loaded: a loaded thread's saved
+ * messages, a news discussion's too. A message the server doesn't keep, as a question that failed to go, and a failure
+ * of the chat itself stay out, as a fresh load doesn't bring them either. A chat being answered or cleared leaves
+ * nothing.
+ */
+export function selectAgentV2CachedChat(state: AgentV2MessagesState): AgentV2CachedChat | undefined {
+  const { thread } = state;
+  if (
+    !thread
+    || !state.hasHydratedHistory
+    || selectIsAgentV2RunActive(state)
+    || state.threadMutation.phase !== 'idle'
+  ) return undefined;
+
+  const { messages, sourceIdByMessageId } = selectAgentV2SavedHistory(state);
+  return {
+    thread,
+    messages,
+    sourceIdByMessageId,
+    nextCursor: state.nextCursor,
+    loadedOperatorMessageAt: state.loadedOperatorMessageAt,
+    hints: state.hints,
+    hintsResponse: state.hintsResponse,
+    hintsLangCode: state.hintsLangCode,
+    stoppedAnswers: state.stoppedAnswers,
+  };
+}
+
+function selectAgentV2SavedHistory(state: AgentV2MessagesState) {
+  const isSaved = ({ id, isStreaming, isTyping }: AgentMessage) => (
+    !isStreaming && !isTyping && Boolean(state.sourceIdByMessageId[id])
+  );
+  if (state.messages.every(isSaved)) return state;
+
+  const messages = state.messages.filter(isSaved);
+  const savedIds = new Set(messages.map(({ id }) => String(id)));
+  return {
+    messages,
+    sourceIdByMessageId: Object.fromEntries(Object.entries(state.sourceIdByMessageId)
+      .filter(([id]) => savedIds.has(id))),
+  };
+}
+
+/** A chat opened again with the history it had, which it shows at once and loads again in place */
+export function restoreAgentV2MessagesState(cachedChat: AgentV2CachedChat): AgentV2MessagesState {
+  return {
+    ...INITIAL_AGENT_V2_MESSAGES_STATE,
+    ...cachedChat,
+    isConsentAccepted: true,
+    hasHydratedHistory: true,
+    isShowingCachedHistory: true,
+  };
+}
 
 export function reduceAgentV2MessagesState(
   state: AgentV2MessagesState,
@@ -254,24 +349,20 @@ export function reduceAgentV2MessagesState(
   switch (action.kind) {
     case 'consentLoadingStarted':
       return { ...state, isLoading: true };
+    case 'consentReset':
+      return { ...state, isConsentAccepted: undefined };
     case 'consentResolved':
       return {
         ...state,
         isConsentAccepted: action.isAccepted,
         isLoading: action.isAccepted,
       };
-    case 'consentAccepted':
-      return {
-        ...state,
-        isConsentAccepted: true,
-        isLoading: true,
-        error: undefined,
-      };
     case 'hydrationStarted':
       return {
         ...state,
         isLoading: true,
-        isOpeningHistory: Boolean(action.shouldPreserveOpeningMessages && (!state.thread || state.thread.news)),
+        isOpeningHistory: Boolean(action.shouldPreserveOpeningMessages
+          && (!state.thread || state.thread.news || state.thread.digest)),
         isLoadingOlderMessages: false,
         historyPageRequest: undefined,
         ...(action.shouldClearError ? { error: undefined } : {}),
@@ -282,25 +373,33 @@ export function reduceAgentV2MessagesState(
       const shouldPreserveLiveContent = action.shouldPreserveLiveContent
         && (!state.thread || state.thread.id === action.thread.id);
       const shouldPreserveOpeningMessages = shouldPreserveLiveContent
-        && Boolean(state.isOpeningHistory && state.thread?.news);
+        && Boolean(state.isOpeningHistory && (state.thread?.news || state.thread?.digest));
       const hasNewerContent = shouldPreserveOpeningMessages
         && (state.thread?.revision ?? 0) > action.thread.revision;
-      const hydratedMessages = shouldPreserveLiveContent
+      // The history takes the place of the device's copy, keeping nothing of it
+      const currentMessages = state.isHistoryCached ? state.messages.filter(isLiveMessage) : state.messages;
+      const reconciledMessages = shouldPreserveLiveContent
         ? reconcileHydratedMessages(
-          state.messages, messages,
+          currentMessages, messages,
           shouldPreserveOpeningMessages ? state.sourceIdByMessageId : undefined, hasNewerContent,
+          Boolean(state.isShowingCachedHistory),
         )
         : messages;
+      const sourceIdByMessageId = buildSourceIdIndex(
+        entries,
+        reconciledMessages,
+        state.sourceIdByMessageId,
+        shouldPreserveLiveContent,
+      );
+      const hydrated = state.thread?.id === action.thread.id
+        ? keepStoppedAnswers(reconciledMessages, sourceIdByMessageId, state.stoppedAnswers)
+        : { messages: reconciledMessages, sourceIdByMessageId, stoppedAnswers: undefined };
       return {
         ...state,
         thread: hasNewerContent ? state.thread : action.thread,
-        messages: hydratedMessages,
-        sourceIdByMessageId: buildSourceIdIndex(
-          entries,
-          hydratedMessages,
-          state.sourceIdByMessageId,
-          shouldPreserveLiveContent,
-        ),
+        loadedOperatorMessageAt: hasNewerContent
+          ? state.loadedOperatorMessageAt : action.thread.support?.lastOperatorMessageAt,
+        ...hydrated,
         nextCursor: action.nextCursor,
         isLoadingOlderMessages: false,
         historyPageRequest: undefined,
@@ -310,6 +409,8 @@ export function reduceAgentV2MessagesState(
         isLoading: false,
         isOpeningHistory: false,
         hasHydratedHistory: true,
+        isHistoryCached: false,
+        isShowingCachedHistory: undefined,
         error: state.error?.isHistoryFailure ? undefined : state.error,
         threadMutation: reconcileThreadMutation(state.threadMutation, action.thread, true),
       };
@@ -319,7 +420,32 @@ export function reduceAgentV2MessagesState(
         ...state,
         isLoading: false,
         isOpeningHistory: false,
+        isShowingCachedHistory: undefined,
       };
+    case 'cachedHistoryApplied': {
+      const entries = normalizeHydrationEntries(action);
+      const messages = entries.map(({ message }) => message);
+      return {
+        ...state,
+        thread: action.thread,
+        messages,
+        sourceIdByMessageId: buildSourceIdIndex(entries, messages, state.sourceIdByMessageId, false),
+        isHistoryCached: true,
+      };
+    }
+    case 'cachedHistoryDiscarded': {
+      if (!state.isHistoryCached) return state;
+      const messages = state.messages.filter(isLiveMessage);
+      return {
+        ...state,
+        thread: undefined,
+        messages,
+        sourceIdByMessageId: buildSourceIdIndex([], messages, state.sourceIdByMessageId, true),
+        isHistoryCached: false,
+      };
+    }
+    case 'latestMessagesReceived':
+      return mergeLatestMessages(state, action);
     case 'hintsLoaded':
       return {
         ...state,
@@ -357,7 +483,12 @@ export function reduceAgentV2MessagesState(
       };
     case 'historyPageSucceeded':
       if (!isHistoryPageRequestCurrent(state, action)) return state;
-      return prependHistoryPage(state, action.entries, action.nextCursor);
+      return prependHistoryPage({
+        ...state,
+        thread: action.threadRevision >= state.thread!.revision
+          ? { ...state.thread!, revision: action.threadRevision, support: action.support }
+          : state.thread,
+      }, action.entries, action.nextCursor);
     case 'historyPageFailed':
       if (!isHistoryPageRequestCurrent(state, action)) return state;
       return {
@@ -374,6 +505,7 @@ export function reduceAgentV2MessagesState(
         ...state,
         messages: [],
         sourceIdByMessageId: {},
+        stoppedAnswers: undefined,
         nextCursor: undefined,
         admissionFailure: undefined,
         error: undefined,
@@ -465,15 +597,9 @@ export function reduceAgentV2MessagesState(
         },
       };
     case 'toolActivityChanged':
-      return {
-        ...state,
-        run: updateRunActivityCurrent(state.run, action.clientRunId, action.activity),
-      };
+      return withRun(state, updateRunActivityCurrent(state.run, action.clientRunId, action.activity));
     case 'runActivityChanged':
-      return {
-        ...state,
-        run: applyServerRunActivity(state.run, action.clientRunId, action.event),
-      };
+      return withRun(state, applyServerRunActivity(state.run, action.clientRunId, action.event));
     case 'messageStarted':
       return {
         ...state,
@@ -525,13 +651,15 @@ export function reduceAgentV2MessagesState(
       return {
         ...state,
         thread: action.thread,
-        isOpeningHistory: state.isOpeningHistory && Boolean(action.thread.news),
+        isOpeningHistory: state.isOpeningHistory && Boolean(action.thread.news || action.thread.digest),
         ...(isReplacement ? {
           hasHydratedHistory: false,
+          loadedOperatorMessageAt: undefined,
           nextCursor: undefined,
           isLoadingOlderMessages: false,
           historyPageRequest: undefined,
           sourceIdByMessageId: {},
+          stoppedAnswers: undefined,
           admissionFailure: undefined,
         } : {}),
         threadMutation: reconcileThreadMutation(state.threadMutation, action.thread, false),
@@ -541,6 +669,8 @@ export function reduceAgentV2MessagesState(
       return failRun(state, action);
     case 'runCancelled':
       return cancelRun(state, action.clientRunId);
+    case 'runStopped':
+      return stopRun(state, action.messageId);
     case 'runSettled':
       return getRunOperationId(state.run) === action.operationId
         ? { ...state, run: { phase: 'idle' } }
@@ -611,12 +741,14 @@ function selectIsAgentV2RunOperationCurrent(state: AgentV2MessagesState, operati
   return getRunOperationId(state.run) === operationId;
 }
 
+// The field stays open over a cached history while it loads again, as on iOS
 export function selectIsAgentV2InputDisabled(state: AgentV2MessagesState, isLimitBlocking: boolean) {
-  return (state.isLoading && !state.isOpeningHistory)
-    || Boolean(state.thread?.news && !state.hasHydratedHistory
+  return (state.isLoading && !state.isOpeningHistory && !state.isShowingCachedHistory)
+    || Boolean((state.thread?.news || state.thread?.digest) && !state.hasHydratedHistory
       && !(state.isLoading && state.isOpeningHistory))
     || selectIsAgentV2RunActive(state)
     || state.threadMutation.phase === 'clearing'
+    || state.isHistoryCached
     || isLimitBlocking;
 }
 
@@ -724,15 +856,97 @@ function prependHistoryPage(
   prependedEntries.forEach(({ message, sourceId }) => {
     sourceIdByMessageId[message.id] = sourceId;
   });
+  // Stopped answers that wait for an older page go in once it holds the message they followed
+  const waitingStoppedAnswers = state.stoppedAnswers?.filter(({ sourceId }) => !existingSourceIds.has(sourceId));
+  const page = keepStoppedAnswers(
+    [...prependedEntries.map(({ message }) => message), ...state.messages],
+    sourceIdByMessageId,
+    waitingStoppedAnswers,
+  );
+  const stoppedAnswers = [
+    ...(state.stoppedAnswers?.filter(({ sourceId }) => existingSourceIds.has(sourceId)) ?? []),
+    ...(page.stoppedAnswers ?? []),
+  ];
 
   return {
     ...state,
-    messages: [...prependedEntries.map(({ message }) => message), ...state.messages],
-    sourceIdByMessageId,
+    ...page,
+    stoppedAnswers: stoppedAnswers.length ? stoppedAnswers : undefined,
     nextCursor,
     isLoadingOlderMessages: false,
     historyPageRequest: undefined,
   };
+}
+
+function mergeLatestMessages(
+  state: AgentV2MessagesState,
+  action: Extract<AgentV2MessagesStateAction, { kind: 'latestMessagesReceived' }>,
+): AgentV2MessagesState {
+  if (state.thread?.id !== action.thread.id || state.thread.revision > action.thread.revision
+    || state.isLoading || state.isLoadingOlderMessages || selectIsAgentV2RunActive(state)
+    || state.threadMutation.phase !== 'idle') return state;
+
+  const knownSourceIds = new Set(state.messages.map(({ id }) => state.sourceIdByMessageId[id]));
+  const entries = normalizeHydrationEntries(action).filter(({ sourceId }) => !knownSourceIds.has(sourceId));
+  const thread = areDeepEqual(state.thread, action.thread) ? state.thread : action.thread;
+  const loadedOperatorMessageAt = action.thread.support?.lastOperatorMessageAt;
+  if (!entries.length) {
+    return thread === state.thread && loadedOperatorMessageAt === state.loadedOperatorMessageAt
+      ? state : { ...state, thread, loadedOperatorMessageAt };
+  }
+
+  return {
+    ...state,
+    thread,
+    loadedOperatorMessageAt,
+    messages: insertLatestEntries(state, entries, action.sourceIds),
+    sourceIdByMessageId: { ...state.sourceIdByMessageId,
+      ...Object.fromEntries(entries.map(({ message, sourceId }) => [message.id, sourceId])) },
+  };
+}
+
+// Each new message goes before the shown message the server lists next; the rest go after the last saved message,
+// ahead of local messages the server has not confirmed yet
+function insertLatestEntries(
+  state: AgentV2MessagesState,
+  entries: AgentV2NormalizedMessageEntry[],
+  sourceIds: string[],
+) {
+  const messageIndexBySourceId = new Map<string, number>();
+  let tailIndex = 0;
+  state.messages.forEach(({ id }, index) => {
+    const sourceId = state.sourceIdByMessageId[id];
+    if (sourceId === undefined) return;
+    messageIndexBySourceId.set(sourceId, index);
+    tailIndex = index + 1;
+  });
+
+  const entryBySourceId = new Map(entries.map((entry) => [entry.sourceId, entry]));
+  const insertionsByIndex = new Map<number, AgentMessage[]>();
+  let anchorIndex = tailIndex;
+  for (let i = sourceIds.length - 1; i >= 0; i--) {
+    const knownIndex = messageIndexBySourceId.get(sourceIds[i]);
+    const entry = entryBySourceId.get(sourceIds[i]);
+    if (knownIndex !== undefined) {
+      anchorIndex = knownIndex;
+    } else if (entry) {
+      entryBySourceId.delete(sourceIds[i]);
+      insertionsByIndex.set(anchorIndex, [entry.message, ...insertionsByIndex.get(anchorIndex) ?? []]);
+    }
+  }
+  if (entryBySourceId.size) {
+    insertionsByIndex.set(tailIndex, [
+      ...insertionsByIndex.get(tailIndex) ?? [],
+      ...[...entryBySourceId.values()].map(({ message }) => message),
+    ]);
+  }
+
+  const messages: AgentMessage[] = [];
+  for (let i = 0; i <= state.messages.length; i++) {
+    messages.push(...insertionsByIndex.get(i) ?? []);
+    if (i < state.messages.length) messages.push(state.messages[i]);
+  }
+  return messages;
 }
 
 function truncateMessagesForEdit(
@@ -776,10 +990,18 @@ function finishAdmittedTruncation(
       Number(messageId) !== replacedMessageId && retainedMessageIds.has(Number(messageId))
     )),
   );
+  // A stopped answer waiting for an older page is not loaded, and stays for that page. A loaded copy may carry another
+  // id than the record, so records match by source.
+  const loadedSourceIds = new Set(state.messages.map(({ id }) => state.sourceIdByMessageId[id]));
+  const retainedSourceIds = new Set(messages.map(({ id }) => state.sourceIdByMessageId[id]));
+  const stoppedAnswers = state.stoppedAnswers?.filter(({ sourceId }) => (
+    retainedSourceIds.has(sourceId) || !loadedSourceIds.has(sourceId)
+  ));
   return {
     ...state,
     messages,
     sourceIdByMessageId,
+    stoppedAnswers: stoppedAnswers?.length ? stoppedAnswers : undefined,
     isLoadingOlderMessages: false,
     historyPageRequest: undefined,
   };
@@ -791,14 +1013,18 @@ function applyTextDeltas(
 ): AgentV2MessagesState {
   const deltasByMessageId = new Map(deltas);
   let hasVisibleText = false;
+  let hasChanged = false;
   const messages = state.messages.map((message) => {
     const delta = deltasByMessageId.get(message.id);
     if (!delta) return message;
 
     const text = `${message.text}${delta}`;
     hasVisibleText ||= Boolean(text.trim());
+    hasChanged = true;
     return { ...message, text, isTyping: undefined };
   });
+  if (!hasChanged) return state;
+
   return hasVisibleText ? clearRunActivity({ ...state, messages }) : { ...state, messages };
 }
 
@@ -939,6 +1165,89 @@ function cancelRun(state: AgentV2MessagesState, clientRunId: string): AgentV2Mes
   };
 }
 
+// A stopped answer keeps what it has shown, without the suggestions that follow a finished answer. One that has shown
+// nothing goes. The operation of a run the chat started keeps input blocked until it settles; a run without one ends.
+function stopRun(state: AgentV2MessagesState, messageId?: number): AgentV2MessagesState {
+  const terminalState = terminalizeStreamingMessages(state);
+  const nextState = getRunOperationId(state.run) === undefined
+    ? { ...terminalState, run: { phase: 'idle' as const } }
+    : clearRunActivity(terminalState);
+  const answer = nextState.messages.find(({ id }) => id === messageId);
+  if (!answer) return nextState;
+  if (!hasAnswerContent(answer)) {
+    return { ...nextState, messages: nextState.messages.filter((message) => message !== answer) };
+  }
+
+  const shownAnswer = omitFollowups(answer);
+  const messages = nextState.messages.map((message) => (message === answer ? shownAnswer : message));
+  const sourceId = nextState.sourceIdByMessageId[answer.id];
+  if (!sourceId || !answer.text.trim()) return { ...nextState, messages };
+
+  const previousMessage = messages[messages.indexOf(shownAnswer) - 1];
+  return {
+    ...nextState,
+    messages,
+    stoppedAnswers: [
+      ...(nextState.stoppedAnswers ?? []).filter((stopped) => stopped.sourceId !== sourceId),
+      {
+        message: shownAnswer,
+        sourceId,
+        previousSourceId: previousMessage && nextState.sourceIdByMessageId[previousMessage.id],
+      },
+    ],
+  };
+}
+
+/**
+ * Keeps each stopped answer as it was shown where the server has less of its text or leaves it out, as it does for an
+ * answer stopped before the server saved what it streamed. An answer the server holds as much of is the server's.
+ * An answer left out goes after the message it followed, and waits for the page that holds that message to load.
+ */
+function keepStoppedAnswers(
+  messages: AgentMessage[],
+  sourceIdByMessageId: Record<number, string>,
+  stoppedAnswers: AgentV2StoppedAnswer[] = [],
+) {
+  let keptMessages = messages;
+  let keptSourceIds = sourceIdByMessageId;
+  const stillStoppedAnswers: AgentV2StoppedAnswer[] = [];
+  stoppedAnswers.forEach((stopped) => {
+    const saved = keptMessages.find(({ id }) => keptSourceIds[id] === stopped.sourceId);
+    if (saved && saved.text.trim().length >= stopped.message.text.trim().length) return;
+
+    stillStoppedAnswers.push(stopped);
+    if (saved) {
+      const shown = { ...stopped.message, id: saved.id };
+      keptMessages = keptMessages.map((message) => (message === saved ? shown : message));
+      return;
+    }
+
+    const previousIndex = stopped.previousSourceId === undefined
+      ? undefined
+      : keptMessages.findIndex(({ id }) => keptSourceIds[id] === stopped.previousSourceId);
+    // The message it followed is on an older page, which it waits for
+    if (previousIndex === -1) return;
+
+    const index = previousIndex === undefined ? keptMessages.length : previousIndex + 1;
+    keptMessages = [...keptMessages.slice(0, index), stopped.message, ...keptMessages.slice(index)];
+    keptSourceIds = { ...keptSourceIds, [stopped.message.id]: stopped.sourceId };
+  });
+
+  return {
+    messages: keptMessages,
+    sourceIdByMessageId: keptSourceIds,
+    stoppedAnswers: stillStoppedAnswers.length ? stillStoppedAnswers : undefined,
+  };
+}
+
+function hasAnswerContent({ text, semanticContent, tables, actions }: AgentMessage) {
+  return Boolean(text.trim() || semanticContent || tables?.length || actions?.length);
+}
+
+function omitFollowups({ followups, ...message }: AgentMessage): AgentMessage {
+  return message;
+}
+
 function terminalizeStreamingMessages(
   state: AgentV2MessagesState,
   messageId?: number,
@@ -959,7 +1268,7 @@ function terminalizeStreamingMessages(
 }
 
 function clearRunActivity(state: AgentV2MessagesState): AgentV2MessagesState {
-  if (state.run.phase !== 'admitting' && state.run.phase !== 'streaming') return state;
+  if ((state.run.phase !== 'admitting' && state.run.phase !== 'streaming') || !state.run.activity) return state;
   const { activity, ...run } = state.run;
   return { ...state, run };
 }
@@ -1009,10 +1318,20 @@ function updateMessage(
   messageId: number,
   update: (message: AgentMessage) => AgentMessage,
 ): AgentV2MessagesState {
-  return {
-    ...state,
-    messages: state.messages.map((message) => message.id === messageId ? update(message) : message),
-  };
+  const index = state.messages.findIndex((message) => message.id === messageId);
+  if (index === -1) return state;
+
+  const message = update(state.messages[index]);
+  if (message === state.messages[index]) return state;
+
+  const messages = [...state.messages];
+  messages[index] = message;
+  return { ...state, messages };
+}
+
+// An update that leaves the run as it was keeps the state, so the chat does not render again for it
+function withRun(state: AgentV2MessagesState, run: AgentV2RunState): AgentV2MessagesState {
+  return run === state.run ? state : { ...state, run };
 }
 
 function reconcileHydratedMessages(
@@ -1020,6 +1339,7 @@ function reconcileHydratedMessages(
   hydratedMessages: AgentMessage[],
   sourceIdByMessageId: AgentV2MessagesState['sourceIdByMessageId'] | undefined,
   hasNewerContent: boolean,
+  isCachedHistory: boolean,
 ) {
   const currentById = new Map(currentMessages.map((message) => [message.id, message]));
   const hydratedMessageIds = new Set(hydratedMessages.map(({ id }) => id));
@@ -1030,8 +1350,11 @@ function reconcileHydratedMessages(
     // The stored copy keeps its time.
     if (current?.isStreaming) return { ...current, timestamp: message.timestamp };
     const semanticContent = message.semanticContent ?? current?.semanticContent;
-    const actions = current?.actions ?? message.actions;
-    const actionPresentations = current?.actionPresentations ?? message.actionPresentations;
+    // A cached history's actions may be outdated, so the server's replace them
+    const actions = isCachedHistory ? message.actions : current?.actions ?? message.actions;
+    const actionPresentations = isCachedHistory
+      ? keepCachedActionPresentations(message, current)
+      : current?.actionPresentations ?? message.actionPresentations;
     if (!semanticContent && !actions && !actionPresentations) return message;
     return {
       ...message,
@@ -1047,8 +1370,25 @@ function reconcileHydratedMessages(
   return [...reconciledMessages, ...liveOnlyMessages];
 }
 
+function isLiveMessage({ isStreaming, isTyping }: AgentMessage) {
+  return Boolean(isStreaming || isTyping);
+}
+
+/** The server's presentations, with the cached one of each action the server has as the cache had it */
+function keepCachedActionPresentations(message: AgentMessage, cached?: AgentMessage) {
+  const cachedPresentations = cached?.actionPresentations;
+  if (!cachedPresentations || !message.actions) return message.actionPresentations;
+  const keptPresentations = message.actions.flatMap((action) => {
+    const presentation = cachedPresentations[action.id];
+    const cachedAction = cached.actions?.find(({ id }) => id === action.id);
+    return presentation && cachedAction && areDeepEqual(cachedAction, action) ? [[action.id, presentation]] : [];
+  });
+  if (!keptPresentations.length) return message.actionPresentations;
+  return { ...message.actionPresentations, ...Object.fromEntries(keptPresentations) };
+}
+
 function normalizeHydrationEntries(
-  action: Extract<AgentV2MessagesStateAction, { kind: 'hydrationSucceeded' }>,
+  action: { entries: AgentV2NormalizedMessageEntry[] },
 ) {
   const sourceIds = new Set<string>();
   const messageIds = new Set<number>();

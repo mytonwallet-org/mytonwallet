@@ -132,6 +132,7 @@ final class AssetsAndActivityTokenCell: UICollectionViewListCell {
         iconImageView.config(with: token, shouldShowChain: AccountStore.account?.isMultichain == true)
         titleLabel.text = MTokenBalance.displayName(apiToken: token, isStaking: isStaking)
         symbolLabel.text = token.symbol
+        showTokenSwitch.accessibilityIdentifier = "assets_token_switch_\(token.slug)\(isStaking ? "_staking" : "")"
         if !tokenChanged {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 if self.token != nil {

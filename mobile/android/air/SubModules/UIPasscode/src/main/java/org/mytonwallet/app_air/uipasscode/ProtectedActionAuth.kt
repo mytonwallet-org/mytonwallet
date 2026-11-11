@@ -7,9 +7,14 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
 
 object ProtectedActionAuth {
-    fun confirm(onConfirmed: (String) -> Unit, onPasscodeRequired: () -> Unit): Boolean {
+    /** [requiresFreshAuthentication] ignores the remembered passcode session. */
+    fun confirm(
+        onConfirmed: (String) -> Unit,
+        onPasscodeRequired: () -> Unit,
+        requiresFreshAuthentication: Boolean = false
+    ): Boolean {
         if (!WalletCore.isBridgeReady) return false
-        val token = AuthStore.getAutoConfirmToken()
+        val token = if (requiresFreshAuthentication) null else AuthStore.getAutoConfirmToken()
         if (token == null) {
             onPasscodeRequired()
         } else {

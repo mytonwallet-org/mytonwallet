@@ -1,135 +1,196 @@
 package org.mytonwallet.app_air.walletcore
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebView
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
-import com.android.installreferrer.api.ReferrerDetails
-import org.json.JSONObject
-import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import java.lang.ref.WeakReference
+import java.util.concurrent.atomic.AtomicReference
+import org.mytonwallet.app_air.walletcontext.installationStorage.PlaySnapshot
+import org.mytonwallet.app_air.walletcontext.installationStorage.WInstallationStorage
 
-/**
- * Reads the Play Install Referrer once, sanitises it into a canonical bucket, and delivers it to
- * `window.airBridge.setInstallChannel(...)`. Fire-and-forget: a successful or permanently-failed
- * read delivers a bucket (`unknown` on permanent failure) so the install is attributed; a transient
- * failure delivers nothing and the next launch retries. Asynchronous, so it never blocks boot.
- */
-object InstallReferrerChannel {
+internal data class ReferrerSnapshot(val raw: String?, val seconds: Long, val version: String?)
 
-    fun deliver(context: Context, webView: WebView) {
-        val client = InstallReferrerClient.newBuilder(context.applicationContext).build()
-        try {
-            client.startConnection(object : InstallReferrerStateListener {
-                override fun onInstallReferrerSetupFinished(responseCode: Int) {
-                    try {
-                        handleResponse(responseCode, client, webView)
-                    } catch (e: Exception) {
-                        // Transient (binder/service hiccup): deliver nothing and let the next
-                        // launch retry. Delivering `unknown` here would latch the JS claim and
-                        // drop a later real referrer; a device with no Play services reports
-                        // FEATURE_NOT_SUPPORTED as a response code above, not an exception.
-                        Logger.e(
-                            Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                            "InstallReferrerChannel: read failed error=${e.javaClass.simpleName}"
-                        )
-                    } finally {
-                        try {
-                            client.endConnection()
-                        } catch (_: Exception) {
-                        }
-                    }
+internal interface ReferrerService {
+    fun start(callback: (Int) -> Unit)
+    fun read(): ReferrerSnapshot
+    fun close()
+}
+
+internal class ReferrerCollection(
+    private val create: () -> ReferrerService,
+    private val enqueue: (() -> Unit) -> Boolean,
+    private val persist: (PlaySnapshot) -> Unit,
+    private val onPersistFailure: () -> Unit,
+    private val scheduleRetry: ((() -> Unit) -> Unit)
+) {
+    private val attempt = AtomicReference<Any?>()
+    private val retrying = Any()
+    private val settled = Any()
+
+    private fun retry(notify: () -> Unit): Unit = scheduleRetry {
+        val accepted = enqueue {
+            if (!attempt.compareAndSet(retrying, null)) return@enqueue
+            collect(false, notify)
+        }
+        if (!accepted && attempt.get() === retrying) retry(notify)
+    }
+
+    fun collect(isCompleted: Boolean, notify: () -> Unit) {
+        if (isCompleted) return
+        val token = Any()
+        if (!attempt.compareAndSet(null, token)) return
+        var service: ReferrerService? = null
+        fun finish(status: String, details: ReferrerSnapshot? = null) {
+            if (!attempt.compareAndSet(token, settled)) return
+            val isPersisted = try {
+                val source = details?.let { sanitizeInstallAttribution(it.raw) }
+                val metadata = details?.let {
+                    readPlayInstallMetadata(it.seconds, it.version)
                 }
-
-                override fun onInstallReferrerServiceDisconnected() {
-                    // No retry this launch; the claim is idempotent across launches.
-                    try {
-                        client.endConnection()
-                    } catch (_: Exception) {
-                    }
-                }
-            })
-        } catch (e: Exception) {
-            // Connection failure is transient; the next launch retries.
-            Logger.e(
-                Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                "InstallReferrerChannel: connection failed error=${e.javaClass.simpleName}"
-            )
-            try {
-                client.endConnection()
+                persist(
+                    PlaySnapshot(
+                        null,
+                        metadata?.installedAt,
+                        metadata?.installVersion ?: "",
+                        status,
+                        source
+                    )
+                )
+                true
             } catch (_: Exception) {
+                attempt.set(null)
+                false
+            } finally {
+                runCatching { service?.close() }
+            }
+            if (isPersisted) {
+                if (status != "ok") attempt.set(null)
+                notify()
+            } else {
+                onPersistFailure()
             }
         }
-    }
-
-    private fun handleResponse(responseCode: Int, client: InstallReferrerClient, webView: WebView) {
-        when (responseCode) {
-            InstallReferrerClient.InstallReferrerResponse.OK -> {
-                val details = client.installReferrer
-                deliverMetadata(webView, details)
-                deliverChannel(
-                    webView,
-                    sanitizeInstallAttribution(details.installReferrer)
-                )
-            }
-
-            // SERVICE_UNAVAILABLE is transient; leave it for the next launch to retry.
-            InstallReferrerClient.InstallReferrerResponse.SERVICE_UNAVAILABLE -> Unit
-
-            // Any other code is permanent (no Play services, developer or permission error):
-            // deliver the fallback bucket so the install is still attributed.
-            else -> deliverChannel(webView, sanitizeInstallAttribution(null))
-        }
-    }
-
-    private fun deliverMetadata(webView: WebView, details: ReferrerDetails) {
         try {
-            val metadata = readPlayInstallMetadata(
-                details.installBeginTimestampServerSeconds,
-                details.installVersion
-            ) ?: return
-            val json = JSONObject.quote(
-                JSONObject()
-                    .put("installedAt", metadata.installedAt)
-                    .put("installVersion", metadata.installVersion)
-                    .toString()
-            ).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-            evaluateScript(webView, "window.airBridge?.captureInstallMetadata?.(JSON.parse($json))")
-        } catch (e: Exception) {
-            Logger.e(
-                Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                "InstallReferrerChannel: metadata failed error=${e.javaClass.simpleName}"
-            )
+            service = create()
+            service.start { code ->
+                val accepted = enqueue {
+                    if (attempt.get() !== token) return@enqueue
+                    if (code == 0) {
+                        val details = try {
+                            service.read()
+                        } catch (_: Exception) {
+                            finish("read_exception")
+                            return@enqueue
+                        }
+                        finish("ok", details)
+                    } else {
+                        finish(
+                            when (code) {
+                                -1 -> "service_disconnected"
+                                1 -> "service_unavailable"
+                                2 -> "feature_not_supported"
+                                3 -> "developer_error"
+                                else -> "unexpected_response"
+                            }
+                        )
+                    }
+                }
+                if (!accepted && attempt.compareAndSet(token, retrying)) {
+                    runCatching { service.close() }
+                    retry(notify)
+                }
+            }
+        } catch (_: Exception) {
+            finish("connection_exception")
+        }
+    }
+}
+
+object InstallReferrerChannel {
+    private var collection: ReferrerCollection? = null
+    private val bridges = mutableListOf<WeakReference<WebView>>()
+    private var context: Context? = null
+    private val retryHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val retryStart = Runnable {
+        if (!WInstallationStorage.enqueue(::start)) postRetryStart(500)
+    }
+    private var retryDelay = 500L
+
+    fun deliver(context: Context, webView: WebView) = WInstallationStorage.enqueue {
+        this.context = context.applicationContext
+        synchronized(bridges) {
+            bridges.removeAll { it.get() == null || it.get() === webView }
+            bridges.add(WeakReference(webView))
+        }
+        start()
+    }
+
+    private fun start() {
+        val applicationContext = checkNotNull(context)
+        val owner = collection ?: ReferrerCollection(
+            create = {
+                val client = InstallReferrerClient.newBuilder(applicationContext).build()
+                object : ReferrerService {
+                    override fun start(callback: (Int) -> Unit) {
+                        client.startConnection(object : InstallReferrerStateListener {
+                            override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                                callback(responseCode)
+                            }
+                            override fun onInstallReferrerServiceDisconnected() {
+                                callback(-1)
+                            }
+                        })
+                    }
+                    override fun read(): ReferrerSnapshot {
+                        val details = client.installReferrer
+                        return ReferrerSnapshot(
+                            details.installReferrer,
+                            details.installBeginTimestampServerSeconds,
+                            details.installVersion
+                        )
+                    }
+                    override fun close() = client.endConnection()
+                }
+            },
+            enqueue = WInstallationStorage::enqueue,
+            persist = WInstallationStorage::observe,
+            onPersistFailure = ::scheduleStartRetry,
+            scheduleRetry = { Handler(applicationContext.mainLooper).postDelayed(it, 500) }
+        ).also { collection = it }
+        if (runCatching { WInstallationStorage.ensureOpen(applicationContext) }.isFailure) {
+            scheduleStartRetry()
+            return
+        }
+        notifyBridges()
+        owner.collect(WInstallationStorage.hasSuccessfulObservation()) {
+            retryDelay = 500L
+            notifyBridges()
         }
     }
 
-    // The referrer is untrusted input, so the channel is escaped with
-    // JSONObject.quote and NEVER string-interpolated into the evaluated script.
-    private fun deliverChannel(webView: WebView, attribution: InstallAttribution) {
-        val script = if (attribution.isTechnical) {
-            "window.airBridge?.setInstallChannel(" + JSONObject.quote(attribution.channel) +
-                ",undefined," +
-                (attribution.technicalKind?.let { JSONObject.quote(it) } ?: "undefined") + ")"
-        } else {
-            // Serialize into a quoted JS string; escaping separators also supports pre-ES2019 parsers.
-            val json = JSONObject.quote(attribution.toJson().toString())
-                .replace("\u2028", "\\u2028")
-                .replace("\u2029", "\\u2029")
-            "window.airBridge?.captureInstallAttribution(JSON.parse($json))"
-        }
-        evaluateScript(webView, script)
+    private fun scheduleStartRetry() {
+        postRetryStart(retryDelay)
+        retryDelay = minOf(retryDelay * 2, 60_000L)
     }
 
-    private fun evaluateScript(webView: WebView, script: String) {
-        webView.post {
-            try {
-                webView.evaluateJavascript(script, null)
-            } catch (e: Exception) {
-                // WebView may already be destroyed by the time this runs; a lost delivery
-                // must not crash the app.
-                Logger.e(
-                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                    "InstallReferrerChannel: eval failed error=${e.javaClass.simpleName}"
-                )
+    private fun postRetryStart(delay: Long) {
+        retryHandler.removeCallbacks(retryStart)
+        retryHandler.postDelayed(retryStart, delay)
+    }
+
+    fun notifyBridges() {
+        val current = synchronized(bridges) { bridges.mapNotNull { it.get() } }
+        current.forEach { bridge ->
+            bridge.post {
+                runCatching {
+                    bridge.evaluateJavascript(
+                        "window.airBridge?.handleInstallationStateChange?.()",
+                        null
+                    )
+                }
             }
         }
     }

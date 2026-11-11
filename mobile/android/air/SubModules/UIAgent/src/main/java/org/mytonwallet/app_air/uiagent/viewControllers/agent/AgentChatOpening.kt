@@ -12,16 +12,21 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestSchedule
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedClient
+import org.mytonwallet.app_air.uiagent.viewControllers.news.LiveAgentNewsFeedClient
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
 data class AgentNewsChatRequest(
     val eventId: Int,
-    val locale: String,
-    val headline: String,
+    val locale: String? = null,
+    val headline: String = "",
     val icon: String? = null,
     val threadId: String? = null,
     val excerpt: String? = null,
@@ -39,23 +44,31 @@ data class AgentPromptChatRequest(
 internal class AgentChatOpening(
     private val prompt: AgentPromptChatRequest? = null,
     private val news: AgentNewsChatRequest? = null,
-    private val client: AgentV2Client = LiveAgentV2Client()
+    private val client: AgentV2Client = LiveAgentV2Client(),
+    private val digestId: String? = null,
+    private val feedClient: AgentNewsFeedClient = LiveAgentNewsFeedClient()
 ) {
     init {
-        require((prompt == null) != (news == null)) { "An opening requires one chat request" }
+        require(listOfNotNull(prompt, news, digestId).size == 1) {
+            "An opening requires one chat request"
+        }
     }
 
     private val loader = AgentNewChatLoader(
         {
             ensureOpeningIsActive()
-            client.consent()
+            client.consent().also { hasConsent = it }
         },
         {
             ensureOpeningIsActive()
             client.acceptConsent()
+            hasConsent = true
         },
         ::createThread,
-        news?.let { AgentV2ThreadNewsRequest(it.eventId, it.locale) }
+        news?.let { request ->
+            request.locale?.let { AgentV2ThreadNewsRequest(request.eventId, it) }
+        },
+        hasDiscussion = news != null || digestId != null
     )
     private val openingMessages = prompt?.let {
         listOf(
@@ -83,8 +96,20 @@ internal class AgentChatOpening(
         private set
     var isCreating = false
         private set
+
+    /** Whether the user has allowed the Agent, once read: a news discussion opens without asking */
+    var hasConsent: Boolean? = null
+        private set
     var onChange: (() -> Unit)? = null
     private var isDeleted = false
+    private val heldProblemReports = mutableListOf<HeldProblemReport>()
+
+    /**
+     * With the user's consent, the conversation can be reported while its thread is being created: the report waits
+     * for the chat the thread opens, see [releaseHeldReports]
+     */
+    val canReportProblem: Boolean
+        get() = (hasConsent ?: client.isConsentKnownGiven) && error == null && !isDeleted
     private var creationScope: CoroutineScope? = null
     private var creationRequest: Deferred<Result<AgentV2ThreadSummary>>? = null
 
@@ -129,11 +154,38 @@ internal class AgentChatOpening(
             if (isDeleted) return null
             this.error = error
             messages = openingMessages.take(1).map { it.copy(isStreaming = false) }
+            failHeldReports()
             return null
         } finally {
             isCreating = false
             onChange?.invoke()
         }
+    }
+
+    /** Reads whether the user has allowed the Agent, alongside the creation, which asks only for a question */
+    suspend fun readConsent() {
+        if (hasConsent != null) return
+        val isAllowed = try {
+            client.consent()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            return
+        }
+        hasConsent = isAllowed || hasConsent == true
+    }
+
+    /** Holds a report of the conversation until [releaseHeldReports] hands it to the chat the thread opens */
+    fun reportProblem(comment: String?, onResult: (Boolean) -> Unit) {
+        if (!canReportProblem) return onResult(false)
+        heldProblemReports += HeldProblemReport(comment, onResult)
+    }
+
+    /** Hands each report held while the thread was being created to [report], once */
+    fun releaseHeldReports(report: (comment: String?, onResult: (Boolean) -> Unit) -> Unit) {
+        val reports = heldProblemReports.toList()
+        heldProblemReports.clear()
+        reports.forEach { report(it.comment, it.onResult) }
     }
 
     /** Cleans up only a creation request already started; without one there is nothing to delete. */
@@ -142,6 +194,7 @@ internal class AgentChatOpening(
         isDeleted = true
         onChange = null
         error = null
+        failHeldReports()
         val request = creationRequest ?: return
         val cleanupScope = creationScope ?: return
         cleanupScope.launch {
@@ -166,6 +219,13 @@ internal class AgentChatOpening(
         }
     }
 
+    // A report held for a thread that won't come fails, as one the server refuses does
+    private fun failHeldReports() {
+        val reports = heldProblemReports.toList()
+        heldProblemReports.clear()
+        reports.forEach { it.onResult(false) }
+    }
+
     private suspend fun ensureOpeningIsActive() {
         currentCoroutineContext().ensureActive()
         if (isDeleted) throw CancellationException("Chat opening was deleted")
@@ -178,7 +238,20 @@ internal class AgentChatOpening(
         val request = requestScope.async(start = CoroutineStart.UNDISPATCHED) {
             ensureOpeningIsActive()
             try {
-                Result.success(client.createThread(news).thread)
+                val newsRequest = news ?: this@AgentChatOpening.news?.let {
+                    val locale = feedClient.getNewsFeed(
+                        LocaleController.activeLanguage.langCode,
+                        null,
+                        AgentNewsDigestSchedule.current()
+                    ).locale
+                    AgentV2ThreadNewsRequest(it.eventId, locale)
+                }
+                Result.success(
+                    client.createThread(
+                        newsRequest,
+                        digestId?.let(::AgentV2ThreadDigestRequest)
+                    ).thread
+                )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -198,6 +271,8 @@ internal class AgentChatOpening(
         }
     }
 }
+
+private class HeldProblemReport(val comment: String?, val onResult: (Boolean) -> Unit)
 
 internal suspend fun hydrateAgentOpeningThread(
     thread: AgentV2ThreadSummary,

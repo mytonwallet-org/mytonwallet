@@ -7,7 +7,7 @@ public struct SVGImageProcessor: ImageProcessor {
     public static let `default` = SVGImageProcessor()
     public static let cacheSerializer = SVGImageCacheSerializer()
 
-    public let identifier = "org.mytonwallet.air.svg-image-processor.v4"
+    public let identifier = "org.mytonwallet.air.svg-image-processor.v5"
 
     public init() {}
 
@@ -77,7 +77,10 @@ public struct SVGImageProcessor: ImageProcessor {
         format.opaque = false
         format.scale = scale > 0 ? scale : 1
 
-        let resize = min(1, 256 / max(bounds.width, bounds.height))
+        // Every SVG fills the same pixel budget whatever its own units, so small view boxes stay sharp.
+        // A 1-unit image stays 1 unit: callers read it as an empty avatar.
+        let longestSide = max(bounds.width, bounds.height)
+        let resize = longestSide <= 1 ? 1 : 256 / longestSide
         let size = CGSize(width: bounds.width * resize, height: bounds.height * resize)
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
             context.cgContext.scaleBy(x: resize, y: resize)

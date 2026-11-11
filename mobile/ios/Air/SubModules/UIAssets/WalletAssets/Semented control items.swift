@@ -31,6 +31,14 @@ extension DisplayAssetTab {
         }
     }
 
+    var segmentedControlAccessibilityIdentifier: String? {
+        switch self {
+        case .tokens: "assets_tab_tokens"
+        case .nfts: "assets_tab_collectibles"
+        default: nil
+        }
+    }
+
     var isDeletableSegment: Bool {
         switch self {
         case .tokens, .nfts:

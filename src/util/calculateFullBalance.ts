@@ -19,27 +19,30 @@ export function calculateFullBalance(
 ) {
   const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
 
-  const primaryValueUsd = (tokens ?? []).reduce((acc, token) => {
+  let primaryValueUsd = Big(0);
+  let changeValueUsd = Big(0);
+
+  for (const token of tokens ?? []) {
     if (STAKED_TOKEN_SLUGS.has(token.slug)) {
       // Cost of staked tokens is already taken into account
-      return acc;
+      continue;
     }
 
     const stakingStates = stakingStateBySlug[token.slug] ?? [];
+    let amount = token.amount;
 
     for (const stakingState of stakingStates) {
-      const stakingAmount = toBig(getFullStakingBalance(stakingState), token.decimals);
-      acc = acc.plus(stakingAmount.mul(token.priceUsd));
+      amount += getFullStakingBalance(stakingState);
     }
 
-    return acc.plus(toBig(token.amount, token.decimals).mul(token.priceUsd));
-  }, Big(0));
+    const valueUsd = toBig(amount, token.decimals).mul(token.priceUsd);
+    primaryValueUsd = primaryValueUsd.plus(valueUsd);
+    changeValueUsd = changeValueUsd.plus(calcBigChangeValue(valueUsd, token.change24h));
+  }
   const primaryValue = primaryValueUsd.mul(baseCurrencyRate);
 
   const [primaryWholePart, primaryFractionPart] = formatNumber(primaryValue).split('.');
-  const changeValue = (tokens ?? []).reduce((acc, token) => {
-    return acc.plus(calcBigChangeValue(token.totalValue, token.change24h));
-  }, Big(0)).round(4).toNumber();
+  const changeValue = changeValueUsd.mul(baseCurrencyRate).round(4).toNumber();
 
   const changePercent = round(primaryValue ? (changeValue / (primaryValue.toNumber() - changeValue)) * 100 : 0, 2);
   const changePrefix: ChangePrefix = changeValue > 0 ? 'up' : changeValue < 0 ? 'down' : undefined;

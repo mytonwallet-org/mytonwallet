@@ -141,8 +141,8 @@ You can always enable seasonal theming again in the appearance settings.: Zawsze
 Base Currency: Waluta bazowa
 Investor View: Widok inwestora
 Toggle Investor View: Przełączanie widoku inwestora
-Hide Tiny Transfers: Ukryj małe transfery
-Toggle Hide Tiny Transfers: Przełącz Ukryj drobne transfery
+Hide Tiny Transfers and Spam: Ukryj małe transfery i spam
+Toggle Hide Tiny Transfers and Spam: Przełącz ukrywanie małych transferów i spamu
 Network: Sieć
 Developer Options: Opcje dla deweloperów
 All Wallet Versions: Wszystkie wersje portfela
@@ -1349,13 +1349,12 @@ Ask a Question: Zadaj pytanie
 Ask anything: Zapytaj o cokolwiek
 Agent: Agent
 Learn more: Dowiedz się więcej
-Data shared with Agent: Dane udostępniane Agentowi
-$agent_consent_allow_button: Zezwól Agentowi
-$agent_consent_subtitle: Zapytaj Agenta o pomoc z portfelem, informacje o tokenach i obsługiwane działania.
+Data shared with Agent: Dane udostępniane agentowi
+$agent_consent_allow_button: Zezwól agentowi
 $agent_consent_feature_answers: Uzyskaj odpowiedzi dotyczące %app_name%, tokenów i aktywności portfela.
 $agent_consent_feature_actions: Przygotuj obsługiwane działania, takie jak wysyłanie, odbieranie i staking.
 $agent_consent_feature_context: Użyj kontekstu portfela, aby odpowiedzi mogły odnosić się do odpowiednich aktywów i adresów.
-$agent_consent_disclosure_text: Stukając Zezwól Agentowi, zezwalasz %app_name% na wysyłanie wiadomości Agenta i odpowiedniego kontekstu portfela do %app_name% Agent (agent.mywallet.io) oraz Anthropic Claude API, naszego zewnętrznego dostawcy AI, w celu przetwarzania Twoich żądań. Kontekst portfela może obejmować adresy portfela, salda, tokeny, aktywność i szczegóły żądanych działań. Dane są używane wyłącznie do dostarczania odpowiedzi Agenta i przygotowywania działań, o które prosisz.
+$agent_consent_disclosure_text: Stukając Zezwól agentowi, zezwalasz %app_name% na wysyłanie wiadomości agenta i odpowiedniego kontekstu portfela do %app_name% Agent (agent.mywallet.io) oraz Anthropic Claude API, naszego zewnętrznego dostawcy AI, w celu przetwarzania Twoich żądań. Kontekst portfela może obejmować adresy portfela, salda, tokeny, aktywność i szczegóły żądanych działań. Dane są używane wyłącznie do dostarczania odpowiedzi agenta i przygotowywania działań, o które prosisz.
 $agent_consent_search_disclosure_text: W przypadku wyszukiwania w internecie do Serper mogą być wysyłane wyłącznie zapytania; kontekst portfela i historia czatu nie są wysyłane.
 $settings_token_change_threshold: Próg zmiany %
 $settings_token_change_threshold_description: Ukrywa 24-godzinne zmiany poniżej wybranego progu.
@@ -1424,8 +1423,8 @@ $agent_hint_receive_title: Odbierz tokeny
 $agent_hint_receive_prompt: Pomóż mi odebrać tokeny.
 $agent_notice_content_over_budget: Wynik jest zbyt duży, aby wyświetlić go w całości.
 $agent_notice_web_search_no_results: Nie udało się znaleźć informacji pasujących do Twojego zapytania.
-$agent_error_session: Twoja sesja Agenta wygasła. Otwórz Agenta ponownie i spróbuj ponownie.
-$agent_error_limit: Nie można zrealizować żądania, ponieważ osiągnięto limit Agenta.
+$agent_error_session: Twoja sesja agenta wygasła. Otwórz agenta ponownie i spróbuj ponownie.
+$agent_error_limit: Nie można zrealizować żądania, ponieważ osiągnięto limit agenta.
 $agent_error_tool: Nie udało się wykonać operacji portfela. Spróbuj ponownie.
 $agent_error_conversation_updated: Rozmowa została zaktualizowana. Spróbuj ponownie wykonać żądanie.
 $agent_error_generic: Agent nie mógł zrealizować żądania. Spróbuj ponownie.
@@ -1439,6 +1438,7 @@ $agent_dictation_no_speech: "Nie usłyszano mowy. Mów bliżej mikrofonu i spró
 $agent_dictation_time_left: "Zostało %seconds% s"
 $agent_dictation_time_left_short: "%seconds% s"
 $agent_dictation_limit_reached: "Dyktowanie zatrzymano po minucie – to maksymalna długość nagrania."
+$agent_stop_answer: "Zatrzymaj odpowiedź"
 $agent_dictation_microphone_denied: "Zezwól na dostęp do mikrofonu, aby dyktować."
 $agent_dictation_hold_hint: "Przytrzymaj, aby dyktować. Przesuń w górę, aby nagrywać bez użycia rąk."
 $agent_dictation_too_short: "Za krótko. Przytrzymaj podczas mówienia."
@@ -2044,9 +2044,9 @@ $agent_capacity_limit_known: Nowe zapytania będzie można wysłać za %duration
 $agent_capacity_degraded_title: Agent może odpowiadać niestabilnie
 $agent_capacity_limit_unknown: Możesz spróbować ponownie, ale odpowiedź może się nie wczytać.
 $agent_retry_request: Ponów zapytanie
-$agent_rate_limit_title: Zbyt wiele zapytań do Agenta
+$agent_rate_limit_title: Zbyt wiele zapytań do agenta
 $agent_rate_limit_body: Spróbuj ponownie za %duration%.
-$agent_user_quota_exhausted_title: Niewystarczający limit Agenta
+$agent_user_quota_exhausted_title: Niewystarczający limit agenta
 $agent_user_quota_exhausted_body: Dostępny limit nie wystarcza na to żądanie. Dzienna pula wynosi %limit% jednostek i odnowi się za %duration%.
 $agent_time_hours: "%value% godz."
 $agent_time_minutes: "%value% min"
@@ -2179,6 +2179,8 @@ News: "Wiadomości"
 Crypto Market News: "Wiadomości z rynku kryptowalut"
 $agent_news_new: "Nowe"
 $agent_news_open_source: "Otwórz źródło"
+$agent_news_source: "Źródło: %sources%"
+$agent_news_sources: "Źródła: %sources%"
 $agent_news_unavailable: "Wiadomości są teraz niedostępne"
 $agent_news_read_more: "Czytaj więcej"
 $agent_news_discuss: "Omów"
@@ -2217,7 +2219,6 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "Review": "Sprawdź"
 "$perps_order_long": "%asset% Long"
 "$perps_order_short": "%asset% Short"
-"$perps_swap_fee_hint": "Opłata za wymianę jednego tokena na inny w ramach tej transakcji."
 "$perps_trading_fee_hint": "Opłata za otwarcie tej pozycji."
 "$perps_position_size_hint": "Wielkość pozycji — łączna wartość pozycji z uwzględnieniem dźwigni."
 "$perps_position_size_details_hint": "Łączna wartość Twojej pozycji z uwzględnieniem dźwigni.\n\nNa przykład, jeśli inwestujesz $100 z dźwignią 5x, wielkość pozycji wynosi $500."
@@ -2227,14 +2228,13 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "$perps_closing_value_hint": "Kwota pozostała po likwidacji Twojej pozycji. W zależności od wyniku likwidacji może być niższa od zainwestowanej kwoty lub równa zeru."
 "$perps_fees_hint": "Łączne opłaty naliczone za tę transakcję. W zależności od transakcji mogą obejmować opłaty handlowe, za wymianę i sieciowe."
 "$perps_liquidation_price_hint": "Szacowana cena, przy której Twoja pozycja może zostać automatycznie zamknięta z powodu niewystarczających środków do jej utrzymania."
-"$perps_high_leverage_warning": "Wysoka dźwignia: niewielki ruch ceny spowoduje likwidację."
 "$perps_leverage_disclaimer": "Wyższa dźwignia zwiększa potencjalne zyski i straty. Nawet niewielka zmiana ceny na niekorzyść Twojej pozycji może spowodować jej automatyczne zamknięcie."
 
 # Perps order review
 "Open Position": "Otwórz pozycję"
 "$perps_asset_price": "Cena %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Potwierdzając, rozumiem, że pozycja może zostać zlikwidowana i mogę stracić zainwestowane środki."
+"$perps_liquidation_acknowledgment": "Potwierdzając, rozumiem, że pozycja może zostać zlikwidowana i mogę stracić zainwestowane środki."
 
 # Perps position receipt
 "Position Opened": "Pozycja otwarta"
@@ -2305,7 +2305,16 @@ $perps_open_interest_hint: "Łączna wartość kontraktów, które są obecnie o
 "PerpsQuoteExpired": "Ceny lub pozycja uległy zmianie. Wróć i ponownie sprawdź zlecenie."
 "PerpsReviewChanged": "Zlecenie uległo zmianie. Wróć i sprawdź je ponownie."
 "PerpsInsufficientUsdc": "Za mało USDC w Arbitrum, z uwzględnieniem opłaty za most."
+"EvmUserOperationMismatch": "Płatność za gaz nie zgadza się z tą transakcją."
+"PerpsInsufficientBalance": "Za mało USDC na saldzie Hyperliquid, z uwzględnieniem opłat transakcyjnych."
+"PerpsMarketNeedsUnifiedAccount": "Tego rynku nie można zasilić z portfela przy obecnym typie konta Hyperliquid."
+"PerpsRequiresMultichainWallet": "Futures wymagają portfela multichain. Przełącz się na taki portfel lub utwórz nowy, aby zacząć handlować."
+"PerpsSwitchesToUnifiedAccount": "To zlecenie przełącza też Twoje konto Hyperliquid na Unified, więc jedno saldo USDC obejmuje wszystkie rynki."
 "PerpsAmountTooSmall": "Ta kwota jest niższa niż minimum rynkowe."
+"$perps_minimum_amount": "Minimalna kwota: %amount% USDC."
+"$perps_minimum_reduction": "Zmniejsz kwotę o więcej niż %amount% USDC, aby pokryć opłatę za most."
+"$perps_required_balance": "Wymagane: %required% USDC z uwzględnieniem opłat. Dostępne na Hyperliquid: %available% USDC."
+"$perps_available_balance": "Dostępne na Hyperliquid: %available% USDC. Zmniejsz kwotę, aby zostawić środki na opłaty transakcyjne."
 "PerpsUnchanged": "Wprowadź inną kwotę, aby zmienić pozycję."
 "PerpsPositionChanged": "Ta pozycja uległa zmianie. Odśwież i spróbuj ponownie."
 "PerpsPositionExists": "Masz już pozycję na tym rynku. Edytuj istniejącą pozycję."
@@ -2352,8 +2361,6 @@ Could not save the image. Please try again.: Nie udało się zapisać obrazu. Sp
 "$perps_funding_usdc_increase": "Potrzebujesz co najmniej %minUSDC% USDC w Arbitrum, aby zwiększyć tę pozycję."
 "PerpsFundingGasTitle": "Za mało ETH na opłatę"
 "$perps_funding_gas": "Opłaty w Arbitrum są płacone w ETH. Odbierz %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Płać USDC w Arbitrum"
-"PerpsFundingTokenDescription": "Inne tokeny nie są jeszcze obsługiwane. Odbierz USDC, aby kontynuować."
 "Not Enough Funds": "Za mało środków"
 "Unsupported Token": "Nieobsługiwany token"
 "PerpsReviewUpdated": "Ceny zostały zaktualizowane. Sprawdź zlecenie ponownie przed potwierdzeniem."
@@ -2372,13 +2379,14 @@ Could not save the image. Please try again.: Nie udało się zapisać obrazu. Sp
 "PerpsExchangeFee": "Opłata giełdowa"
 "PerpsServiceFee": "Opłata portfela"
 "PerpsBridgeFee": "Opłata za most"
+"PerpsFirstWithdrawalFee": "Opłata za pierwszą wypłatę"
 "PerpsTotalFees": "Łączne opłaty w USDC"
 "PerpsFeeEstimateHint": "Opłaty oznaczone ≈ są szacunkowe i mogą się zmienić przy realizacji. Opłata sieciowa Arbitrum jest płacona oddzielnie w ETH."
 "PerpsUnallocatedCollateral": "Nieprzydzielone zabezpieczenie"
 "PerpsUnallocatedCollateralHint": "Zaokrąglenie do dozwolonej wielkości transakcji może pozostawić część USDC poza pozycją. Środki te pozostają na koncie futures i nie są opłatą."
-"PerpsOnboardingTitle": "Pierwszy raz z futures?"
-"PerpsOnboardingDescription": "Poznaj zasady w mniej niż 1 minutę."
-"PerpsOnboardingOpen": "Otwórz wprowadzenie"
+"PerpsOnboardingTitle": "Futures\nw %app_name%!"
+"PerpsOnboardingDescription": "Otwieraj pozycje długie lub krótkie w kilku dotknięciach."
+"PerpsOnboardingOpen": "Zobacz, jak to działa"
 "PerpsStoryIntroTitle": "Poznaj bezterminowe kontrakty futures"
 "PerpsStoryIntroBody": "Otwieraj pozycje zarówno na wzrost, jak i spadek ceny aktywa."
 "PerpsStoryLongTitle": "Oczekujesz wzrostu? Otwórz Long"
@@ -2393,17 +2401,15 @@ Could not save the image. Please try again.: Nie udało się zapisać obrazu. Sp
 "PerpsStoryFundingBody": "Gdy stopa finansowania jest dodatnia, pozycje Long płacą pozycjom Short. Gdy jest ujemna, pozycje Short płacą pozycjom Long."
 "PerpsStoryStart": "Zacznij"
 
-"Funding Payment": "Płatność finansowania"
 "Withdrawal": "Wypłata"
 "Transfer": "Przelew"
-"Spot Balance": "Saldo spot"
 "From": "Z"
 "To": "Do"
 
 Delete Chat: Usuń czat
 Unread: Nieprzeczytane
 $agent_connection_lost: Połączenie z agentem zostało przerwane.
-$agent_daily_limit_reached: Osiągnięto dzienny limit Agenta
+$agent_daily_limit_reached: Osiągnięto dzienny limit agenta
 $media_viewer_date_at_time: "%date% o %time%"
 Picture: Obraz
 
@@ -2418,3 +2424,75 @@ $enclave_data_missing_message: |
   Jeśli masz tajne słowa swoich portfeli, możesz wyjść ze wszystkich portfeli i zaimportować je ponownie.
 
 Install the TON App on your Ledger and try again.: Zainstaluj aplikację TON na swoim Ledgerze i spróbuj ponownie.
+Liked: Oceniono pozytywnie
+Disliked: Oceniono negatywnie
+$agent_feedback_liked_toast: "Agent będzie częściej odpowiadać w ten sposób."
+$agent_feedback_disliked_toast: "Przeanalizujemy to, aby ulepszyć agenta."
+$agent_voice_pause: "Wstrzymaj nagrywanie"
+$agent_voice_resume: "Wznów nagrywanie"
+$agent_message_copied: Wiadomość skopiowana.
+$agent_copied: "Skopiowano."
+$agent_news_empty: "Na razie brak wiadomości"
+$agent_chats_unavailable: "Nie udało się załadować czatów"
+
+"PerpsAvailable": "Dostępne"
+"PerpsWithdraw": "Wypłać"
+"PerpsBalanceWithdrawalTitle": "Wypłać do portfela"
+"PerpsWithdrawalFromHyperliquid": "Z Hyperliquid"
+"PerpsWithdrawalToWallet": "Do portfela Arbitrum"
+"PerpsBalanceWithdrawalNote": "USDC dotrze do Twojego portfela Arbitrum w ciągu kilku minut. 0,03 USDC zostaje na Hyperliquid na pokrycie gazu wypłaty."
+"PerpsBalanceWithdrawalUpdated": "Twoje saldo Hyperliquid się zmieniło. Sprawdź wypłatę ponownie przed potwierdzeniem."
+"PerpsWithdrawalStatus": "Status wypłaty"
+"PerpsWithdrawalCompleted": "Wypłata wysłana"
+"PerpsWithdrawalOnItsWay": "Twoje USDC jest w drodze do portfela Arbitrum. Może to potrwać kilka minut."
+"PerpsWithdrawalProcessing": "Przetwarzanie wypłaty. Transfer przez most może potrwać kilka minut."
+"PerpsWithdrawalUnknown": "Wynik nie został jeszcze potwierdzony. Sprawdź saldo Hyperliquid i portfel przed kolejnym działaniem."
+"PerpsAcknowledgeWithdrawalUnknown": "Wypłata może jeszcze zostać zrealizowana. Najpierw sprawdź saldo Hyperliquid i portfel. Zezwolenie na nowe zlecenia jej nie anuluje."
+"PerpsNothingToWithdraw": "Obecnie nie ma czego wypłacić z salda Hyperliquid."
+"PerpsWithdrawalRejected": "Hyperliquid odrzucił tę wypłatę. Twoje USDC pozostaje na saldzie Hyperliquid."
+"View your assets and activity": "Sprawdzaj swoje aktywa i aktywność"
+"Ask AI and follow the news": "Pytaj AI i śledź wiadomości"
+$underlying_stock: 'Akcja %symbol%'
+$agent_support_requested: "Poproszono o pomoc. Konsultant odpowie tutaj"
+$agent_support_operator_joined: "Do czatu dołączyła pomoc: %name%"
+$agent_support_closed_operator: "Pomoc zamknęła zgłoszenie. Od teraz odpowiada agent"
+$agent_support_closed_inactivity: "Zgłoszenie zamknięto po 48 godzinach bez odpowiedzi. Od teraz odpowiada agent"
+$agent_support_waiting: "Pomoc · oczekiwanie na konsultanta"
+$agent_support_with_operator: "Pomoc · %name%"
+$agent_support_label: "Pomoc"
+$agent_support_badge: "Pomoc %app_name%"
+$agent_support_placeholder: "Wiadomość do pomocy"
+"PerpsStoryFinaleTitle": "Chcesz spróbować kontraktów futures?"
+"PerpsStoryFinaleBody": "Wybierz rynek, otwieraj pozycje i śledź je bezpośrednio w %app_name%!"
+"PerpsStoryViewMarkets": "Zobacz rynki"
+Unlink Wallet: Odłącz portfel
+Confirm Unlinking: Potwierdź odłączenie
+Domain Unlinked: Domena została odłączona
+Drag here to add to the toolbar: Przeciągnij tutaj, aby dodać do paska
+$send_only_chain_and_token: Wysyłaj na ten adres wyłącznie %symbol%, %tokenSymbol% lub inne aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
+$agent_digest_unavailable: "To podsumowanie nie jest już dostępne"
+$agent_digest_title: "Najważniejsze z dnia"
+$agent_digest_meta:
+  oneValue: "%count% wiadomość · %time%"
+  fewValue: "%count% wiadomości · %time%"
+  manyValue: "%count% wiadomości · %time%"
+  otherValue: "%count% wiadomości · %time%"
+$agent_digest_more:
+  oneValue: "i jeszcze %count% wiadomość — jest wyżej w kanale"
+  fewValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
+  manyValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
+  otherValue: "i jeszcze %count% wiadomości — są wyżej w kanale"
+$agent_digest_settings_title: "Podsumowanie i powiadomienia"
+$agent_digest_settings_text: "Raz dziennie w kanale pojawia się podsumowanie — najważniejsze wiadomości dnia."
+$agent_digest_time: "Godzina podsumowania"
+$agent_digest_time_zone: "Według strefy czasowej telefonu."
+$agent_digest_notifications_off: "Wyłączone"
+$agent_digest_notifications_off_hint: "Podsumowanie będzie tylko w kanale"
+$agent_digest_notifications_daily: "Codzienne podsumowanie"
+$agent_digest_notifications_daily_hint: "O %time% najważniejsze wiadomości w jednym powiadomieniu"
+$agent_digest_notifications_every: "Każda wiadomość"
+$agent_digest_notifications_every_hint: "Osobne powiadomienie o każdej wiadomości"
+$agent_digest_post_header: "MyPulse · podsumowanie · %time%"
+$agent_digest_sheet_title: "Codzienne podsumowanie"
+$agent_digest_device_time_zone: "Według strefy czasowej tego urządzenia."
+$agent_dictation_microphone_denied_device: "Zezwól na dostęp do mikrofonu w ustawieniach urządzenia, aby dyktować."

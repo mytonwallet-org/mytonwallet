@@ -13,8 +13,9 @@ import {
  * mobile.
  *
  * An answer that completes while its chat is off screen marks the chat, and so does a chat whose message count grows
- * past the count the list saw after the user last left it. Showing the chat clears both. A chat the device has never
- * shown counts as read, so chats from other devices start without a dot.
+ * past the count the list saw after the user last left it. Showing the chat clears both. Operator replies newer than
+ * the latest operator reply shown locally also mark the chat. Message counts alone leave chats this device has never
+ * shown read.
  */
 
 /**
@@ -27,9 +28,13 @@ export type AgentThreadUnreadStart = number | 'latestAnswer';
 const RECORD_LIMIT = 500;
 
 export function getIsAgentThreadUnread(thread: AgentThreadSummaryV2) {
-  if (getAgentV2LocalState().shownThreadCounts.has(thread.id)) return false;
-
+  const isShown = getAgentV2LocalState().shownThreadCounts.has(thread.id);
+  if (isShown && document.visibilityState === 'visible') return false;
   const record = getState().records[thread.id];
+  if (thread.support?.lastOperatorMessageAt
+    && Date.parse(thread.support.lastOperatorMessageAt) > (record?.seenAt ?? 0)) return true;
+  if (isShown) return false;
+
   if (!record) return false;
   if (record.isMarkedUnread) return true;
   if (record.isBaselineNeeded || record.seenMessageCount === undefined) return false;
@@ -42,7 +47,9 @@ export function getAgentThreadUnreadStart(thread: AgentThreadSummaryV2): AgentTh
   if (!getIsAgentThreadUnread(thread)) return undefined;
 
   const record = getState().records[thread.id];
-  return record.isMarkedUnread ? 'latestAnswer' : record.seenMessageCount;
+  return !record || record.isMarkedUnread || record.seenMessageCount === undefined
+    || thread.messageCount <= record.seenMessageCount
+    ? 'latestAnswer' : record.seenMessageCount;
 }
 
 /**
@@ -53,7 +60,8 @@ export function getAgentThreadUnreadStart(thread: AgentThreadSummaryV2): AgentTh
 export function findAgentThreadFirstUnreadMessage(
   messages: AgentMessage[], messageCount: number, unreadStart: AgentThreadUnreadStart,
 ) {
-  const storedMessages = messages.filter(({ failureText }) => !failureText);
+  // The thread's message count leaves out the lines about support, as it does the chat's own failures
+  const storedMessages = messages.filter(({ failureText, supportEvent }) => !failureText && !supportEvent);
   const index = unreadStart === 'latestAnswer'
     ? findLatestAnswerIndex(storedMessages)
     : Math.max(0, storedMessages.length - (messageCount - unreadStart));
@@ -88,6 +96,19 @@ export function markAgentThreadHidden(threadId: string) {
     shownCounts.delete(threadId);
   }
   markSeen(threadId);
+}
+
+export function markAgentThreadSupportSeen(threadId: string, lastOperatorMessageAt: string) {
+  if (document.visibilityState !== 'visible') return;
+  const record = getState().records[threadId];
+  const operatorMessageAt = Date.parse(lastOperatorMessageAt);
+  if (operatorMessageAt <= (record?.seenAt ?? 0)) return;
+
+  storeRecord(threadId, {
+    ...(record ?? { isBaselineNeeded: true, isMarkedUnread: false }),
+    seenAt: operatorMessageAt,
+  });
+  save(true);
 }
 
 /** An answer completed in the chat; off screen, the chat gets the dot */
@@ -140,7 +161,9 @@ function markSeen(threadId: string) {
   const record = getState().records[threadId];
   if (record?.isBaselineNeeded && !record.isMarkedUnread) return;
 
-  storeRecord(threadId, { seenMessageCount: record?.seenMessageCount, isBaselineNeeded: true, isMarkedUnread: false });
+  storeRecord(threadId, {
+    seenMessageCount: record?.seenMessageCount, seenAt: record?.seenAt, isBaselineNeeded: true, isMarkedUnread: false,
+  });
   save(true);
 }
 

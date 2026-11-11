@@ -1,8 +1,16 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
+import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
 
 object TronConfig : MBlockchainConfig {
+
+    override val usdtSlug = mapOf(
+        MBlockchainNetwork.MAINNET to TRON_USDT_SLUG,
+        MBlockchainNetwork.TESTNET to TRON_USDT_TESTNET_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = null,

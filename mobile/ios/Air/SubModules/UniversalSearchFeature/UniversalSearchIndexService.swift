@@ -13,6 +13,7 @@ struct UniversalSearchIndexUpdate: Sendable {
     enum Kind: Sendable {
         case contextChanged
         case source(UniversalSearchRefreshProgress)
+        case documentRemoved(SearchEntityID)
         case completed(UniversalSearchRefreshResult)
     }
 
@@ -235,8 +236,21 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
                 UniversalSearchAppEntrySource.id,
             ])
 
+        case .agentThreadDeleted(let threadId):
+            removeDocument(id: UniversalSearchAgentConversationSource.entityID(threadID: threadId))
+            scheduleRefresh(sourceIDs: [UniversalSearchAgentConversationSource.id])
+
         default:
             break
+        }
+    }
+
+    /// Takes a deleted entity out of every snapshot at once, including the query snapshots of open search sessions,
+    /// which no source refresh replaces
+    private func removeDocument(id: SearchEntityID) {
+        Task { [weak self, coordinator] in
+            guard await coordinator.removeDocument(id: id), let self else { return }
+            publish(.init(context: contextProvider(), kind: .documentRemoved(id)))
         }
     }
 
@@ -335,6 +349,8 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             indexServiceLog.info(
                 "source ready id=\(progress.sourceID, .public) source_docs=\(progress.sourceDocumentCount, .public) corpus_docs=\(progress.corpusDocumentCount, .public) source_ms=\(Self.formatted(progress.sourceElapsedMilliseconds), .public) index_ms=\(Self.formatted(progress.indexElapsedMilliseconds), .public) revision=\(progress.corpusRevision, .public)"
             )
+        case .documentRemoved:
+            indexServiceLog.info("document removed")
         case .completed(let result):
             indexServiceLog.info(
                 "refresh complete disposition=\(result.disposition.rawValue, .public) sources=\(result.refreshedSourceIDs.count, .public) failures=\(result.failures.count, .public) revision=\(result.corpusRevision, .public)"

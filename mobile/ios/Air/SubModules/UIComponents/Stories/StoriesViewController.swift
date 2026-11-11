@@ -1,6 +1,9 @@
 import UIKit
 import WalletContext
 
+private let STORY_CARD_CORNER_RADIUS: CGFloat = 24
+private let STORY_REGULAR_MINIMUM_DIMENSION: CGFloat = 600
+
 public final class StoriesViewController: UIViewController, UIGestureRecognizerDelegate, UIScrollViewDelegate, UIViewControllerTransitioningDelegate {
     public static var defaultBackgroundColors: [UIColor] {
         [UIColor(red: 0, green: 0.718, blue: 1, alpha: 1),
@@ -17,6 +20,7 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     private let gradient = CAGradientLayer()
     private let mediaContainer = UIView()
     private var media: StoryMediaView?
+    private var preparedMedia: (index: Int, view: StoryMediaView)?
     private var mediaAnimator: UIViewPropertyAnimator?
     private let progressView: StoryProgressView
     private let contentBlock = UIView()
@@ -25,8 +29,10 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     private let titleLabel = UILabel()
     private let bodyLabel = UILabel()
     private let nextButton = WInteractiveGlassButton(style: .secondary)
+    private var actionAnimator: UIViewPropertyAnimator?
     private let closeButton = WInteractiveGlassButton(style: .secondary)
     private var blockHeight: NSLayoutConstraint!
+    private var copyBottomConstraint: NSLayoutConstraint!
     private var displayLink: CADisplayLink?
     private var previousTimestamp: CFTimeInterval?
     private var dragReturnAnimator: UIViewPropertyAnimator?
@@ -57,6 +63,20 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     public override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
+
+    var isCardLayout: Bool {
+        let traits = viewIfLoaded?.window?.traitCollection ?? presentingViewController?.view.window?.traitCollection ?? traitCollection
+        let size = viewIfLoaded?.window?.bounds.size ?? presentingViewController?.view.window?.bounds.size ?? viewIfLoaded?.bounds.size ?? .zero
+        return traits.userInterfaceIdiom == .pad || min(size.width, size.height) >= STORY_REGULAR_MINIMUM_DIMENSION
+    }
+
+    public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        isCardLayout ? .all : .portrait
+    }
+
+    public override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        isCardLayout ? super.preferredInterfaceOrientationForPresentation : .portrait
+    }
 
     public override func loadView() {
         let root = StoriesRootView()
@@ -90,10 +110,11 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
         mediaContainer.isUserInteractionEnabled = false
         view.addSubview(mediaContainer)
 
-        for child in [progressView, contentBlock, closeButton] {
+        for child in [progressView, contentBlock] {
             child.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(child)
         }
+        view.addSubview(closeButton)
         closeButton.accessibilityLabel = lang("Close")
         closeButton.accessibilityIdentifier = "Stories.Close"
         progressView.accessibilityIdentifier = "Stories.Progress"
@@ -142,15 +163,12 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
         ]
         NSLayoutConstraint.activate(safeAreaConstraints)
         blockHeight = contentBlock.heightAnchor.constraint(equalToConstant: 233)
+        copyBottomConstraint = copyScrollView.bottomAnchor.constraint(equalTo: contentBlock.bottomAnchor, constant: -76)
         NSLayoutConstraint.activate([
             progressView.leadingAnchor.constraint(equalTo: contentSafeArea.leadingAnchor, constant: 24),
             progressView.trailingAnchor.constraint(equalTo: contentSafeArea.trailingAnchor, constant: -24),
             progressView.topAnchor.constraint(equalTo: contentSafeArea.topAnchor, constant: 4),
             progressView.heightAnchor.constraint(equalToConstant: 3),
-            closeButton.trailingAnchor.constraint(equalTo: contentSafeArea.trailingAnchor, constant: -24),
-            closeButton.topAnchor.constraint(equalTo: contentSafeArea.topAnchor, constant: 23),
-            closeButton.widthAnchor.constraint(equalToConstant: 44),
-            closeButton.heightAnchor.constraint(equalToConstant: 44),
             contentBlock.leadingAnchor.constraint(equalTo: contentSafeArea.leadingAnchor, constant: 24),
             contentBlock.trailingAnchor.constraint(equalTo: contentSafeArea.trailingAnchor, constant: -24),
             contentBlock.bottomAnchor.constraint(equalTo: contentSafeArea.bottomAnchor, constant: -6),
@@ -162,7 +180,7 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
             copyScrollView.leadingAnchor.constraint(equalTo: contentBlock.leadingAnchor),
             copyScrollView.trailingAnchor.constraint(equalTo: contentBlock.trailingAnchor),
             copyScrollView.topAnchor.constraint(equalTo: contentBlock.topAnchor),
-            copyScrollView.bottomAnchor.constraint(equalTo: contentBlock.bottomAnchor, constant: -76),
+            copyBottomConstraint,
             copyStack.leadingAnchor.constraint(equalTo: copyScrollView.contentLayoutGuide.leadingAnchor),
             copyStack.trailingAnchor.constraint(equalTo: copyScrollView.contentLayoutGuide.trailingAnchor),
             copyStack.topAnchor.constraint(equalTo: copyScrollView.contentLayoutGuide.topAnchor),
@@ -207,7 +225,12 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
 
     private func updateContentSafeArea() {
         guard safeAreaConstraints.count == 4 else { return }
-        let insets = view.window?.safeAreaInsets ?? view.safeAreaInsets
+        let insets: UIEdgeInsets
+        if isCardLayout {
+            insets = .init(top: 20, left: 0, bottom: 16, right: 0)
+        } else {
+            insets = view.window?.safeAreaInsets ?? view.safeAreaInsets
+        }
         for (constraint, value) in zip(safeAreaConstraints, [insets.left, insets.top, -insets.right, -insets.bottom]) {
             constraint.constant = value
         }
@@ -216,19 +239,52 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateContentSafeArea()
+        updateCloseButtonLayout()
+        if !isDragging, dragReturnAnimator == nil { updatePresentationAppearance() }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         gradient.frame = view.bounds
         CATransaction.commit()
-        backgroundView?.frame = view.bounds
-        mediaContainer.frame = view.bounds
+        let mediaFrame = CGRect(x: contentSafeArea.layoutFrame.minX, y: 0,
+                                width: contentSafeArea.layoutFrame.width, height: view.bounds.height)
+        backgroundView?.frame = mediaFrame
+        mediaContainer.frame = mediaFrame
         for subview in mediaContainer.subviews { subview.frame = mediaContainer.bounds }
         let width = max(1, contentSafeArea.layoutFrame.width - 48)
         let copyHeight = copyStack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
             withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height
+        let hasAction = pages.indices.contains(playback.index) && pages[playback.index].buttonTitle != nil
+        let mediaHeight = preferredContentSize.width > 0
+            ? mediaFrame.width * preferredContentSize.height / preferredContentSize.width : mediaFrame.height
+        // Reclaim unused button space when aspect-fill cropping brings the artwork closer to the copy
+        let reclaimedHeight = !isCardLayout && !hasAction ? min(76, max(0, (mediaHeight - mediaFrame.height) / 2)) : 0
+        let actionHeight: CGFloat = isCardLayout && !hasAction ? 0 : 76 - reclaimedHeight
+        copyBottomConstraint.constant = -actionHeight
         let available = max(76, contentSafeArea.layoutFrame.height - 97)
-        let targetHeight = min(available, max(233, ceil(copyHeight) + 76))
+        let targetHeight = min(available, max(233 - reclaimedHeight, ceil(copyHeight) + actionHeight))
         if blockHeight.constant != targetHeight { blockHeight.constant = targetHeight }
+    }
+
+    private func updateCloseButtonLayout() {
+        if #available(iOS 27.1, *), !isCardLayout {
+            let edge: NSDirectionalRectEdge
+            switch traitCollection.verticalBarEdge {
+            case .leading: edge = .leading
+            case .trailing: edge = .trailing
+            default: edge = []
+            }
+            if !edge.isEmpty {
+                let region = view.layoutGuide(for: .bar(onEdge: edge, extent: 48)).layoutFrame
+                if !region.isEmpty {
+                    closeButton.frame = CGRect(x: region.midX - 24, y: max(region.minY, view.bounds.minY + 24), width: 48, height: 48)
+                    return
+                }
+            }
+        }
+        let safeFrame = contentSafeArea.layoutFrame
+        let isRtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        closeButton.frame = CGRect(x: isRtl ? safeFrame.minX + 24 : safeFrame.maxX - 68,
+                                   y: safeFrame.minY + 23, width: 44, height: 44)
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -239,11 +295,12 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
         setPaused(false, for: .dismissal)
         if displayLink == nil {
             let link = CADisplayLink(target: StoriesClockTarget(controller: self), selector: #selector(StoriesClockTarget.tick(_:)))
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 60, preferred: 30)
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 60, preferred: 60)
             link.add(to: .main, forMode: .common)
             displayLink = link
         }
         environmentChanged()
+        prepareNextMedia()
         if pages.isEmpty { close() }
     }
 
@@ -266,7 +323,7 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     fileprivate func tick(_ link: CADisplayLink) {
         let interval = previousTimestamp.map { link.timestamp - $0 } ?? 0
         previousTimestamp = link.timestamp
-        apply(playback.advance(by: interval))
+        apply(playback.advance(by: interval, isWaitingForMedia: media?.isWaitingForFirstFrame == true))
         progressView.update(index: playback.index, progress: playback.progress)
     }
 
@@ -294,10 +351,14 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
         mediaAnimator?.finishAnimation(at: .end)
         let previous = media
         previous?.setPlaying(false)
-        let next = StoryMediaView(page: pages[playback.index])
+        let next = preparedMedia?.index == playback.index ? preparedMedia!.view : StoryMediaView(page: pages[playback.index])
+        if preparedMedia?.view !== next { preparedMedia?.view.removeFromSuperview() }
+        preparedMedia = nil
         next.frame = mediaContainer.bounds
+        next.alpha = 1
         mediaContainer.addSubview(next)
         media = next
+        next.preparePlayback()
         next.setPlaying(!playback.isPaused)
         let shouldAnimate = animated && TradeMotion.enabled && !mediaContainer.bounds.isEmpty
         if shouldAnimate, let previous {
@@ -310,9 +371,10 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
                 mask.frame.origin.x = isRTL ? 0 : -3 * width
                 previous.alpha = 0
             }
-            animator.addCompletion { [weak next, weak previous] _ in
+            animator.addCompletion { [weak self, weak next, weak previous, index = playback.index] _ in
                 next?.mask = nil
                 previous?.removeFromSuperview()
+                if self?.playback.index == index { self?.prepareNextMedia() }
             }
             mediaAnimator = animator
             animator.startAnimation()
@@ -328,6 +390,19 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
         if animated, UIAccessibility.isVoiceOverRunning {
             UIAccessibility.post(notification: .screenChanged, argument: titleLabel)
         }
+    }
+
+    private func prepareNextMedia() {
+        let index = playback.index + 1
+        guard pages.indices.contains(index), preparedMedia?.index != index, let media,
+              !UIAccessibility.isReduceMotionEnabled, !playback.pauseReasons.contains(.hidden) else { return }
+        preparedMedia?.view.removeFromSuperview()
+        let next = StoryMediaView(page: pages[index])
+        next.frame = mediaContainer.bounds
+        next.alpha = 0
+        mediaContainer.insertSubview(next, belowSubview: media)
+        preparedMedia = (index, next)
+        next.preparePlayback()
     }
 
     private func updateCopy() {
@@ -349,14 +424,42 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
     }
 
     private func updateButton(animated: Bool) {
+        finishActionTransition()
         let title = pages[playback.index].buttonTitle
-        nextButton.setTitle(title, animated: animated)
+        let isVisible = title != nil
+        let wasVisible = !nextButton.isHidden
+        if let title { nextButton.setTitle(title, animated: animated && wasVisible) }
         nextButton.accessibilityLabel = title
+        nextButton.isUserInteractionEnabled = isVisible
+        nextButton.accessibilityElementsHidden = !isVisible
+        guard wasVisible != isVisible else { return }
+        let changes = { self.nextButton.setGlassMaterialized(isVisible) }
+        guard animated, TradeMotion.enabled, nextButton.window != nil else {
+            UIView.performWithoutAnimation(changes)
+            nextButton.isHidden = !isVisible
+            return
+        }
+        nextButton.isHidden = false
+        nextButton.layoutIfNeeded()
+        let animator = UIViewPropertyAnimator(duration: TimeInterval(GlassMotion.materialize.response), curve: .easeInOut, animations: changes)
+        animator.addCompletion { [weak self] _ in
+            self?.nextButton.isHidden = !isVisible
+            self?.actionAnimator = nil
+        }
+        actionAnimator = animator
+        animator.startAnimation()
+    }
+
+    func finishActionTransition() {
+        actionAnimator?.stopAnimation(false)
+        actionAnimator?.finishAnimation(at: .end)
+        actionAnimator = nil
     }
 
     var transitionActionButton: WInteractiveGlassButton { nextButton }
 
     func liftTransitionAction(into container: UIView) -> () -> Void {
+        finishActionTransition()
         nextButton.finishTitleTransition()
         let frame = nextButton.convert(nextButton.bounds, to: container)
         let constraints = contentBlock.constraints.filter {
@@ -378,12 +481,22 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
 
     func resetDismissalGeometry() {
         view.transform = .identity
-        view.clipsToBounds = false
-        view.layer.cornerRadius = 0
-        if #available(iOS 26, *) { view.cornerConfiguration = .corners(radius: .fixed(0)) }
+        updatePresentationAppearance()
         dismissalCornerRadius = 0
         dismissalVelocity = 0
         isDragging = false
+    }
+
+    func updatePresentationAppearance() {
+        let radius = isCardLayout ? STORY_CARD_CORNER_RADIUS : 0
+        view.clipsToBounds = isCardLayout
+        view.layer.cornerCurve = .continuous
+        view.layer.cornerRadius = radius
+        if #available(iOS 26, *) { view.cornerConfiguration = .corners(radius: .fixed(radius)) }
+    }
+
+    var presentationCornerRadius: CGFloat {
+        isCardLayout ? STORY_CARD_CORNER_RADIUS : StoriesTransition.deviceCornerRadius(for: view)
     }
 
     private func navigate(forward: Bool) {
@@ -469,7 +582,7 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
             guard !isClosing, dragReturnAnimator == nil else { return }
             isDragging = true
             setPaused(true, for: .dismissal)
-            dismissalCornerRadius = StoriesTransition.deviceCornerRadius(for: view)
+            dismissalCornerRadius = presentationCornerRadius
             view.clipsToBounds = true
             view.layer.cornerCurve = .continuous
             if #available(iOS 26, *) {
@@ -548,6 +661,11 @@ public final class StoriesViewController: UIViewController, UIGestureRecognizerD
 
     public func animationController(forDismissed dismissed: UIViewController) -> (any UIViewControllerAnimatedTransitioning)? {
         StoriesTransition(isPresenting: false)
+    }
+
+    public func presentationController(forPresented presented: UIViewController, presenting: UIViewController?,
+                                       source: UIViewController) -> UIPresentationController? {
+        StoriesPresentationController(presentedViewController: presented, presenting: presenting)
     }
 
 

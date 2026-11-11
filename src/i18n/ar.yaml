@@ -135,8 +135,8 @@ You can always enable seasonal theming again in the appearance settings.: يمك
 Base Currency: العملة الأساسية
 Investor View: عرض المستثمر
 Toggle Investor View: تبديل عرض المستثمر
-Hide Tiny Transfers: إخفاء التحويلات الصغيرة
-Toggle Hide Tiny Transfers: تبديل إخفاء عمليات النقل الصغيرة
+Hide Tiny Transfers and Spam: إخفاء التحويلات الصغيرة والرسائل المزعجة
+Toggle Hide Tiny Transfers and Spam: تبديل إخفاء التحويلات الصغيرة والرسائل المزعجة
 Network: شبكة
 Developer Options: خيارات المطور
 All Wallet Versions: جميع إصدارات المحفظة
@@ -1287,7 +1287,6 @@ Agent: عامل
 Learn more: يتعلم أكثر
 Data shared with Agent: البيانات المشتركة مع الوكيل
 $agent_consent_allow_button: السماح للوكيل
-$agent_consent_subtitle: اطلب من الوكيل مساعدة المحفظة ومعلومات التوكن والإجراءات المدعومة.
 $agent_consent_feature_answers: احصل على إجابات حول %app_name% والرموز المميزة ونشاط المحفظة.
 $agent_consent_feature_actions: قم بإعداد الإجراءات المدعومة مثل الإرسال والاستلام والتخزين.
 $agent_consent_feature_context: استخدم سياق المحفظة حتى تتمكن الإجابات من الرجوع إلى الأصول والعناوين ذات الصلة.
@@ -1375,6 +1374,7 @@ $agent_dictation_no_speech: "لم يُسمع أي كلام. تحدّث بالق�
 $agent_dictation_time_left: "متبقٍ %seconds% ث"
 $agent_dictation_time_left_short: "%seconds% ث"
 $agent_dictation_limit_reached: "توقف الإملاء بعد دقيقة واحدة، وهي أقصى مدة للتسجيل."
+$agent_stop_answer: "إيقاف الرد"
 $agent_dictation_microphone_denied: "اسمح بالوصول إلى الميكروفون لتتمكن من الإملاء."
 $agent_dictation_hold_hint: "اضغط مطولًا للإملاء. اسحب لأعلى للتسجيل دون الاستمرار بالضغط."
 $agent_dictation_too_short: "التسجيل قصير جدًا. استمر بالضغط أثناء التحدث."
@@ -2142,6 +2142,8 @@ News: "الأخبار"
 Crypto Market News: "أخبار سوق العملات المشفرة"
 $agent_news_new: "الجديد"
 $agent_news_open_source: "فتح المصدر"
+$agent_news_source: "المصدر: %sources%"
+$agent_news_sources: "المصادر: %sources%"
 $agent_news_unavailable: "الأخبار غير متاحة حاليًا"
 $agent_news_read_more: "قراءة المزيد"
 $agent_news_discuss: "ناقش"
@@ -2182,7 +2184,6 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "Review": "مراجعة"
 "$perps_order_long": "لونغ %asset%"
 "$perps_order_short": "شورت %asset%"
-"$perps_swap_fee_hint": "رسوم تحويل رمز إلى آخر ضمن هذه المعاملة."
 "$perps_trading_fee_hint": "رسوم فتح هذا المركز."
 "$perps_position_size_hint": "حجم المركز — القيمة الإجمالية لمركزك مع احتساب الرافعة المالية."
 "$perps_position_size_details_hint": "القيمة الإجمالية لمركزك مع احتساب الرافعة المالية.\n\nعلى سبيل المثال، إذا استثمرت $100 برافعة مالية 5x، فإن حجم مركزك هو $500."
@@ -2192,14 +2193,13 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "$perps_closing_value_hint": "المبلغ المتبقي بعد تصفية مركزك. بحسب نتيجة التصفية، قد يكون هذا المبلغ أقل مما استثمرته أو صفرًا."
 "$perps_fees_hint": "إجمالي الرسوم المفروضة على هذه المعاملة. بحسب المعاملة، قد تشمل رسوم التداول والمبادلة والشبكة."
 "$perps_liquidation_price_hint": "السعر التقديري الذي قد يُغلق عنده مركزك تلقائيًا بسبب عدم كفاية الأموال لإبقائه مفتوحًا."
-"$perps_high_leverage_warning": "رافعة مالية عالية: حركة بسيطة في السعر ستؤدي إلى التصفية."
 "$perps_leverage_disclaimer": "تزيد الرافعة المالية الأعلى من الأرباح والخسائر المحتملة. حتى التغير البسيط في السعر بعكس اتجاه مركزك قد يؤدي إلى إغلاقه تلقائيًا."
 
 # Perps order review
 "Open Position": "فتح مركز"
 "$perps_asset_price": "سعر %asset%"
 "$perps_leverage_direction": "%direction% برافعة %leverage%×"
-"$perps_liquidation_acknowledgment": "بالتأكيد، أقر بأن هذا المركز قد يُصفّى وأنني قد أخسر المال الذي استثمرته."
+"$perps_liquidation_acknowledgment": "بالتأكيد، أقر بأن هذا المركز قد يُصفّى وأنني قد أخسر المال الذي استثمرته."
 
 # Perps position receipt
 "Position Opened": "تم فتح المركز"
@@ -2270,7 +2270,16 @@ $perps_open_interest_hint: "القيمة الإجمالية للعقود الم�
 "PerpsQuoteExpired": "تغيرت الأسعار أو مركزك. ارجع لمراجعة الأمر مجددًا."
 "PerpsReviewChanged": "تغير الأمر. ارجع لمراجعته مجددًا."
 "PerpsInsufficientUsdc": "رصيد USDC على Arbitrum غير كافٍ، بما في ذلك رسوم الجسر."
+"EvmUserOperationMismatch": "دفعة الغاز لا تطابق هذه المعاملة."
+"PerpsInsufficientBalance": "رصيد USDC على Hyperliquid غير كافٍ، بما في ذلك رسوم التداول."
+"PerpsMarketNeedsUnifiedAccount": "لا يمكن تمويل هذا السوق من محفظتك باستخدام نوع حساب Hyperliquid الحالي."
+"PerpsRequiresMultichainWallet": "تتطلب العقود الآجلة محفظة متعددة السلاسل. انتقل إلى واحدة أو أنشئ محفظة جديدة لبدء التداول."
+"PerpsSwitchesToUnifiedAccount": "يحوّل هذا الأمر أيضًا حساب Hyperliquid الخاص بك إلى Unified، ليغطي رصيد USDC واحد جميع الأسواق."
 "PerpsAmountTooSmall": "هذا المبلغ أقل من الحد الأدنى للسوق."
+"$perps_minimum_amount": "الحد الأدنى للمبلغ: %amount% USDC."
+"$perps_minimum_reduction": "خفّض المبلغ بأكثر من %amount% USDC لتغطية رسوم الجسر."
+"$perps_required_balance": "المطلوب: %required% USDC بما في ذلك الرسوم. المتاح على Hyperliquid: %available% USDC."
+"$perps_available_balance": "المتاح على Hyperliquid: %available% USDC. خفّض المبلغ لتترك رصيدًا يكفي لرسوم التداول."
 "PerpsUnchanged": "أدخل مبلغًا مختلفًا لتحديث المركز."
 "PerpsPositionChanged": "تغير هذا المركز. حدّث وحاول مجددًا."
 "PerpsPositionExists": "لديك مركز بالفعل في هذا السوق. عدّل المركز الحالي."
@@ -2317,8 +2326,6 @@ Could not save the image. Please try again.: تعذر حفظ الصورة. يُ�
 "$perps_funding_usdc_increase": "تحتاج إلى ما لا يقل عن %minUSDC% USDC على Arbitrum لزيادة هذا المركز."
 "PerpsFundingGasTitle": "رصيد ETH غير كافٍ للرسوم"
 "$perps_funding_gas": "تُدفع الرسوم على Arbitrum بعملة ETH. استلم %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "ادفع بعملة USDC على Arbitrum"
-"PerpsFundingTokenDescription": "الرموز الأخرى غير مدعومة بعد. استلم USDC للمتابعة."
 "Not Enough Funds": "الرصيد غير كافٍ"
 "Unsupported Token": "رمز غير مدعوم"
 "PerpsReviewUpdated": "تم تحديث الأسعار. راجع الأمر مجددًا قبل التأكيد."
@@ -2337,13 +2344,14 @@ Could not save the image. Please try again.: تعذر حفظ الصورة. يُ�
 "PerpsExchangeFee": "رسوم منصة التداول"
 "PerpsServiceFee": "رسوم المحفظة"
 "PerpsBridgeFee": "رسوم الجسر"
+"PerpsFirstWithdrawalFee": "رسوم السحب الأول"
 "PerpsTotalFees": "إجمالي الرسوم بعملة USDC"
 "PerpsFeeEstimateHint": "الرسوم المميزة بعلامة ≈ تقديرية وقد تتغير عند التنفيذ. تُدفع رسوم شبكة Arbitrum بشكل منفصل بعملة ETH."
 "PerpsUnallocatedCollateral": "ضمان غير مخصص"
 "PerpsUnallocatedCollateralHint": "قد يؤدي التقريب إلى حجم الصفقة المسموح في السوق إلى بقاء بعض USDC خارج المركز. تبقى هذه الأموال في حساب العقود الآجلة وليست رسومًا."
-"PerpsOnboardingTitle": "جديد في العقود الآجلة؟"
-"PerpsOnboardingDescription": "تعرّف على طريقة عملها في أقل من دقيقة واحدة."
-"PerpsOnboardingOpen": "فتح الدليل التعريفي"
+"PerpsOnboardingTitle": "العقود الآجلة\nفي %app_name%!"
+"PerpsOnboardingDescription": "افتح مراكز شراء أو بيع ببضع نقرات."
+"PerpsOnboardingOpen": "تعرّف على طريقة العمل"
 "PerpsStoryIntroTitle": "تعرّف على العقود الآجلة الدائمة"
 "PerpsStoryIntroBody": "افتح مراكز على ارتفاع أسعار الأصول أو انخفاضها."
 "PerpsStoryLongTitle": "تتوقع ارتفاعًا؟ افتح مركز لونغ"
@@ -2358,10 +2366,8 @@ Could not save the image. Please try again.: تعذر حفظ الصورة. يُ�
 "PerpsStoryFundingBody": "عندما يكون معدل التمويل موجبًا، يدفع أصحاب مراكز لونغ لأصحاب مراكز شورت. وعندما يكون سالبًا، يدفع أصحاب مراكز شورت لأصحاب مراكز لونغ."
 "PerpsStoryStart": "ابدأ"
 
-"Funding Payment": "دفعة تمويل"
 "Withdrawal": "سحب"
 "Transfer": "تحويل"
-"Spot Balance": "الرصيد الفوري"
 "From": "من"
 "To": "إلى"
 
@@ -2383,3 +2389,78 @@ $enclave_data_missing_message: |
   إذا كانت لديك عبارات الاسترداد لمحافظك، يمكنك الخروج من جميع المحافظ واستيرادها من جديد.
 
 Install the TON App on your Ledger and try again.: قم بتثبيت تطبيق TON على Ledger الخاص بك وحاول مرة أخرى.
+Liked: أعجبك
+Disliked: لم يعجبك
+$agent_feedback_liked_toast: "سيجيب الوكيل بهذا الأسلوب أكثر."
+$agent_feedback_disliked_toast: "سنراجع هذا للمساعدة في تحسين الوكيل."
+$agent_voice_pause: "إيقاف التسجيل مؤقتًا"
+$agent_voice_resume: "استئناف التسجيل"
+$agent_message_copied: تم نسخ الرسالة.
+$agent_copied: "تم النسخ."
+$agent_news_empty: "لا توجد أخبار بعد"
+$agent_chats_unavailable: "تعذر تحميل المحادثات"
+
+"PerpsAvailable": "متاح"
+"PerpsWithdraw": "سحب"
+"PerpsBalanceWithdrawalTitle": "السحب إلى المحفظة"
+"PerpsWithdrawalFromHyperliquid": "من Hyperliquid"
+"PerpsWithdrawalToWallet": "إلى محفظة Arbitrum"
+"PerpsBalanceWithdrawalNote": "يصل USDC إلى محفظتك على Arbitrum خلال بضع دقائق. يبقى 0.03 USDC على Hyperliquid لتغطية رسوم غاز السحب."
+"PerpsBalanceWithdrawalUpdated": "تغيّر رصيدك على Hyperliquid. راجع السحب مجددًا قبل التأكيد."
+"PerpsWithdrawalStatus": "حالة السحب"
+"PerpsWithdrawalCompleted": "تم إرسال السحب"
+"PerpsWithdrawalOnItsWay": "USDC في طريقه إلى محفظتك على Arbitrum. قد يستغرق ذلك بضع دقائق."
+"PerpsWithdrawalProcessing": "جارٍ معالجة السحب. قد يستغرق التحويل عبر الجسر بضع دقائق."
+"PerpsWithdrawalUnknown": "لم يتم تأكيد النتيجة بعد. تحقق من رصيدك على Hyperliquid ومحفظتك قبل اتخاذ إجراء آخر."
+"PerpsAcknowledgeWithdrawalUnknown": "قد يكتمل السحب لاحقًا. تحقق أولًا من رصيدك على Hyperliquid ومحفظتك. السماح بأوامر جديدة لا يلغيه."
+"PerpsNothingToWithdraw": "لا يوجد ما يمكن سحبه من رصيدك على Hyperliquid حاليًا."
+"PerpsWithdrawalRejected": "رفضت Hyperliquid هذا السحب. يبقى USDC في رصيدك على Hyperliquid."
+"View your assets and activity": "اعرض أصولك ونشاطك"
+"Ask AI and follow the news": "اسأل الذكاء الاصطناعي وتابع الأخبار"
+$underlying_stock: 'سهم %symbol%'
+$agent_support_requested: "طلبت المساعدة من الدعم. سيرد أحد الموظفين هنا"
+$agent_support_operator_joined: "انضم الدعم إلى المحادثة: %name%"
+$agent_support_closed_operator: "أغلق الدعم الطلب. سيتولى الوكيل الرد من الآن"
+$agent_support_closed_inactivity: "أُغلق الطلب بعد 48 ساعة دون ردود. سيتولى الوكيل الرد من الآن"
+$agent_support_waiting: "الدعم · في انتظار أحد الموظفين"
+$agent_support_with_operator: "الدعم · %name%"
+$agent_support_label: "الدعم"
+$agent_support_badge: "دعم %app_name%"
+$agent_support_placeholder: "رسالة إلى الدعم"
+"PerpsStoryFinaleTitle": "هل أنت مستعد لتجربة العقود الآجلة؟"
+"PerpsStoryFinaleBody": "اختر سوقًا وافتح مراكز وتابعها مباشرةً في %app_name%!"
+"PerpsStoryViewMarkets": "عرض الأسواق"
+Unlink Wallet: إلغاء ربط المحفظة
+Confirm Unlinking: تأكيد إلغاء الارتباط
+Domain Unlinked: تم إلغاء ربط المجال
+Drag here to add to the toolbar: اسحب هنا للإضافة إلى شريط الأدوات
+$send_only_chain_and_token: أرسل فقط %symbol%، %tokenSymbol% أو الأصول الأخرى المستندة إلى %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$agent_digest_unavailable: "هذا الملخص لم يعد متاحًا"
+$agent_digest_title: "أبرز أخبار اليوم"
+$agent_digest_meta:
+  zeroValue: "لا أخبار · %time%"
+  oneValue: "خبر واحد · %time%"
+  twoValue: "خبران · %time%"
+  fewValue: "%count% أخبار · %time%"
+  manyValue: "%count% خبرًا · %time%"
+  otherValue: "%count% خبر · %time%"
+$agent_digest_more:
+  oneValue: "وخبر آخر — تجده أعلى في الموجز"
+  twoValue: "وخبران آخران — تجدهما أعلى في الموجز"
+  fewValue: "و%count% أخبار أخرى — تجدها أعلى في الموجز"
+  manyValue: "و%count% خبرًا آخر — تجدها أعلى في الموجز"
+  otherValue: "و%count% خبر آخر — تجدها أعلى في الموجز"
+$agent_digest_settings_title: "الملخص والإشعارات"
+$agent_digest_settings_text: "مرة واحدة يوميًا يظهر في الموجز ملخص لأبرز أخبار اليوم."
+$agent_digest_time: "وقت الملخص"
+$agent_digest_time_zone: "حسب المنطقة الزمنية لهاتفك."
+$agent_digest_notifications_off: "متوقفة"
+$agent_digest_notifications_off_hint: "سيظهر الملخص في الموجز فقط"
+$agent_digest_notifications_daily: "ملخص يومي"
+$agent_digest_notifications_daily_hint: "في %time%، أبرز الأخبار في إشعار واحد"
+$agent_digest_notifications_every: "كل خبر"
+$agent_digest_notifications_every_hint: "إشعار منفصل لكل خبر"
+$agent_digest_post_header: "MyPulse · ملخص · %time%"
+$agent_digest_sheet_title: "الملخص اليومي"
+$agent_digest_device_time_zone: "حسب المنطقة الزمنية لهذا الجهاز."
+$agent_dictation_microphone_denied_device: "اسمح بالوصول إلى الميكروفون من إعدادات الجهاز لتتمكن من الإملاء."

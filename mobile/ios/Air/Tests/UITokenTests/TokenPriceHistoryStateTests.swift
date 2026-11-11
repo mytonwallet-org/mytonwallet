@@ -58,7 +58,7 @@ struct TokenPriceHistoryStateTests {
         let fixture = try Fixture()
         defer { fixture.close() }
         #expect(TokenStore.setPriceHistory(tokenSlug: fixture.token.slug, period: .day,
-            history: fixture.history, baseCurrency: TokenStore.baseCurrency))
+            history: ApiPriceHistory(points: fixture.history, backfill: nil), baseCurrency: TokenStore.baseCurrency))
         var requests = fixture.requests.makeAsyncIterator()
         var updates = fixture.delegate.updates.makeAsyncIterator()
         fixture.model.loadPriceHistory(period: .day)
@@ -69,6 +69,41 @@ struct TokenPriceHistoryStateTests {
         #expect(await updates.next() == .failed)
         #expect(fixture.model.historyData == fixture.history)
         #expect(fixture.model.isHistoryRestored)
+    }
+
+    @Test(arguments: [false, true])
+    func `reopening and refreshing preserve the complete stock chart`(hasTokenHistory: Bool) async throws {
+        let backfill = ApiPriceHistoryBackfill(symbol: "TSLA", points: [[Date.now.timeIntervalSince1970 - 120, 300]])
+        let fixture = try Fixture(backfill: backfill)
+        defer { fixture.close() }
+        let history = hasTokenHistory ? fixture.history : []
+        var requests = fixture.requests.makeAsyncIterator()
+        var updates = fixture.delegate.updates.makeAsyncIterator()
+        fixture.model.selectedPeriod = .all
+        #expect(await updates.next() == .loading)
+        let first = try #require(await requests.next())
+        first.continuation.resume(returning: history)
+        #expect(await updates.next() == .loaded)
+
+        let reopenedDelegate = Delegate()
+        let reopened = TokenVM(accountId: "test-mainnet", selectedToken: fixture.token, tokenVMDelegate: reopenedDelegate)
+        reopened.reachability.whenReachable = nil
+        reopened.reachability.whenUnreachable = nil
+        reopened.reachability.stopNotifier()
+        defer { reopened.stopAllObservers() }
+        #expect(reopened.historyData == history)
+        #expect(reopened.backfill == backfill)
+        #expect(reopened.isHistoryRestored)
+
+        fixture.model.loadPriceHistory(period: .all)
+        #expect(await updates.next() == .loading)
+        let refresh = try #require(await requests.next())
+        #expect(fixture.model.historyData == history)
+        #expect(fixture.model.backfill == backfill)
+        refresh.continuation.resume(throwing: Failure.offline)
+        #expect(await updates.next() == .failed)
+        #expect(fixture.model.historyData == history)
+        #expect(fixture.model.backfill == backfill)
     }
 
     @Test
@@ -136,16 +171,17 @@ struct TokenPriceHistoryStateTests {
         let requests: AsyncStream<Request>
         let model: TokenVM
 
-        init() throws {
+        init(backfill: ApiPriceHistoryBackfill? = nil) throws {
             let db = try DatabaseQueue()
             try makeMigrator().migrate(db)
             SettingsStore.liveValue.use(db: db)
             let (requests, continuation) = AsyncStream<Request>.makeStream()
             self.requests = requests
             model = TokenVM(accountId: "test-mainnet", selectedToken: token, tokenVMDelegate: delegate) { token, period, currency in
-                try await withCheckedThrowingContinuation { response in
+                let points = try await withCheckedThrowingContinuation { response in
                     continuation.yield(Request(token: token, period: period, currency: currency, continuation: response))
                 }
+                return ApiPriceHistory(points: points, backfill: backfill)
             }
             model.reachability.whenReachable = nil
             model.reachability.whenUnreachable = nil

@@ -1,33 +1,32 @@
 import Foundation
 import Perception
 
+/// What a review's state needs of the data it shows.
+protocol PerpsReviewData {
+    var status: PerpsOrderReviewDisplayData.Status { get set }
+}
+
+extension PerpsOrderReviewDisplayData: PerpsReviewData {}
+
+typealias PerpsOrderReviewState = PerpsReviewState<PerpsOrderReviewDisplayData>
+
 @Perceptible @MainActor
-final class PerpsOrderReviewState {
-    private(set) var data: PerpsOrderReviewDisplayData
+final class PerpsReviewState<Data: PerpsReviewData> {
+    private(set) var data: Data
     private(set) var pendingRequestID: UUID?
     @PerceptionIgnored private let onConfirm: (PerpsOrderReviewRequest) -> Void
-    @PerceptionIgnored private let onSelectPayment: ((PerpsOrderReviewRequest) -> Void)?
 
-    init(data: PerpsOrderReviewDisplayData, onSelectPayment: ((PerpsOrderReviewRequest) -> Void)? = nil,
-         onConfirm: @escaping (PerpsOrderReviewRequest) -> Void) {
+    init(data: Data, onConfirm: @escaping (PerpsOrderReviewRequest) -> Void) {
         self.data = data
         self.onConfirm = onConfirm
-        self.onSelectPayment = onSelectPayment
     }
 
-    var canConfirm: Bool { pendingRequestID == nil && data.status == .ready && (data.mode.operation == .open || data.positionID?.isEmpty == false) }
-    var canSelectPayment: Bool {
-        data.status == .ready && data.mode.operation == .close && data.canSelectPayment && onSelectPayment != nil && pendingRequestID == nil
-    }
+    var canConfirm: Bool { pendingRequestID == nil && data.status == .ready }
 
+    /// While a confirmation is pending, only the update that answers it applies.
     @discardableResult
-    func update(data: PerpsOrderReviewDisplayData, for request: PerpsOrderReviewRequest? = nil) -> Bool {
-        guard pendingRequestID == request?.id, data.positionID == self.data.positionID,
-              data.mode.operation == self.data.mode.operation else { return false }
-        if let request {
-            guard request.reviewID == self.data.id, request.positionID == self.data.positionID,
-                  request.operation == self.data.mode.operation else { return false }
-        }
+    func update(data: Data, for request: PerpsOrderReviewRequest? = nil) -> Bool {
+        guard pendingRequestID == request?.id else { return false }
         self.data = data
         pendingRequestID = nil
         return true
@@ -35,21 +34,9 @@ final class PerpsOrderReviewState {
 
     func confirm() {
         guard canConfirm else { return }
-        let request = makeRequest(.confirm)
+        let request = PerpsOrderReviewRequest(id: UUID())
         pendingRequestID = request.id
         data.status = .loading
         onConfirm(request)
-    }
-
-    func selectPayment() {
-        guard canSelectPayment else { return }
-        let request = makeRequest(.selectPayment)
-        pendingRequestID = request.id
-        data.status = .loading
-        onSelectPayment?(request)
-    }
-
-    private func makeRequest(_ action: PerpsOrderReviewRequest.Action) -> PerpsOrderReviewRequest {
-        .init(id: UUID(), reviewID: data.id, positionID: data.positionID, operation: data.mode.operation, action: action)
     }
 }

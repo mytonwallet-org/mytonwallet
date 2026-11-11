@@ -1,22 +1,26 @@
 import UIKit
 
+private let MAXIMUM_MEDIA_WAIT: TimeInterval = 2
+
 public struct StoryPage {
     public let id: String
     public let title: String
     public let body: String
-    public let buttonTitle: String
+    public let buttonTitle: String?
     public let duration: TimeInterval
     public let image: UIImage?
+    public let reducedMotionImage: UIImage?
     public let videoURL: URL?
 
-    public init(id: String, title: String, body: String, buttonTitle: String,
-                duration: TimeInterval = 10, image: UIImage? = nil, videoURL: URL? = nil) {
+    public init(id: String, title: String, body: String, buttonTitle: String? = nil,
+                duration: TimeInterval = 10, image: UIImage? = nil, reducedMotionImage: UIImage? = nil, videoURL: URL? = nil) {
         self.id = id
         self.title = title
         self.body = body
         self.buttonTitle = buttonTitle
         self.duration = duration.isFinite && duration > 0 ? duration : 10
         self.image = image
+        self.reducedMotionImage = reducedMotionImage
         self.videoURL = videoURL
     }
 }
@@ -28,6 +32,8 @@ struct StoryPlaybackState {
     private let durations: [TimeInterval]
     private(set) var index = 0
     private(set) var elapsed: TimeInterval = 0
+    private var mediaWaitElapsed: TimeInterval = 0
+    private var hasStartedProgress = false
     private(set) var isCompleted = false
     private(set) var pauseReasons: Set<PauseReason> = [.hidden]
 
@@ -43,9 +49,17 @@ struct StoryPlaybackState {
         if paused { pauseReasons.insert(reason) } else { pauseReasons.remove(reason) }
     }
 
-    mutating func advance(by interval: TimeInterval) -> Change {
+    mutating func advance(by interval: TimeInterval, isWaitingForMedia: Bool = false) -> Change {
         guard !isPaused, interval.isFinite, interval > 0 else { return .none }
-        elapsed = min(durations[index], elapsed + interval)
+        var progressInterval = interval
+        if !hasStartedProgress, isWaitingForMedia {
+            let wait = min(interval, max(0, MAXIMUM_MEDIA_WAIT - mediaWaitElapsed))
+            mediaWaitElapsed += wait
+            progressInterval -= wait
+            guard mediaWaitElapsed >= MAXIMUM_MEDIA_WAIT else { return .none }
+        }
+        hasStartedProgress = true
+        elapsed = min(durations[index], elapsed + progressInterval)
         return progress >= 1 ? next() : .none
     }
 
@@ -58,6 +72,8 @@ struct StoryPlaybackState {
         }
         index += 1
         elapsed = 0
+        mediaWaitElapsed = 0
+        hasStartedProgress = false
         return .page
     }
 
@@ -65,6 +81,8 @@ struct StoryPlaybackState {
         guard !isCompleted, !durations.isEmpty else { return .none }
         index = max(0, index - 1)
         elapsed = 0
+        mediaWaitElapsed = 0
+        hasStartedProgress = false
         return .page
     }
 }

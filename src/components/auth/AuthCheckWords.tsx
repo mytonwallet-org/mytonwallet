@@ -4,6 +4,7 @@ import { getActions } from '../../global';
 import buildClassName from '../../util/buildClassName';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../hooks/useInactivityTimeout';
 import useLang from '../../hooks/useLang';
 
 import CheckWordsContent from '../common/backup/CheckWordsContent';
@@ -18,13 +19,16 @@ interface OwnProps {
 }
 
 const AuthCheckWords = ({ isActive, mnemonic, checkIndexes }: OwnProps) => {
-  const { openMnemonicPage } = getActions();
+  const { openMnemonicPage, openAuthBackupWalletModal } = getActions();
 
   const lang = useLang();
   const headerRef = useRef<HTMLDivElement>();
   const title = lang('Let\'s Check!');
 
   useHistoryBack({ isActive, onBack: openMnemonicPage });
+  // The word options are taken from the mnemonic. Going back would show the secret words again, so the flow
+  // returns to the safety rules instead.
+  useInactivityTimeout(openAuthBackupWalletModal, isActive);
 
   return (
     <div className={styles.wrapper}>

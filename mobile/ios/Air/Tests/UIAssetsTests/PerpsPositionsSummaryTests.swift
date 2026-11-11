@@ -17,7 +17,10 @@ struct PerpsPositionsSummaryTests {
 
     private func data(_ amount: Double) -> PerpsPositionsDisplayData {
         .init(accountID: "header-test", totalValue: .fromDouble(amount, .USD),
-              profitLoss: .init("−$110 · 36.7%", tone: .negative), positions: [])
+              profitLoss: .init("−$110 · 36.7%", tone: .negative), positions: [
+                  .init(id: "position", token: .TONCOIN, directionAndLeverage: "Long 2x",
+                        value: "$20", profitLoss: .init("+$1")),
+              ])
     }
 
     @Test func zeroAndUnavailableBalancesOmitTheChangeLine() {
@@ -85,6 +88,41 @@ struct PerpsPositionsSummaryTests {
                 #expect(cell.change.accessibilityElementsHidden == (amount == 0))
                 #expect(cell.balance.convert(cell.balance.bounds, to: cell.contentView).midY == 83)
             }
+        }
+    }
+
+    @Test(arguments: [0.0, 190.26])
+    func hideHeroAfterLastPositionClosesAndRestoreItWhenOneOpens(_ amount: Double) async throws {
+        try await withDependencies { $0.context = .live } operation: {
+            let active = PerpsHomeDisplayData(positions: data(amount),
+                marketSections: [.init(id: "market", title: "Market", layout: .grid,
+                    tokens: [.init(id: "btc", token: .TONCOIN, change: "1%", isPositive: true)])],
+                activities: [.init(id: "closed", event: .closed, title: "Closed BTC", badge: "Long",
+                    date: "Oct 25 · 12:00", amount: .init("+$1"), detail: "Profit and Loss")])
+            let controller = PerpsHomeVC(data: active, onAction: { _ in })
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded()
+            controller.view.layoutIfNeeded()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            let collection = try #require(controller.view.subviews.compactMap { $0 as? UICollectionView }.first)
+            #expect(collection.cellForItem(at: IndexPath(item: 0, section: 0)) is PerpsPositionsSummaryCell)
+
+            var closed = active
+            closed.positions.positions = []
+            controller.update(data: closed)
+            try await Task.sleep(for: .milliseconds(400))
+            controller.view.layoutIfNeeded()
+            let divider = try #require(collection.cellForItem(at: IndexPath(item: 0, section: 0)) as? PerpsMarketDividerCell)
+            #expect(divider.frame.minY == 0)
+            #expect(collection.numberOfSections == 3)
+            #expect(!collection.visibleCells.contains { $0 is PerpsPositionsSummaryCell || $0 is PerpsOnboardingBannerCell })
+
+            controller.update(data: active)
+            try await Task.sleep(for: .milliseconds(400))
+            controller.view.layoutIfNeeded()
+            #expect(collection.cellForItem(at: IndexPath(item: 0, section: 0)) is PerpsPositionsSummaryCell)
         }
     }
 }

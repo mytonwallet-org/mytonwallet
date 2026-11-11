@@ -69,6 +69,25 @@ class BridgeCallbackRegistryTest {
     }
 
     @Test
+    fun parsesEvmGasErrorsAsBridgeErrors() {
+        val types = mapOf(
+            "EvmBundlerNotConfigured" to MBridgeError.Type.EVM_BUNDLER_NOT_CONFIGURED,
+            "EvmUserOperationFailed" to MBridgeError.Type.EVM_USER_OPERATION_FAILED,
+            "EvmUserOperationMismatch" to MBridgeError.Type.EVM_USER_OPERATION_MISMATCH
+        )
+        val registry = BridgeCallbackRegistry()
+
+        types.entries.forEachIndexed { index, (errorName, type) ->
+            var callbackError: MBridgeError? = null
+            registry.register(index) { _, error -> callbackError = error }
+
+            registry.complete(index, success = false, result = "{\"error\":\"$errorName\"}")
+
+            assertSame(type, callbackError)
+        }
+    }
+
+    @Test
     fun parsesThrownApiBaseErrorWithInsufficientBalance() {
         val registry = BridgeCallbackRegistry()
         var callbackError: MBridgeError? = null

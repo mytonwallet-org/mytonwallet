@@ -28,6 +28,7 @@ public struct TappableTransactionId: View {
                 .foregroundColor(Color.air.secondaryLabel)
                 .opacity(0.8)
                 .offset(y: 1)
+                .accessibilityHidden(true)
         }
         .contextMenuSource {
             makeMenuConfiguration()
@@ -87,6 +88,7 @@ public struct SwapProviderTransactionId: View {
                 .foregroundColor(Color.air.secondaryLabel)
                 .opacity(0.8)
                 .offset(y: 1)
+                .accessibilityHidden(true)
         }
         .foregroundStyle(Color.air.primaryLabel)
         .contextMenuSource {

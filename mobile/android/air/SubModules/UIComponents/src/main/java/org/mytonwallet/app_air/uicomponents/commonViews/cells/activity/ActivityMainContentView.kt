@@ -12,6 +12,7 @@ import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.util.Date
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
@@ -373,7 +374,7 @@ class ActivityMainContentView(context: Context) :
                 WalletCore.baseCurrency.sign,
                 WalletCore.baseCurrency.decimalsCount,
                 smartDecimals = true,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
         }
         updateBottomRightLabelMaskCols()

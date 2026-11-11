@@ -8,6 +8,7 @@ import java.util.concurrent.FutureTask
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.helpers.credentialsHelper.LegacyNativeBiometric
+import org.mytonwallet.app_air.walletcontext.installationStorage.WalletAttributionMigration
 
 object WSecureStorage {
     private var secureStorage: WSecureStorageProvider? = null
@@ -107,6 +108,7 @@ object WSecureStorage {
 
     private val storageLock = Any()
     fun deleteAllWalletValues() {
+        WalletAttributionMigration.beforeClear()
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {
@@ -188,6 +190,7 @@ object WSecureStorage {
     fun getKeys(): Array<String> = requiredStorage.keys()
 
     fun clearStorage() {
+        WalletAttributionMigration.beforeClear()
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {

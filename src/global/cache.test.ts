@@ -115,6 +115,19 @@ describe('persistCache', () => {
     });
   });
 
+  it('keeps which first reactions the Agent has explained in a toast after relaunch', () => {
+    setGlobal({
+      ...INITIAL_STATE,
+      currentAccountId: ACCOUNT_ID,
+      accounts: { byId: { [ACCOUNT_ID]: { type: 'mnemonic', byChain: {} } } },
+      settings: { ...INITIAL_STATE.settings, shownAgentFeedbackToasts: { like: true } },
+    });
+
+    persistCache();
+
+    expect(loadCache(INITIAL_STATE).settings.shownAgentFeedbackToasts).toEqual({ like: true });
+  });
+
   it('stores price history of the selected period, preferring the history of this session', () => {
     const sessionHistory = buildPriceHistory(MINUTE);
     const restoredHistory = buildPriceHistory(HOUR);

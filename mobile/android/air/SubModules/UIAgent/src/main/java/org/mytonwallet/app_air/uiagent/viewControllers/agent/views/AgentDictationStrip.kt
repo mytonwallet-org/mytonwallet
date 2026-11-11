@@ -35,8 +35,8 @@ import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 /**
  * The field's content while a question is recorded, as Telegram's recording panel: a blinking red
  * dot, the time with centiseconds and "‹ Slide to cancel", which follows the finger. Locked, the
- * hint gives way to "Cancel"; near the limit it counts down in red; while recognizing it reads
- * "Recognizing…".
+ * hint gives way to "Cancel"; near the limit it counts down in red; paused, the dot goes and the
+ * time stops; while recognizing it reads "Recognizing…".
  */
 @SuppressLint("ViewConstructor")
 internal class AgentDictationStrip(context: Context) :
@@ -108,6 +108,7 @@ internal class AgentDictationStrip(context: Context) :
     fun render(newState: AgentDictationState) {
         val previousPhase = state.phase
         val wasLocked = state.locked
+        val wasPaused = state.isPaused
         state = newState
         val isRecording = newState.phase == AgentDictationPhase.RECORDING
         val isRecognizing = newState.phase == AgentDictationPhase.RECOGNIZING
@@ -122,6 +123,12 @@ internal class AgentDictationStrip(context: Context) :
         val shouldKeepHint = shouldRevealCancel || cancelReveal != null
 
         recordingDot.visibility = if (isRecognizing) GONE else VISIBLE
+        if (!isRecording) {
+            recordingDot.scaleX = 1f
+            recordingDot.scaleY = 1f
+        } else if (newState.isPaused != wasPaused) {
+            showDot(isShown = !newState.isPaused)
+        }
         timerLabel.visibility = if (isRecognizing) GONE else VISIBLE
         cancelLabel.visibility = if (isRecognizing || isLocked) VISIBLE else GONE
         if (!shouldKeepHint) hintLabel.visibility = if (isLocked && !isNearLimit) GONE else VISIBLE
@@ -204,7 +211,8 @@ internal class AgentDictationStrip(context: Context) :
     }
 
     private fun updateTimer() {
-        val elapsed = if (state.phase == AgentDictationPhase.RECORDING && state.startedAtMs > 0L) {
+        val isRunning = state.phase == AgentDictationPhase.RECORDING && !state.isPaused
+        val elapsed = if (isRunning && state.startedAtMs > 0L) {
             (SystemClock.elapsedRealtime() - state.startedAtMs)
                 .coerceIn(0L, AGENT_DICTATION_MAX_DURATION_MS)
         } else {
@@ -274,6 +282,19 @@ internal class AgentDictationStrip(context: Context) :
             .start()
     }
 
+    // Telegram's paused recording: the dot shrinks away, and grows back as the recording resumes
+    private fun showDot(isShown: Boolean) {
+        val scale = if (isShown) 1f else 0f
+        recordingDot.animate().cancel()
+        if (!isAttachedToWindow || !WGlobalStorage.getAreAnimationsActive()) {
+            recordingDot.scaleX = scale
+            recordingDot.scaleY = scale
+            return
+        }
+        recordingDot.animate().scaleX(scale).scaleY(scale).setDuration(DOT_APPEARANCE_MS)
+            .setInterpolator(WInterpolator.easeInOut).start()
+    }
+
     // Telegram's `updateIsDisplayingCancel`: the hint rises and shrinks away while Cancel rises in
     private fun revealCancel() {
         val hint = hintLabel
@@ -315,7 +336,8 @@ internal class AgentDictationStrip(context: Context) :
     }
 
     private fun updateAnimations() {
-        val shouldAnimate = isAttachedToWindow && state.phase == AgentDictationPhase.RECORDING
+        val shouldAnimate = isAttachedToWindow && state.phase == AgentDictationPhase.RECORDING &&
+            !state.isPaused
         val isMotionOn = WGlobalStorage.getAreAnimationsActive()
         if (shouldAnimate == isAnimating) return
         isAnimating = shouldAnimate

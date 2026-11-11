@@ -4,9 +4,8 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import java.util.Date
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsPostContent
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentNewsPostBodyText
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.buildAgentNewsMenuItems
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.formatAgentChatTime
 import org.mytonwallet.app_air.uicomponents.base.WWindow
@@ -16,19 +15,17 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.mediaViewer.MEDIA_VI
 import org.mytonwallet.app_air.uicomponents.viewControllers.mediaViewer.MEDIA_VIEWER_CAPTION_LINK_COLOR
 import org.mytonwallet.app_air.uicomponents.viewControllers.mediaViewer.MediaViewerItem
 import org.mytonwallet.app_air.uicomponents.viewControllers.mediaViewer.formatMediaViewerDate
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 
 internal fun agentNewsMediaViewerItem(
     window: WWindow,
     url: String,
-    news: AgentV2ThreadNewsCard
+    post: AgentNewsPostContent
 ): MediaViewerItem {
     val openLink: (String) -> Unit = { AgentNewsSourceLinks.open(window, window, it) }
     return MediaViewerItem(
         url = url,
-        title = AgentNewsPostCell.sourceName(news),
-        subtitle = {
-            parseAgentV2Timestamp(news.publishedAt)?.let { date ->
+        date = {
+            parseAgentV2Timestamp(post.publishedAt)?.let { date ->
                 formatMediaViewerDate(
                     date,
                     Date(),
@@ -37,27 +34,27 @@ internal fun agentNewsMediaViewerItem(
                 )
             }
         },
-        caption = { textSize -> buildAgentPhotoCaption(news, textSize, openLink) },
-        accessibilityLabel = news.headline,
+        caption = { textSize -> buildAgentPhotoCaption(post, textSize, openLink) },
+        accessibilityLabel = post.headline,
         menuItems = { host ->
-            buildAgentNewsMenuItems(host, news, onOpenSource = openLink, onCopied = null)
+            buildAgentNewsMenuItems(host, post, onOpenSource = openLink, onCopied = null)
         }
     )
 }
 
 private fun buildAgentPhotoCaption(
-    news: AgentV2ThreadNewsCard,
+    post: AgentNewsPostContent,
     textSize: Float,
     onUrlClick: (String) -> Unit
 ): CharSequence {
-    val caption = SpannableStringBuilder(news.headline)
+    val caption = SpannableStringBuilder(post.headline)
     caption.setSpan(
         WTypefaceSpan(WFont.Medium),
         0,
         caption.length,
         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
     )
-    agentNewsPostBodyText(news)?.let { body ->
+    post.body?.let { body ->
         if (caption.isNotEmpty()) caption.append('\n')
         caption.append(
             MarkdownParser.parse(

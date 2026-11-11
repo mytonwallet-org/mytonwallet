@@ -4,8 +4,9 @@ import React, { useLayoutEffect, useRef } from '../../lib/teact/teact';
 
 import type { AgentPublicFollowUpV2 } from '../../api/agentV2/protocol/types';
 
-import { requestForcedReflow } from '../../lib/fasterdom/fasterdom';
-import buildClassName from '../../util/buildClassName';
+import {
+  forceMeasure, getPhase, requestForcedReflow, requestMutation,
+} from '../../lib/fasterdom/fasterdom';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
 
 import useLastCallback from '../../hooks/useLastCallback';
@@ -22,15 +23,19 @@ const FOLLOWUP_CLOSE_EASING = 'ease-in-out';
 // The widths of the placeholders that stand in for suggestions still loading, in rem
 const FOLLOWUP_PLACEHOLDER_WIDTHS = [14.375, 16.875, 12.5];
 const FOLLOWUP_MORPH_DURATION = 300;
-// Placeholders that were fully shown turn into the suggestions from this opacity rather than from nothing
-const FOLLOWUP_MORPH_START_OPACITY = 0.45;
+// A suggestion's text and arrow appear over the end of its pill's resize, as iOS uncovers them from 0.14 s of 0.36 s
+const FOLLOWUP_CONTENT_FADE_DELAY = 120;
+const FOLLOWUP_CONTENT_FADE_DURATION = 180;
 // The opacity, multiplied through the ancestors, at which the last placeholder counts as fully shown
 const FOLLOWUP_REVEALED_OPACITY = 0.99;
+const FOLLOWUP_LABEL_SELECTOR = '[data-agent-followup-label]';
 
 interface OwnProps {
   followups?: AgentPublicFollowUpV2[];
   isLoadingFollowups?: boolean;
   isDisabled: boolean;
+  /** The suggestions keep their pressable look and tell assistive technology that they take no press */
+  isInactive?: boolean;
   shouldShowFollowups?: boolean;
   /** The suggestions open their space over 250 ms rather than pushing the chat up at once */
   shouldAnimateGrowth?: boolean;
@@ -44,6 +49,7 @@ function AgentMessageControls({
   followups,
   isLoadingFollowups = false,
   isDisabled,
+  isInactive = false,
   shouldShowFollowups = false,
   shouldAnimateGrowth = false,
   onGrowthFrame,
@@ -59,6 +65,8 @@ function AgentMessageControls({
     withShouldRender: true,
     className: false,
     closeDuration: FOLLOWUP_CLOSE_DURATION,
+    // Without motion the row has no fade to wait for, so it leaves at once rather than collapsing
+    noCloseTransition: !getCanAnimate(),
   });
   const wasFollowupRowOpenRef = useRef(isFollowupRowOpen);
   const collapseRef = useRef<Animation>();
@@ -74,55 +82,93 @@ function AgentMessageControls({
     hasRevealedLoadingRef.current = opacity > FOLLOWUP_REVEALED_OPACITY;
   });
 
+  const handleGrowthFrame = useLastCallback(() => onGrowthFrame?.());
+
+  // Each placeholder turns into its suggestion: the pill keeps its fill and its ring and takes the suggestion's size,
+  // which moves the pills under it along, and only the text and the arrow appear in it. Placeholders still coming in
+  // turn into suggestions that come in with their own entrance, one by one, as the placeholders did.
   useLayoutEffect(() => {
     const row = followupRowRef.current;
-    if (!row) return;
+    if (!row) return undefined;
 
     if (isLoadingFollowups) {
       hasRevealedLoadingRef.current = false;
       requestForcedReflow(() => {
         loadingFramesRef.current = Array.from(row.children, (child) => child.getBoundingClientRect());
       });
-      return;
+      return undefined;
     }
 
     const previous = loadingFramesRef.current;
     const shouldMorphTogether = hasRevealedLoadingRef.current;
     loadingFramesRef.current = undefined;
     hasRevealedLoadingRef.current = false;
-    if (!previous || !getCanAnimate()) return;
+    if (!previous || !getCanAnimate()) return undefined;
 
+    let frame: number | undefined;
     requestForcedReflow(() => {
       const morphs = Array.from(row.children).flatMap((child, index) => {
         const from = previous[index];
         if (!(child instanceof HTMLElement) || !from || !child.animate) return [];
 
         const to = child.getBoundingClientRect();
-        return to.width && to.height ? [{ element: child, index, from, to }] : [];
+        const label = child.querySelector<HTMLElement>(FOLLOWUP_LABEL_SELECTOR);
+        return to.width && to.height ? [{
+          element: child, index, from, to, label, labelWidth: label?.getBoundingClientRect().width,
+        }] : [];
       });
 
       return () => {
-        morphs.forEach(({ element, index, from, to }) => {
-          element.getAnimations().forEach((animation) => animation.cancel());
-          element.animate([
-            {
-              transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) `
-                + `scale(${from.width / to.width}, ${from.height / to.height})`,
-              opacity: shouldMorphTogether ? FOLLOWUP_MORPH_START_OPACITY : 0,
-            },
-            { transform: 'none', opacity: 1 },
-          ], {
-            duration: FOLLOWUP_MORPH_DURATION,
-            delay: shouldMorphTogether ? 0 : index * FOLLOWUP_APPEAR_INTERVAL,
-            easing: FOLLOWUP_GROW_EASING,
-            fill: 'backwards',
-          });
+        const resizes = morphs.map(({
+          element, index, from, to, label, labelWidth,
+        }) => {
+          const delay = shouldMorphTogether ? 0 : index * FOLLOWUP_APPEAR_INTERVAL;
+          const timing: KeyframeAnimationOptions = {
+            duration: FOLLOWUP_MORPH_DURATION, delay, easing: FOLLOWUP_GROW_EASING, fill: 'backwards',
+          };
+          // The text keeps the lines it ends up with while the pill around it changes its size
+          label?.animate([{ minWidth: `${labelWidth}px` }, { minWidth: `${labelWidth}px` }], timing);
+          if (shouldMorphTogether) {
+            element.getAnimations().forEach((animation) => animation.cancel());
+            Array.from(element.children).forEach((part) => {
+              part.animate([{ opacity: 0 }, { opacity: 1 }], {
+                duration: FOLLOWUP_CONTENT_FADE_DURATION,
+                delay: FOLLOWUP_CONTENT_FADE_DELAY,
+                easing: 'ease-out',
+                fill: 'backwards',
+              });
+            });
+          }
+
+          return element.animate([
+            { width: `${from.width}px`, height: `${from.height}px`, overflow: 'hidden' },
+            { width: `${to.width}px`, height: `${to.height}px`, overflow: 'hidden' },
+          ], timing);
         });
+
+        // A list at its end follows the pills as they change their height
+        function follow() {
+          handleGrowthFrame();
+          if (resizes.some(({ playState }) => playState === 'running')) frame = requestAnimationFrame(follow);
+        }
+        frame = requestAnimationFrame(follow);
       };
     });
-  }, [followupRowRef, isLoadingFollowups, shouldRenderFollowupRow]);
 
-  const handleGrowthFrame = useLastCallback(() => onGrowthFrame?.());
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [followupRowRef, handleGrowthFrame, isLoadingFollowups, shouldRenderFollowupRow]);
+
+  // A suggestion that wraps is as wide as its longest line, as on iOS, rather than as wide as the row lets it be. The
+  // labels are fitted before the morph out of the placeholders measures where the suggestions end.
+  useLayoutEffect(() => {
+    const row = followupRowRef.current;
+    if (!row || isLoadingFollowups) return undefined;
+
+    fitFollowupLabels(row);
+    return observeFollowupRowWidth(row);
+  }, [followupRowRef, followups, isLoadingFollowups, shouldRenderFollowupRow]);
 
   // The row grows once, when it appears
   useLayoutEffect(() => {
@@ -197,7 +243,7 @@ function AgentMessageControls({
     <div className={styles.richContent}>
       {children}
       {shouldRenderFollowupRow && (
-        <div ref={followupRowRef} className={styles.followupRow}>
+        <div ref={followupRowRef} className={styles.followupRow} data-agent-followup-row>
           {isLoadingFollowups && FOLLOWUP_PLACEHOLDER_WIDTHS.map((width, index) => (
             <div
               key={index}
@@ -213,12 +259,17 @@ function AgentMessageControls({
               key={item.id}
               type="button"
               data-agent-followup-id={item.id}
-              className={buildClassName(styles.followupButton, styles.followupArrow)}
+              className={styles.followupButton}
               style={`--followup-delay: ${index * FOLLOWUP_APPEAR_INTERVAL}ms`}
               disabled={isDisabled}
+              aria-disabled={isInactive || undefined}
               onClick={() => onFollowup(item)}
             >
-              <span className={styles.followupLabel}>{item.text}</span>
+              <span className={styles.followupArrowIcon} aria-hidden />
+              <span className={styles.followupLabel} data-agent-followup-label>
+                {/* Inline, so that each of its lines has a box of its own to measure */}
+                <span>{item.text}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -228,3 +279,58 @@ function AgentMessageControls({
 }
 
 export default AgentMessageControls;
+
+/** Narrows each label in `container` that wraps to its longest line. Runs where the DOM may be changed. */
+function fitFollowupLabels(container: HTMLElement) {
+  const labels = Array.from(container.querySelectorAll<HTMLElement>(FOLLOWUP_LABEL_SELECTOR));
+  if (!labels.length) return;
+
+  labels.forEach((label) => label.style.removeProperty('width'));
+  const widths = measureAfterMutation(() => labels.map(getLongestLineWidth));
+  labels.forEach((label, index) => {
+    const width = widths[index];
+    if (width) label.style.width = `${width}px`;
+  });
+}
+
+/** The width of the longest line of a label's text, or nothing for a label on one line */
+function getLongestLineWidth(label: HTMLElement) {
+  const text = label.firstElementChild;
+  if (!text) return undefined;
+
+  const lines = new Map<number, { left: number; right: number }>();
+  Array.from(text.getClientRects()).forEach(({
+    top, left, right, width, height,
+  }) => {
+    if (!width || !height) return;
+
+    const key = Math.round(top);
+    const line = lines.get(key);
+    lines.set(key, line
+      ? { left: Math.min(line.left, left), right: Math.max(line.right, right) }
+      : { left, right });
+  });
+  if (lines.size < 2) return undefined;
+
+  return Math.ceil(Math.max(...Array.from(lines.values(), ({ left, right }) => right - left)));
+}
+
+// A layout effect runs in the mutation phase, where the layout is read through `forceMeasure`
+function measureAfterMutation<T>(measure: () => T): T {
+  return getPhase() === 'mutate' ? forceMeasure(measure) : measure();
+}
+
+/** Fits the labels again once the row's width changes */
+function observeFollowupRowWidth(row: HTMLElement) {
+  let width: number | undefined;
+  const observer = new ResizeObserver(([entry]) => {
+    const previousWidth = width;
+    width = entry.contentRect.width;
+    if (previousWidth === undefined || previousWidth === width) return;
+
+    requestMutation(() => fitFollowupLabels(row));
+  });
+  observer.observe(row);
+
+  return () => observer.disconnect();
+}

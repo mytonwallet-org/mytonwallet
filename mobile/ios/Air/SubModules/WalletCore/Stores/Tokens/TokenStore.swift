@@ -13,7 +13,7 @@ import WalletCoreTypes
 
 public var TokenStore: _TokenStore { _TokenStore.shared }
 /// Price history by token slug and period raw value
-private typealias PriceHistoryCache = [String: [String: ApiHistoryList]]
+private typealias PriceHistoryCache = [String: [String: ApiPriceHistory]]
 private let TOKEN_DETAILS_CACHE_VALIDITY: TimeInterval = 15 * 60
 private let TOKEN_DETAILS_PRELOAD_LIMIT = 20
 private let TOKEN_DETAILS_CACHE_LIMIT_PER_ACCOUNT = 50
@@ -403,19 +403,20 @@ public final class _TokenStore: Sendable {
     private let _priceHistory: UnfairLock<PriceHistoryCache> = .init(initialState: [:])
     private let priceHistoryDiskAccess: UnfairLock<Void> = .init(initialState: ())
 
-    public func cachedPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod) -> ApiHistoryList? {
+    public func cachedPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod) -> ApiPriceHistory? {
         guard let history = _priceHistory.withLock({ $0[tokenSlug]?[period.rawValue] }),
               Self.isPriceHistoryFresh(history, period: period) else { return nil }
         return history
     }
 
-    public func setPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod, history: ApiHistoryList, baseCurrency: MBaseCurrency) -> Bool {
-        let accepted = _baseCurrency.withLock { currentCurrency in
+    public func setPriceHistory(tokenSlug: String, period: ApiPriceHistoryPeriod, history: ApiPriceHistory, baseCurrency: MBaseCurrency) -> Bool {
+        let isAccepted = _baseCurrency.withLock { currentCurrency in
             guard (currentCurrency ?? DEFAULT_PRICE_CURRENCY) == baseCurrency else { return false }
-            _priceHistory.withLock { $0[tokenSlug, default: [:]][period.rawValue] = history.isEmpty ? nil : history }
+            let isEmpty = history.points.isEmpty && history.backfill?.points.isEmpty != false
+            _priceHistory.withLock { $0[tokenSlug, default: [:]][period.rawValue] = isEmpty ? nil : history }
             return true
         }
-        guard accepted else { return false }
+        guard isAccepted else { return false }
         Task.detached(priority: .utility) { [self] in persistPriceHistory() }
         return true
     }
@@ -444,8 +445,8 @@ public final class _TokenStore: Sendable {
         }
     }
 
-    private static func isPriceHistoryFresh(_ history: ApiHistoryList, period: ApiPriceHistoryPeriod) -> Bool {
-        guard let lastTimestamp = history.last?.first else { return false }
+    private static func isPriceHistoryFresh(_ history: ApiPriceHistory, period: ApiPriceHistoryPeriod) -> Bool {
+        guard let lastTimestamp = history.points.last?.first ?? history.backfill?.points.last?.first else { return false }
         return Date.now.timeIntervalSince1970 - lastTimestamp <= period.maxCacheAge
     }
 

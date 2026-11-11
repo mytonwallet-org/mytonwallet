@@ -17,6 +17,8 @@ interface Point {
 
 interface OwnProps {
   prices: ApiHistoryList;
+  /** How many leading prices belong to the underlying stock rather than the token */
+  backfillCount?: number;
   /** `-1` when the pointer is away from the plot */
   selectedIndex: number;
   className?: string;
@@ -30,14 +32,17 @@ const DOT_RADIUS = 3;
 const SMOOTHING = 0.0001;
 const MIN_VALUE_RANGE = 1e-9;
 const DIMMED_OPACITY = 0.25;
+const BACKFILL_OPACITY = 0.4;
 
-function Plot({ prices, selectedIndex, className, onSelectIndex }: OwnProps) {
+function Plot({ prices, backfillCount = 0, selectedIndex, className, onSelectIndex }: OwnProps) {
   const containerRef = useRef<HTMLDivElement>();
   const [width, setWidth] = useState(0);
 
   const gradientId = useUniqueId('token-plot-gradient-');
   const pastClipId = useUniqueId('token-plot-past-');
   const restClipId = useUniqueId('token-plot-rest-');
+  const backfillClipId = useUniqueId('token-plot-backfill-');
+  const tokenClipId = useUniqueId('token-plot-token-');
 
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose();
 
@@ -72,11 +77,10 @@ function Plot({ prices, selectedIndex, className, onSelectIndex }: OwnProps) {
   const handleMove = useLastCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!points || points.length < 2) return;
 
-    const { left, width: boxWidth } = e.currentTarget.getBoundingClientRect();
+    const { left } = e.currentTarget.getBoundingClientRect();
     const { clientX } = 'touches' in e ? e.touches[0] : e;
-    const index = Math.round(((clientX - left) / boxWidth) * (points.length - 1));
 
-    onSelectIndex(Math.max(0, Math.min(index, points.length - 1)));
+    onSelectIndex(findClosestIndex(points, clientX - left));
   });
 
   const handleTouchStart = useLastCallback((e: React.TouchEvent<HTMLDivElement>) => {
@@ -91,9 +95,34 @@ function Plot({ prices, selectedIndex, className, onSelectIndex }: OwnProps) {
     enableSwipeToClose();
   });
 
-  function renderPlot(allPoints: Point[], { line, area }: { line: string; area: string }) {
+  function renderSeries({ line, area }: { line: string; area: string }, isScrubbing: boolean) {
+    return isScrubbing ? (
+      <>
+        <g clip-path={`url(#${pastClipId})`}>
+          <path d={area} fill={`url(#${gradientId})`} />
+          <path d={line} className={styles.line} />
+        </g>
+        <g clip-path={`url(#${restClipId})`} opacity={DIMMED_OPACITY}>
+          <path d={area} fill={`url(#${gradientId})`} />
+          <path d={line} className={styles.line} />
+        </g>
+      </>
+    ) : (
+      <>
+        <path d={area} fill={`url(#${gradientId})`} />
+        <path d={line} className={styles.line} />
+      </>
+    );
+  }
+
+  function renderPlot(allPoints: Point[], plotPaths: { line: string; area: string }) {
     const isScrubbing = selectedIndex >= 0 && selectedIndex < allPoints.length;
-    const activePoint = isScrubbing ? allPoints[selectedIndex] : allPoints[allPoints.length - 1];
+    const activeIndex = isScrubbing ? selectedIndex : allPoints.length - 1;
+    const activePoint = allPoints[activeIndex];
+    // The stock part runs up to the first token price, so the line stays continuous across the launch
+    const launchX = backfillCount > 0 && backfillCount < allPoints.length ? allPoints[backfillCount].x : undefined;
+    // A token without prices of its own in the period shows only the stock, which stays dimmed as a whole
+    const seriesOpacity = backfillCount >= allPoints.length ? BACKFILL_OPACITY : undefined;
 
     return (
       <svg
@@ -118,27 +147,40 @@ function Plot({ prices, selectedIndex, className, onSelectIndex }: OwnProps) {
               <rect x={activePoint.x} y="0" width={Math.max(0, width - activePoint.x)} height={HEIGHT} />
             </clipPath>
           )}
+          {launchX !== undefined && (
+            <clipPath id={backfillClipId}>
+              <rect x="0" y="0" width={launchX} height={HEIGHT} />
+            </clipPath>
+          )}
+          {launchX !== undefined && (
+            <clipPath id={tokenClipId}>
+              <rect x={launchX} y="0" width={Math.max(0, width - launchX)} height={HEIGHT} />
+            </clipPath>
+          )}
         </defs>
 
-        {isScrubbing ? (
-          <>
-            <g clip-path={`url(#${pastClipId})`}>
-              <path d={area} fill={`url(#${gradientId})`} />
-              <path d={line} className={styles.line} />
-            </g>
-            <g clip-path={`url(#${restClipId})`} opacity={DIMMED_OPACITY}>
-              <path d={area} fill={`url(#${gradientId})`} />
-              <path d={line} className={styles.line} />
-            </g>
-          </>
+        {launchX === undefined ? (
+          <g opacity={seriesOpacity}>
+            {renderSeries(plotPaths, isScrubbing)}
+          </g>
         ) : (
           <>
-            <path d={area} fill={`url(#${gradientId})`} />
-            <path d={line} className={styles.line} />
+            <g clip-path={`url(#${backfillClipId})`} opacity={BACKFILL_OPACITY}>
+              {renderSeries(plotPaths, isScrubbing)}
+            </g>
+            <g clip-path={`url(#${tokenClipId})`}>
+              {renderSeries(plotPaths, isScrubbing)}
+            </g>
           </>
         )}
 
-        <circle className={styles.dot} cx={activePoint.x} cy={activePoint.y} r={DOT_RADIUS} />
+        <circle
+          className={styles.dot}
+          cx={activePoint.x}
+          cy={activePoint.y}
+          r={DOT_RADIUS}
+          opacity={activeIndex < backfillCount ? BACKFILL_OPACITY : undefined}
+        />
       </svg>
     );
   }
@@ -172,12 +214,26 @@ function buildPoints(prices: ApiHistoryList, width: number) {
   const valueRange = Math.max(MIN_VALUE_RANGE, max - min);
   const plotWidth = Math.max(0, width - EDGE_PADDING * 2);
   const plotHeight = HEIGHT - EDGE_PADDING * 2;
-  const stepX = prices.length > 1 ? plotWidth / (prices.length - 1) : 0;
+  // Points are spaced by time, so a stock backfill of trading days and a daily token series share one scale
+  const firstTimestamp = prices[0][0];
+  const timeSpan = prices[prices.length - 1][0] - firstTimestamp;
 
-  return prices.map(([, value], index): Point => ({
-    x: EDGE_PADDING + index * stepX,
+  return prices.map(([timestamp, value]): Point => ({
+    x: EDGE_PADDING + (timeSpan ? ((timestamp - firstTimestamp) / timeSpan) * plotWidth : 0),
     y: EDGE_PADDING + plotHeight - ((value - min) / valueRange) * plotHeight,
   }));
+}
+
+function findClosestIndex(points: Point[], x: number) {
+  let low = 0;
+  let high = points.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (points[middle].x < x) low = middle + 1;
+    else high = middle;
+  }
+
+  return low > 0 && x - points[low - 1].x < points[low].x - x ? low - 1 : low;
 }
 
 /**

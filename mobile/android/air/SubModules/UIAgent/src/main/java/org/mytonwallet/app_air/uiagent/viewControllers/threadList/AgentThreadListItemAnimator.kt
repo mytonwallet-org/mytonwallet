@@ -160,7 +160,7 @@ internal class AgentThreadListItemAnimator : SimpleItemAnimator() {
         view.translationY = 0f
     }
 
-    private companion object {
+    internal companion object {
         const val MOVE_DURATION_MS = 450L
         const val REMOVE_DURATION_MS = 200L
         const val ADD_DURATION_MS = 300L

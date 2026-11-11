@@ -12,6 +12,20 @@ struct TokenTradeMaxAmountTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
 
     @Test
+    func `selling rejects USD and accepts EUR without changing the token amount`() {
+        let model = makeSale(balance: TokenAmount.fromDouble(10, .TONCOIN).amount)
+        defer { model.swap.estimate.pause() }
+        model.useFraction(25)
+        let amount = model.typedTokenAmount
+
+        model.selectCard(.USD)
+        #expect(model.cardCurrency == nil)
+        model.selectCard(.EUR)
+        #expect(model.cardCurrency == .EUR)
+        #expect(model.typedTokenAmount == amount)
+    }
+
+    @Test
     func `100% stays the maximum after picking another token to receive`() async throws {
         let balance = TokenAmount.fromDouble(10, .TONCOIN).amount
         let model = makeSale(balance: balance, response: try feeResponse())

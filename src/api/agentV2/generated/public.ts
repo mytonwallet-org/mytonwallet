@@ -125,7 +125,8 @@ export type AgentAvailabilityResponseV2 =
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentClientFeature".
  */
-export type AgentClientFeature = 'followups' | 'walletDirectory' | 'sendRecipientWithoutAsset' | 'walletChainLookup';
+export type AgentClientFeature =
+  'followups' | 'walletDirectory' | 'sendRecipientWithoutAsset' | 'walletChainLookup' | 'supportHandoff';
 export type AgentApiChainList1 = AgentApiChain[];
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -136,6 +137,11 @@ export type Sources = {
   name?: string;
   url: string;
 }[];
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentThreadDigestIdV2".
+ */
+export type AgentThreadDigestIdV2 = string;
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "UuidInput".
@@ -218,6 +224,7 @@ export type AgentErrorCodeV2 =
   | 'transcription_unavailable'
   | 'market_data_unavailable'
   | 'news_unavailable'
+  | 'digest_unavailable'
   | 'message_not_editable'
   | 'regenerate_target_invalid'
   | 'followup_reference_invalid'
@@ -776,7 +783,7 @@ export type AgentPersistedMessageV2 = {
 } & {
   id: Uuid;
   threadId: Uuid;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'operator' | 'event';
   status: 'complete' | 'error' | 'cancelled';
   content?: AgentMessageContentV1;
   responseLanguage?: AgentResponseLanguageV1;
@@ -793,6 +800,14 @@ export type AgentPersistedMessageV2 = {
    */
   followups?: AgentPublicFollowUpV2[];
   feedback?: AgentAnswerFeedbackV2;
+  text?: string;
+  author?: {
+    operatorId: string;
+    name: string;
+    avatarUrl?: string;
+  };
+  code?: 'support_requested' | 'operator_joined' | 'support_closed';
+  reason?: 'operator' | 'inactivity';
 };
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1244,7 +1259,7 @@ export type AgentWalletDataAccountRowV3 = {
   publicAddresses?: {
     chain: AgentApiChain;
     address: string;
-    disclosureReason: 'receive' | 'wallet_location' | 'prepare_validation' | 'chain_lookup';
+    disclosureReason: 'receive' | 'wallet_location' | 'prepare_validation' | 'chain_lookup' | 'support_handoff';
   }[];
 } & AgentWalletDataAccountRowV31;
 export type AgentApiChainList13 = AgentApiChain[];
@@ -1724,6 +1739,11 @@ export interface AgentThreadSummaryV2 {
   hasCustomTitle?: true;
   isPinned?: true;
   news?: AgentThreadNewsCardV2;
+  digest?: AgentThreadDigestCardV2;
+  support?: {
+    state: 'waiting' | 'operator' | 'closed';
+    lastOperatorMessageAt?: UtcTimestampMs;
+  };
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1738,6 +1758,27 @@ export interface AgentThreadNewsCardV2 {
   imageUrl?: string;
   publishedAt: UtcTimestampMs;
   source?: string;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentThreadDigestCardV2".
+ */
+export interface AgentThreadDigestCardV2 {
+  id: AgentThreadDigestIdV2;
+  windowEnd: UtcTimestampMs;
+  total: number;
+  /**
+   * @minItems 1
+   */
+  top: AgentNewsDigestHeadlineV2[];
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsDigestHeadlineV2".
+ */
+export interface AgentNewsDigestHeadlineV2 {
+  eventId: number;
+  headline: string;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1906,7 +1947,10 @@ export interface AgentMessageEndEvent {
   runId: Uuid;
   sequence: number;
   messageId: Uuid;
-  finishReason: 'complete' | 'cancelled' | 'tool_unavailable' | 'run_interrupted';
+  /**
+   * For delivered_to_support, the run ends without an agent reply and messageId identifies the saved user message delivered to support.
+   */
+  finishReason: 'complete' | 'cancelled' | 'tool_unavailable' | 'run_interrupted' | 'delivered_to_support';
   createdAt?: UtcTimestampMs;
 }
 /**
@@ -1926,6 +1970,29 @@ export interface AgentMessageStartEvent {
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedDigestV2".
+ */
+export interface AgentNewsFeedDigestV2 {
+  id: AgentThreadDigestIdV2;
+  deliveredAt: UtcTimestampMs;
+  /**
+   * @minItems 1
+   * @maxItems 5
+   */
+  top: AgentNewsDigestHeadlineV2[];
+  total: number;
+  discussion?: AgentNewsFeedDiscussionV2;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
+ * via the `definition` "AgentNewsFeedDiscussionV2".
+ */
+export interface AgentNewsFeedDiscussionV2 {
+  threadId: Uuid;
+  icon?: string;
+}
+/**
+ * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
  * via the `definition` "AgentNewsFeedItemV2".
  */
 export interface AgentNewsFeedItemV2 {
@@ -1935,10 +2002,7 @@ export interface AgentNewsFeedItemV2 {
   body: string;
   imageUrl?: string;
   sources: Sources;
-  discussion?: {
-    threadId: Uuid;
-    icon?: string;
-  };
+  discussion?: AgentNewsFeedDiscussionV2;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1952,6 +2016,7 @@ export interface AgentNewsFeedPageV2 {
    */
   items: AgentNewsFeedItemV2[];
   nextCursor?: AgentNewsFeedCursorV2;
+  digests?: AgentNewsFeedDigestV2[];
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -1960,6 +2025,8 @@ export interface AgentNewsFeedPageV2 {
 export interface AgentNewsFeedRequestV2 {
   locale: AgentNewsFeedLocaleV2;
   cursor?: AgentNewsFeedCursorV2;
+  digestHour?: number;
+  timeZone?: string;
 }
 /**
  * This interface was referenced by `MyTonWalletAgentProtocolV2StandalonePublicWireContract`'s JSON-Schema
@@ -2400,7 +2467,8 @@ export interface AgentWalletAccountInventoryArgs {
   operation: 'account.inventory';
   accountSelector: AgentWalletQueryAccountSelectorV2;
   chains: AgentApiChainList3;
-  includePublicAddressReason?: 'receive' | 'wallet_location' | 'prepare_validation' | 'chain_lookup';
+  includePublicAddressReason?:
+    'receive' | 'wallet_location' | 'prepare_validation' | 'chain_lookup' | 'support_handoff';
   includePortfolioTotals?: true;
 }
 /**
@@ -2614,6 +2682,9 @@ export interface AgentThreadCreateRequestV2 {
   news?: {
     eventId: number;
     locale: 'ru' | 'en';
+  };
+  digest?: {
+    id: AgentThreadDigestIdV2;
   };
 }
 /**
@@ -3393,7 +3464,10 @@ export interface AgentV2PublicContractTypes {
   AgentMessageEndEvent: AgentMessageEndEvent;
   AgentMessageErrorV2: AgentMessageErrorV2;
   AgentMessageStartEvent: AgentMessageStartEvent;
+  AgentNewsDigestHeadlineV2: AgentNewsDigestHeadlineV2;
   AgentNewsFeedCursorV2: AgentNewsFeedCursorV2;
+  AgentNewsFeedDigestV2: AgentNewsFeedDigestV2;
+  AgentNewsFeedDiscussionV2: AgentNewsFeedDiscussionV2;
   AgentNewsFeedItemV2: AgentNewsFeedItemV2;
   AgentNewsFeedLocaleV2: AgentNewsFeedLocaleV2;
   AgentNewsFeedPageV2: AgentNewsFeedPageV2;
@@ -3466,6 +3540,8 @@ export interface AgentV2PublicContractTypes {
   AgentThreadCreateResponseV2: AgentThreadCreateResponseV2;
   AgentThreadDeleteRequestV2: AgentThreadDeleteRequestV2;
   AgentThreadDeleteResponseV2: AgentThreadDeleteResponseV2;
+  AgentThreadDigestCardV2: AgentThreadDigestCardV2;
+  AgentThreadDigestIdV2: AgentThreadDigestIdV2;
   AgentThreadEvent: AgentThreadEvent;
   AgentThreadListCursorV2: AgentThreadListCursorV2;
   AgentThreadListItemV2: AgentThreadListItemV2;

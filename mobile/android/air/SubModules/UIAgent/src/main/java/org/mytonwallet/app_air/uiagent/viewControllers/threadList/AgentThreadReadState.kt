@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.threadList
 
+import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
@@ -8,7 +9,8 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
  *
  * An answer that completes while its chat is off screen marks the chat, and so does a chat whose message count grows
  * past the count of settled messages the chat showed as the user left it, or that the list saw after that. Showing the
- * chat clears both. A chat the device has never shown counts as read, so chats from other devices start without a dot.
+ * chat clears both. Operator replies stay unread until their latest loaded history has shown on screen. A chat
+ * without operator replies that the device has never shown counts as read.
  */
 internal class AgentThreadReadState(
     private val read: () -> String? = WGlobalStorage::getAgentThreadReadState,
@@ -19,7 +21,8 @@ internal class AgentThreadReadState(
         val seenMessageCount: Int?,
         // Left without a count, and the list hasn't yet seen it settled
         val isBaselinePending: Boolean,
-        val isMarkedUnread: Boolean
+        val isMarkedUnread: Boolean,
+        val seenOperatorMessageAt: Long? = null
     )
 
     // Insertion order is the order the records last changed, oldest first
@@ -40,8 +43,17 @@ internal class AgentThreadReadState(
     }
 
     fun isUnread(thread: AgentV2ThreadSummary): Boolean {
+        val record = records[thread.id]
+        val lastOperatorMessageAt = thread.support?.lastOperatorMessageAt
+            ?.let(::parseAgentV2Timestamp)?.time
+        val seenOperatorMessageAt = record?.seenOperatorMessageAt
+        if (lastOperatorMessageAt != null &&
+            (seenOperatorMessageAt == null || lastOperatorMessageAt > seenOperatorMessageAt)
+        ) {
+            return true
+        }
         if (visibleCounts.containsKey(thread.id)) return false
-        val record = records[thread.id] ?: return false
+        if (record == null) return false
         if (record.isMarkedUnread) return true
         val seen = record.seenMessageCount
         return !record.isBaselinePending && seen != null && thread.messageCount > seen
@@ -53,7 +65,7 @@ internal class AgentThreadReadState(
         return seen.takeIf { it < thread.messageCount }
     }
 
-    /** Call as a chat comes on screen and as it leaves; while on screen it stays read */
+    /** Showing a chat clears its unread agent answers */
     fun onChatAppeared(threadId: String) {
         visibleCounts[threadId] = (visibleCounts[threadId] ?: 0) + 1
         markSeen(threadId)
@@ -65,6 +77,16 @@ internal class AgentThreadReadState(
             if (count > 1) visibleCounts[threadId] = count - 1 else visibleCounts.remove(threadId)
         }
         markSeen(threadId, seenMessageCount)
+    }
+
+    /** Acknowledge only the support timestamp from the latest loaded history shown in the chat */
+    fun markSupportSeen(threadId: String, loadedOperatorMessageAt: String?) {
+        val timestamp = loadedOperatorMessageAt?.let(::parseAgentV2Timestamp)?.time ?: return
+        val record = records[threadId]
+            ?: Record(null, isBaselinePending = true, isMarkedUnread = false)
+        if (record.seenOperatorMessageAt?.let { it >= timestamp } == true) return
+        store(threadId, record.copy(seenOperatorMessageAt = timestamp))
+        save(shouldNotify = true)
     }
 
     /** An answer completed in the chat; off screen, the chat gets the dot */
@@ -108,7 +130,8 @@ internal class AgentThreadReadState(
         val record = Record(
             seenMessageCount ?: records[threadId]?.seenMessageCount,
             isBaselinePending = seenMessageCount == null,
-            isMarkedUnread = false
+            isMarkedUnread = false,
+            seenOperatorMessageAt = records[threadId]?.seenOperatorMessageAt
         )
         if (records[threadId] == record) return
         store(threadId, record)
@@ -135,20 +158,22 @@ internal class AgentThreadReadState(
             id,
             record.seenMessageCount?.toString().orEmpty(),
             if (record.isBaselinePending) "1" else "0",
-            if (record.isMarkedUnread) "1" else "0"
+            if (record.isMarkedUnread) "1" else "0",
+            record.seenOperatorMessageAt?.toString().orEmpty()
         ).joinToString(FIELD_SEPARATOR)
     }
 
     private fun decode(value: String) {
         for (line in value.split(LINE_SEPARATOR)) {
             val fields = line.split(FIELD_SEPARATOR)
-            if (fields.size != 4 || fields[0].isEmpty()) continue
+            if (fields.size !in 4..5 || fields[0].isEmpty()) continue
             store(
                 fields[0],
                 Record(
                     fields[1].toIntOrNull(),
                     isBaselinePending = fields[2] == "1",
-                    isMarkedUnread = fields[3] == "1"
+                    isMarkedUnread = fields[3] == "1",
+                    seenOperatorMessageAt = fields.getOrNull(4)?.toLongOrNull()
                 )
             )
         }
@@ -157,7 +182,7 @@ internal class AgentThreadReadState(
     companion object {
         val shared by lazy { AgentThreadReadState() }
 
-        // Records beyond this many, the oldest first, are dropped: those chats count as read again
+        // Records beyond this many, the oldest first, are dropped
         private const val RECORD_LIMIT = 500
         private const val LINE_SEPARATOR = "\n"
         private const val FIELD_SEPARATOR = "\t"

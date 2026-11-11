@@ -19,7 +19,12 @@ function InfoMetric({ label, hint, value, changePercent }: OwnProps) {
     <div className={styles.root}>
       <span className={styles.label}>
         {label}
-        {hint && <IconWithTooltip message={hint} size="small" />}
+        {hint && (
+          <>
+            {' '}
+            <IconWithTooltip message={hint} size="small" />
+          </>
+        )}
       </span>
       <span className={styles.value}>
         {value}

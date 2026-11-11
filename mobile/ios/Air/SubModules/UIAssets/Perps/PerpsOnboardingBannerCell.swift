@@ -6,12 +6,13 @@ import WalletContext
 final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizerDelegate {
     var onOpen: (() -> Void)?
     var onDismiss: (() -> Void)?
+    private let bannerBackgroundView = UIView()
     private let titleLabel = UILabel()
     private let descriptionLabel = UILabel()
     private let artwork = UIImageView()
     private let illustration = UIImageView()
     private let closeButton = UIButton(type: .system)
-    private var usesWideLayout: Bool?
+    private var layoutWidth: CGFloat?
     private let button = WInteractiveGlassButton(style: .primary)
     private let bannerTap = PerpsOnboardingPressGestureRecognizer(target: nil, action: nil)
     private let gradient = CAGradientLayer()
@@ -21,7 +22,7 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
 
     func presentationSource() -> StoriesPresentationSource {
         let identity = contentIdentity
-        return StoriesPresentationSource(view: contentView, button: button, prepareForPresentation: { [weak self] in
+        return StoriesPresentationSource(view: contentView, backgroundView: bannerBackgroundView, button: button, prepareForPresentation: { [weak self] in
             guard let self, contentIdentity == identity else { return {} }
             let visibleTransform = layer.presentation()?.sublayerTransform ?? layer.sublayerTransform
             resetPressAnimation(to: visibleTransform)
@@ -48,10 +49,11 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
         gradient.locations = [0, 0.55, 1]
         gradient.startPoint = CGPoint(x: 0.5, y: 0)
         gradient.endPoint = CGPoint(x: 0.5, y: 1)
-        contentView.layer.addSublayer(gradient)
+        contentView.addSubview(bannerBackgroundView)
+        bannerBackgroundView.layer.addSublayer(gradient)
         artwork.contentMode = .scaleToFill
         artwork.isAccessibilityElement = false
-        contentView.addSubview(artwork)
+        bannerBackgroundView.addSubview(artwork)
 
         titleLabel.accessibilityTraits.insert(.header)
         titleLabel.accessibilityIdentifier = "perps.onboarding.title"
@@ -76,7 +78,7 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
         closeBackground.frame = CGRect(x: 8, y: 8, width: 28, height: 28)
         closeButton.insertSubview(closeBackground, at: 0)
         for view in [illustration, titleLabel, descriptionLabel, button, closeButton] { contentView.addSubview(view) }
-        configureLayout(wide: false)
+        configureLayout(width: max(frame.width, 1))
         bannerTap.delegate = self
         bannerTap.onPress = { [weak self] pressed in self?.setPressed(pressed) }
         bannerTap.onTap = { [weak self] in self?.onOpen?() }
@@ -90,7 +92,7 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
         super.layoutSubviews()
         let width = contentView.bounds.width
         let wide = Self.isWide(width)
-        configureLayout(wide: wide)
+        configureLayout(width: width)
         let textWidth = Self.textWidth(for: width)
         let titleHeight = titleLabel.sizeThatFits(CGSize(width: textWidth, height: .greatestFiniteMagnitude)).height
         let descriptionHeight = descriptionLabel.sizeThatFits(CGSize(width: textWidth, height: .greatestFiniteMagnitude)).height
@@ -116,7 +118,8 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
         if isRTL { artwork.frame.origin.x = 0 }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        gradient.frame = contentView.bounds
+        bannerBackgroundView.frame = contentView.bounds
+        gradient.frame = bannerBackgroundView.bounds
         if width > artwork.bounds.width {
             artworkMask.frame = artwork.bounds
             artworkMask.colors = [UIColor.clear.cgColor, UIColor.white.cgColor, UIColor.white.cgColor]
@@ -133,7 +136,7 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
         let attributes = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
         let wide = Self.isWide(attributes.size.width)
-        configureLayout(wide: wide)
+        configureLayout(width: attributes.size.width)
         let width = Self.textWidth(for: attributes.size.width)
         let textHeight = titleLabel.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
             + (wide ? 4 : 8) + descriptionLabel.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
@@ -141,11 +144,25 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
         return attributes
     }
 
-    private func configureLayout(wide: Bool) {
-        guard usesWideLayout != wide else { return }
-        usesWideLayout = wide
+    private func configureLayout(width: CGFloat) {
+        guard layoutWidth != width else { return }
+        layoutWidth = width
+        let wide = Self.isWide(width)
         contentView.layer.cornerRadius = wide ? 24 : 26
-        titleLabel.attributedText = Self.text(lang("PerpsOnboardingTitle"), font: WTypography.uiFont(.startupTitle).withSize(wide ? 22 : 26), lineHeight: wide ? 28 : 32)
+        let title = L10n.perpsonboardingtitle(appName: APP_NAME)
+        let titleFontSize: CGFloat = wide ? 22 : 26
+        var titleFont = WTypography.uiFont(.startupTitle).withSize(titleFontSize)
+        var words: [String] = []
+        title.enumerateSubstrings(in: title.startIndex..<title.endIndex, options: .byWords) { _, _, range, _ in
+            words.append(String(title[range]).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let textWidth = Self.textWidth(for: width)
+        while titleFont.pointSize > 1,
+              words.contains(where: { ceil(($0 as NSString).size(withAttributes: [.font: titleFont]).width) > textWidth }) {
+            titleFont = titleFont.withSize(max(1, titleFont.pointSize - 0.5))
+        }
+        titleLabel.attributedText = Self.text(title, font: titleFont,
+                                             lineHeight: (wide ? 28 : 32) * titleFont.pointSize / titleFontSize)
         let description = lang("PerpsOnboardingDescription")
         descriptionLabel.attributedText = Self.text(wide ? description.replacingOccurrences(of: "\n", with: " ") : description,
                                                    font: WTypography.uiFont(.supportingEmphasized), lineHeight: 20)
@@ -210,7 +227,7 @@ final class PerpsOnboardingBannerCell: UICollectionViewCell, UIGestureRecognizer
     private static func isWide(_ width: CGFloat) -> Bool { width >= 560 }
 
     private static func textWidth(for width: CGFloat) -> CGFloat {
-        isWide(width) ? min(300, width - 303) : min(160, max(1, width - 210))
+        isWide(width) ? min(300, width - 303) : min(180, max(1, width - 190))
     }
 
     private static func text(_ text: String, font: UIFont, lineHeight: CGFloat) -> NSAttributedString {

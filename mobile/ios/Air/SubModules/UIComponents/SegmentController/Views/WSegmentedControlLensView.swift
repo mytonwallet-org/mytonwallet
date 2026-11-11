@@ -13,6 +13,7 @@ final class WSegmentedControlLensView: UIView {
     private let normalMask = CAShapeLayer()
     private let selectedMask = CAShapeLayer()
     private let nativeLens: UIView?
+    private let shouldDarkenSelection: Bool
     private weak var liftedContainer: UIView?
     private var displayLink: CADisplayLink?
     private var isApplyingNativeState = false
@@ -43,7 +44,8 @@ final class WSegmentedControlLensView: UIView {
         return view
     }
 
-    init(useNativeLens: Bool = true) {
+    init(useNativeLens: Bool = true, shouldDarkenSelection: Bool = false) {
+        self.shouldDarkenSelection = shouldDarkenSelection
         nativeLens = useNativeLens ? Native.makeLens() : nil
         super.init(frame: .zero)
         addSubview(containerView)
@@ -83,7 +85,15 @@ final class WSegmentedControlLensView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        if window != nil { refreshAppearance() }
         updateDisplayLink()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            refreshAppearance()
+        }
     }
 
     func setLiftedContainer(_ view: UIView?) {
@@ -128,7 +138,7 @@ final class WSegmentedControlLensView: UIView {
             // past the capsule's ends
             restingBackgroundView.layer.cornerRadius = bounds.height / 2
             restingBackgroundView.layer.cornerCurve = .continuous
-            restingBackgroundView.update(isDark: traitCollection.userInterfaceStyle == .dark)
+            restingBackgroundView.update(isDark: traitCollection.userInterfaceStyle == .dark && !shouldDarkenSelection)
             let restingAlpha: CGFloat = self.isLifted ? 0 : 1
             if restingBackgroundView.alpha != restingAlpha {
                 animate(animated) { self.restingBackgroundView.alpha = restingAlpha }
@@ -159,7 +169,7 @@ final class WSegmentedControlLensView: UIView {
         renderedAppearance = style
         guard let nativeLens else { return }
         restingBackgroundView.invalidateAppearance()
-        restingBackgroundView.update(isDark: style == .dark)
+        restingBackgroundView.update(isDark: style == .dark && !shouldDarkenSelection)
         Native.setObject(nativeLens, Native.restingColor, UIColor(white: 0, alpha: 0.1))
         Native.setObject(nativeLens, Native.liftedContent, selectedContentView)
         guard !isApplyingNativeState, let state = appliedNativeState else { return }
@@ -315,7 +325,10 @@ final class WSegmentedControlLensView: UIView {
     }
 
     @MainActor private final class RestingBackgroundView: UIVisualEffectView {
-        private var isDark: Bool?
+        private var isDarkAppearanceRequested: Bool?
+        private var isDarkAppearanceApplied: Bool?
+        private weak var appliedBackdropLayer: CALayer?
+        private var appliedFilter: NSObject?
         /// Takes the appearance of each window it moves into, for a copy that no lens updates
         var followsWindowAppearance = false
 
@@ -332,28 +345,56 @@ final class WSegmentedControlLensView: UIView {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            guard followsWindowAppearance, window != nil else { return }
-            invalidateAppearance()
-            update(isDark: traitCollection.userInterfaceStyle == .dark)
+            if window != nil { restoreAppearance() }
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            restoreAppearance()
+        }
+
+        override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+            super.traitCollectionDidChange(previousTraitCollection)
+            if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+                restoreAppearance()
+            }
+        }
+
+        private func restoreAppearance() {
+            if followsWindowAppearance {
+                update(isDark: traitCollection.userInterfaceStyle == .dark)
+            } else if let isDarkAppearanceRequested {
+                update(isDark: isDarkAppearanceRequested)
+            }
         }
 
         func invalidateAppearance() {
-            isDark = nil
+            isDarkAppearanceApplied = nil
         }
 
         func update(isDark: Bool) {
-            guard self.isDark != isDark else { return }
-            self.isDark = isDark
-            guard let sublayer = layer.sublayers?.first, sublayer.filters != nil else { return }
-            sublayer.backgroundColor = nil
-            sublayer.isOpaque = false
+            isDarkAppearanceRequested = isDark
+            guard let sublayer = layer.sublayers?.first,
+                  sublayer.filters != nil || sublayer === appliedBackdropLayer else { return }
+            // UIKit can replace its backdrop filters without changing the view's appearance
+            if isDarkAppearanceApplied == isDark, appliedBackdropLayer === sublayer,
+               sublayer.filters?.count == 1,
+               let installedFilter = sublayer.filters?.first as? NSObject,
+               installedFilter === appliedFilter {
+                return
+            }
             guard let filter = PrivateAPI.makeFilter(PrivateAPI.colorMatrixFilterType.string) else { return }
             var matrix: [Float32] = isDark
                 ? [1.082, -0.113, -0.011, 0, 0.135, -0.034, 1.003, -0.011, 0, 0.135, -0.034, -0.113, 1.105, 0, 0.135, 0, 0, 0, 1, 0]
                 : [1.185, -0.05, -0.005, 0, -0.2, -0.015, 1.15, -0.005, 0, -0.2, -0.015, -0.05, 1.195, 0, -0.2, 0, 0, 0, 1, 0]
             filter.setValue(NSValue(bytes: &matrix, objCType: "{CAColorMatrix=ffffffffffffffffffff}"), forKey: PrivateAPI.inputColorMatrix.string)
+            sublayer.backgroundColor = nil
+            sublayer.isOpaque = false
             sublayer.filters = [filter]
             sublayer.setValue(1.0, forKey: "scale")
+            isDarkAppearanceApplied = isDark
+            appliedBackdropLayer = sublayer
+            appliedFilter = filter
         }
     }
 

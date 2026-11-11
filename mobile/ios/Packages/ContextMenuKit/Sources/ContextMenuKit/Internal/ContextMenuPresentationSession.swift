@@ -7,6 +7,7 @@ protocol ContextMenuPresentationSession: AnyObject {
     var onWillDismiss: (() -> Void)? { get set }
     var onDidDismiss: (() -> Void)? { get set }
 
+    func dismiss()
     func beginExternalSelection(at pointInWindow: CGPoint)
     func updateExternalSelection(at pointInWindow: CGPoint)
     func endExternalSelection(performAction: Bool)

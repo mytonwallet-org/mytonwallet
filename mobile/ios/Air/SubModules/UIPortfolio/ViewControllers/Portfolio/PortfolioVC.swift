@@ -52,166 +52,11 @@ private final class PortfolioBottomControlBackgroundView: UIView {
     }
 }
 
-private final class PortfolioRangeSegmentedControl: UISegmentedControl {
-    private var backgroundLayer: CALayer?
-    private var blurView: UIVisualEffectView?
-    private var selectionPillView: UIView?
-    private var isPillAnimating = false
-
-    init(titles: [String]) {
-        super.init(items: titles)
-        setup()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        if #available(iOS 26, *) {
-            setupGlassBackgroundIfNeeded()
-            blurView?.frame = bounds
-            blurView?.layer.cornerRadius = bounds.height / 2
-            if !isPillAnimating {
-                UIView.performWithoutAnimation { positionSelectionPill() }
-            }
-        } else {
-            let imageViews = subviews.compactMap { $0 as? UIImageView }.prefix(numberOfSegments)
-            imageViews.forEach { $0.isHidden = true }
-
-            if let selectorImageView {
-                let inset = CGFloat(5)
-                selectorImageView.bounds = selectorImageView.bounds.insetBy(dx: inset, dy: inset)
-                selectorImageView.image = nil
-                selectorImageView.layer.cornerRadius = selectorImageView.bounds.height / 2
-                selectorImageView.layer.masksToBounds = true
-                selectorImageView.layer.removeAnimation(forKey: "SelectionBounds")
-                selectorImageView.isHidden = false
-            }
-
-            backgroundLayer?.removeFromSuperlayer()
-            let bgLayer = CALayer()
-            bgLayer.frame = bounds
-            layer.insertSublayer(bgLayer, at: 0)
-            backgroundLayer = bgLayer
-
-            layer.cornerRadius = bounds.height / 2
-            layer.masksToBounds = true
-            updateTheme()
-        }
-    }
-
-    override func sendActions(for controlEvents: UIControl.Event) {
-        super.sendActions(for: controlEvents)
-
-        guard #available(iOS 26, *), controlEvents.contains(.valueChanged) else { return }
-
-        isPillAnimating = true
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            usingSpringWithDamping: 0.8,
-            initialSpringVelocity: 0.5,
-            options: [.beginFromCurrentState]
-        ) {
-            self.positionSelectionPill()
-        } completion: { _ in
-            self.isPillAnimating = false
-            UIView.performWithoutAnimation {
-               self.positionSelectionPill()
-            }
-        }
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        updateTheme()
-    }
-
-    private func setup() {
-        translatesAutoresizingMaskIntoConstraints = false
-        apportionsSegmentWidthsByContent = false
-        setDividerImage(UIImage(), forLeftSegmentState: .normal, rightSegmentState: .normal, barMetrics: .default)
-        setTitleTextAttributes([
-            .font: WTypography.uiFont(.supportingEmphasized),
-            .foregroundColor: UIColor.label,
-        ], for: .normal)
-        setTitleTextAttributes([
-            .font: WTypography.uiFont(.supportingStrong),
-            .foregroundColor: UIColor.label,
-        ], for: .selected)
-    }
-
-    @available(iOS 26, *)
-    private func setupGlassBackgroundIfNeeded() {
-        guard blurView == nil else { return }
-
-        let empty = UIImage()
-        setBackgroundImage(empty, for: .normal, barMetrics: .default)
-        setBackgroundImage(empty, for: .highlighted, barMetrics: .default)
-        setBackgroundImage(empty, for: .selected, barMetrics: .default)
-        setBackgroundImage(empty, for: [.selected, .highlighted], barMetrics: .default)
-        backgroundColor = .clear
-
-        let glassEffect = UIGlassEffect()
-        let effectView = UIVisualEffectView(effect: glassEffect)
-        effectView.backgroundColor = .clear
-        effectView.contentView.backgroundColor = .clear
-        effectView.layer.cornerCurve = .continuous
-        effectView.layer.masksToBounds = true
-        effectView.isUserInteractionEnabled = false
-        insertSubview(effectView, at: 0)
-        blurView = effectView
-    }
-
-    @available(iOS 26, *)
-    private func positionSelectionPill() {
-        guard numberOfSegments > 0, bounds.width > 0, let blurView else { return }
-
-        let segmentWidth = bounds.width / CGFloat(numberOfSegments)
-        let inset = CGFloat(4)
-        let pillFrame = CGRect(
-            x: CGFloat(selectedSegmentIndex) * segmentWidth + inset,
-            y: inset,
-            width: segmentWidth - inset * 2,
-            height: bounds.height - inset * 2
-        )
-        let cornerRadius = pillFrame.height / 2
-
-        if let pill = selectionPillView {
-            pill.frame = pillFrame
-            pill.layer.cornerRadius = cornerRadius
-        } else {
-            let pill = UIView()
-            pill.backgroundColor = .label.withAlphaComponent(0.12)
-            pill.layer.cornerRadius = cornerRadius
-            pill.layer.cornerCurve = .continuous
-            pill.isUserInteractionEnabled = false
-            pill.frame = pillFrame
-            insertSubview(pill, aboveSubview: blurView)
-            selectionPillView = pill
-        }
-    }
-
-    private func updateTheme() {
-        if #unavailable(iOS 26) {
-            backgroundLayer?.backgroundColor = UIColor.air.headerBackground.resolvedColor(with: traitCollection).cgColor
-            selectorImageView?.layer.backgroundColor = UIColor.air.groupedItem.resolvedColor(with: traitCollection).cgColor
-        }
-    }
-
-    private var selectorImageView: UIImageView? {
-        let selectorIndex = numberOfSegments
-        guard subviews.indices.contains(selectorIndex),
-              let imageView = subviews[selectorIndex] as? UIImageView
-        else {
-            return nil
-        }
-        return imageView
-    }
+private final class PortfolioRangeContent: UIViewController, WSegmentedControllerContent {
+    var onScroll: ((CGFloat) -> Void)?
+    var scrollingView: UIScrollView? { nil }
+    func scrollToTop(animated: Bool) {}
+    func calculateHeight(isHosted: Bool) -> CGFloat { 0 }
 }
 
 private enum PortfolioSectionID: Hashable {
@@ -333,6 +178,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         super.viewDidLoad()
 
         navigationItem.title = lang("Portfolio")
+        view.accessibilityIdentifier = "portfolio_title"
         view.backgroundColor = .air.groupedBackground
         addCloseNavigationItemIfNeeded()
 
@@ -431,12 +277,24 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         return collectionView
     }
 
-    private func makeRangeSegmentedControl() -> UISegmentedControl {
-        let control = PortfolioRangeSegmentedControl(
-            titles: PortfolioTimeRange.displayOrder.map(\.title)
+    private func makeRangeSegmentedControl() -> WSegmentedControl {
+        let capsuleColor: UIColor = if #available(iOS 26, *) { .label.withAlphaComponent(0.12) } else { .air.groupedItem }
+        let model = SegmentedControlModel(
+            items: PortfolioTimeRange.displayOrder.map {
+                SegmentedControlItem(id: $0.rawValue, title: $0.title, viewController: PortfolioRangeContent())
+            },
+            selection: .init(item1: viewModel.selectedRange.rawValue),
+            primaryColor: .label,
+            secondaryColor: .label,
+            capsuleColor: capsuleColor,
+            style: .portfolioRange
         )
-        control.selectedSegmentIndex = PortfolioTimeRange.displayOrder.firstIndex(of: viewModel.selectedRange) ?? 0
-        control.addTarget(self, action: #selector(rangeSegmentedControlChanged), for: .valueChanged)
+        model.onSelect = { [weak self] item in
+            guard let range = PortfolioTimeRange(rawValue: item.id) else { return }
+            self?.selectRange(range)
+        }
+        let control = WSegmentedControl(model: model, isGlassInteractive: true)
+        control.translatesAutoresizingMaskIntoConstraints = false
         return control
     }
 
@@ -461,22 +319,17 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     }
 
     private func updateRangeSegmentedControlSelection(_ range: PortfolioTimeRange) {
-        let index = PortfolioTimeRange.displayOrder.firstIndex(of: range) ?? 0
-        guard rangeSegmentedControl.selectedSegmentIndex != index else {
-            return
-        }
-        rangeSegmentedControl.selectedSegmentIndex = index
+        let model = rangeSegmentedControl.model
+        guard model.selectedItem?.id != range.rawValue else { return }
+        model.selection = .init(item1: range.rawValue)
     }
 
-    @objc
-    private func rangeSegmentedControlChanged(_ sender: UISegmentedControl) {
-        guard PortfolioTimeRange.displayOrder.indices.contains(sender.selectedSegmentIndex) else {
-            return
-        }
-
+    private func selectRange(_ range: PortfolioTimeRange) {
+        guard range != viewModel.selectedRange else { return }
+        updateRangeSegmentedControlSelection(range)
         resetVisibleChartInteractions()
         resetVisibleChartRanges()
-        viewModel.selectRange(PortfolioTimeRange.displayOrder[sender.selectedSegmentIndex])
+        viewModel.selectRange(range)
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {

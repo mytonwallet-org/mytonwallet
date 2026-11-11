@@ -8,14 +8,17 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
+import com.squareup.moshi.Moshi
 import java.lang.reflect.Type
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -29,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okio.Buffer
+import org.json.JSONException
 import org.json.JSONObject
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
@@ -36,6 +40,7 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
+import org.mytonwallet.app_air.walletcontext.installationStorage.WInstallationStorage
 import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
@@ -137,6 +142,17 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
         jsWebInterface = JsWebInterface(this)
         addJavascriptInterface(requireNotNull(jsWebInterface), "androidApp")
+        webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                val message = consoleMessage.message()
+                when (consoleMessage.messageLevel()) {
+                    ConsoleMessage.MessageLevel.ERROR -> Logger.e(Logger.LogTag.CONSOLE, message)
+                    ConsoleMessage.MessageLevel.WARNING -> Logger.w(Logger.LogTag.CONSOLE, message)
+                    else -> Logger.i(Logger.LogTag.CONSOLE, message)
+                }
+                return true
+            }
+        }
         webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -184,6 +200,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     private var isDisposed: Boolean = false
     private var jsWebInterface: JsWebInterface? = null
     private var injecting: Boolean = false
+    private val installChannelDeliveryRetry = Runnable(::deliverInstallChannelIfNeeded)
     var injected: Boolean = false
         private set
 
@@ -214,17 +231,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         }
     }
 
-    private var installChannelDelivered: Boolean = false
-
-    // Read the Play Install Referrer once per bridge instance and hand the
-    // channel to the JS claim path. Runs after the page has loaded and
-    // airBridge is initialised; the referrer read itself is async (a bound
-    // service) so it never blocks boot. The JS claim is idempotent across
-    // launches, so a one-shot guard here is enough.
     private fun deliverInstallChannelIfNeeded() {
-        if (installChannelDelivered) return
-        installChannelDelivered = true
-        InstallReferrerChannel.deliver(context, this)
+        if (isDisposed || isRenderProcessGone) return
+        val delivered = InstallReferrerChannel.deliver(context, this)
+        if (!delivered) postDelayed(installChannelDeliveryRetry, 500)
     }
 
     private fun initScript(): String = buildInitScript(LocaleController.activeLanguage.langCode)
@@ -234,6 +244,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         isDisposed = true
         injecting = false
         injected = false
+        removeCallbacks(installChannelDeliveryRetry)
         disposeJsWebInterface()
         failPendingCallbacks(MBridgeError.Type.BRIDGE_INTERRUPTED)
         (parent as? ViewGroup)?.removeView(this)
@@ -297,7 +308,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             "       }})" +
             "       .catch((e) => {" +
             "console.log(e);" +
-            "androidApp.callback($thisCallIdentifier, false, JSON.stringify(e))" +
+            "androidApp.callback($thisCallIdentifier, false, " +
+            "JSON.stringify(e instanceof Error ? { ...e, message: e.message } : e))" +
             "})" +
             "   } else {" +
             "       androidApp.callback($thisCallIdentifier, true, JSON.stringify(call))" +
@@ -604,8 +616,65 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         }
 
         @JavascriptInterface
-        fun nativeCall(requestNumber: Int, methodName: String, arg0: String, arg1: String?) {
+        fun nativeCall(requestNumber: Int, methodName: String, arg0: String?, arg1: String?) {
+            try {
+                handleNativeCall(requestNumber, methodName, arg0 ?: "", arg1)
+            } catch (_: Exception) {
+                bridge.post {
+                    bridge.evaluateJavascript(
+                        "window.airBridge.nativeCallCallbacks[$requestNumber]?.({ok:false})"
+                    ) {
+                    }
+                }
+            }
+        }
+
+        private fun handleNativeCall(
+            requestNumber: Int,
+            methodName: String,
+            arg0: String,
+            arg1: String?
+        ) {
             when (methodName) {
+                "airInstallationGetPending",
+                "airInstallationSyncWalletAttribution",
+                "airInstallationAcknowledge" -> {
+                    require(arg0.length <= 2048 && (arg1?.length ?: 0) <= 2048)
+                    enqueueNative(requestNumber) {
+                        when (methodName) {
+                            "airInstallationGetPending" -> {
+                                require(arg0.isEmpty() && arg1 == null)
+                                if (WInstallationStorage.ensureOpen(
+                                        bridge.context.applicationContext
+                                    )
+                                ) {
+                                    InstallReferrerChannel.notifyBridges()
+                                }
+                                WInstallationStorage.getPending().toString()
+                            }
+
+                            "airInstallationSyncWalletAttribution" -> {
+                                require(arg1 == null)
+                                WInstallationStorage.ensureOpen(bridge.context.applicationContext)
+                                WInstallationStorage.syncWalletAttribution(
+                                    bridge.context.applicationContext,
+                                    arg0
+                                ).toString()
+                            }
+
+                            else -> {
+                                require(arg0 == "play" || arg0 == "deeplink")
+                                WInstallationStorage.acknowledge(
+                                    arg0,
+                                    JSONObject(requireNotNull(arg1))
+                                ).also { accepted ->
+                                    if (accepted) InstallReferrerChannel.notifyBridges()
+                                }.toString()
+                            }
+                        }
+                    }
+                }
+
                 "airStorageGetItem" -> {
                     val result = getStorageValue(arg0)
                     val resultInJs =
@@ -725,6 +794,23 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 }
             }
         }
+
+        private fun enqueueNative(requestNumber: Int, operation: () -> String) {
+            fun respond(response: String) {
+                bridge.post {
+                    if (!bridge.isDisposed && !bridge.isRenderProcessGone) {
+                        bridge.evaluateJavascript(
+                            "window.airBridge.nativeCallCallbacks[$requestNumber]?.($response)"
+                        ) {}
+                    }
+                }
+            }
+            val accepted = WInstallationStorage.enqueue {
+                val result = runCatching(operation)
+                respond(result.fold({ "{ok:true,result:$it}" }, { "{ok:false}" }))
+            }
+            if (!accepted) respond("{ok:false}")
+        }
     }
 
     class ApiError(
@@ -733,7 +819,15 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         val parsed: MBridgeError,
         val exception: Throwable? = null,
         val parsedResult: Any? = null
-    ) : Exception("ApiError: $methodName", exception)
+    ) : Exception("ApiError: $methodName", exception) {
+        /** Message of an `Error` the SDK threw, such as a perps validation code. */
+        val thrownMessage: String?
+            get() = try {
+                raw?.let { JSONObject(it).optString("message").takeIf(String::isNotEmpty) }
+            } catch (_: JSONException) {
+                null
+            }
+    }
 
     suspend fun <T> callApiAsync(methodName: String, args: String, clazz: Type): T {
         val result = callApiAsyncRaw(methodName, args, clazz)
@@ -813,29 +907,37 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         }
     }
 
-    private fun <T> parseResult(methodName: String, args: String, result: String, clazz: Type): T {
-        if (result == "undefined") {
-            return null as T
-        }
+    private fun <T> parseResult(methodName: String, args: String, result: String, clazz: Type): T =
+        parseBridgeResult(methodName, result, clazz, WalletCore.moshi)
+}
 
-        val adapter: JsonAdapter<T> = WalletCore.moshi.adapter(clazz)
-
-        val parsed = try {
-            adapter.fromJson(result) as T
-        } catch (e: Exception) {
-            if (e is CancellationException) {
-                throw e
-            }
-            throw ApiError(
-                methodName = methodName,
-                raw = result,
-                parsed = MBridgeError.Type.PARSE_ERROR,
-                exception = e
-            )
-        }
-
-        return parsed
+internal fun <T> parseBridgeResult(
+    methodName: String,
+    result: String,
+    clazz: Type,
+    moshi: Moshi
+): T {
+    if (result == "undefined") {
+        return null as T
     }
+
+    val adapter: JsonAdapter<T> = moshi.adapter(clazz)
+
+    val parsed = try {
+        adapter.fromJson(result) as T
+    } catch (e: Exception) {
+        if (e is CancellationException) {
+            throw e
+        }
+        throw JSWebViewBridge.ApiError(
+            methodName = methodName,
+            raw = result,
+            parsed = MBridgeError.Type.PARSE_ERROR,
+            exception = e
+        )
+    }
+
+    return parsed
 }
 
 internal fun buildInitScript(langCode: String) = "window.airBridge.initApi((data) => {" +

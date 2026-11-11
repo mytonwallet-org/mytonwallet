@@ -27,6 +27,10 @@ public final class DustEffectView: UIView {
         var duration: Double = 0
         var isParticleBufferInitialized: Bool = false
         var particleBuffer: MTLBuffer?
+        /// The item as a still image, standing in for it until a frame of its dust is on screen, and the frames with
+        /// the item presented so far
+        var placeholder: CALayer?
+        var presentedFrameCount = 0
 
         init?(frame: CGRect, image: UIImage, textureLoader: MTKTextureLoader) {
             guard let cgImage = image.cgImage,
@@ -96,15 +100,26 @@ public final class DustEffectView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// Dissolves `image`, a snapshot of what stood at `frame` in this view's coordinates. Its first frame shows with
-    /// the current Core Animation transaction, so the caller hides the source in the same one. Returns `false` when
-    /// the effect is unavailable or cannot take the image, and the source should go another way.
+    /// Dissolves `image`, a snapshot of what stood at `frame` in this view's coordinates. It shows with the current
+    /// Core Animation transaction, so the caller hides the source in the same one. Returns `false` when the effect is
+    /// unavailable or cannot take the image, and the source should go another way.
     @discardableResult
     public func addItem(frame: CGRect, image: UIImage) -> Bool {
         guard let renderer, Int(frame.width) > 0, Int(frame.height) > 0,
               let item = Item(frame: frame, image: image, textureLoader: renderer.textureLoader) else {
             return false
         }
+        // The frame meant to show with the transaction can still reach the screen a frame after it, as when other
+        // Metal views start in the same transaction, so a still copy stands in until frames with the item are shown
+        let placeholder = CALayer()
+        placeholder.contents = image.cgImage
+        placeholder.contentsScale = image.scale
+        placeholder.frame = frame
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.addSublayer(placeholder)
+        CATransaction.commit()
+        item.placeholder = placeholder
         items.append(item)
         updateNeedsAnimation()
         isTransactionFrameNeeded = true
@@ -127,6 +142,7 @@ public final class DustEffectView: UIView {
     }
 
     private func tick() {
+        removeShownPlaceholders()
         updateItems(deltaTime: clock.frameDuration)
         render(shouldPresentWithTransaction: false)
     }
@@ -173,6 +189,7 @@ public final class DustEffectView: UIView {
             // The last grains come loose when the sweep ends, at phase 0.8, and then live for up to 2.1 seconds (4.1
             // in their simulation time, which runs twice as fast; see `dustEffectInitializeParticle`) whatever the speed
             if item.phase >= 4.0 && item.duration >= 0.8 / Double(Self.animationSpeed) + 2.1 {
+                item.placeholder?.removeFromSuperlayer()
                 items.remove(at: index)
                 hasRemovedItems = true
             } else {
@@ -249,6 +266,10 @@ public final class DustEffectView: UIView {
             renderEncoder.endEncoding()
         }
 
+        for item in items where item.placeholder != nil {
+            item.presentedFrameCount += 1
+        }
+
         if shouldPresentWithTransaction {
             commandBuffer.commit()
             commandBuffer.waitUntilScheduled()
@@ -258,6 +279,20 @@ public final class DustEffectView: UIView {
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
+    }
+
+    /// Once two frames with an item have been presented, the first of them is on screen by the next one, and its
+    /// still copy goes
+    private func removeShownPlaceholders() {
+        let shownItems = items.filter { $0.placeholder != nil && $0.presentedFrameCount >= 2 }
+        guard !shownItems.isEmpty else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for item in shownItems {
+            item.placeholder?.removeFromSuperlayer()
+            item.placeholder = nil
+        }
+        CATransaction.commit()
     }
 
     private func encodeSimulation(_ computeEncoder: MTLComputeCommandEncoder, renderer: DustEffectRenderer, lastTimeStep: Double, containerSize: CGSize) {

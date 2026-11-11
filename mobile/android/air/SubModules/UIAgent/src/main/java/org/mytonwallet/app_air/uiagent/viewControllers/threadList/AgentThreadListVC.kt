@@ -6,31 +6,24 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Rect
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.text.format.DateFormat
 import android.view.Gravity
-import android.view.PixelCopy
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-import android.view.Window
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -63,22 +56,40 @@ import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
 import org.mytonwallet.app_air.uiagent.agentV2.localizedAgentV2Hint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentGate
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentConsentSheetVC
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHeldDictation
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewChatVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentPromptChatRequest
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.holdDictationForConsent
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.showMicrophoneDeniedAlert
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentConsentView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDustEffect
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentLoadErrorView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSentMessageSource
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSuggestionRipple
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.calculateAgentSendDurationMs
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.getAgentHostOrigin
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.getAgentTextFrame
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.makeAgentPictureView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.makeAgentTextPicture
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.offsetBy
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedVC
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsPreviewModel
+import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
-import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.drawable.GradientShaderDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -101,6 +112,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -139,6 +151,11 @@ private sealed class AgentThreadListRow : WEquatable<AgentThreadListRow> {
         override val key = "thread:${item.thread.id}"
     }
 
+    // The line at the list's end that loads a page that failed to load again
+    data object PageFailure : AgentThreadListRow() {
+        override val key = "page-failure"
+    }
+
     override fun isSame(comparing: WEquatable<*>): Boolean =
         (comparing as? AgentThreadListRow)?.key == key
 
@@ -169,9 +186,28 @@ class AgentThreadListVC(context: Context) :
     private val newsModel = AgentNewsPreviewModel(scope)
     private val readState = AgentThreadReadState.shared
     private var rows = emptyList<AgentThreadListRow>()
+
+    // Chats the user deleted: the change that removes one turns its row to dust, as on iOS
+    private val deletingThreadIds = mutableSetOf<String>()
+    private var dustEffect: AgentDustEffect? = null
+
+    // The change that waits for a deleted chat's dust to show, which hides its row as the rows close up
+    private var dustPendingChange: AgentThreadListChange? = null
+
+    // Debug builds remove rows without dust while system animations are off, to keep E2E runs fast
+    private val canDissolveRows: Boolean
+        get() = AgentDustEffect.isSupported(context) && (!DEBUG_MODE || areSystemAnimatorsEnabled)
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
     private var hasRevealedThreads = false
     private var hasConsent = false
     private var hasConsentResult = false
+
+    // A recording asked for before the list went from the screen doesn't start after; the consent sheet covering the
+    // list keeps it
+    private val heldDictation = AgentHeldDictation()
     private var consentJob: Job? = null
     private var refreshJob: Job? = null
     private var isAppActive = true
@@ -199,13 +235,18 @@ class AgentThreadListVC(context: Context) :
     var isBarCovered = false
         private set
 
-    /** A question is being written in the bar, or one sent from it waits for its chat to come */
+    /** A question is being written in the bar, or one sent from it hands the list to its chat */
     val isComposing: Boolean
         get() = (isComposerFocused || isComposedChatPending) && !isBarCovered
+
+    /** The bar's search circle makes way for its field, which records, recognizes or holds a draft */
+    val isSearchAway: Boolean
+        get() = composer.isFieldInUse
     private var isComposerFocused = false
     private var hostedBarProgress = 1f
 
-    // How far the field has widened over the search circle, as it does while composing or under a chat
+    // How far the field has widened over the search circle, as it does while composing, under a chat, or while the
+    // field is in use
     private var barExpansion = 0f
 
     // The chat over the list, whose composer follows the bar while the bar carries the field into it or back
@@ -215,7 +256,7 @@ class AgentThreadListVC(context: Context) :
     private val itemAnimator = AgentThreadListItemAnimator()
     private val threadsAdapter = WRecyclerViewAdapter(
         WeakReference(this),
-        arrayOf(HEADER_CELL, THREAD_CELL, NEWS_CELL)
+        arrayOf(HEADER_CELL, THREAD_CELL, NEWS_CELL, FAILURE_CELL)
     )
     private val listLayoutManager = LinearLayoutManager(context)
     private val listDecoration = AgentThreadListDecoration(
@@ -240,8 +281,11 @@ class AgentThreadListVC(context: Context) :
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 updateBlurViews(recyclerView)
+                // A page that failed to load waits for its failure line's Retry
                 val lastVisible = listLayoutManager.findLastVisibleItemPosition()
-                if (lastVisible >= rows.size - LOAD_MORE_THRESHOLD) model.loadMore()
+                if (lastVisible >= rows.size - LOAD_MORE_THRESHOLD && !model.hasPageLoadFailed) {
+                    model.loadMore()
+                }
             }
 
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
@@ -251,6 +295,12 @@ class AgentThreadListVC(context: Context) :
         })
     }
     private val skeletonView = AgentThreadListSkeletonView(context)
+
+    // The failure with Retry in place of the suggestions, under the News row, when the chats failed to load and the
+    // list has none to show
+    private val loadErrorView = AgentLoadErrorView(context).apply {
+        onRetry = { refresh() }
+    }
     private val loadMoreSpinner = ProgressBar(context).apply { id = View.generateViewId() }
     private val bottomGradientView = View(context).apply {
         id = View.generateViewId()
@@ -277,9 +327,6 @@ class AgentThreadListVC(context: Context) :
     }
     private var searchGlass: WGlassView? = null
     private val composer = AgentComposerView(context, recyclerView)
-    private val consentView = AgentConsentView(context).apply {
-        onAllow = { acceptConsent() }
-    }
     private val dictation: AgentDictationController by lazy {
         AgentDictationController(
             scope = scope,
@@ -306,8 +353,11 @@ class AgentThreadListVC(context: Context) :
     // While a question is written: the chats give way to suggestions over the field
     private val composeSuggestions = AgentHintsCell(context).apply {
         visibility = View.GONE
-        onHintTap = { hint -> sendComposed(hint.prompt) }
+        onHintTap = { hint, card -> sendComposed(hint.prompt, card) }
     }
+
+    // The suggestion whose question grows into a new chat, out of sight until the list shows again
+    private var sentSuggestionCard: WeakReference<WAgentHintView>? = null
     private val composeDismissArea = View(context).apply {
         id = View.generateViewId()
         visibility = View.GONE
@@ -352,6 +402,7 @@ class AgentThreadListVC(context: Context) :
         view.clipChildren = false
         view.addView(recyclerView, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(skeletonView, ConstraintLayout.LayoutParams(0, 0))
+        view.addView(loadErrorView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         view.addView(bottomGradientView, ConstraintLayout.LayoutParams(0, 0))
         view.addView(loadMoreSpinner, ConstraintLayout.LayoutParams(24.dp, 24.dp))
         view.addView(searchButton, ConstraintLayout.LayoutParams(BAR_HEIGHT.dp, BAR_HEIGHT.dp))
@@ -359,7 +410,6 @@ class AgentThreadListVC(context: Context) :
         view.addView(composeDismissArea, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.addView(composeSuggestions, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
         composeSuggestions.backdropSource = view
-        view.addView(consentView, ConstraintLayout.LayoutParams(0, 0))
         view.setConstraints {
             allEdges(recyclerView)
             allEdges(composeDismissArea)
@@ -375,7 +425,6 @@ class AgentThreadListVC(context: Context) :
             toBottom(bottomGradientView)
             toCenterX(loadMoreSpinner)
             bottomToTop(loadMoreSpinner, composer, 4f)
-            allEdges(consentView)
         }
         searchGlass = WGlassView.attachTo(
             searchButton,
@@ -384,13 +433,24 @@ class AgentThreadListVC(context: Context) :
             recyclerView
         )
         composer.bindDictation(dictation)
-        composer.onSend = { prompt -> sendComposed(prompt) }
+        composer.onSend = ::sendDraft
+        // A recording's audio goes to the Agent, so the first one waits for the user's consent
+        composer.shouldHoldDictation = holdDictationForConsent(
+            isAwaitingConsent = { !hasConsent },
+            heldDictation = heldDictation,
+            askForConsent = { onAllowed, _ -> requestConsent(action = onAllowed) },
+            startDictation = { dictation.startHandsFree() }
+        )
         composer.onHeightChanged = { insetsUpdated() }
         composer.onWindowFocusChanged = ::onWindowFocusChanged
         composer.onInputFocusChanged = { isFocused ->
             isComposerFocused = isFocused
             updateBarExpansion()
             updateComposeState()
+            barHost?.onAgentBarStateChanged()
+        }
+        composer.onFieldInUseChanged = {
+            updateBarExpansion()
             barHost?.onAgentBarStateChanged()
         }
         model.onChange = ::updateRows
@@ -413,6 +473,7 @@ class AgentThreadListVC(context: Context) :
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        restoreComposeSuggestions()
         // A chat going away hands the field back to the bar, which narrows under the chat's composer
         val isUnderChat = navigationController?.viewControllers?.lastOrNull() !== this
         if (coveringChat?.get() != null && barHost != null && isUnderChat) isChatTakingOver = true
@@ -427,6 +488,7 @@ class AgentThreadListVC(context: Context) :
     }
 
     override fun viewWillDisappear() {
+        if (!isAskingForConsent) heldDictation.drop()
         dictation.cancel()
         closeSwipes(except = null)
         refreshJob?.cancel()
@@ -456,95 +518,152 @@ class AgentThreadListVC(context: Context) :
         barHost?.onAgentBarStateChanged()
     }
 
-    private fun sendComposed(prompt: String): Boolean {
-        // One question at a time: a chat waiting for the window's copy is already on its way
-        if (!hasConsent || isComposedChatPending) return false
+    /**
+     * The field's question, which waits for the user's consent the first time, keeping the draft until it is given. A
+     * focused field here has the keyboard, which closing the sheet gives back.
+     */
+    private fun sendDraft(prompt: String): Boolean {
+        if (hasConsent) return sendComposed(prompt)
+        requestConsent(isFromKeyboard = isComposerFocused) {
+            // The field empties once its text has been pictured for the flight, as on a send
+            // that needs no consent
+            if (sendComposed(prompt)) composer.setDraftText("", focusInput = false)
+        }
+        return false
+    }
+
+    /** Sends [prompt], the field's question, or the question of [card], one of the suggestions */
+    private fun sendComposed(prompt: String, card: WAgentHintView? = null): Boolean {
+        if (!hasConsent) {
+            requestConsent { sendComposed(prompt, card) }
+            return false
+        }
+        // The question grows into the new chat's first bubble as the chat comes in, out of the
+        // field's text or the suggestion tapped, which leaves the list meanwhile
+        val sentSource = makeSentSource(card)
         // The suggestions stop taking taps as soon as one is sent
         composeSuggestions.setCardsEnabled(false)
         val shouldContinueInPlace = isComposeShown && barHost != null
-        // The compose screen stays until the chat comes over it, so the list doesn't show in between
+        // The other suggestions, the spinning top among them, leave at once, rippling away from
+        // the one tapped or from the field
+        val suggestionsRipple = if (shouldContinueInPlace) {
+            rippleComposeSuggestionsAway(card ?: composer)
+        } else {
+            null
+        }
+        if (!shouldContinueInPlace && sentSource?.kind is AgentSentMessageSource.Kind.Text) {
+            // The emptied field fades back in under the chat sliding in, as its text leaves it
+            composer.fadeInFieldText(calculateAgentSendDurationMs(AnimationConstants.NAV_PUSH))
+        }
+        // The compose screen stays as the field gives up the keyboard, until the chat takes its
+        // place
         if (shouldContinueInPlace) isComposedChatPending = true
-        // The field gives up the keyboard before the chat comes
         composer.hideKeyboard()
         if (shouldContinueInPlace) {
-            continueComposedChat(prompt)
+            continueComposedChat(prompt, sentSource, suggestionsRipple)
         } else {
-            openNewChat(prompt)
+            pushNewChat(prompt, AgentV2EntryPoint(), sentSource)
         }
         return true
     }
 
-    // A question written in the list continues in place: the new chat dissolves in over the list instead of sliding
-    private fun continueComposedChat(prompt: String) {
+    // Pictures of the suggestions leave over the window, where they outlast the list
+    private fun rippleComposeSuggestionsAway(origin: View): AgentSuggestionRipple? {
+        val root = view.rootView as? ViewGroup ?: return null
+        if (!WGlobalStorage.getAreAnimationsActive() || !composeSuggestions.isVisible) return null
+        composeSuggestions.finishReveal()
+        return AgentSuggestionRipple.start(composeSuggestions.contentViews, origin, root)
+    }
+
+    /** What a question sent from [card], or else from the field, grows out of, in the window */
+    private fun makeSentSource(card: WAgentHintView?): AgentSentMessageSource? {
+        if (card == null) return composer.makeSentTextSource()
+        val source = AgentSentMessageSource.makeSuggestion(card) ?: return null
+        restoreSentSuggestion()
+        card.animate().cancel()
+        card.alpha = 0f
+        sentSuggestionCard = WeakReference(card)
+        return source
+    }
+
+    private fun restoreSentSuggestion() {
+        sentSuggestionCard?.get()?.alpha = 1f
+        sentSuggestionCard = null
+    }
+
+    /**
+     * The suggestions a question left show again, the one tapped and those that rippled away with
+     * the spinning top: the row keeps its cards while its hints stay the same
+     */
+    private fun restoreComposeSuggestions() {
+        restoreSentSuggestion()
+        composeSuggestions.contentViews.forEach { it.alpha = 1f }
+    }
+
+    /**
+     * The new chat's first bubble grows out of [source] over the window as the chat comes in, and
+     * its answer comes once the bubble has landed and [suggestionsRipple] has ended
+     */
+    private fun handOverSentSource(
+        chat: AgentVC,
+        source: AgentSentMessageSource,
+        transitionMs: Long,
+        suggestionsRipple: AgentSuggestionRipple? = null
+    ) {
+        val root = view.rootView as? ViewGroup ?: return
+        chat.setOpeningSentSource(source, transitionMs, root, suggestionsRipple)
+    }
+
+    /**
+     * A question written in the list continues in place: the new chat takes the list's place at
+     * once, without a transition of its own, as the question grows into its first bubble over the
+     * window. The chat's header and timeline fade in as the list's title fades out, and the chat's
+     * field, which takes the place of the list's, goes down with the keyboard.
+     */
+    private fun continueComposedChat(
+        prompt: String,
+        sentSource: AgentSentMessageSource?,
+        suggestionsRipple: AgentSuggestionRipple?
+    ) {
         val navigation = navigationController ?: run {
             isComposedChatPending = false
+            suggestionsRipple?.cancel()
+            restoreComposeSuggestions()
             updateComposeState()
             return
         }
         val chat = AgentVC(context, prompt = AgentPromptChatRequest(prompt, AgentV2EntryPoint()))
-        val surface = window?.window
-        val shouldDissolve = WGlobalStorage.getAreAnimationsActive() && navigation.width > 0 &&
-            navigation.height > 0
-        if (shouldDissolve && surface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            pushDissolving(navigation, surface, chat)
-        } else {
-            isComposedChatPending = false
-            navigation.push(chat, animated = false)
+        sentSource?.let {
+            handOverSentSource(chat, it, transitionMs = 0L, suggestionsRipple = suggestionsRipple)
         }
+        fadeComposeTitleAway()
+        isComposedChatPending = false
+        navigation.push(chat, animated = false)
+        chat.takePlaceOfPreviousScreen(COMPOSED_CHAT_CROSSFADE_MS)
     }
 
-    // The window's pixels at half size, copied off the main thread, stand in for the list as the chat comes
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun pushDissolving(navigation: WNavigationController, surface: Window, chat: AgentVC) {
-        isComposedChatPending = true
-        val location = IntArray(2)
-        navigation.getLocationInWindow(location)
-        val snapshot = createBitmap(
-            (navigation.width / DISSOLVE_DOWNSCALE).coerceAtLeast(1),
-            (navigation.height / DISSOLVE_DOWNSCALE).coerceAtLeast(1)
-        )
-        val source = Rect(
-            location[0],
-            location[1],
-            location[0] + navigation.width,
-            location[1] + navigation.height
-        )
-        val onCopied = PixelCopy.OnPixelCopyFinishedListener { result ->
-            if (result == PixelCopy.SUCCESS && navigation.isAttachedToWindow) {
-                dissolveIn(navigation, snapshot)
-            } else {
-                snapshot.recycle()
-            }
-            isComposedChatPending = false
-            navigation.push(chat, animated = false)
-        }
-        try {
-            PixelCopy.request(surface, source, snapshot, onCopied, Handler(Looper.getMainLooper()))
-        } catch (_: IllegalArgumentException) {
-            snapshot.recycle()
-            isComposedChatPending = false
-            navigation.push(chat, animated = false)
+    // A picture of the list's title fades out over the window, where it outlasts the list
+    private fun fadeComposeTitleAway() {
+        if (!WGlobalStorage.getAreAnimationsActive()) return
+        val root = view.rootView as? ViewGroup ?: return
+        val bar = navigationBar ?: return
+        val title = bar.titleLabel
+        if (!title.isShown) return
+        val frame = getAgentTextFrame(title) ?: return
+        val picture = makeAgentTextPicture(title, frame) ?: return
+        val origin = getAgentHostOrigin(title, root)
+        val pictureView =
+            makeAgentPictureView(context, picture, frame.offsetBy(origin.x, origin.y))
+        root.overlay.add(pictureView)
+        ValueAnimator.ofFloat(bar.alpha * title.alpha, 0f).apply {
+            duration = COMPOSED_CHAT_CROSSFADE_MS
+            addUpdateListener { pictureView.alpha = it.animatedValue as Float }
+            doOnEnd { root.overlay.remove(pictureView) }
+            start()
         }
     }
 
     private var isComposedChatPending = false
-
-    private fun dissolveIn(navigation: View, snapshot: Bitmap) {
-        val dissolve = snapshot.toDrawable(navigation.resources).apply {
-            setBounds(0, 0, navigation.width, navigation.height)
-            isFilterBitmap = true
-        }
-        navigation.overlay.add(dissolve)
-        ValueAnimator.ofInt(255, 0).apply {
-            duration = COMPOSED_CHAT_DISSOLVE_MS
-            addUpdateListener { dissolve.alpha = it.animatedValue as Int }
-            doOnEnd {
-                navigation.overlay.remove(dissolve)
-                snapshot.recycle()
-            }
-            start()
-        }
-    }
 
     private fun endComposing() {
         composer.hideKeyboard()
@@ -553,7 +672,7 @@ class AgentThreadListVC(context: Context) :
     // Writing a question turns the list into a new chat: its chats fade, suggestions rise over the field, and with a
     // hosting toolbar the root header gives way to a new chat's
     private fun updateComposeState() {
-        val shouldShowCompose = isComposing && hasConsent
+        val shouldShowCompose = isComposing && hasConsentResult
         val shouldAnimate = WGlobalStorage.getAreAnimationsActive()
         if (shouldShowCompose || shouldShowEmptySuggestions) loadComposeHints()
         if (isComposeShown == shouldShowCompose) {
@@ -565,7 +684,7 @@ class AgentThreadListVC(context: Context) :
             closeSwipes(except = null)
         }
         updateComposeCover(if (shouldShowCompose) 1f else 0f, shouldAnimate)
-        listOf(skeletonView).forEach { content ->
+        listOf(skeletonView, loadErrorView).forEach { content ->
             content.animate().cancel()
             if (shouldAnimate) {
                 content.animate().alpha(
@@ -620,8 +739,14 @@ class AgentThreadListVC(context: Context) :
     // While the chats fade, the suggestions take their share from the same animation
     private var areSuggestionsFollowingCover = false
 
+    // A list whose chats failed to load shows the failure in their place. Before consent the list has no chats to load
+    // and shows the suggestions at once.
     private val shouldShowEmptySuggestions: Boolean
-        get() = hasConsent && model.hasLoaded && model.items.isEmpty() && !isBarCovered
+        get() {
+            if (!hasConsentResult || isBarCovered) return false
+            return !hasConsent ||
+                (model.hasLoaded && model.items.isEmpty() && !model.hasLoadFailed)
+        }
 
     private fun applySuggestionsShare(share: Float) {
         composeSuggestions.alpha = share
@@ -748,6 +873,8 @@ class AgentThreadListVC(context: Context) :
         bar.translationY = -(navigationController?.additionalRootTopInset ?: 0).toFloat()
         // A tap on the header ends composing, as anywhere else outside the field
         bar.setOnClickListener { endComposing() }
+        // The root's top gradient fades the list under the header, not the header's title and arrow
+        bar.bringToFront()
         return bar
     }
 
@@ -799,14 +926,20 @@ class AgentThreadListVC(context: Context) :
     fun openSearchFromBar() = openSearch()
 
     private fun updateBarExpansion() {
-        val isWide = isComposerFocused || isComposedChatPending || isBarCovered
-        val target = if (barHost != null && isWide) 1f else 0f
+        // Over a hosting toolbar's circle the field also widens while composing and under a chat
+        val isHostedWide = barHost != null &&
+            (isComposerFocused || isComposedChatPending || isBarCovered)
+        val isWide = isHostedWide || composer.isFieldInUse
+        val target = if (hasSearchCircle && isWide) 1f else 0f
         barExpansionAnimator?.cancel()
         barExpansionAnimator = null
         if (barExpansion == target) return
         if (!WGlobalStorage.getAreAnimationsActive() || !isViewConfigured) {
             barExpansion = target
-            if (isViewConfigured) insetsUpdated()
+            if (isViewConfigured) {
+                insetsUpdated()
+                applySearchSlide()
+            }
             return
         }
         barExpansionAnimator = ValueAnimator.ofFloat(barExpansion, target).apply {
@@ -815,6 +948,7 @@ class AgentThreadListVC(context: Context) :
             addUpdateListener {
                 barExpansion = it.animatedValue as Float
                 applyBarFieldStart()
+                applySearchSlide()
                 followBarInCoveringChat()
             }
             doOnEnd {
@@ -827,6 +961,8 @@ class AgentThreadListVC(context: Context) :
 
     override fun onDestroy() {
         composeCoverAnimator?.cancel()
+        dustEffect?.kill()
+        dustEffect = null
         dictation.cancel()
         scope.cancel()
         readState.removeListener(readStateListener)
@@ -836,13 +972,27 @@ class AgentThreadListVC(context: Context) :
     }
 
     fun openNewChat(prompt: String? = null, entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()) {
-        navigationController?.push(
-            if (prompt.isNullOrBlank()) {
-                AgentNewChatVC(context)
-            } else {
-                AgentVC(context, prompt = AgentPromptChatRequest(prompt, entryPoint))
-            }
-        )
+        pushNewChat(prompt, entryPoint, sentSource = null)
+    }
+
+    // A question sent from the list grows into the chat's first bubble out of [sentSource] as the
+    // chat slides in
+    private fun pushNewChat(
+        prompt: String?,
+        entryPoint: AgentV2EntryPoint,
+        sentSource: AgentSentMessageSource?
+    ) {
+        requestConsent {
+            navigationController?.push(
+                if (prompt.isNullOrBlank()) {
+                    AgentNewChatVC(context)
+                } else {
+                    val chat = AgentVC(context, prompt = AgentPromptChatRequest(prompt, entryPoint))
+                    sentSource?.let { handOverSentSource(chat, it, AnimationConstants.NAV_PUSH) }
+                    chat
+                }
+            )
+        }
     }
 
     private fun openNews(cell: AgentNewsCell) {
@@ -868,7 +1018,7 @@ class AgentThreadListVC(context: Context) :
         val navigation = navigationController ?: return
         // The tapped row stays lit until the chat has slid in over it
         cell.rowView.shouldHoldHighlight = true
-        val chat = AgentVC(context, thread)
+        val chat = AgentVC(context, thread, isSummaryCached = model.isCacheShown)
         navigation.push(chat) {
             cell.rowView.shouldHoldHighlight = false
             finishChatTakeover(chat)
@@ -911,38 +1061,64 @@ class AgentThreadListVC(context: Context) :
 
     private fun checkConsent() {
         if (hasConsent || consentJob?.isActive == true || isDestroyed) return
-        hasConsentResult = false
-        updateChrome()
+        // The list keeps what it showed while it asks again, as each time it comes back before consent
+        if (!hasConsentResult) updateChrome()
         consentJob = scope.launch {
             try {
-                showConsentResult(client.consent())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                showConsentResult(false)
-                consentView.showError(errorText(error))
+                showConsentResult(readConsent())
             } finally {
                 consentJob = null
             }
         }
     }
 
-    private fun acceptConsent() {
-        if (consentJob?.isActive == true) return
-        consentView.setLoading(true)
-        consentView.showError(null)
-        consentJob = scope.launch {
-            try {
-                client.acceptConsent()
-                showConsentResult(true)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                consentView.showError(errorText(error))
-            } finally {
-                consentView.setLoading(false)
-                consentJob = null
+    private suspend fun readConsent(): Boolean = try {
+        client.consent()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Throwable) {
+        false
+    }
+
+    // The sheet takes the keyboard's place without ending composing
+    private var isAskingForConsent = false
+
+    // What the user does that sends something to the Agent waits for their consent, asked in a sheet
+    private val consentGate = AgentConsentGate(
+        knownConsent = { hasConsent.takeIf { hasConsentResult } },
+        readConsent = ::readConsent,
+        askForConsent = { onAllowed, onDeclined ->
+            if (isDestroyed) {
+                onDeclined()
+            } else {
+                isAskingForConsent = true
+                AgentConsentSheetVC.present(
+                    this,
+                    onAllowed = {
+                        isAskingForConsent = false
+                        onAllowed()
+                    },
+                    onDeclined = {
+                        isAskingForConsent = false
+                        onDeclined()
+                    }
+                )
             }
+        },
+        onAllowed = { showConsentResult(true) }
+    )
+
+    private fun requestConsent(isFromKeyboard: Boolean = false, action: () -> Unit) {
+        if (hasConsent) return action()
+        scope.launch {
+            consentGate.request(
+                onDeclined = {
+                    // Closing the sheet gives the keyboard back to a question sent from it; anything else ends
+                    // composing, as the keyboard going does
+                    if (isFromKeyboard) composer.focusInputWithKeyboard() else composer.clearFocus()
+                },
+                action = action
+            )
         }
     }
 
@@ -950,13 +1126,15 @@ class AgentThreadListVC(context: Context) :
         hasConsent = isAllowed
         hasConsentResult = true
         updateChrome()
-        if (isAllowed) refresh()
+        refresh()
     }
 
+    // The News load whatever the consent; the chats come with it
     private fun refresh() {
+        newsModel.refresh()
+        if (!hasConsent) return
         model.syncActivities(AgentSession.getLoadedChats())
         model.refresh()
-        newsModel.refresh()
     }
 
     // The list refreshes every 30 s while it is on screen and the app is active
@@ -965,16 +1143,18 @@ class AgentThreadListVC(context: Context) :
         refreshJob = scope.launch {
             while (isActive) {
                 delay(REFRESH_INTERVAL_MS)
-                if (hasConsent && isAppActive && !isDisappeared) refresh()
+                if (hasConsentResult && isAppActive && !isDisappeared) refresh()
             }
         }
     }
 
     // Rows
 
+    // The News row shows before consent as after it; the chats come with the consent
     private fun buildRows(): List<AgentThreadListRow> = buildList {
+        if (!hasConsentResult) return@buildList
         add(AgentThreadListRow.News(newsModel.latestItem, newsModel.unreadCount))
-        if (!model.hasLoaded) return@buildList
+        if (!hasConsent || !model.hasLoaded) return@buildList
         val locale = Locale.forLanguageTag(LocaleController.activeLanguage.langCode)
         val now = Date()
         groupAgentThreads(model.items).forEach { section ->
@@ -990,10 +1170,92 @@ class AgentThreadListVC(context: Context) :
             add(AgentThreadListRow.Header(section.day?.toString() ?: PINNED_SECTION_KEY, title))
             section.items.forEach { add(AgentThreadListRow.Thread(it, title)) }
         }
+        if (model.hasPageLoadFailed && model.items.isNotEmpty()) add(AgentThreadListRow.PageFailure)
     }
 
     private fun updateRows(change: AgentThreadListChange) {
+        if (dustPendingChange != null) {
+            if (change == AgentThreadListChange.USER) dustPendingChange = change
+            return
+        }
         val newRows = buildRows()
+        if (dissolveDeletedRows(newRows, change)) return
+        applyRows(newRows, change)
+    }
+
+    /**
+     * Turns the rows of the chats the user deleted that [newRows] no longer has to dust, and applies the rows once the
+     * dust stands in their place. Returns false when there is nothing to turn to dust, or the dust can't run.
+     */
+    private fun dissolveDeletedRows(
+        newRows: List<AgentThreadListRow>,
+        change: AgentThreadListChange
+    ): Boolean {
+        val newKeys = newRows.mapTo(HashSet()) { it.key }
+        val removedIds = rows.filterIsInstance<AgentThreadListRow.Thread>()
+            .filter { it.key !in newKeys }
+            .mapTo(HashSet()) { it.item.thread.id }
+        val deletedIds = deletingThreadIds.intersect(removedIds)
+        deletingThreadIds.removeAll(removedIds)
+        if (deletedIds.isEmpty() || !canDissolveRows) return false
+        val views = rows.withIndex()
+            .filter { (position, row) ->
+                (row is AgentThreadListRow.Thread && row.item.thread.id in deletedIds) ||
+                    isSectionLeaving(position, newKeys, deletedIds)
+            }
+            .mapNotNull { (position, _) -> listLayoutManager.findViewByPosition(position) }
+        if (views.isEmpty()) return false
+        dustPendingChange = change
+        val effect = dustEffect?.takeIf { it.isActive } ?: AgentDustEffect(context) { finished ->
+            (finished.parent as? ViewGroup)?.removeView(finished)
+            if (dustEffect === finished) dustEffect = null
+        }.also { effect ->
+            effect.id = View.generateViewId()
+            view.addView(
+                effect,
+                view.indexOfChild(recyclerView) + 1,
+                ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            )
+            dustEffect = effect
+        }
+        effect.dissolve(
+            recyclerView,
+            views,
+            onStarted = {
+                if (dustPendingChange == null) return@dissolve
+                if (!isViewConfigured) {
+                    dustPendingChange = null
+                    return@dissolve
+                }
+                // A recycled row shows again once bound to the chat or the title it takes next
+                views.forEach { it.visibility = View.INVISIBLE }
+                // The deleted chat's place holds while most of its dust drifts off, as the web holds a removed
+                // message's, so the rows that stay don't run into it
+                val closeGap = Runnable {
+                    val pending = dustPendingChange ?: return@Runnable
+                    dustPendingChange = null
+                    if (isViewConfigured) applyRows(buildRows(), pending)
+                }
+                recyclerView.postDelayed(closeGap, DISSOLVED_GAP_CLOSE_DELAY_MS)
+            },
+            onDone = {}
+        )
+        return true
+    }
+
+    // A section's title goes with the last of its chats
+    private fun isSectionLeaving(
+        position: Int,
+        newKeys: Set<String>,
+        deletedIds: Set<String>
+    ): Boolean {
+        val header = rows[position] as? AgentThreadListRow.Header ?: return false
+        return header.key !in newKeys && rows.drop(position + 1)
+            .takeWhile { it is AgentThreadListRow.Thread }
+            .all { (it as AgentThreadListRow.Thread).item.thread.id in deletedIds }
+    }
+
+    private fun applyRows(newRows: List<AgentThreadListRow>, change: AgentThreadListChange) {
         val oldRows = rows
         val isReveal = !hasRevealedThreads && model.hasLoaded
         val shouldAnimate = WGlobalStorage.getAreAnimationsActive()
@@ -1010,6 +1272,9 @@ class AgentThreadListVC(context: Context) :
             null
         }
         rows = newRows
+        if (itemAnimator.mode == AgentThreadListItemAnimator.Mode.SPRING) {
+            listDecoration.easeBottomOnNextChange()
+        }
         threadsAdapter.applyChanges(oldRows, newRows, 0, false, shouldDetectMoves = true)
         anchor?.let { (position, offset) ->
             listLayoutManager.scrollToPositionWithOffset(position, offset)
@@ -1072,7 +1337,7 @@ class AgentThreadListVC(context: Context) :
 
     private fun updateActivities(threadIds: Set<String>) {
         forEachVisibleThreadCell { cell, item ->
-            if (item.thread.id in threadIds) {
+            if (item.thread.id in threadIds && !isLeaving(item.thread.id)) {
                 cell.setActivity(model.getActivityText(item.thread.id), model.isUnread(item.thread))
             }
         }
@@ -1080,6 +1345,7 @@ class AgentThreadListVC(context: Context) :
 
     private fun reconfigureVisibleRows() {
         forEachVisibleThreadCell { cell, item ->
+            if (isLeaving(item.thread.id)) return@forEachVisibleThreadCell
             cell.setActivity(model.getActivityText(item.thread.id), model.isUnread(item.thread))
         }
     }
@@ -1094,6 +1360,11 @@ class AgentThreadListVC(context: Context) :
         }
     }
 
+    // The row of a chat being deleted, or gone from the list, keeps its status and unread dot, which its deletion
+    // clears just before the row leaves, so it turns to dust as it stood
+    private fun isLeaving(threadId: String) =
+        threadId in deletingThreadIds || model.items.none { it.thread.id == threadId }
+
     private fun closeSwipes(except: AgentThreadCell?) {
         for (index in 0 until recyclerView.childCount) {
             val cell = recyclerView.getChildAt(index) as? AgentThreadCell ?: continue
@@ -1104,10 +1375,9 @@ class AgentThreadListVC(context: Context) :
     // Chrome
 
     private fun updateChrome() {
-        consentView.isGone = !hasConsentResult || hasConsent
         recyclerView.visibility = when {
-            !hasConsent -> View.GONE
-            !hasRevealedThreads -> View.INVISIBLE
+            !hasConsentResult -> View.GONE
+            hasConsent && !hasRevealedThreads -> View.INVISIBLE
             else -> View.VISIBLE
         }
         // Once the chats are revealed, the placeholder hides as it finishes fading out
@@ -1123,13 +1393,18 @@ class AgentThreadListVC(context: Context) :
         }
         loadMoreSpinner.isVisible = hasConsent && model.isLoading && model.nextCursor != null &&
             model.hasLoaded
+        loadErrorView.setError(
+            LocaleController.getString("\$agent_chats_unavailable").takeIf {
+                hasConsent && model.hasLoadFailed && model.items.isEmpty()
+            }
+        )
         updateBarVisibility()
         updatePlaceholderFrames()
         updateComposeState()
     }
 
-    /** The list shows its bar: the Agent is allowed and no search is open over the list */
-    val isBarShown: Boolean get() = hasConsent && !isAgentSearchOpen
+    /** The list shows its bar: the list knows whether the Agent is allowed, and no search is open over it */
+    val isBarShown: Boolean get() = hasConsentResult && !isAgentSearchOpen
     private var hasBarBeenShown: Boolean? = null
 
     private fun updateBarVisibility() {
@@ -1139,9 +1414,10 @@ class AgentThreadListVC(context: Context) :
         searchButton.isGone = !isBarShown || barHost != null ||
             navigationController?.tabBarController?.isAgentSearchSupported != true
         searchGlass?.isGone = searchButton.isGone
-        bottomGradientView.isGone = !hasConsent
+        applySearchSlide()
+        bottomGradientView.isGone = !hasConsentResult
         if (isBarShown && barHost != null) setHostedBarProgress(hostedBarProgress)
-        // Without its bar, as on the consent screen, the list needs no toolbar
+        // Without its bar, as before the list knows the consent, the list needs no toolbar
         if (hasBarBeenShown != isBarShown) {
             hasBarBeenShown = isBarShown
             barHost?.onAgentBarStateChanged()
@@ -1153,6 +1429,11 @@ class AgentThreadListVC(context: Context) :
             toTopPx(skeletonView, recyclerView.paddingTop)
             toStartPx(skeletonView, recyclerView.paddingStart)
             toEndPx(skeletonView, recyclerView.paddingEnd)
+            // In the middle of the list's content, between its top and the field
+            toTopPx(loadErrorView, recyclerView.paddingTop)
+            toBottomPx(loadErrorView, recyclerView.paddingBottom)
+            toStartPx(loadErrorView, recyclerView.paddingStart + LOAD_ERROR_SIDE_INSET.dp)
+            toEndPx(loadErrorView, recyclerView.paddingEnd + LOAD_ERROR_SIDE_INSET.dp)
         }
     }
 
@@ -1164,8 +1445,8 @@ class AgentThreadListVC(context: Context) :
         searchButtonRipple.rippleColor = WColor.BackgroundRipple.color
         searchButton.setBackgroundColor(Color.TRANSPARENT, BAR_HEIGHT.dp / 2f, true)
         composer.updateTheme()
-        consentView.updateTheme()
         skeletonView.updateTheme()
+        loadErrorView.updateTheme()
         val page = WColor.SecondaryBackground.color
         bottomGradientView.background = GradientShaderDrawable(
             intArrayOf(page.colorWithAlpha(0), page.colorWithAlpha(BOTTOM_FADE_ALPHA)),
@@ -1191,7 +1472,7 @@ class AgentThreadListVC(context: Context) :
         // The keyboard going away, by Back or its own key, ends composing, as the field resigning does on iOS
         val isKeyboardShown = keyboard > 0 || isFloatingKeyboardShown()
         if (hasKeyboardBeenShown && !isKeyboardShown && isComposerFocused &&
-            isKeyboardDismissal()
+            isKeyboardDismissal() && !isAskingForConsent
         ) {
             composer.clearFocus()
         }
@@ -1208,15 +1489,6 @@ class AgentThreadListVC(context: Context) :
         val gutter = ViewConstants.HORIZONTAL_PADDINGS.dp
         // The field starts after the search circle, as the root toolbar's field does, and widens over it
         val fieldStart = computeBarFieldStart()
-        val endsAboveBottomBar =
-            additionalTabletPadding > 0 && !WGlobalStorage.isGradientNavigationBarActive()
-        val consentGutter = if (additionalTabletPadding > 0) gutter else 0
-        view.setConstraints {
-            toStartPx(consentView, sideStart + consentGutter)
-            toEndPx(consentView, sideEnd + consentGutter)
-            toBottomPx(consentView, if (endsAboveBottomBar) bottom else 0)
-        }
-        consentView.updateInsets(top, bottom, endsAboveBottomBar)
         val frame =
             BarFrame(top, bottom, sideStart, sideEnd, fieldStart, composer.height, host != null)
         if (frame == laidOutBar) {
@@ -1263,11 +1535,13 @@ class AgentThreadListVC(context: Context) :
     private var laidOutBar: BarFrame? = null
     private var laidOutComposerBottom = 0
 
+    private val hasSearchCircle: Boolean
+        get() = barHost != null ||
+            navigationController?.tabBarController?.isAgentSearchSupported == true
+
     // The field starts after the search circle, as the root toolbar's field does, and widens over it
     private fun computeBarFieldStart(): Int {
-        val hasCircle = barHost != null ||
-            navigationController?.tabBarController?.isAgentSearchSupported == true
-        if (!hasCircle) return 0
+        if (!hasSearchCircle) return 0
         val circleStart = (BAR_SIDE_INSET + BAR_HEIGHT + BAR_GAP).dp - composer.paddingStart
         return (circleStart * (1 - barExpansion)).roundToInt()
     }
@@ -1296,6 +1570,20 @@ class AgentThreadListVC(context: Context) :
         composerParams.marginStart = frame.sideStart + fieldStart
         composer.layoutParams = composerParams
         laidOutBar = frame.copy(fieldStart = fieldStart)
+    }
+
+    // The list's own search circle slides off toward the start as the field widens over it, as Telegram's attach button
+    // does; a hosting toolbar moves its own
+    private fun applySearchSlide() {
+        if (barHost != null) return
+        val travel = (BAR_SIDE_INSET + BAR_HEIGHT).dp * barExpansion
+        val shift = if (LocaleController.isRTL) travel else -travel
+        val alpha = 1 - barExpansion
+        searchButton.translationX = shift
+        searchButton.alpha = alpha
+        searchGlass?.translationX = shift
+        searchGlass?.alpha = alpha
+        if (!searchButton.isGone) searchButton.isInvisible = barExpansion >= 1f
     }
 
     override fun updateBlurViews(recyclerView: RecyclerView) {
@@ -1332,9 +1620,12 @@ class AgentThreadListVC(context: Context) :
         searchGlass?.bringToFront()
         searchButton.bringToFront()
         composer.bringToFront()
-        consentView.bringToFront()
+        // The root's top gradient stays over the list, and under a new chat's header
+        if (isRootTopGradientEnabled) topReversedCornerView?.bringToFront()
         if (window?.isWideLayout == true) {
             topReversedCornerView?.bringToFront()
+            navigationBar?.bringToFront()
+        } else if (isComposeHeaderShown) {
             navigationBar?.bringToFront()
         }
     }
@@ -1354,7 +1645,7 @@ class AgentThreadListVC(context: Context) :
         when (walletEvent) {
             WalletEvent.AppForeground -> {
                 isAppActive = true
-                if (hasConsent && !isDisappeared) refresh()
+                if (hasConsentResult && !isDisappeared) refresh()
             }
 
             WalletEvent.AppBackground -> {
@@ -1369,6 +1660,8 @@ class AgentThreadListVC(context: Context) :
                 consentJob?.cancel()
                 dictation.cancel()
                 model.reset()
+                AgentSession.forgetRecentChats()
+                LiveAgentV2Client.forgetKnownConsent()
             }
 
             is WalletEvent.AgentThreadDeleted -> model.removeDeletedThread(walletEvent.threadId)
@@ -1485,7 +1778,13 @@ class AgentThreadListVC(context: Context) :
             LocaleController.getString("Delete Chat?"),
             LocaleController.getString("\$agent_delete_chat_confirmation"),
             button = LocaleController.getString("Delete"),
-            buttonPressed = { model.delete(thread) },
+            buttonPressed = {
+                deletingThreadIds.add(thread.id)
+                model.delete(thread) {
+                    // A chat whose deletion failed stays, and its row shows its status and unread dot again
+                    if (deletingThreadIds.remove(thread.id)) reconfigureVisibleRows()
+                }
+            },
             secondaryButton = LocaleController.getString("Cancel"),
             primaryIsDanger = true
         )
@@ -1503,9 +1802,10 @@ class AgentThreadListVC(context: Context) :
                     _,
                     results
                 ->
-                if (continuation.isActive) {
-                    continuation.resume(results.firstOrNull() == PackageManager.PERMISSION_GRANTED)
-                }
+                val granted = results.firstOrNull() == PackageManager.PERMISSION_GRANTED
+                // The request's own activity pauses the screen, which may cancel the recording before it learns this
+                if (!granted && !isDestroyed && !isDisappeared) showMicrophoneDeniedAlert()
+                if (continuation.isActive) continuation.resume(granted)
             }
         }
     }
@@ -1531,12 +1831,14 @@ class AgentThreadListVC(context: Context) :
             is AgentThreadListRow.News -> NEWS_CELL
             is AgentThreadListRow.Header -> HEADER_CELL
             is AgentThreadListRow.Thread -> THREAD_CELL
+            AgentThreadListRow.PageFailure -> FAILURE_CELL
         }
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
         when (cellType) {
             HEADER_CELL -> AgentThreadSectionCell(context)
             NEWS_CELL -> AgentNewsCell(context)
+            FAILURE_CELL -> AgentSystemMessageCell(context)
             else -> AgentThreadCell(context)
         }
 
@@ -1552,11 +1854,14 @@ class AgentThreadListVC(context: Context) :
                 onTap = { openNews(this) }
             }
 
-            is AgentThreadListRow.Header ->
-                (cellHolder.cell as AgentThreadSectionCell).configure(row.title)
+            is AgentThreadListRow.Header -> (cellHolder.cell as AgentThreadSectionCell).apply {
+                visibility = View.VISIBLE
+                configure(row.title)
+            }
 
             is AgentThreadListRow.Thread -> (cellHolder.cell as AgentThreadCell).apply {
                 val thread = row.item.thread
+                visibility = View.VISIBLE
                 configure(
                     row.item,
                     model.getActivityText(thread.id),
@@ -1570,6 +1875,17 @@ class AgentThreadListVC(context: Context) :
                 onDelete = { showDeleteConfirmation(thread) }
                 onSwipeBegan = { closeSwipes(except = this) }
             }
+
+            // A chat's failure line, as the feed ends with one when it fails to refresh
+            AgentThreadListRow.PageFailure -> (cellHolder.cell as AgentSystemMessageCell).configure(
+                AgentMessage(
+                    id = row.key,
+                    role = AgentMessageRole.SYSTEM,
+                    text = LocaleController.getString("\$agent_chats_unavailable"),
+                    isFailure = true
+                ),
+                onRetry = { model.loadMore() }
+            )
         }
     }
 
@@ -1577,8 +1893,10 @@ class AgentThreadListVC(context: Context) :
         val HEADER_CELL = WCell.Type(1)
         val THREAD_CELL = WCell.Type(2)
         val NEWS_CELL = WCell.Type(3)
+        val FAILURE_CELL = WCell.Type(4)
         const val PINNED_SECTION_KEY = "pinned"
         const val LOAD_MORE_THRESHOLD = 5
+        const val LOAD_ERROR_SIDE_INSET = 32
         const val REFRESH_INTERVAL_MS = 30_000L
         const val REVEAL_DURATION_MS = 300L
         const val MENU_WIDTH = 194
@@ -1604,8 +1922,8 @@ class AgentThreadListVC(context: Context) :
 
         // The smooth curve over this long matches iOS's critically damped 0.3 s spring
         const val COMPOSE_SPRING_MS = 525L
-        const val COMPOSED_CHAT_DISSOLVE_MS = 250L
-        const val DISSOLVE_DOWNSCALE = 2
+        const val COMPOSED_CHAT_CROSSFADE_MS = 250L
+        const val DISSOLVED_GAP_CLOSE_DELAY_MS = 600L
         const val COMPOSE_RISE = 24f
         const val COMPOSE_SUGGESTIONS_GAP = 26f
         const val COMPOSER_TOP_PADDING = 8f

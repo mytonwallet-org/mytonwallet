@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.payOptions.cells.WalletConnectPayEmptyCell
 import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.payOptions.cells.WalletConnectPayHeaderCell
 import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.payOptions.cells.WalletConnectPayOptionCell
@@ -119,7 +120,7 @@ class WalletConnectPayOptionsVC(
                     marginEnd = 14.dp
                 }
             )
-            setOnClickListener { presentAccountSwitcher() }
+            setOnMenuClickListener { presentAccountSwitcher() }
             updateTheme()
         }
 

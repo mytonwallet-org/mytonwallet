@@ -1,8 +1,10 @@
+import ContextMenuKit
 import Dependencies
 import GRDB
 import UIKit
 import XCTest
 import UIComponents
+import UIReceive
 import UISettings
 import UIUniversalSearch
 import WalletContext
@@ -337,7 +339,57 @@ final class RootSearchRestorationTests: XCTestCase {
     }
 
     @available(iOS 17.0, *)
-    func testAgentRootToolbarFollowsConsentInBothLayouts() async throws {
+    func testBothLayoutsOpenOnTheFirstTabInTheUserOrder() async throws {
+        AppTabManager.shared.setTabIds([.market, .wallet, .agent, .explore, .settings])
+        for sizeClass in [UIUserInterfaceSizeClass.compact, .regular] {
+            let (root, window) = host(sizeClass)
+            try await settle(window)
+            XCTAssertEqual(currentTab(root), .market)
+            window.isHidden = true
+        }
+    }
+
+    /// The sidebar the split layout shows, on an iPad and on a large iPhone in landscape, reorders the tabs with
+    /// the collection view's interactive movement
+    @available(iOS 17.0, *)
+    func testDraggingSidebarTabsToTheFirstAndLastPlacesReordersTheTabs() async throws {
+        let (root, window) = host(.regular)
+        defer { window.isHidden = true }
+        try await settle(window)
+        let split = try XCTUnwrap(root.children.first as? SplitRootViewController)
+        let navigation = try XCTUnwrap(split.viewController(for: .primary) as? SplitRootSidebarNavigationController)
+        let sidebar = try XCTUnwrap(navigation.viewControllers.first as? SplitRootSidebarViewController)
+        let collectionView = try XCTUnwrap(
+            findDescendants(of: sidebar.view).lazy.compactMap { $0 as? UICollectionView }.first { $0.delegate === sidebar }
+        )
+        let tabIds = AppTabManager.shared.orderedTabIds.filter { !sidebar.hiddenTabIds.contains($0) }
+        XCTAssertEqual(tabIds, AppTabManager.defaultTabIds)
+        // No other section of the sidebar has as many rows as the tabs
+        let section = try XCTUnwrap((0..<collectionView.numberOfSections).first {
+            collectionView.numberOfItems(inSection: $0) == tabIds.count
+        })
+
+        func drag(from sourceItem: Int, to destinationItem: Int) async throws {
+            let destination = try XCTUnwrap(
+                collectionView.layoutAttributesForItem(at: IndexPath(item: destinationItem, section: section))
+            )
+            XCTAssertTrue(collectionView.beginInteractiveMovementForItem(at: IndexPath(item: sourceItem, section: section)))
+            collectionView.updateInteractiveMovementTargetPosition(
+                CGPoint(x: collectionView.bounds.midX, y: destination.center.y)
+            )
+            collectionView.endInteractiveMovement()
+            try await settle(window)
+        }
+
+        try await drag(from: 1, to: tabIds.count - 1)
+        XCTAssertEqual(AppTabManager.shared.orderedTabIds, [.wallet, .agent, .explore, .settings, .market])
+        try await drag(from: tabIds.count - 1, to: 0)
+        XCTAssertEqual(AppTabManager.shared.orderedTabIds, [.market, .wallet, .agent, .explore, .settings])
+        XCTAssertEqual(collectionView.numberOfItems(inSection: section), tabIds.count)
+    }
+
+    @available(iOS 17.0, *)
+    func testAgentRootToolbarHostsTheQuestionFieldWithOrWithoutConsentInBothLayouts() async throws {
         for (initial, hasConsent) in [(UIUserInterfaceSizeClass.compact, false), (.regular, false), (.compact, true), (.regular, true)] {
             let (root, window) = host(initial)
             defer { window.isHidden = true }
@@ -357,14 +409,203 @@ final class RootSearchRestorationTests: XCTestCase {
                 list = try XCTUnwrap(navigation.viewControllers.first as? AgentThreadListVC)
             }
             list.loadViewIfNeeded()
-            try await waitUntil(window) { didLoadConsent && list.isConsentRequired == !hasConsent }
+            try await waitUntil(window) { didLoadConsent }
+            try await settle(window)
             XCTAssertEqual(currentTab(root), .agent)
-            // Consent replaces the toolbar; an allowed Agent hosts its question field on it.
-            XCTAssertEqual(list.additionalSafeAreaInsets.bottom, hasConsent ? 64 : 0)
-            XCTAssertEqual(root.searchController.searchToolbar.presentation, hasConsent ? .homeToolbar : .empty)
+            // With consent or without, the Agent hosts its question field on the toolbar; the first question asks
+            XCTAssertEqual(list.additionalSafeAreaInsets.bottom, 64)
+            XCTAssertEqual(root.searchController.searchToolbar.presentation, .homeToolbar)
             XCTAssertTrue(list.bottomBar.isDescendant(of: window))
             XCTAssertFalse(list.bottomBar.isDescendant(of: list.view))
-            XCTAssertEqual(list.bottomBar.isHidden, !hasConsent)
+            XCTAssertFalse(list.bottomBar.isHidden)
+        }
+    }
+
+    func testAgentBarStaysVisibleWhileTabMenuDismisses() {
+        let host = AgentBarHost()
+        let root = host.navigation.viewControllers[0]
+        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+        host.agentBarHostView.addSubview(toolbar)
+        let controller = RootAgentBarController(host: host, searchToolbar: toolbar, containerView: host.agentBarHostView)
+        let bar = AgentListBottomBar()
+        controller.install(bar)
+        controller.setMorphProgress(1)
+        XCTAssertFalse(bar.isHidden)
+        XCTAssertEqual(bar.alpha, 1)
+
+        for style in [UIModalPresentationStyle.popover, .pageSheet, .custom] {
+            let coordinator = AgentBarTransitionCoordinator(style: style, from: UIViewController(), to: host.navigation)
+            host.navigation.stubTransitionCoordinator = coordinator
+            controller.updateForNavigation(showing: root, isShowingRoot: true, in: host.navigation)
+            XCTAssertFalse(bar.isHidden)
+            XCTAssertEqual(bar.alpha, 1, "Dismissing a modal must not restart the Agent field's appearance")
+            coordinator.completeTransition()
+            XCTAssertEqual(coordinator.animationCount, 0)
+            XCTAssertFalse(bar.isHidden)
+            XCTAssertEqual(bar.alpha, 1)
+        }
+
+        let pop = AgentBarTransitionCoordinator(style: .none, from: UIViewController(), to: root)
+        host.navigation.stubTransitionCoordinator = pop
+        controller.updateForNavigation(showing: root, isShowingRoot: true, in: host.navigation)
+        XCTAssertEqual(bar.alpha, 0, "A navigation pop still carries the field back onto the root")
+        pop.completeTransition()
+        XCTAssertEqual(pop.animationCount, 1)
+        XCTAssertFalse(bar.isHidden)
+        XCTAssertEqual(bar.alpha, 1)
+    }
+
+    /// Back from a chat whose composer rides the keyboard, as a swipe back while typing goes, the chat keeps its
+    /// composer, above the keyboard that leaves with it, and the list's field comes in at the bottom with the pop. A chat
+    /// whose composer rests at the bottom hands it over to the list's field.
+    func testChatComposerOnTheKeyboardStaysWithTheChatGoingBack() {
+        for isOnKeyboard in [true, false] {
+            let host = AgentBarHost()
+            let root = host.navigation.viewControllers[0]
+            let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+            host.agentBarHostView.addSubview(toolbar)
+            let controller = RootAgentBarController(host: host, searchToolbar: toolbar, containerView: host.agentBarHostView)
+            let bar = AgentListBottomBar()
+            controller.install(bar)
+            controller.setMorphProgress(1)
+            let chat = AgentBarHandoffChat(isComposerOnKeyboard: isOnKeyboard)
+            let pop = AgentBarTransitionCoordinator(style: .none, from: chat, to: root)
+            host.navigation.stubTransitionCoordinator = pop
+            controller.updateForNavigation(showing: root, isShowingRoot: true, in: host.navigation)
+            XCTAssertEqual(chat.hiddenStates, isOnKeyboard ? [] : [true], "On the keyboard: \(isOnKeyboard)")
+            XCTAssertEqual(bar.alpha, isOnKeyboard ? 0 : 1, "The list's field comes in with the pop")
+            pop.completeTransition()
+            XCTAssertFalse(bar.isHidden)
+            XCTAssertEqual(bar.alpha, 1)
+            if isOnKeyboard {
+                XCTAssertTrue(chat.hiddenStates.allSatisfy { !$0 }, "The chat's composer never hides")
+            }
+        }
+    }
+
+    /// While the Agent list's field holds a question, the search circle waits away past the leading edge and the field
+    /// is wide over its place; once the field is empty again, they come back
+    func testSearchCircleStaysAwayWhileTheAgentFieldHoldsAQuestion() async throws {
+        let host = AgentBarHost()
+        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+        toolbar.frame = CGRect(x: 16, y: 780, width: 358, height: AgentListBottomBar.height)
+        host.agentBarHostView.addSubview(toolbar)
+        let controller = RootAgentBarController(host: host, searchToolbar: toolbar, containerView: host.agentBarHostView)
+        let bar = AgentListBottomBar()
+        controller.install(bar)
+        controller.setMorphProgress(1)
+        let circle = toolbar.searchButtonPresentationSourceView
+        XCTAssertFalse(bar.hasQuestion)
+        XCTAssertEqual(bar.expansion, 0)
+        XCTAssertEqual(circle.transform, .identity)
+
+        bar.composerView.setDraftText("Раз, два, три", focus: false)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(bar.hasQuestion)
+        XCTAssertEqual(bar.expansion, 1, "The field is wide over the circle's place")
+        XCTAssertLessThan(circle.transform.tx, -(toolbar.frame.minX + AgentListBottomBar.height), "The circle is away")
+
+        bar.composerView.setDraftText(" \n", focus: false)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(bar.hasQuestion, "Blank text holds no question")
+        XCTAssertEqual(bar.expansion, 0)
+        XCTAssertEqual(circle.transform, .identity)
+    }
+
+    /// A touch on the Agent list's microphone moves nothing until it is a tap or a hold; a hold then sends the search
+    /// circle away as any question does
+    func testSearchCircleStaysPutUntilTheMicrophoneTouchIsATapOrAHold() async throws {
+        let host = AgentBarHost()
+        let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
+        toolbar.frame = CGRect(x: 16, y: 780, width: 358, height: AgentListBottomBar.height)
+        host.agentBarHostView.addSubview(toolbar)
+        let controller = RootAgentBarController(host: host, searchToolbar: toolbar, containerView: host.agentBarHostView)
+        let bar = AgentListBottomBar()
+        controller.install(bar)
+        controller.setMorphProgress(1)
+        let scheduler = AgentBarDictationScheduler()
+        let dictation = AgentDictationController(
+            scheduler: scheduler,
+            requestPermission: { true },
+            makeRecorder: { AgentBarDictationRecorder() },
+            transcribe: { _ in .init(outcome: .noSpeech) },
+            haptic: {},
+            gestureFeedback: {},
+            failureFeedback: {},
+            observeLifecycle: false
+        )
+        defer { dictation.cancel() }
+        bar.composerView.dictationController = dictation
+        let circle = toolbar.searchButtonPresentationSourceView
+
+        dictation.touchBegan()
+        for _ in 0..<100 where dictation.state.phase != .holding { await Task.yield() }
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(bar.hasQuestion, "Nothing moves for a touch that isn't yet a tap or a hold")
+        XCTAssertEqual(circle.transform, .identity)
+        scheduler.advance(by: AgentDictationController.tapDuration)
+        XCTAssertTrue(dictation.state.isHeld)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(bar.hasQuestion)
+        XCTAssertLessThan(circle.transform.tx, -(toolbar.frame.minX + AgentListBottomBar.height), "The circle is away")
+        XCTAssertEqual(circle.transform.ty, 0)
+    }
+
+    func testTabMenuSelectionDoesNotWaitForNativeDismissalCompletion() throws {
+        let account = MAccount(id: "0-mainnet", title: "Menu fixture", type: .view, byChain: [
+            .ton: .init(address: "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"),
+            .solana: .init(address: "11111111111111111111111111111111"),
+        ])
+        try withDependencies {
+            $0.context = .preview
+            $0.accountStore = .makePreview(accounts: [account], selectedAccountId: account.id)
+        } operation: {
+            func findControl(in view: UIView?) -> WSegmentedControl? {
+                guard let view else { return nil }
+                if let control = view as? WSegmentedControl { return control }
+                return view.subviews.lazy.compactMap { findControl(in: $0) }.first
+            }
+
+            let tabs = TopTabsRootViewController()
+            let homeNavigation = AgentBarNavigationController(rootViewController: tabs)
+            homeNavigation.loadViewIfNeeded()
+            tabs.loadViewIfNeeded()
+            let homeControl = try XCTUnwrap(findControl(in: tabs.navigationItem.titleView))
+            let homeProvider = try XCTUnwrap(homeControl.longPressContextMenuProvider)
+            let homeAction = try XCTUnwrap(homeProvider.makeConfiguration().rootPage.items.compactMap { item -> ContextMenuAction? in
+                guard case .action(let action) = item, action.id == "tab_menu_market" else { return nil }
+                return action
+            }.first)
+            let homeTransition = AgentBarTransitionCoordinator(style: .popover, from: UIViewController(), to: homeNavigation)
+            homeNavigation.stubTransitionCoordinator = homeTransition
+            XCTAssertEqual(tabs.currentTabId, .wallet)
+            try XCTUnwrap(homeAction.handler)()
+            XCTAssertEqual(tabs.currentTabId, .market, "The menu callback already marks dismissal readiness")
+            homeTransition.completeTransition()
+            XCTAssertEqual(tabs.currentTabId, .market)
+
+            let receive = ReceiveVC(accountContext: AccountContext(accountId: account.id), chain: .ton)
+            let fundNavigation = AgentBarNavigationController(rootViewController: receive)
+            fundNavigation.loadViewIfNeeded()
+            receive.loadViewIfNeeded()
+            let fundControl = try XCTUnwrap(findControl(in: receive.navigationItem.titleView))
+            let pager = try XCTUnwrap(receive.children.compactMap { $0 as? WPagerViewController }.first)
+            let destination = try XCTUnwrap(fundControl.model.items.indices.first { $0 != pager.selectedIndex })
+            let fundProvider = try XCTUnwrap(fundControl.longPressContextMenuProvider)
+            let fundRow = try XCTUnwrap(fundProvider.makeConfiguration().rootPage.items.compactMap { item -> ContextMenuCustomRow? in
+                guard case .custom(let row) = item, row.id == fundControl.model.items[destination].id else { return nil }
+                return row
+            }.first)
+            guard case .selectable(_, _, _, let handler) = fundRow.interaction else {
+                XCTFail("A chain menu row must be selectable")
+                return
+            }
+            let fundTransition = AgentBarTransitionCoordinator(style: .popover, from: UIViewController(), to: fundNavigation)
+            fundNavigation.stubTransitionCoordinator = fundTransition
+            try XCTUnwrap(handler)()
+            XCTAssertEqual(pager.selectedIndex, destination, "Fund must switch before UIKit's late completion")
+            fundTransition.completeTransition()
+            XCTAssertEqual(pager.selectedIndex, destination)
         }
     }
 
@@ -395,20 +636,92 @@ final class RootSearchRestorationTests: XCTestCase {
                 list.loadViewIfNeeded()
                 try await waitUntil(window) { response != nil }
                 let resolveConsent = try XCTUnwrap(response)
-                XCTAssertFalse(list.isConsentRequired)
                 XCTAssertEqual(list.additionalSafeAreaInsets.bottom, 64)
                 XCTAssertEqual(root.searchController.searchToolbar.presentation, .homeToolbar)
                 XCTAssertFalse(list.bottomBar.isHidden)
 
                 resolveConsent.resume(returning: hasConsent)
                 response = nil
-                try await waitUntil(window) { hasReturnedConsent && list.isConsentRequired == !hasConsent }
+                try await waitUntil(window) { hasReturnedConsent }
                 try await settle(window)
-                XCTAssertEqual(list.isConsentRequired, !hasConsent)
-                XCTAssertEqual(list.additionalSafeAreaInsets.bottom, hasConsent ? 64 : 0)
-                XCTAssertEqual(root.searchController.searchToolbar.presentation, hasConsent ? .homeToolbar : .empty)
-                XCTAssertEqual(list.bottomBar.isHidden, !hasConsent)
+                XCTAssertEqual(list.additionalSafeAreaInsets.bottom, 64)
+                XCTAssertEqual(root.searchController.searchToolbar.presentation, .homeToolbar)
+                XCTAssertFalse(list.bottomBar.isHidden)
+                XCTAssertNil(window.rootViewController?.presentedViewController, "No consent sheet before a question")
             }
+        }
+    }
+
+    /// The floating microphone over a dictated question stands above the Agent list's field, out of the root toolbar's
+    /// container: a touch reaches it through the window and records on, and the search circle stays away meanwhile
+    @available(iOS 17.0, *)
+    func testAgentListFloatingMicrophoneTakesTapsAboveTheToolbar() async throws {
+        UIView.setAnimationsEnabled(false)
+        defer { UIView.setAnimationsEnabled(true) }
+        for initial in [UIUserInterfaceSizeClass.compact, .regular] {
+            let (root, window) = host(initial)
+            defer { window.isHidden = true }
+            installAgentList(in: root, hasConsent: true)
+            selectTab(.agent, in: root)
+            try await settle(window)
+            let navigation = try navigation(root)
+            let list: AgentThreadListVC
+            if let compact = navigation.viewControllers.first as? TopTabsRootViewController {
+                list = try XCTUnwrap(compact.visibleContentProviderViewController as? AgentThreadListVC)
+            } else {
+                list = try XCTUnwrap(navigation.viewControllers.first as? AgentThreadListVC)
+            }
+            list.loadViewIfNeeded()
+            try await waitUntil(window) { !list.bottomBar.hostedGlassViews.isEmpty }
+
+            let scheduler = RootDictationScheduler()
+            var recordings = 0
+            let dictation = AgentDictationController(
+                scheduler: scheduler,
+                requestPermission: { true },
+                makeRecorder: { RootDictationRecorder() },
+                transcribe: { _ in .init(outcome: .transcribed, text: "Раз, два, три") },
+                haptic: { recordings += 1 },
+                gestureFeedback: {},
+                observeLifecycle: false
+            )
+            defer { dictation.cancel() }
+            let composer = list.bottomBar.composerView
+            composer.dictationController = dictation
+            dictation.onTranscript = { [weak composer] in composer?.revealDictatedText($0) }
+            dictation.startHandsFree()
+            try await waitUntil(window) { recordings == 1 }
+            scheduler.now = 1
+            dictation.finish()
+            try await waitUntil(window) { dictation.state.phase == .idle }
+            XCTAssertTrue(dictation.state.canDictateMore)
+            XCTAssertEqual(composer.draftText, "Раз, два, три")
+            let resume = try XCTUnwrap(findDescendants(of: list.bottomBar).compactMap { $0 as? UIButton }.first {
+                $0.accessibilityLabel == lang("$agent_voice_resume") && !$0.isHidden
+            })
+            let toolbar = root.searchController.searchToolbar
+            let frame = resume.convert(resume.bounds, to: window)
+            XCTAssertLessThan(frame.maxY, toolbar.convert(toolbar.bounds, to: window).minY)
+            XCTAssertLessThan(toolbar.searchButtonPresentationSourceView.transform.tx, 0, "The search circle is away")
+            let center = CGPoint(x: frame.midX, y: frame.midY)
+            // The microphone takes the tap, on its glass where it has Liquid Glass
+            for point in [center, CGPoint(x: frame.midX, y: frame.maxY - 2)] {
+                XCTAssertTrue(
+                    window.hitTest(point, with: nil)?.isDescendant(of: resume) == true,
+                    "\(initial) layout, a tap at \(point)"
+                )
+            }
+
+            // A tap on it, through its press, records hands-free
+            let touchView = try XCTUnwrap(resume.superview)
+            for state in [UIGestureRecognizer.State.began, .ended] {
+                touchView.perform(
+                    NSSelectorFromString("handleFloatingPress:"),
+                    with: RootFloatingMicrophonePress(state: state)
+                )
+            }
+            XCTAssertEqual(dictation.state.phase, .handsFree)
+            try await waitUntil(window) { recordings == 2 }
         }
     }
 
@@ -548,6 +861,57 @@ final class RootSearchRestorationTests: XCTestCase {
     }
 
     @available(iOS 17.0, *)
+    func testHiddenAgentPushLinksOpenTheirTargetsModally() throws {
+        AppTabManager.shared.setTabIds([.wallet, .market, .explore, .settings])
+        let urls = [
+            "https://my.tt/agent?news=307",
+            "https://my.tt/agent?digest=en%3A2026-11-08T18%3A00%3A00.000Z"
+        ]
+        for sizeClass: UIUserInterfaceSizeClass in [.compact, .regular] {
+            for url in urls {
+                let link = try XCTUnwrap(Deeplink(url: XCTUnwrap(URL(string: url))))
+                let newsTarget = UIViewController()
+                let list = AgentThreadListVC()
+                var requestedTabs: [AppTabId] = []
+                var path: [UIViewController] = []
+                func recordModalRequest(_ id: AppTabId, from _: UIViewController, makePath: (UIViewController) -> [UIViewController]) {
+                    requestedTabs.append(id)
+                    path = makePath(list)
+                }
+                if sizeClass == .compact {
+                    let compact = TopTabsRootViewController()
+                    compact.presentHiddenTab = recordModalRequest
+                    switch link {
+                    case .agentNews: compact.showAgentNewsChat(newsTarget)
+                    case .agentDigest(let id): compact.showAgentNewsFeed(digestId: id)
+                    default: return XCTFail("Expected an Agent push link")
+                    }
+                } else {
+                    let split = SplitRootViewController()
+                    split.presentHiddenTab = recordModalRequest
+                    switch link {
+                    case .agentNews: split.showAgentNewsChat(newsTarget)
+                    case .agentDigest(let id): split.showAgentNewsFeed(digestId: id)
+                    default: return XCTFail("Expected an Agent push link")
+                    }
+                }
+                XCTAssertEqual(requestedTabs, [.agent])
+                XCTAssertEqual(path.count, 1)
+                switch link {
+                case .agentNews:
+                    XCTAssertTrue(path.first === newsTarget)
+                case .agentDigest(let id):
+                    let feed = try XCTUnwrap(path.first as? AgentNewsFeedVC)
+                    let model = try XCTUnwrap(Mirror(reflecting: feed).children.first { $0.label == "model" }?.value as? AgentNewsFeedModel)
+                    XCTAssertEqual(model.requestedDigestId, id)
+                default: break
+                }
+                XCTAssertFalse(AppTabManager.shared.contains(.agent))
+            }
+        }
+    }
+
+    @available(iOS 17.0, *)
     func testHiddenAgentTabOpensNewChatInCurrentNavigation() async throws {
         let tabs = AppTabManager.shared
         tabs.setTabIds([.wallet, .market, .explore, .settings])
@@ -575,7 +939,6 @@ final class RootSearchRestorationTests: XCTestCase {
                 }
                 let search = root.searchController.universalSearchViewController
                 let originalStack = navigation.viewControllers
-
                 split.showAgent(query: query, entryPoint: query.map { .globalSearch(query: $0) })
                 try await settle(window)
 
@@ -941,6 +1304,188 @@ final class RootSearchRestorationTests: XCTestCase {
         }
         XCTFail("Navigation did not settle")
     }
+
+    private func findDescendants(of view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + findDescendants(of: $0) }
+    }
+}
+
+@MainActor
+private final class RootDictationRecorder: AgentDictationRecording {
+    var onFailure: (() -> Void)?
+
+    func averagePower() -> Float { -20 }
+    func getPeakPower() -> Float { -160 }
+    func stop() async throws -> Data { Data([1]) }
+    func cancel() {}
+}
+
+/// A clock that moves only when the test sets it, so a recording never reaches its limit on its own
+@MainActor
+private final class RootDictationScheduler: AgentDictationScheduling {
+    var now: TimeInterval = 0
+
+    func schedule(
+        after delay: TimeInterval,
+        repeating interval: TimeInterval?,
+        _ action: @escaping @MainActor () -> Void
+    ) -> any AgentDictationScheduledTask {
+        Event()
+    }
+
+    private final class Event: AgentDictationScheduledTask {
+        func cancel() {}
+    }
+}
+
+@MainActor
+private final class AgentBarHost: RootAgentBarHost {
+    let navigation = AgentBarNavigationController(rootViewController: UIViewController())
+    let agentBarHostView = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    var agentBarNavigationController: WNavigationController? { navigation }
+    var agentBarSideEdge: UIRectEdge? { nil }
+    var agentBarSearchViewController: UIViewController? { nil }
+    func agentBarMorphProgressDidChange(_ progress: CGFloat) {}
+    func agentBarEditingDidChange(_ isEditing: Bool) {}
+    func agentBarDidHandOffEditingToComposedChat() {}
+}
+
+/// Runs a dictation's scheduled work when the test advances its time
+@MainActor
+private final class AgentBarDictationScheduler: AgentDictationScheduling {
+    private(set) var now: TimeInterval = 0
+    private var events: [Event] = []
+
+    func schedule(
+        after delay: TimeInterval,
+        repeating interval: TimeInterval?,
+        _ action: @escaping @MainActor () -> Void
+    ) -> any AgentDictationScheduledTask {
+        let event = Event(deadline: now + delay, interval: interval, action: action)
+        events.append(event)
+        return event
+    }
+
+    func advance(by duration: TimeInterval) {
+        let target = now + duration
+        while let event = events.filter({ !$0.isCancelled && $0.deadline <= target }).min(by: { $0.deadline < $1.deadline }) {
+            now = event.deadline
+            if let interval = event.interval {
+                event.deadline += interval
+            } else {
+                events.removeAll { $0 === event }
+            }
+            event.action()
+        }
+        now = target
+        events.removeAll { $0.isCancelled }
+    }
+
+    private final class Event: AgentDictationScheduledTask {
+        var deadline: TimeInterval
+        let interval: TimeInterval?
+        let action: @MainActor () -> Void
+        var isCancelled = false
+
+        init(deadline: TimeInterval, interval: TimeInterval?, action: @escaping @MainActor () -> Void) {
+            self.deadline = deadline
+            self.interval = interval
+            self.action = action
+        }
+
+        func cancel() { isCancelled = true }
+    }
+}
+
+private final class AgentBarDictationRecorder: AgentDictationRecording {
+    var onFailure: (() -> Void)?
+    func averagePower() -> Float { -20 }
+    func getPeakPower() -> Float { -160 }
+    func stop() async throws -> Data { Data([1, 2, 3]) }
+    func cancel() {}
+}
+
+@MainActor
+private final class AgentBarHandoffChat: UIViewController, AgentComposerHandoffTarget {
+    let isComposerOnKeyboard: Bool
+    private(set) var hiddenStates: [Bool] = []
+
+    init(isComposerOnKeyboard: Bool) {
+        self.isComposerOnKeyboard = isComposerOnKeyboard
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setComposerHandoffHidden(_ isHidden: Bool) {
+        hiddenStates.append(isHidden)
+    }
+}
+
+@MainActor
+private final class AgentBarNavigationController: WNavigationController {
+    var stubTransitionCoordinator: (any UIViewControllerTransitionCoordinator)?
+    override var transitionCoordinator: (any UIViewControllerTransitionCoordinator)? { stubTransitionCoordinator }
+}
+
+@MainActor
+private final class AgentBarTransitionCoordinator: NSObject, UIViewControllerTransitionCoordinator {
+    let presentationStyle: UIModalPresentationStyle
+    let from: UIViewController
+    let to: UIViewController
+    let containerView = UIView()
+    let isAnimated = true
+    let initiallyInteractive = false
+    let isInterruptible = false
+    let isInteractive = false
+    let isCancelled = false
+    let transitionDuration: TimeInterval = 1
+    let percentComplete: CGFloat = 0.5
+    let completionVelocity: CGFloat = 0
+    let completionCurve = UIView.AnimationCurve.easeInOut
+    let targetTransform = CGAffineTransform.identity
+    private(set) var animationCount = 0
+    private var pending: [() -> Void] = []
+
+    init(style: UIModalPresentationStyle, from: UIViewController, to: UIViewController) {
+        presentationStyle = style
+        self.from = from
+        self.to = to
+    }
+
+    func viewController(forKey key: UITransitionContextViewControllerKey) -> UIViewController? {
+        key == .from ? from : to
+    }
+    func view(forKey key: UITransitionContextViewKey) -> UIView? { nil }
+    func animate(
+        alongsideTransition animation: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?,
+        completion: ((any UIViewControllerTransitionCoordinatorContext) -> Void)? = nil
+    ) -> Bool {
+        animationCount += 1
+        pending.append { [self] in
+            animation?(self)
+            completion?(self)
+        }
+        return true
+    }
+    func animateAlongsideTransition(
+        in view: UIView?,
+        animation: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?,
+        completion: ((any UIViewControllerTransitionCoordinatorContext) -> Void)? = nil
+    ) -> Bool {
+        animate(alongsideTransition: animation, completion: completion)
+    }
+    func notifyWhenInteractionEnds(_ handler: @escaping (any UIViewControllerTransitionCoordinatorContext) -> Void) {}
+    func notifyWhenInteractionChanges(_ handler: @escaping (any UIViewControllerTransitionCoordinatorContext) -> Void) {}
+
+    func completeTransition() {
+        let callbacks = pending
+        pending.removeAll()
+        callbacks.forEach { $0() }
+    }
 }
 
 @MainActor
@@ -949,7 +1494,9 @@ private final class RootAgentListClient: AgentThreadListClient, AgentNewsFeedCli
         .init(protocolVersion: 3, threads: [], nextCursor: nil)
     }
 
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? { nil }
+
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
         .init(locale: lang, items: [])
     }
 
@@ -961,5 +1508,20 @@ private final class RootAgentListClient: AgentThreadListClient, AgentNewsFeedCli
     func deleteThread(id: String) async throws -> ApiAgentV2ThreadDeleteResponse {
         XCTFail("Unexpected thread deletion")
         throw CancellationError()
+    }
+}
+
+/// A press on the Agent list's floating microphone in the state the test gives
+private final class RootFloatingMicrophonePress: UILongPressGestureRecognizer {
+    private let reportedState: UIGestureRecognizer.State
+
+    init(state: UIGestureRecognizer.State) {
+        reportedState = state
+        super.init(target: nil, action: nil)
+    }
+
+    override var state: UIGestureRecognizer.State {
+        get { reportedState }
+        set { }
     }
 }

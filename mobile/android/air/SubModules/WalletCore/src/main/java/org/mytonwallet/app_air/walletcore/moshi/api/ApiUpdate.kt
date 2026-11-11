@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsOperation
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
@@ -200,6 +201,13 @@ sealed class ApiUpdate {
         val seasonalTheme: String? = null,
         val allowedOnOffRampCurrencies: List<String>? = null
     ) : ApiUpdate()
+
+    /** The SDK refreshed its perps catalogue cache; the catalogue itself is not read. */
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdatePerpsAssets(val fetchedAt: Long? = null) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdatePerpsOperationUpdated(val operation: MApiPerpsOperation) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)
     data class ApiUpdateNftSent(val accountId: String, val nftAddress: String) : ApiUpdate()

@@ -8,7 +8,7 @@
 import UIKit
 import WalletContext
 
-public enum WButtonStyle {
+public enum WButtonStyle: Hashable {
     case primary
     case secondary
     case clearBackground
@@ -181,9 +181,16 @@ public class WButton: WBaseButton {
         }
     }
 
+    var contentForegroundColor: UIColor {
+        if usesGlassButtonStyling && !isEnabled {
+            return .air.secondaryLabel
+        }
+        return isEnabled ? enabledTitleColor : disabledTitleColor
+    }
+
     private var destructiveColor: UIColor { .air.error }
 
-    private var usesGlassButtonStyling: Bool {
+    var usesGlassButtonStyling: Bool {
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             return true
         }
@@ -409,6 +416,19 @@ public class WButton: WBaseButton {
     public override func layoutSubviews() {
         super.layoutSubviews()
 
+        if let customContentView {
+            let size = customContentView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+            // A stable viewport lets SwiftUI animate label changes within the button
+            UIView.performWithoutAnimation {
+                customContentView.bounds = CGRect(origin: .zero, size: CGSize(
+                    width: max(0, bounds.width - 32),
+                    height: min(size.height, bounds.height)
+                ))
+                customContentView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+            }
+        }
+        updateLoadingPresentation()
+
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
             //
         } else {
@@ -421,29 +441,125 @@ public class WButton: WBaseButton {
     // MARK: - Loading View
 
     private var loadingView: WActivityIndicator?
+    private var loadingContainer: UIView?
+    private var customContentView: UIView?
+    private var loadingPresentation: LoadingPresentation = .hidden
+    var areLoadingAnimationsEnabled = true
+
+    private enum LoadingPresentation {
+        case hidden
+        case trailing
+        case replacingContent
+    }
+
+    /// Custom labels share the button's loading layout and transition.
+    public func setCustomContentView(_ view: UIView) {
+        customContentView?.removeFromSuperview()
+        customContentView = view
+        view.isUserInteractionEnabled = false
+        addSubview(view)
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
+    public override var intrinsicContentSize: CGSize {
+        guard let customContentView else { return super.intrinsicContentSize }
+        let size = customContentView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        return CGSize(width: size.width + 36, height: Self.height(for: style))
+    }
 
     public var showLoading: Bool = false {
         didSet {
-            if showLoading {
-                let indicator = loadingView ?? createLoadingView()
-                indicator.startAnimating(animated: true)
-            } else {
-                loadingView?.stopAnimating(animated: true)
+            guard showLoading != oldValue else { return }
+            if showLoading && loadingView == nil {
+                createLoadingView()
             }
+            setNeedsLayout()
         }
     }
 
-    private func createLoadingView() -> WActivityIndicator {
+    private func createLoadingView() {
+        let container = UIView()
+        container.isUserInteractionEnabled = false
+        container.isAccessibilityElement = false
+        container.alpha = 0
+        container.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+        addSubview(container)
         let indicator = WActivityIndicator()
-        indicator.translatesAutoresizingMaskIntoConstraints = false
         indicator.tintColor = loadingIndicatorColor
-        addSubview(indicator)
+        indicator.isAccessibilityElement = false
+        container.addSubview(indicator)
         NSLayoutConstraint.activate([
-            indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            indicator.centerYAnchor.constraint(equalTo: centerYAnchor)
+            indicator.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
+        loadingContainer = container
         loadingView = indicator
-        return indicator
+    }
+
+    private func updateLoadingPresentation() {
+        guard loadingView != nil else { return }
+        let contentViews = customContentView.map { [$0] } ?? [titleLabel, imageView].compactMap { $0 }
+        let isRtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let indicatorSize: CGFloat = 24
+        let indicatorInset: CGFloat = 16
+        let spacing: CGFloat = 8
+        let indicatorX = isRtl ? indicatorInset : bounds.width - indicatorInset - indicatorSize
+        let hasRoomForIndicator = contentViews.allSatisfy { view in
+            guard !view.isHidden, let parent = view.superview else { return true }
+            let fittingSize = view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+            // Measure the unscaled content, including text clipped by UIKit.
+            let width = view === customContentView ? fittingSize.width : max(view.bounds.width, fittingSize.width)
+            let rect = parent.convert(CGRect(
+                x: view.center.x - width / 2,
+                y: view.center.y - view.bounds.height / 2,
+                width: width,
+                height: view.bounds.height
+            ), to: self)
+            return isRtl ? rect.minX >= indicatorX + indicatorSize + spacing : rect.maxX <= indicatorX - spacing
+        }
+        let presentation: LoadingPresentation = !showLoading ? .hidden
+            : hasRoomForIndicator ? .trailing : .replacingContent
+        let changed = presentation != loadingPresentation
+        loadingPresentation = presentation
+
+        if let loadingContainer {
+            UIView.performWithoutAnimation {
+                loadingContainer.bounds = CGRect(x: 0, y: 0, width: indicatorSize, height: indicatorSize)
+                loadingContainer.center = CGPoint(
+                    x: showLoading
+                        ? (presentation == .replacingContent ? bounds.midX : indicatorX + indicatorSize / 2)
+                        : loadingContainer.center.x,
+                    y: bounds.midY
+                )
+                loadingContainer.layoutIfNeeded()
+            }
+            bringSubviewToFront(loadingContainer)
+        }
+        if showLoading {
+            loadingView?.startAnimating(animated: false)
+        }
+        let updates = {
+            for view in contentViews {
+                view.alpha = presentation == .replacingContent ? 0 : 1
+                view.transform = presentation == .replacingContent
+                    ? CGAffineTransform(scaleX: 0.8, y: 0.8) : .identity
+            }
+            self.loadingContainer?.alpha = self.showLoading ? 1 : 0
+            self.loadingContainer?.transform = self.showLoading ? .identity : CGAffineTransform(scaleX: 0.8, y: 0.8)
+        }
+        let completion: (Bool) -> Void = { [weak self] finished in
+            guard finished, presentation == .hidden, let self, !self.showLoading else { return }
+            self.loadingView?.stopAnimating(animated: false)
+        }
+        if changed && window != nil && areLoadingAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled {
+            UIView.animate(withDuration: 0.25, delay: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut],
+                           animations: updates, completion: completion)
+        } else {
+            updates()
+            if changed { completion(true) }
+        }
     }
 
     private var loadingIndicatorColor: UIColor {
@@ -455,7 +571,7 @@ public class WButton: WBaseButton {
                 (usesGlassButtonStyling ? tintColor.resolvedColor(with: traitCollection) : accentColor)
                     .foregroundForTintedBackground
             }
-        case .secondary, .thickCapsule:
+        case .secondary, .clearBackground, .thickCapsule:
             .tintColor
         case .compactCapsule:
             .label

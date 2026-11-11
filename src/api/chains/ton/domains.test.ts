@@ -14,6 +14,8 @@ import { fetchStoredWallet } from '../../common/accounts';
 import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
 import { getCurrentStorage } from '../../storages';
+import { DNS_CATEGORY_HASH_MAP, DnsOpCode } from './constants';
+import { checkMultiTransactionDraft, submitMultiTransferWithMfa } from './transfer';
 
 jest.mock('@ton/core', () => jest.requireActual('@ton/core'));
 jest.mock('./util/TonClient', () => jest.requireActual('./util/TonClient'));
@@ -36,6 +38,8 @@ jest.mock('./transfer', () => ({
   checkMultiTransactionDraft: jest.fn(),
   submitMultiTransferWithMfa: jest.fn(),
 }));
+
+jest.mock('./util/signer', () => ({ getSigner: jest.fn() }));
 
 jest.mock('./util/metadata', () => ({
   parseTonapiioNft: jest.fn(),
@@ -62,6 +66,9 @@ const ACCOUNT_ID = 'mainnet-0';
 const WALLET_ADDRESS = TON_DNS_ZONES[0].resolver;
 const LINKED_ADDRESS = 'EQBWG4EBbPDv4Xj7xlPwzxd7hSyHMzwwLB5O6rY-0BBeaixS';
 const OTHER_ADDRESS = 'EQAic3zPce496ukFDhbco28FVsKKl2WUX_iJwaL87CBxSiLQ';
+const OP_CODE_BITS = 32;
+const QUERY_ID_BITS = 64;
+const DNS_CATEGORY_BYTES = 32;
 
 type DomainFixture = {
   address: string;
@@ -93,6 +100,7 @@ const mockedGetCurrentStorage = jest.mocked(getCurrentStorage);
 describe('fetchDomains', () => {
   let fetchDomains: typeof import('./domains').fetchDomains;
   let clearDnsCache: typeof import('./domains').clearDnsCache;
+  let submitDnsChangeWallet: typeof import('./domains').submitDnsChangeWallet;
   let fixtures: DomainFixture[];
   let disk: { tonDnsCache?: Record<string, StoredEntry> };
   let storage: Storage;
@@ -103,6 +111,7 @@ describe('fetchDomains', () => {
       const domains = jest.requireActual<typeof import('./domains')>('./domains');
       fetchDomains = domains.fetchDomains;
       clearDnsCache = domains.clearDnsCache;
+      submitDnsChangeWallet = domains.submitDnsChangeWallet;
     });
   }
 
@@ -612,6 +621,87 @@ describe('fetchDomains', () => {
     expect(callRpc).not.toHaveBeenCalled();
     expect(Object.keys(disk.tonDnsCache!)).toEqual([`mainnet:${fixtures[0].address}`]);
     expect(Object.values(disk.tonDnsCache!)[0].lastSeenAt).toBe(31 * DAY);
+  });
+
+  describe('after this app submits a wallet record change while the backend still reports the old one', () => {
+    beforeEach(async () => {
+      jest.mocked(submitMultiTransferWithMfa).mockResolvedValue(
+        { msgHashNormalized: 'msg-hash' } as Awaited<ReturnType<typeof submitMultiTransferWithMfa>>,
+      );
+      await fetchDomains(ACCOUNT_ID);
+    });
+
+    it('shows the domain as unlinked as soon as the chain deletes the record', async () => {
+      await submitDnsChangeWallet(ACCOUNT_ID, undefined, fixtures[0].address);
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress)
+        .toEqual({ [fixtures[0].address]: LINKED_ADDRESS });
+
+      fixtures[0].walletAddress = undefined;
+
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress).toEqual({});
+    });
+
+    it('keeps the previous wallet until the chain has the new one', async () => {
+      await submitDnsChangeWallet(ACCOUNT_ID, undefined, fixtures[0].address, OTHER_ADDRESS);
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress)
+        .toEqual({ [fixtures[0].address]: LINKED_ADDRESS });
+
+      fixtures[0].walletAddress = OTHER_ADDRESS;
+
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress)
+        .toEqual({ [fixtures[0].address]: OTHER_ADDRESS });
+    });
+
+    it('keeps checking the chain after a restart', async () => {
+      await submitDnsChangeWallet(ACCOUNT_ID, undefined, fixtures[0].address);
+      fixtures[0].walletAddress = undefined;
+      restartWorker();
+
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress).toEqual({});
+    });
+
+    it('trusts the cached verification again once the backend reports the submitted record', async () => {
+      await submitDnsChangeWallet(ACCOUNT_ID, undefined, fixtures[0].address, OTHER_ADDRESS);
+      fixtures[0].walletAddress = OTHER_ADDRESS;
+      mockedCallBackendGet.mockImplementation(() => Promise.resolve(makeDomainData(fixtures, OTHER_ADDRESS)));
+      await fetchDomains(ACCOUNT_ID);
+      callRpc.mockClear();
+
+      expect((await fetchDomains(ACCOUNT_ID)).linkedAddressByAddress)
+        .toEqual({ [fixtures[0].address]: OTHER_ADDRESS });
+      expect(callRpc).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('checkDnsChangeWalletDraft', () => {
+  it('deletes the DNS wallet record when no address is given', async () => {
+    const { checkDnsChangeWalletDraft } = jest.requireActual<typeof import('./domains')>('./domains');
+    const mockedCheckMultiTransactionDraft = jest.mocked(checkMultiTransactionDraft);
+    mockedCheckMultiTransactionDraft.mockResolvedValue(
+      { emulation: { networkFee: 0n } } as Awaited<ReturnType<typeof checkMultiTransactionDraft>>,
+    );
+
+    await checkDnsChangeWalletDraft(ACCOUNT_ID, LINKED_ADDRESS);
+
+    const [[, [{ payload }]]] = mockedCheckMultiTransactionDraft.mock.calls;
+    const body = (payload as Cell).beginParse();
+    expect(body.loadUint(OP_CODE_BITS)).toBe(DnsOpCode.ChangeRecord);
+    body.skip(QUERY_ID_BITS);
+    expect(body.loadBuffer(DNS_CATEGORY_BYTES).toString('hex')).toBe(DNS_CATEGORY_HASH_MAP.wallet);
+    expect(body.remainingRefs).toBe(0);
+  });
+
+  it('rejects an empty address instead of deleting the DNS wallet record', async () => {
+    const { checkDnsChangeWalletDraft } = jest.requireActual<typeof import('./domains')>('./domains');
+    const mockedCheckMultiTransactionDraft = jest.mocked(checkMultiTransactionDraft);
+    mockedCheckMultiTransactionDraft.mockClear();
+    mockedCheckMultiTransactionDraft.mockResolvedValue(
+      { emulation: { networkFee: 0n } } as Awaited<ReturnType<typeof checkMultiTransactionDraft>>,
+    );
+
+    await expect(checkDnsChangeWalletDraft(ACCOUNT_ID, LINKED_ADDRESS, '')).rejects.toThrow();
+    expect(mockedCheckMultiTransactionDraft).not.toHaveBeenCalled();
   });
 });
 

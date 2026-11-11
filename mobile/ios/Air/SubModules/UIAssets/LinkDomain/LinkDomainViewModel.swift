@@ -22,6 +22,7 @@ struct LinkDomainValidatedDraft: Sendable {
 @MainActor final class LinkDomainViewModel {
     let nftAddress: String
     let initialNft: ApiNft?
+    let isUnlinking: Bool
     @PerceptionIgnored
     @AccountContext var account: MAccount
     @PerceptionIgnored
@@ -37,11 +38,12 @@ struct LinkDomainValidatedDraft: Sendable {
 
     var onLink: (() -> Void)?
 
-    init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
+    init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil, isUnlinking: Bool = false) {
         let accountContext = AccountContext(source: accountSource)
         self._account = accountContext
         self.nftAddress = nftAddress
         self.initialNft = nft
+        self.isUnlinking = isUnlinking
         let initialNft = nft
         self.draft = DraftEngine(
             debounce: { from, to in
@@ -82,7 +84,7 @@ struct LinkDomainValidatedDraft: Sendable {
                 let feeDraft = try await Api.checkDnsChangeWalletDraft(
                     accountId: request.accountId,
                     nft: nft,
-                    address: resolvedAddress
+                    address: isUnlinking ? nil : resolvedAddress
                 )
                 return LinkDomainValidatedDraft(
                     realFee: feeDraft.realFee,
@@ -113,7 +115,10 @@ struct LinkDomainValidatedDraft: Sendable {
     }
 
     var title: String {
-        linkedWalletAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
+        if isUnlinking {
+            return lang("Unlink Wallet")
+        }
+        return linkedWalletAddress == nil ? lang("Link to Wallet") : lang("Change Linked Wallet")
     }
 
     var addressLabel: String {
@@ -179,12 +184,11 @@ struct LinkDomainValidatedDraft: Sendable {
         if isInsufficientBalance {
             return lang("Insufficient Balance")
         }
-        return lang("Link")
+        return isUnlinking ? lang("Unlink Wallet") : lang("Link")
     }
 
     var canLink: Bool {
-        guard !isSubmitting, isAddressValid else { return false }
-        if let linkedWalletAddress, linkedWalletAddress == normalizedWalletAddress { return false }
+        guard !isSubmitting, isAddressValid, willChangeLink else { return false }
         return draft.current != nil && !isInsufficientBalance
     }
 
@@ -200,8 +204,12 @@ struct LinkDomainValidatedDraft: Sendable {
         if isSubmitting { return true }
         guard !isInsufficientBalance else { return false }
         if nft == nil { return true }
-        guard isAddressValid, normalizedWalletAddress != linkedWalletAddress else { return false }
+        guard isAddressValid, willChangeLink else { return false }
         return draft.isLoading
+    }
+
+    private var willChangeLink: Bool {
+        isUnlinking ? linkedWalletAddress != nil : linkedWalletAddress != normalizedWalletAddress
     }
 
     func displayComponents() -> (primary: String?, secondary: String?) {
@@ -238,6 +246,15 @@ struct LinkDomainValidatedDraft: Sendable {
     func makeConfirmationSnapshot() -> LinkDomainConfirmationSnapshot? {
         guard canLink, let nft, let current = draft.current else {
             return nil
+        }
+        if isUnlinking {
+            return LinkDomainConfirmationSnapshot(
+                account: account,
+                nft: nft,
+                destinationAddress: nil,
+                destinationName: nil,
+                realFee: current.draft.realFee
+            )
         }
         let inputAddress = current.request.walletAddress
         let resolvedAddress = current.draft.resolvedAddress

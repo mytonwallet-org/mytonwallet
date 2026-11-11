@@ -319,8 +319,10 @@ export interface ChainSdk<T extends ApiChain> {
 
   /**
    * Fetches transaction/trace info by hash or trace ID for deeplink viewing.
-   * Returns all activities from a transaction, regardless of which wallet initiated it.
-   * `walletAddress` is only used for determining the isIncoming perspective.
+   * `walletAddress` is the wallet the caller views the transaction from: `isIncoming` is relative to it, and all
+   * activities of the transaction are returned. The caller passes an empty `walletAddress` when it does not know
+   * whose transaction it is (a shared link). Then the wallet that signed the transaction takes this role, and the
+   * chain may return only its activities, the same ones its history shows.
    * For TON, `txId` can be either a trace_id or msg_hash. For TRON, `txId` is a transaction hash.
    */
   fetchTransactionById(options: ApiFetchTransactionByIdOptions): Promise<ApiActivity[]>;
@@ -415,6 +417,12 @@ export interface ChainSdk<T extends ApiChain> {
    * Only supported for TON v4R2 and W5 wallets; returns an empty array for all other chains/versions.
    */
   fetchWalletPlugins(network: ApiNetwork, address: string): Promise<ApiTonPlugin[]>;
+
+  /**
+   * Native token, in its smallest units, that a Perps deposit from `address` is estimated to cost at current fee data.
+   * Chains that take no Perps deposits throw.
+   */
+  estimatePerpsDepositNetworkFee(network: ApiNetwork, address: string): Promise<bigint>;
 
   /** Fetches and parses a single NFT by its address (e.g. for deeplink viewing). Omitted by chains that lack it. */
   fetchNftByAddress?: (network: ApiNetwork, nftAddress: string) => Promise<ApiNft | undefined>;

@@ -1,6 +1,5 @@
 import UIKit
 
-@MainActor
 struct AgentStreamingTextLayout {
     struct Line {
         let frame: CGRect
@@ -20,12 +19,27 @@ struct AgentStreamingTextLayout {
     let totalCharacterCount: Int
     let renderedImage: CGImage?
 
-    /// Lays out and draws `attributedString`. Revealing streamed text needs the frame of every character, which takes
-    /// a TextKit query per character, so text shown whole leaves `measuresCharacters` off and has no `lines`.
+    @MainActor
     static func make(
         attributedString: NSAttributedString,
         maxWidth: CGFloat,
         measuresCharacters: Bool = true
+    ) -> AgentStreamingTextLayout {
+        make(
+            attributedString: attributedString,
+            maxWidth: maxWidth,
+            measuresCharacters: measuresCharacters,
+            scale: UIScreen.main.scale
+        )
+    }
+
+    /// Lays out and draws `attributedString`, on any thread. Revealing streamed text needs the frame of every character,
+    /// which takes a TextKit query per character, so text shown whole leaves `measuresCharacters` off and has no `lines`.
+    static func make(
+        attributedString: NSAttributedString,
+        maxWidth: CGFloat,
+        measuresCharacters: Bool = true,
+        scale: CGFloat
     ) -> AgentStreamingTextLayout {
         let textStorage = NSTextStorage(attributedString: attributedString)
         // Hit testing uses the original links; TextKit draws only their explicit color and underline.
@@ -90,7 +104,8 @@ struct AgentStreamingTextLayout {
             layoutManager: layoutManager,
             attributedString: attributedString,
             size: fullSize,
-            drawingOffset: coordinateOffset
+            drawingOffset: coordinateOffset,
+            scale: scale
         )
 
         var linkRegions: [LinkRegion] = []
@@ -207,13 +222,14 @@ struct AgentStreamingTextLayout {
         layoutManager: NSLayoutManager,
         attributedString: NSAttributedString,
         size: CGSize,
-        drawingOffset: CGPoint
+        drawingOffset: CGPoint,
+        scale: CGFloat
     ) -> CGImage? {
         guard size.width > 0, size.height > 0 else { return nil }
 
         let format = UIGraphicsImageRendererFormat.default()
         format.opaque = false
-        format.scale = UIScreen.main.scale
+        format.scale = scale
 
         let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
             let range = NSRange(location: 0, length: attributedString.length)

@@ -1,4 +1,7 @@
 import WalletCore
+import WalletContext
+
+public typealias PerpsTradeDirection = ApiPerpsPositionSide
 
 /// Display values supplied by the caller. Fetching, pricing, and trading belong to the SDK adapter.
 public struct PerpsMarketDisplayData {
@@ -18,30 +21,16 @@ public struct PerpsMarketDisplayData {
     public var maxLeverage: String?
     public var volume24h: String?
     public var openInterest: String?
-    public var distribution: InterestDistribution?
     public var canTrade: Bool
     public var tradingUnavailableReason: String?
-
-    public struct InterestDistribution: Equatable {
-        public var longValue: Double
-        public var shortValue: Double
-        public var longLabel: String
-        public var shortLabel: String
-
-        public init(longValue: Double, shortValue: Double, longLabel: String, shortLabel: String) {
-            self.longValue = longValue
-            self.shortValue = shortValue
-            self.longLabel = longLabel
-            self.shortLabel = shortLabel
-        }
-    }
+    /// The reason explains what the account needs, rather than warning about the market.
+    public var isUnavailableReasonInformational = false
 
     public init(
         title: String, token: ApiToken, price: Double?, percentChange24h: Double?,
         baseCurrency: MBaseCurrency = .USD, period: ApiPriceHistoryPeriod = .day,
         history: [[Double]]?, description: String, fundingRate: String?, maxLeverage: String?,
-        volume24h: String?, openInterest: String?, distribution: InterestDistribution? = nil,
-        canTrade: Bool = false, tradingUnavailableReason: String? = nil
+        volume24h: String?, openInterest: String?, canTrade: Bool = false, tradingUnavailableReason: String? = nil
     ) {
         self.title = title
         self.token = token
@@ -55,13 +44,25 @@ public struct PerpsMarketDisplayData {
         self.maxLeverage = maxLeverage
         self.volume24h = volume24h
         self.openInterest = openInterest
-        self.distribution = distribution
         self.canTrade = canTrade
         self.tradingUnavailableReason = tradingUnavailableReason
     }
+
+    var infoSummary: AssetInfoSummary {
+        .init(description: description.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty, fields: [
+            .init(id: "fundingRate", title: lang("Funding Rate"), info: lang("$perps_funding_rate_hint"), value: fundingRate ?? "—"),
+            .init(id: "maxLeverage", title: lang("Max Leverage"), info: lang("$perps_max_leverage_hint"), value: maxLeverage ?? "—"),
+            .init(id: "volume24h", title: lang("24h Volume"), info: lang("$perps_volume_24h_hint"), value: volume24h ?? "—"),
+            .init(id: "openInterest", title: lang("Open Interest"), info: lang("$perps_open_interest_hint"), value: openInterest ?? "—"),
+        ], isStale: isStale)
+    }
 }
 
-public enum PerpsTradeDirection {
-    case long
-    case short
+extension PerpsMarketDisplayData {
+    /// A view account gets the normal screen with its actions disabled, with nothing to explain or fix.
+    /// An account without Arbitrum is told what it needs.
+    @MainActor public mutating func applyAccountAvailability(_ account: MAccount, store: PerpsStore = .shared) {
+        isUnavailableReasonInformational = PerpsAvailability.requiresMultichainAccount(account, store: store)
+        if account.isView, !isUnavailableReasonInformational { tradingUnavailableReason = nil }
+    }
 }

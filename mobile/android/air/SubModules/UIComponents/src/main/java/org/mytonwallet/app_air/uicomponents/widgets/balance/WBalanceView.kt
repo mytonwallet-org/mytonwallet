@@ -17,6 +17,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.withScale
 import androidx.core.graphics.withTranslation
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import kotlin.math.max
@@ -90,7 +91,8 @@ class WBalanceView(context: Context) :
         // When null, the smart (rounded) decimals count is used; pass a value to force a fixed count.
         val decimalsCount: Int? = null,
         // When null, the default morphing duration is used; pass a value to override it for this change.
-        val morphingDurationOverride: Int? = null
+        val morphingDurationOverride: Int? = null,
+        val rounding: RoundingMode = RoundingMode.HALF_UP
     )
 
     private var _currentVal: AnimateConfig? = null
@@ -120,7 +122,8 @@ class WBalanceView(context: Context) :
             animateConfig.decimalsCount
                 ?: animateConfig.amount.smartDecimalsCount(animateConfig.decimals),
             false,
-            forceCurrencyToRight = animateConfig.forceCurrencyToRight
+            forceCurrencyToRight = animateConfig.forceCurrencyToRight,
+            rounding = animateConfig.rounding
         ) ?: ""
         // Clear next value
         nextValue = null

@@ -27,6 +27,10 @@ class AppearanceAppThemeItemView(context: Context, val identifier: String) :
     WThemedView {
 
     var isActive: Boolean = false
+        set(value) {
+            field = value
+            isSelected = value
+        }
 
     private val imageView: WImageView by lazy {
         val imageView = WImageView(context)

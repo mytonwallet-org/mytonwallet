@@ -37,6 +37,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.getStablecoinSlugs
 import org.mytonwallet.app_air.walletcore.moshi.ApiHistoryList
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryDataset
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
@@ -566,6 +567,7 @@ class PortfolioVM :
 
     private fun buildAssetClassBreakdown(account: MAccount?): List<PortfolioBreakdownSlice> {
         val accountId = account?.accountId ?: return emptyList()
+        val stablecoinSlugs = getStablecoinSlugs()
         val totals = linkedMapOf(
             AssetClass.NATIVE to 0.0,
             AssetClass.STABLECOINS to 0.0,
@@ -577,7 +579,7 @@ class PortfolioVM :
             val token = balance.token?.let { TokenStore.getToken(it) }
             val assetClass = when {
                 isNativeToken(token) -> AssetClass.NATIVE
-                isStablecoin(token) -> AssetClass.STABLECOINS
+                balance.token in stablecoinSlugs -> AssetClass.STABLECOINS
                 else -> AssetClass.ALTCOINS
             }
             totals[assetClass] = (totals[assetClass] ?: 0.0) + value
@@ -648,12 +650,6 @@ class PortfolioVM :
     private fun isNativeToken(token: MToken?): Boolean {
         token ?: return false
         return MBlockchain.valueOfOrNull(token.chain)?.nativeSlug == token.slug
-    }
-
-    private fun isStablecoin(token: MToken?): Boolean {
-        token ?: return false
-        val symbol = token.symbol.uppercase().replace("₮", "T")
-        return symbol.contains("USD") && token.priceUsd in 0.95..1.05
     }
 
     private enum class AssetClass(val id: String, val title: String, val color: Int) {

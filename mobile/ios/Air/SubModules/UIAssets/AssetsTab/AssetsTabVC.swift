@@ -117,8 +117,8 @@ public class AssetsTabVC: WViewController, SharedBottomToolbarContentProviding {
         view.addSubview(segmentedController)
         NSLayoutConstraint.activate([
             segmentedController.topAnchor.constraint(equalTo: view.topAnchor),
-            segmentedController.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            segmentedController.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            segmentedController.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            segmentedController.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         segmentedController.separator.isHidden = true
@@ -167,6 +167,24 @@ public class AssetsTabVC: WViewController, SharedBottomToolbarContentProviding {
         activateNftAnimationForSelectedPage()
     }
 
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updatePageMargins()
+    }
+
+    public override func viewLayoutMarginsDidChange() {
+        super.viewLayoutMarginsDidChange()
+        updatePageMargins()
+    }
+
+    private func updatePageMargins() {
+        // Pages retain the viewport's margins while moving through the paging scroll view
+        for controller in tabViewControllers.values {
+            controller.view.insetsLayoutMarginsFromSafeArea = false
+            controller.view.layoutMargins = view.layoutMargins
+        }
+    }
+
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         pauseAllNftAnimations()
@@ -192,6 +210,7 @@ public class AssetsTabVC: WViewController, SharedBottomToolbarContentProviding {
                 title: tab.segmentedControlTitle,
                 contextMenuProvider: tabContextMenuProviders.provider(for: tab),
                 isDeletable: tab.isDeletableSegment,
+                accessibilityIdentifier: tab.segmentedControlAccessibilityIdentifier,
                 viewController: viewController
             )
         }

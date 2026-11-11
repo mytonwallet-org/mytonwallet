@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import Kingfisher
 @testable import UIAgent
 import UIComponents
 import WalletContext
@@ -72,6 +73,293 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         }
         let replyCell = try XCTUnwrap(chat.collectionView.visibleCells.compactMap { $0 as? AgentMessageCell }.max { $0.frame.minY < $1.frame.minY })
         XCTAssertFalse(replyCell.isRevealingStreamedText)
+    }
+
+    /// A suggestion under an answer streamed in the chat turns into its question's bubble when tapped, as one in a
+    /// loaded chat does, and so does one under the answer to that question: the cell the finished answer updates keeps
+    /// the tap that starts the morph
+    func testSuggestionsOfStreamedAnswersMorphIntoTheirQuestions() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Reduce Motion shows the bubble at once")
+        let chat = try await makeChat()
+        var reply = try await chat.sendAndStartReply()
+        for (index, title) in ["What happens next?", "And after that?"].enumerated() {
+            reply.text = "Here is the news \(index)"
+            reply.isStreaming = false
+            reply.controls = [AgentMessageControl(id: "followup:\(index)", title: title, isEnabled: true, kind: .followup)]
+            chat.backend.context?.updateMessage(reply, animated: false, scrollToBottom: false)
+            let replyID = reply.id
+            let replyCell = try XCTUnwrap(
+                chat.collectionView.visibleCells.compactMap { $0 as? AgentMessageCell }.first { $0.messageID == replyID }
+            )
+            try await chat.waitUntil { _ in replyCell.getFollowupButton(controlID: "followup:\(index)") != nil }
+            try await chat.waitForStableLayout()
+            let button = try XCTUnwrap(replyCell.getFollowupButton(controlID: "followup:\(index)"))
+            let sentCount = chat.backend.sentTexts.count
+
+            XCTAssertFalse(replyCell.bubbleBackgroundView.showsTail, "\(title): the suggestions hang in place of the tail")
+            button.sendActions(for: .touchUpInside)
+            // The suggestions go, and the answer's tail grows back out of its corner rather than being set at once
+            let answerBubble = replyCell.bubbleBackgroundView
+            try await chat.waitUntil { _ in answerBubble.showsTail }
+            XCTAssertTrue(answerBubble.isTailMorphing, "\(title): the answer's tail grows back")
+            XCTAssertEqual(chat.backend.sentTexts.count, sentCount + 1)
+            XCTAssertEqual(chat.backend.sentTexts.last, title)
+            let morph = try XCTUnwrap(chat.controller.suggestionMorph, "\(title): the suggestion turns into its question")
+            XCTAssertFalse(morph.isFinished)
+            XCTAssertTrue(morph.morphView.superview === chat.controller.view)
+            try await chat.waitUntil { _ in morph.isFinished }
+            let question = try XCTUnwrap(chat.collectionView.visibleCells.compactMap { $0 as? AgentMessageCell }.first {
+                guard let id = $0.messageID, case .message(let message)? = chat.model.item(for: id) else { return false }
+                return message.role == .user && message.text == title
+            })
+            XCTAssertEqual(question.sentAppearanceView.alpha, 1, "\(title): the bubble shows once the morph ends")
+            reply = try await chat.startReply()
+        }
+    }
+
+    /// The Agent finishing while the app is in the background takes its thinking visuals with it: back in the
+    /// foreground, no glow and no typing row remain, and the answer shows as it is
+    func testThinkingVisualsGoWhenTheAnswerEndsInTheBackground() async throws {
+        let chat = try await makeChat()
+        let center = NotificationCenter.default
+        defer { center.post(name: UIApplication.didBecomeActiveNotification, object: nil) }
+        try await chat.sendAndWaitForTypingIndicator()
+        let glow = chat.controller.thinkingGlowView
+        XCTAssertTrue(glow.isGlowing)
+
+        // Kingfisher's image cache, which other tests set up, cleans its disk in a background task on this notification,
+        // which can crash the test runner
+        center.removeObserver(ImageCache.default, name: UIApplication.didEnterBackgroundNotification, object: nil)
+        center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        // The answer comes and ends while the app is away, which stays away longer than any fade
+        let typingID = try XCTUnwrap(chat.backend.typingIndicatorID)
+        let answer = AgentMessage(role: .assistant, text: "The answer, complete", isStreaming: false)
+        chat.backend.context?.replaceItem(id: typingID, with: .message(answer), animated: true)
+        try await Task.sleep(for: .milliseconds(600))
+        center.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+
+        XCTAssertFalse(glow.isGlowing)
+        XCTAssertFalse(glow.isShown, "No glow stays on the screen's edge")
+        chat.layout()
+        XCTAssertFalse(chat.hasTypingIndicator, "Nor the typing row")
+        try await chat.waitUntil { chat in
+            chat.collectionView.visibleCells.contains { ($0 as? AgentMessageCell)?.messageID == answer.id }
+        }
+    }
+
+    /// A Stop while the Agent thinks, before any of its answer has come, takes the typing row's status away at once,
+    /// grows the row's top as a press does, over the content around it, and knocks it and the chat's large top as a
+    /// failure does; the row stays a moment with its top grown, the top then shrinks back and the row goes as the run's
+    /// end has it go. With Reduce Motion nothing grows or is knocked: the status and the row fade. A Stop once the
+    /// answer is being written knocks neither top.
+    func testStopWhileThinkingKnocksTheTopsAndAStopWhileWritingDoesNot() async throws {
+        let isMotionReduced = UIAccessibility.isReduceMotionEnabled
+        func findTops(in view: UIView) -> [AgentSpinningTopView] {
+            view.subviews.flatMap { ([$0 as? AgentSpinningTopView].compactMap { $0 }) + findTops(in: $0) }
+        }
+
+        let thinking = try await makeChat()
+        try await thinking.sendAndWaitForTypingIndicator()
+        let typingID = try XCTUnwrap(thinking.backend.typingIndicatorID)
+        let typingRow = try XCTUnwrap(thinking.collectionView.visibleCells.compactMap { $0 as? AgentTypingIndicatorCell }.first)
+        let rowTop = typingRow.topView
+        let status = try XCTUnwrap(descendants(of: typingRow).compactMap { $0 as? AgentGradientLabel }.first)
+        let largeTop = try XCTUnwrap(findTops(in: thinking.controller.view).first { $0.showsGround })
+        XCTAssertFalse(rowTop.isRecoveringFromKnock)
+        XCTAssertFalse(largeTop.isRecoveringFromKnock)
+        XCTAssertEqual(status.alpha, 1)
+        thinking.controller.composerView.onStop?()
+        // The run's end takes the row out
+        thinking.backend.context?.removeItem(id: typingID, animated: true)
+        XCTAssertEqual(rowTop.isRecoveringFromKnock, !isMotionReduced, "The typing row's top")
+        XCTAssertEqual(largeTop.isRecoveringFromKnock, !isMotionReduced, "The large top")
+        XCTAssertFalse(thinking.controller.thinkingGlowView.isGlowing, "The rest of the chat ends at once")
+        XCTAssertEqual(status.alpha, 0, "The status goes at once")
+        XCTAssertEqual(rowTop.isOverContent, !isMotionReduced, "The grown top is drawn over the content around it")
+
+        // Frame by frame from the Stop: the top grows from its size without a frame at the grown size first, reaches the
+        // held size, eases back to its own size, never under it, and fades away with the row over a visible moment
+        var scales: [CGFloat] = []
+        var staleFrames = 0
+        var scaleWhenTheRowStartedLeaving: CGFloat?
+        var wasOverContentWhenTheRowStartedLeaving = false
+        var exitOpacities: [(time: CFTimeInterval, opacity: Float)] = []
+        var didBlurAway = false
+        let stopTime = CACurrentMediaTime()
+        var statusOpacityAfterItsFade: Float?
+        // The top stays where it shows from the Stop until it has faded, lifted over the content or back in its row
+        var largestDrift: CGFloat = 0
+        for _ in 0..<400 where thinking.hasTypingIndicatorItem {
+            scales.append(rowTop.shownScale)
+            if let shown = rowTop.shownRestingCenterInWindow, rowTop.window != nil {
+                let place = rowTop.convert(CGPoint(x: rowTop.bounds.midX, y: rowTop.bounds.midY), to: nil)
+                largestDrift = max(largestDrift, hypot(shown.x - place.x, shown.y - place.y))
+            }
+            if statusOpacityAfterItsFade == nil,
+               // With room for the fade's start waiting on a busy main thread
+               CACurrentMediaTime() - stopTime > AgentTypingIndicatorCell.stoppedStatusFadeDuration + 0.25 {
+                statusOpacityAfterItsFade = status.layer.presentation()?.opacity ?? 0
+            }
+            if !rowTop.isShowingImageAtItsSize { staleFrames += 1 }
+            let rowLayer = typingRow.contentView.layer
+            // The exit leaves the row transparent, unlike its entrance, which can still be playing at the Stop
+            if rowLayer.animation(forKey: "agentBlurTransition") != nil, rowLayer.opacity == 0 {
+                if !didBlurAway {
+                    didBlurAway = true
+                    scaleWhenTheRowStartedLeaving = rowTop.shownScale
+                    wasOverContentWhenTheRowStartedLeaving = rowTop.isOverContent
+                }
+                exitOpacities.append((CACurrentMediaTime(), rowLayer.presentation()?.opacity ?? 0))
+            }
+            try await Task.sleep(for: .milliseconds(8))
+        }
+        XCTAssertFalse(thinking.hasTypingIndicatorItem, "The row leaves")
+        XCTAssertTrue(didBlurAway, isMotionReduced ? "The row fades" : "The row blurs away")
+        XCTAssertLessThan(try XCTUnwrap(statusOpacityAfterItsFade), 0.01, "The status is gone after a quick fade")
+        XCTAssertEqual(staleFrames, 0, "No frame shows the top's previous image stretched to a new canvas")
+        XCTAssertLessThan(largestDrift, 2, "The top stays where it shows until it has faded")
+        if isMotionReduced {
+            XCTAssertTrue(scales.allSatisfy { abs($0 - 1) < 0.01 }, "Nothing grows with Reduce Motion")
+        } else {
+            let holdScale = try XCTUnwrap(scales.max())
+            XCTAssertGreaterThan(holdScale, 2.9, "The top grows to a held top's size")
+            XCTAssertLessThanOrEqual(try XCTUnwrap(scales.first), 1.01, "No first frame above its starting size")
+            let rise = scales.prefix { $0 < holdScale * 0.98 }
+            XCTAssertTrue(zip(rise, rise.dropFirst()).allSatisfy { $1 >= $0 - 0.001 }, "A steady rise to the held size")
+            let afterPeak = scales.drop { $0 < holdScale }
+            XCTAssertGreaterThan(try XCTUnwrap(afterPeak.min()), 0.99, "Back to its size, never under it")
+            XCTAssertEqual(try XCTUnwrap(scaleWhenTheRowStartedLeaving), 1, accuracy: 0.05, "Back to its size before the row goes")
+            XCTAssertFalse(wasOverContentWhenTheRowStartedLeaving, "Back in its place in the row")
+        }
+        let fading = exitOpacities.filter { $0.opacity < 0.99 }
+        // The ease-in fade drops fastest at its end, often from above 0.01 to gone between two samples; it passes 0.2
+        // about 0.26 s in
+        if let first = fading.first, let gone = fading.first(where: { $0.opacity < 0.2 }) {
+            XCTAssertGreaterThanOrEqual(gone.time - first.time, 0.2, "The row and its top fade over a visible moment")
+        } else {
+            XCTFail("The fade wasn't sampled")
+        }
+        thinking.close()
+
+        let writing = try await makeChat()
+        _ = try await writing.sendAndStartReply()
+        let writingLargeTop = try XCTUnwrap(findTops(in: writing.controller.view).first { $0.showsGround })
+        writing.controller.composerView.onStop?()
+        XCTAssertFalse(writingLargeTop.isRecoveringFromKnock, "A Stop while the answer is written only eases the top back")
+        let rowTops = writing.collectionView.visibleCells.compactMap { $0 as? AgentTypingIndicatorCell }.flatMap(findTops(in:))
+        XCTAssertFalse(rowTops.contains { $0.isRecoveringFromKnock })
+        writing.close()
+    }
+
+    /// A new question during the moment the stopped typing row stays takes the row away at once
+    func testNewQuestionTakesTheStoppedTypingRowAwayAtOnce() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "With Reduce Motion the row goes at once anyway")
+        let chat = try await makeChat()
+        try await chat.sendAndWaitForTypingIndicator()
+        let typingID = try XCTUnwrap(chat.backend.typingIndicatorID)
+        chat.controller.composerView.onStop?()
+        chat.backend.context?.removeItem(id: typingID, animated: true)
+        XCTAssertTrue(chat.controller.model.itemIDs.contains(typingID), "Held for the knock")
+        chat.backend.context?.sendMessage("And now?", source: .composer)
+        XCTAssertFalse(chat.controller.model.itemIDs.contains(typingID), "Gone with the new question")
+        chat.close()
+    }
+
+    /// The typing row a Stop keeps for its top leaves without moving anything above it: frame by frame, through its
+    /// moment on screen, its blur-away and its removal, the bubbles stay exactly where they show, in a short chat whose
+    /// question stands under the header with room reserved under it as in a long one
+    func testStoppedTypingRowLeavesWithoutMovingTheBubblesAbove() async throws {
+        for historyCount in [1, 12] {
+            let chat = try await makeChat(historyCount: historyCount)
+            try await chat.sendAndWaitForTypingIndicator()
+            let typingID = try XCTUnwrap(chat.backend.typingIndicatorID)
+            func getBubbleTops() -> [AgentItemID: CGFloat] {
+                var tops: [AgentItemID: CGFloat] = [:]
+                for cell in chat.collectionView.visibleCells.compactMap({ $0 as? AgentMessageCell }) {
+                    guard let id = cell.messageID else { continue }
+                    tops[id] = chat.presentedScreenMinY(of: cell)
+                }
+                return tops
+            }
+            let before = getBubbleTops()
+            XCTAssertGreaterThanOrEqual(before.count, 1)
+            chat.controller.composerView.onStop?()
+            chat.backend.context?.removeItem(id: typingID, animated: true)
+
+            var worstShift: CGFloat = 0
+            var samplesAfterRemoval = 0
+            var sampleCount = 0
+            // Through the removal's animation and a little after it
+            while samplesAfterRemoval < 30, sampleCount < 400 {
+                try await Task.sleep(for: .milliseconds(8))
+                sampleCount += 1
+                if !chat.hasTypingIndicatorItem { samplesAfterRemoval += 1 }
+                for (id, top) in getBubbleTops() {
+                    guard let original = before[id] else { continue }
+                    worstShift = max(worstShift, abs(top - original))
+                }
+            }
+            XCTAssertFalse(chat.hasTypingIndicatorItem, "\(historyCount) messages: the row leaves")
+            XCTAssertLessThan(worstShift, 0.5, "\(historyCount) messages: the bubbles above stay where they show")
+            chat.close()
+        }
+    }
+
+    /// The answer that takes the typing row's place shows only through the row's morph: the pass that puts the answer
+    /// in the list hands it to the morph, so the first frame after it shows the answer's bubble still faded out within
+    /// the row's frame, never the answer whole before the morph. The morph starts where the row showed on screen, also
+    /// as a row above grows in that pass and the list scrolls to keep the question in place.
+    func testAnswerTakingTheTypingRowsPlaceShowsOnlyThroughItsMorph() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Reduce Motion cross-fades the answer in")
+        let chat = try await makeChat()
+        chat.controller.additionalSafeAreaInsets.bottom = 300
+        try await chat.waitForStableLayout()
+        try await chat.sendAndWaitForTypingIndicator()
+        // The row's picture needs it drawn once
+        try await Task.sleep(for: .milliseconds(100))
+        let typingID = try XCTUnwrap(chat.backend.typingIndicatorID)
+        let typingRow = try XCTUnwrap(chat.collectionView.visibleCells.compactMap { $0 as? AgentTypingIndicatorCell }.first)
+        // The row's last frame on screen
+        let lastFrame = try XCTUnwrap(typingRow.makeAnswerMorphSource(in: chat.window))
+        // The message above the question grows in the answer's pass, which moves the rows under it in the list
+        let context = try XCTUnwrap(chat.backend.context)
+        let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
+        let questionIndex = try XCTUnwrap(context.itemIDs.firstIndex(of: questionID))
+        let previousIndex = IndexPath(item: questionIndex - 1, section: 0)
+        if let previous = chat.collectionView.cellForItem(at: previousIndex) as? AgentMessageCell {
+            let grownHeight = previous.bounds.height + 120
+            previous.minimumHeightProvider = { grownHeight }
+            let invalidation = UICollectionViewLayoutInvalidationContext()
+            invalidation.invalidateItems(at: [previousIndex])
+            chat.collectionView.collectionViewLayout.invalidateLayout(with: invalidation)
+        }
+        let answer = AgentMessage(role: .assistant, text: "Here is", isStreaming: true)
+        chat.backend.context?.replaceItem(id: typingID, with: .message(answer), animated: true)
+
+        // Still in the pass that put the answer in the list
+        let morph = try XCTUnwrap(chat.controller.typingAnswerMorph, "The morph takes the answer over in the same pass")
+        XCTAssertEqual(morph.pictures.count, 2)
+        for (picture, frame) in zip(morph.pictures, [lastFrame.topFrame, lastFrame.statusFrame]) {
+            // Where the picture stands, before the transform it animates by
+            let placed = CGRect(
+                x: picture.center.x - picture.bounds.width / 2,
+                y: picture.center.y - picture.bounds.height / 2,
+                width: picture.bounds.width,
+                height: picture.bounds.height
+            )
+            let shown = try XCTUnwrap(picture.superview).convert(placed, to: chat.window)
+            XCTAssertEqual(shown.minX, frame.minX, accuracy: 1, "The morph starts where the row showed")
+            XCTAssertEqual(shown.minY, frame.minY, accuracy: 1)
+        }
+        let indexPath = try XCTUnwrap(chat.controller.messageIndexPath(for: answer.id))
+        let cell = try XCTUnwrap(chat.collectionView.cellForItem(at: indexPath) as? AgentMessageCell)
+        let bubble = cell.bubbleBackgroundView
+        XCTAssertNotNil(bubble.layer.mask, "Within the row's frame")
+        XCTAssertNotNil(bubble.layer.animation(forKey: AgentTypingAnswerMorph.bubbleFadeKey))
+        // The first frame after it
+        CATransaction.flush()
+        XCTAssertEqual(bubble.layer.presentation()?.opacity ?? 1, 0, accuracy: 0.1, "Not shown before the morph")
+        XCTAssertNotNil(chat.controller.typingAnswerMorph)
     }
 
     func testShrinkingHistoryDoesNotLeaveAnAnimatedScrollCorrection() async throws {
@@ -395,6 +683,8 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         XCTAssertLessThan(frame.minY, visibleBottom)
     }
 
+    /// A tall question under an answer stops with the answer's last line in sight above it, whole with the bubble's
+    /// padding under it
     func testComposerSendPinsQuestionAfterClearingMultilineDraft() async throws {
         let chat = try await makeChat()
         chat.composer.setDraftText((1...6).map(String.init).joined(separator: "\n"), focus: false)
@@ -404,11 +694,8 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         try await chat.waitUntil { $0.hasTypingIndicator }
         try await chat.waitForStableLayout()
 
-        XCTAssertEqual(
-            try questionBubbleFrame(in: chat).minY,
-            chat.collectionView.adjustedContentInset.top + 16,
-            accuracy: 1
-        )
+        XCTAssertEqual(try getPreviousAnswerLastLineTop(in: chat), chat.collectionView.adjustedContentInset.top, accuracy: 1)
+        XCTAssertGreaterThan(try questionBubbleFrame(in: chat).minY, chat.collectionView.adjustedContentInset.top + 16)
     }
 
     func testComposerSendPinsSingleLineQuestionAtTail() async throws {
@@ -437,7 +724,7 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         try await chat.waitForStableLayout()
 
         let questionY = try questionBubbleFrame(in: chat).minY
-        XCTAssertEqual(questionY, chat.collectionView.adjustedContentInset.top + 16, accuracy: 1)
+        XCTAssertEqual(try getPreviousAnswerLastLineTop(in: chat), chat.collectionView.adjustedContentInset.top, accuracy: 1)
 
         let reply = try await chat.startReply()
         XCTAssertEqual(try questionBubbleFrame(in: chat).minY, questionY, accuracy: 1)
@@ -1065,6 +1352,43 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         XCTAssertLessThan(maxDrop, 4)
     }
 
+    /// A suggestion tapped under an answer brings its question in where the suggestions were, and the chat brings the
+    /// question up only once it has appeared there and a moment has passed, as on Android
+    func testFollowupQuestionAppearsInPlaceBeforeTheChatBringsItUp() async throws {
+        let chat = try await makeChat()
+        let context = try XCTUnwrap(chat.backend.context)
+        let replyID = try XCTUnwrap(context.itemIDs.last)
+        var reply = try XCTUnwrap(context.message(for: replyID))
+        reply.controls = (0..<3).map {
+            AgentMessageControl(id: "followup:\($0)", title: "Follow-up suggestion \($0)", isEnabled: true, kind: .followup)
+        }
+        context.updateMessage(reply, animated: false, scrollToBottom: false)
+        try await chat.waitForStableLayout()
+        chat.collectionView.setContentOffset(CGPoint(x: 0, y: chat.maxContentOffsetY), animated: false)
+        try await chat.waitForStableLayout()
+
+        let sentAt = ContinuousClock.now
+        context.sendMessage("Follow-up suggestion 1", source: .followup(messageID: "reply", followupID: "followup:1"))
+        let offsetY = chat.collectionView.contentOffset.y
+        let visibleBottom = chat.collectionView.bounds.height - chat.controller.occlusionBottomInset
+        XCTAssertLessThanOrEqual(try questionBubbleFrame(in: chat).maxY, visibleBottom, "The question shows under the answer")
+        // The pin waits for the appearance and the delay after it, timed from the send, so it cannot start sooner
+        var maxShift: CGFloat = 0
+        while ContinuousClock.now < sentAt + .milliseconds(450) {
+            let drawnOffsetY = chat.collectionView.layer.presentation()?.bounds.minY ?? chat.collectionView.contentOffset.y
+            maxShift = max(maxShift, abs(drawnOffsetY - offsetY))
+            try await Task.sleep(for: .milliseconds(16))
+        }
+        XCTAssertLessThan(maxShift, 1, "The chat stays as the question appears and a moment after")
+
+        try await chat.waitUntil { $0.hasTypingIndicator }
+        try await chat.waitForStableLayout()
+        let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
+        let pinnedOffsetY = try XCTUnwrap(chat.controller.pinnedOffsetY(for: questionID))
+        XCTAssertEqual(chat.collectionView.contentOffset.y, chat.controller.clampedContentOffsetY(pinnedOffsetY), accuracy: 1)
+        XCTAssertGreaterThan(chat.collectionView.contentOffset.y, offsetY + 1, "Then the chat brings the question up")
+    }
+
     func testQuestionFromEntryPointIsPinnedWhenChatOpens() async throws {
         try await checkQuestionOpeningStaysPinned(inTabBar: false)
     }
@@ -1290,6 +1614,20 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         return chat
     }
 
+    /// Where the last line of the answer right above the question starts on screen: a line of the answer's text and the
+    /// bubble's padding above the bubble's bottom
+    private func getPreviousAnswerLastLineTop(in chat: PinnedReplyChat) throws -> CGFloat {
+        let context = try XCTUnwrap(chat.backend.context)
+        let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
+        let index = try XCTUnwrap(context.itemIDs.firstIndex(of: questionID))
+        XCTAssertEqual(context.message(for: context.itemIDs[index - 1])?.role, .assistant, "An answer stands right above")
+        let cell = try XCTUnwrap(chat.collectionView.cellForItem(at: IndexPath(item: index - 1, section: 0)))
+        let bubble = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentBubbleBackgroundView }.first)
+        let bubbleFrame = bubble.convert(bubble.bounds, to: chat.collectionView)
+            .offsetBy(dx: 0, dy: -chat.collectionView.contentOffset.y)
+        return bubbleFrame.maxY - AgentMessageCellMetrics.bodyVerticalPadding - AgentMessageTextRenderer.answerLineHeight
+    }
+
     private func questionBubbleFrame(in chat: PinnedReplyChat) throws -> CGRect {
         let context = try XCTUnwrap(chat.backend.context)
         let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
@@ -1473,13 +1811,19 @@ private final class PinnedReplyTestBackend: AgentBackend {
     var context: AgentBackendContext?
     var typingIndicatorID: AgentItemID?
     var typingIndicatorStatusText: String?
+    var sentTexts: [String] = []
 
     func attach(to context: AgentBackendContext) { self.context = context }
     func detach() { context = nil }
     func loadHints(animated: Bool) {}
     func prepareForEditing(_ editContext: AgentBackendEditContext) {}
+    func performControl(messageID: AgentItemID, controlID: String) {
+        guard let control = context?.message(for: messageID)?.controls.first(where: { $0.id == controlID }) else { return }
+        context?.sendMessage(control.title, source: .followup(messageID: "reply", followupID: controlID))
+    }
     func didSendUserMessage(_ text: String, userMessageID: AgentItemID, source: AgentBackendSendSource,
                             editContext: AgentBackendEditContext?) {
+        sentTexts.append(text)
         let indicator = AgentTypingIndicator()
         typingIndicatorID = indicator.id
         context?.append(.typingIndicator(indicator), animated: true)

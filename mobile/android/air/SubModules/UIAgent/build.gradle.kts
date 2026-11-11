@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.fresco)
+    implementation(libs.lottie)
     implementation(project("$airSubModulePath:UIInAppBrowser"))
     implementation(project("$airSubModulePath:UISend"))
     implementation(project("$airSubModulePath:UIComponents"))

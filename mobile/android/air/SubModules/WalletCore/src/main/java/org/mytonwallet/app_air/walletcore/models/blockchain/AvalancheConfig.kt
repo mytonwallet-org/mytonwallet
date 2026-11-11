@@ -2,8 +2,14 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.AVALANCHE_USDT_MAINNET_SLUG
 
 object AvalancheConfig : MBlockchainConfig {
+
+    override val usdtSlug = mapOf(
+        MBlockchainNetwork.MAINNET to AVALANCHE_USDT_MAINNET_SLUG,
+        MBlockchainNetwork.TESTNET to AVALANCHE_USDT_MAINNET_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = null,

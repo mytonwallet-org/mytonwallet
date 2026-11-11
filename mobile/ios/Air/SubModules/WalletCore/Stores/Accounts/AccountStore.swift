@@ -17,6 +17,7 @@ import Perception
 import WalletCoreTypes
 
 private let log = Log("AccountStore")
+private let NEWS_NOTIFICATIONS_RESET_TIMEOUT: Duration = .seconds(3)
 private let _popularWalletVersionTitles: Set<String> = ["v3R1", "v3R2", "v4R2", "W5", "telegram"]
 
 /// Sends account activation to the SDK: redirects polling and updates the SDK-side current account
@@ -1023,6 +1024,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         log.info("resetAccounts")
         interactiveCommitDebouncer.cancel()
         sdkActivationRelay.cancel()
+        let resetNewsNotifications = AgentNewsNotificationSettings.shared.reset()
         try await Api.resetAccounts()
         await AuthSupportImpl.clearAllAuth()
         accountId = nil
@@ -1047,6 +1049,9 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         await BalanceDataStore.clean()
         NftStore.clean()
         KeychainHelper.deleteAllWallets()
+        if await AgentNewsNotificationSettings.shared.waitForReset(resetNewsNotifications, timeout: NEWS_NOTIFICATIONS_RESET_TIMEOUT) != .ok {
+            log.error("Failed to disable MyPulse notifications before resetting the bridge")
+        }
         Api.shared?.webViewBridge.recreateWebView()
         WalletCoreData.notify(event: .accountsReset)
     }
@@ -1243,6 +1248,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             enabledAccounts: existingInfo?.enabledAccounts ?? []
         )
         AppStorageHelper.pushNotifications = info
+
+        Task { _ = await AgentNewsNotificationSettings.shared.reapplyIfNeeded() }
 
         let enabledAccounts = info.enabledAccounts
         guard !enabledAccounts.isEmpty else { return }
@@ -1550,6 +1557,19 @@ extension _AccountStore: DependencyKey {
         return accountStore
     }()
 }
+
+#if DEBUG
+extension _AccountStore {
+    public static func makePreview(accounts: [MAccount], selectedAccountId: String) -> _AccountStore {
+        precondition(accounts.contains { $0.id == selectedAccountId })
+        let store = _AccountStore()
+        store.accountsById = accounts.dictionaryByKey(\.id)
+        store.accountId = selectedAccountId
+        store.orderedAccountIds = OrderedSet(accounts.map(\.id))
+        return store
+    }
+}
+#endif
 
 extension DependencyValues {
     public var accountStore: _AccountStore {

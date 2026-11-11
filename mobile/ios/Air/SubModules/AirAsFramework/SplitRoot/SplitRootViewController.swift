@@ -20,6 +20,7 @@ private struct SidebarEdgeCoverEntry {
 final class SplitRootViewController: UISplitViewController, VisibleContentProviding {
 
     let searchController: RootSearchToolbarController
+    var presentHiddenTab = presentTabModally
     private let viewModel: SplitRootViewModel
 
     private let sidebarViewController: SplitRootSidebarViewController
@@ -102,6 +103,8 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         self.navControllersByTabId = [:]
 
         let viewModel = SplitRootViewModel()
+        // The app opens on the first tab in the user's order
+        viewModel.selectedTab = AppTabManager.shared.orderedTabIds.first ?? .wallet
         self.viewModel = viewModel
         self.sidebarViewController = SplitRootSidebarViewController(viewModel: viewModel)
         self.sidebarNavigationController = SplitRootSidebarNavigationController(rootViewController: sidebarViewController)
@@ -197,9 +200,13 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
             toolbar.accountButton.addAction(UIAction { [weak self] _ in
                 self?.showSettings(path: [])
             }, for: .touchUpInside)
-            toolbar.tabBar.onSelect = { [weak self] index, repeated in
-                guard tabIds.indices.contains(index) else { return }
-                self?.select(tab: tabIds[index], popToRoot: repeated)
+            toolbar.tabBar.onSelect = { [weak self, weak toolbar] index, repeated in
+                guard let toolbar, toolbar.tabIds.indices.contains(index) else { return }
+                self?.select(tab: toolbar.tabIds[index], popToRoot: repeated)
+            }
+            toolbar.tabBar.onReorder = { [weak toolbar] _, _ in
+                guard let toolbar else { return }
+                AppTabManager.shared.reorderTabs(toolbar.tabIds)
             }
             toolbar.onLayout = { [weak self] in self?.updateSidebarNavigationActions() }
             sideToolbar = toolbar
@@ -328,17 +335,10 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     private func updateAgentBottomBar() {
         guard let list = navControllersByTabId[.agent]?.viewControllers.first as? AgentThreadListVC else {
             searchController.agentBar.isAvailable = true
-            searchController.isAgentConsentVisible = false
             searchController.agentBar.setMorphProgress(0)
             return
         }
-        list.onConsentChanged = { [weak self, weak list] in
-            guard let self, let list else { return }
-            self.searchController.applyChromeInsets(to: list)
-            self.updateAgentBottomBar()
-        }
-        searchController.agentBar.isAvailable = !list.isConsentRequired
-        searchController.isAgentConsentVisible = selectedTab == .agent && list.isConsentRequired
+        searchController.agentBar.isAvailable = true
         var isBarHostedInToolbar = true
         if #available(iOS 27.1, *), traitCollection.verticalBarEdge != .unspecified {
             isBarHostedInToolbar = false
@@ -403,6 +403,37 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         guard selectedTab == .wallet, let homeNC = navControllersByTabId[.wallet] else { return false }
         homeNC.pushViewController(viewController, animated: true)
         return true
+    }
+
+    func showAgentNewsChat(_ controller: UIViewController) {
+        guard AppTabManager.shared.contains(.agent) else {
+            presentHiddenTab(.agent, topViewController() ?? self, { _ in [controller] })
+            return
+        }
+        searchController.discardSearch()
+        select(tab: .agent)
+        currentNavigationController.popToRootViewController(animated: false)
+        currentNavigationController.pushViewController(
+            controller, animated: currentNavigationController.viewIfLoaded?.window != nil
+        )
+    }
+
+    func showAgentNewsFeed(digestId: String) {
+        guard AppTabManager.shared.contains(.agent) else {
+            presentHiddenTab(.agent, topViewController() ?? self) { root in
+                let list = root as! AgentThreadListVC
+                return [list.makeNewsFeedViewController(requestedDigestId: digestId)]
+            }
+            return
+        }
+        searchController.discardSearch()
+        select(tab: .agent)
+        currentNavigationController.popToRootViewController(animated: false)
+        guard let list = currentNavigationController.viewControllers.first as? AgentThreadListVC else { return }
+        currentNavigationController.pushViewController(
+            list.makeNewsFeedViewController(requestedDigestId: digestId),
+            animated: currentNavigationController.viewIfLoaded?.window != nil
+        )
     }
 
     func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {

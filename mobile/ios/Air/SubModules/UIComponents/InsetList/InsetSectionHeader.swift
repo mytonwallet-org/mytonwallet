@@ -54,7 +54,8 @@ public final class InsetSectionHeaderCell: UICollectionReusableView {
 
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
 
-    public func configure(title: String, topSpacing: CGFloat = 0, actionTitle: String? = nil, onAction: (() -> Void)? = nil) {
+    public func configure(title: String, topSpacing: CGFloat = 0, actionTitle: String? = nil, actionAccessibilityIdentifier: String? = nil, onAction: (() -> Void)? = nil) {
+        actionButton.accessibilityIdentifier = actionAccessibilityIdentifier
         titleLabel.text = title
         titleLabel.applyTextStyle(.bodyStrong)
         actionButton.titleLabel?.applyTextStyle(.supporting)

@@ -3,14 +3,18 @@ import TeactDOM from '../../lib/teact/teact-dom';
 
 import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
 
+import { openUrl } from '../../util/openUrl';
 import { pause } from '../../util/schedulers';
 import { shareUrl } from '../../util/share';
 
 import AgentNewsCard from './AgentNewsCard';
 
+// A key with values reads as the key followed by its sources, as a translation puts them after its label
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
-  default: () => Object.assign((key: string) => key, { code: 'en' }),
+  default: () => Object.assign((key: string, value?: { sources?: unknown }) => (
+    value?.sources ? [`${key} `, value.sources] : key === '$joining_comma' ? ', ' : key
+  ), { code: 'en' }),
 }));
 jest.mock('../../util/openUrl', () => ({ openUrl: jest.fn() }));
 jest.mock('../../hooks/useDeviceScreen', () => ({ useDeviceScreen: () => ({ isPortrait: true }) }));
@@ -55,8 +59,13 @@ describe('AgentNewsCard', () => {
 
     expect(root.querySelector('[data-agent-v2-message-id="7"]')?.getAttribute('data-agent-v2-message-role'))
       .toBe('assistant');
-    expect(root.querySelector('time')?.getAttribute('datetime')).toBe(ITEM.deliveredAt);
-    expect(root.querySelector('a')?.textContent).toBe('Source');
+    // The foot ends with the time, as a message's does, under the source
+    const time = root.querySelector('time')!;
+    expect(time.getAttribute('datetime')).toBe(ITEM.deliveredAt);
+    // The time alone, whatever the day, in the 12 hours English writes it in
+    expect(time.textContent).toMatch(/^\d{1,2}:\d{2}\s[AP]M$/);
+    expect(time.parentElement!.lastElementChild).toBe(time);
+    expect(time.previousElementSibling!.textContent).toBe('$agent_news_source Source');
 
     const picture = root.querySelector<HTMLImageElement>('img')!;
     // The picture's button is named by its news, which a screen reader tells among the feed's pictures
@@ -71,6 +80,40 @@ describe('AgentNewsCard', () => {
 
     root.querySelector<HTMLButtonElement>('[aria-label="$agent_news_discuss, News headline"]')!.click();
     expect(onOpenDiscussion).toHaveBeenCalledWith(ITEM, root.querySelector('[data-agent-news-event-id="7"]'));
+  });
+
+  it('names up to three distinct sources under the body, each opening its own link', async () => {
+    const onOpenDiscussion = jest.fn();
+    renderCard({
+      ...ITEM,
+      sources: [
+        { name: ' CoinDesk ', url: 'https://coindesk.com/a' },
+        { url: 'https://www.theblock.co/b' },
+        { name: 'coindesk', url: 'https://coindesk.com/c' },
+        { name: 'Unsafe', url: 'javascript:alert(1)' },
+        { name: 'Fourth', url: 'https://fourth.example/d' },
+      ],
+    }, onOpenDiscussion);
+    await pause(20);
+
+    const line = root.querySelector('time')!.previousElementSibling!;
+    expect(line.textContent).toBe('$agent_news_sources CoinDesk, theblock.co, Unsafe');
+    const links = Array.from(line.querySelectorAll('a'));
+    expect(links.map(({ textContent }) => textContent)).toEqual(['CoinDesk', 'theblock.co']);
+
+    links[1].click();
+    expect(openUrl).toHaveBeenCalledTimes(1);
+    expect(openUrl).toHaveBeenCalledWith('https://www.theblock.co/b');
+    expect(onOpenDiscussion).not.toHaveBeenCalled();
+  });
+
+  it('leaves the foot to the time when the news names no source', async () => {
+    renderCard({ ...ITEM, sources: [{ url: 'not a link' }] });
+    await pause(20);
+
+    const time = root.querySelector('time')!;
+    expect(time.previousElementSibling!.tagName).toBe('P');
+    expect(root.textContent).not.toContain('$agent_news_source');
   });
 
   it('offers the post\'s menu, sharing the text of news without a source to pass on', async () => {

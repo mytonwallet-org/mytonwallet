@@ -22,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -252,6 +253,7 @@ class SubWalletsVC(context: Context, private val enclaveToken: String) :
 
         setNavTitle(navigationTitle)
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.subwallets_title
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(

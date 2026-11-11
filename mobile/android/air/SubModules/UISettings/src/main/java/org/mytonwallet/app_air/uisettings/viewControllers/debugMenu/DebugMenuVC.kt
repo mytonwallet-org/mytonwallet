@@ -13,6 +13,7 @@ import java.lang.ref.WeakReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -28,6 +29,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
+import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.uisettings.viewControllers.logs.LogsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVideoCache
 import org.mytonwallet.app_air.uisettings.viewControllers.permissions.PermissionsVC
@@ -46,6 +49,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.helpers.SupportLogsExport
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
@@ -73,7 +77,8 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         "View Logs on Device",
         "",
         KeyValueRowView.Mode.PRIMARY,
-        isLast = false
+        isLast = false,
+        viewId = R.id.debug_view_logs
     ).apply {
         setOnClickListener {
             navigationController?.tabBarController?.mainNavigationController?.push(LogsVC(context))
@@ -83,12 +88,15 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
     private val shareLogRow = KeyValueRowView(
         context,
-        "Share Log File",
+        "Share Log Files",
         "",
         KeyValueRowView.Mode.PRIMARY,
         isLast = true
     ).apply {
-        setOnClickListener { window?.let { Logger.shareLogFile(it) } }
+        setOnClickListener {
+            val window = window ?: return@setOnClickListener
+            WalletCore.scope.launch { SupportLogsExport.share(window) }
+        }
     }
 
     private val spacer1 = WBaseView(context)
@@ -272,7 +280,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             isLast = true
         ).apply {
             seasonalThemeDropdown?.let { setValueView(it) }
-            setOnClickListener { presentSeasonalThemeOverrideMenu() }
+            setOnMenuClickListener { presentSeasonalThemeOverrideMenu() }
         }
     } else {
         null
@@ -385,6 +393,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
         setNavTitle("Debug Menu")
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.debug_menu_title
         if (navigationController?.viewControllers?.size == 1) {
             navigationBar?.addCloseButton()
         }

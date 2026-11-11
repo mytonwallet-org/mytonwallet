@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.MultiTapDetector
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -37,6 +38,7 @@ class SettingsVersionCell(
     }
 
     private val lbl = WLabel(context).apply {
+        id = R.id.settings_version
         setStyle(14f)
         gravity = Gravity.CENTER_VERTICAL
         setPadding(8.dp, 0, 8.dp, 0)

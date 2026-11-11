@@ -174,6 +174,12 @@ class GlassRoot private constructor(root: ViewGroup) :
         return true
     }
 
+    internal fun updateNow() {
+        val root = rootRef.get() ?: return
+        if (consumers.isEmpty() || root.width == 0 || root.height == 0) return
+        update(root)
+    }
+
     private fun update(root: ViewGroup) {
         root.getLocationInWindow(rootLocation)
         partConsumers.clear()

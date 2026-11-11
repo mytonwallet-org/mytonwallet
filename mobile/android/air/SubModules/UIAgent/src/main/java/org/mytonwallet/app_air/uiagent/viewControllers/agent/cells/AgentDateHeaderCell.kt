@@ -2,19 +2,27 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.format.DateFormat
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.core.view.isInvisible
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadDateFormatting
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProvider
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -26,38 +34,68 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.frameAsPath
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
-/** A message's time, as the device's clock shows it */
 private const val CUTOUT_RADIUS = 12f
 private const val CUTOUT_HORIZONTAL_INSET = 10
 private const val CUTOUT_VERTICAL_INSET = 4
 
+// Telegram's date bubble: a 17 sp line of 14 sp text, 3 dp above and below it and 8 dp at its sides,
+// 11 dp corners and 4 dp around it
+private const val CAPSULE_LINE_HEIGHT = 17f
+private const val CAPSULE_HORIZONTAL_PADDING = 8
+private const val CAPSULE_VERTICAL_PADDING = 3
+private const val CAPSULE_RADIUS = 11f
+private const val CAPSULE_MARGIN = 4f
+
+// Denser than iOS's `AgentDateCapsuleView` (white at 80% by day, black at 20% by night), whose blur material darkens
+// on its own: over the app's plain frosted glass the posts' pictures scrolling under a thinner fill flash through it
+private const val FLOATING_CAPSULE_LIGHT_ALPHA = 0.9f
+private const val FLOATING_CAPSULE_DARK_ALPHA = 0.6f
+
+/** A message's time, as the device's clock shows it */
 internal fun formatAgentChatTime(context: Context, date: Date): String {
     val pattern = if (DateFormat.is24HourFormat(context)) "H:mm" else "h:mm\u00A0a"
     return SimpleDateFormat(pattern, Locale.getDefault()).format(date)
 }
 
 /**
- * The day and time over the messages that follow a pause, the day in the heavier weight. A long
- * press offers to copy it.
+ * The day and time over the messages that follow a pause, the day in the heavier weight, or with [isDayCapsule] the
+ * News feed's day alone in a capsule, as Telegram's date bubbles in a chat. The capsule in the list shows its text
+ * alone on the feed's own background, and only the one pinned over the list ([isFloating]) has a fill: a little
+ * see-through over a blur of the posts scrolling under it. A long press offers to copy it, except on the
+ * pinned capsule, which takes no touches.
  */
 @SuppressLint("ViewConstructor")
-class AgentDateHeaderCell(context: Context) :
-    WCell(
-        context,
-        LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-    ),
+class AgentDateHeaderCell(
+    context: Context,
+    private val isDayCapsule: Boolean = false,
+    isFloating: Boolean = false
+) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
     private val label = WLabel(context).apply {
         setStyle(14f)
-        setLineHeight(20f)
-        setTextColor(WColor.SecondaryText.color)
+        setLineHeight(if (isDayCapsule) CAPSULE_LINE_HEIGHT else 20f)
+        // Dates read in the text's own colour on every platform and theme
+        setTextColor(WColor.PrimaryText.color)
         gravity = Gravity.CENTER
         isSingleLine = true
+        if (isDayCapsule) {
+            setPadding(
+                CAPSULE_HORIZONTAL_PADDING.dp,
+                CAPSULE_VERTICAL_PADDING.dp,
+                CAPSULE_HORIZONTAL_PADDING.dp,
+                CAPSULE_VERTICAL_PADDING.dp
+            )
+        }
     }
+
+    // The app's plain frosted glass under the pinned capsule, which blurs nothing until [setupBlurWith] names the list
+    private val floatingCapsuleGlass: WGlassView?
 
     var onPopupVisibilityChanged: ((Boolean) -> Unit)? = null
 
@@ -69,28 +107,91 @@ class AgentDateHeaderCell(context: Context) :
 
     init {
         addView(label)
-        label.isHapticFeedbackEnabled = true
-        label.setOnLongClickListener {
-            presentAgentMenu(menuPresenter, label, null, { isAttachedToWindow }) { showCopyMenu() }
-            true
+        floatingCapsuleGlass = if (isFloating) createFloatingCapsuleGlass() else null
+        // A pill: its ends are half its height round, whatever the text's metrics make that height
+        floatingCapsuleGlass?.let { glass ->
+            label.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+                glass.setRadius((bottom - top) / 2f)
+            }
+        }
+        if (!isFloating) {
+            label.isHapticFeedbackEnabled = true
+            label.setOnLongClickListener {
+                presentAgentMenu(menuPresenter, label, null, { isAttachedToWindow }) {
+                    showCopyMenu()
+                }
+                true
+            }
         }
         setConstraints {
-            toTop(label, 8f)
-            toBottom(label, 4f)
+            toTop(label, if (isDayCapsule) CAPSULE_MARGIN else 8f)
+            // The pinned capsule's glass reaches past the capsule and makes its cell taller, so the capsule hangs from
+            // the top alone there and stands as far down from the cell's top as the list's own capsule does
+            if (!isFloating) toBottom(label, if (isDayCapsule) CAPSULE_MARGIN else 4f)
             toStart(label, 40f)
             toEnd(label, 40f)
         }
     }
 
+    private fun createFloatingCapsuleGlass() = WGlassView.attachTo(
+        label,
+        CAPSULE_RADIUS.dp,
+        GlassProvider(
+            panelColor = { if (ThemeManager.isDark) Color.BLACK else Color.WHITE },
+            panelAlpha = { getFloatingCapsuleAlpha() },
+            rim = false,
+            shadow = false
+        ),
+        null,
+        flavor = GlassFlavor.FROSTED_PLAIN
+    ).apply {
+        liquidGlass = false
+        noBlurColor = getFloatingCapsuleColor()
+    }
+
     private var insertAnimation: SpringAnimation? = null
 
     override fun updateTheme() {
-        label.setTextColor(WColor.SecondaryText.color)
+        label.setTextColor(WColor.PrimaryText.color)
+        floatingCapsuleGlass?.let {
+            it.noBlurColor = getFloatingCapsuleColor()
+            it.updateTheme()
+        }
     }
 
-    fun configure(date: Date, animate: Boolean = false, isDayOnly: Boolean = false) {
-        label.setUserFriendlyDate(date)
-        val dayPart = label.text.toString()
+    /** Blurs [root], the list that scrolls under the pinned capsule */
+    fun setupBlurWith(root: ViewGroup) {
+        floatingCapsuleGlass?.setupWith(root)
+    }
+
+    /** The height of a day's row in the list: the capsule and the space above and below it */
+    val capsuleRowHeight: Int
+        get() = (label.height + 2 * CAPSULE_MARGIN.dp).roundToInt()
+
+    private val capsuleLocation = IntArray(2)
+
+    /**
+     * Where the capsule's top shows on screen, every parent's position and transform included, for the pinned one to
+     * take its place exactly
+     */
+    fun getCapsuleScreenTop(): Int {
+        label.getLocationOnScreen(capsuleLocation)
+        return capsuleLocation[1]
+    }
+
+    /** Hides the capsule while the one pinned over the feed stands in for it */
+    fun setCapsuleHidden(isHidden: Boolean) {
+        label.isInvisible = isHidden
+    }
+
+    fun configure(date: Date, animate: Boolean = false) {
+        val dayPart = AgentThreadDateFormatting.formatDayText(
+            date,
+            Date(),
+            today = LocaleController.getString("Today"),
+            yesterday = LocaleController.getString("Yesterday"),
+            langCode = LocaleController.activeLanguage.langCode
+        )
 
         val ssb = SpannableStringBuilder()
         ssb.append(
@@ -98,7 +199,7 @@ class AgentDateHeaderCell(context: Context) :
             WTypefaceSpan(WFont.Medium),
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
-        if (!isDayOnly) ssb.append(" ${formatAgentChatTime(context, date)}")
+        if (!isDayCapsule) ssb.append(" ${formatAgentChatTime(context, date)}")
         label.text = ssb
         updateTheme()
 
@@ -126,11 +227,15 @@ class AgentDateHeaderCell(context: Context) :
             centerHorizontally = true,
             backdropStyle = WMenuPopup.BackdropStyle.Dimmed,
             windowBackgroundStyle = buildAgentMenuBackdrop(
-                label.frameAsPath(
-                    roundRadius = CUTOUT_RADIUS.dp,
-                    horizontalOffset = CUTOUT_HORIZONTAL_INSET.dp.toFloat(),
-                    verticalOffset = CUTOUT_VERTICAL_INSET.dp.toFloat()
-                ),
+                if (isDayCapsule) {
+                    label.frameAsPath(roundRadius = label.height / 2f)
+                } else {
+                    label.frameAsPath(
+                        roundRadius = CUTOUT_RADIUS.dp,
+                        horizontalOffset = CUTOUT_HORIZONTAL_INSET.dp.toFloat(),
+                        verticalOffset = CUTOUT_VERTICAL_INSET.dp.toFloat()
+                    )
+                },
                 menuRows()
             ),
             onWillDismiss = { onPopupVisibilityChanged?.invoke(false) }
@@ -164,4 +269,13 @@ class AgentDateHeaderCell(context: Context) :
             start()
         }
     }
+}
+
+private fun getFloatingCapsuleAlpha(): Float =
+    if (ThemeManager.isDark) FLOATING_CAPSULE_DARK_ALPHA else FLOATING_CAPSULE_LIGHT_ALPHA
+
+// The fill without the blur, where the app's glass does not blur
+private fun getFloatingCapsuleColor(): Int {
+    val color = if (ThemeManager.isDark) Color.BLACK else Color.WHITE
+    return color.colorWithAlpha((getFloatingCapsuleAlpha() * 255).roundToInt())
 }

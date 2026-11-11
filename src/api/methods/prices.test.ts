@@ -18,7 +18,7 @@ const TOKEN: ApiToken = {
   chain: 'ton',
   tokenAddress: 'EQB4IwqWZPUczntdry8vSN2tsJKt-9F7iIb7gEFREYYOB563',
 };
-const HISTORY = [[1, 399], [2, 400]];
+const HISTORY = { points: [[1, 399], [2, 400]] };
 
 beforeEach(() => {
   jest.mocked(getTokenBySlug).mockReset();
@@ -29,7 +29,7 @@ it('fetches a search token absent from the SDK cache using its supplied identity
   await expect(fetchPriceHistory(TOKEN.slug, '1D', 'EUR', TOKEN)).resolves.toEqual(HISTORY);
   expect(callBackendGet).toHaveBeenCalledWith(
     `/prices/chart/${encodeURIComponent(`ton:${TOKEN.tokenAddress}`)}`,
-    { base: 'EUR', period: '1D' },
+    { base: 'EUR', period: '1D', withSegments: true },
   );
 });
 
@@ -38,7 +38,9 @@ it('prefers the SDK identity and preserves the three-argument API', async () => 
   await expect(fetchPriceHistory(TOKEN.slug, '7D')).resolves.toEqual(HISTORY);
   await fetchPriceHistory(TOKEN.slug, '7D', 'USD', { ...TOKEN, tokenAddress: 'stale-address' });
   expect(callBackendGet).toHaveBeenNthCalledWith(
-    2, `/prices/chart/${encodeURIComponent(`ton:${TOKEN.tokenAddress}`)}`, { base: 'USD', period: '7D' },
+    2,
+    `/prices/chart/${encodeURIComponent(`ton:${TOKEN.tokenAddress}`)}`,
+    { base: 'USD', period: '7D', withSegments: true },
   );
 });
 
@@ -50,12 +52,14 @@ it('rejects an unresolved token instead of reporting successful empty history', 
 it('uses the symbol for a native token and encodes its asset identity as one path segment', async () => {
   await fetchPriceHistory('native-token', '1D', 'USD', { chain: 'ton', symbol: 'TON/path?query#fragment' });
   expect(callBackendGet).toHaveBeenCalledWith(
-    '/prices/chart/ton%3ATON%2Fpath%3Fquery%23fragment', { base: 'USD', period: '1D' },
+    '/prices/chart/ton%3ATON%2Fpath%3Fquery%23fragment', { base: 'USD', period: '1D', withSegments: true },
   );
 });
 
 it('distinguishes a genuinely empty backend response from a failed request', async () => {
-  jest.mocked(callBackendGet).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Network unavailable'));
-  await expect(fetchPriceHistory(TOKEN.slug, '1D', 'USD', TOKEN)).resolves.toEqual([]);
+  jest.mocked(callBackendGet)
+    .mockResolvedValueOnce({ points: [] })
+    .mockRejectedValueOnce(new Error('Network unavailable'));
+  await expect(fetchPriceHistory(TOKEN.slug, '1D', 'USD', TOKEN)).resolves.toEqual({ points: [] });
   await expect(fetchPriceHistory(TOKEN.slug, '1D', 'USD', TOKEN)).rejects.toThrow('Network unavailable');
 });

@@ -30,6 +30,12 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   justify-content: flex-start;
 }
 
+// The author's line stands over the answer, and the answer keeps its place along the leading edge
+.messageWithAuthor {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .wrapper {
   position: relative;
   max-width: $incomingWrapperMaxWidth;
@@ -66,20 +72,21 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   unicode-bidi: plaintext;
 
   // A bubble whose content pads itself, as a news item, sets `--agent-bubble-padding` to 0
-  padding: var(--agent-bubble-padding, 0.5rem 0.75rem);
+  padding: var(--agent-bubble-padding, #{agentBubble.$paddingBlock} 0.75rem);
   border-radius: var(--border-radius-content);
 
   // The wallet's text is a size smaller off a phone; on a phone it is the design's Medium 17/22
   font-size: 0.9375rem;
   font-weight: 500;
-  line-height: 1.25rem;
+  line-height: agentBubble.$lineHeight;
   overflow-wrap: break-word;
 
   @include mixins.is-mobile() {
     font-size: 1.0625rem;
-    line-height: 1.375rem;
+    line-height: agentBubble.$mobileLineHeight;
   }
 
+  // The tail follows the bubble's fill frame by frame, as while the bubble grows out of its placeholder
   &::after {
     content: "";
 
@@ -88,6 +95,8 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
     width: agentBubble.$tailWidth;
     height: agentBubble.$tailHeight;
+
+    background-color: inherit;
 
     mask-size: 100% 100%;
   }
@@ -108,7 +117,6 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
   &::after {
     inset-inline-end: -0.5rem;
-    background-color: var(--color-accent);
 
     mask-image: agentBubble.$outgoingTailMask;
     mask-repeat: no-repeat;
@@ -123,14 +131,15 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 .incoming {
   --color-dot: var(--color-gray-1);
   --agent-reveal-edge-background: var(--color-activity-gray-background);
-  --agent-table-border: rgba(0, 0, 0, 0.1);
+  --agent-code-background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --agent-table-header-background: rgba(0, 0, 0, 0.05);
   // The answer takes the place of the activity indicator, so it fades in where it stands instead of sliding up
   --message-appear-offset: 0;
   // Paragraphs stand a blank line apart, while the answer streams as well as once it is complete
   --agent-paragraph-gap: 1.375rem;
 
   // One line high from the start, as the activity line it replaces, and hidden until its first words show
-  min-height: 2.375rem;
+  min-height: agentBubble.$incomingMinHeight;
   margin-inline-start: 0.5rem;
   border-end-start-radius: 0;
 
@@ -138,21 +147,38 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 
   background-color: var(--color-activity-gray-background);
 
+  // The corner under the tail squares again as the tail grows back over it
+
+  @include mixins.transition(border-end-start-radius agentBubble.$tailBackTransition);
+
+  @supports (transition-timing-function: linear(0, 1)) {
+    transition-timing-function: agentBubble.$tailBackEasing;
+  }
+
+  // Code stands in a well of black, as in Telegram's night theme, and a table's header row is a shade lighter than the
+  // bubble
+  :global(html.theme-dark) & {
+    --agent-code-background: rgba(0, 0, 0, 0.75);
+    --agent-table-header-background: rgba(255, 255, 255, 0.05);
+  }
+
   &:has([data-agent-streaming-text]:empty) {
     visibility: hidden;
   }
 
-  // The tail grows back out of the corner once the suggestions under the bubble go, as on mobile
+  // The tail grows back out of its corner as the suggestions under the bubble go, as on mobile
   &::after {
     inset-inline-start: -0.5rem;
     transform-origin: 100% 100%;
 
-    background-color: var(--color-activity-gray-background);
-
     mask-image: agentBubble.$incomingTailMask;
     mask-repeat: no-repeat;
 
-    @include mixins.transition("scale 400ms cubic-bezier(0.34, 1.4, 0.64, 1) 50ms, opacity 200ms ease 50ms");
+    @include mixins.transition("transform #{agentBubble.$tailBackTransition}, opacity #{agentBubble.$tailBackTransition}");
+
+    @supports (transition-timing-function: linear(0, 1)) {
+      transition-timing-function: agentBubble.$tailBackEasing;
+    }
 
     :global(html[dir="rtl"]) & {
       transform-origin: 0 100%;
@@ -161,25 +187,90 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
     }
   }
 
-  :global(pre) {
-    overflow-x: auto;
+  // Code is drawn as Telegram draws it, in the accent colour. A code block is a rounded well with a bar along its
+  // start and a strip over the code, which names its language and copies the code.
+  :global(.agent-code-inline),
+  :global(.agent-code-text) {
+    color: var(--color-accent);
+  }
+
+  :global(.agent-code-block) {
+    position: relative;
+
+    overflow: hidden;
 
     margin: 0.25rem 0;
-    padding: 0.375rem 0.5rem;
-    border-radius: 0.625rem;
+    border-radius: 0.3125rem;
 
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--agent-code-background);
+
+    &::before {
+      content: "";
+
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      bottom: 0;
+      inset-inline-start: 0;
+
+      width: 0.1875rem;
+
+      opacity: 0.9;
+      background: var(--color-accent);
+    }
   }
 
-  :global(code) {
-    padding: 0.0625rem 0.25rem;
-    border-radius: 0.1875rem;
-    background: rgba(0, 0, 0, 0.05);
+  :global(.agent-code-header) {
+    cursor: var(--custom-cursor, pointer);
+    user-select: none;
+
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+
+    width: 100%;
+    height: 1.25rem;
+    padding-block: 0;
+    padding-inline: 0.8125rem 0.5rem;
+    border: none;
+
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    color: var(--color-accent);
+
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
-  :global(pre code) {
-    padding: 0;
-    background: none;
+  :global(.agent-code-language) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.agent-code-copy-icon) {
+    flex-shrink: 0;
+    font-size: 1rem;
+    opacity: 0.6;
+  }
+
+  // The code is 2 px smaller than the text, in lines half as tall again. Long lines scroll, while the strip over them
+  // stays.
+  :global(.agent-code-body) {
+    overflow-x: auto;
+
+    margin: 0;
+    padding-block: 0.125rem;
+    padding-inline: 0.8125rem 0.5rem;
+
+    font-size: calc(1em - 0.125rem);
+    line-height: 1.5;
+  }
+
+  :global(.agent-code-text) {
+    font-size: inherit;
+    line-height: inherit;
   }
 
   :global(ul),
@@ -224,22 +315,25 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
     margin: 0.25rem 0;
   }
 
+  // Tables are grey, as in Telegram's messages: their lines are the app's separators, and the header row is a shade
+  // off the bubble
   :global(th),
   :global(td) {
-    padding: 0.25rem 0.5rem;
-    border-bottom: 1px solid var(--agent-table-border);
-    border-inline-end: 1px solid var(--agent-table-border);
+    padding: 0.5rem 0.625rem;
+    border-bottom: 0.0625rem solid var(--color-separator);
+    border-inline-end: 0.0625rem solid var(--color-separator);
     text-align: start;
   }
 
   :global(th:first-child),
   :global(td:first-child) {
-    border-inline-start: 1px solid var(--agent-table-border);
+    border-inline-start: 0.0625rem solid var(--color-separator);
   }
 
   :global(th) {
-    border-top: 1px solid var(--agent-table-border);
-    font-weight: 700;
+    border-top: 0.0625rem solid var(--color-separator);
+    font-weight: 600;
+    background: var(--agent-table-header-background);
   }
 
   :global(th:first-child) {
@@ -259,13 +353,18 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   }
 }
 
-// Suggestions under the bubble take the place of its tail
+// Suggestions under the bubble take the place of its tail, which goes into its corner as they come in, uncovering the
+// corner's curve
 .incoming.tailless {
   border-end-start-radius: var(--border-radius-content);
 
+  @include mixins.transition(border-end-start-radius agentBubble.$tailAwayTransition);
+
   &::after {
-    scale: 0.4;
+    transform: agentBubble.$tailAwayTransform;
     opacity: 0;
+
+    @include mixins.transition("transform #{agentBubble.$tailAwayTransition}, opacity #{agentBubble.$tailAwayTransition}");
   }
 }
 
@@ -280,6 +379,19 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
 @media (prefers-reduced-motion: reduce) {
   .appearing {
     animation: none;
+  }
+
+  // The tail fades away and back where it stands, at the suggestions' pace, as on iOS
+  .incoming {
+    transition: border-end-start-radius agentBubble.$tailAwayTransition;
+  }
+
+  .incoming::after {
+    transition: opacity agentBubble.$tailAwayTransition;
+  }
+
+  .incoming.tailless::after {
+    transform: none;
   }
 }
 
@@ -306,8 +418,8 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   margin-top: 0.625rem;
 }
 
-// The buttons hang from the bubble 3 px apart, the last one rounder at the bottom
-// A button that sets `--agent-action-text` and `--agent-action-background` takes those colors instead
+// The buttons hang from the bubble 3 px apart, the last one rounder at the bottom.
+// A button that sets `--agent-action-text` and `--agent-action-background` takes those colors instead.
 .actionButton {
   --agent-action-info-text: #2582D8;
 
@@ -357,9 +469,9 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   @include mixins.active-transition-optimization();
 }
 
-// The menu lines up with the bubble's side rather than overhanging it
+// The menu lines up with the bubble's side rather than overhanging it.
 // A message's menu has 8 px over its date line and 4 px under its last item, so the date stands 12 px in from the
-// menu's top and start, as in the design
+// menu's top and start, as in the design.
 .menu {
   --offset-x-value: 0;
 
@@ -375,4 +487,21 @@ $outgoingBubbleMaxWidth: min(calc(100% - 4rem), agentBubble.$maxWidth);
   :global(html.theme-dark) & {
     filter: brightness(0.68);
   }
+}
+
+// An operator's reply, in the green tint of support, as in the design
+.incomingOperator {
+  --agent-operator-background: color-mix(in srgb, var(--color-green) 13%, var(--agent-background));
+
+  background-color: var(--agent-operator-background);
+}
+
+.operatorText {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+// A question keeps the line breaks typed in the field
+.questionText {
+  white-space: pre-wrap;
 }

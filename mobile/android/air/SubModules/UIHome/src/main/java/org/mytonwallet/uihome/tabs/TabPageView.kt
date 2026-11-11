@@ -13,6 +13,7 @@ import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
+import org.mytonwallet.app_air.uicomponents.extensions.cancelSpringScroll
 import org.mytonwallet.app_air.uicomponents.helpers.ScrollLockHost
 
 internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
@@ -142,11 +143,11 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
                             initialRawY.toInt(),
                             direction
                         )
-                        if (!allowParentPager &&
-                            !nestedCanScroll &&
-                            tabPager.isUserInputEnabled &&
-                            tabPager.beginFakeDrag()
-                        ) {
+                        val shouldFakeDrag =
+                            !allowParentPager && !nestedCanScroll && tabPager.isUserInputEnabled
+                        // A tapped tab's spring would call `setCurrentItem` mid-drag, so the finger takes over
+                        if (shouldFakeDrag) tabPager.cancelSpringScroll()
+                        if (shouldFakeDrag && tabPager.beginFakeDrag()) {
                             val cancelEvent = MotionEvent.obtain(event).apply {
                                 action = MotionEvent.ACTION_CANCEL
                             }

@@ -12,6 +12,10 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
         static let trailingInset: CGFloat = AgentMessageCellMetrics.incomingTrailingInset
     }
 
+    /// How long the suggestions may take before placeholders stand in for them. Suggestions that come sooner come in
+    /// on their own, without placeholders flashing up just before them.
+    static let followupPlaceholderDelay: TimeInterval = 1
+
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)? {
         get { newsView.contextMenuConfigurationProvider }
         set { newsView.contextMenuConfigurationProvider = newValue }
@@ -20,7 +24,7 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
         get { newsView.onPreferredHeightChanged }
         set { newsView.onPreferredHeightChanged = newValue }
     }
-    var openSourceAction: (() -> Void)? {
+    var openSourceAction: ((String) -> Void)? {
         get { newsView.openSourceAction }
         set { newsView.openSourceAction = newValue }
     }
@@ -37,11 +41,19 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
     let newsView = AgentNewsPostView()
     private let contentLayoutGuide = UILayoutGuide()
     private let followupView = AgentFollowupView()
+
+    /// The suggestion of `controlID` under the post, which turns into the question's bubble once tapped
+    func getFollowupButton(controlID: String) -> AgentSuggestionButton? {
+        followupView.getButton(controlID: controlID)
+    }
     private var followupConstraints: [NSLayoutConstraint] = []
     private var followupTitles: [String] = []
     private var isLoadingFollowups = false
     private var followupsExpired = false
     private var followupsTimeout: DispatchWorkItem?
+    /// Shows the placeholders once the suggestions have taken `followupPlaceholderDelay`
+    private var followupPlaceholderTimer: DispatchWorkItem?
+    private var arePlaceholdersDue = false
     private var hasConfiguredFollowups = false
     private lazy var newsBottomConstraint = newsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
 
@@ -60,6 +72,9 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
         followupsTimeout?.cancel()
         followupsTimeout = nil
         followupsExpired = false
+        followupPlaceholderTimer?.cancel()
+        followupPlaceholderTimer = nil
+        arePlaceholdersDue = false
         newsView.prepareForReuse()
         onFollowupTap = nil
         contentView.alpha = 1
@@ -110,34 +125,45 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
     }
 
     func configure(with news: ApiAgentV2ThreadNewsCard) {
-        newsView.configure(with: AgentNewsPostView.Content(news: news), isHeaderVisible: true)
+        configure(with: AgentNewsPostView.Content(news: news))
+    }
+
+    /// A news post or a digest's
+    func configure(with content: AgentNewsPostView.Content) {
+        newsView.configure(with: content, isHeaderVisible: true)
     }
 
     /// Topical suggestions under the post. They scroll with it, without the Agent's mark above them, and hang from it as
     /// from an answer.
+    ///
+    /// While they load, placeholders stand in for them, but only once they have taken `followupPlaceholderDelay`.
     func configureFollowups(_ controls: [AgentMessageControl], isLoading: Bool = false) {
         let followups = controls.filter { $0.kind == .followup }
-        let shouldLoad = isLoading && followups.isEmpty && !followupsExpired
+        let isWaiting = isLoading && followups.isEmpty && !followupsExpired
+        schedulePlaceholders(isWaiting: isWaiting)
+        let shouldLoad = isWaiting && arePlaceholdersDue
         let titles = followups.map(\.title)
         let isShownHeightChanging = hasConfiguredFollowups && (titles != followupTitles || shouldLoad != isLoadingFollowups)
         isLoadingFollowups = shouldLoad
         followupTitles = titles
         hasConfiguredFollowups = true
         let hasFollowups = !followups.isEmpty || shouldLoad
+        if isWaiting, followupsTimeout == nil {
+            let timeout = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.followupsExpired = true
+                self.configureFollowups([])
+            }
+            followupsTimeout = timeout
+            DispatchQueue.main.asyncAfter(deadline: .now() + 25, execute: timeout)
+        }
         if shouldLoad {
             followupView.showLoading()
-            if followupsTimeout == nil {
-                let timeout = DispatchWorkItem { [weak self] in
-                    guard let self else { return }
-                    self.followupsExpired = true
-                    self.configureFollowups([])
-                }
-                followupsTimeout = timeout
-                DispatchQueue.main.asyncAfter(deadline: .now() + 25, execute: timeout)
-            }
         } else {
-            followupsTimeout?.cancel()
-            followupsTimeout = nil
+            if !isWaiting {
+                followupsTimeout?.cancel()
+                followupsTimeout = nil
+            }
             followupView.configure(controls: followups, isVisible: hasFollowups, animatesAppearance: isShownHeightChanging) { [weak self] id in
                 self?.onFollowupTap?(id)
             }
@@ -159,6 +185,31 @@ final class AgentNewsPostCell: UICollectionViewCell, AgentContextMenuPresentingC
             self.onPreferredHeightChanged?()
         }
     }
+
+    /// Starts the placeholders' delay as the suggestions start loading, and drops it once they stop: suggestions that
+    /// arrive, a failure or a post no longer waiting for them never get placeholders
+    private func schedulePlaceholders(isWaiting: Bool) {
+        guard isWaiting else {
+            followupPlaceholderTimer?.cancel()
+            followupPlaceholderTimer = nil
+            arePlaceholdersDue = false
+            return
+        }
+        guard followupPlaceholderTimer == nil, !arePlaceholdersDue else { return }
+        let timer = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.followupPlaceholderTimer = nil
+            self.arePlaceholdersDue = true
+            self.configureFollowups([], isLoading: true)
+            // The placeholders come in as the suggestions do, one by one out of a blur
+            self.followupView.animateAppearance()
+        }
+        followupPlaceholderTimer = timer
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.followupPlaceholderDelay, execute: timer)
+    }
+
+    /// Whether placeholders stand in for the suggestions, which the chat's tests watch
+    var showsFollowupPlaceholders: Bool { isLoadingFollowups }
 
     /// Long suggestions wrap within the column instead of being cut off
     private func updateFollowupMaxWidth() {

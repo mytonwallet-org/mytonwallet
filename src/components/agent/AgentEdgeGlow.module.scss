@@ -1,22 +1,26 @@
 @use "../../styles/mixins";
 
-// The glow fades inward from both edges across the direction and is gone 30 px in, as on mobile
+// The edge's light falls off inward as the shader's bloom and haze do, and is gone 2 rem in
 
 @function edge-fade($direction) {
   @return linear-gradient(
     $direction,
     #000 0%,
-    rgba(0, 0, 0, 0.6) 0.5rem,
-    rgba(0, 0, 0, 0.15) 1.125rem,
-    transparent 1.875rem,
-    transparent calc(100% - 1.875rem),
-    rgba(0, 0, 0, 0.15) calc(100% - 1.125rem),
-    rgba(0, 0, 0, 0.6) calc(100% - 0.5rem),
+    rgba(0, 0, 0, 0.5) 0.25rem,
+    rgba(0, 0, 0, 0.27) 0.5rem,
+    rgba(0, 0, 0, 0.1) 1rem,
+    rgba(0, 0, 0, 0.03) 1.5rem,
+    transparent 2rem,
+    transparent calc(100% - 2rem),
+    rgba(0, 0, 0, 0.03) calc(100% - 1.5rem),
+    rgba(0, 0, 0, 0.1) calc(100% - 1rem),
+    rgba(0, 0, 0, 0.27) calc(100% - 0.5rem),
+    rgba(0, 0, 0, 0.5) calc(100% - 0.25rem),
     #000 100%
   );
 }
 
-// It comes in over 0.7 s and goes over 0.4 s, eased at both ends as a smoothstep, as on mobile
+// It comes in over 0.7 s and goes over 0.4 s, eased at both ends as a smoothstep, as on iOS
 .root {
   pointer-events: none;
 
@@ -47,49 +51,102 @@
   height: 100%;
 }
 
-// Without WebGL, a conic gradient turns under the edges' mask
+// Without WebGL, CSS draws the glow in the Agent's blue and violet: the bright pair over light, the deep pair on dark
 .fallback {
-  --agent-glow-blue: rgba(50, 158, 255, 0.95);
-  --agent-glow-purple: rgba(190, 118, 253, 0.95);
+  --agent-glow-blue: 50 158 255;
+  --agent-glow-purple: 190 118 253;
 
   overflow: hidden;
 
-  // A white haze runs along the whole edge under the lights
-  background-color: rgba(244, 245, 252, 0.95);
-
-  mask-image: edge-fade(90deg), edge-fade(180deg);
-
   :global(html.theme-dark) & {
-    --agent-glow-blue: rgba(5, 109, 205, 0.95);
-    --agent-glow-purple: rgba(144, 70, 203, 0.95);
-
-    background-color: transparent;
+    --agent-glow-blue: 5 109 205;
+    --agent-glow-purple: 144 70 203;
   }
 }
 
-// Two lights go round clockwise once in 2.667 s, the purple one half a turn behind the blue one
-.lights {
+// Between the stretches the edge keeps a little of both colours
+.stretches {
+  position: absolute;
+  inset: 0;
+
+  overflow: hidden;
+
+  background-color: rgb(var(--agent-glow-blue) / 0.12);
+  background-image: linear-gradient(rgb(var(--agent-glow-purple) / 0.12) 0 0);
+
+  mask-image: edge-fade(90deg), edge-fade(180deg);
+}
+
+// The blue stretches go round clockwise 7 times in 24 s, as iOS's brightest one does, and the purple ones the other
+// way 3 times, as one of iOS's purple ones does
+.blueStretches,
+.purpleStretches {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
 
-  width: 300vmax;
-  height: 300vmax;
+  width: 150vmax;
+  height: 150vmax;
 
+  animation: agent-glow-turn 3.429s linear infinite;
+}
+
+.blueStretches {
   background: conic-gradient(
-    var(--agent-glow-blue) 0deg,
-    transparent 85.5deg,
-    transparent 94.5deg,
-    var(--agent-glow-purple) 180deg,
-    transparent 265.5deg,
-    transparent 274.5deg,
-    var(--agent-glow-blue) 360deg
+    transparent 0deg,
+    rgb(var(--agent-glow-blue)) 25deg,
+    transparent 50deg,
+    transparent 185deg,
+    rgb(var(--agent-glow-blue) / 0.7) 205deg,
+    transparent 225deg
   );
+}
 
-  animation: agent-glow-spin 2.667s linear infinite;
+.purpleStretches {
+  background: conic-gradient(
+    transparent 85deg,
+    rgb(var(--agent-glow-purple) / 0.9) 108deg,
+    transparent 131deg,
+    transparent 265deg,
+    rgb(var(--agent-glow-purple) / 0.8) 288deg,
+    transparent 311deg
+  );
+  animation-duration: 8s;
+  animation-direction: reverse;
+}
 
-  // The lights stand still where motion is reduced
+// The thin, almost white core line along the edge
+.core {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.0625rem rgb(255 255 255 / 0.4);
+}
+
+// Faint lights in both colours behind the composer, gone 150 px up, swaying from side to side
+.lights {
+  position: absolute;
+  right: -20%;
+  bottom: 0;
+  left: -20%;
+
+  height: 9.375rem;
+
+  background:
+    radial-gradient(circle 12.5rem at 37% 55%, rgb(var(--agent-glow-blue) / 0.1), transparent),
+    radial-gradient(circle 12.5rem at 63% 62%, rgb(var(--agent-glow-purple) / 0.1), transparent),
+    radial-gradient(circle 15rem at 50% 42%, rgb(var(--agent-glow-blue) / 0.07), transparent);
+
+  animation: agent-glow-sway 6s ease-in-out infinite alternate;
+
+  mask-image: linear-gradient(to top, #000 50%, transparent);
+}
+
+// They stand still where motion is reduced
+.blueStretches,
+.purpleStretches,
+.lights {
   :global(html.animation-level-0) & {
     animation: none;
   }
@@ -99,8 +156,18 @@
   }
 }
 
-@keyframes agent-glow-spin {
+@keyframes agent-glow-turn {
   to {
     transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes agent-glow-sway {
+  from {
+    transform: translateX(-8%);
+  }
+
+  to {
+    transform: translateX(8%);
   }
 }

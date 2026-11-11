@@ -43,6 +43,10 @@ final class RootAgentBarController {
     private weak var composedChatTarget: (any AgentComposerHandoffTarget)?
     /// The handoff's spring on the list's field and the search circle, if one is running
     private var handoffMotion: AgentHandoffMotion?
+    /// The field holds a question, as last placed: wide over the search circle's place, the circle away past the
+    /// leading edge. Transitions that start meanwhile start from this.
+    private var isQuestionHeld = false
+    private var questionAnimator: UIViewPropertyAnimator?
 
     init(host: any RootAgentBarHost, searchToolbar: UniversalSearchFieldView, containerView: UIView) {
         self.host = host
@@ -86,7 +90,70 @@ final class RootAgentBarController {
         bar.onMorphFrame = { [weak self] progress in
             self?.applyMorphFrame(progress)
         }
+        bar.onQuestionChange = { [weak self] in
+            self?.updateQuestionLayout()
+        }
+        isQuestionHeld = bar.hasQuestion
+        if !bar.isEditing {
+            bar.setExpansion(isQuestionHeld ? 1 : 0)
+        }
         applyMorph()
+    }
+
+    /// The field's width at rest on the list: wide while it is edited or holds a question
+    private var restingExpansion: CGFloat {
+        bar?.isEditing == true || isQuestionHeld ? 1 : 0
+    }
+
+    /// The search circle stays away past the leading edge: while the field holds a question and isn't edited, when the
+    /// circle dissolves in place instead
+    private var isSearchCircleAway: Bool {
+        isQuestionHeld && bar?.isEditing != true
+    }
+
+    /// While the field holds a question, being recorded or recognized or as text, the search circle flies off past the
+    /// leading edge and the field widens over its place, as Telegram's attachment button leaves while a voice message
+    /// records. Once the question is sent or cleared, they come back. A transition or paging running meanwhile places
+    /// them as it goes.
+    private func updateQuestionLayout() {
+        guard let bar, bar.hasQuestion != isQuestionHeld else { return }
+        isQuestionHeld = bar.hasQuestion
+        guard !bar.isEditing, !isNavigationHandoffActive, handoffMotion == nil, host?.agentBarSideEdge == nil else {
+            return
+        }
+        // Under a chat the circle waits away and the field is the chat's composer; the pop places them
+        guard host?.agentBarNavigationController?.viewControllers.count ?? 1 <= 1 else { return }
+        let isAway = isQuestionHeld
+        guard morphProgress >= 1, !bar.isHidden, bar.window != nil, !UIAccessibility.isReduceMotionEnabled else {
+            bar.setExpansion(restingExpansion)
+            UIView.performWithoutAnimation {
+                bar.layoutIfNeeded()
+                if morphProgress >= 1 { applySearchCircleFlight(isAway ? 1 : 0) }
+            }
+            return
+        }
+        questionAnimator?.stopAnimation(false)
+        questionAnimator?.finishAnimation(at: .current)
+        // The circle keeps its glass on the way out and lets it go once out of sight; coming back it has its glass
+        // before it moves
+        if !isAway {
+            UIView.performWithoutAnimation { applySearchCircleFlight(1, keepsGlass: true) }
+        }
+        bar.setExpansion(restingExpansion)
+        let animator = AgentListBottomBar.makeQuestionAnimator()
+        animator.addAnimations { [weak self, weak bar] in
+            bar?.layoutIfNeeded()
+            self?.applySearchCircleFlight(isAway ? 1 : 0, keepsGlass: true)
+        }
+        animator.addCompletion { [weak self, weak animator] _ in
+            guard let self, questionAnimator === animator else { return }
+            questionAnimator = nil
+            if isAway, isSearchCircleAway, !isNavigationHandoffActive, morphProgress >= 1 {
+                applySearchCircleFlight(1)
+            }
+        }
+        questionAnimator = animator
+        animator.startAnimation()
     }
 
     /// Paging progress toward the Agent tab: 0 shows the regular toolbar, 1 the search circle and the question field
@@ -128,7 +195,12 @@ final class RootAgentBarController {
         let swell = progress > 0.001 && progress < 0.999 || abs(progress - morphProgress) > 0.001
             ? AgentListBottomBar.swell(at: min(1.15, max(-0.1, progress)))
             : 1
-        searchToolbar.setFieldHandoffAppearance(scale: swell, alpha: 1)
+        if isSearchCircleAway {
+            // Away for a question on the Agent tab, the circle comes back to the toolbar as the bar folds into it
+            applySearchCircleFlight(clamped, scale: swell)
+        } else {
+            searchToolbar.setFieldHandoffAppearance(scale: swell, alpha: 1)
+        }
         searchToolbar.setTrailingButtonHandoffScale(swell)
     }
 
@@ -153,10 +225,15 @@ final class RootAgentBarController {
             return
         }
         host?.agentBarEditingDidChange(isEditing)
+        isQuestionHeld = bar.hasQuestion
         // The field widens over the search circle on the capsules' spring as the keyboard comes up, flowing into the
         // circle's glass, and the circle dematerializes in place as Telegram's glass does, swelling as it fades; it
-        // comes back the same way
-        animateExpansion(bar, to: isEditing ? 1 : 0)
+        // comes back the same way. A field left with a question stays wide, its circle waiting away out of sight.
+        animateExpansion(bar, to: restingExpansion)
+        if isSearchCircleAway {
+            UIView.performWithoutAnimation { applySearchCircleFlight(1) }
+            return
+        }
         let dissolve = { self.applySearchCircleDissolve(isEditing ? 1 : 0) }
         guard !UIAccessibility.isReduceMotionEnabled, bar.window != nil else {
             UIView.performWithoutAnimation(dissolve)
@@ -181,6 +258,11 @@ final class RootAgentBarController {
         in navigationController: WNavigationController
     ) {
         stopComposedChatLanding()
+        // A tab menu can still be dismissing when its selection updates the root toolbar.
+        // Only a push or pop carries the Agent field into another screen.
+        let coordinator = navigationController.transitionCoordinator.flatMap {
+            $0.presentationStyle == .none ? $0 : nil
+        }
         guard isAvailable else {
             handoffMotion?.stop()
             handoffMotion = nil
@@ -190,7 +272,7 @@ final class RootAgentBarController {
             return
         }
         // The composed chat comes without a transition; its composer is the field already, still riding the keyboard
-        if isComposedChatHandoffPending, isShowingRoot, navigationController.transitionCoordinator == nil {
+        if isComposedChatHandoffPending, isShowingRoot, coordinator == nil {
             return
         }
         let isComposedChat = isComposedChatHandoffPending
@@ -202,7 +284,6 @@ final class RootAgentBarController {
             }
             return
         }
-        let coordinator = navigationController.transitionCoordinator
         // The root shown again without a transition, as when the pages settle once the field takes focus and paging
         // stops, with the bar already resting there: nothing moves, and the field keeps widening or narrowing on its
         // own spring, the search circle dissolving or coming back beside it
@@ -226,8 +307,14 @@ final class RootAgentBarController {
         }
         let otherViewController = isShowingRoot ? fromViewController : viewController
         let handoffTarget = otherViewController as? any AgentComposerHandoffTarget
+        // Back from a chat whose composer rides the keyboard, as through a swipe back while typing, the composer stays
+        // with the chat above the keyboard, which leaves with it, and the list's field comes in at the bottom as they
+        // go, as Telegram's input panel does
+        let keepsComposer = isShowingRoot && handoffTarget?.isComposerOnKeyboard == true
         let finalAlpha: CGFloat = isShowingRoot ? 1 : 0
-        let finalExpansion: CGFloat = isShowingRoot ? (bar.isEditing ? 1 : 0) : 1
+        let finalExpansion: CGFloat = isShowingRoot ? restingExpansion : 1
+        // A field that holds a question goes and comes back wide, its circle away
+        let finalFlight: CGFloat = isShowingRoot && !isSearchCircleAway ? 0 : 1
         searchToolbar.shouldKeepPlaceWhenEmpty = handoffTarget != nil
 
         func finish(isRootShown: Bool) {
@@ -237,8 +324,11 @@ final class RootAgentBarController {
             isNavigationHandoffActive = false
             bar.isHidden = !isRootShown || !isAvailable
             bar.alpha = isRootShown ? 1 : 0
-            bar.setExpansion(isRootShown ? (bar.isEditing ? 1 : 0) : 1)
-            if isRootShown || handoffTarget == nil {
+            bar.setExpansion(isRootShown ? restingExpansion : 1)
+            if isRootShown, isSearchCircleAway {
+                applySearchCircleFlight(1)
+                searchToolbar.shouldKeepPlaceWhenEmpty = false
+            } else if isRootShown || handoffTarget == nil {
                 searchToolbar.setFieldHandoffAppearance(scale: 1, alpha: 1)
                 searchToolbar.shouldKeepPlaceWhenEmpty = false
             } else {
@@ -246,6 +336,8 @@ final class RootAgentBarController {
                 applySearchCircleFlight(1)
             }
             handoffTarget?.setComposerHandoffHidden(false)
+            // A question sent or cleared during the transition moves the circle and the field once it ends
+            if isRootShown { updateQuestionLayout() }
         }
 
         handoffMotion?.stop()
@@ -267,13 +359,15 @@ final class RootAgentBarController {
         isNavigationHandoffActive = handoffTarget != nil
         bar.isHidden = false
         if isShowingRoot {
-            bar.setExpansion(handoffTarget == nil ? 0 : 1)
-            bar.alpha = handoffTarget == nil ? 0 : 1
-            if handoffTarget != nil {
+            bar.setExpansion(handoffTarget == nil ? restingExpansion : 1)
+            bar.alpha = handoffTarget == nil || keepsComposer ? 0 : 1
+            if handoffTarget != nil || isSearchCircleAway {
                 applySearchCircleFlight(1)
             }
         }
-        handoffTarget?.setComposerHandoffHidden(true)
+        if !keepsComposer {
+            handoffTarget?.setComposerHandoffHidden(true)
+        }
         host?.agentBarHostView.layoutIfNeeded()
 
         guard handoffTarget != nil else {
@@ -287,11 +381,12 @@ final class RootAgentBarController {
         }
 
         // As Telegram's bars do, the field and the circle don't follow the transition: they move on the glass spring
-        // once a push or a tapped pop starts, and a swipe back holds them until the finger lifts
-        let start: CGFloat = isShowingRoot || isComposedChat ? 1 : 0
+        // once a push or a tapped pop starts, and a swipe back holds them until the finger lifts. A field that holds a
+        // question is wide and its circle away already.
+        let start: CGFloat = isShowingRoot || isComposedChat || isSearchCircleAway ? 1 : 0
         let motion = AgentHandoffMotion(
             expansion: (from: start, to: finalExpansion),
-            dissolve: (from: start, to: isShowingRoot ? 0 : 1)
+            dissolve: (from: start, to: finalFlight)
         ) { [weak self, weak bar] expansion, dissolve in
             guard let self, let bar else { return }
             bar.setExpansion(expansion)
@@ -311,6 +406,7 @@ final class RootAgentBarController {
         }
         let accepted = coordinator.animate(alongsideTransition: { context in
             if !context.isInteractive { motion.start() }
+            if keepsComposer { bar.alpha = finalAlpha }
         }, completion: { context in
             let isRootShown = context.isCancelled ? !isShowingRoot : isShowingRoot
             isRootShownAfterTransition = isRootShown
@@ -393,15 +489,18 @@ final class RootAgentBarController {
         isNavigationHandoffActive = true
         bar.isHidden = false
         bar.alpha = 1
-        bar.setExpansion(0)
+        bar.setExpansion(restingExpansion)
         searchToolbar.isTrailingButtonHandedOff = true
         let start: CGFloat = isShowingRoot ? 1 : 0
         bar.setSearchHandoff(start)
+        // A circle away for a question comes back in as it widens into the search field, and goes again on the way back
+        let isCircleAway = isSearchCircleAway
         let motion = AgentHandoffMotion(
             expansion: (from: start, to: 1 - start),
             dissolve: (from: 0, to: 0)
-        ) { [weak bar] progress, _ in
+        ) { [weak self, weak bar] progress, _ in
             bar?.setSearchHandoff(progress)
+            if isCircleAway { self?.applySearchCircleFlight(1 - progress) }
         }
         handoffMotion = motion
         var isRootShownAfterTransition: Bool?
@@ -414,6 +513,10 @@ final class RootAgentBarController {
             bar?.isHidden = !isRootShown || !isAvailable
             bar?.alpha = isRootShown ? 1 : 0
             searchToolbar.isTrailingButtonHandedOff = false
+            if isCircleAway {
+                applySearchCircleFlight(isRootShown ? 1 : 0)
+            }
+            if isRootShown { updateQuestionLayout() }
         }
         motion.onSettle = {
             guard let isRootShown = isRootShownAfterTransition else { return }
@@ -477,17 +580,21 @@ final class RootAgentBarController {
     }
 
     /// 0: the search circle as it is; 1: flown off past the screen's leading edge, as Telegram's bar items leave for
-    /// a pushed screen. A spring's overshoot carries it a little past its place on the way back.
-    private func applySearchCircleFlight(_ flight: CGFloat) {
+    /// a pushed screen. A spring's overshoot carries it a little past its place on the way back. Out of sight it lets
+    /// its glass go unless `keepsGlass`; coming back it is there at once.
+    private func applySearchCircleFlight(_ flight: CGFloat, scale: CGFloat = 1, keepsGlass: Bool = false) {
         let flight = min(1.1, max(-0.1, flight))
         let circle = searchToolbar.convert(searchToolbar.bounds, to: containerView)
         let isRightToLeft = searchToolbar.effectiveUserInterfaceLayoutDirection == .rightToLeft
         let distance = isRightToLeft
             ? containerView.bounds.width - circle.maxX + AgentListBottomBar.height + 24
             : circle.minX + AgentListBottomBar.height + 24
-        // Out of sight it lets its glass go; coming back it is there at once
-        let alpha: CGFloat = flight >= 0.98 ? 0 : 1
-        searchToolbar.setFieldHandoffAppearance(scale: 1, alpha: alpha, offset: (isRightToLeft ? 1 : -1) * distance * flight)
+        let alpha: CGFloat = flight >= 0.98 && !keepsGlass ? 0 : 1
+        searchToolbar.setFieldHandoffAppearance(
+            scale: scale,
+            alpha: alpha,
+            offset: (isRightToLeft ? 1 : -1) * distance * flight
+        )
     }
 }
 

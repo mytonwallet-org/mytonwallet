@@ -3,13 +3,13 @@ package org.mytonwallet.app_air.walletcontext.globalStorage
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.PerpsAvailability
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
 import org.mytonwallet.app_air.walletcontext.models.MTokenChangeThreshold
+import org.mytonwallet.app_air.walletcontext.models.MToolbarConfiguration
 import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
@@ -104,6 +105,7 @@ object WGlobalStorage {
     }
 
     private const val AUTH_TYPES = "authTypes"
+    private const val AGENT_NEWS_NOTIFICATION_SETTINGS = "settings.agentNewsNotifications"
     private const val CURRENT_ACCOUNT_ID = "currentAccountId"
     private const val CURRENT_TEMPORARY_VIEW_ACCOUNT_ID = "currentTemporaryViewAccountId"
     private const val ACTIVE_THEME = "settings.theme"
@@ -120,6 +122,7 @@ object WGlobalStorage {
     private const val IS_LIQUID_GLASS_ENABLED = "settings.liquidGlassEnabled"
     private const val WALLET_CARD_TOP_LINE = "settings.walletCardTopLine"
     private const val HIDE_ACTION_BUTTONS_ROW = "settings.hideActionButtonsRow"
+    private const val TOOLBAR = "settings.toolbar"
     private const val ARE_SOUNDS_ACTIVE = "settings.canPlaySounds"
     private const val HIDE_TINY_TRANSFERS = "settings.areTinyTransfersHidden"
     private const val HIDE_UNVERIFIED_NFTS = "settings.areUnverifiedNftsHidden"
@@ -132,6 +135,8 @@ object WGlobalStorage {
     private const val LANG_CODE = "settings.langCode"
     private const val AGENT_NEWS_READ_THROUGH = "settings.agentNewsReadThrough"
     private const val AGENT_THREAD_READ_STATE = "settings.agentThreadReadState"
+    private const val AGENT_LIKED_TOAST_SHOWN = "settings.agentLikedToastShown"
+    private const val AGENT_DISLIKED_TOAST_SHOWN = "settings.agentDislikedToastShown"
     private const val LANG_SOURCE = "settings.langSource"
     const val LANG_SOURCE_USER = "user"
     private const val PRICE_HISTORY = "tokenPriceHistory.bySlug"
@@ -304,6 +309,11 @@ object WGlobalStorage {
             persistInstantly = IGlobalStorageProvider.PERSIST_INSTANT
         )
         cachedAccountIds = null
+    }
+
+    fun getStoredOrderedAccountIds(): List<String> {
+        val array = globalStorageProvider.getArray(ORDERED_ACCOUNT_IDS) ?: return emptyList()
+        return (0 until array.length()).mapNotNull { array.optString(it).ifEmpty { null } }
     }
 
     fun setOrderedAccountIds(accountIds: JSONArray) {
@@ -507,6 +517,17 @@ object WGlobalStorage {
         )
     }
 
+    fun getToolbarConfiguration(): MToolbarConfiguration =
+        MToolbarConfiguration.fromJson(globalStorageProvider.getDict(TOOLBAR))
+
+    fun setToolbarConfiguration(configuration: MToolbarConfiguration) {
+        globalStorageProvider.set(
+            TOOLBAR,
+            configuration.toJson(),
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun setIsRoundedBalanceFontActive(active: Boolean) {
         globalStorageProvider.set(
             IS_ROUNDED_BALANCE_FONT_ACTIVE,
@@ -685,6 +706,17 @@ object WGlobalStorage {
 
     fun getBaseCurrency(): String = globalStorageProvider.getString(BASE_CURRENCY) ?: "USD"
 
+    fun getAgentNewsNotificationSettings(): String? =
+        globalStorageProvider.getString(AGENT_NEWS_NOTIFICATION_SETTINGS)
+
+    fun setAgentNewsNotificationSettings(value: String) {
+        globalStorageProvider.set(
+            AGENT_NEWS_NOTIFICATION_SETTINGS,
+            value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun getAgentNewsReadThrough(): String? =
         globalStorageProvider.getString(AGENT_NEWS_READ_THROUGH)
 
@@ -706,6 +738,21 @@ object WGlobalStorage {
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
+
+    /** Whether the toast after the first like of an Agent answer, or with [isLike] false its first dislike, showed */
+    fun getIsAgentFeedbackToastShown(isLike: Boolean): Boolean =
+        globalStorageProvider.getBool(agentFeedbackToastKey(isLike)) == true
+
+    fun setAgentFeedbackToastShown(isLike: Boolean) {
+        globalStorageProvider.set(
+            agentFeedbackToastKey(isLike),
+            true,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    private fun agentFeedbackToastKey(isLike: Boolean): String =
+        if (isLike) AGENT_LIKED_TOAST_SHOWN else AGENT_DISLIKED_TOAST_SHOWN
 
     fun setBaseCurrency(baseCurrency: String) {
         globalStorageProvider.setEmptyObject(
@@ -834,6 +881,18 @@ object WGlobalStorage {
     fun setCurrentTokenPeriod(accountId: String, period: String) {
         globalStorageProvider.set(
             "byAccountId.$accountId.currentTokenPeriod",
+            value = period,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
+    }
+
+    /** The futures position chart's period, kept apart from the token screen's. */
+    fun currentFuturesPeriod(accountId: String): String =
+        globalStorageProvider.getString("byAccountId.$accountId.currentFuturesPeriod") ?: "1D"
+
+    fun setCurrentFuturesPeriod(accountId: String, period: String) {
+        globalStorageProvider.set(
+            "byAccountId.$accountId.currentFuturesPeriod",
             value = period,
             IGlobalStorageProvider.PERSIST_NORMAL
         )
@@ -1400,7 +1459,21 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 62
+    // State 63 stays unrecorded while Perps is closed, so opening it still inserts the tab
+    private val LAST_STATE: Int = if (PerpsAvailability.isAvailable()) 63 else 62
+
+    // AppTabsManager replaces the pre-Market default order whole
+    private fun addFuturesTab() {
+        val order = getAppTabOrder()?.toMutableList() ?: return
+        if ("futures" in order || order == listOf("wallet", "agent", "explore", "settings")) return
+        val precedingIndex = order.indexOf("market").takeIf { it >= 0 } ?: order.indexOf("wallet")
+        order.add(precedingIndex + 1, "futures")
+        globalStorageProvider.set(
+            APP_TAB_ORDER,
+            JSONArray(order),
+            IGlobalStorageProvider.PERSIST_NO
+        )
+    }
 
     fun migrate() {
         // Lock the storage
@@ -1873,6 +1946,11 @@ object WGlobalStorage {
         // State 61→62: drop cached activities that no activity list references
         if (currentState < 62) {
             removeUnlistedActivities()
+        }
+
+        // State 62→63: add the Futures tab
+        if (currentState < 63 && PerpsAvailability.isAvailable()) {
+            addFuturesTab()
         }
 
         // Update and unlock the storage

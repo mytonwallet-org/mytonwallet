@@ -1,3 +1,4 @@
+import CoreText
 import Dependencies
 import Foundation
 import Testing
@@ -23,34 +24,30 @@ struct PerpsOnboardingTests {
     @Test(arguments: ["snapshot-failure", "history-failure", "partial-snapshot"])
     func incompleteInitialReadsDoNotClaimTheAccountIsNew(_ mode: String) async throws {
         var client = client()
-        if mode == "snapshot-failure" { client.snapshot = { _ in throw PerpsError.invalidResponse } }
+        if mode == "snapshot-failure" { client.positions = { _ in throw PerpsError.invalidResponse } }
         if mode == "history-failure" { client.history = { _ in throw PerpsError.invalidResponse } }
         if mode == "partial-snapshot" {
             var snapshot = try emptySnapshot()
             snapshot.unavailableDexs = ["xyz"]
-            client.snapshot = { _ in snapshot }
+            client.positions = { _ in snapshot }
         }
         let store = store(client: client)
         await store.refresh(accountId: "wallet")
         #expect(!PerpsHomeAdapter.home(store: store, accountId: "wallet").showsOnboarding)
     }
 
-    @Test(arguments: ["unknown-fill", "funding", "cursor"])
-    func rawHistoryThatIsNotRenderedStillHidesOnboarding(_ kind: String) async throws {
+    @Test(arguments: ["unknown-fill", "unlisted-trade", "cursor"])
+    func historyThatIsNotRenderedStillHidesOnboarding(_ kind: String) async throws {
         var client = client()
         let history: ApiPerpsActivityHistory
         switch kind {
         case "unknown-fill":
             let fill = try JSONDecoder().decode(ApiPerpsFill.self, from: Data("""
-            {"coin":"UNKNOWN","time":1000,"feeToken":"USDC","eventKind":"opened"}
+            {"coin":"UNKNOWN","time":1000,"feeToken":"USDC","eventKind":"opened","positionSide":"long"}
             """.utf8))
-            history = .init(fills: [fill], cashFlows: [])
-        case "funding":
-            let funding = try JSONDecoder().decode(ApiPerpsCashFlow.self, from: Data("""
-            {"id":"funding","kind":"funding","direction":"incoming","time":1000,"amount":"0.01","token":"USDC","fees":[]}
-            """.utf8))
-            history = .init(fills: [], cashFlows: [funding])
-        default: history = .init(fills: [], cashFlows: [], nextCursor: "older")
+            history = .init(fills: [fill])
+        case "unlisted-trade": history = .init(fills: [], hasActivity: true)
+        default: history = .init(fills: [], nextCursor: "older")
         }
         client.history = { _ in history }
         let store = store(client: client)
@@ -82,40 +79,18 @@ struct PerpsOnboardingTests {
     }
 
     @Test func restoredConfirmedEmptyAccountShowsBannerBeforeRefreshingAndAfterOfflineFailure() async throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("cache.json")
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        let original = store(client: client(), url: url)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let original = store(client: client(), directory: directory)
         await original.refresh(accountId: "wallet")
         var offline = client()
-        offline.snapshot = { _ in throw PerpsError.invalidResponse }
+        offline.positions = { _ in throw PerpsError.invalidResponse }
         offline.history = { _ in throw PerpsError.invalidResponse }
-        let restored = store(client: offline, url: url)
+        let restored = store(client: offline, directory: directory)
         await restored.loadFromCache(accountIds: ["wallet"])
         #expect(PerpsHomeAdapter.home(store: restored, accountId: "wallet").showsOnboarding)
         await restored.refresh(accountId: "wallet")
         #expect(PerpsHomeAdapter.home(store: restored, accountId: "wallet").showsOnboarding)
-    }
-
-    @Test func legacyEmptyCacheCannotProveAnAccountHasNeverTraded() async throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("cache.json")
-        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let snapshot = try JSONSerialization.jsonObject(with: JSONEncoder().encode(emptySnapshot()))
-        let contents: [String: Any] = ["version": 3, "accounts": ["wallet": ["snapshot": snapshot, "history": ["fills": [], "cashFlows": []]]]]
-        try JSONSerialization.data(withJSONObject: contents).write(to: url)
-        let restored = store(client: client(), url: url)
-        await restored.loadFromCache(accountIds: ["wallet"])
-        #expect(restored.snapshots["wallet"] != nil)
-        #expect(!PerpsHomeAdapter.home(store: restored, accountId: "wallet").showsOnboarding)
-    }
-
-    @Test func accountSwitchCannotReplaceTheCurrentBanner() {
-        let data = homeData(account: "wallet", showsOnboarding: true)
-        let state = PerpsHomeState(data: data) { _ in }
-        state.update(homeData(account: "other", showsOnboarding: false))
-        #expect(state.data.showsOnboarding)
-        state.update(homeData(account: "wallet", showsOnboarding: false))
-        #expect(!state.data.showsOnboarding)
     }
 
     @Test func bannerMatchesDesignGeometryAndReleasesItsActionOnReuse() throws {
@@ -126,7 +101,7 @@ struct PerpsOnboardingTests {
         let image = try #require(descendants(cell).first { $0.accessibilityIdentifier == "perps.onboarding.illustration" } as? UIImageView)
         let button = try #require(descendants(cell).first { $0.accessibilityIdentifier == "perps.onboarding.open" } as? UIControl)
         #expect(cell.contentView.layer.cornerRadius == 26)
-        #expect(title.frame.minX == 24 && title.frame.width == 160)
+        #expect(title.frame.minX == 24 && title.frame.width == 180)
         #expect(description.frame.minY - title.frame.maxY == 8)
         #expect(button.frame == CGRect(x: 24, y: 194, width: 322, height: 52))
         #expect(image.frame == CGRect(x: 162, y: 46, width: 196, height: 114))
@@ -154,6 +129,38 @@ struct PerpsOnboardingTests {
         button.sendActions(for: .touchUpInside)
         dismiss.sendActions(for: .touchUpInside)
         #expect(count == 11)
+    }
+
+    @Test(arguments: ["ru", "uk"])
+    func keepLocalizedTitleWordsWholeWhenResizing(_ language: String) throws {
+        try withMessageLanguage(language) {
+            let cell = PerpsOnboardingBannerCell(frame: .zero)
+            for width: CGFloat in [370, 343, 603, 370] {
+                let attributes = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
+                attributes.size = CGSize(width: width, height: 270)
+                cell.frame = CGRect(origin: .zero, size: cell.preferredLayoutAttributesFitting(attributes).size)
+                cell.setNeedsLayout()
+                cell.layoutIfNeeded()
+                let title = try #require(descendants(cell).first { $0.accessibilityIdentifier == "perps.onboarding.title" } as? UILabel)
+                let description = try #require(descendants(cell).first { $0.accessibilityIdentifier == "perps.onboarding.description" })
+                let button = try #require(descendants(cell).first { $0.accessibilityIdentifier == "perps.onboarding.open" })
+                let text = try #require(title.attributedText)
+                let path = CGPath(rect: title.bounds, transform: nil)
+                let frame = CTFramesetterCreateFrame(CTFramesetterCreateWithAttributedString(text), CFRange(), path, nil)
+                let lines = CTFrameGetLines(frame) as! [CTLine]
+                let renderedLines = lines.map { line in
+                    let range = CTLineGetStringRange(line)
+                    return (text.string as NSString).substring(with: NSRange(location: range.location, length: range.length))
+                }
+                for word in text.string.split(whereSeparator: \.isWhitespace) {
+                    #expect(renderedLines.contains { $0.contains(word) }, "Width \(width): \(renderedLines), word: \(word)")
+                }
+                #expect(description.frame.maxY + 12 <= button.frame.minY)
+                if language == "ru" {
+                    Attachment.record(try #require(cell.contentView.makeLayerImage().pngData()), named: "onboarding-ru-\(Int(width)).png")
+                }
+            }
+        }
     }
 
     @Test func onboardingReplacesHeroAndKeepsMarketDividerSpacing() throws {
@@ -284,30 +291,61 @@ struct PerpsOnboardingTests {
         }
     }
 
-    @Test func storiesHaveSixLocalizedPagesAndNoInventedMedia() {
+    @Test func storiesHaveSevenLocalizedPagesAndOfflineArtwork() {
         let pages = PerpsOnboarding.pages()
-        #expect(pages.map(\.id) == ["intro", "long", "short", "leverage", "liquidation", "funding"])
-        #expect(pages.allSatisfy { $0.image == nil && $0.videoURL == nil && $0.duration == 10 })
+        #expect(pages.map(\.id) == ["intro", "long", "short", "leverage", "liquidation", "funding", "finale"])
+        #expect(pages.allSatisfy { $0.image != nil && $0.reducedMotionImage != nil && $0.videoURL == nil && $0.duration == 7 })
         #expect(pages.allSatisfy { !$0.title.isEmpty && !$0.body.isEmpty && !$0.title.hasPrefix("PerpsStory") })
-        #expect(pages.first?.buttonTitle == lang("PerpsStoryStart"))
-        #expect(pages.last?.buttonTitle == lang("Got It"))
+        #expect(pages.dropLast().allSatisfy { $0.buttonTitle == nil })
+        #expect(pages.last?.buttonTitle == lang("PerpsStoryViewMarkets"))
+        #expect(pages.last?.body.contains("%app_name%") == false)
     }
 
-    private func emptySnapshot() throws -> ApiPerpsSnapshot {
-        try JSONDecoder().decode(ApiPerpsSnapshot.self, from: Data("""
-        {"assets":[],"positions":[],"totalEquity":"0","totalPnl":"0","timestamp":0,"unavailableDexs":[]}
+    @Test func storiesMatchMediaByIdentityAndPreferCachedFiles() async throws {
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { context in
+            UIColor.magenta.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
+        }
+        let imageData = try #require(image.pngData())
+        let cache = PerpsStoryMediaCache(directory: directory, download: { _, _ in imageData })
+        let intro = ApiPerpsOnboardingStory(id: "intro", url: URL(string: "https://example.com/intro.mp4")!,
+            preview: URL(string: "https://example.com/intro.webp")!, duration: 8, bytes: 1)
+        let unknown = ApiPerpsOnboardingStory(id: "unknown", url: URL(string: "https://example.com/unknown.mp4")!,
+            preview: URL(string: "https://example.com/unknown.webp")!, duration: 1, bytes: 1)
+        let onboarding = ApiPerpsOnboarding(stories: [unknown, intro])
+        let uncached = PerpsOnboarding.pages(onboarding: onboarding, cache: cache)
+        #expect(uncached.count == 7)
+        #expect(uncached[0].videoURL == intro.url)
+        #expect(uncached[0].duration == 8)
+        #expect(uncached[1].videoURL == nil)
+        #expect(uncached[1].image != nil)
+        await cache.prefetch(onboarding.stories)
+        let cached = PerpsOnboarding.pages(onboarding: onboarding, cache: cache)
+        #expect(cached[0].videoURL == cache.cachedFile(for: intro.url))
+        #expect(cached[0].image?.cgImage?.width == image.cgImage?.width)
+        #expect(cached[0].reducedMotionImage != nil)
+        try FileManager.default.removeItem(at: #require(cache.cachedFile(for: intro.url)))
+        #expect(PerpsOnboarding.pages(onboarding: onboarding, cache: cache)[0].videoURL == intro.url)
+    }
+
+    private func emptySnapshot() throws -> ApiPerpsAccountSnapshot {
+        try JSONDecoder().decode(ApiPerpsAccountSnapshot.self, from: Data("""
+        {"positions":[],"totalEquity":"0","totalPnl":"0","timestamp":0,"unavailableDexs":[]}
         """.utf8))
     }
 
     private func client() -> PerpsClient {
         var client = PerpsClient()
-        client.snapshot = { _ in try emptySnapshot() }
-        client.history = { _ in .init(fills: [], cashFlows: []) }
+        client.marketSnapshot = { .init(assets: [], assetsFetchedAt: 0) }
+        client.positions = { _ in try emptySnapshot() }
+        client.history = { _ in .init(fills: []) }
         return client
     }
 
-    private func store(client: PerpsClient, url: URL? = nil, operations: [ApiPerpsOperation] = []) -> PerpsStore {
-        PerpsStore(client: client, cacheURL: url, load: { operations }, save: { _ in },
+    private func store(client: PerpsClient, directory: URL? = nil, operations: [ApiPerpsOperation] = []) -> PerpsStore {
+        PerpsStore(client: client, cacheDirectory: directory, load: { operations }, save: { _ in },
             loadDismissedStatuses: { [] }, saveDismissedStatuses: { _ in })
     }
 

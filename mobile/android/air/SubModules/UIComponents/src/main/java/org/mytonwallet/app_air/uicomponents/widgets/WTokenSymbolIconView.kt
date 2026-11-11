@@ -180,6 +180,7 @@ open class WTokenSymbolIconView(context: Context) :
         this.asset = asset
 
         val text = asset?.symbol ?: defaultSymbol ?: ""
+        contentDescription = text.ifEmpty { null }
         val tokenIcon = asset?.let {
             WCustomImageView(context).apply {
                 layoutParams = LayoutParams(20.dp, 20.dp)

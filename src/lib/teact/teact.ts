@@ -318,6 +318,7 @@ let pendingEffects = new Map<string, Effect>();
 let pendingCleanups = new Map<string, EffectCleanup>();
 let pendingLayoutEffects = new Map<string, Effect>();
 let pendingLayoutCleanups = new Map<string, EffectCleanup>();
+let pendingRenderCallbacks: NoneToVoidFunction[] = [];
 let areImmediateEffectsCaptured = false;
 
 /*
@@ -346,6 +347,8 @@ const runUpdatePassOnRaf = throttleWith(requestMeasure, () => {
     .from(instancesPendingUpdate)
     .sort((a, b) => a.id - b.id);
   instancesPendingUpdate = new Set();
+  const currentRenderCallbacks = pendingRenderCallbacks;
+  pendingRenderCallbacks = [];
 
   const currentCleanups = pendingCleanups;
   pendingCleanups = new Map();
@@ -366,8 +369,14 @@ const runUpdatePassOnRaf = throttleWith(requestMeasure, () => {
     });
 
     runImmediateEffects?.();
+    currentRenderCallbacks.forEach((cb) => safeExec(cb));
   });
 });
+
+export function requestAfterRender(cb: NoneToVoidFunction) {
+  pendingRenderCallbacks.push(cb);
+  runUpdatePassOnRaf();
+}
 
 export function captureImmediateEffects() {
   if (areImmediateEffectsCaptured) {

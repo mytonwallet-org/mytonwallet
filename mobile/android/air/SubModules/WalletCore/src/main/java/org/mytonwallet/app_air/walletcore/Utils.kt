@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore
 
 import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
@@ -10,5 +11,5 @@ fun BigInteger.toAmountString(token: IApiToken): String = this.toString(
     decimals = token.decimals,
     currencyDecimals = this.smartDecimalsCount(token.decimals),
     showPositiveSign = false,
-    roundUp = false
+    rounding = RoundingMode.DOWN
 )

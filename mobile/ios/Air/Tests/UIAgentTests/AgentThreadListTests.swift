@@ -66,10 +66,10 @@ final class AgentThreadListTests: XCTestCase {
         )
         let values: [(String, String, String)] = [
             ("2026-10-19T10:15:00Z", "10:15", "10:15"),
-            ("2026-10-18T23:59:00Z", "23:59", lang("Yesterday")),
+            ("2026-10-18T23:59:00Z", "23:59", "Sun"),
             ("2026-10-13T10:15:00Z", "10:15", "Tue"),
-            ("2026-10-12T10:15:00Z", "10:15", "12.10"),
-            ("2026-01-02T08:05:00Z", "08:05", "02.01"),
+            ("2026-10-12T10:15:00Z", "10:15", "12 Oct"),
+            ("2026-01-02T08:05:00Z", "08:05", "2 Jan"),
             ("2025-12-31T10:15:00Z", "10:15", "31.12.25")
         ]
         for (timestamp, dayRow, pinnedRow) in values {
@@ -91,7 +91,55 @@ final class AgentThreadListTests: XCTestCase {
         ), "01:15")
     }
 
-    func testPinnedRowsShowYesterdaysTimeForTwelveHours() {
+    /// Another year's day goes without the year's abbreviated word, as "7 ноября 2025", and a month abbreviated with dots
+    /// inside keeps them all, as Telegram writes dates
+    func testDatesLeaveOutTheYearWordAndKeepAMonthsInnerDots() {
+        let now = date("2026-11-07T12:00:00Z")
+        let russian = Locale(identifier: "ru_RU")
+        XCTAssertEqual(
+            AgentThreadDateFormatting.formatDay(for: date("2025-11-07T10:00:00Z"), relativeTo: now, calendar: calendar, locale: russian),
+            "7 ноября 2025"
+        )
+        XCTAssertEqual(
+            AgentThreadDateFormatting.formatDay(for: date("2026-11-03T10:00:00Z"), relativeTo: now, calendar: calendar, locale: russian),
+            "3 ноября"
+        )
+        func formatShortDay(_ identifier: String) -> String {
+            AgentThreadDateFormatting.makeDotlessFormatter(template: "MMMd", calendar: calendar, locale: Locale(identifier: identifier))
+                .string(from: date("2026-10-07T10:00:00Z"))
+        }
+        // A word after the year that joins it to the time, as English's "at", stays
+        let english = Locale(identifier: "en_US")
+        let systemFormatter = DateFormatter()
+        systemFormatter.calendar = calendar
+        systemFormatter.locale = english
+        systemFormatter.timeZone = calendar.timeZone
+        systemFormatter.setLocalizedDateFormatFromTemplate("yMMMdjmm")
+        let lastYear = date("2025-07-20T15:38:00Z")
+        XCTAssertEqual(
+            AgentThreadDateFormatting.makeDotlessFormatter(template: "yMMMdjmm", calendar: calendar, locale: english)
+                .string(from: lastYear),
+            systemFormatter.string(from: lastYear)
+        )
+        let german = formatShortDay("de_DE")
+        XCTAssertTrue(german.contains("Okt"), german)
+        XCTAssertFalse(german.contains("Okt."), german)
+        XCTAssertTrue(formatShortDay("th_TH").contains("ต.ค."))
+    }
+
+    /// A day later than now, as a server clock running ahead may stamp it, is today, as on Android and Classic
+    func testADayLaterThanNowIsToday() {
+        let now = date("2026-11-07T12:00:00Z")
+        let tomorrow = date("2026-11-08T09:05:00Z")
+        XCTAssertEqual(AgentThreadDateFormatting.dayGroup(for: tomorrow, relativeTo: now, calendar: calendar), .today)
+        XCTAssertEqual(
+            AgentThreadDateFormatting.formatDay(for: tomorrow, relativeTo: now, calendar: calendar, locale: locale),
+            lang("Today")
+        )
+    }
+
+    /// Pinned rows and News name the weekday for the last seven days, yesterday included, as on every platform
+    func testPinnedRowsShowTheWeekdayForTheLastWeek() {
         let format = AgentThreadDateFormatting.DeviceDateTimeFormat(
             isUsing24HourTime: true, dateOrder: .dayFirst, dateSeparator: ".", dateSuffix: "", isFullYearRequired: false
         )
@@ -101,26 +149,68 @@ final class AgentThreadListTests: XCTestCase {
                 calendar: calendar, locale: locale, deviceFormat: format
             )
         }
-        // News an hour before midnight, seen just after it
-        XCTAssertEqual(formatTimestamp("2026-10-27T23:57:00Z", at: "2026-10-28T00:57:00Z"), "23:57")
-        XCTAssertEqual(formatTimestamp("2026-10-27T23:59:59Z", at: "2026-10-28T00:00:00Z"), "23:59")
+        // Today's time, up to midnight
         XCTAssertEqual(formatTimestamp("2026-10-28T00:00:00Z", at: "2026-10-28T00:00:00Z"), "00:00")
-        // Just under and at 12 hours
-        XCTAssertEqual(formatTimestamp("2026-10-27T20:00:01Z", at: "2026-10-28T08:00:00Z"), "20:00")
-        XCTAssertEqual(formatTimestamp("2026-10-27T20:00:00Z", at: "2026-10-28T08:00:00Z"), lang("Yesterday"))
-        XCTAssertEqual(formatTimestamp("2026-10-27T00:00:00Z", at: "2026-10-28T23:59:00Z"), lang("Yesterday"))
-        // Two days back and a week back keep the weekday and the date
+        XCTAssertEqual(formatTimestamp("2026-10-28T23:59:00Z", at: "2026-10-28T23:59:30Z"), "23:59")
+        // Yesterday is a weekday as soon as the day turns, however recent
+        XCTAssertEqual(formatTimestamp("2026-10-27T23:57:00Z", at: "2026-10-28T00:57:00Z"), "Tue")
+        XCTAssertEqual(formatTimestamp("2026-10-27T00:00:00Z", at: "2026-10-28T23:59:00Z"), "Tue")
+        // Six days back keep the weekday, and a week back is a date with the short month
         XCTAssertEqual(formatTimestamp("2026-10-26T23:00:00Z", at: "2026-10-28T01:00:00Z"), "Mon")
         XCTAssertEqual(formatTimestamp("2026-10-22T10:00:00Z", at: "2026-10-28T10:00:00Z"), "Thu")
-        XCTAssertEqual(formatTimestamp("2026-10-21T10:00:00Z", at: "2026-10-28T10:00:00Z"), "21.10")
-        // Yesterday follows the same hours across a new year
-        XCTAssertEqual(formatTimestamp("2026-12-31T23:30:00Z", at: "2027-01-01T00:30:00Z"), "23:30")
-        XCTAssertEqual(formatTimestamp("2026-12-31T08:00:00Z", at: "2027-01-01T20:00:00Z"), lang("Yesterday"))
+        XCTAssertEqual(formatTimestamp("2026-10-21T10:00:00Z", at: "2026-10-28T10:00:00Z"), "21 Oct")
+        // Every Russian month is cut to three letters
+        for (timestamp, text) in [("2026-09-04T10:00:00Z", "4 сен"), ("2026-02-04T10:00:00Z", "4 фев")] {
+            XCTAssertEqual(AgentThreadDateFormatting.formatRowTimestamp(
+                for: date(timestamp), shouldShowDateWhenNotToday: true, relativeTo: date("2026-10-28T10:00:00Z"),
+                calendar: calendar, locale: Locale(identifier: "ru_RU"), deviceFormat: format
+            ), text)
+        }
+        // The last week names its weekdays across a new year too, and an older day of the last year has its year
+        XCTAssertEqual(formatTimestamp("2026-12-31T23:30:00Z", at: "2027-01-01T00:30:00Z"), "Thu")
+        XCTAssertEqual(formatTimestamp("2026-12-20T08:00:00Z", at: "2027-01-01T20:00:00Z"), "20.12.26")
         // Rows under the day headers keep the time
         XCTAssertEqual(AgentThreadDateFormatting.formatRowTimestamp(
             for: date("2026-10-27T08:00:00Z"), shouldShowDateWhenNotToday: false, relativeTo: date("2026-10-28T20:00:00Z"),
             calendar: calendar, locale: locale, deviceFormat: format
         ), "08:00")
+    }
+
+    /// A chat's date lines and News' day capsules name the day as every platform does: today and yesterday by name, then
+    /// the day and the month, with the year only for another year, and never a weekday
+    @MainActor
+    func testDayIsTodayYesterdayOrTheDateWithoutAWeekday() throws {
+        let now = date("2026-10-19T12:00:00Z")
+        func formatDay(_ timestamp: String, in locale: Locale) -> String {
+            AgentThreadDateFormatting.formatDay(for: date(timestamp), relativeTo: now, calendar: calendar, locale: locale)
+        }
+        XCTAssertEqual(formatDay("2026-10-19T00:00:00Z", in: locale), lang("Today"))
+        XCTAssertEqual(formatDay("2026-10-18T23:59:00Z", in: locale), lang("Yesterday"))
+        XCTAssertEqual(formatDay("2026-10-13T10:15:00Z", in: locale), "13 October")
+        XCTAssertEqual(formatDay("2026-01-02T10:15:00Z", in: locale), "2 January")
+        XCTAssertEqual(formatDay("2025-11-07T10:15:00Z", in: locale), "7 November 2025")
+        let russian = Locale(identifier: "ru")
+        XCTAssertEqual(formatDay("2026-10-13T10:15:00Z", in: russian), "13 октября")
+        XCTAssertTrue(formatDay("2025-11-07T10:15:00Z", in: russian).hasPrefix("7 ноября 2025"))
+
+        // A chat's date line adds the time on the device's clock, and the menu of a message names its day the same way
+        let appCalendar = LocalizationSupport.shared.calendar
+        let today = Date()
+        let yesterday = try XCTUnwrap(appCalendar.date(byAdding: .day, value: -1, to: today))
+        let fourDaysAgo = try XCTUnwrap(appCalendar.date(byAdding: .day, value: -4, to: today))
+        XCTAssertEqual(AgentModel.formatChatDate(for: today, relativeTo: today).date, lang("Today"))
+        XCTAssertEqual(AgentModel.formatChatDate(for: yesterday, relativeTo: today).date, lang("Yesterday"))
+        let dayText = AgentModel.formatChatDate(for: fourDaysAgo, relativeTo: today).date
+        XCTAssertEqual(dayText, AgentThreadDateFormatting.formatDay(for: fourDaysAgo, relativeTo: today))
+        XCTAssertNotEqual(
+            dayText,
+            AgentThreadDateFormatting.headerText(for: fourDaysAgo, relativeTo: today),
+            "A weekday heads the chat list's day sections only"
+        )
+        XCTAssertEqual(
+            AgentModel.formatChatDate(for: today, relativeTo: today).time,
+            BaseAgentModel.formattedTime(today, locale: LocalizationSupport.shared.locale)
+        )
     }
 
     func testRowTimestampsFollowTheDeviceClockAndDateOrder() {
@@ -138,7 +228,8 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertEqual(formatTimestamp("2026-10-19T11:05:00Z"), "11:05\u{00a0}AM")
         XCTAssertEqual(formatTimestamp("2026-10-19T12:00:00Z"), "12:00\u{00a0}PM")
         XCTAssertEqual(formatTimestamp("2026-10-18T13:05:00Z", shouldHideDate: true), "1:05\u{00a0}PM")
-        XCTAssertEqual(formatTimestamp("2026-10-12T10:15:00Z"), "10/12")
+        // A date of this year names its month in the app's language; an older one is numeric in the device's order
+        XCTAssertEqual(formatTimestamp("2026-10-12T10:15:00Z"), "12 Oct")
         XCTAssertEqual(formatTimestamp("2025-12-31T10:15:00Z"), "12/31/25")
 
         let dotted = AgentThreadDateFormatting.DeviceDateTimeFormat(
@@ -223,8 +314,10 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertEqual(client.listRequests.count, 2)
     }
 
+    /// A first load that fails without chats to show marks the list failed until a load brings them; a refresh that
+    /// fails keeps the chats shown without a failure, and none of it shows a toast
     @MainActor
-    func testFailedInitialLoadAndRefreshStaySilentAndPreserveRows() async throws {
+    func testFailedLoadWithoutChatsMarksTheListFailedAndAFailedRefreshKeepsRows() async throws {
         let client = ThreadListClient()
         let original = try makeItem("thread", date: "2026-10-19T10:00:00Z")
         let error = try makeMutationError(.networkError)
@@ -238,11 +331,15 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertTrue(model.items.isEmpty)
         XCTAssertNil(model.nextCursor)
         XCTAssertFalse(model.isLoading)
+        XCTAssertTrue(model.hasLoaded)
+        XCTAssertTrue(model.hasLoadFailed)
+        XCTAssertEqual(model.sections().map(\.id), [.news])
         XCTAssertEqual(errorCount, 0)
 
         client.listError = nil
         client.pages = [try makePage([original], cursor: "next-page")]
         await model.refresh()
+        XCTAssertFalse(model.hasLoadFailed)
         client.listError = error
 
         await model.refresh()
@@ -250,14 +347,19 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertEqual(model.items, [original])
         XCTAssertEqual(model.nextCursor, "next-page")
         XCTAssertFalse(model.isLoading)
+        XCTAssertFalse(model.hasLoadFailed)
+        XCTAssertFalse(model.hasPageLoadFailed)
         XCTAssertEqual(errorCount, 0)
         XCTAssertEqual(client.listRequests.map(\.cursor), [nil, nil, nil])
     }
 
+    /// A page that fails to load keeps the rows and the cursor, and ends the list with its failure line until the page
+    /// loads, without a toast
     @MainActor
-    func testFailedPaginationStaysSilentAndPreservesRowsAndCursor() async throws {
+    func testFailedPaginationEndsTheListWithAFailureLineUntilThePageLoads() async throws {
         let client = ThreadListClient()
         let original = try makeItem("thread", date: "2026-10-19T10:00:00Z")
+        let older = try makeItem("older", date: "2026-10-18T10:00:00Z")
         client.pages = [try makePage([original], cursor: "next-page")]
         let model = AgentThreadListModel(client: client)
         var errorCount = 0
@@ -270,8 +372,20 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertEqual(model.items, [original])
         XCTAssertEqual(model.nextCursor, "next-page")
         XCTAssertFalse(model.isLoading)
+        XCTAssertTrue(model.hasPageLoadFailed)
+        XCTAssertFalse(model.hasLoadFailed)
+        XCTAssertEqual(model.sections().last?.id, .pageFailure)
+        XCTAssertEqual(model.sections().last?.itemIdentifiers, [AgentThreadListSection.pageFailureItemId])
         XCTAssertEqual(errorCount, 0)
-        XCTAssertEqual(client.listRequests.map(\.cursor), [nil, "next-page"])
+
+        client.listError = nil
+        client.pages = [try makePage([older])]
+        await model.loadMore()
+
+        XCTAssertEqual(model.items.map(\.thread.id), ["thread", "older"])
+        XCTAssertFalse(model.hasPageLoadFailed)
+        XCTAssertFalse(model.sections().contains { $0.id == .pageFailure })
+        XCTAssertEqual(client.listRequests.map(\.cursor), [nil, "next-page", "next-page"])
     }
 
     @MainActor
@@ -392,6 +506,155 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertFalse(restarted.isUnread(completed))
     }
 
+    /// The SDK's copy of the first page stands in for it while it loads, without unread baselines or pagination, and
+    /// the first page replaces it
+    @MainActor
+    func testCachedChatsShowWhileTheFirstPageLoadsAndTheFirstPageReplacesThem() async throws {
+        let suite = "AgentThreadListTests.Cache.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let readState = AgentThreadReadState(userDefaults: defaults)
+        let client = ThreadListClient()
+        client.cachedThreadItems = [
+            try makeItem("chat", date: "2026-10-19T10:00:00Z", messageCount: 2),
+            try makeItem("cached-only", date: "2026-10-18T10:00:00Z"),
+        ]
+        client.suspendNextList = true
+        let model = AgentThreadListModel(client: client, threadReadState: readState)
+
+        let refresh = Task { await model.refresh() }
+        await waitForCondition { model.isShowingCachedThreads }
+        XCTAssertEqual(model.items.map(\.thread.id), ["chat", "cached-only"])
+        XCTAssertTrue(model.hasLoaded)
+        XCTAssertFalse(model.hasLoadFailed)
+        XCTAssertNil(model.nextCursor)
+
+        let fresh = try makeItem("chat", date: "2026-10-19T11:00:00Z", revision: 2, messageCount: 4)
+        client.resumeList(with: try makePage([fresh, try makeItem("new", date: "2026-10-17T10:00:00Z")], cursor: "next"))
+        await refresh.value
+
+        XCTAssertFalse(model.isShowingCachedThreads)
+        XCTAssertEqual(model.items.map(\.thread.id), ["chat", "new"])
+        XCTAssertEqual(model.nextCursor, "next")
+        // The unread baseline is the first page's, not the copy's older message count
+        XCTAssertFalse(model.isUnread(fresh.thread))
+    }
+
+    /// A copy arrives too late once the first page has loaded or another load has started, and an empty copy is none
+    @MainActor
+    func testCachedChatsArrivingLateOrEmptyLeaveTheListAsItWas() async throws {
+        let cached = try makeItem("cached", date: "2026-10-19T10:00:00Z")
+
+        let loadedClient = ThreadListClient()
+        loadedClient.cachedThreadItems = [cached]
+        loadedClient.blocksCachedThreads = true
+        loadedClient.pages = [try makePage([])]
+        let loadedModel = AgentThreadListModel(client: loadedClient)
+        await loadedModel.refresh()
+        loadedClient.resumeCachedThreads()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(loadedModel.items.isEmpty)
+        XCTAssertFalse(loadedModel.isShowingCachedThreads)
+
+        let supersededClient = ThreadListClient()
+        supersededClient.cachedThreadItems = [cached]
+        supersededClient.blocksCachedThreads = true
+        supersededClient.suspendNextList = true
+        let supersededModel = AgentThreadListModel(client: supersededClient)
+        let refresh = Task { await supersededModel.refresh() }
+        await waitForCondition { supersededClient.listRequests.count == 1 }
+        supersededModel.removeThread(id: cached.thread.id)
+        supersededClient.resumeCachedThreads()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(supersededModel.items.isEmpty)
+        supersededClient.resumeList(with: try makePage([]))
+        await refresh.value
+
+        // A copy that comes after the first page failed leaves the failure and its Retry
+        let failedClient = ThreadListClient()
+        failedClient.cachedThreadItems = [cached]
+        failedClient.blocksCachedThreads = true
+        failedClient.listError = ThreadListError.unavailable
+        let failedModel = AgentThreadListModel(client: failedClient)
+        await failedModel.refresh()
+        XCTAssertTrue(failedModel.hasLoadFailed)
+        failedClient.resumeCachedThreads()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(failedModel.hasLoadFailed)
+        XCTAssertTrue(failedModel.items.isEmpty)
+
+        let emptyClient = ThreadListClient()
+        emptyClient.cachedThreadItems = []
+        emptyClient.listError = ThreadListError.unavailable
+        let emptyModel = AgentThreadListModel(client: emptyClient)
+        await emptyModel.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(emptyModel.hasLoadFailed)
+        XCTAssertFalse(emptyModel.isShowingCachedThreads)
+    }
+
+    /// Once a first page has loaded, even an empty one, the SDK's older copy isn't read again until the wallets reset;
+    /// a list whose first page failed still reads it
+    @MainActor
+    func testCachedChatsAreReadOnlyUntilAFirstPageLoads() async throws {
+        let cached = try makeItem("deleted", date: "2026-10-19T10:00:00Z")
+        let client = ThreadListClient()
+        client.cachedThreadItems = [cached]
+        client.pages = [try makePage([]), try makePage([])]
+        let model = AgentThreadListModel(client: client)
+        await model.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.cachedThreadsRequestCount, 1)
+        await model.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.cachedThreadsRequestCount, 1)
+        XCTAssertTrue(model.items.isEmpty)
+
+        model.handleAccountsReset()
+        client.pages = [try makePage([])]
+        await model.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.cachedThreadsRequestCount, 2)
+
+        let failingClient = ThreadListClient()
+        failingClient.listError = ThreadListError.unavailable
+        let failingModel = AgentThreadListModel(client: failingClient)
+        await failingModel.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        await failingModel.refresh()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(failingClient.cachedThreadsRequestCount, 2)
+    }
+
+    /// A first page that fails keeps the copy on screen without the failure, and the next refresh reads the first page
+    /// alone, as the copy has no pages after it
+    @MainActor
+    func testCachedChatsStayWhenTheFirstPageFailsUntilARefreshLoadsIt() async throws {
+        let client = ThreadListClient()
+        client.cachedThreadItems = [
+            try makeItem("a", date: "2026-10-19T10:00:00Z"),
+            try makeItem("b", date: "2026-10-18T10:00:00Z"),
+        ]
+        client.suspendNextList = true
+        let model = AgentThreadListModel(client: client)
+        let refresh = Task { await model.refresh() }
+        await waitForCondition { model.isShowingCachedThreads }
+        client.failList(with: ThreadListError.unavailable)
+        await refresh.value
+
+        XCTAssertEqual(model.items.map(\.thread.id), ["a", "b"])
+        XCTAssertTrue(model.isShowingCachedThreads)
+        XCTAssertFalse(model.hasLoadFailed)
+        await model.loadMore()
+        XCTAssertEqual(client.listRequests.count, 1)
+
+        client.pages = [try makePage([try makeItem("c", date: "2026-10-19T12:00:00Z")], cursor: "next")]
+        await model.refresh()
+        XCTAssertEqual(client.listRequests.map(\.cursor), [nil, nil])
+        XCTAssertEqual(model.items.map(\.thread.id), ["c"])
+        XCTAssertFalse(model.isShowingCachedThreads)
+    }
+
     @MainActor
     func testDeletionEventRemovesThreadAndReadStateWithoutServerAccess() async throws {
         let suite = "AgentThreadListTests.Deletion.\(UUID().uuidString)"
@@ -418,6 +681,49 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertEqual(changes, 1)
         XCTAssertEqual(client.listRequests.count, 1)
         XCTAssertTrue(client.deletedThreadIds.isEmpty)
+    }
+
+    /// A chat the SDK reported stays while the server's first page lacks it, as the server may not have stored a
+    /// chat just created, for a minute after the report
+    @MainActor
+    func testReportedThreadMissingFromTheFirstPageStaysForAMinute() async throws {
+        let client = ThreadListClient()
+        let listed = try makeItem("listed", date: "2026-10-19T10:00:00Z")
+        let reported = try makeItem("reported", date: "2026-10-19T11:00:00Z")
+        client.pages = try (0..<4).map { _ in try makePage([listed]) }
+        var now = Date(timeIntervalSince1970: 1_800_000_000)
+        let model = AgentThreadListModel(client: client, preloader: AgentPreloader(client: LiveAgentV2Client()), now: { now })
+        await model.refresh()
+        model.applyThreadChange(reported.thread)
+
+        now += 60
+        await model.refresh()
+        XCTAssertEqual(model.items.map(\.thread.id), ["reported", "listed"])
+        now += 1
+        await model.refresh()
+        XCTAssertEqual(model.items.map(\.thread.id), ["listed"])
+        now -= 61
+        await model.refresh()
+        XCTAssertEqual(model.items.map(\.thread.id), ["listed"], "Forgotten once gone")
+    }
+
+    /// A reset of the accounts forgets the threads the SDK reported into the list and out of it
+    @MainActor
+    func testAccountsResetForgetsReportedAndLeftThreads() async throws {
+        let client = ThreadListClient()
+        let left = try makeItem("left", date: "2026-10-19T10:00:00Z", revision: 3)
+        let cleared = try makeItem("left", date: "2026-10-19T10:00:00Z", revision: 4, messageCount: 0)
+        let reported = try makeItem("reported", date: "2026-10-19T11:00:00Z")
+        client.pages = [try makePage([left]), try makePage([left])]
+        let model = AgentThreadListModel(client: client, preloader: AgentPreloader(client: LiveAgentV2Client()))
+        await model.refresh()
+        model.applyThreadChange(cleared.thread)
+        model.applyThreadChange(reported.thread)
+        XCTAssertEqual(model.items.map(\.thread.id), ["reported"])
+
+        model.handleAccountsReset()
+        await model.refresh()
+        XCTAssertEqual(model.items.map(\.thread.id), ["left"])
     }
 
     @MainActor
@@ -576,9 +882,16 @@ final class AgentThreadListTests: XCTestCase {
         let first = try makeItem("first", date: "2026-10-19T11:00:00Z")
         let older = try makeItem("older", date: "2026-10-19T10:00:00Z")
         client.pages = [try makePage([first], cursor: "older"), try makePage([older])]
-        var model: AgentThreadListModel? = AgentThreadListModel(client: client)
+        let news = newsItem(1, deliveredAt: "2026-10-19T11:00:00Z")
+        let newsClient = ThreadListNewsClient(items: [news])
+        var model: AgentThreadListModel? = AgentThreadListModel(client: client, newsClient: newsClient)
         await model?.refresh()
-        let feed = try XCTUnwrap(model?.makeNewsFeedModel())
+        await model?.refreshNews()
+        let digestId = "en:2026-10-19T18:00:00.000Z"
+        let feed = try XCTUnwrap(model?.makeNewsFeedModel(requestedDigestId: digestId))
+        XCTAssertEqual(feed.requestedDigestId, digestId)
+        XCTAssertEqual(feed.items, [news])
+        XCTAssertTrue(feed.hasLoaded)
         XCTAssertEqual(feed.findThread("first"), first.thread)
         XCTAssertNil(feed.findThread("older"))
 
@@ -718,6 +1031,14 @@ final class AgentThreadListTests: XCTestCase {
         XCTAssertNil(model.getActivityText(threadId: "a"))
     }
 
+    @MainActor
+    private func waitForCondition(file: StaticString = #filePath, line: UInt = #line, _ condition: () -> Bool) async {
+        for _ in 0..<200 where !condition() {
+            await Task.yield()
+        }
+        XCTAssertTrue(condition(), file: file, line: line)
+    }
+
     private func update(
         _ kind: String,
         thread: String,
@@ -794,6 +1115,7 @@ final class AgentThreadListTests: XCTestCase {
 
 @MainActor
 final class ThreadListNewsClient: AgentNewsFeedClient {
+    var locale = "en"
     var items: [ApiAgentV2NewsFeedItem]
     var shouldFail = false
     private(set) var requests: [(lang: String, cursor: String?)] = []
@@ -802,10 +1124,10 @@ final class ThreadListNewsClient: AgentNewsFeedClient {
         self.items = items
     }
 
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
         requests.append((lang, cursor))
         if shouldFail { throw ThreadListError.unavailable }
-        return ApiAgentV2NewsFeedPage(locale: "en", items: items)
+        return ApiAgentV2NewsFeedPage(locale: locale, items: items)
     }
 }
 
@@ -822,7 +1144,11 @@ private final class ThreadListClient: AgentThreadListClient {
     var onList: ((ApiAgentV2ThreadListRequest) -> Void)?
     var onUpdate: (() async -> Void)?
     var suspendNextList = false
-    private var listContinuation: CheckedContinuation<ApiAgentV2ThreadListResponse, Never>?
+    /// The SDK's copy of the first page, which `blocksCachedThreads` holds back until `resumeCachedThreads()`
+    var cachedThreadItems: [ApiAgentV2ThreadListItem]?
+    var blocksCachedThreads = false
+    private var cachedThreadsContinuation: CheckedContinuation<Void, Never>?
+    private var listContinuation: CheckedContinuation<ApiAgentV2ThreadListResponse, Error>?
     private(set) var listRequests: [ApiAgentV2ThreadListRequest] = []
     private(set) var updateRequests: [(id: String, update: ApiAgentV2ThreadUpdate)] = []
     private(set) var deletedThreadIds: [String] = []
@@ -832,7 +1158,7 @@ private final class ThreadListClient: AgentThreadListClient {
         listRequests.append(request)
         if suspendNextList {
             suspendNextList = false
-            return await withCheckedContinuation { continuation in
+            return try await withCheckedThrowingContinuation { continuation in
                 listContinuation = continuation
                 onList?(request)
             }
@@ -847,6 +1173,26 @@ private final class ThreadListClient: AgentThreadListClient {
     func resumeList(with page: ApiAgentV2ThreadListResponse) {
         listContinuation?.resume(returning: page)
         listContinuation = nil
+    }
+
+    func failList(with error: Error) {
+        listContinuation?.resume(throwing: error)
+        listContinuation = nil
+    }
+
+    private(set) var cachedThreadsRequestCount = 0
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? {
+        cachedThreadsRequestCount += 1
+        if blocksCachedThreads {
+            await withCheckedContinuation { cachedThreadsContinuation = $0 }
+        }
+        return cachedThreadItems
+    }
+
+    func resumeCachedThreads() {
+        blocksCachedThreads = false
+        cachedThreadsContinuation?.resume()
+        cachedThreadsContinuation = nil
     }
 
     func updateThread(id: String, update: ApiAgentV2ThreadUpdate) async throws -> ApiAgentV2ThreadUpdateResponse {

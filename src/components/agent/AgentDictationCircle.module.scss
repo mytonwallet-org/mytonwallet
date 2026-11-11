@@ -51,6 +51,11 @@ $microphoneScale: 0.485;
   .failedFromMicrophone & {
     animation: agent-dictation-circle-failed-pop 750ms ease-out forwards;
   }
+
+  // The failure shows still for as long as it would play, as the input bar ends it with a timer
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
 }
 
 .waves {
@@ -69,6 +74,10 @@ $microphoneScale: 0.485;
   }
 
   @include mixins.transition(opacity 200ms);
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
 }
 
 // The waves are the accent over the screen's colour rather than see-through, so the tab bar under them does not show
@@ -203,6 +212,83 @@ $microphoneScale: 0.485;
   .failedFromMicrophone & {
     display: none;
   }
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+}
+
+// Pause grows in where the lock shrinks away, and goes the lock's way when the recording ends
+.pause {
+  pointer-events: none;
+  cursor: var(--custom-cursor, pointer);
+
+  position: absolute;
+  top: calc(-1 * #{$lockOffset});
+  left: calc(#{$lockWidth} / -2);
+  transform: translateY(-50%) scale(0.01);
+
+  width: $lockWidth;
+  height: $lockWidth;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+
+  color: var(--color-gray-1);
+
+  opacity: 0;
+  background-color: var(--color-background-lock);
+  backdrop-filter: blur(1rem);
+  box-shadow: var(--shadow-glass-capsule);
+
+  @include mixins.transition('transform 250ms #{$telegramCurve} 100ms, opacity 250ms ease 100ms');
+
+  .locked & {
+    pointer-events: auto;
+    transform: translateY(-50%);
+    opacity: 1;
+  }
+
+  // A recording started hands-free has no lock, so Pause comes up from below as the lock would
+  .startedLocked & {
+    animation: agent-dictation-lock-present 250ms $telegramCurve;
+  }
+
+  .closing &,
+  .failed & {
+    pointer-events: none;
+    transform: translateY(calc(-50% + 6.25rem));
+    opacity: 0;
+
+    @include mixins.transition('transform 180ms ease-in, opacity 180ms ease-in');
+  }
+}
+
+// Pause's bars give way to the microphone while the recording is held, and back
+.pauseGlyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
+
+  width: 1.25rem;
+  height: 1.25rem;
+
+  opacity: 0;
+
+  @include mixins.transition('transform 200ms ease, opacity 200ms ease');
+}
+
+.pauseBars {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.pauseGlyphShown {
+  transform: translate(-50%, -50%);
+  opacity: 1;
 }
 
 // The wallet's lock glyph, as large as the other small icons
@@ -213,10 +299,11 @@ $microphoneScale: 0.485;
   fill: currentColor;
 }
 
-// The lock's shackle stands open, its left leg out of the body, and closes as the press slides up to it, shut once the
-// recording locks. The lift is in the glyph's units, 80 of 768.
+// The lock's shackle stands open, its left leg out of the body, and comes down as the press slides up to it, shut once
+// the recording locks, as on Telegram's mobile apps. The lift is in the glyph's units: 200 of 768, 4 px of the 16 px
+// glyph.
 .lockShackle {
-  transform: translateY(calc(-80px * (1 - var(--lockness))));
+  transform: translateY(calc(-200px * (1 - var(--lockness))));
 
   .locked & {
     transform: none;

@@ -51,6 +51,7 @@ export const AGENT_ERROR_CODES: readonly AgentErrorCodeV2[] = [
   'transcription_unavailable',
   'market_data_unavailable',
   'news_unavailable',
+  'digest_unavailable',
   'message_not_editable',
   'regenerate_target_invalid',
   'followup_reference_invalid',
@@ -97,7 +98,8 @@ export const AGENT_CLIENT_FEATURES: readonly AgentClientFeature[] = [
   'followups',
   'walletDirectory',
   'sendRecipientWithoutAsset',
-  'walletChainLookup'
+  'walletChainLookup',
+  'supportHandoff'
 ];
 
 export const AGENT_RUN_ACTIVITY_CODES: readonly AgentRunActivityCodeV1[] = [

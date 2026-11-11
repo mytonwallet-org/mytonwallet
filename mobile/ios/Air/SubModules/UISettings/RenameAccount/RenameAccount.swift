@@ -11,6 +11,7 @@ private let log = Log("RenameAccount")
                                             preferredStyle: .alert)
     alertController.addTextField()
     let textField = alertController.textFields![0]
+    textField.accessibilityIdentifier = "rename_wallet_input"
     textField.text = account.title ?? ""
     textField.autocapitalizationType = .words
     textField.autocorrectionType = .yes

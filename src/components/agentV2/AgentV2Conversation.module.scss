@@ -2,52 +2,112 @@
 
 @use "../agent/agentBubble";
 
-@use "../agent/agentHeader";
-
 @use "../agent/agentSkeleton";
 
-.consentPage {
-  @include agentHeader.variables;
+@use "../agent/agentSurface";
 
-  position: absolute;
-  // Over the list's field, under the app's tab bar, which comes later at the same level
-  z-index: 2;
-  inset: 0;
+// The ring of a suggestion's pill
+/* stylelint-disable-next-line plugin/whole-pixel */
+$followupRingWidth: 0.0375rem;
 
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+// A suggestion's pill: its fill and its ring, which the placeholder that stands in for it has too
 
-  @include mixins.transition(opacity 250ms ease);
+@mixin followup-pill {
+  --followup-base: rgba(233, 233, 234, 0.16);
+  --followup-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
+  --followup-glow: linear-gradient(111deg, rgba(0, 136, 255, 0.048) 0%, rgba(0, 190, 255, 0.12) 48%, rgba(182, 86, 255, 0.048) 100%);
+  --followup-ring: conic-gradient(
+    from 48deg at 50% 50%,
+    rgba(0, 136, 255, 0.6) 0deg,
+    rgba(0, 190, 255, 0.6) 46.8deg,
+    rgba(0, 136, 255, 0.6) 90deg,
+    rgba(0, 190, 255, 0.6) 135deg,
+    rgba(0, 136, 255, 0.6) 180deg,
+    rgba(0, 190, 255, 0.6) 226.8deg,
+    rgba(182, 86, 255, 0.6) 270deg,
+    rgba(0, 190, 255, 0.6) 316.8deg,
+    rgba(0, 136, 255, 0.6) 360deg
+  );
 
-  // Once allowed, it fades into the chat list under it
-  &:global(.closing) {
+  position: relative;
+  border-radius: 5rem;
+  // The layers below let the screen show through, as in the design, rather than the button's default fill
+  background-color: transparent;
+  background-image:
+    var(--followup-sheen),
+    var(--followup-glow),
+    linear-gradient(var(--followup-base), var(--followup-base));
+
+  // Trims the conic gradient down to the border ring
+  &::after {
     pointer-events: none;
-    opacity: 0;
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    padding: $followupRingWidth;
+    border-radius: inherit;
+
+    background-image: var(--followup-ring);
+
+    mask:
+      linear-gradient(#FFF 0%, #FFF 100%) content-box,
+      linear-gradient(#FFF 0%, #FFF 100%);
+
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
   }
 }
 
-.consent {
-  position: relative;
-
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-
-  min-height: 0;
+// The sheet takes the Agent's surface
+.consentDialog {
+  @include agentSurface.variables;
 
   background: var(--agent-background);
+}
+
+// The Agent's name with its spinning top before it, centred together in the header
+.consentTitle {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+  vertical-align: top;
+}
+
+// The typing row's top, about as tall as the title's line
+.consentTitleIcon {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+// The flat mark, where the 3D top is not drawn, leans from side to side as the typing row's does
+.consentTitleMark {
+  transform-origin: 50% 85%;
+  animation: agent-consent-mark-wobble 1.05s ease-in-out infinite alternate;
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// The text scrolls on its own above the Allow button, which stays at the bottom
+.consent {
+  overflow: hidden;
 }
 
 .consentScroll {
   overflow-y: auto;
   overscroll-behavior: contain;
-  flex: 1;
+  flex: 1 1 auto;
 
   min-height: 0;
-  padding: calc(
-    var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 2rem
-  ) 1rem calc(6rem + var(--bottombar-height) + var(--safe-area-bottom));
+  padding: 0.5rem 1rem 1rem;
 }
 
 .consentContent {
@@ -58,38 +118,6 @@
   width: 100%;
   max-width: 32rem;
   margin: 0 auto;
-}
-
-.consentIntro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: center;
-
-  text-align: center;
-}
-
-.consentIcon {
-  width: 4.625rem;
-  height: 4.625rem;
-}
-
-.consentTitle {
-  margin: 0;
-
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.625rem;
-  color: var(--color-black);
-}
-
-.consentSubtitle {
-  max-width: 27rem;
-  margin: 0;
-
-  font-size: 1rem;
-  line-height: 1.375rem;
-  color: var(--color-gray-1);
 }
 
 .consentList {
@@ -103,31 +131,28 @@
   list-style: none;
 }
 
+// Each icon is centred on all the lines of its item's text
 .consentFeature {
   display: flex;
   gap: 0.875rem;
-  align-items: flex-start;
+  align-items: center;
 }
 
+// A 28 px icon
 .consentFeatureIcon {
   display: flex;
-  flex: 0 0 2rem;
+  flex: 0 0 1.75rem;
   align-items: center;
   justify-content: center;
 
-  height: 2rem;
-  border-radius: 0.625rem;
+  height: 1.75rem;
 
-  font-size: 1.0625rem;
+  font-size: 1.75rem;
   line-height: 1;
   color: var(--color-accent);
-
-  background: var(--color-background-second);
 }
 
 .consentFeatureText {
-  padding-top: 0.3125rem;
-
   font-size: 1rem;
   line-height: 1.375rem;
   color: var(--color-black);
@@ -149,20 +174,15 @@
 
 .disclosureText {
   margin: 0;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.6875rem;
+  // The lines keep their height in proportion to the text, 16 to 12
+  line-height: calc(1rem * 11 / 12);
   color: var(--color-gray-1);
 }
 
 .consentFooter {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-
-  padding: 0.75rem 1rem calc(0.75rem + var(--bottombar-height) + var(--safe-area-bottom));
-
-  background: linear-gradient(transparent, var(--agent-background) 25%);
+  flex: none;
+  padding: 0.75rem 1rem calc(1rem + var(--safe-area-bottom));
 }
 
 .consentButton {
@@ -186,16 +206,22 @@
   margin-top: 0.1875rem;
 }
 
+// A placeholder is the pill of the suggestion it stands for, as tall as a suggestion on one line, with the light
+// passing inside its ring alone. The suggestion that comes takes its pill as it is, and only the text appears.
 .followupSkeleton {
   max-width: 100%;
-  height: 2.5rem;
-  border-radius: 1.125rem;
+  height: 2.375rem;
+  animation: followup-appear 300ms ease-out var(--followup-delay, 0ms) backwards;
 
-  @include agentSkeleton.shimmer;
+  @include followup-pill;
 
-  animation:
-    followup-appear 260ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--followup-delay, 0ms) backwards,
-    skeleton-bubble-shimmer 1.6s ease-out infinite;
+  @include agentSkeleton.band-shimmer(transparent, rgba(0, 190, 255, 0.16));
+
+  // The light, a glint of the Agent's blue on the light theme's pale pill, passes inside the ring alone
+  &::before {
+    top: $followupRingWidth;
+    bottom: $followupRingWidth;
+  }
 }
 
 .followupRow {
@@ -218,28 +244,12 @@
   }
 }
 
+// A suggestion on one line is as tall as its placeholder: 9 px over and under a 20 px line
 .followupButton {
-  --followup-base: rgba(233, 233, 234, 0.16);
-  --followup-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
-  --followup-glow: linear-gradient(111deg, rgba(0, 136, 255, 0.048) 0%, rgba(0, 190, 255, 0.12) 48%, rgba(182, 86, 255, 0.048) 100%);
-  --followup-ring: conic-gradient(
-    from 48deg at 50% 50%,
-    rgba(0, 136, 255, 0.6) 0deg,
-    rgba(0, 190, 255, 0.6) 46.8deg,
-    rgba(0, 136, 255, 0.6) 90deg,
-    rgba(0, 190, 255, 0.6) 135deg,
-    rgba(0, 136, 255, 0.6) 180deg,
-    rgba(0, 190, 255, 0.6) 226.8deg,
-    rgba(182, 86, 255, 0.6) 270deg,
-    rgba(0, 190, 255, 0.6) 316.8deg,
-    rgba(0, 136, 255, 0.6) 360deg
-  );
   --followup-icon: linear-gradient(97deg, rgba(0, 136, 255, 0.6) 0%, rgba(0, 190, 255, 0.6) 48%, rgba(182, 86, 255, 0.6) 100%);
   --followup-label: linear-gradient(90deg, #005DAF 0%, #007BA5 40%, #7D2EBA 100%);
 
   cursor: var(--custom-cursor, pointer);
-
-  position: relative;
 
   display: inline-flex;
   gap: 0.25rem;
@@ -248,55 +258,25 @@
   max-width: 100%;
   padding: 0.5625rem 0.75rem;
   border: 0;
-  border-radius: 5rem;
 
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.25rem;
   text-align: start;
 
-  // The layers below let the screen show through, as in the design, rather than the button's default fill
-  background-color: transparent;
-  background-image:
-    var(--followup-sheen),
-    var(--followup-glow),
-    linear-gradient(var(--followup-base), var(--followup-base));
-
-  animation: followup-appear 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation: followup-appear 300ms ease-out backwards;
   animation-delay: var(--followup-delay, 0ms);
+
+  @include followup-pill;
 
   @include mixins.transition("opacity 200ms, filter 200ms");
 
   @include mixins.is-mobile() {
     font-size: 1rem;
   }
-
-  // Trims the conic gradient down to the border ring
-  &::after {
-    pointer-events: none;
-    content: "";
-
-    position: absolute;
-    inset: 0;
-
-    /* stylelint-disable-next-line plugin/whole-pixel */
-    padding: 0.0375rem;
-    border-radius: inherit;
-
-    background-image: var(--followup-ring);
-
-    mask:
-      linear-gradient(#FFF 0%, #FFF 100%) content-box,
-      linear-gradient(#FFF 0%, #FFF 100%);
-
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
 }
 
-.followupArrow::before {
-  content: "";
-
+.followupArrowIcon {
   flex-shrink: 0;
 
   width: 1rem;
@@ -312,8 +292,9 @@
   opacity: 0.8;
 }
 
+// The design composites the pills' layers over pure black, so on the dark theme the pill carries that black itself
+:global(html.theme-dark) .followupSkeleton,
 :global(html.theme-dark) .followupButton {
-  // The design composites its layers over pure black, so the capsule carries that black itself
   --followup-base: #000;
   --followup-sheen: linear-gradient(180deg, rgba(32, 32, 32, 0.6) 0%, rgba(32, 32, 32, 0) 100%);
   --followup-glow: linear-gradient(111deg, rgba(0, 136, 255, 0.096) 0%, rgba(0, 190, 255, 0.144) 48%, rgba(182, 86, 255, 0.096) 100%);
@@ -325,19 +306,21 @@
     rgba(182, 86, 255, 0.5) 270deg,
     rgba(0, 190, 255, 0.5) 360deg
   );
+}
+
+:global(html.theme-dark) .followupButton {
   --followup-icon: linear-gradient(97deg, rgba(109, 173, 230, 0.6) 0%, rgba(94, 182, 212, 0.6) 48%, rgba(196, 140, 238, 0.6) 100%);
   --followup-label: linear-gradient(90deg, #6DADE6 0%, #5EB6D4 40%, #C48CEE 100%);
 }
 
+// The suggestions come in one after another, each coming into focus out of a blur as it fades in and rises into
+// place, as on iOS. Each ends as it is, so one enabled or disabled meanwhile shows as it is now.
+
 @keyframes followup-appear {
   from {
-    transform: translateY(0.375rem);
+    transform: translateY(0.5rem);
     opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
+    filter: blur(0.5rem);
   }
 }
 
@@ -364,6 +347,84 @@
   background-clip: text;
 }
 
+// A suggestion beside the tapped one, leaving as a picture in the chat's motion layer
+.followupRipplePicture {
+  will-change: transform, opacity, filter;
+
+  position: absolute;
+
+  max-width: none;
+  margin: 0;
+
+  transition: none;
+  animation: none;
+}
+
+// Over every screen of the Agent, where a question asked under the chat list goes into the first bubble of the chat it
+// opens as the chat comes in
+.openingQuestionLayer {
+  pointer-events: none;
+
+  position: fixed;
+  z-index: var(--z-media-viewer);
+  inset: 0;
+
+  overflow: hidden;
+}
+
+// A tapped suggestion turning into its question's bubble, in the chat's motion layer
+.followupMorph {
+  will-change: transform;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+// The pill's and the bubble's background, rounded, under the texts, which it does not clip as their lines break
+// differently
+.followupMorphBackground {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+// The pill's glass, stretched over the morph, without its title, its arrow and its entrance
+.followupMorphPill {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  padding: 0;
+
+  transition: none;
+  animation: none;
+}
+
+.followupMorphFill {
+  position: absolute;
+  inset: 0;
+}
+
+// The bubble's tail, which hangs out of the background
+.followupMorphTail {
+  position: absolute;
+  bottom: 0;
+
+  mask-repeat: no-repeat;
+
+  mask-size: 100% 100%;
+}
+
+// The title and the bubble's text, each at its own size and with its own line breaks
+.followupMorphText {
+  will-change: transform, opacity, filter;
+  position: absolute;
+  top: 0;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .followupButton,
   .followupSkeleton {
@@ -372,5 +433,15 @@
 
   .followupRow {
     transition: none;
+  }
+}
+
+@keyframes agent-consent-mark-wobble {
+  0% {
+    transform: rotate(-9deg);
+  }
+
+  100% {
+    transform: rotate(9deg);
   }
 }

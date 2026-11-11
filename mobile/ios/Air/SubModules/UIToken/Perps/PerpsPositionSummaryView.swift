@@ -12,6 +12,7 @@ struct PerpsPositionSummaryView: View {
     var showsPlus = false
     var isLoss = false
     var isEstimated = false
+    var shouldHideUnavailableAmount = false
     var spacing: CGFloat = 24
     var backgroundColor: Color = .air.headerBackground
     let accessibilityPrefix: String
@@ -25,6 +26,8 @@ struct PerpsPositionSummaryView: View {
                         leverage: leverage.formatted(.number.locale(.forNumberFormatters)),
                         direction: lang(direction == .long ? "Long" : "Short")) : lang(direction == .long ? "Long" : "Short"))
                         .textStyle(.subheadlineEmphasized)
+                        .lineLimit(1)
+                        .fixedSize()
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -33,23 +36,25 @@ struct PerpsPositionSummaryView: View {
                         .offset(y: 12)
                         .accessibilityIdentifier(accessibilityPrefix + ".direction")
                 }
-            HStack(spacing: 8) {
-                if margin.optionalAmount != nil, let previousMargin, previousMargin.optionalAmount != nil {
-                    amount(previousMargin, previous: true)
-                    Text("→")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.air.secondaryLabel)
+            if !shouldHideUnavailableAmount || margin.optionalAmount != nil {
+                HStack(spacing: 8) {
+                    if margin.optionalAmount != nil, let previousMargin, previousMargin.optionalAmount != nil {
+                        amount(previousMargin, previous: true)
+                        Text("→")
+                            .font(.system(size: 30, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.air.secondaryLabel)
+                    }
+                    if isEstimated, margin.optionalAmount != nil {
+                        Text("≈")
+                            .textStyle(.screenTitle, content: .technical)
+                            .foregroundStyle(Color.air.secondaryLabel)
+                    }
+                    amount(margin, previous: false)
                 }
-                if isEstimated, margin.optionalAmount != nil {
-                    Text("≈")
-                        .textStyle(.screenTitle, content: .technical)
-                        .foregroundStyle(Color.air.secondaryLabel)
-                }
-                amount(margin, previous: false)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .accessibilityIdentifier(accessibilityPrefix + ".margin")
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .accessibilityIdentifier(accessibilityPrefix + ".margin")
         }
         .frame(maxWidth: .infinity)
     }

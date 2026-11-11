@@ -6,6 +6,7 @@ import type {
   AgentCapabilities,
   AgentEntryPoint,
   AgentHintsResponseV2,
+  AgentNewsFeedRequestV2,
   AgentPersistedMessageV2,
   AgentProblemReportRequestV2,
   AgentPublicFollowUpV2,
@@ -116,6 +117,7 @@ export interface AgentV2HostUiCapabilities {
   supportsMessageEdit: boolean;
   supportsRegenerate: boolean;
   supportsSendRecipientWithoutAsset?: boolean;
+  supportsSupportHandoff?: boolean;
 }
 
 export interface AgentV2HostContextSnapshot {
@@ -186,6 +188,11 @@ export type AgentV2RegenerateRunCommand = AgentV2RunCommandBase
 
 export type AgentV2RunCommand = (AgentV2AppendRunCommand | AgentV2EditRunCommand | AgentV2RegenerateRunCommand) & {
   developmentTraceId?: string;
+  /**
+   * The run's id, chosen by the caller so that it tells the run's updates apart from the very first one. A UUID that
+   * no run the runtime holds has; the runtime chooses one without it.
+   */
+  clientRunId?: string;
 };
 
 type AgentV2RunCommandWithoutThread<T> = T extends AgentV2RunCommand
@@ -203,6 +210,10 @@ export interface AgentV2RunResult {
 
 /** A problem report on the conversation, or on one of its messages when `messageId` names it */
 export type AgentV2ProblemReport = Pick<AgentProblemReportRequestV2, 'comment' | 'messageId'>;
+
+/** A news feed page in the app language; `digestHour` and `timeZone` are sent only when both are given */
+export type AgentV2NewsFeedRequest = { lang: string }
+  & Pick<AgentNewsFeedRequestV2, 'cursor' | 'digestHour' | 'timeZone'>;
 
 export type AgentV2ThreadUpdate = Omit<AgentThreadUpdateRequestV2, 'protocolVersion'> & (
   Required<Pick<AgentThreadUpdateRequestV2, 'title'>>

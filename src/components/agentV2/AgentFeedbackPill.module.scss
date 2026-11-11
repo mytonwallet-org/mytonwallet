@@ -1,78 +1,142 @@
 @use "../../styles/mixins";
 
-// A 6.75 × 3.5rem capsule with a 1rem bump half below its middle and a 0.5rem dot under it, all in one shadow
+@use "../agent/agentMenu";
+
+// The motion of iMessage's tapbacks and Telegram's reactions: the tail's dots pop in, then the capsule pops in as a
+// circle at its trailing end and stretches to its full width, and the icons pop in as it passes them, the nearer to the
+// tail first
+$spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+$stretchSpring: cubic-bezier(0.34, 1.45, 0.64, 1);
+$capsuleRadius: 1.75rem;
+// The capsule reaches this far past its leading end, so that it can overshoot its width as it stretches
+$stretchRoom: 0.5rem;
+// A circle of the capsule's height at its trailing end, from which it stretches
+$circleInset: 3.75rem;
+
+// The cloud holds still where the app's animations are off, and only fades with reduced motion
+
+@mixin still {
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// A 108 × 56 capsule over the answer, with its thought tail of a 16 px dot on its edge and an 8 px dot beside the
+// bubble's corner, all in one shadow, the message menu's. Its place and the dots' come from
+// `getAgentFeedbackCloudLayout`, and it shrinks back to its tail as it closes. As Telegram's, it has one neutral circle
+// behind the current rating, a soft overlay on its colour.
 .root {
+  --cloud-selected-color: rgba(0, 0, 0, 0.08);
+
   pointer-events: auto;
 
   position: fixed;
   z-index: var(--z-tooltip);
-  transform-origin: 50% 100%;
-  transform: scale(0.6);
+  top: 0;
+  left: 0;
+  // The cloud follows its answer on every scroll frame, so its place is a transform rather than its offsets. Only the
+  // closing animates the transform, so that following the answer has no motion of its own.
+  transform: translate(var(--cloud-left), var(--cloud-top));
 
   width: 6.75rem;
-  height: 4.625rem;
+  height: 3.5rem;
 
-  opacity: 0;
-  filter: drop-shadow(0 0 0.625rem rgba(0, 0, 0, 0.12));
+  filter: drop-shadow(agentMenu.$shadow);
 
-  @include mixins.transition("opacity 200ms, transform 200ms cubic-bezier(0.2, 0, 0.2, 1)");
+  @include mixins.transition(opacity 200ms);
 
-  &:global(.open) {
-    transform: none;
-    opacity: 1;
+  &:global(.closing) {
+    transform: translate(var(--cloud-left), var(--cloud-top)) scale(0.4);
+    opacity: 0;
+
+    @include mixins.transition("opacity 200ms, transform 200ms cubic-bezier(0.4, 0, 1, 1)");
   }
 
   :global(html.theme-dark) & {
-    filter: drop-shadow(0 0 0.625rem rgba(0, 0, 0, 0.2));
+    --cloud-selected-color: rgba(255, 255, 255, 0.12);
   }
 
   :global(html.animation-level-0) & {
-    transition: none;
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: cloud-fade-in 200ms ease-out;
+
+    &:global(.closing) {
+      transform: translate(var(--cloud-left), var(--cloud-top));
+    }
   }
 }
 
-.body {
-  position: relative;
-  z-index: 1;
-
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  justify-content: center;
-
-  height: 3.5rem;
-  border-radius: 1.75rem;
-
-  background-color: var(--color-background-drop-down);
-}
-
-.bump,
 .dot {
   position: absolute;
   border-radius: 50%;
   background-color: var(--color-background-drop-down);
+  animation: cloud-pop 300ms $spring backwards;
+
+  @include still;
 }
 
-.bump {
-  top: 3rem;
-  inset-inline-start: calc(50% - 0.5rem);
-  width: 1rem;
-  height: 1rem;
-}
-
-.dot {
-  top: 4.125rem;
-  inset-inline-start: calc(50% - 0.8125rem);
+.smallDot {
+  top: var(--small-dot-top);
+  left: var(--small-dot-left);
   width: 0.5rem;
   height: 0.5rem;
 }
 
+.largeDot {
+  top: var(--large-dot-top);
+  left: var(--large-dot-left);
+
+  width: 1rem;
+  height: 1rem;
+
+  animation-delay: 40ms;
+}
+
+.capsule {
+  --cloud-capsule-clip: inset(0 0 0 #{$stretchRoom} round #{$capsuleRadius});
+  --cloud-capsule-circle-clip: inset(0 0 0 #{$circleInset} round #{$capsuleRadius});
+
+  position: absolute;
+  top: 0;
+  inset-inline-start: -$stretchRoom;
+  transform-origin: calc(100% - #{$capsuleRadius}) 50%;
+
+  width: calc(100% + #{$stretchRoom});
+  height: 100%;
+
+  background-color: var(--color-background-drop-down);
+  clip-path: var(--cloud-capsule-clip);
+
+  animation:
+    cloud-pop 260ms $spring 80ms backwards,
+    cloud-stretch 350ms $stretchSpring 120ms backwards;
+
+  :global(html[dir="rtl"]) & {
+    --cloud-capsule-clip: inset(0 #{$stretchRoom} 0 0 round #{$capsuleRadius});
+    --cloud-capsule-circle-clip: inset(0 #{$circleInset} 0 0 round #{$capsuleRadius});
+
+    transform-origin: $capsuleRadius 50%;
+  }
+
+  @include still;
+}
+
+// A 36 px icon at 12 px and 60 px from the capsule's leading end, 10 px from its top, as in the design. The current
+// rating has the cloud's neutral circle behind it.
 .button {
+  --cloud-button-highlight: var(--cloud-selected-background, var(--cloud-hover-background, transparent));
+
   cursor: var(--custom-cursor, pointer);
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute;
+  top: 0.625rem;
 
   width: 2.25rem;
   height: 2.25rem;
@@ -80,33 +144,136 @@
   border: 0;
   border-radius: 50%;
 
-  font-size: 1.75rem;
-  color: var(--color-gray-button-text);
-
   background: none;
+  outline: none;
 
-  @include mixins.transition("color 150ms, background-color 150ms");
+  // Telegram's `appear` animation draws the icon in; its place, with the current rating's circle, fades in with it,
+  // after the delay `AgentFeedbackPill` gives it
+  animation: cloud-fade-in 150ms linear var(--cloud-icon-delay) backwards;
 
-  @media (hover: hover) {
-    &:hover {
-      background-color: var(--color-interactive-drop-down-menu-hover);
-    }
-  }
+  @include mixins.transition("transform 150ms");
 
-  &:focus-visible {
-    background-color: var(--color-interactive-drop-down-menu-hover);
+  @include still;
+
+  &::before {
+    content: "";
+
+    position: absolute;
+    inset: -0.25rem;
+
+    border-radius: 50%;
+
+    background-color: var(--cloud-button-highlight);
+
+    @include mixins.transition("background-color 150ms");
   }
 
   &:active {
-    transform: scale(0.9);
+    transform: scale(0.85);
+  }
+
+  &:focus-visible {
+    --cloud-hover-background: var(--color-interactive-drop-down-menu-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      --cloud-hover-background: var(--color-interactive-drop-down-menu-hover);
+    }
   }
 }
 
-.icon {
-  width: 2.25rem;
-  height: 2.25rem;
+.like {
+  inset-inline-start: 0.75rem;
 }
 
+.dislike {
+  inset-inline-start: 3.75rem;
+}
+
+// The current rating's 44 px circle scales up on a spring and fades in as its icon appears
 .selected {
-  color: var(--color-accent);
+  --cloud-selected-background: var(--cloud-selected-color);
+
+  &::before {
+    animation:
+      cloud-selection-pop 400ms $spring var(--cloud-icon-delay) backwards,
+      cloud-fade-in 200ms linear var(--cloud-icon-delay) backwards;
+
+    @include still;
+  }
+}
+
+// The chosen reaction, whose emoji flies out of the cloud to the answer's corner
+.iconFlown {
+  visibility: hidden;
+}
+
+.icon {
+  pointer-events: none;
+
+  position: relative;
+
+  display: block;
+
+  width: 100%;
+  height: 100%;
+}
+
+// The still icon, and Telegram's animations over it, which take its place once they draw, and the flying emoji's
+// pictures, the corner's over the cloud's, which `agentFeedbackFlight` sizes and fades
+.still,
+.sticker,
+.flightIconImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 100%;
+}
+
+// The emoji flying from the cloud to the answer's corner, which `agentFeedbackFlight` moves, and Telegram's effects
+// over the corner, all over the window so that nothing clips them
+.flightIcon,
+.effect {
+  pointer-events: none;
+
+  position: fixed;
+  z-index: var(--z-tooltip);
+  top: 0;
+  left: 0;
+}
+
+// The flight places the emoji by its top left corner, so it scales from there
+.flightIcon {
+  transform-origin: 0 0;
+}
+
+.effect {
+  will-change: transform;
+}
+
+@keyframes cloud-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+@keyframes cloud-selection-pop {
+  from {
+    transform: scale(0.01);
+  }
+}
+
+@keyframes cloud-stretch {
+  from {
+    clip-path: var(--cloud-capsule-circle-clip);
+  }
+}
+
+@keyframes cloud-fade-in {
+  from {
+    opacity: 0;
+  }
 }

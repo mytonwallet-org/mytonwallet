@@ -1784,6 +1784,6 @@ object ActivityStore : IStore, WalletCore.EventObserver {
 
     private fun pendingCexSwapActivities(accountId: String): List<MApiTransaction> {
         val byId = accountStates[accountId]?.cachedTransactions ?: return emptyList()
-        return byId.values.filter { it is MApiTransaction.Swap && it.cex != null && it.isPending() }
+        return byId.values.filter { ActivityHelpers.isPolledPendingSwap(it) }
     }
 }

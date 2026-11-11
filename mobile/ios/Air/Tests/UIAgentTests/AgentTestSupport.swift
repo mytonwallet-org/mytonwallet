@@ -1,5 +1,7 @@
 import UIKit
 import UIComponents
+import WalletContext
+import XCTest
 @testable import UIAgent
 
 /// A key window as large as the test phone's screen that shows `rootViewController`
@@ -18,10 +20,138 @@ func forgetChatReadState(threadId: String) {
     AgentThreadReadState.shared.remove(threadId: threadId)
 }
 
+/// The consent sheet that `controller` asks with: it shows `controller`'s navigation in a key window, which a sheet
+/// needs, and waits for the sheet. The window goes when the test ends.
+@MainActor
+func waitForConsentSheet(
+    over controller: UIViewController,
+    in test: XCTestCase,
+    scene: UIWindowScene? = nil
+) async throws -> AgentConsentSheetVC {
+    let host = controller.navigationController ?? controller
+    if host.view.window == nil {
+        let window = scene.map { UIWindow(windowScene: $0) } ?? UIWindow()
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        test.addTeardownBlock {
+            MainActor.assumeIsolated {
+                window.rootViewController?.presentedViewController?.dismiss(animated: false)
+                window.isHidden = true
+            }
+        }
+    }
+    let presentation = AgentConsentSheetPresentation.current
+    for _ in 0..<300 {
+        if let presented = presentation.presentedViewController(of: controller) ?? presentation.presentedViewController(of: host),
+           !presented.isBeingDismissed,
+           let sheet = (presented as? UINavigationController)?.viewControllers.first as? AgentConsentSheetVC {
+            sheet.loadViewIfNeeded()
+            return sheet
+        }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTFail("The consent sheet did not show")
+    throw CancellationError()
+}
+
+/// The consent sheet's presentation for a test, which runs without a window scene, where UIKit never finishes
+/// bringing a sheet up or taking it away: a sheet comes up at once, or stays coming up until `finishPresenting` when
+/// `isFinishingAtOnce` is false, and goes on the next turn of the run loop, as UIKit's would after its animation.
+/// `install(in:)` puts it in place for the test and takes it away as the test ends.
+@MainActor
+final class AgentTestConsentSheetPresentation: AgentConsentSheetPresentation {
+    private var sheets: [ObjectIdentifier: UIViewController] = [:]
+    private var presenters: [ObjectIdentifier: UIViewController] = [:]
+    private var comingUp: [ObjectIdentifier: [() -> Void]] = [:]
+    /// Every sheet that came up, in order
+    private(set) var presentedSheets: [UIViewController] = []
+    private(set) var dismissalCount = 0
+    var isFinishingAtOnce = true
+
+    static func install(in test: XCTestCase) -> AgentTestConsentSheetPresentation {
+        let presentation = AgentTestConsentSheetPresentation()
+        let previous = AgentConsentSheetPresentation.current
+        AgentConsentSheetPresentation.current = presentation
+        test.addTeardownBlock {
+            MainActor.assumeIsolated { AgentConsentSheetPresentation.current = previous }
+        }
+        return presentation
+    }
+
+    override func presentedViewController(of presenter: UIViewController) -> UIViewController? {
+        sheets[ObjectIdentifier(presenter)] ?? presenter.presentedViewController
+    }
+
+    override func present(_ sheet: UIViewController, over presenter: UIViewController) {
+        sheets[ObjectIdentifier(presenter)] = sheet
+        presenters[ObjectIdentifier(sheet)] = presenter
+        presentedSheets.append(sheet)
+        sheet.loadViewIfNeeded()
+        if !isFinishingAtOnce {
+            comingUp[ObjectIdentifier(sheet)] = []
+        }
+    }
+
+    override func isPresented(_ sheet: UIViewController) -> Bool {
+        presenters[ObjectIdentifier(sheet)] != nil
+    }
+
+    /// `sheet` is still coming up
+    func isComingUp(_ sheet: UIViewController) -> Bool {
+        comingUp[ObjectIdentifier(sheet)] != nil
+    }
+
+    override func whenPresented(_ sheet: UIViewController, _ action: @escaping () -> Void) -> Bool {
+        guard comingUp[ObjectIdentifier(sheet)] != nil else { return false }
+        comingUp[ObjectIdentifier(sheet)]?.append(action)
+        return true
+    }
+
+    /// Ends the coming up of every sheet still coming up, which runs what waited for it
+    func finishPresenting() {
+        let waiting = comingUp
+        comingUp = [:]
+        for actions in waiting.values {
+            actions.forEach { $0() }
+        }
+    }
+
+    override func dismiss(_ sheet: UIViewController, animated: Bool, completion: @escaping () -> Void) {
+        guard let presenter = presenters.removeValue(forKey: ObjectIdentifier(sheet)) else {
+            completion()
+            return
+        }
+        dismissalCount += 1
+        comingUp[ObjectIdentifier(sheet)] = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.sheets[ObjectIdentifier(presenter)] = nil
+            completion()
+        }
+    }
+}
+
 /// Every view under `view`, each one before its own subviews
 @MainActor
 func findDescendants(of view: UIView) -> [UIView] {
     view.subviews.flatMap { [$0] + findDescendants(of: $0) }
+}
+
+/// The source line of several `names`, joined by the language's comma
+func makeSourcesLineText(_ names: [String]) -> String {
+    L10n.agentNewsSources(sources: names.joined(separator: lang("$joining_comma")))
+}
+
+/// Taps the middle of `entry` in a one-line, left-to-right news source line
+@MainActor
+func tap(_ entry: String, in line: AgentNewsSourceLineLabel) throws {
+    let text = try XCTUnwrap(line.text) as NSString
+    let font = try XCTUnwrap(line.font)
+    let range = text.range(of: entry)
+    XCTAssertNotEqual(range.location, NSNotFound, entry)
+    let start = text.substring(to: range.location).size(withAttributes: [.font: font]).width
+    let width = (entry as NSString).size(withAttributes: [.font: font]).width
+    line.openLink(at: CGPoint(x: start + width / 2, y: line.bounds.midY))
 }
 
 /// A chat of `messages` in a key window, over a backend that answers nothing

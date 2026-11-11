@@ -46,8 +46,8 @@ final class AgentNewsCell: AgentThreadRowCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// As many news as a feed page holds
-    private static let unreadCountMax = 30
+    /// The most unread news the counter shows; more show the unread dot
+    private static let unreadCountMax = 10
 
     func configure(latestNews: ApiAgentV2NewsFeedItem?, unreadCount: Int, now: Date = .now) {
         let time = latestNews.map {
@@ -59,9 +59,8 @@ final class AgentNewsCell: AgentThreadRowCell {
             time: time
         )
         setPreviewImage(url: latestNews?.imageUrl.flatMap(URL.init(string:)))
-        // The list counts unread news among the loaded feed page only, so from a page's worth the count reads "30+"
-        if unreadCount >= Self.unreadCountMax {
-            unreadMark = .count("\(Self.unreadCountMax)+")
+        if unreadCount > Self.unreadCountMax {
+            unreadMark = .dot
         } else {
             unreadMark = unreadCount > 0 ? .count(formatBigIntText(BigInt(unreadCount), tokenDecimals: 0)) : nil
         }

@@ -1,5 +1,6 @@
 import SwiftUI
 import WalletContext
+import WalletCore
 
 public struct MultisigWalletWarning: View {
     public init() {}
@@ -15,7 +16,11 @@ public struct MultisigWalletWarning: View {
             text: L10n.multisigWarningText(appName: APP_NAME, multisigWarningLink: "[\(lang("$multisig_warning_link"))](\(helpUrl.absoluteString))"),
             kind: .error
         )
-        .padding(.horizontal, 16)
+        .environment(\.openURL, OpenURLAction { url in
+            topViewController()?.view.endEditing(true)
+            AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
+            return .handled
+        })
     }
 }
 

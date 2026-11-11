@@ -82,6 +82,27 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         onHeightChanged?(false)
     }
 
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateCollectionMargins()
+    }
+
+    public override func viewLayoutMarginsDidChange() {
+        super.viewLayoutMarginsDidChange()
+        updateCollectionMargins()
+    }
+
+    private func updateCollectionMargins() {
+        guard !layoutMode.isCompact, let collectionView else { return }
+        let margins = view.layoutMargins
+        let padding = WalletTokenContentView.horizontalPadding
+        let collectionMargins = UIEdgeInsets(top: 0, left: max(0, margins.left - padding),
+                                            bottom: 0, right: max(0, margins.right - padding))
+        guard collectionView.layoutMargins != collectionMargins else { return }
+        collectionView.layoutMargins = collectionMargins
+        collectionView.collectionViewLayout.invalidateLayout()
+    }
+
     // MARK: - Setup
 
     private func setupViews() {
@@ -94,6 +115,9 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
         collectionView.delaysContentTouches = false
         collectionView.showsVerticalScrollIndicator = false
         collectionView.contentInsetAdjustmentBehavior = layoutMode.isCompact ? .never : .scrollableAxes
+        if !layoutMode.isCompact {
+            collectionView.insetsLayoutMarginsFromSafeArea = false
+        }
 
         if layoutMode.isCompact {
             collectionView.bounces = false
@@ -105,9 +129,11 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
-        UICollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
+        let configuration = UICollectionViewCompositionalLayoutConfiguration()
+        configuration.contentInsetsReference = layoutMode.isCompact ? .automatic : .none
+        return UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIndex, layoutEnvironment in
             self?.makeSectionLayout(sectionIndex: sectionIndex, layoutEnvironment: layoutEnvironment)
-        }
+        }, configuration: configuration)
     }
 
     private func makeSectionLayout(sectionIndex _: Int, layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
@@ -131,7 +157,14 @@ public final class WalletTokensVC: WViewController, WalletCoreData.EventsObserve
             }
             return separatorConfiguration
         }
-        return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        if !layoutMode.isCompact {
+            section.contentInsetsReference = .none
+            let margins = collectionView.directionalLayoutMargins
+            section.contentInsets.leading = margins.leading
+            section.contentInsets.trailing = margins.trailing
+        }
+        return section
     }
 
     private func section(at index: Int) -> Section? {

@@ -108,6 +108,7 @@ final class WalletTokenActions {
                         ContextMenuAction(
                             title: lang("Fund"),
                             icon: .system("plus"),
+                            accessibilityIdentifier: "token_menu_add",
                             handler: { [weak self] in
                                 guard let self else { return }
                                 AppActions.showReceive(
@@ -123,6 +124,7 @@ final class WalletTokenActions {
                     ContextMenuAction(
                         title: lang("Send"),
                         icon: .system("arrow.up"),
+                        accessibilityIdentifier: "token_menu_send",
                         handler: { [weak self] in
                             guard let self else { return }
                             AppActions.showSend(accountContext: accountContext, prefilledValues: .init(token: token.slug))
@@ -134,6 +136,7 @@ final class WalletTokenActions {
                         ContextMenuAction(
                             title: lang("Trade"),
                             icon: .system("arrow.left.arrow.right"),
+                            accessibilityIdentifier: "token_menu_trade",
                             handler: { [weak self] in
                                 guard let self else { return }
                                 Task { [accountContext] in
@@ -154,6 +157,7 @@ final class WalletTokenActions {
                         ContextMenuAction(
                             title: lang("Stake"),
                             icon: .system("cylinder.split.1x2"),
+                            accessibilityIdentifier: "token_menu_stake",
                             handler: { [weak self] in
                                 guard let self else { return }
                                 AppActions.showEarn(accountContext: accountContext, tokenSlug: token.slug)
@@ -172,6 +176,7 @@ final class WalletTokenActions {
                 ContextMenuAction(
                     title: lang("Unpin"),
                     icon: .system("pin.slash"),
+                    accessibilityIdentifier: "token_menu_unpin",
                     handler: {
                         AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
                             settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: false)
@@ -184,6 +189,7 @@ final class WalletTokenActions {
                 ContextMenuAction(
                     title: lang("Pin"),
                     icon: .system("pin"),
+                    accessibilityIdentifier: "token_menu_pin",
                     handler: {
                         AssetsAndActivityDataStore.update(accountId: accountID, update: { settings in
                             settings.saveTokenPinning(slug: tokenSlug, isStaking: isStaking, isPinned: true)
@@ -197,6 +203,7 @@ final class WalletTokenActions {
             ContextMenuAction(
                 title: lang("Manage Assets"),
                 icon: .airBundle("MenuManageAssets26"),
+                accessibilityIdentifier: "token_menu_manage_assets",
                 handler: {
                     AppActions.showAssetsAndActivity()
                 }

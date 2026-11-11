@@ -846,7 +846,6 @@ function updateCache(force?: boolean) {
       'isManualLockActive',
       'stakingDefault',
       'currencyRates',
-      'perpsAssets',
       'accountSelectorViewMode',
       'seasonalTheme',
       'isLegacyCoreMigrationCompleted',

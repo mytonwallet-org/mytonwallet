@@ -25,6 +25,16 @@ import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
+/** What the chat can show, which the SDK declares to the agent; `supportsSupportHandoff` hands a chat to an operator */
+internal val AGENT_UI_CAPABILITY_FLAGS = mapOf(
+    "supportsFollowups" to true,
+    "supportsRunActivity" to false,
+    "supportsWalletDirectory" to false,
+    "supportsMessageEdit" to true,
+    "supportsRegenerate" to true,
+    "supportsSupportHandoff" to true
+)
+
 internal class AgentHostContextSnapshot(val accountId: String?, val json: JSONObject)
 
 private class AgentV2PositionsProjection(
@@ -80,11 +90,7 @@ internal object AgentHostContextBuilder {
                             )
                         )
                     )
-                    .put("supportsFollowups", true)
-                    .put("supportsRunActivity", false)
-                    .put("supportsWalletDirectory", false)
-                    .put("supportsMessageEdit", true)
-                    .put("supportsRegenerate", true)
+                    .apply { AGENT_UI_CAPABILITY_FLAGS.forEach { (key, value) -> put(key, value) } }
             )
             .put("lang", LocaleController.activeLanguage.langCode)
             .put("baseCurrency", WalletCore.baseCurrency.currencyCode)

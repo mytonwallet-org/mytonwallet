@@ -24,6 +24,7 @@ import androidx.core.view.isGone
 import androidx.core.widget.NestedScrollView
 import java.lang.ref.WeakReference
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
@@ -704,7 +705,7 @@ class TransactionVC(
                                     WalletCore.baseCurrency.sign,
                                     WalletCore.baseCurrency.decimalsCount,
                                     smartDecimals = true,
-                                    roundUp = false
+                                    rounding = RoundingMode.DOWN
                                 )
                             }
                         }
@@ -815,7 +816,7 @@ class TransactionVC(
                             fromToken?.decimals ?: 9,
                             smartDecimals = true,
                             showPositiveSign = false,
-                            roundUp = false
+                            rounding = RoundingMode.DOWN
                         ) ?: "",
                         KeyValueRowView.Mode.SECONDARY,
                         !shouldShowFeeRow && !shouldShowViewInExplorer

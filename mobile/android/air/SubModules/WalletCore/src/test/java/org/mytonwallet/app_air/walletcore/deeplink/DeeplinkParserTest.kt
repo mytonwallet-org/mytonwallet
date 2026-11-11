@@ -9,6 +9,27 @@ import org.junit.Test
 
 class DeeplinkParserTest {
     @Test
+    fun parsesAgentPushNewsAndDigestParametersAndFallsBackForInvalidValues() {
+        val digestId = "ru:2026-11-08T18:00:00.000Z"
+        assertEquals(
+            Deeplink.Agent(null, newsEventId = 42),
+            DeeplinkParser.parseAgentLink("42", null)
+        )
+        assertEquals(
+            Deeplink.Agent(null, digestId = digestId),
+            DeeplinkParser.parseAgentLink(null, digestId)
+        )
+        for (news in listOf("", "abc", "-1", "0", "999999999999")) {
+            assertEquals(Deeplink.Agent(null), DeeplinkParser.parseAgentLink(news, null))
+        }
+        for (digest in listOf("", " ", "x".repeat(65), "$digestId\n")) {
+            assertEquals(Deeplink.Agent(null), DeeplinkParser.parseAgentLink(null, digest))
+        }
+        assertEquals(Deeplink.Agent(null), DeeplinkParser.parseAgentLink("42", digestId))
+        assertEquals(Deeplink.Agent(null), DeeplinkParser.parseAgentLink(null, null))
+    }
+
+    @Test
     fun detectsWalletConnectSessionRequestIdentity() {
         assertTrue(
             DeeplinkParser.isWalletConnectSessionRequest(setOf("requestId", "sessionTopic"))

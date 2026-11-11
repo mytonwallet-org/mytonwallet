@@ -3,9 +3,9 @@
 .button {
   cursor: var(--custom-cursor, pointer);
 
+  // The chat sets how far up it stands: above the field, however tall the field grows, or above the bottom
   position: absolute;
   z-index: 2;
-  bottom: calc(4.5rem + var(--bottombar-height));
   inset-inline-end: 1.25rem;
 
   display: flex;

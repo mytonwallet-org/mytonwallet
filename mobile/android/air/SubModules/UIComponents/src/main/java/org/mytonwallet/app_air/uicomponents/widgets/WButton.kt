@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.text.Layout
+import android.text.Spanned
+import android.text.SpannedString
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.TypedValue
@@ -15,6 +17,7 @@ import me.vkryl.android.AnimatorUtils
 import me.vkryl.android.animator.ListAnimator.Measurable
 import me.vkryl.android.animator.ReplaceAnimator
 import me.vkryl.core.alphaColor
+import me.vkryl.core.equalsTo
 import me.vkryl.core.fromTo
 import me.vkryl.core.fromToArgb
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -67,7 +70,8 @@ class WButton(context: Context) :
         }
     }
 
-    data class Item(val maxWidth: Int, val text: String, val layout: StaticLayout) : Measurable {
+    data class Item(val maxWidth: Int, val text: CharSequence, val layout: StaticLayout) :
+        Measurable {
         override fun getWidth(): Int = layout.width
 
         override fun getHeight(): Int = 0
@@ -231,15 +235,17 @@ class WButton(context: Context) :
         get() = animator.singleton()?.item?.text
 
     fun setText(text: CharSequence, isAnimated: Boolean = true) {
-        if (animator.singleton()?.item?.text == text) {
+        // A copy, so editing the caller's builder still counts as a change
+        val snapshot = if (text is Spanned) SpannedString(text) else text.toString()
+        if (animator.singleton()?.item?.text?.equalsTo(snapshot) == true) {
             return
         }
 
         val maxWidth = measuredWidth - paddingLeft - paddingRight
         val staticLayout = StaticLayout.Builder.obtain(
-            text,
+            snapshot,
             0,
-            text.length,
+            snapshot.length,
             textPaint,
             Int.MAX_VALUE
         ).build()
@@ -248,7 +254,7 @@ class WButton(context: Context) :
             staticLayout.getLineWidth(i)
         }
         val layout = StaticLayout(
-            text,
+            snapshot,
             textPaint,
             (textWidth).ceilToInt(),
             Layout.Alignment.ALIGN_NORMAL,
@@ -257,9 +263,9 @@ class WButton(context: Context) :
             false
         )
 
-        contentDescription = text
+        contentDescription = snapshot
         animator.replace(
-            Item(maxWidth, text = text.toString(), layout),
+            Item(maxWidth, text = snapshot, layout),
             isAnimated && !animator.isEmpty && isAttachedToWindow &&
                 isLoadingAnimator.floatValue != 1f
         )
@@ -288,7 +294,7 @@ class WButton(context: Context) :
             return
         }
 
-        val textWidth = min((textPaint.measureText(oldItem.text)).ceilToInt(), maxWidth)
+        val textWidth = min(Layout.getDesiredWidth(oldItem.text, textPaint).ceilToInt(), maxWidth)
         if (oldItem.width == textWidth) {
             return
         }

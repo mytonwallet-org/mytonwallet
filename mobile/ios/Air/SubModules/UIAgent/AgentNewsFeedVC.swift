@@ -1,4 +1,5 @@
 import ContextMenuKit
+import Perception
 import UIKit
 import UIComponents
 import WalletContext
@@ -6,10 +7,26 @@ import WalletCore
 
 @MainActor
 public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserver {
+    /// Telegram's stuck date header (`ListView.updateHeaderItemsFlashing`, `ChatMessageDateHeaderNodeImpl`): it shows
+    /// while the list is dragged or decelerates from a drag and for 0.3 s after, fading in over 0.3 s and out over
+    /// 0.4 s, and stays while it stands less than half a header from its own place
+    private enum StickyDayMetrics {
+        static let holdDuration: TimeInterval = 0.3
+        static let fadeInDuration: TimeInterval = 0.3
+        static let fadeOutDuration: TimeInterval = 0.4
+        static let hidingDistanceFactor: CGFloat = 0.5
+        static let headerHeight = AgentDateCapsuleView.height + 2 * AgentDateCapsuleView.verticalSpacing
+    }
+
+    /// Older news load as the user scrolls up with at most this many rows, day lines and the "New" line among them,
+    /// wholly above the part of the feed under the header, as Android's `AGENT_HISTORY_LOAD_THRESHOLD` counts them
+    static let loadOlderRowThreshold = 5
+
     enum ItemID: Hashable {
         case day(Date)
         case unread
         case news(Int)
+        case digest(String)
         /// The chat's failure line with Retry, after the news shown when the feed failed to refresh
         case failure
     }
@@ -20,23 +37,44 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     private let openTelegramURL: (URL) -> Void
     private let showLinkError: (DisplayError) -> Void
     private let makeNewsChatViewController: (ApiAgentV2NewsFeedItem, String, @escaping (ApiAgentV2ThreadSummary) -> Void) -> UIViewController
+    /// The discussion of a news item the feed hasn't loaded, from a digest's headline
+    private let loadNewsChatViewController: (Int) async throws -> UIViewController
+    /// The discussion of the digest with this ID, which it starts on its first visit
+    private let makeDigestChatViewController: (String) -> UIViewController
+    private let presentDigestSettings: (UIViewController) -> Void
     private let titleView = AgentChatTitleView()
     /// The chat's column: as wide as the screen up to the content's maximum width, centred
     private let contentLayoutGuide = UILayoutGuide()
     /// Where a chat's field rests above the bottom edge. The feed has no field, so what a chat keeps above its field the
-    /// feed keeps above this line: the latest news, the scroll button and the fade under them.
+    /// feed keeps above this line: the latest news and the scroll button.
     private let fieldLineGuide = UILayoutGuide()
     private lazy var fieldLineConstraint = fieldLineGuide.topAnchor.constraint(equalTo: view.bottomAnchor)
-    /// The news fade out under the bottom edge as a chat's messages do under its field
-    private let bottomEdgeEffectView = EdgeEffectView()
     private var navigationBarBackground: UIView?
     /// Stands in for the feed until its first page loads
     private let skeletonView = AgentMessagesSkeletonView(style: .newsCards)
     private let backSwipe = AgentChatBackSwipe()
     /// The card whose picture flies into a new discussion, hidden until the feed is off screen
     private weak var flightSourceCell: AgentNewsFeedCardCell?
-    private let loadingOlderIndicator = AgentLoadingOlderIndicator()
-    /// The failure with Retry for a feed that has nothing to show
+    /// Clips the stuck day capsule at the header's edge, which it slides under as the next day's capsule pushes it up
+    private let stickyDayContainer = UIView()
+    /// The capsule of the day at the feed's top, stuck under the header while that day's news scroll under it
+    let stickyDayCapsule = AgentDateCapsuleView(isBlurred: true)
+    private lazy var stickyDayTopConstraint = stickyDayCapsule.topAnchor.constraint(equalTo: stickyDayContainer.topAnchor)
+    /// The day whose capsule stands stuck under the header, which its own row in the list leaves to it
+    private var stuckDay: Date?
+    /// How far the stuck capsule stands from its own place in the list, in date headers, as Telegram measures it
+    private var stuckDayDistanceFactor: CGFloat = 0
+    /// The feed's days, oldest first
+    private var days: [Date] = []
+    private var isDraggingList = false
+    private var isDeceleratingAfterDrag = false
+    /// The list's offset at its last scroll, which tells which way it moves
+    private var lastContentOffsetY: CGFloat = 0
+    /// Keeps the stuck capsule shown a moment after the list stops
+    private var stickyDayHold: DispatchWorkItem?
+    /// Rows that take their own heights as they come into view move the capsules in the list without a scroll
+    private var contentSizeObservation: NSKeyValueObservation?
+    /// The failure with Retry for a feed that has nothing to show, or its message when it loaded without news
     private let loadErrorView = AgentLoadErrorView()
     let scrollToBottomButton = AgentScrollToBottomButton()
     let collectionView: AgentCollectionView = {
@@ -54,6 +92,10 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     private var itemsById: [Int: ApiAgentV2NewsFeedItem] = [:]
     /// The news the rows were last configured with
     private var previousItemsById: [Int: ApiAgentV2NewsFeedItem] = [:]
+    private var digestsById: [String: ApiAgentV2NewsFeedDigest] = [:]
+    private var previousDigestsById: [String: ApiAgentV2NewsFeedDigest] = [:]
+    /// The feed was opened for a digest it hasn't shown yet, and the user hasn't scrolled it since
+    private var isSeekingRequestedDigest: Bool
     /// When each day's first news came, which its date line's menu shows as a chat's shows its first message's time
     private var dayStarts: [Date: Date] = [:]
     private var refreshTask: Task<Void, Never>?
@@ -75,9 +117,21 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         openInBrowser: @escaping (URL) -> Void = { AppActions.openInBrowser($0, title: nil, injectDappConnect: false) },
         openTelegramURL: @escaping (URL) -> Void = { UIApplication.shared.open($0) },
         showLinkError: @escaping (DisplayError) -> Void = { AppActions.showError(error: $0) },
-        makeNewsChatViewController: ((ApiAgentV2NewsFeedItem, String, @escaping (ApiAgentV2ThreadSummary) -> Void) -> UIViewController)? = nil
+        makeNewsChatViewController: ((ApiAgentV2NewsFeedItem, String, @escaping (ApiAgentV2ThreadSummary) -> Void) -> UIViewController)? = nil,
+        loadNewsChatViewController: ((Int) async throws -> UIViewController)? = nil,
+        makeDigestChatViewController: ((String) -> UIViewController)? = nil,
+        presentDigestSettings: @escaping (UIViewController) -> Void = { AgentDigestSettingsSheetVC.present(over: $0) }
     ) {
         self.model = model
+        // The discussions open over the feed, as a news card's do, so Back returns to it
+        self.loadNewsChatViewController = loadNewsChatViewController ?? {
+            try await AgentEntryPoint.makeNewsChatViewController(eventId: $0, client: LiveAgentNewsFeedClient(), preloader: preloader)
+        }
+        self.makeDigestChatViewController = makeDigestChatViewController ?? {
+            AgentVC(model: preloader.acquireDigestModel(id: $0))
+        }
+        self.presentDigestSettings = presentDigestSettings
+        isSeekingRequestedDigest = model.requestedDigestId != nil
         self.preloader = preloader
         self.openInBrowser = openInBrowser
         self.openTelegramURL = openTelegramURL
@@ -106,7 +160,15 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         super.viewDidLoad()
         configureViews()
         configureDataSource()
+        contentSizeObservation = collectionView.observe(\.contentSize) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                // A snapshot being applied places the capsule once it is in
+                guard let self, !self.isApplyingSnapshot else { return }
+                self.updateStickyDay()
+            }
+        }
         model.onChange = { [weak self] in self?.updateFeed() }
+        observeDigestHour()
         WalletCoreData.addImmediately(eventObserver: self)
         for name in [UIApplication.significantTimeChangeNotification, NSLocale.currentLocaleDidChangeNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(reconfigureDayLines), name: name, object: nil)
@@ -121,6 +183,20 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         reconfigureDiscussions()
         refresh()
         AgentChatHeaderMorph.runIfNeeded(for: self, isAppearing: true)
+    }
+
+    /// A new digest hour, set in the bell's sheet or anywhere else, brings that hour's digests; a hidden feed takes them
+    /// as it appears again, when it refreshes
+    private func observeDigestHour() {
+        withPerceptionTracking {
+            _ = model.digestSettings.digestHour
+        } onChange: { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.isVisible { self.refresh() }
+                self.observeDigestHour()
+            }
+        }
     }
 
     /// Coming back from a discussion, its card says "Continue discussion" once the user has written there
@@ -145,13 +221,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateBottomInset()
-    }
-
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            bottomEdgeEffectView.updateColor(.air.background)
-        }
+        updateStickyDay()
     }
 
     /// How far above the bottom edge a chat's field rests, which is where the line under the feed stands
@@ -177,6 +247,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
         AgentChatNavigation.installThreadsButton(in: self)
+        installDigestSettingsButton()
         performInitialScrollIfNeeded()
     }
 
@@ -220,6 +291,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
 
     /// A tap on the current tab goes to the latest news, as in a chat
     public override func scrollToTop(animated: Bool) {
+        isSeekingRequestedDigest = false
         scrollToLatest(animated: animated)
     }
 
@@ -243,22 +315,20 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
         // The lowest placeholder ends where the latest card's body will
         skeletonView.bottomInset = AgentVCLayout.bottomMessageSpacing + AgentBubbleBackgroundView.tailBottomOverflow
-        skeletonView.isHidden = !model.items.isEmpty
+        skeletonView.isHidden = !model.entries.isEmpty
         view.insertSubview(skeletonView, belowSubview: collectionView)
         if #available(iOS 26.0, *) {
             collectionView.bottomEdgeEffect.isHidden = true
         }
-        bottomEdgeEffectView.update(
-            content: .air.background,
-            blur: true,
-            alpha: 0.85,
-            edge: .bottom,
-            edgeSize: AgentVCLayout.bottomEdgeFadeHeight + 24
-        )
-        bottomEdgeEffectView.translatesAutoresizingMaskIntoConstraints = false
-        bottomEdgeEffectView.isUserInteractionEnabled = false
-        view.addSubview(bottomEdgeEffectView)
         navigationBarBackground = AgentChatNavigation.installHeader(in: self, titleView: titleView, scrollView: collectionView)
+        // Above the header's backdrop, whose fade would dim the stuck capsule, and below the navigation bar's buttons
+        stickyDayContainer.translatesAutoresizingMaskIntoConstraints = false
+        stickyDayContainer.isUserInteractionEnabled = false
+        stickyDayContainer.clipsToBounds = true
+        stickyDayContainer.accessibilityElementsHidden = true
+        stickyDayCapsule.alpha = 0
+        stickyDayContainer.addSubview(stickyDayCapsule)
+        view.insertSubview(stickyDayContainer, aboveSubview: navigationBarBackground ?? collectionView)
         scrollToBottomButton.translatesAutoresizingMaskIntoConstraints = false
         scrollToBottomButton.accessibilityIdentifier = "AgentNewsScrollToBottom"
         scrollToBottomButton.addTarget(self, action: #selector(scrollToBottomButtonPressed), for: .touchUpInside)
@@ -269,7 +339,6 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         loadErrorView.onRetry = { [weak self] in self?.refresh() }
         loadErrorView.install(in: view, column: contentLayoutGuide, centerY: collectionView.centerYAnchor)
 
-        loadingOlderIndicator.install(in: view, column: contentLayoutGuide)
         NSLayoutConstraint.activate([
             skeletonView.topAnchor.constraint(equalTo: view.topAnchor),
             skeletonView.bottomAnchor.constraint(equalTo: fieldLineGuide.topAnchor),
@@ -277,10 +346,6 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             fieldLineGuide.heightAnchor.constraint(equalToConstant: 0),
             fieldLineGuide.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor),
             fieldLineGuide.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor),
-            bottomEdgeEffectView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomEdgeEffectView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomEdgeEffectView.topAnchor.constraint(equalTo: fieldLineGuide.topAnchor, constant: -AgentVCLayout.bottomEdgeFadeHeight),
-            bottomEdgeEffectView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             skeletonView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor),
             skeletonView.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor),
             contentLayoutGuide.topAnchor.constraint(equalTo: view.topAnchor),
@@ -306,6 +371,18 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             ),
             scrollToBottomButton.widthAnchor.constraint(equalToConstant: AgentScrollToBottomButton.size),
             scrollToBottomButton.heightAnchor.constraint(equalToConstant: AgentScrollToBottomButton.size),
+            // The list's area under the header, where a stuck capsule shows
+            stickyDayContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            stickyDayContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            stickyDayContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            stickyDayContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            stickyDayTopConstraint,
+            // Centred in the column, as the capsules in the list are
+            stickyDayCapsule.centerXAnchor.constraint(equalTo: contentLayoutGuide.centerXAnchor),
+            stickyDayCapsule.leadingAnchor.constraint(
+                greaterThanOrEqualTo: contentLayoutGuide.leadingAnchor,
+                constant: AgentDateCapsuleView.minimumColumnInset
+            ),
         ])
     }
 
@@ -317,15 +394,23 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
                 self?.makeContextMenu(for: item, sourceView: cell)
             }
             cell.onPreferredHeightChanged = { [weak self] in self?.updateCardLayout() }
-            cell.openSourceAction = { [weak self] in self?.openSource(for: item) }
+            cell.openSourceAction = { [weak self] in self?.openSource($0) }
             cell.onPictureTap = { [weak self] _ in self?.openPicture(eventId: id) }
             cell.discussionAction = { [weak self] in self?.openDiscussion(eventId: id, locale: locale) }
         }
-        // A chat's date line, one for each day
+        let digestRegistration = UICollectionView.CellRegistration<AgentNewsDigestCardCell, String> { [weak self] cell, _, id in
+            guard let self, let digest = self.digestsById[id] else { return }
+            cell.configure(with: digest)
+            cell.onPreferredHeightChanged = { [weak self] in self?.updateCardLayout() }
+            cell.headlineAction = { [weak self] eventId in self?.openHeadline(eventId: eventId) }
+            cell.discussionAction = { [weak self] in self?.openDigestDiscussion(id: id) }
+        }
+        // Telegram's date capsule, one for each day
         let dayRegistration = UICollectionView.CellRegistration<AgentSystemMessageCell, Date> { [weak self] cell, _, day in
             guard let self else { return }
             let line = self.makeDayLine(for: day)
             cell.configure(with: line)
+            cell.setDayCapsuleHidden(day == self.stuckDay)
             cell.accessibilityIdentifier = "AgentNewsDate"
             cell.contextMenuConfigurationProvider = { [weak self, weak cell] in
                 guard let self, let text = cell?.contextMenuCopyText else { return nil }
@@ -348,6 +433,8 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             switch id {
             case .news(let eventId):
                 return collection.dequeueConfiguredReusableCell(using: cardRegistration, for: indexPath, item: eventId)
+            case .digest(let id):
+                return collection.dequeueConfiguredReusableCell(using: digestRegistration, for: indexPath, item: id)
             case .day(let day):
                 return collection.dequeueConfiguredReusableCell(using: dayRegistration, for: indexPath, item: day)
             case .unread:
@@ -361,7 +448,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     private func makeDayLine(for day: Date) -> AgentMessage {
         AgentMessage(
             role: .system,
-            text: AgentThreadDateFormatting.headerText(for: day),
+            text: AgentThreadDateFormatting.formatDay(for: day),
             isStreaming: false,
             systemStyle: .day,
             timestamp: dayStarts[day] ?? day
@@ -385,6 +472,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         let items = AgentMessageMenuItems.makeItems(
             for: line,
             copyText: copyText,
+            canEdit: false,
             canRegenerate: false,
             canReportProblem: false,
             edit: {},
@@ -401,16 +489,19 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         )
     }
 
-    /// "Today" turns into "Yesterday" at midnight, and the lines follow the language, as a chat's date lines do
+    /// "Today" turns into "Yesterday" at midnight, and the capsules follow the language, as a chat's date lines do
     @objc private func reconfigureDayLines() {
         guard let dataSource else { return }
         var snapshot = dataSource.snapshot()
-        let days = snapshot.itemIdentifiers.filter { id in
+        let dayIDs = snapshot.itemIdentifiers.filter { id in
             if case .day = id { return true }
             return false
         }
-        guard !days.isEmpty else { return }
-        snapshot.reconfigureItems(days)
+        if let stuckDay {
+            stickyDayCapsule.text = AgentThreadDateFormatting.formatDay(for: stuckDay)
+        }
+        guard !dayIDs.isEmpty else { return }
+        snapshot.reconfigureItems(dayIDs)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
@@ -423,18 +514,26 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     }
 
     @objc func scrollToBottomButtonPressed() {
+        // A scroll the user asks for is never taken over by the scroll to the requested digest
+        isSeekingRequestedDigest = false
         scrollToLatest(animated: true)
     }
 
     private func updateFeed() {
         // Each visible placeholder becomes a card in the same ordered column.
-        let isRevealingFromSkeleton = !skeletonView.isHidden && !model.items.isEmpty && view.window != nil
+        let entries = model.entries
+        let isRevealingFromSkeleton = !skeletonView.isHidden && !entries.isEmpty && view.window != nil
             && dataSource.snapshot().numberOfItems == 0 && !UIAccessibility.isReduceMotionEnabled
-        skeletonView.setVisible(model.items.isEmpty && model.error == nil,
+        skeletonView.setVisible(entries.isEmpty && model.error == nil && !model.hasLoaded,
                                 animated: !isRevealingFromSkeleton && view.window != nil)
-        loadingOlderIndicator.setLoading(model.isLoadingMore)
         // With news to show, a failure is the chat's failure line under them
-        loadErrorView.show(model.items.isEmpty ? model.error.map(Self.errorText) : nil)
+        if !entries.isEmpty {
+            loadErrorView.show(nil)
+        } else if let error = model.error {
+            loadErrorView.show(Self.errorText(error))
+        } else {
+            loadErrorView.showMessage(model.hasLoaded ? lang("$agent_news_empty") : nil)
+        }
         guard !isApplyingSnapshot else {
             needsSnapshotUpdate = true
             return
@@ -443,22 +542,30 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         let anchor = hasPerformedInitialScroll ? paginationAnchor() : nil
         let stickToBottom = hasPerformedInitialScroll && lastKnownNearBottom && paginationTask == nil && !model.isLoadingMore
         itemsById = Dictionary(uniqueKeysWithValues: model.items.map { ($0.eventId, $0) })
+        digestsById = Dictionary(uniqueKeysWithValues: model.digests.map { ($0.id, $0) })
         var ids: [ItemID] = []
         var previousDay: Date?
         let previousDayStarts = dayStarts
         dayStarts = [:]
-        for item in model.items {
-            let deliveredAt = AgentV2DateParser.date(item.deliveredAt)
+        days = []
+        for entry in entries {
+            let deliveredAt = AgentV2DateParser.date(entry.deliveredAt)
             let day = LocalizationSupport.shared.calendar.startOfDay(for: deliveredAt)
             if previousDay != day {
                 ids.append(.day(day))
                 dayStarts[day] = deliveredAt
+                days.append(day)
                 previousDay = day
             }
-            if item.eventId == model.unreadEventId { ids.append(.unread) }
-            ids.append(.news(item.eventId))
+            switch entry {
+            case .news(let item):
+                if item.eventId == model.unreadEventId { ids.append(.unread) }
+                ids.append(.news(item.eventId))
+            case .digest(let digest):
+                ids.append(.digest(digest.id))
+            }
         }
-        if model.error != nil, !model.items.isEmpty {
+        if model.error != nil, !entries.isEmpty {
             ids.append(.failure)
         }
         var snapshot = NSDiffableDataSourceSnapshot<Int, ItemID>()
@@ -471,6 +578,8 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             switch id {
             case .news(let eventId):
                 return previousItemsById[eventId] != itemsById[eventId]
+            case .digest(let id):
+                return previousDigestsById[id] != digestsById[id]
             case .failure:
                 return true
             case .day(let day):
@@ -481,6 +590,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         }
         snapshot.reconfigureItems(reconfiguredIds)
         previousItemsById = itemsById
+        previousDigestsById = digestsById
         isApplyingSnapshot = true
         dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
             guard let self else { return }
@@ -497,23 +607,68 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
                 if isRevealingFromSkeleton {
                     self.revealCardsFromSkeleton()
                 }
-            } else if stickToBottom {
-                self.revealLastItemSettlingRowHeights()
-            } else if let anchor {
-                self.restoreAnchor(anchor)
+            } else if !self.revealRequestedDigestIfNeeded() {
+                if stickToBottom {
+                    self.revealLastItemSettlingRowHeights()
+                } else if let anchor {
+                    self.restoreAnchor(anchor)
+                }
             }
             self.updateNearBottomState()
+            self.updateStickyDay()
             if self.needsSnapshotUpdate {
                 self.needsSnapshotUpdate = false
                 self.updateFeed()
             }
+            self.loadRequestedDigestIfNeeded()
+        }
+        // Older news are in the list once the snapshot is applied, above the card on screen. The card is kept in place
+        // in the same update, so the list never draws them pushing it down before the snapshot's completion.
+        if hasPerformedInitialScroll, !stickToBottom, let anchor {
+            restoreAnchor(anchor)
+            updateStickyDay()
+        }
+    }
+
+    /// Scrolls once to the digest the feed was opened for, once its card is in the feed
+    private func revealRequestedDigestIfNeeded() -> Bool {
+        guard isSeekingRequestedDigest, let id = model.requestedDigestId,
+              let indexPath = dataSource.indexPath(for: .digest(id)) else { return false }
+        isSeekingRequestedDigest = false
+        revealItemAtTop(indexPath)
+        return true
+    }
+
+    /// Loads older pages, one after another, until the requested digest comes, the feed runs out of pages or reaches
+    /// back past the digest; then the feed stays where it is
+    private func loadRequestedDigestIfNeeded() {
+        guard isSeekingRequestedDigest, hasPerformedInitialScroll, paginationTask == nil,
+              model.hasLoaded, !model.isLoading, !model.isLoadingMore else { return }
+        guard model.canLoadRequestedDigest else {
+            // A digest that came is revealed as its card goes into the feed
+            if !model.digests.contains(where: { $0.id == model.requestedDigestId }) {
+                isSeekingRequestedDigest = false
+            }
+            return
+        }
+        paginationTask = Task { [weak self] in
+            guard let self else { return }
+            let cursor = model.nextCursor
+            await model.loadMore()
+            paginationTask = nil
+            // A page that failed to load ends the search rather than asking for it again and again
+            guard !Task.isCancelled, model.nextCursor != cursor else {
+                if !Task.isCancelled { isSeekingRequestedDigest = false }
+                return
+            }
+            loadRequestedDigestIfNeeded()
         }
     }
 
     private func revealCardsFromSkeleton() {
         AgentSkeletonReveal.revealRows(in: collectionView, isRightToLeft: view.effectiveUserInterfaceLayoutDirection == .rightToLeft,
                                       placeholders: skeletonView.placeholdersInWindow()) { cell, _ in
-            cell is AgentNewsFeedCardCell ? .bubble(isOutgoing: false) : .line
+            cell is AgentNewsFeedCardCell || cell is AgentNewsDigestCardCell ? .bubble(isOutgoing: false) : .line
         }
     }
 
@@ -525,10 +680,13 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         hasPerformedInitialScroll = true
         view.layoutIfNeeded()
         collectionView.layoutIfNeeded()
-        if let divider = dataSource.indexPath(for: .unread) {
-            revealItemAtTop(divider)
-        } else {
-            revealLastItemSettlingRowHeights()
+        // A requested digest already in the feed opens it there, otherwise it opens as usual while older pages load
+        if !revealRequestedDigestIfNeeded() {
+            if let divider = dataSource.indexPath(for: .unread) {
+                revealItemAtTop(divider)
+            } else {
+                revealLastItemSettlingRowHeights()
+            }
         }
         lastKnownNearBottom = isNearBottom()
         updateScrollToBottomButtonVisibility(animated: false)
@@ -546,7 +704,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     /// gives way, and invalidating the layout would measure every row from the estimate again, those off screen too.
     private func measureRowsAgain() {
         let layout = collectionView.collectionViewLayout
-        for cell in collectionView.visibleCells where cell is AgentNewsFeedCardCell {
+        for cell in collectionView.visibleCells where cell is AgentNewsFeedCardCell || cell is AgentNewsDigestCardCell {
             guard let indexPath = collectionView.indexPath(for: cell),
                   let original = layout.layoutAttributesForItem(at: indexPath),
                   let preferred = original.copy() as? UICollectionViewLayoutAttributes else { continue }
@@ -581,6 +739,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             restoreAnchor(anchor)
         }
         updateNearBottomState()
+        updateStickyDay()
     }
 
     /// Checks again whether the latest news is in reach and shows or hides the scroll button by it, as a chat does
@@ -592,20 +751,140 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         updateScrollToBottomButtonVisibility(animated: false)
     }
 
+    /// Keeps the capsule of the day at the feed's top stuck under the header while that day's news scroll under it, and
+    /// lets the next day's capsule push it up and out, as a Telegram chat does with its date headers. Telegram's 34 pt
+    /// header is the capsule with 6 pt above and below it, which the list's rows also leave around a capsule.
+    private func updateStickyDay() {
+        guard hasPerformedInitialScroll, stickyDayContainer.bounds.height > 0, dataSource != nil else {
+            setStuckDay(nil)
+            return
+        }
+        let containerTop = collectionView.convert(stickyDayContainer.bounds.origin, from: stickyDayContainer).y
+        let stickY = containerTop + AgentDateCapsuleView.verticalSpacing
+        let firstDayBelowIndex = findFirstDayIndex(atOrBelow: stickY)
+        var stuck: (day: Date, minY: CGFloat)?
+        for index in (0..<firstDayBelowIndex).reversed() {
+            guard let minY = getDayCapsuleMinY(at: index) else { continue }
+            stuck = (days[index], minY)
+            break
+        }
+        let nextDayMinY = (firstDayBelowIndex..<days.count).lazy.compactMap(getDayCapsuleMinY(at:)).first
+        guard let stuck,
+              let lastIndexPath = lastItemIndexPath,
+              let lastFrame = collectionView.layoutAttributesForItem(at: lastIndexPath)?.frame else {
+            setStuckDay(nil)
+            return
+        }
+        // The day's rows end a row's spacing above the next day's capsule, or with the feed
+        let dayEndY = nextDayMinY.map { $0 - AgentVCLayout.rowSpacing } ?? lastFrame.maxY
+        let capsuleHeight = stickyDayCapsule.bounds.height > 0 ? stickyDayCapsule.bounds.height : AgentDateCapsuleView.height
+        let capsuleY = min(stickY, dayEndY - AgentDateCapsuleView.verticalSpacing - capsuleHeight)
+        let topConstant = capsuleY - containerTop
+        if abs(stickyDayTopConstraint.constant - topConstant) > 0.01 {
+            stickyDayTopConstraint.constant = topConstant
+        }
+        stuckDayDistanceFactor = min(1, max(0, (capsuleY - stuck.minY) / StickyDayMetrics.headerHeight))
+        setStuckDay(stuck.day)
+    }
+
+    /// The index of the first day whose row starts at `y` or below, found by halves, as the days' rows stand in the
+    /// order of `days`. A day the layout has no row for is passed over.
+    private func findFirstDayIndex(atOrBelow y: CGFloat) -> Int {
+        var lowerBound = 0
+        var upperBound = days.count
+        while lowerBound < upperBound {
+            let middle = (lowerBound + upperBound) / 2
+            guard let found = findDayCapsuleMinY(in: middle..<upperBound) else {
+                upperBound = middle
+                continue
+            }
+            if found.minY < y {
+                lowerBound = found.index + 1
+            } else {
+                upperBound = middle
+            }
+        }
+        return lowerBound
+    }
+
+    private func findDayCapsuleMinY(in indices: Range<Int>) -> (index: Int, minY: CGFloat)? {
+        for index in indices {
+            if let minY = getDayCapsuleMinY(at: index) {
+                return (index, minY)
+            }
+        }
+        return nil
+    }
+
+    private func getDayCapsuleMinY(at index: Int) -> CGFloat? {
+        guard let indexPath = dataSource.indexPath(for: .day(days[index])) else { return nil }
+        return collectionView.layoutAttributesForItem(at: indexPath)?.frame.minY
+    }
+
+    private func setStuckDay(_ day: Date?) {
+        guard day != stuckDay else {
+            updateStickyDayVisibility(animated: true)
+            return
+        }
+        if let stuckDay {
+            setDayCapsuleHidden(false, for: stuckDay)
+        }
+        if let day {
+            setDayCapsuleHidden(true, for: day)
+        }
+        stuckDay = day
+        if let day {
+            stickyDayCapsule.text = AgentThreadDateFormatting.formatDay(for: day)
+        }
+        // The stuck capsule takes the place of the row's at once, as Telegram's header is one view that sticks
+        updateStickyDayVisibility(animated: false)
+    }
+
+    private func setDayCapsuleHidden(_ isHidden: Bool, for day: Date) {
+        guard let indexPath = dataSource.indexPath(for: .day(day)),
+              let cell = collectionView.cellForItem(at: indexPath) as? AgentSystemMessageCell else { return }
+        cell.setDayCapsuleHidden(isHidden)
+    }
+
+    /// A stuck capsule shows while the user scrolls and a moment after, and while it stands within half a header of its
+    /// own place; otherwise it fades away and leaves the news clear
+    private func updateStickyDayVisibility(animated: Bool) {
+        let isScrolledByUser = isDraggingList || isDeceleratingAfterDrag || stickyDayHold != nil
+        let isShown = stuckDay != nil
+            && (isScrolledByUser || stuckDayDistanceFactor < StickyDayMetrics.hidingDistanceFactor)
+        let alpha: CGFloat = isShown ? 1 : 0
+        guard stickyDayCapsule.alpha != alpha else { return }
+        guard animated else {
+            stickyDayCapsule.layer.removeAllAnimations()
+            stickyDayCapsule.alpha = alpha
+            return
+        }
+        UIView.animate(
+            withDuration: isShown ? StickyDayMetrics.fadeInDuration : StickyDayMetrics.fadeOutDuration,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseInOut, .allowUserInteraction]
+        ) {
+            self.stickyDayCapsule.alpha = alpha
+        }
+    }
+
+    /// Keeps the stuck capsule shown for Telegram's moment after the list stops, then lets it fade
+    private func holdStickyDay() {
+        stickyDayHold?.cancel()
+        let hold = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.stickyDayHold = nil
+            self.updateStickyDayVisibility(animated: true)
+        }
+        stickyDayHold = hold
+        DispatchQueue.main.asyncAfter(deadline: .now() + StickyDayMetrics.holdDuration, execute: hold)
+    }
+
     private func openDiscussion(eventId: Int, locale: String) {
         guard !isOpeningDiscussion, let navigationController,
               let item = model.items.first(where: { $0.eventId == eventId }) else { return }
         isOpeningDiscussion = true
-        var thread: ApiAgentV2ThreadSummary?
-        if let threadId = item.discussion?.threadId {
-            if let discussion = preloader.model(threadId: threadId) {
-                if discussion.hasMessages || discussion.hasActiveRun {
-                    thread = discussion.thread
-                }
-            } else if let summary = model.findThread(threadId), summary.messageCount > 0 {
-                thread = summary
-            }
-        }
+        let thread = item.discussion.flatMap { findDiscussionThread(threadId: $0.threadId) }
         let controller: UIViewController
         if let thread {
             guard let discussion = preloader.acquireModel(thread: thread, news: (item, locale)) else {
@@ -642,15 +921,86 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             cell.setFlightSourceHidden(true)
             flightSourceCell = cell
         }
-        navigationController.pushViewController(controller, animated: true)
+        push(controller)
     }
 
-    /// A news item's discussion counts once the user has written in it: opening it creates the thread with only the
-    /// post, its one message, and backing out leaves the card's "Discuss" as it was
+    /// Pushes a chat the feed opens. The opening stays held until the feed appears again; a push the navigation turns
+    /// down, as during another transition, releases it at once, so the tap can be repeated.
+    private func push(_ controller: UIViewController) {
+        guard let navigationController else {
+            isOpeningDiscussion = false
+            return
+        }
+        navigationController.pushViewController(controller, animated: true)
+        if navigationController.topViewController !== controller {
+            isOpeningDiscussion = false
+        }
+    }
+
+    /// Opens the digest's discussion in the feed, as a news item's: its thread once it has one with messages, otherwise a
+    /// new visit that starts it
+    private func openDigestDiscussion(id: String) {
+        guard !isOpeningDiscussion, navigationController != nil, let digest = digestsById[id] else { return }
+        isOpeningDiscussion = true
+        guard let thread = digest.discussion.flatMap({ findDiscussionThread(threadId: $0.threadId) }),
+              let discussion = preloader.acquireModel(thread: thread) else {
+            push(makeDigestChatViewController(id))
+            return
+        }
+        retainDiscussion(discussion)
+        push(AgentVC(model: discussion))
+    }
+
+    /// The thread of a discussion with messages in it, which opens as it is; nil for one to open as a new visit
+    private func findDiscussionThread(threadId: String) -> ApiAgentV2ThreadSummary? {
+        if let discussion = preloader.model(threadId: threadId) {
+            return discussion.hasMessages || discussion.hasActiveRun ? discussion.thread : nil
+        }
+        guard let summary = model.findThread(threadId), summary.messageCount > 0 else { return nil }
+        return summary
+    }
+
+    /// Opens a digest headline's news item over the feed: as its card does when the feed has it, otherwise once the
+    /// item's discussion loads
+    private func openHeadline(eventId: Int) {
+        if let locale = model.locale, model.items.contains(where: { $0.eventId == eventId }) {
+            openDiscussion(eventId: eventId, locale: locale)
+            return
+        }
+        guard !isOpeningDiscussion else { return }
+        isOpeningDiscussion = true
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let controller = try await loadNewsChatViewController(eventId)
+                guard view.window != nil else {
+                    isOpeningDiscussion = false
+                    return
+                }
+                push(controller)
+            } catch {
+                isOpeningDiscussion = false
+                if !(error is CancellationError) { AppActions.showError(error: error) }
+            }
+        }
+    }
+
+    /// The bell in the header's trailing slot, which opens the digest and notifications sheet
+    private func installDigestSettingsButton() {
+        guard navigationItem.rightBarButtonItem == nil else { return }
+        navigationItem.rightBarButtonItem = AgentChatNavigation.makeDigestSettingsItem(primaryAction: UIAction { [weak self] _ in
+            guard let self else { return }
+            self.presentDigestSettings(self)
+        })
+    }
+
+    /// A news item's discussion counts once the user has written in it, by the SDK's shared rule: opening it creates
+    /// the thread with only the post, its one message, and backing out leaves the card's "Discuss" as it was. A message
+    /// sent in the discussion counts at once, before the chat list loads its thread again.
     private func isDiscussionStarted(for item: ApiAgentV2NewsFeedItem) -> Bool {
         guard let threadId = item.discussion?.threadId else { return false }
-        if let discussion = preloader.model(threadId: threadId), discussion.hasUserMessages { return true }
-        return (model.findThread(threadId)?.messageCount ?? 0) > 1
+        if let discussion = preloader.model(threadId: threadId), discussion.isStarted { return true }
+        return model.findThread(threadId)?.isStarted == true
     }
 
     private func restoreFlightSource() {
@@ -685,7 +1035,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
     /// The menu of the post in the item's discussion
     private func makeContextMenu(for item: ApiAgentV2NewsFeedItem, sourceView: UIView?) -> ContextMenuConfiguration {
         let items = AgentMessageMenuItems.makeItems(for: AgentNewsFeedCardCell.makeContent(for: item), openSource: { [weak self] in
-            self?.openSource(for: item)
+            self?.openSource(item.sources.first?.url)
         }, share: { [weak self, weak sourceView] text in
             self?.share(text, sourceView: sourceView)
         })
@@ -720,7 +1070,7 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
             )
         }
         AgentNewsPictureViewer.present(posts: posts, index: index, in: window, openSource: { [weak self] index in
-            self?.openSource(for: items[index])
+            self?.openSource(items[index].sources.first?.url)
         }, source: { [weak self] index in
             self?.getPictureView(eventId: items[index].eventId)
         })
@@ -734,9 +1084,9 @@ public final class AgentNewsFeedVC: WViewController, WalletCoreData.EventsObserv
         return imageView.isHidden || imageView.image == nil ? nil : imageView
     }
 
-    private func openSource(for item: ApiAgentV2NewsFeedItem) {
+    private func openSource(_ rawURL: String?) {
         AgentTextLinks.openNewsSource(
-            item.sources.first?.url,
+            rawURL,
             openInBrowser: openInBrowser,
             openTelegramURL: openTelegramURL,
             showLinkError: showLinkError
@@ -774,7 +1124,7 @@ extension AgentNewsFeedVC: AgentChatNavigationHandoff {
     }
 
     public var navigationHandoffTrailingView: UIView? {
-        nil
+        AgentChatNavigation.findCircle(in: navigationItem.rightBarButtonItem)
     }
 
     public func setNavigationHandoffHidden(_ isHidden: Bool) {
@@ -808,8 +1158,11 @@ extension AgentNewsFeedVC: AgentChatListScrolling {
 
     /// The feed keeps its cards in place rather than its date lines
     func getAnchorItemID(at indexPath: IndexPath) -> ItemID? {
-        guard let id = dataSource.itemIdentifier(for: indexPath), case .news = id else { return nil }
-        return id
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .news(let eventId): .news(eventId)
+        case .digest(let id): .digest(id)
+        default: nil
+        }
     }
 
     func getIndexPath(forAnchorItemID itemID: ItemID) -> IndexPath? {
@@ -818,17 +1171,37 @@ extension AgentNewsFeedVC: AgentChatListScrolling {
 }
 
 extension AgentNewsFeedVC: UICollectionViewDelegate {
+    public func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+        isSeekingRequestedDigest = false
+        return true
+    }
+
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        // The user's own scroll is never taken over by the scroll to the requested digest
+        isSeekingRequestedDigest = false
         collectionView.isScrollingToLatest = false
         listScrollAnimator.stop()
+        stickyDayHold?.cancel()
+        stickyDayHold = nil
+        isDraggingList = true
+        isDeceleratingAfterDrag = false
+        updateStickyDayVisibility(animated: true)
+        loadOlderNewsIfNeeded()
     }
 
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        isDraggingList = false
+        isDeceleratingAfterDrag = decelerate
         guard !decelerate else { return }
+        holdStickyDay()
         updateScrollToBottomButtonVisibility(animated: true)
     }
 
     public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if isDeceleratingAfterDrag {
+            isDeceleratingAfterDrag = false
+            holdStickyDay()
+        }
         updateScrollToBottomButtonVisibility(animated: true)
     }
 
@@ -836,17 +1209,52 @@ extension AgentNewsFeedVC: UICollectionViewDelegate {
         updateScrollToBottomButtonVisibility(animated: true)
     }
 
+    /// A day's row prefetched before its day stuck or came unstuck shows its capsule as the stuck day now asks
+    public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard case .day(let day) = dataSource.itemIdentifier(for: indexPath),
+              let cell = cell as? AgentSystemMessageCell else { return }
+        cell.setDayCapsuleHidden(day == stuckDay)
+    }
+
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let isMovingUp = scrollView.contentOffset.y < lastContentOffsetY
+        lastContentOffsetY = scrollView.contentOffset.y
+        // A snapshot being applied places the capsule once it is in
+        if !isApplyingSnapshot {
+            updateStickyDay()
+        }
         guard hasPerformedInitialScroll, !isRestoringPosition, !isApplyingSnapshot else { return }
         lastKnownNearBottom = isNearBottom()
         updateScrollToBottomButtonVisibility(animated: true)
-        // Older news load as a chat's older messages do, once the list comes within reach of its top
-        guard isNearTopForLoadingOlder, paginationAnchor() != nil,
-              paginationTask == nil, !model.isLoading, !model.isLoadingMore, model.nextCursor != nil else { return }
+        if isMovingUp, isDraggingList || isDeceleratingAfterDrag {
+            loadOlderNewsIfNeeded()
+        }
+    }
+
+    /// Loads older news once the first row below the header is `loadOlderRowThreshold` rows from the feed's first one or
+    /// closer, as Android does as a drag starts and as the user scrolls up
+    private func loadOlderNewsIfNeeded() {
+        guard hasPerformedInitialScroll, !isRestoringPosition, !isApplyingSnapshot,
+              paginationTask == nil, !model.isLoading, !model.isLoadingMore, model.nextCursor != nil,
+              let firstVisibleItem = getFirstVisibleItem(), firstVisibleItem <= Self.loadOlderRowThreshold,
+              paginationAnchor() != nil else { return }
         paginationTask = Task { [weak self] in
             guard let self else { return }
             await model.loadMore()
             paginationTask = nil
+            // A search for the requested digest waiting for this page goes on from it
+            loadRequestedDigestIfNeeded()
         }
+    }
+
+    /// The first row that reaches below the header, as Android's `findFirstVisibleItemPosition` finds it. The layout
+    /// tells it for the current offset, which the cells on screen follow only at the next layout pass.
+    private func getFirstVisibleItem() -> Int? {
+        let visibleTop = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+        let visibleRect = CGRect(x: 0, y: visibleTop, width: collectionView.bounds.width, height: collectionView.bounds.height)
+        return collectionView.collectionViewLayout.layoutAttributesForElements(in: visibleRect)?
+            .filter { $0.representedElementCategory == .cell && $0.frame.maxY > visibleTop }
+            .map(\.indexPath.item)
+            .min()
     }
 }

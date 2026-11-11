@@ -715,6 +715,7 @@ jobs:
       - name: Pack the Firefox sources and build facts
         run: |
           bash deploy/firefox_pack_sources.sh
+          node deploy/firefoxCheckSources.js MyWallet-firefox-sources.tgz
           node deploy/firefoxBuildInfo.js > MyWallet-firefox-build.json
 
       - name: Check that the Firefox sources reproduce the package

@@ -8,6 +8,9 @@ public enum ToastStyle: Equatable {
 
 public enum ToastIcon: Equatable {
     case animatedCopy
+    /// The bundle's `<name>.tgs`, drawn in a square of `size` centred where the icon goes, playing once as the copy
+    /// animation does and resting on its last frame
+    case animation(name: String, size: CGFloat)
     case symbolImage(String)
     case networkImage(URL)
 }

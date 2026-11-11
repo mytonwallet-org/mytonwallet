@@ -15,6 +15,7 @@ import android.widget.Space
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import java.lang.ref.WeakReference
+import java.math.RoundingMode
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
@@ -218,7 +219,7 @@ class TransactionHeaderView(
                     currencyDecimals = transaction.amount.smartDecimalsCount(token.decimals),
                     showPositiveSign = true,
                     forceCurrencyToRight = true,
-                    roundUp = false
+                    rounding = RoundingMode.DOWN
                 )
             }
             amountView.configure(

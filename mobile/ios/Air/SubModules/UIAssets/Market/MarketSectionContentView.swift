@@ -88,7 +88,7 @@ final class MarketSectionContentView: UIView, UICollectionViewDelegate {
         section = value
         contentInsets = insets
         self.onSelect = onSelect
-        header.configure(title: value.title, actionTitle: value.showsSeeAll ? lang("See All") : nil, onAction: onSeeAll)
+        header.configure(title: value.title, actionTitle: value.showsSeeAll ? lang("See All") : nil, actionAccessibilityIdentifier: "market_see_all", onAction: onSeeAll)
         header.isHidden = value.title.isEmpty || value.tokens.isEmpty
         if changesLayout {
             collection.setCollectionViewLayout(makeLayout(value.layout), animated: false)

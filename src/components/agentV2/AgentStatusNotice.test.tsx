@@ -60,7 +60,7 @@ describe('Agent V2 failure and composer status notices', () => {
 
   it('ends the latest failure with an inline Retry while the request can be retried', async () => {
     const onRetry = jest.fn();
-    TeactDOM.render(<AgentFailureCaption text="Connection to the Agent was interrupted." onRetry={onRetry} />, root);
+    TeactDOM.render(<AgentFailureCaption text="Connection to the agent was interrupted." onRetry={onRetry} />, root);
     await pause(20);
 
     const button = root.querySelector('p > button') as HTMLButtonElement;

@@ -7,6 +7,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.resize
@@ -34,6 +35,7 @@ class ExploreLargeConnectedItemCell(
     private val ripple = WRippleDrawable.create(16f.dp)
 
     init {
+        id = UIComponentsR.id.explore_connected_item
         background = ripple
     }
 

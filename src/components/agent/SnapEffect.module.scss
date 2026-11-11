@@ -1,14 +1,15 @@
-// Removed messages leave over the list, under the header and the composer, as Telegram Web A's snap effect
+// Removed messages and chats leave over the whole window, as Telegram Web A's snap effect, so nothing clips the dust
 .layer {
   pointer-events: none;
-  position: absolute;
-  z-index: 1;
+  position: fixed;
+  z-index: var(--z-confetti);
   inset: 0;
 }
 
+// The dust drifts far past the copy's box; `reboot.css` hides an SVG's overflow with a stronger selector
 .ghost {
   position: absolute;
-  overflow: visible;
+  overflow: visible !important;
 }
 
 // The dust drifts out of the message as it grows from the bottom
@@ -21,13 +22,14 @@
   overflow: visible;
 }
 
-.shrinking {
-  transform-origin: bottom;
-  animation: snap-shrink 200ms ease-in forwards;
-}
-
 .fading {
-  animation: snap-fade 200ms ease forwards;
+  animation: snap-fade 350ms ease forwards;
+
+  // The message goes at once, while its ghost waits out the fade unseen
+  :global(html.animation-level-0) & {
+    opacity: 0;
+    animation: none;
+  }
 }
 
 // The copy keeps the look the message had settled into, without replaying its entrance
@@ -46,13 +48,6 @@
 
   to {
     transform: scale(1.2);
-  }
-}
-
-@keyframes snap-shrink {
-  to {
-    transform: scale(0.3);
-    opacity: 0;
   }
 }
 

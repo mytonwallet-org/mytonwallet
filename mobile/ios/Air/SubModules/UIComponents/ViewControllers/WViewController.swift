@@ -110,6 +110,7 @@ open class WViewController: UIViewController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { _ in
             topViewController()?.dismiss(animated: true)
         })
+        navigationItem.rightBarButtonItem?.accessibilityIdentifier = "nav_close"
     }
     
     public func configureNavigationItemWithTransparentBackground() {

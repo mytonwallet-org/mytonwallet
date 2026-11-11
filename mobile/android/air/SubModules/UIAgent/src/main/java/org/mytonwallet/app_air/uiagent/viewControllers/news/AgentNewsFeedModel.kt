@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.news
 
+import java.util.TimeZone
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -8,27 +9,64 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
 import org.mytonwallet.app_air.uiagent.agentV2.callAgentV2Mutation
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.insertGroupingSeparator
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedDigest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
 
-private const val AGENT_NEWS_UNREAD_COUNT_CAP = 30
+private const val AGENT_NEWS_UNREAD_COUNT_MAX = 10
+private const val AGENT_NEWS_PREFETCH_WINDOW_MS = 48 * 60 * 60 * 1000L
 
-internal interface AgentNewsFeedClient {
-    suspend fun getNewsFeed(lang: String, cursor: String?): AgentV2NewsFeedPage
+/** The digest hour and time zone a page of the feed is requested with, which the page's digests follow */
+internal data class AgentNewsDigestSchedule(val hour: Int, val timeZone: String) {
+    companion object {
+        /** The device's: the hour the digest settings keep, in the phone's time zone */
+        fun current() = AgentNewsDigestSchedule(
+            AgentNewsNotificationSettings.shared.digestHour,
+            TimeZone.getDefault().id
+        )
+    }
 }
 
-internal class LiveAgentNewsFeedClient : AgentNewsFeedClient {
-    override suspend fun getNewsFeed(lang: String, cursor: String?) =
-        callAgentV2Mutation(ApiMethod.AgentV2.GetNewsFeed(lang, cursor))
+internal interface AgentNewsFeedClient {
+    suspend fun getNewsFeed(
+        lang: String,
+        cursor: String?,
+        schedule: AgentNewsDigestSchedule
+    ): AgentV2NewsFeedPage
+}
+
+internal class LiveAgentNewsFeedClient(
+    private val call: suspend (ApiMethod.AgentV2.GetNewsFeed) -> AgentV2NewsFeedPage = {
+        callAgentV2Mutation(it)
+    }
+) : AgentNewsFeedClient {
+    override suspend fun getNewsFeed(
+        lang: String,
+        cursor: String?,
+        schedule: AgentNewsDigestSchedule
+    ) = call(ApiMethod.AgentV2.GetNewsFeed(lang, cursor, schedule.hour, schedule.timeZone))
+}
+
+internal sealed interface AgentNewsFeedEntry {
+    val deliveredAt: String
+
+    data class News(val item: AgentV2NewsFeedItem) : AgentNewsFeedEntry {
+        override val deliveredAt get() = item.deliveredAt
+    }
+
+    data class Digest(val digest: AgentV2NewsFeedDigest) : AgentNewsFeedEntry {
+        override val deliveredAt get() = digest.deliveredAt
+    }
 }
 
 internal class AgentNewsReadState(
@@ -57,18 +95,18 @@ internal class AgentNewsReadState(
     }
 }
 
-/** The count covers only the loaded page, so a full page reads "30+". */
-internal fun formatAgentNewsUnreadCount(count: Int): String? = when {
-    count <= 0 -> null
-    count >= AGENT_NEWS_UNREAD_COUNT_CAP -> "$AGENT_NEWS_UNREAD_COUNT_CAP+"
-    else -> count.toString().insertGroupingSeparator()
-}
+/** The News row counts up to ten unread posts; with more, or none, it shows no number, and the unread dot alone */
+internal fun formatAgentNewsUnreadCount(count: Int): String? =
+    count.takeIf { it in 1..AGENT_NEWS_UNREAD_COUNT_MAX }?.toString()
 
 internal class AgentNewsPreviewModel(
     private val scope: CoroutineScope,
     private val client: AgentNewsFeedClient = LiveAgentNewsFeedClient(),
     private val readState: AgentNewsReadState = AgentNewsReadState(),
-    private val language: () -> String = { LocaleController.activeLanguage.langCode }
+    private val language: () -> String = { LocaleController.activeLanguage.langCode },
+    private val digestSchedule: () -> AgentNewsDigestSchedule = {
+        AgentNewsDigestSchedule.current()
+    }
 ) {
     var items: List<AgentV2NewsFeedItem> = emptyList()
         private set
@@ -88,7 +126,7 @@ internal class AgentNewsPreviewModel(
             val owner = currentCoroutineContext().job
             try {
                 val requestLanguage = language()
-                val page = client.getNewsFeed(requestLanguage, null)
+                val page = client.getNewsFeed(requestLanguage, null, digestSchedule())
                 currentCoroutineContext().ensureActive()
                 if (loadJob !== owner) return@launch
                 items = mergeAgentNewsItems(page.items)
@@ -114,10 +152,44 @@ internal class AgentNewsFeedModel(
     private val scope: CoroutineScope,
     private val client: AgentNewsFeedClient = LiveAgentNewsFeedClient(),
     private val readState: AgentNewsReadState = AgentNewsReadState(),
-    private val language: () -> String = { LocaleController.activeLanguage.langCode }
+    private val language: () -> String = { LocaleController.activeLanguage.langCode },
+    val requestedDigestId: String? = null,
+    private val digestSchedule: () -> AgentNewsDigestSchedule = {
+        AgentNewsDigestSchedule.current()
+    }
 ) {
     var items: List<AgentV2NewsFeedItem> = emptyList()
         private set
+    private var digests: List<AgentV2NewsFeedDigest> = emptyList()
+    val entries: List<AgentNewsFeedEntry>
+        get() = (items.map(AgentNewsFeedEntry::News) + digests.map(AgentNewsFeedEntry::Digest))
+            .sortedBy { agentNewsTimestamp(it.deliveredAt) }
+
+    /**
+     * The feed was opened for [requestedDigestId] and has neither shown it nor given up on it, and the user hasn't
+     * scrolled it since: older pages load one after another until the digest comes
+     */
+    var isSeekingRequestedDigest = requestedDigestId != null
+        private set
+
+    val hasRequestedDigest: Boolean
+        get() = requestedDigestId != null && digests.any { it.id == requestedDigestId }
+
+    /**
+     * Older pages may still bring the requested digest: it hasn't come, an older page remains that hasn't been asked
+     * for, and the loaded entries reach back no further than its window's end, which its id carries after the locale.
+     * An id without a readable time can't be placed among the pages, so the digest counts as not found.
+     */
+    val canLoadRequestedDigest: Boolean
+        get() {
+            val id = requestedDigestId ?: return false
+            val cursor = nextCursor ?: return false
+            if (cursor in requestedCursors || hasRequestedDigest) return false
+            val windowEnd = parseAgentV2Timestamp(id.substringAfter(':', ""))?.time ?: return false
+            val oldest = entries.firstOrNull() ?: return true
+            return agentNewsTimestamp(oldest.deliveredAt) >= windowEnd
+        }
+
     var nextCursor: String? = null
         private set
     var locale: String? = null
@@ -131,6 +203,13 @@ internal class AgentNewsFeedModel(
 
     var refreshError: Throwable? = null
         private set
+
+    /** A first page has come: until then a feed without news is still loading them */
+    var hasLoaded = false
+        private set
+
+    /** The feed has loaded without news or digests and shows no failure */
+    val isEmpty: Boolean get() = hasLoaded && items.isEmpty() && digests.isEmpty() && error == null
     var unreadEventId: Int? = null
         private set
     var onChange: (() -> Unit)? = null
@@ -138,9 +217,15 @@ internal class AgentNewsFeedModel(
 
     private var loadJob: Job? = null
     private var loadMoreJob: Job? = null
+    private var prefetchJob: Job? = null
+    private var reachedDigestTimestamp: Long? = null
+    private var hasReachedHistoryEnd = false
     private var hasOpened = false
     private var unreadCutoff: Long? = null
     private var feedLanguage: String? = null
+
+    /** The schedule the loaded digests, and the pages they came on, were requested with */
+    private var loadedSchedule: AgentNewsDigestSchedule? = null
     private val requestedCursors = mutableSetOf<String>()
     private val localDiscussions = mutableMapOf<Int, AgentV2NewsFeedItem.Discussion>()
 
@@ -160,15 +245,18 @@ internal class AgentNewsFeedModel(
 
     fun refresh() {
         cancel()
+        val schedule = digestSchedule()
+        dropDigestsOfAnotherSchedule(schedule)
         isLoading = true
         error = null
         refreshError = null
         onChange?.invoke()
         val request = scope.launch(start = CoroutineStart.LAZY) {
             val owner = currentCoroutineContext().job
+            var hasLoadedPage = false
             try {
                 val requestLanguage = language()
-                val page = client.getNewsFeed(requestLanguage, null)
+                val page = client.getNewsFeed(requestLanguage, null, schedule)
                 currentCoroutineContext().ensureActive()
                 if (loadJob !== owner) return@launch
                 val oldestNewTimestamp = page.items.minOfOrNull {
@@ -186,7 +274,8 @@ internal class AgentNewsFeedModel(
                 }
                 locale = page.locale
                 feedLanguage = requestLanguage
-                mergePageItems(page.items)
+                hasLoaded = true
+                mergePageItems(page.items, page.digests.orEmpty())
                 if (!hasOpened) {
                     readState.initializeIfNeeded(page.items)
                     unreadCutoff = readState.readThrough?.let(::agentNewsTimestamp)
@@ -196,11 +285,12 @@ internal class AgentNewsFeedModel(
                 readState.markRead(items)
                 nextCursor = page.nextCursor
                 requestedCursors.clear()
+                hasLoadedPage = true
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
                 if (loadJob === owner) {
-                    if (items.isEmpty()) {
+                    if (items.isEmpty() && digests.isEmpty()) {
                         this@AgentNewsFeedModel.error = error
                     } else {
                         refreshError = error
@@ -211,6 +301,7 @@ internal class AgentNewsFeedModel(
                     loadJob = null
                     isLoading = false
                     onChange?.invoke()
+                    if (hasLoadedPage) continueLoadingOlderPages()
                 }
             }
         }
@@ -220,15 +311,25 @@ internal class AgentNewsFeedModel(
 
     fun loadMore() {
         if (isLoading || isLoadingMore || nextCursor == null) return
+        prefetchJob?.cancel()
+        prefetchJob = null
+        val schedule = digestSchedule()
+        // Older pages follow the schedule they were loaded with: a new digest hour or time zone, such as a time zone
+        // the phone changed while the feed was open, refreshes the feed instead
+        if (schedule != loadedSchedule) {
+            refresh()
+            return
+        }
         isLoadingMore = true
         onChange?.invoke()
         val request = scope.launch(start = CoroutineStart.LAZY) {
             val owner = currentCoroutineContext().job
-            val originalCount = items.size
+            val originalCount = items.size + digests.size
+            var hasLoadedPage = false
             try {
                 do {
                     val cursor = nextCursor?.takeUnless { it in requestedCursors } ?: break
-                    val page = client.getNewsFeed(feedLanguage ?: language(), cursor)
+                    val page = client.getNewsFeed(feedLanguage ?: language(), cursor, schedule)
                     currentCoroutineContext().ensureActive()
                     if (loadMoreJob !== owner) return@launch
                     if (page.locale != locale) {
@@ -237,20 +338,24 @@ internal class AgentNewsFeedModel(
                         return@launch
                     }
                     requestedCursors.add(cursor)
-                    mergePageItems(page.items)
+                    mergePageItems(page.items, page.digests.orEmpty())
                     updateUnreadBoundary()
                     readState.markRead(items)
                     nextCursor = page.nextCursor?.takeUnless { it in requestedCursors }
-                } while (items.size == originalCount && nextCursor != null)
+                    if (page.nextCursor == null) hasReachedHistoryEnd = true
+                } while (items.size + digests.size == originalCount && nextCursor != null)
+                hasLoadedPage = true
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Throwable) {
-                // Keep the cursor so another scroll can retry the older page.
+                // Keep the cursor for another trigger; a failed page pauses automatic pagination
+                if (loadMoreJob === owner) isSeekingRequestedDigest = false
             } finally {
                 if (loadMoreJob === owner) {
                     loadMoreJob = null
                     isLoadingMore = false
                     onChange?.invoke()
+                    if (hasLoadedPage) continueLoadingOlderPages()
                 }
             }
         }
@@ -258,11 +363,81 @@ internal class AgentNewsFeedModel(
         request.start()
     }
 
+    /** The feed has shown the requested digest, or the user has scrolled it, which ends the search */
+    fun stopSeekingRequestedDigest() {
+        val shouldResumePrefetch = isSeekingRequestedDigest && hasRequestedDigest
+        isSeekingRequestedDigest = false
+        if (shouldResumePrefetch) continueLoadingOlderPages()
+    }
+
+    fun markDigestReached(id: String) {
+        val digest = digests.firstOrNull { it.id == id } ?: return
+        val timestamp = agentNewsTimestamp(digest.deliveredAt)
+        val previous = reachedDigestTimestamp
+        if (previous != null && timestamp >= previous) return
+        reachedDigestTimestamp = timestamp
+        continueLoadingOlderPages()
+    }
+
+    private fun continueLoadingOlderPages() {
+        if (!hasLoaded || isLoading || isLoadingMore) return
+        if (isSeekingRequestedDigest) {
+            if (hasRequestedDigest) return
+            if (canLoadRequestedDigest) {
+                loadMore()
+                return
+            }
+            isSeekingRequestedDigest = false
+        }
+        if (prefetchJob != null || !shouldPrefetchOlderPage()) return
+        val request = scope.launch(start = CoroutineStart.LAZY) {
+            val owner = currentCoroutineContext().job
+            // Yield between background pages so the feed can update its visible anchor
+            yield()
+            if (prefetchJob !== owner) return@launch
+            prefetchJob = null
+            if (shouldPrefetchOlderPage()) loadMore()
+        }
+        prefetchJob = request
+        request.start()
+    }
+
+    private fun shouldPrefetchOlderPage(): Boolean {
+        if (hasReachedHistoryEnd || nextCursor == null) return false
+        val reached = reachedDigestTimestamp
+        if (digests.count { reached == null || agentNewsTimestamp(it.deliveredAt) < reached } >=
+            2
+        ) {
+            return false
+        }
+        val reference = reached ?: items.lastOrNull()?.let { agentNewsTimestamp(it.deliveredAt) }
+        val oldest = items.firstOrNull()?.let { agentNewsTimestamp(it.deliveredAt) }
+        return reference == null || oldest == null ||
+            reference - oldest < AGENT_NEWS_PREFETCH_WINDOW_MS
+    }
+
+    /**
+     * Digests of another hour or time zone go, with the pages they came on; the news stay until the refresh brings
+     * the new schedule's
+     */
+    private fun dropDigestsOfAnotherSchedule(schedule: AgentNewsDigestSchedule) {
+        val previous = loadedSchedule
+        loadedSchedule = schedule
+        if (previous == null || previous == schedule) return
+        digests = emptyList()
+        reachedDigestTimestamp = null
+        hasReachedHistoryEnd = false
+        nextCursor = null
+        requestedCursors.clear()
+    }
+
     fun cancel() {
         loadJob?.cancel()
         loadJob = null
         loadMoreJob?.cancel()
         loadMoreJob = null
+        prefetchJob?.cancel()
+        prefetchJob = null
         isLoading = false
         isLoadingMore = false
     }
@@ -281,7 +456,11 @@ internal class AgentNewsFeedModel(
         onChange?.invoke()
     }
 
-    private fun mergePageItems(pageItems: List<AgentV2NewsFeedItem>) {
+    private fun mergePageItems(
+        pageItems: List<AgentV2NewsFeedItem>,
+        pageDigests: List<AgentV2NewsFeedDigest> = emptyList()
+    ) {
+        digests = (digests + pageDigests).associateBy { it.id }.values.toList()
         pageItems.forEach { item ->
             val discussion = localDiscussions[item.eventId] ?: return@forEach
             val icon = item.discussion?.icon?.takeIf { it.isNotEmpty() }
@@ -298,9 +477,13 @@ internal class AgentNewsFeedModel(
 
     private fun resetFeed() {
         items = emptyList()
+        digests = emptyList()
+        reachedDigestTimestamp = null
+        hasReachedHistoryEnd = false
         nextCursor = null
         locale = null
         feedLanguage = null
+        hasLoaded = false
         hasOpened = false
         unreadCutoff = null
         unreadEventId = null

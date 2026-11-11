@@ -12,7 +12,6 @@ import { configureStorage, createStorage, withStorage } from '../storages';
 import { destroyAgentV2IfEnabled, initAgentV2IfEnabled } from './agentV2Lifecycle';
 import { claimInstallAttribution } from './attribution';
 import { initMfa, initPerps, initPerpsTrading, initStaking, initSwap } from './extra';
-import { reportInstallMetadata } from './installMetadata';
 import { destroyPolling } from './polling';
 import { startWebFirstLaunchReporting, stopWebFirstLaunchReporting } from './webFunnel';
 import * as methods from '.';
@@ -74,8 +73,7 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   void saveReferrer(args, runtimeStorage).catch((err) => {
     logDebugError('saveReferrer', err);
   });
-  void claimInstallAttribution(args, runtimeStorage);
-  if (environment.isAndroidApp) void reportInstallMetadata(runtimeStorage);
+  if (!environment.isAndroidApp) void claimInstallAttribution(args, runtimeStorage);
 }
 
 export function destroy() {

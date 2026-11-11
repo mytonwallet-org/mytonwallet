@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletbasecontext.utils
 
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -15,7 +16,7 @@ class BigIntegerUtilsTest {
         currencyDecimals: Int = 2,
         showPositiveSign: Boolean = false,
         forceCurrencyToRight: Boolean = false,
-        roundUp: Boolean = true,
+        rounding: RoundingMode = RoundingMode.HALF_UP,
         zeroCountSubscriptMinCount: Int? = 6
     ) = value.toString(
         decimals = decimals,
@@ -23,7 +24,7 @@ class BigIntegerUtilsTest {
         currencyDecimals = currencyDecimals,
         showPositiveSign = showPositiveSign,
         forceCurrencyToRight = forceCurrencyToRight,
-        roundUp = roundUp,
+        rounding = rounding,
         zeroCountSubscriptMinCount = zeroCountSubscriptMinCount
     )
 
@@ -49,8 +50,19 @@ class BigIntegerUtilsTest {
     }
 
     @Test
-    fun floorsWhenRoundUpDisabled() {
-        assertEquals("0.99", format(BigInteger("999999999"), roundUp = false))
+    fun truncatesWhenRoundingDown() {
+        assertEquals("0.99", format(BigInteger("999999999"), rounding = RoundingMode.DOWN))
+    }
+
+    @Test
+    fun roundsAnyRemainderAwayFromZeroWhenRoundingUp() {
+        assertEquals("0.13", format(BigInteger("120000001"), rounding = RoundingMode.UP))
+        assertEquals("0.12", format(BigInteger("120000000"), rounding = RoundingMode.UP))
+        assertEquals("1", format(BigInteger("990000001"), rounding = RoundingMode.UP))
+        assertEquals(
+            "-${signSpace}0.13",
+            format(BigInteger("-120000001"), rounding = RoundingMode.UP)
+        )
     }
 
     @Test

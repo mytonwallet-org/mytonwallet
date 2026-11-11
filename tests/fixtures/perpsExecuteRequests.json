@@ -1,0 +1,434 @@
+{
+  "open": [
+    [
+      "/perps/position/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "side": "long",
+        "depositAmount": "50.2",
+        "leverage": 10,
+        "isCross": false,
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "order",
+          "grouping": "na",
+          "orders": [
+            {
+              "a": 0,
+              "b": true,
+              "p": "103000",
+              "s": "0.005",
+              "r": false,
+              "t": {
+                "limit": {
+                  "tif": "Ioc"
+                }
+              }
+            }
+          ]
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        },
+        "approveBuilderFee": {
+          "signed": 2
+        },
+        "spotToPerp": {
+          "signed": 3
+        },
+        "updateLeverage": {
+          "signed": 4
+        },
+        "depositAmount": "50.2"
+      }
+    ]
+  ],
+  "increase": [
+    [
+      "/perps/position/modify/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "depositAmount": "50.2",
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "approveBuilderFee": {
+          "signed": 2
+        },
+        "spotToPerp": {
+          "signed": 3
+        },
+        "depositAmount": "50.2",
+        "action": {
+          "type": "order",
+          "grouping": "na",
+          "orders": [
+            {
+              "a": 0,
+              "b": true,
+              "p": "103000",
+              "s": "0.005",
+              "r": false,
+              "t": {
+                "limit": {
+                  "tif": "Ioc"
+                }
+              }
+            }
+          ]
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        }
+      }
+    ]
+  ],
+  "leverageDeposit": [
+    [
+      "/perps/position/modify/estimate",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "leverage": 5
+      }
+    ],
+    [
+      "/perps/position/modify/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "depositAmount": "20.2",
+        "leverage": 5,
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "approveBuilderFee": {
+          "signed": 2
+        },
+        "spotToPerp": {
+          "signed": 3
+        },
+        "updateLeverage": {
+          "signed": 4
+        },
+        "updateIsolatedMargin": {
+          "signed": 5
+        },
+        "depositAmount": "50.2"
+      }
+    ]
+  ],
+  "leverage": [
+    [
+      "/perps/position/modify/estimate",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "leverage": 20
+      }
+    ],
+    [
+      "/perps/position/modify/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "depositAmount": "0",
+        "leverage": 20,
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "updateLeverage": {
+          "signed": 4
+        }
+      }
+    ]
+  ],
+  "reduce": [
+    [
+      "/perps/position/modify/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "depositAmount": "5",
+        "reduceOnly": true,
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/close/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "action": {
+          "type": "order",
+          "grouping": "na",
+          "orders": [
+            {
+              "a": 0,
+              "b": true,
+              "p": "103000",
+              "s": "0.005",
+              "r": false,
+              "t": {
+                "limit": {
+                  "tif": "Ioc"
+                }
+              }
+            }
+          ]
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        },
+        "destination": "0x123",
+        "skipPositionFlatWait": true,
+        "approveBuilderFee": {
+          "signed": 2
+        }
+      }
+    ],
+    [
+      "/perps/position/close/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "sendToEvmWithData",
+          "amount": "50",
+          "nonce": 9
+        },
+        "nonce": 9,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        }
+      }
+    ]
+  ],
+  "close": [
+    [
+      "/perps/position/close/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "depositAmount": "50.2",
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/close/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "action": {
+          "type": "order",
+          "grouping": "na",
+          "orders": [
+            {
+              "a": 0,
+              "b": true,
+              "p": "103000",
+              "s": "0.005",
+              "r": false,
+              "t": {
+                "limit": {
+                  "tif": "Ioc"
+                }
+              }
+            }
+          ]
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        },
+        "destination": "0x123"
+      }
+    ],
+    [
+      "/perps/position/close/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "sendToEvmWithData",
+          "amount": "50",
+          "nonce": 9
+        },
+        "nonce": 9,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        }
+      }
+    ]
+  ],
+  "deposit": [
+    [
+      "/perps/deposit/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "amount": "50.2"
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "depositAmount": "50.2",
+        "spotToPerp": {
+          "signed": 3
+        }
+      }
+    ]
+  ],
+  "withdraw": [
+    [
+      "/perps/withdraw/build",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "amount": "10.2"
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "sendToEvmWithData",
+          "amount": "10.2",
+          "destinationRecipient": "0x123"
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        }
+      }
+    ]
+  ],
+  "openFromBalance": [
+    [
+      "/perps/position/open",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "asset": "hyperliquid:hl:BTC",
+        "side": "long",
+        "amount": "50",
+        "leverage": 10,
+        "isCross": false,
+        "slippage": 0.03
+      }
+    ],
+    [
+      "/perps/position/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "order",
+          "grouping": "na",
+          "orders": [
+            {
+              "a": 0,
+              "b": true,
+              "p": "103000",
+              "s": "0.005",
+              "r": false,
+              "t": {
+                "limit": {
+                  "tif": "Ioc"
+                }
+              }
+            }
+          ]
+        },
+        "nonce": 1,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        },
+        "approveBuilderFee": {
+          "signed": 2
+        },
+        "updateLeverage": {
+          "signed": 4
+        }
+      }
+    ]
+  ],
+  "releasedMargin": [
+    [
+      "/perps/position/close/execute",
+      {
+        "chain": "hyperliquid",
+        "address": "0x123",
+        "action": {
+          "type": "sendToEvmWithData",
+          "amount": "50",
+          "nonce": 9
+        },
+        "nonce": 9,
+        "signature": {
+          "r": "0x1",
+          "s": "0x2",
+          "v": 27
+        }
+      }
+    ]
+  ]
+}

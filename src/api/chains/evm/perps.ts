@@ -1,4 +1,4 @@
-import { Signature } from 'ethers';
+import { Interface, Signature } from 'ethers';
 
 import type {
   ApiAnyDisplayError,
@@ -11,19 +11,16 @@ import type {
   ApiPerpsExchangeTypedData,
   ApiPerpsPermitData,
   ApiPerpsSignedExchangeAction,
+  EVMChain,
 } from '../../types';
-import type {
-  ApiBuildPerpsCctpDepositTransferResult,
-  ApiSubmitPerpsCctpDepositTransferOptions,
-  ApiSubmitPerpsCctpDepositTransferResult,
-} from '../../types/perps';
 import type { EvmMetaTransaction } from './smartAccount/types';
-import { ApiCommonError, ApiTransactionError } from '../../types';
+import { ApiTransactionError } from '../../types';
 
+import { ARBITRUM_USDC_MAINNET } from '../../../config';
+import { Big } from '../../../lib/big.js';
 import { parseAccountId } from '../../../util/account';
 import { logDebugError } from '../../../util/logs';
-import { fetchEvmWallet } from './util/account';
-import { fetchStoredChainAccount } from '../../common/accounts';
+import { getEvmProvider } from './util/client';
 import {
   buildPerpsCctpDepositTx,
   PERPS_CCTP_DEPOSIT_CHAIN,
@@ -31,14 +28,22 @@ import {
 } from '../../common/perps';
 import { assertPerpsCctpDepositIntegrity } from '../../common/perpsDeposit';
 import { estimateBatchUserOpFee, submitBatchUserOp, validateEvmSwapCalls } from './smartAccount/batch';
-import { fetchPrivateKeyString } from './auth';
+import { resolveBatchDelegation } from './smartAccount/delegation';
+import { getEvmDelegationAddress } from './approvals';
 import {
   assertHyperliquidExchangeBuildIntegrity,
   assertHyperliquidWithdrawPermitIntegrity,
   type HyperliquidExchangeSignOptions,
 } from './hyperliquidPayloadValidation';
 import { signEip712WithPrivateKey } from './sign';
-import { serializeEvmSwapCalls } from './swapCalls';
+import { getWalletBalance } from './wallet';
+
+/** The account's unlocked Arbitrum wallet, resolved once per Perps flow and used for all of its signatures. */
+export type PerpsSigner = {
+  network: ApiNetwork;
+  address: string;
+  privateKey: string;
+};
 
 function evmTxToMetaTransaction(tx: ApiEvmSwapTransactionRequest): EvmMetaTransaction {
   return {
@@ -52,6 +57,66 @@ function getPerpsCctpAllowedTargets(): Set<string> {
   return new Set([PERPS_CCTP_EXTENSION_ADDRESS.toLowerCase()]);
 }
 
+const erc20BalanceOfInterface = new Interface([
+  'function balanceOf(address account) view returns (uint256)',
+]);
+
+/** Pimlico simulates execution during `pm_sponsorUserOperation`; CCTP cannot run without a real permit. */
+function buildPerpsGasEstimationCalls(address: string): EvmMetaTransaction[] {
+  return [{
+    to: ARBITRUM_USDC_MAINNET.tokenAddress,
+    value: 0n,
+    data: erc20BalanceOfInterface.encodeFunctionData('balanceOf', [address]),
+  }];
+}
+
+function formatUsdcBaseUnitsRoundedUp(value: bigint): string {
+  return Big(value.toString())
+    .div(Big(10).pow(ARBITRUM_USDC_MAINNET.decimals))
+    .round(ARBITRUM_USDC_MAINNET.decimals, Big.roundUp)
+    .toFixed();
+}
+
+/** Quotes Pimlico paymaster cost for a gasless CCTP deposit batch (simulation-safe calls). */
+export async function estimatePerpsCctpDepositGasUsdc(
+  accountId: string,
+  address: string,
+  deposit: ApiPerpsCctpDeposit,
+): Promise<{ gasUsdc: string } | { error: ApiAnyDisplayError }> {
+  const chain = PERPS_CCTP_DEPOSIT_CHAIN;
+  const { network } = parseAccountId(accountId);
+
+  try {
+    assertPerpsCctpDepositIntegrity(deposit, address, deposit.amountUsdc);
+
+    const needsGasless = await perpsDepositNeedsGasless(network, address);
+
+    if (!needsGasless) {
+      return { gasUsdc: '0' };
+    }
+
+    const feeResult = await estimateBatchUserOpFee(
+      chain,
+      network,
+      address,
+      buildPerpsGasEstimationCalls(address),
+      { needsGasless: true },
+    );
+
+    if ('error' in feeResult) {
+      return feeResult;
+    }
+
+    const paddedMaxCost = feeResult.maxCost;
+
+    return { gasUsdc: formatUsdcBaseUnitsRoundedUp(paddedMaxCost) };
+  } catch (err) {
+    logDebugError(`evm:${chain}:estimatePerpsCctpDepositGasUsdc`, err);
+
+    return { error: ApiTransactionError.UnsuccesfulTransfer };
+  }
+}
+
 function parsePermitSignature(signature: string): ApiPerpsExchangeSignature {
   const { r, s, v } = Signature.from(signature);
 
@@ -59,11 +124,10 @@ function parsePermitSignature(signature: string): ApiPerpsExchangeSignature {
 }
 
 async function signVerifiedHyperliquidTypedData(
-  network: ApiNetwork,
-  privateKey: string,
+  signer: PerpsSigner,
   typedData: ApiPerpsExchangeTypedData,
 ): Promise<ApiPerpsExchangeSignature> {
-  const signature = await signEip712WithPrivateKey(network, privateKey, {
+  const signature = await signEip712WithPrivateKey(signer.network, signer.privateKey, {
     domain: typedData.domain,
     types: typedData.types,
     message: typedData.message,
@@ -73,19 +137,17 @@ async function signVerifiedHyperliquidTypedData(
 }
 
 export async function signHyperliquidExchangeBuild(
-  network: ApiNetwork,
-  privateKey: string,
+  signer: PerpsSigner,
   build: ApiPerpsExchangeBuild,
   options?: HyperliquidExchangeSignOptions,
 ): Promise<ApiPerpsExchangeSignature> {
   const typedData = assertHyperliquidExchangeBuildIntegrity(build, options);
 
-  return signVerifiedHyperliquidTypedData(network, privateKey, typedData);
+  return signVerifiedHyperliquidTypedData(signer, typedData);
 }
 
 export async function signHyperliquidExchangePayload(
-  network: ApiNetwork,
-  privateKey: string,
+  signer: PerpsSigner,
   payload: ApiPerpsExchangeActionPayload,
   options?: HyperliquidExchangeSignOptions,
 ): Promise<ApiPerpsSignedExchangeAction> {
@@ -94,23 +156,22 @@ export async function signHyperliquidExchangePayload(
   return {
     action: payload.action,
     nonce: payload.nonce,
-    signature: await signVerifiedHyperliquidTypedData(network, privateKey, typedData),
+    signature: await signVerifiedHyperliquidTypedData(signer, typedData),
   };
 }
 
+/** Signs a withdrawal that pays the signer's own wallet. */
 export async function signHyperliquidWithdrawPermit(
-  network: ApiNetwork,
-  privateKey: string,
+  signer: PerpsSigner,
   withdraw: {
     action: Record<string, unknown>;
     nonce: number;
     permitData: ApiPerpsPermitData;
   },
-  expectedWalletRecipient: string,
 ): Promise<ApiPerpsExchangeSignature> {
-  const permitData = assertHyperliquidWithdrawPermitIntegrity(withdraw, expectedWalletRecipient);
+  const permitData = assertHyperliquidWithdrawPermitIntegrity(withdraw, signer.address);
 
-  const signature = await signEip712WithPrivateKey(network, privateKey, {
+  const signature = await signEip712WithPrivateKey(signer.network, signer.privateKey, {
     domain: permitData.domain,
     types: permitData.types as Record<string, Array<{ name: string; type: string }>>,
     message: permitData.values,
@@ -120,21 +181,19 @@ export async function signHyperliquidWithdrawPermit(
 }
 
 async function buildSignedPerpsCctpBatchCalls(
-  network: ApiNetwork,
-  privateKey: string,
-  from: string,
+  signer: PerpsSigner,
   deposit: ApiPerpsCctpDeposit,
 ): Promise<EvmMetaTransaction[]> {
   const permitData = deposit.permitData;
 
-  const permitSignature = await signEip712WithPrivateKey(network, privateKey, {
+  const permitSignature = await signEip712WithPrivateKey(signer.network, signer.privateKey, {
     domain: permitData.domain,
     types: permitData.types as Record<string, Array<{ name: string; type: string }>>,
     message: permitData.values,
   });
 
   const cctpTx = buildPerpsCctpDepositTx({
-    from,
+    from: signer.address,
     deposit,
     permitSignature: parsePermitSignature(permitSignature),
   });
@@ -142,95 +201,136 @@ async function buildSignedPerpsCctpBatchCalls(
   return [evmTxToMetaTransaction(cctpTx)];
 }
 
-export async function buildPerpsCctpDepositTransferWithPrivateKey(
-  accountId: string,
-  deposit: ApiPerpsCctpDeposit,
-  privateKey: string,
-): Promise<ApiBuildPerpsCctpDepositTransferResult | { error: ApiAnyDisplayError }> {
+/**
+ * Gas of one CCTP deposit userOp from a delegated Alchemy 7702 account on Arbitrum. 48 mainnet deposits through this
+ * batch path used 248k-313k gas (median 259k, 46 of them at most 300k), apart from one 8.9M-gas userOp submitted
+ * while Arbitrum's L1 data fee spiked. 300k is the median plus 16%.
+ */
+const PERPS_DEPOSIT_USER_OP_GAS = 300_000n;
+/** A wallet's first deposit also installs its 7702 delegation: three such userOps used 273k-319k gas. */
+const PERPS_DEPOSIT_DELEGATION_GAS = 60_000n;
+const PERPS_FEE_DATA_CACHE_MS = 30_000;
+
+const perpsGasPrices = new Map<ApiNetwork, { expiresAt: number; value: Promise<bigint> }>();
+const perpsDelegationChecks = new Map<string, { expiresAt: number; value: Promise<boolean> }>();
+
+/** Current Arbitrum `maxFeePerGas`, or the gas price without EIP-1559 data, as EVM swaps price their fee check. */
+function getPerpsDepositGasPrice(network: ApiNetwork): Promise<bigint> {
+  const cached = perpsGasPrices.get(network);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = getEvmProvider(network, PERPS_CCTP_DEPOSIT_CHAIN).getFeeData().then(({ maxFeePerGas, gasPrice }) => {
+    const price = maxFeePerGas ?? gasPrice;
+    if (!price || price <= 0n) throw new Error('Arbitrum gas price is unavailable');
+    return price;
+  });
+  perpsGasPrices.set(network, { expiresAt: Date.now() + PERPS_FEE_DATA_CACHE_MS, value });
+  value.catch(() => {
+    if (perpsGasPrices.get(network)?.value === value) perpsGasPrices.delete(network);
+  });
+  return value;
+}
+
+/** Whether a deposit from `address` also installs its 7702 delegation, read at most once per cache period. */
+function needsPerpsDepositDelegation(network: ApiNetwork, address: string): Promise<boolean> {
+  const key = `${network}:${address.toLowerCase()}`;
+  const cached = perpsDelegationChecks.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = getEvmDelegationAddress(PERPS_CCTP_DEPOSIT_CHAIN, network, address)
+    .then((delegate) => resolveBatchDelegation(delegate).shouldDelegate);
+  perpsDelegationChecks.set(key, { expiresAt: Date.now() + PERPS_FEE_DATA_CACHE_MS, value });
+  return value;
+}
+
+/** The deposit pays gas in USDC when its ETH balance does not cover the estimated userOp. */
+async function perpsDepositNeedsGasless(network: ApiNetwork, address: string): Promise<boolean> {
   const chain = PERPS_CCTP_DEPOSIT_CHAIN;
-  const { network } = parseAccountId(accountId);
 
   try {
-    const { address } = await fetchEvmWallet(accountId, chain);
+    const [nativeBalance, fee] = await Promise.all([
+      getWalletBalance(chain, network, address),
+      estimatePerpsDepositNetworkFee(chain, network, address),
+    ]);
 
+    return nativeBalance < fee;
+  } catch (err) {
+    logDebugError(`evm:${chain}:perpsDepositNeedsGasless`, err);
+
+    return true;
+  }
+}
+
+/** Native token, in wei, that a deposit userOp of `address` is estimated to cost at current fee data. */
+export async function estimatePerpsDepositNetworkFee(
+  chain: EVMChain, network: ApiNetwork, address: string,
+): Promise<bigint> {
+  if (chain !== PERPS_CCTP_DEPOSIT_CHAIN) throw new Error(`No Perps deposits on ${chain}`);
+
+  const [gasPrice, needsDelegation] = await Promise.all([
+    getPerpsDepositGasPrice(network),
+    needsPerpsDepositDelegation(network, address),
+  ]);
+  const gas = PERPS_DEPOSIT_USER_OP_GAS + (needsDelegation ? PERPS_DEPOSIT_DELEGATION_GAS : 0n);
+
+  return gas * gasPrice;
+}
+
+/** Checks the deposit against the signer's wallet and signs its USDC authorization into the CCTP call. */
+export async function buildPerpsCctpDepositTransfer(
+  signer: PerpsSigner,
+  deposit: ApiPerpsCctpDeposit,
+): Promise<{ calls: EvmMetaTransaction[] } | { error: ApiAnyDisplayError }> {
+  const chain = PERPS_CCTP_DEPOSIT_CHAIN;
+
+  try {
     if (!deposit.requiresPermitSignature || !deposit.permitData) {
       return { error: ApiTransactionError.UnsuccesfulTransfer };
     }
 
-    assertPerpsCctpDepositIntegrity(deposit, address, deposit.amountUsdc);
-    const calls = await buildSignedPerpsCctpBatchCalls(network, privateKey, address, deposit);
+    assertPerpsCctpDepositIntegrity(deposit, signer.address, deposit.amountUsdc);
+    const calls = await buildSignedPerpsCctpBatchCalls(signer, deposit);
     const validationError = validateEvmSwapCalls(calls, getPerpsCctpAllowedTargets());
 
     if (validationError) {
       return { error: validationError };
     }
 
-    const feeResult = await estimateBatchUserOpFee(chain, network, address, calls);
+    const feeResult = await estimateBatchUserOpFee(chain, signer.network, signer.address, calls, {
+      needsGasless: await perpsDepositNeedsGasless(signer.network, signer.address),
+    });
 
     if ('error' in feeResult) {
       return feeResult;
     }
 
-    return {
-      chain,
-      calls: serializeEvmSwapCalls(calls),
-    };
+    return { calls };
   } catch (err) {
-    logDebugError(`evm:${chain}:buildPerpsCctpDepositTransferWithPrivateKey`, err);
+    logDebugError(`evm:${chain}:buildPerpsCctpDepositTransfer`, err);
 
     return { error: ApiTransactionError.UnsuccesfulTransfer };
   }
 }
 
+/** Submits the calls of `buildPerpsCctpDepositTransfer` as an EIP-7702 batch. */
 export async function submitPerpsCctpDepositTransfer(
-  options: ApiSubmitPerpsCctpDepositTransferOptions,
-): Promise<ApiSubmitPerpsCctpDepositTransferResult> {
-  const {
-    accountId,
-    enclaveToken,
-    deposit,
-    calls,
-    privateKey: presetPrivateKey,
-  } = options;
+  signer: PerpsSigner,
+  calls: EvmMetaTransaction[],
+): Promise<{ txHash: string } | { error: string }> {
   const chain = PERPS_CCTP_DEPOSIT_CHAIN;
-  const { network } = parseAccountId(accountId);
 
   try {
-    const { address } = await fetchEvmWallet(accountId, chain);
-    const account = await fetchStoredChainAccount(accountId, chain);
-
-    if (account.type === 'ledger' || account.type === 'view') {
-      return { error: ApiTransactionError.UnsuccesfulTransfer };
-    }
-
-    let privateKey = presetPrivateKey;
-
-    if (!privateKey) {
-      privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
-
-      if (!privateKey) {
-        return { error: ApiCommonError.InvalidPassword };
-      }
-    }
-
-    assertPerpsCctpDepositIntegrity(deposit, address, deposit.amountUsdc);
-
-    if (!calls?.length) {
-      return { error: ApiTransactionError.UnsuccesfulTransfer };
-    }
-
-    const metaCalls: EvmMetaTransaction[] = calls.map(({ to, value, data }) => ({
-      to,
-      value: BigInt(value || '0'),
-      data: data ?? '0x',
-    }));
-    const validationError = validateEvmSwapCalls(metaCalls, getPerpsCctpAllowedTargets());
+    const validationError = validateEvmSwapCalls(calls, getPerpsCctpAllowedTargets());
 
     if (validationError) {
       return { error: validationError };
     }
 
-    const result = await submitBatchUserOp(chain, network, address, privateKey, metaCalls);
+    const result = await submitBatchUserOp(
+      chain, signer.network, signer.address, signer.privateKey, calls, {
+        needsGasless: await perpsDepositNeedsGasless(signer.network, signer.address),
+      },
+    );
 
     return 'error' in result ? result : { txHash: result.txHash };
   } catch (err) {

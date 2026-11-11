@@ -32,6 +32,12 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
     private var animator: UIViewPropertyAnimator?
 
     weak var delegate: ContextMenuNavigationViewDelegate?
+    /// The menu's corner radius when the presentation sets it rather than the style, for the pages' highlight
+    var menuCornerRadius: CGFloat? {
+        didSet {
+            self.hosts.forEach { $0.pageView.menuCornerRadius = self.menuCornerRadius }
+        }
+    }
     var requestLayout: (() -> Void)?
 
     var isShowingSubmenu: Bool {
@@ -262,6 +268,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
             customRowContext: self.customRowContext
         )
         pageView.delegate = self
+        pageView.menuCornerRadius = self.menuCornerRadius
         self.pageClipView.addSubview(pageView)
         self.hosts = [PageHost(page: rootPage, pageView: pageView)]
     }
@@ -278,6 +285,7 @@ final class ContextMenuNavigationView: UIView, ContextMenuPageViewDelegate, UIGe
             customRowContext: self.customRowContext
         )
         pageView.delegate = self
+        pageView.menuCornerRadius = self.menuCornerRadius
         self.pageClipView.addSubview(pageView)
         self.hosts.append(PageHost(page: page, pageView: pageView))
         self.transitionProgress = 1.0

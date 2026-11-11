@@ -62,7 +62,7 @@ final class PerpsPositionCell: WHighlightCollectionViewCell {
     }
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
 
-    func configure(_ data: PerpsPositionRowDisplayData) {
+    func configure(_ data: PerpsPositionRowDisplayData, isStale: Bool) {
         icon.config(with: data.token, shouldShowChain: false)
         nameLabel.applyTextStyle(.calloutEmphasized)
         detailLabel.applyTextStyle(.supporting)
@@ -74,7 +74,7 @@ final class PerpsPositionCell: WHighlightCollectionViewCell {
         pnlLabel.text = data.profitLoss.text
         pnlLabel.textColor = data.profitLoss.tone.uiColor
         warning.isHidden = !data.isAtRisk
-        amountShine?.setActive(data.isStale, animated: window != nil)
+        amountShine?.setActive(isStale, animated: window != nil)
         accessibilityIdentifier = "perps.positions." + data.id
     }
 

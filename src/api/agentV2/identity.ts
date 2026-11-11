@@ -67,6 +67,13 @@ export class AgentV2IdentityService {
     this.requestTimeoutMs = dependencies.requestTimeoutMs ?? AGENT_V2_REQUEST_TIMEOUT_MS;
   }
 
+  async getDeviceId() {
+    this.assertActive();
+    const identity = this.currentIdentity ?? await this.read();
+    this.assertActive();
+    return identity?.deviceId;
+  }
+
   async authenticatedFetch(
     input: string,
     init: RequestInit = {},

@@ -46,9 +46,9 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.getTrustedUsdtTokens
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.models.blockchain.getStablecoinSlugs
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -290,6 +290,7 @@ class TokenSelectorVC(
         if (pageCategory == null) {
             setNavTitle(titleToShow)
             setupNavBar(true)
+            navigationBar?.titleLabel?.id = R.id.token_selector_title
             if (navigationController?.viewControllers?.size == 1) {
                 navigationBar?.addCloseButton()
             }
@@ -332,6 +333,7 @@ class TokenSelectorVC(
 
         setNavTitle(titleToShow)
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = R.id.token_selector_title
         navigationBar?.setTitleGravity(Gravity.START)
         if (navigationController?.viewControllers?.size == 1) {
             navigationBar?.addCloseButton()
@@ -626,10 +628,10 @@ class TokenSelectorVC(
 
         val accountBalances = BalanceStore.getBalances(activeAccount?.accountId)
         val hidesZeroBalances = requiresBalance && rawSearch.isEmpty()
-        val trustedUsdtTokens = getTrustedUsdtTokens(activeAccount?.network)
+        val stablecoinSlugs = getStablecoinSlugs()
         if (showsAssetCategories && !showOnlyMyAssets && category == Category.ALL) {
             val stablecoinTokens = assets.mapNotNull { asset ->
-                if (asset.slug !in trustedUsdtTokens || !used.add(asset.slug)) {
+                if (asset.slug !in stablecoinSlugs || !used.add(asset.slug)) {
                     return@mapNotNull null
                 }
                 val tokenBalance = createTokenBalance(asset, accountBalances?.get(asset.slug))
@@ -645,7 +647,7 @@ class TokenSelectorVC(
                     search = search.lowercase().takeIf { it.isNotEmpty() },
                     tokenBalances = stablecoinTokens,
                     assetsMap = assetsMap,
-                    trustedUsdtTokens = trustedUsdtTokens
+                    stablecoinSlugs = stablecoinSlugs
                 )
             )
         }
@@ -693,7 +695,7 @@ class TokenSelectorVC(
             search = rawSearch.trim().lowercase().takeIf { it.isNotEmpty() },
             tokenBalances = popularTokens,
             assetsMap = assetsMap,
-            trustedUsdtTokens = trustedUsdtTokens
+            stablecoinSlugs = stablecoinSlugs
         )
 
         newSections[SECTION_POPULAR] = SectionData(
@@ -736,8 +738,7 @@ class TokenSelectorVC(
         Category.FIAT -> false
     }
 
-    private fun isStablecoin(token: IApiToken): Boolean =
-        token.slug in getTrustedUsdtTokens(AccountStore.activeAccount?.network)
+    private fun isStablecoin(token: IApiToken): Boolean = token.slug in getStablecoinSlugs()
 
     private fun createTokenBalance(asset: IApiToken, balance: BigInteger? = null): MTokenBalance? {
         val token = TokenStore.getToken(asset.slug) ?: return null
@@ -748,12 +749,12 @@ class TokenSelectorVC(
         search: String?,
         tokenBalances: List<MTokenBalance>,
         assetsMap: Map<String, IApiToken>,
-        trustedUsdtTokens: Set<String>
+        stablecoinSlugs: Set<String>
     ): List<MTokenBalance> {
         return tokenBalances.sortedWith { a, b ->
             if (!search.isNullOrBlank()) {
-                val factorsA = getSearchSortFactors(assetsMap[a.token], search, trustedUsdtTokens)
-                val factorsB = getSearchSortFactors(assetsMap[b.token], search, trustedUsdtTokens)
+                val factorsA = getSearchSortFactors(assetsMap[a.token], search, stablecoinSlugs)
+                val factorsB = getSearchSortFactors(assetsMap[b.token], search, stablecoinSlugs)
                 val factorCompare = compareSearchFactors(factorsA, factorsB)
                 if (factorCompare != 0) {
                     return@sortedWith factorCompare
@@ -797,7 +798,7 @@ class TokenSelectorVC(
     private fun getSearchSortFactors(
         token: IApiToken?,
         search: String,
-        trustedUsdtTokens: Set<String>
+        stablecoinSlugs: Set<String>
     ): TokenSortFactors {
         if (token == null || search.isBlank()) {
             return TokenSortFactors()
@@ -807,7 +808,7 @@ class TokenSelectorVC(
         val tokenSymbol = token.symbol?.lowercase() ?: ""
         val tokenName = token.displayName?.lowercase() ?: ""
         val chainPriority = token.mBlockchain?.let { MBlockchain.supportedChainIndexes[it.name] }
-        val specialOrder = if (token.slug in trustedUsdtTokens && chainPriority != null) {
+        val specialOrder = if (token.slug in stablecoinSlugs && chainPriority != null) {
             MBlockchain.supportedChains.size - chainPriority
         } else {
             0

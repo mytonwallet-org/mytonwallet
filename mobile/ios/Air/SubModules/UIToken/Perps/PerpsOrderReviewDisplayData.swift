@@ -4,13 +4,12 @@ import WalletContext
 
 /// An adapter-owned quote, already priced and validated for review. No order is built by the view.
 public struct PerpsOrderReviewDisplayData {
-    public enum Operation: String, Sendable { case open, increase, reduce, close, leverage }
+    public enum Operation: String, Sendable { case open, increase, reduce, close }
     public enum Mode {
         case open
         case increase(PerpsPositionChange)
         case reduce(PerpsPositionChange)
         case close(PerpsPositionClosing)
-        case leverage(PerpsPositionChange)
 
         public var operation: Operation {
             switch self {
@@ -18,13 +17,12 @@ public struct PerpsOrderReviewDisplayData {
             case .increase: .increase
             case .reduce: .reduce
             case .close: .close
-            case .leverage: .leverage
             }
         }
 
         var previous: PerpsPositionChange? {
             switch self {
-            case .increase(let values), .reduce(let values), .leverage(let values): values
+            case .increase(let values), .reduce(let values): values
             default: nil
             }
         }
@@ -35,7 +33,6 @@ public struct PerpsOrderReviewDisplayData {
             case .increase: lang("Increase Position")
             case .reduce: lang("Reduce Position")
             case .close: lang("Close Position")
-            case .leverage: lang("PerpsChangeLeverage")
             }
         }
     }
@@ -45,8 +42,6 @@ public struct PerpsOrderReviewDisplayData {
         case unavailable(String)
     }
 
-    /// Use a new identity whenever the order or quote changes. Confirm returns this identity.
-    public let id: UUID
     public var mode: Mode = .open
     public var positionID: String?
     public var token: ApiToken
@@ -58,20 +53,19 @@ public struct PerpsOrderReviewDisplayData {
     public var price: String
     public var liquidationPrice: String?
     public var paymentAmount: String
-    public var fee: String
-    public var feeExplanation: String?
+    /// Estimated total fee; nil while the venue reports fees only at execution.
+    public var fee: String?
     public var feeRows: [PerpsFeeRow] = []
     public var remainingCollateral: String?
-    public var status: Status
+    public var status: Status = .ready
     public var notice: String?
-    public var paymentToken: ApiToken?
-    public var paymentQuantity: String?
-    public var canSelectPayment = false
+    /// Set when the order also changes the whole Hyperliquid account.
+    public var accountNotice: String?
+    public var paymentToken: ApiToken
 
-    public init(id: UUID = UUID(), token: ApiToken, direction: PerpsTradeDirection, leverage: Int,
+    public init(token: ApiToken, direction: PerpsTradeDirection, leverage: Int,
                 margin: BaseCurrencyAmount, positionSize: String, price: String, liquidationPrice: String?,
-                paymentAmount: String, fee: String, status: Status = .ready) {
-        self.id = id
+                paymentAmount: String, fee: String?, paymentToken: ApiToken) {
         self.token = token
         self.direction = direction
         self.leverage = leverage
@@ -81,7 +75,7 @@ public struct PerpsOrderReviewDisplayData {
         self.liquidationPrice = liquidationPrice
         self.paymentAmount = paymentAmount
         self.fee = fee
-        self.status = status
+        self.paymentToken = paymentToken
     }
 }
 
@@ -91,11 +85,7 @@ public struct PerpsFeeRow: Identifiable {
     public var value: String
 }
 
+/// Identifies one confirmation; an update for an older one is ignored.
 public struct PerpsOrderReviewRequest {
-    public enum Action: Sendable { case confirm, selectPayment }
     public let id: UUID
-    public let reviewID: UUID
-    public let positionID: String?
-    public let operation: PerpsOrderReviewDisplayData.Operation
-    public let action: Action
 }

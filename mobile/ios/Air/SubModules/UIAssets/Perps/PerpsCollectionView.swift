@@ -1,4 +1,5 @@
 import UIActivityList
+import UIComponents
 import UIKit
 import WalletContext
 
@@ -9,19 +10,23 @@ final class PerpsCollectionView: UICollectionView, UICollectionViewDelegate {
     var onNearBottom: (() -> Void)?
     private var sections: [any Provider] = []
     private var source: UICollectionViewDiffableDataSource<String, Row>!
+    private lazy var dateRefreshController = ActivityDateRefreshController(collectionView: self)
 
     init() {
         super.init(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
         backgroundColor = .clear
+        layoutMargins = .zero
         delaysContentTouches = false
         alwaysBounceVertical = true
         showsVerticalScrollIndicator = false
         showsHorizontalScrollIndicator = false
         delegate = self
-        collectionViewLayout = UICollectionViewCompositionalLayout { [weak self] index, environment in
+        let configuration = UICollectionViewCompositionalLayoutConfiguration()
+        configuration.contentInsetsReference = .layoutMargins
+        collectionViewLayout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] index, environment in
             guard let self, sections.indices.contains(index) else { return nil }
             return sections[index].makeLayoutSection(layoutEnvironment: environment)
-        }
+        }, configuration: configuration)
         source = UICollectionViewDiffableDataSource<String, Row>(collectionView: self) { [weak self] collection, index, row in
             self?.sections.first { $0.id == row.section }?.dequeueCell(collection, index, itemIdentifier: row.item)
         }
@@ -31,6 +36,22 @@ final class PerpsCollectionView: UICollectionView, UICollectionViewDelegate {
         }
     }
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
+
+    func updateHorizontalMargins(_ margins: UIEdgeInsets) -> Bool {
+        insetsLayoutMarginsFromSafeArea = false
+        // Section layouts supply 16-point margins; the collection supplies only the remaining parent margin
+        let additionalMargins = UIEdgeInsets(top: 0, left: max(0, margins.left - 16), bottom: 0, right: max(0, margins.right - 16))
+        guard layoutMargins != additionalMargins else { return false }
+        layoutMargins = additionalMargins
+        collectionViewLayout.invalidateLayout()
+        return true
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { dateRefreshController.start() }
+        else { dateRefreshController.stop() }
+    }
 
     func update(sections: [any Provider], animatingDifferences: Bool = false) {
         self.sections = sections
@@ -42,7 +63,9 @@ final class PerpsCollectionView: UICollectionView, UICollectionViewDelegate {
         }
         let oldItems = Set(source.snapshot().itemIdentifiers)
         snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { oldItems.contains($0) })
-        source.apply(snapshot, animatingDifferences: animatingDifferences)
+        source.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
+            self?.dateRefreshController.setNeedsUpdate()
+        }
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -67,31 +90,8 @@ final class PerpsCollectionView: UICollectionView, UICollectionViewDelegate {
         guard let (section, item) = provider(at: indexPath) else { return }
         section.didSelect(itemIdentifier: item)
     }
-}
 
-@MainActor
-final class PerpsContentSection: ActivityListViewController.CustomSectionDataProvider {
-    let id: String
-    var itemIdentifiers: [String] { [id] }
-    private let height: CGFloat?
-    private let inset: CGFloat
-    private let bottomSpacing: CGFloat
-    private let onSelect: (() -> Void)?
-    private let cell: (UICollectionView, IndexPath) -> UICollectionViewCell
-
-    init(id: String, height: CGFloat? = nil, inset: CGFloat = 0, bottomSpacing: CGFloat = 0,
-         onSelect: (() -> Void)? = nil, cell: @escaping (UICollectionView, IndexPath) -> UICollectionViewCell) {
-        self.id = id; self.height = height; self.inset = inset; self.bottomSpacing = bottomSpacing
-        self.onSelect = onSelect; self.cell = cell
+    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        dateRefreshController.setNeedsUpdate()
     }
-    func makeLayoutSection(layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
-        let size = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: height.map { .absolute($0) } ?? .estimated(300))
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [NSCollectionLayoutItem(layoutSize: size)])
-        let section = NSCollectionLayoutSection(group: group)
-        section.contentInsets = .init(top: 0, leading: inset, bottom: bottomSpacing, trailing: inset)
-        return section
-    }
-    func dequeueCell(_ collectionView: UICollectionView, _ indexPath: IndexPath, itemIdentifier: String) -> UICollectionViewCell { cell(collectionView, indexPath) }
-    func shouldSelect(itemIdentifier: String) -> Bool { onSelect != nil }
-    func didSelect(itemIdentifier: String) { onSelect?() }
 }

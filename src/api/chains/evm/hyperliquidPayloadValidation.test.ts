@@ -1,10 +1,11 @@
 import { TypedDataEncoder } from 'ethers';
 
 import { perpsWithdrawalFixture } from '../../../../tests/helpers/perpsWithdrawal';
+import { HYPERLIQUID_BRIDGE_CHAIN_ID } from '../../common/perps';
+import { getEvmChainId } from './constants';
 import {
   assertHyperliquidExchangeBuildIntegrity,
   assertHyperliquidWithdrawPermitIntegrity,
-  HYPERLIQUID_BRIDGE_CHAIN_ID,
 } from './hyperliquidPayloadValidation';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
@@ -104,6 +105,60 @@ test('derives approveBuilderFee typed data from its action fields', () => {
   })).toThrow(/does not match/u);
 });
 
+test('a balance withdrawal is signed only to the wallet it is checked against', () => {
+  const { action, nonce, permitData } = perpsWithdrawalFixture(WALLET, '10.5', '');
+  const typedData = {
+    domain: permitData.domain,
+    types: permitData.types as Record<string, Array<{ name: string; type: string }>>,
+    primaryType: 'HyperliquidTransaction:SendToEvmWithData',
+    message: permitData.values,
+  };
+
+  expect(() => assertHyperliquidExchangeBuildIntegrity({ action, nonce, typedData }, {
+    expectedWalletRecipient: WALLET,
+  })).not.toThrow();
+  expect(() => assertHyperliquidExchangeBuildIntegrity({ action, nonce, typedData }, {
+    expectedWalletRecipient: ATTACKER,
+  })).toThrow(/must match the wallet address/u);
+  expect(() => assertHyperliquidExchangeBuildIntegrity({ action, nonce, typedData }))
+    .toThrow(/requires the wallet recipient/u);
+});
+
+describe('a switch to Unified', () => {
+  const nonce = 1_700_000_000_456;
+  const message = { hyperliquidChain: 'Mainnet', user: WALLET.toLowerCase(), abstraction: 'unifiedAccount', nonce };
+  const payload = {
+    action: { type: 'userSetAbstraction', signatureChainId: '0xa4b1', ...message },
+    nonce,
+    typedData: {
+      domain: { name: 'HyperliquidSignTransaction', version: '1', chainId: 42161,
+        verifyingContract: '0x0000000000000000000000000000000000000000' },
+      types: { 'HyperliquidTransaction:UserSetAbstraction': [
+        { name: 'hyperliquidChain', type: 'string' }, { name: 'user', type: 'address' },
+        { name: 'abstraction', type: 'string' }, { name: 'nonce', type: 'uint64' },
+      ] },
+      primaryType: 'HyperliquidTransaction:UserSetAbstraction',
+      message,
+    },
+  };
+
+  test('is signed for the signing account', () => {
+    expect(assertHyperliquidExchangeBuildIntegrity(payload, { expectedAccount: WALLET }).message).toEqual(message);
+  });
+
+  test('needs the account it is checked against', () => {
+    expect(() => assertHyperliquidExchangeBuildIntegrity(payload)).toThrow(/requires the account address/u);
+    expect(() => assertHyperliquidExchangeBuildIntegrity(payload, { expectedAccount: ATTACKER }))
+      .toThrow(/must be for the signing account/u);
+  });
+
+  test.each(['disabled', 'portfolioMargin', 'dexAbstraction'])('refuses a switch to %s', (abstraction) => {
+    expect(() => assertHyperliquidExchangeBuildIntegrity({
+      ...payload, action: { ...payload.action, abstraction },
+    }, { expectedAccount: WALLET })).toThrow(/must switch to a unified account/u);
+  });
+});
+
 describe('assertHyperliquidWithdrawPermitIntegrity', () => {
   const sampleWithdraw = (recipient: string) => perpsWithdrawalFixture(recipient, '10.5', '');
 
@@ -122,7 +177,7 @@ describe('assertHyperliquidWithdrawPermitIntegrity', () => {
     expect(() => assertHyperliquidWithdrawPermitIntegrity({
       ...withdraw,
       permitData: { ...withdraw.permitData, domain: { ...withdraw.permitData.domain, chainId: 1 } },
-    }, WALLET)).toThrow(/domain chainId/u);
+    }, WALLET)).toThrow(/does not match the wire action/u);
   });
 
   it('rejects permit types outside SendToEvmWithData schema', () => {
@@ -134,7 +189,7 @@ describe('assertHyperliquidWithdrawPermitIntegrity', () => {
         ...withdraw.permitData,
         types: { 'HyperliquidTransaction:Withdraw': [{ name: 'amount', type: 'string' }] },
       },
-    }, WALLET)).toThrow(/SendToEvmWithData/u);
+    }, WALLET)).toThrow(/does not match the wire action/u);
   });
 
   it('rejects permit values that disagree with the wire action', () => {
@@ -146,7 +201,32 @@ describe('assertHyperliquidWithdrawPermitIntegrity', () => {
         ...withdraw.permitData,
         values: { ...withdraw.permitData.values, destinationRecipient: ATTACKER },
       },
-    }, WALLET)).toThrow(/does not match wire action/u);
+    }, WALLET)).toThrow(/does not match the wire action/u);
+  });
+
+  it.each([
+    ['usdClassTransfer', { amount: '10', toPerp: true }, 'HyperliquidTransaction:UsdClassTransfer', [
+      { name: 'hyperliquidChain', type: 'string' }, { name: 'amount', type: 'string' },
+      { name: 'toPerp', type: 'bool' }, { name: 'nonce', type: 'uint64' },
+    ]],
+    ['approveBuilderFee', { maxFeeRate: '0.1%', builder: BUILDER }, 'HyperliquidTransaction:ApproveBuilderFee', [
+      { name: 'hyperliquidChain', type: 'string' }, { name: 'maxFeeRate', type: 'string' },
+      { name: 'builder', type: 'address' }, { name: 'nonce', type: 'uint64' },
+    ]],
+  ])('refuses a %s action with a permit that matches it', (type, fields, primaryType, typedFields) => {
+    const nonce = 1_700_000_000_456;
+    const values = { hyperliquidChain: 'Mainnet', ...fields, nonce };
+
+    expect(() => assertHyperliquidWithdrawPermitIntegrity({
+      action: { type, signatureChainId: '0xa4b1', ...values },
+      nonce,
+      permitData: {
+        domain: { name: 'HyperliquidSignTransaction', version: '1', chainId: 42161,
+          verifyingContract: '0x0000000000000000000000000000000000000000' },
+        types: { [primaryType]: typedFields },
+        values,
+      },
+    }, WALLET)).toThrow(/must be sendToEvmWithData/u);
   });
 
   it('uses fixed Arbitrum domain chain id in reconstructed permit', () => {
@@ -154,6 +234,7 @@ describe('assertHyperliquidWithdrawPermitIntegrity', () => {
     const permitData = assertHyperliquidWithdrawPermitIntegrity(withdraw, WALLET);
 
     expect(Number(permitData.domain.chainId)).toBe(HYPERLIQUID_BRIDGE_CHAIN_ID);
+    expect(HYPERLIQUID_BRIDGE_CHAIN_ID).toBe(getEvmChainId('mainnet', 'arbitrum'));
     expect(Object.keys(permitData.types)).toEqual(['HyperliquidTransaction:SendToEvmWithData']);
     expect(Object.keys(permitData.values).sort()).toEqual(Object.keys(withdraw.permitData.values).sort());
     expect(TypedDataEncoder.hash(

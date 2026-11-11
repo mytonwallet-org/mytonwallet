@@ -204,6 +204,7 @@ final class AgentChatDeletionTests: XCTestCase {
     }
 
     func testOpeningWaitingForConsentStillOffersDelete() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let client = FakeAgentV2Client()
         client.hasConsent = false
         let model = AgentV2Model(client: client, question: "Pending consent")
@@ -218,11 +219,14 @@ final class AgentChatDeletionTests: XCTestCase {
             model: model, viewController: chat, cancelDictation: {}, refreshNavigationItemMenu: {}
         )
         XCTAssertTrue(model.needsOpeningConsent)
+        try await waitUntil { presentation.presentedViewController(of: chat) != nil }
         XCTAssertTrue(actions.canDeleteChat)
         XCTAssertTrue(try XCTUnwrap(AgentChatNavigation.findButton(in: chat.navigationItem.rightBarButtonItem)).isEnabled)
         actions.deleteChat()
         try await model.deleteChat()
         try await waitUntil { !navigation.viewControllers.contains(chat) }
+        XCTAssertNil(presentation.presentedViewController(of: chat), "The sheet goes with the chat")
+        XCTAssertEqual(presentation.dismissalCount, 1)
         XCTAssertFalse(client.requestOrder.contains("createThread"))
         XCTAssertTrue(client.deletedThreadIds.isEmpty)
         XCTAssertTrue(client.startedCommands.isEmpty)

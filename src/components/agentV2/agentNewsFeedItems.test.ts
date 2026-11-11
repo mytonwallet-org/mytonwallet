@@ -2,12 +2,18 @@ import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
 
 import { getDayStartAt } from '../../util/dateFormat';
 import { openUrl } from '../../util/openUrl';
-import { getAgentNewsCopyText, getAgentNewsSourceUrl, openAgentNewsSource } from '../agent/helpers/agentNews';
+import {
+  getAgentNewsCopyText,
+  getAgentNewsSourceEntries,
+  getAgentNewsSourceUrl,
+  openAgentNewsSource,
+} from '../agent/helpers/agentNews';
 import {
   buildAgentNewsFeedRows,
   buildAgentNewsPreviewCard,
   formatAgentNewsPostTime,
   getAgentNewsUnreadItems,
+  mergeAgentNewsFeedEntries,
   mergeAgentNewsItems,
 } from './agentNewsFeedItems';
 
@@ -17,11 +23,14 @@ describe('agentNewsFeedItems', () => {
   it('shows a post\'s time today, its day and time this year, and its year before that', () => {
     const now = new Date(2026, 9, 21, 18, 0).getTime();
 
-    expect(formatAgentNewsPostTime('en', new Date(2026, 9, 21, 9, 5).toISOString(), now)).toBe('09:05');
-    expect(formatAgentNewsPostTime('en', new Date(2026, 6, 20, 15, 38).toISOString(), now)).toBe('Jul 20, 15:38');
+    expect(formatAgentNewsPostTime('ru', new Date(2026, 9, 21, 9, 5).toISOString(), now)).toBe('09:05');
     expect(formatAgentNewsPostTime('ru', new Date(2026, 6, 20, 15, 38).toISOString(), now)).toBe('20 июл, 15:38');
+    expect(formatAgentNewsPostTime('ru', new Date(2025, 6, 20, 15, 38).toISOString(), now))
+      .toBe('20 июл 2025, 15:38');
+    // English writes the time in 12 hours, with a space before AM or PM that is narrow in newer locale data
+    expect(formatAgentNewsPostTime('en', new Date(2026, 9, 21, 9, 5).toISOString(), now)).toMatch(/^9:05\sAM$/);
     expect(formatAgentNewsPostTime('en', new Date(2025, 6, 20, 15, 38).toISOString(), now))
-      .toBe('Jul 20, 2025, 15:38');
+      .toMatch(/^Jul 20, 2025, 3:38\sPM$/);
   });
 
   it('merges pages into one item per news, oldest first, the latest delivery winning', () => {
@@ -57,6 +66,26 @@ describe('agentNewsFeedItems', () => {
     ]);
   });
 
+  it('merges digest entries between news by delivery time and keeps each digest once across page refreshes', () => {
+    const digest = {
+      id: 'digest-1', deliveredAt: '2026-10-21T08:00:00.000Z', total: 2,
+      top: [{ eventId: 1, headline: 'News 1' }],
+    };
+    const entries = mergeAgentNewsFeedEntries([
+      newsItem(1, '2026-10-21T07:00:00.000Z'), newsItem(2, '2026-10-21T09:00:00.000Z'),
+    ], [digest]);
+
+    expect(entries).toMatchObject([
+      { kind: 'news', eventId: 1 }, { kind: 'digest', ...digest }, { kind: 'news', eventId: 2 },
+    ]);
+    expect(mergeAgentNewsFeedEntries([], [{ ...digest, discussion: { threadId: 'discussion' } }], entries))
+      .toMatchObject([
+        { kind: 'news', eventId: 1 },
+        { kind: 'digest', id: digest.id, discussion: { threadId: 'discussion' } },
+        { kind: 'news', eventId: 2 },
+      ]);
+  });
+
   it('opens only web and Telegram sources without credentials', () => {
     expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'https://example.com/a')))
       .toBe('https://example.com/a');
@@ -66,6 +95,34 @@ describe('agentNewsFeedItems', () => {
       .toBeUndefined();
     expect(getAgentNewsSourceUrl(newsItem(1, '2026-10-21T09:00:00.000Z', 'News', 'https://user:pass@example.com')))
       .toBeUndefined();
+  });
+
+  it('names the first three distinct sources by name or site, linking only those the app can open', () => {
+    expect(getAgentNewsSourceEntries({
+      sources: [
+        { name: '  ', url: 'https://www.coindesk.com/a' },
+        { url: 'not a link' },
+        { name: 'CoinDesk.com', url: 'https://coindesk.com/b' },
+        { name: ' The Block ', url: 'mtw://transfer?address=UQ123&amount=100' },
+        { name: 'Decrypt', url: 'tg://resolve?domain=decrypt' },
+        { name: 'Fourth', url: 'https://fourth.example' },
+      ],
+      source: 'Legacy',
+    })).toEqual([
+      { name: 'coindesk.com', url: 'https://www.coindesk.com/a' },
+      { name: 'The Block' },
+      { name: 'Decrypt', url: 'tg://resolve?domain=decrypt' },
+    ]);
+    expect(getAgentNewsSourceEntries({ sources: [{ name: 'A', url: 'https://user:pass@example.com' }] }))
+      .toEqual([{ name: 'A' }]);
+  });
+
+  it('names the stored source of a card that kept no links, and nothing without one', () => {
+    expect(getAgentNewsSourceEntries({ source: ' Legacy ' })).toEqual([{ name: 'Legacy' }]);
+    expect(getAgentNewsSourceEntries({ sources: [{ url: 'not a link' }], source: 'Legacy' }))
+      .toEqual([{ name: 'Legacy' }]);
+    expect(getAgentNewsSourceEntries({ sources: [], source: ' ' })).toEqual([]);
+    expect(getAgentNewsSourceEntries({})).toEqual([]);
   });
 
   it('previews a news chat with its full body, sources, plain excerpt and delivery time', () => {

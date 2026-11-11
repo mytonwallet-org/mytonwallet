@@ -82,7 +82,8 @@ struct CreateBackupDisclaimerView: View {
         .environment(\.isLoading, isLoading)
         .animation(.smooth(duration: 0.4), value: currentStep)
         .padding(.horizontal, 32)
-        .padding(.bottom, 32)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
     }
     
     func setStep(_ step: Step) -> () -> () {

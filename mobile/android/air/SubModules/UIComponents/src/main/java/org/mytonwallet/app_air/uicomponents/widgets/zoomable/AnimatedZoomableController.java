@@ -33,7 +33,8 @@ public class AnimatedZoomableController extends AbstractAnimatedZoomableControll
     public AnimatedZoomableController(TransformGestureDetector transformGestureDetector) {
         super(transformGestureDetector);
         mValueAnimator = ValueAnimator.ofFloat(0, 1);
-        mValueAnimator.setInterpolator(new DecelerateInterpolator());
+        // Telegram's photo viewer zooms with this deceleration
+        mValueAnimator.setInterpolator(new DecelerateInterpolator(1.5f));
     }
 
     public static AnimatedZoomableController newInstance() {

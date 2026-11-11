@@ -54,6 +54,24 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertNil(result.value?.thread.isPinned)
     }
 
+    /// As the SDK's `getIsAgentV2ThreadStarted` has it, a news discussion with its post alone is not started, one the
+    /// user wrote in is, and so is every other chat, however few its messages
+    func testThreadStartsAsTheSdkRuleHasIt() throws {
+        func makeThread(messageCount: Int, isNews: Bool) throws -> ApiAgentV2ThreadSummary {
+            let news = isNews ? #","news":{"eventId":7,"headline":"Headline","publishedAt":"2026-10-20T10:00:00Z"}"# : ""
+            let json = """
+            {"id":"thread","revision":1,"createdAt":"2026-10-20T12:00:00Z","updatedAt":"2026-10-20T12:00:00Z",\
+            "lastActivityAt":"2026-10-20T12:00:00Z","messageCount":\(messageCount)\(news)}
+            """
+            return try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: Data(json.utf8))
+        }
+        XCTAssertFalse(try makeThread(messageCount: 0, isNews: true).isStarted)
+        XCTAssertFalse(try makeThread(messageCount: 1, isNews: true).isStarted)
+        XCTAssertTrue(try makeThread(messageCount: 2, isNews: true).isStarted)
+        XCTAssertTrue(try makeThread(messageCount: 0, isNews: false).isStarted)
+        XCTAssertTrue(try makeThread(messageCount: 1, isNews: false).isStarted)
+    }
+
     func testThreadListDecodesMetadataPreviewsAndPagination() throws {
         let thread: [String: Any] = [
             "id": "thread-a", "revision": 4,
@@ -146,21 +164,102 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
+    func testNewsPushOpeningUsesTheFeedLocaleAndAvailablePreview() async throws {
+        for hasPreview in [false, true] {
+            let item = newsFeedItem(eventId: 307)
+            let thread = try decodeNewsThread(id: "push-news", eventId: 307, headline: "News", messageCount: 1)
+            let history = try decodeHydration(threadId: thread.id, messages: [
+                newsPostMessage(id: "post", text: "News", role: "assistant", threadId: thread.id, newsPost: true)
+            ], thread: thread)
+            let client = FakeAgentV2Client(hydrationResult: history)
+            client.hasConsent = false
+            client.createdThread = thread
+            client.blocksThreadCreation = true
+            let feedClient = ThreadListNewsClient(items: hasPreview ? [item] : [])
+            feedClient.locale = "ru"
+            let preloader = AgentPreloader(client: client)
+            defer {
+                client.resumeThreadCreation()
+                preloader.setWalletReady(false)
+            }
+            let controller = try await AgentEntryPoint.makeNewsChatViewController(
+                eventId: 307, client: feedClient, preloader: preloader
+            )
+            let chat = try XCTUnwrap(controller as? AgentVC)
+            let model = try chatModel(in: chat)
+            XCTAssertEqual(model.news?.body, hasPreview ? item.body : nil)
+            XCTAssertEqual(model.newsPostItemID != nil, hasPreview)
+            client.resumeThreadCreation()
+            await model.waitForInitialLoad()
+            XCTAssertEqual(client.newsThreadRequests, [.init(eventId: 307, locale: "ru")])
+            XCTAssertTrue(model.needsConsentToSend)
+            XCTAssertFalse(model.isStarted)
+            XCTAssertTrue(client.startedCommands.isEmpty)
+        }
+    }
+
+    @MainActor
+    func testDigestDiscussionOpensAndHydratesBeforeConsentWithoutStartingARun() async throws {
+        let digestId = "ru:2026-11-08T18:00:00.000Z"
+        let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: Data("""
+        {"id":"digest-thread","revision":1,"createdAt":"2026-11-08T18:00:00.000Z",
+         "updatedAt":"2026-11-08T18:00:00.000Z","lastActivityAt":"2026-11-08T18:00:00.000Z","messageCount":1,
+         "digest":{"id":"\(digestId)","windowEnd":"2026-11-08T18:00:00.000Z","total":1,
+                   "top":[{"eventId":307,"headline":"News"}]}}
+        """.utf8))
+        let history = try decodeHydration(threadId: thread.id, messages: [
+            newsPostMessage(id: "digest-post", text: "Daily digest", role: "assistant", threadId: thread.id, newsPost: true)
+        ], thread: thread)
+        let client = FakeAgentV2Client(hydrationResult: history)
+        client.hasConsent = false
+        client.createdThread = thread
+        let coordinator = AgentV2Coordinator(client: client, digestRequest: .init(id: digestId))
+        defer { coordinator.stop() }
+        coordinator.start()
+        await coordinator.waitForInitialLoad()
+        XCTAssertEqual(client.digestThreadRequests, [.init(id: digestId)])
+        XCTAssertEqual(coordinator.thread?.digest?.id, digestId)
+        XCTAssertTrue(coordinator.hasHydratedMessages)
+        XCTAssertTrue(coordinator.needsConsentToSend)
+        XCTAssertEqual(coordinator.messages.first?.newsPost, true)
+        XCTAssertFalse(coordinator.thread!.isStarted)
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        // The chat shows the server's post as a news thread shows its post, with the digest's card in place of the news
+        let model = AgentV2Model(client: client, digestRequest: .init(id: digestId)) { _ in }
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        let postID = try XCTUnwrap(model.newsPostItemID)
+        XCTAssertEqual(model.itemIDs.filter { model.message(for: $0)?.newsPost == true }, [postID])
+        XCTAssertFalse(model.itemIDs.contains { model.message(for: $0)?.text == "Daily digest" })
+        let post = try XCTUnwrap(model.message(for: postID))
+        XCTAssertNil(model.newsPost(for: post))
+        XCTAssertEqual(model.newsPostContent(for: post), AgentNewsPostView.Content(digest: try XCTUnwrap(thread.digest)))
+        XCTAssertEqual(model.newsPostContent(for: post)?.body, "News")
+        XCTAssertEqual(AgentV2Copy.error(.digestUnavailable), lang("$agent_digest_unavailable"))
+        client.threadCreationError = ApiAgentV2MutationError(code: .digestUnavailable, retryable: false)
+        let unavailable = AgentV2Coordinator(client: client, digestRequest: .init(id: digestId))
+        defer { unavailable.stop() }
+        unavailable.start()
+        await unavailable.waitForInitialLoad()
+        XCTAssertEqual(unavailable.error, lang("$agent_digest_unavailable"))
+    }
+
+    @MainActor
     func testNewsOperationsForwardLanguageCursorAndOptionalThreadNews() async throws {
         let probe = try installThreadBridgeProbe()
         defer { Api.stop() }
         probe.response = try threadOperationJSON(["locale": "ru", "items": [], "nextCursor": "older"])
 
-        let page = try await LiveAgentNewsFeedClient().getNewsFeed(lang: "ru-RU", cursor: "cursor")
+        let page = try await LiveAgentNewsFeedClient().getNewsFeed(lang: "ru-RU", cursor: "cursor", digestHour: 21, timeZone: "Europe/Moscow")
         XCTAssertEqual(page.locale, "ru")
         XCTAssertEqual(page.nextCursor, "older")
         XCTAssertEqual(probe.calls.last?.method, "getAgentV2NewsFeed")
-        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["lang": "ru-RU", "cursor": "cursor"]] as NSArray)
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["lang": "ru-RU", "cursor": "cursor", "digestHour": 21, "timeZone": "Europe/Moscow"]] as NSArray)
         probe.response = try threadOperationJSON(["locale": "en", "items": []])
-        let firstPage = try await Api.getAgentV2NewsFeed(lang: "es")
+        let firstPage = try await Api.getAgentV2NewsFeed(lang: "es", digestHour: 21, timeZone: "Europe/Madrid")
         XCTAssertEqual(firstPage.locale, "en")
         XCTAssertNil(firstPage.nextCursor)
-        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["lang": "es"]] as NSArray)
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["lang": "es", "digestHour": 21, "timeZone": "Europe/Madrid"]] as NSArray)
 
         let thread = try decodeHydration(threadId: "news-thread", messages: []).thread
         probe.response = try threadOperationJSON([
@@ -177,9 +276,23 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(probe.calls.last?.method, "createAgentV2Thread")
         XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["news": ["eventId": 308, "locale": "es"]]] as NSArray)
 
+        _ = try await LiveAgentV2Client().createThread(digest: .init(id: "ru:2026-11-08T18:00:00.000Z"))
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [["digest": ["id": "ru:2026-11-08T18:00:00.000Z"]]] as NSArray)
+
+        probe.response = #"{"ok":true}"#
+        let notificationResult = try await Api.setNewsNotifications(props: .init(
+            mode: .digest, userToken: "push-token", platform: .ios, langCode: "ru", digestHour: 21, timeZone: "Europe/Moscow"
+        ))
+        XCTAssertTrue(notificationResult.ok)
+        XCTAssertEqual(probe.calls.last?.method, "setNewsNotifications")
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [[
+            "mode": "digest", "userToken": "push-token", "platform": "ios", "langCode": "ru",
+            "digestHour": 21, "timeZone": "Europe/Moscow"
+        ]] as NSArray)
+
         probe.response = #"{"ok":false,"error":{"code":"news_unavailable","retryable":true}}"#
         do {
-            _ = try await Api.getAgentV2NewsFeed(lang: "en")
+            _ = try await Api.getAgentV2NewsFeed(lang: "en", digestHour: 21, timeZone: "UTC")
             XCTFail("Expected news_unavailable")
         } catch let error as ApiAgentV2MutationError {
             XCTAssertEqual(error.code, .newsUnavailable)
@@ -193,7 +306,7 @@ final class AgentV2ContractTests: XCTestCase {
         let probe = try installThreadBridgeProbe()
         defer { Api.stop() }
         let operations: [(String, @MainActor () async throws -> Void)] = [
-            ("getAgentV2NewsFeed", { _ = try await Api.getAgentV2NewsFeed(lang: "en") }),
+            ("getAgentV2NewsFeed", { _ = try await Api.getAgentV2NewsFeed(lang: "en", digestHour: 21, timeZone: "UTC") }),
             ("listAgentV2Threads", { _ = try await Api.listAgentV2Threads() }),
             ("createAgentV2Thread", { _ = try await Api.createAgentV2Thread() }),
             ("updateAgentV2Thread", { _ = try await Api.updateAgentV2Thread(threadId: "thread-a", update: .init(isPinned: true)) }),
@@ -217,6 +330,46 @@ final class AgentV2ContractTests: XCTestCase {
                     XCTAssertEqual(methodName, method)
                 }
             }
+        }
+    }
+
+    @MainActor
+    func testCachedThreadReadsDecodeTheSdkCacheAndTurnEveryFailureIntoNil() async throws {
+        let probe = try installThreadBridgeProbe()
+        defer { Api.stop() }
+        let thread = try decodeHydration(threadId: "thread-a", messages: []).thread
+        let threadJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread))
+        let message: [String: Any] = [
+            "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Cached question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]
+
+        probe.response = String(bytes: try JSONSerialization.data(withJSONObject: [
+            ["thread": threadJSON, "preview": "You hold 5 TON."]
+        ]), encoding: .utf8)
+        let threads = await Api.getAgentV2CachedThreads()
+        XCTAssertEqual(threads, [ApiAgentV2ThreadListItem(thread: thread, preview: "You hold 5 TON.")])
+        XCTAssertEqual(probe.calls.last?.method, "getAgentV2CachedThreads")
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, [] as NSArray)
+
+        probe.response = String(bytes: try JSONSerialization.data(withJSONObject: [
+            "thread": threadJSON, "messages": [message], "hasOlder": true
+        ]), encoding: .utf8)
+        let cachedResult = await Api.getAgentV2CachedMessages(threadId: "thread-a")
+        let cached = try XCTUnwrap(cachedResult)
+        XCTAssertEqual(cached.thread, thread)
+        XCTAssertEqual(cached.messages.map(\.id), ["question"])
+        XCTAssertTrue(cached.hasOlder)
+        XCTAssertEqual(probe.calls.last?.method, "getAgentV2CachedMessages")
+        XCTAssertEqual(probe.calls.last?.arguments as? NSArray, ["thread-a"] as NSArray)
+
+        for response in [nil, #"{"thread":"#, #"{"ok":false,"error":{"code":"thread_not_found"}}"#] {
+            probe.response = response
+            let cachedThreads = await Api.getAgentV2CachedThreads()
+            let cachedMessages = await Api.getAgentV2CachedMessages(threadId: "thread-a")
+            XCTAssertNil(cachedThreads)
+            XCTAssertNil(cachedMessages)
         }
     }
 
@@ -371,19 +524,15 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(client.requestOrder.filter { $0 == "acceptConsent" }.count, cases.count)
     }
 
+    /// The consent in the sheet that `controller` asks with
     @MainActor
-    private func waitForConsentView(in root: UIViewController) async throws -> AgentConsentView {
-        for _ in 0..<100 {
-            if let consent = root.view.subviews.first(where: { $0 is AgentConsentView }) as? AgentConsentView {
-                return consent
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        return try XCTUnwrap(root.view.subviews.first(where: { $0 is AgentConsentView }) as? AgentConsentView)
+    private func waitForConsentView(in controller: UIViewController) async throws -> AgentConsentView {
+        try await waitForConsentSheet(over: controller, in: self).consentView
     }
 
     @MainActor
     func testThreadEntryRequiresConsentBeforeHydratingTheSelectedThread() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let history = try decodeHydration(threadId: "thread-b", messages: [])
         let client = FakeAgentV2Client(hydrationResult: history)
         client.hasConsent = false
@@ -395,6 +544,7 @@ final class AgentV2ContractTests: XCTestCase {
         defer { navigation.setViewControllers([], animated: false) }
         root.loadViewIfNeeded()
         let consent = try await waitForConsentView(in: root)
+        XCTAssertEqual(presentation.presentedSheets.count, 1, "The thread asks in the sheet")
         XCTAssertTrue(navigation.topViewController === root)
         XCTAssertEqual(client.hydrationRequestCount, 0)
         XCTAssertFalse(client.requestOrder.contains("defaultThread"))
@@ -403,6 +553,7 @@ final class AgentV2ContractTests: XCTestCase {
         consent.onContinue?()
         await waitForChat(in: navigation)
         XCTAssertTrue(navigation.topViewController is AgentVC)
+        XCTAssertEqual(presentation.dismissalCount, 1, "Allow closes the sheet")
         XCTAssertEqual(client.hydratedThreadIds, ["thread-b"])
         XCTAssertFalse(client.requestOrder.contains("defaultThread"))
         XCTAssertEqual(client.requestOrder.filter { $0 == "acceptConsent" }.count, 1)
@@ -708,6 +859,84 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertTrue(client.startedCommands.isEmpty)
     }
 
+    /// A question sent from the chat list's field grows into the new chat's first bubble as the chat comes in: in the
+    /// window, over both screens, from where the field showed its text to the bubble, which stays out of sight until
+    /// the morph lands, while the field is empty at once
+    @MainActor
+    func testQuestionSentFromTheListGrowsOutOfItsFieldIntoTheNewChatsFirstBubble() async throws {
+        let history = try decodeHydration(threadId: "list-question", messages: [])
+        let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+        client.blocksThreadCreation = true
+        let preloader = AgentPreloader(client: client)
+        var chat: AgentVC?
+        let list = AgentThreadListVC(
+            model: AgentThreadListModel(client: client, newsClient: ThreadListNewsClient()),
+            loadConsent: { true },
+            acceptConsent: {},
+            makeNewChat: { query in
+                let controller = AgentEntryPoint.makeNewChatViewController(query: query, preloader: preloader)
+                chat = controller as? AgentVC
+                return controller
+            },
+            loadSuggestions: { [] }
+        )
+        let navigation = ListQuestionTestNavigationController(rootViewController: list)
+        let window = makeKeyWindow(showing: navigation)
+        defer {
+            window.isHidden = true
+            client.resumeThreadCreation()
+            navigation.setViewControllers([], animated: false)
+            preloader.setWalletReady(false)
+        }
+        window.layoutIfNeeded()
+        let composer = list.bottomBar.composerView
+        composer.setDraftText("Explain my portfolio", focus: false)
+        window.layoutIfNeeded()
+        let field = composer.convert(composer.inputBackgroundFrame, to: window)
+
+        let sentTime = CACurrentMediaTime()
+        composer.onSend?()
+        try await waitForDiscussionUI { chat != nil && navigation.topViewController === chat }
+        let opened = try XCTUnwrap(chat)
+        XCTAssertTrue(composer.draftText?.isEmpty != false, "The field gives the text up at once")
+        window.layoutIfNeeded()
+        for _ in 0..<300 where opened.suggestionMorph == nil {
+            try await Task.sleep(for: .milliseconds(10))
+            window.layoutIfNeeded()
+        }
+        let morph = try XCTUnwrap(
+            opened.suggestionMorph,
+            "No morph: source \(opened.openingSentSource != nil), scrolled \(opened.hasPerformedInitialScroll), "
+                + "opening \(String(describing: opened.initialOpeningInputItemID)), "
+                + "cells \(opened.collectionView.visibleCells.count), window \(opened.view.window != nil), "
+                + "after \(CACurrentMediaTime() - sentTime) s"
+        )
+        // It goes to the bubble once the chat shows it
+        for _ in 0..<300 where morph.targetFrame == nil {
+            try await Task.sleep(for: .milliseconds(10))
+            window.layoutIfNeeded()
+            morph.step(at: morph.startTime)
+        }
+        XCTAssertTrue(morph.morphView.superview === window, "Over both screens")
+        XCTAssertFalse(morph.startFrame.isEmpty)
+        XCTAssertTrue(field.insetBy(dx: -0.5, dy: -0.5).contains(morph.startFrame), "From the list's field: \(morph.startFrame) in \(field)")
+
+        let cells = opened.collectionView.visibleCells.compactMap { $0 as? AgentMessageCell }.sorted { $0.frame.minY < $1.frame.minY }
+        let cell = try XCTUnwrap(cells.first, "The first bubble")
+        let bubble = cell.bubbleBackgroundView.convert(cell.bubbleBackgroundView.bodyFrame, to: window)
+        let target = try XCTUnwrap(morph.targetFrame, "Into the first bubble")
+        XCTAssertEqual(target.minX, bubble.minX, accuracy: 0.5)
+        XCTAssertEqual(target.minY, bubble.minY, accuracy: 0.5)
+        XCTAssertEqual(target.width, bubble.width, accuracy: 0.5)
+        XCTAssertEqual(target.height, bubble.height, accuracy: 0.5)
+        XCTAssertEqual(cell.sentAppearanceView.alpha, 0, "The bubble is out of sight until the morph lands")
+
+        morph.step(at: morph.startTime + AgentSuggestionMorph.duration + 1)
+        XCTAssertTrue(morph.isFinished)
+        XCTAssertNil(morph.morphView.superview)
+        XCTAssertEqual(cell.sentAppearanceView.alpha, 1, "Landed, the bubble shows")
+    }
+
     @MainActor
     func testQuestionKeepsItsOpeningWhenMovedToAnotherNavigationStack() async throws {
         let history = try decodeHydration(threadId: "transferred-question", messages: [])
@@ -953,6 +1182,7 @@ final class AgentV2ContractTests: XCTestCase {
 
     @MainActor
     func testConsentAcceptanceFailureKeepsTheQuestionAndRetriesInsideTheChat() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "consent-retry", messages: []), shouldCompleteRun: true)
         client.hasConsent = false
         client.consentAcceptanceError = FakeAgentV2ClientError.unavailable
@@ -969,10 +1199,12 @@ final class AgentV2ContractTests: XCTestCase {
             client.resumeRunStart()
         }
         let consent = try await waitForConsentView(in: chat)
+        XCTAssertTrue(client.startedCommands.isEmpty, "Nothing is sent before Allow")
         consent.onContinue?()
         try await waitForDiscussionUI {
             model.itemIDs.compactMap { model.message(for: $0) }.contains { $0.text == lang("Agent is unavailable") && !$0.controls.isEmpty }
         }
+        XCTAssertTrue(client.startedCommands.isEmpty, "Nor after a failed acceptance")
         let error = try XCTUnwrap(model.itemIDs.compactMap { model.message(for: $0) }.first { $0.text == lang("Agent is unavailable") })
         let retry = try XCTUnwrap(error.controls.first { $0.title == lang("Retry") })
         XCTAssertEqual(presentedMessage(inputID, in: model)?.text, "Question")
@@ -981,8 +1213,11 @@ final class AgentV2ContractTests: XCTestCase {
         client.consentAcceptanceError = nil
         model.performControl(messageID: error.id, controlID: retry.id)
         let retryConsent = try await waitForConsentView(in: chat)
+        XCTAssertEqual(presentation.presentedSheets.count, 2, "Retry asks again")
         retryConsent.onContinue?()
         try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.startedCommands.count, 1, "Sent once")
 
         XCTAssertTrue(navigation.topViewController === chat)
         XCTAssertEqual(client.requestOrder.filter { $0 == "acceptConsent" }.count, 2)
@@ -1095,6 +1330,7 @@ final class AgentV2ContractTests: XCTestCase {
             let client = FakeAgentV2Client(hydrationResult: empty, shouldCompleteRun: true)
             client.createdThread = empty.thread
             client.createdThreadIsNew = false
+            client.clientRunIds = ["first-client-run"]
             client.blocksRunStart = true
             client.startRunObserver = { [weak client] in
                 guard let client, client.startedCommands.count == 2 else { return }
@@ -2414,6 +2650,7 @@ final class AgentV2ContractTests: XCTestCase {
         )
         let refreshedHistory = try decodeHydration(threadId: history.thread.id, messages: [], thread: refreshedThread)
         let client = FakeAgentV2Client(hydrationResults: [history, refreshedHistory], blockedHydrationAttempt: 2)
+        client.clientRunIds = ["client-\(history.thread.id)"]
         client.blocksRunStart = true
         let coordinator = AgentV2Coordinator(client: client, thread: history.thread)
         defer {
@@ -2667,6 +2904,7 @@ final class AgentV2ContractTests: XCTestCase {
 
     @MainActor
     func testNewQuestionWaitsForConsentInsideTheSameChatThenContinues() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
         let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "consented", messages: []), shouldCompleteRun: true)
         client.hasConsent = false
         client.blocksRunStart = true
@@ -2687,8 +2925,14 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertFalse(client.requestOrder.contains("createThread"))
         XCTAssertTrue(client.startedCommands.isEmpty)
 
+        let sheet = try XCTUnwrap(presentation.presentedSheets.first)
+        consent.onContinue?()
         consent.onContinue?()
         try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.startedCommands.count, 1, "Allow sends the question once")
+        XCTAssertFalse(presentation.isPresented(sheet), "Allow closes the sheet")
+        XCTAssertEqual(presentation.presentedSheets.count, 1, "It asks once")
 
         XCTAssertTrue(navigation.topViewController === chat)
         XCTAssertFalse(model.needsOpeningConsent)
@@ -2698,6 +2942,75 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(client.startedCommands.map(\.entryPoint), [.agentTab])
         XCTAssertEqual(presentedMessageID(in: model, role: .user), inputID)
         XCTAssertEqual(client.hydrationRequestCount, 0)
+    }
+
+    /// A question asked from search by a user who has consent goes at once, without the sheet, also when consent was
+    /// read as missing as the chat opened: it is read again before the sheet would ask
+    @MainActor
+    func testQuestionAskedFromSearchByAConsentedUserRunsOnceWithoutTheSheet() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "searched", messages: []), shouldCompleteRun: true)
+        client.hasConsent = false
+        client.blocksRunStart = true
+        let preloader = AgentPreloader(client: client)
+        let entryPoint = ApiAgentV2EntryPoint.globalSearch(query: "токены")
+        let chat = try XCTUnwrap(
+            AgentEntryPoint.makeNewChatViewController(query: "Получить токены", entryPoint: entryPoint, preloader: preloader)
+                as? AgentVC
+        )
+        let model = try chatModel(in: chat)
+        let navigation = UINavigationController(rootViewController: chat)
+        defer {
+            navigation.setViewControllers([], animated: false)
+            preloader.setWalletReady(false)
+            client.resumeRunStart()
+        }
+        // Read as missing as the chat opens, while the user has consent
+        try await waitForDiscussionUI { model.needsOpeningConsent }
+        client.hasConsent = true
+        let window = makeKeyWindow(showing: navigation)
+        defer { window.isHidden = true }
+
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(presentation.presentedSheets.isEmpty, "A user with consent never sees the sheet")
+        XCTAssertEqual(client.startedCommands.count, 1, "One run")
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Получить токены")])
+        XCTAssertEqual(client.startedCommands.map(\.entryPoint), [entryPoint])
+        XCTAssertFalse(model.needsOpeningConsent)
+    }
+
+    /// A question asked from search by a user without consent waits in its chat under the sheet, and Allow sends it once
+    @MainActor
+    func testQuestionAskedFromSearchWithoutConsentAsksInTheSheetAndAllowSendsItOnce() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "searched", messages: []), shouldCompleteRun: true)
+        client.hasConsent = false
+        client.blocksRunStart = true
+        let preloader = AgentPreloader(client: client)
+        let entryPoint = ApiAgentV2EntryPoint.globalSearch(query: "токены")
+        let chat = try XCTUnwrap(
+            AgentEntryPoint.makeNewChatViewController(query: "Получить токены", entryPoint: entryPoint, preloader: preloader)
+                as? AgentVC
+        )
+        let navigation = UINavigationController(rootViewController: chat)
+        defer {
+            navigation.setViewControllers([], animated: false)
+            preloader.setWalletReady(false)
+            client.resumeRunStart()
+        }
+        let window = makeKeyWindow(showing: navigation)
+        defer { window.isHidden = true }
+
+        let consent = try await waitForConsentView(in: chat)
+        XCTAssertEqual(presentation.presentedSheets.count, 1)
+        XCTAssertTrue(client.startedCommands.isEmpty, "Nothing goes before Allow")
+        consent.onContinue?()
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(client.startedCommands.count, 1, "Allow sends it once")
+        XCTAssertEqual(client.startedCommands.map(\.entryPoint), [entryPoint])
+        XCTAssertEqual(presentation.presentedSheets.count, 1, "It asks once")
     }
 
     @MainActor
@@ -3135,7 +3448,7 @@ final class AgentV2ContractTests: XCTestCase {
 
     @MainActor
     private func waitForChat(in navigation: UINavigationController) async {
-        for _ in 0..<100 {
+        for _ in 0..<300 {
             if navigation.topViewController is AgentVC { return }
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -3729,7 +4042,7 @@ final class AgentV2ContractTests: XCTestCase {
 
         XCTAssertEqual(
             rendered.string,
-            "# Heading\n> Quote\n**unfinished\nSource (https://example.com/path_with_value)\nReceive"
+            "Heading\n> Quote\n**unfinished\nSource (https://example.com/path_with_value)\nReceive"
         )
         let fullRange = NSRange(location: 0, length: rendered.length)
         var containsLink = false
@@ -3740,6 +4053,96 @@ final class AgentV2ContractTests: XCTestCase {
             }
         }
         XCTAssertFalse(containsLink)
+    }
+
+    /// Headings are Telegram's: semibold from 6 pt over the body for the first level to 1 pt for the sixth, in the body's
+    /// color, on lines 1.4 times their size, 6 pt further from the text above than paragraphs unless they open it
+    @MainActor
+    func testAgentMarkdownV1DrawsHeadingsAsTelegramDoes() throws {
+        let baseFont = UIFont.systemFont(ofSize: 17)
+        let rendered = AgentMessageTextRenderer.makeAttributedText(
+            "# Title #\nIntro\n\n## Section with **bold** and `code`\n###### Small\n####### Seven\n#NoSpace",
+            textColor: .label,
+            rendersMarkdown: true,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            baseFont: baseFont
+        )
+
+        XCTAssertEqual(rendered.string, "Title\nIntro\n\nSection with bold and code\nSmall\n####### Seven\n#NoSpace")
+        let string = rendered.string as NSString
+        func attributes(of text: String) -> [NSAttributedString.Key: Any] {
+            rendered.attributes(at: string.range(of: text).location, effectiveRange: nil)
+        }
+        let intro = attributes(of: "Intro")
+        let introStyle = try XCTUnwrap(intro[.paragraphStyle] as? NSParagraphStyle)
+        XCTAssertNil(intro[.accessibilityTextHeadingLevel])
+        XCTAssertEqual((intro[.font] as? UIFont)?.pointSize, 17)
+
+        let title = attributes(of: "Title")
+        XCTAssertEqual(title[.accessibilityTextHeadingLevel] as? Int, 1)
+        XCTAssertEqual((title[.font] as? UIFont)?.fontName, UIFont.systemFont(ofSize: 23, weight: .semibold).fontName)
+        XCTAssertEqual((title[.font] as? UIFont)?.pointSize, 23)
+        XCTAssertEqual(title[.foregroundColor] as? UIColor, .label)
+        let titleStyle = try XCTUnwrap(title[.paragraphStyle] as? NSParagraphStyle)
+        XCTAssertEqual(titleStyle.minimumLineHeight, ceil(23 * 1.4))
+        XCTAssertEqual(titleStyle.maximumLineHeight, ceil(23 * 1.4))
+        XCTAssertEqual(titleStyle.paragraphSpacingBefore, 0)
+        XCTAssertEqual(titleStyle.paragraphSpacing, introStyle.paragraphSpacing)
+
+        let section = attributes(of: "Section")
+        XCTAssertEqual(section[.accessibilityTextHeadingLevel] as? Int, 2)
+        XCTAssertEqual((section[.font] as? UIFont)?.pointSize, 22)
+        let sectionStyle = try XCTUnwrap(section[.paragraphStyle] as? NSParagraphStyle)
+        XCTAssertEqual(sectionStyle.paragraphSpacingBefore, 6)
+        XCTAssertEqual(sectionStyle.paragraphSpacing, introStyle.paragraphSpacing)
+        let bold = try XCTUnwrap(attributes(of: "bold")[.font] as? UIFont)
+        XCTAssertTrue(bold.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertEqual(bold.pointSize, 22)
+        let code = try XCTUnwrap(attributes(of: "code")[.font] as? UIFont)
+        XCTAssertTrue(code.fontDescriptor.symbolicTraits.contains(.traitMonoSpace))
+        XCTAssertEqual(code.pointSize, 22)
+        XCTAssertEqual(attributes(of: "code")[.accessibilityTextHeadingLevel] as? Int, 2)
+
+        XCTAssertEqual(attributes(of: "Small")[.accessibilityTextHeadingLevel] as? Int, 6)
+        XCTAssertEqual((attributes(of: "Small")[.font] as? UIFont)?.pointSize, 18)
+        XCTAssertNil(attributes(of: "Seven")[.accessibilityTextHeadingLevel])
+        XCTAssertNil(attributes(of: "NoSpace")[.accessibilityTextHeadingLevel])
+    }
+
+    /// A line still arriving with only a heading's marks waits for its text, and marks alone stay text once complete
+    @MainActor
+    func testAgentMarkdownV1ArrivingHeadingWaitsForItsText() {
+        for partial in ["#", "##", "## ", "## **"] {
+            let rendered = AgentMessageTextRenderer.makeAttributedText(
+                "Intro\n\(partial)",
+                textColor: .label,
+                rendersMarkdown: true,
+                detectsLinks: false,
+                markdownProfile: .agentMarkdownV1,
+                isStreaming: true
+            )
+            XCTAssertEqual(rendered.string, "Intro\n", partial)
+        }
+        let complete = AgentMessageTextRenderer.makeAttributedText(
+            "Intro\n##",
+            textColor: .label,
+            rendersMarkdown: true,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1
+        )
+        XCTAssertEqual(complete.string, "Intro\n##")
+        XCTAssertNil(complete.attribute(.accessibilityTextHeadingLevel, at: complete.length - 1, effectiveRange: nil))
+        let arriving = AgentMessageTextRenderer.makeAttributedText(
+            "Intro\n## Ti",
+            textColor: .label,
+            rendersMarkdown: true,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            isStreaming: true
+        )
+        XCTAssertEqual(arriving.string, "Intro\nTi")
+        XCTAssertEqual(arriving.attribute(.accessibilityTextHeadingLevel, at: arriving.length - 1, effectiveRange: nil) as? Int, 2)
     }
 
     func testAnswerLinksDecodeFromHistoryAndLiveUpdates() throws {
@@ -3837,7 +4240,7 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
-    func testAgentMarkdownV1KeepsUntaggedFencesReadable() {
+    func testAgentMarkdownV1RendersUntaggedFencedCodeWithoutMarkers() {
         let rendered = AgentMessageTextRenderer.makeAttributedText(
             "```\nconst safe = true;\n```",
             textColor: .label,
@@ -3846,7 +4249,8 @@ final class AgentV2ContractTests: XCTestCase {
             markdownProfile: .agentMarkdownV1
         )
 
-        XCTAssertEqual(rendered.string, "```\nconst safe = true;\n```")
+        XCTAssertEqual(rendered.string, "const safe = true;")
+        XCTAssertNotNil(rendered.attribute(.agentCodeBlock, at: 0, effectiveRange: nil))
     }
 
     func testDecodesBoundTextDelta() throws {
@@ -4261,6 +4665,9 @@ final class AgentV2ContractTests: XCTestCase {
         defer { model.stop() }
         await model.waitForInitialLoad()
         await waitForProblemReportAvailabilityRequest(client, count: 1)
+        for _ in 0..<100 where model.canReportProblem {
+            await Task.yield()
+        }
         XCTAssertFalse(model.canReportProblem)
 
         client.isProblemReportAvailable = true
@@ -4627,6 +5034,413 @@ final class AgentV2ContractTests: XCTestCase {
     }
 
     @MainActor
+    func testStopTakesThePlaceOfSendWhileAnAnswerIsWrittenAndStopsItOnce() async throws {
+        let history = try decodeRatedConversation(answerFeedback: nil)
+        let client = FakeAgentV2Client(hydrationResult: history)
+        client.blocksRunStart = true
+        let model = AgentV2Model(client: client, thread: history.thread)
+        await model.waitForInitialLoad()
+        let chat = AgentVC(model: model)
+        let window = makeKeyWindow(showing: chat)
+        defer {
+            window.isHidden = true
+            model.stop()
+            client.resumeRunStart()
+        }
+        window.layoutIfNeeded()
+        let buttons = findDescendants(of: window).compactMap { $0 as? UIButton }
+        let send = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "agent_send" })
+        // Stop is the microphone's circle, which turns into it while an answer is being written
+        let stop = try XCTUnwrap(buttons.first { $0.accessibilityIdentifier == "agent_microphone" })
+        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_dictation_start"))
+        XCTAssertFalse(stop.isHidden)
+
+        model.send(text: "Next question")
+        XCTAssertTrue(model.hasActiveRun)
+        XCTAssertFalse(stop.isHidden)
+        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_stop_answer"))
+        XCTAssertEqual(stop.accessibilityIdentifier, "agent_stop")
+        XCTAssertTrue(send.isHidden)
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        let started = try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: [
+            "kind": "runStarted", "clientRunId": "client-thread-a", "runId": "run-thread-a",
+            "threadId": "thread-a", "threadRevision": history.thread.revision + 1
+        ]))
+        coordinator.walletCore(event: .agentV2(started))
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "partial")))
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(
+            kind: "textDelta", threadId: "thread-a", messageId: "partial", delta: "You hold"
+        )))
+        coordinator.walletCore(event: .agentV2(try decodeFollowupsUpdate(threadId: "thread-a", messageId: "partial")))
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageContentEnded", threadId: "thread-a", messageId: "partial")))
+        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_stop_answer"))
+
+        tap(stop)
+        XCTAssertFalse(model.hasActiveRun)
+        XCTAssertTrue(model.canSendMessage(draftText: "Another question"))
+        XCTAssertFalse(stop.isHidden)
+        XCTAssertEqual(stop.accessibilityLabel, lang("$agent_dictation_start"))
+        // The microphone again, which a tap doesn't stop with
+        tap(stop)
+        try await waitForDiscussionUI { !client.stoppedThreadIds.isEmpty }
+        // A second stop would follow the first one's call
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(client.stoppedThreadIds, ["thread-a"])
+
+        let answerID = try XCTUnwrap(model.itemIDs.last { presentedMessage($0, in: model)?.role == .assistant })
+        let answer = try XCTUnwrap(presentedMessage(answerID, in: model))
+        XCTAssertEqual(answer.text, "You hold")
+        XCTAssertFalse(answer.isStreaming)
+        XCTAssertFalse(answer.canRate)
+        XCTAssertFalse(answer.controls.contains { $0.kind == .followup })
+    }
+
+    @MainActor
+    func testRunSentRightAfterAStopIgnoresTheStoppedRunsLateUpdates() async throws {
+        let history = try decodeRatedConversation(answerFeedback: nil)
+        let client = FakeAgentV2Client(hydrationResult: history, shouldCompleteRun: true)
+        client.clientRunIds = ["first-run", "second-run"]
+        client.blocksRunStart = true
+        let model = AgentV2Model(client: client, thread: history.thread)
+        defer {
+            model.stop()
+            client.resumeRunStart()
+        }
+        await model.waitForInitialLoad()
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        // The fake's run result names `run-thread-a` as the server's run
+        let serverRunIds = ["first-run": "run-old", "second-run": "run-thread-a"]
+        func deliver(_ kind: String, run: String, _ fields: [String: Any] = [:]) throws {
+            let update = fields.merging([
+                "kind": kind, "clientRunId": run, "runId": serverRunIds[run]!, "threadId": "thread-a"
+            ]) { $1 }
+            coordinator.walletCore(event: .agentV2(try JSONDecoder().decode(
+                ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: update)
+            )))
+        }
+
+        model.send(text: "First question")
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        model.stopAnswer()
+        client.resumeRunStart()
+        client.blocksRunStart = true
+        model.send(text: "Second question")
+        try await waitForDiscussionUI { client.startedCommands.count == 2 }
+        XCTAssertEqual(client.startedCommands.map(\.clientRunId), ["first-run", "second-run"])
+
+        try deliver("runStarted", run: "first-run", ["threadRevision": 3])
+        try deliver("messageStarted", run: "first-run", ["messageId": "late-answer", "contentKind": "markdown"])
+        try deliver("textDelta", run: "first-run", ["messageId": "late-answer", "delta": "Old"])
+        try deliver("runCancelled", run: "first-run")
+        XCTAssertTrue(model.hasActiveRun)
+        XCTAssertEqual(coordinator.activeRun?.clientRunId, "second-run")
+        XCTAssertNil(coordinator.activeRun?.runId)
+
+        try deliver("runStarted", run: "second-run", ["threadRevision": 3])
+        try deliver("messageStarted", run: "second-run", ["messageId": "new-answer", "contentKind": "markdown"])
+        try deliver("textDelta", run: "second-run", ["messageId": "new-answer", "delta": "New answer"])
+        try deliver("messageCompleted", run: "second-run", ["messageId": "new-answer", "finishReason": "complete"])
+        XCTAssertFalse(coordinator.messages.contains { $0.id == "late-answer" })
+        XCTAssertEqual(coordinator.messages.last?.text, "New answer")
+        XCTAssertEqual(coordinator.messages.last?.status, .complete)
+
+        client.resumeRunStart()
+        try await waitForDiscussionUI { !model.hasActiveRun }
+        XCTAssertEqual(client.stoppedThreadIds, ["thread-a"])
+        XCTAssertEqual(coordinator.activeRun?.runId, "run-thread-a")
+    }
+
+    @MainActor
+    func testStoppedAnswerShowsOnlyWithContentLiveAndAfterTheSavedThreadReloads() async throws {
+        let history = try decodeRatedConversation(answerFeedback: nil)
+        let stoppedHistory = try decodeHydration(threadId: "thread-a", messages: [
+            ["id": "empty-question", "threadId": "thread-a", "role": "user", "status": "complete",
+             "content": ["kind": "markdown", "text": "First"], "createdAt": "2026-07-22T00:00:01.000Z"],
+            ["id": "empty-answer", "threadId": "thread-a", "role": "assistant", "status": "cancelled",
+             "content": ["kind": "markdown", "text": ""], "createdAt": "2026-07-22T00:00:02.000Z"],
+            ["id": "partial-question", "threadId": "thread-a", "role": "user", "status": "complete",
+             "content": ["kind": "markdown", "text": "Second"], "createdAt": "2026-07-22T00:00:03.000Z"],
+            ["id": "partial-answer", "threadId": "thread-a", "role": "assistant", "status": "cancelled",
+             "content": ["kind": "markdown", "text": "Saved part"], "createdAt": "2026-07-22T00:00:04.000Z",
+             "followups": [["id": "adadadad-adad-4dad-8dad-adadadadadad", "kind": "suggested_prompt", "text": "More?"]]],
+        ], thread: try makeThread(history.thread, revision: history.thread.revision + 1))
+        let client = FakeAgentV2Client(hydrationResults: [history, stoppedHistory])
+        client.blocksRunStart = true
+        let model = AgentV2Model(client: client, thread: history.thread)
+        defer {
+            model.stop()
+            client.resumeRunStart()
+        }
+        await model.waitForInitialLoad()
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        let assistantTexts = {
+            model.itemIDs.compactMap { self.presentedMessage($0, in: model) }.filter { $0.role == .assistant }.map(\.text)
+        }
+
+        model.send(text: "Next question")
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "empty")))
+        model.stopAnswer()
+        XCTAssertEqual(coordinator.messages.first { $0.id == "empty" }?.status, .cancelled)
+        XCTAssertEqual(assistantTexts(), ["You hold 5 TON."])
+
+        // A thread no newer than at the stop comes before the server cancels the run
+        coordinator.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: history.thread)))
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        coordinator.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: stoppedHistory.thread)))
+        try await waitForDiscussionUI { client.hydrationRequestCount == 2 && assistantTexts() == ["Saved part"] }
+        let answer = try XCTUnwrap(model.itemIDs.compactMap { presentedMessage($0, in: model) }.last)
+        XCTAssertEqual(answer.text, "Saved part")
+        XCTAssertFalse(answer.canRate)
+        XCTAssertTrue(answer.controls.isEmpty)
+    }
+
+    /// A stopped answer the server saved with less text than it showed, here none, keeps its shown text after the
+    /// reload, without suggestions or a rating
+    @MainActor
+    func testStoppedAnswerKeepsItsShownTextWhenTheReloadBringsLess() async throws {
+        let history = try decodeRatedConversation(answerFeedback: nil)
+        let stoppedThread = try makeThread(history.thread, revision: history.thread.revision + 1)
+        let stoppedHistory = try decodeHydration(threadId: "thread-a", messages: [
+            ["id": "next-question", "threadId": "thread-a", "role": "user", "status": "complete",
+             "content": ["kind": "markdown", "text": "Next question"], "createdAt": "2026-07-22T00:00:01.000Z"],
+            ["id": "partial", "threadId": "thread-a", "role": "assistant", "status": "cancelled",
+             "content": ["kind": "markdown", "text": ""], "createdAt": "2026-07-22T00:00:02.000Z"],
+        ], thread: stoppedThread)
+        let client = FakeAgentV2Client(hydrationResults: [history, stoppedHistory])
+        client.blocksRunStart = true
+        let model = AgentV2Model(client: client, thread: history.thread)
+        defer {
+            model.stop()
+            client.resumeRunStart()
+        }
+        await model.waitForInitialLoad()
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        let lastAnswer = {
+            model.itemIDs.compactMap { self.presentedMessage($0, in: model) }.last { $0.role == .assistant }
+        }
+
+        model.send(text: "Next question")
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "partial")))
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(
+            kind: "textDelta", threadId: "thread-a", messageId: "partial", delta: "You hold"
+        )))
+        model.stopAnswer()
+        XCTAssertEqual(lastAnswer()?.text, "You hold", "Live, the answer keeps what it showed")
+
+        coordinator.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: stoppedThread)))
+        try await waitForDiscussionUI { client.hydrationRequestCount == 2 }
+        for _ in 0..<20 { await Task.yield() }
+        let answer = try XCTUnwrap(lastAnswer(), "The stopped answer stays after the reload")
+        XCTAssertEqual(answer.text, "You hold")
+        XCTAssertFalse(answer.canRate)
+        XCTAssertFalse(answer.controls.contains { $0.kind == .followup })
+        XCTAssertEqual(coordinator.messages.first { $0.id == "partial" }?.status, .cancelled)
+        XCTAssertTrue(coordinator.messages.contains { $0.id == "next-question" }, "The rest is the server's")
+    }
+
+    /// A stopped answer outside the newest page keeps its shown text once an older page brings it: over a shorter server
+    /// copy, after its question when the server left it out, and once only when the conversation shows it already. A
+    /// server copy with as much text replaces it.
+    @MainActor
+    func testStoppedAnswerOnAnOlderPageKeepsItsShownText() async throws {
+        enum Case: CaseIterable { case shorterCopy, leftOut, alreadyShown, fullCopy }
+        let question: [String: Any] = [
+            "id": "next-question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Next question"], "createdAt": "2026-07-22T00:00:01.000Z"
+        ]
+        func answer(_ text: String) -> [String: Any] {
+            ["id": "partial", "threadId": "thread-a", "role": "assistant", "status": "cancelled",
+             "content": ["kind": "markdown", "text": text], "createdAt": "2026-07-22T00:00:02.000Z"]
+        }
+        let laterMessages: [[String: Any]] = [
+            ["id": "later-question", "threadId": "thread-a", "role": "user", "status": "complete",
+             "content": ["kind": "markdown", "text": "Later question"], "createdAt": "2099-01-01T00:00:01.000Z"],
+            ["id": "later-answer", "threadId": "thread-a", "role": "assistant", "status": "complete",
+             "content": ["kind": "markdown", "text": "Later answer"], "createdAt": "2099-01-01T00:00:02.000Z"],
+        ]
+        for testCase in Case.allCases {
+            let history = try decodeRatedConversation(answerFeedback: nil)
+            let stoppedThread = try makeThread(history.thread, revision: history.thread.revision + 1)
+            let newestPage = try decodeHydration(
+                threadId: "thread-a",
+                messages: (testCase == .alreadyShown ? [answer("")] : []) + laterMessages,
+                nextCursor: "older",
+                thread: stoppedThread
+            )
+            let olderMessages: [[String: Any]] = switch testCase {
+            case .shorterCopy: [question, answer("")]
+            case .leftOut, .alreadyShown: [question]
+            case .fullCopy: [question, answer("You hold 5 TON")]
+            }
+            let olderPage = try decodeHydration(threadId: "thread-a", messages: olderMessages, thread: stoppedThread)
+            let client = FakeAgentV2Client(hydrationResults: [history, newestPage, olderPage])
+            client.blocksRunStart = true
+            let model = AgentV2Model(client: client, thread: history.thread)
+            defer {
+                model.stop()
+                client.resumeRunStart()
+            }
+            await model.waitForInitialLoad()
+            let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+
+            model.send(text: "Next question")
+            try await waitForDiscussionUI { client.startedCommands.count == 1 }
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "partial")))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "textDelta", threadId: "thread-a", messageId: "partial", delta: "You hold"
+            )))
+            model.stopAnswer()
+            coordinator.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: stoppedThread)))
+            try await waitForDiscussionUI { client.hydrationRequestCount == 2 }
+            for _ in 0..<20 { await Task.yield() }
+
+            let didLoad = await coordinator.loadOlderMessages()
+            XCTAssertTrue(didLoad, "\(testCase)")
+            XCTAssertEqual(
+                coordinator.messages.map(\.id),
+                ["next-question", "partial", "later-question", "later-answer"],
+                "\(testCase)"
+            )
+            XCTAssertEqual(
+                coordinator.messages.first { $0.id == "partial" }?.text,
+                testCase == .fullCopy ? "You hold 5 TON" : "You hold",
+                "\(testCase)"
+            )
+        }
+    }
+
+    /// An edit or a regeneration replaces the stopped answer on the server, so the next history load shows the
+    /// server's answer even when it is shorter than the stopped one
+    @MainActor
+    func testStoppedAnswerIsGoneAfterARegenerationOrAnEdit() async throws {
+        for isEdit in [false, true] {
+            let history = try decodeRatedConversation(answerFeedback: nil)
+            let replacedHistory = try decodeHydration(threadId: "thread-a", messages: [
+                ["id": "next-question", "threadId": "thread-a", "role": "user", "status": "complete",
+                 "content": ["kind": "markdown", "text": "Next question"], "createdAt": "2026-07-22T00:00:01.000Z"],
+                ["id": "partial", "threadId": "thread-a", "role": "assistant", "status": "complete",
+                 "content": ["kind": "markdown", "text": "New"], "createdAt": "2026-07-22T00:00:02.000Z"],
+            ], thread: try makeThread(history.thread, revision: history.thread.revision + 2))
+            let client = FakeAgentV2Client(hydrationResults: [history, replacedHistory], shouldCompleteRun: true)
+            client.blocksRunStart = true
+            let model = AgentV2Model(client: client, thread: history.thread)
+            defer {
+                model.stop()
+                client.resumeRunStart()
+            }
+            await model.waitForInitialLoad()
+            let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+
+            model.send(text: "Next question")
+            try await waitForDiscussionUI { client.startedCommands.count == 1 }
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "partial")))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "textDelta", threadId: "thread-a", messageId: "partial", delta: "You hold"
+            )))
+            model.stopAnswer()
+            client.resumeRunStart()
+            let questionId = try XCTUnwrap(coordinator.messages.last { $0.role == .user }?.id)
+            XCTAssertTrue(coordinator.send(
+                input: isEdit
+                    ? .edit(targetUserMessageId: questionId, text: "Next question")
+                    : .regenerate(targetAssistantMessageId: "partial"),
+                entryPoint: nil
+            ))
+
+            try await waitForDiscussionUI { client.hydrationRequestCount == 2 }
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertEqual(
+                coordinator.messages.filter { $0.role == .assistant }.map(\.text),
+                ["New"],
+                isEdit ? "After an edit" : "After a regeneration"
+            )
+        }
+    }
+
+    /// An edit or a regeneration the server rejects before admitting its run leaves the stopped answer, so the history
+    /// load after the failure keeps the text it showed
+    @MainActor
+    func testStoppedAnswerStaysAfterARejectedRegenerationOrEdit() async throws {
+        for isEdit in [false, true] {
+            let history = try decodeRatedConversation(answerFeedback: nil)
+            let savedHistory = try decodeHydration(threadId: "thread-a", messages: [
+                ["id": "next-question", "threadId": "thread-a", "role": "user", "status": "complete",
+                 "content": ["kind": "markdown", "text": "Next question"], "createdAt": "2026-07-22T00:00:01.000Z"],
+                ["id": "partial", "threadId": "thread-a", "role": "assistant", "status": "cancelled",
+                 "content": ["kind": "markdown", "text": ""], "createdAt": "2026-07-22T00:00:02.000Z"],
+            ], thread: try makeThread(history.thread, revision: history.thread.revision + 1))
+            let client = FakeAgentV2Client(hydrationResults: [history, savedHistory])
+            client.blocksRunStart = true
+            let model = AgentV2Model(client: client, thread: history.thread)
+            defer {
+                model.stop()
+                client.resumeRunStart()
+            }
+            await model.waitForInitialLoad()
+            let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+
+            model.send(text: "Next question")
+            try await waitForDiscussionUI { client.startedCommands.count == 1 }
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "partial")))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "textDelta", threadId: "thread-a", messageId: "partial", delta: "You hold"
+            )))
+            model.stopAnswer()
+            client.resumeRunStart()
+            let questionId = try XCTUnwrap(coordinator.messages.last { $0.role == .user }?.id)
+            XCTAssertTrue(coordinator.send(
+                input: isEdit
+                    ? .edit(targetUserMessageId: questionId, text: "Next question")
+                    : .regenerate(targetAssistantMessageId: "partial"),
+                entryPoint: nil
+            ))
+
+            try await waitForDiscussionUI { client.hydrationRequestCount == 2 && coordinator.activeRun?.isRunning != true }
+            for _ in 0..<20 { await Task.yield() }
+            XCTAssertEqual(
+                coordinator.messages.first { $0.id == "partial" }?.text,
+                "You hold",
+                isEdit ? "After a rejected edit" : "After a rejected regeneration"
+            )
+        }
+    }
+
+    @MainActor
+    func testRunSentBeforeTheSavedThreadLoadsKeepsItsMessages() async throws {
+        let history = try decodeRatedConversation(answerFeedback: nil)
+        let savedThread = try makeThread(history.thread, revision: history.thread.revision + 1)
+        let client = FakeAgentV2Client(hydrationResults: [
+            history, try decodeHydration(threadId: "thread-a", messages: [], thread: savedThread)
+        ])
+        client.blocksRunStart = true
+        let model = AgentV2Model(client: client, thread: history.thread)
+        defer {
+            model.stop()
+            client.resumeRunStart()
+        }
+        await model.waitForInitialLoad()
+        let coordinator = try XCTUnwrap(Mirror(reflecting: model).children.first { $0.label == "coordinator" }?.value as? AgentV2Coordinator)
+        model.send(text: "First question")
+        try await waitForDiscussionUI { client.startedCommands.count == 1 }
+        model.stopAnswer()
+        client.resumeRunStart()
+        client.blocksRunStart = true
+
+        coordinator.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: savedThread)))
+        model.send(text: "Second question")
+        try await waitForDiscussionUI { client.startedCommands.count == 2 }
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        XCTAssertTrue(model.hasActiveRun)
+        XCTAssertEqual(coordinator.messages.last?.text, "Second question")
+    }
+
+    @MainActor
     func testRegenerationKeepsTheTimelineWhenTheCoordinatorCannotStartARun() async throws {
         let history = try decodeRatedConversation(answerFeedback: nil)
         let client = FakeAgentV2Client(hydrationResult: history)
@@ -4673,6 +5487,30 @@ final class AgentV2ContractTests: XCTestCase {
         }
         let data = try JSONSerialization.data(withJSONObject: ["type": "agentV2", "update": update])
         return try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data).update
+    }
+
+    private func makeThread(_ thread: ApiAgentV2ThreadSummary, revision: Int) throws -> ApiAgentV2ThreadSummary {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)) as? [String: Any])
+        object["revision"] = revision
+        return try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    /// Runs the button's touch-up actions, which `sendActions` leaves to an application the tests don't run
+    @MainActor
+    private func tap(_ button: UIButton) {
+        for target in button.allTargets {
+            for action in button.actions(forTarget: target, forControlEvent: .touchUpInside) ?? [] {
+                (target as? NSObject)?.perform(NSSelectorFromString(action), with: button)
+            }
+        }
+    }
+
+    private func decodeFollowupsUpdate(threadId: String, messageId: String) throws -> ApiAgentV2ClientUpdate {
+        try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: JSONSerialization.data(withJSONObject: [
+            "kind": "followupsAvailable", "clientRunId": "client-\(threadId)", "runId": "run-\(threadId)",
+            "threadId": threadId, "messageId": messageId,
+            "items": [["id": "adadadad-adad-4dad-8dad-adadadadadad", "kind": "suggested_prompt", "text": "More?"]]
+        ]))
     }
 
     private func decodeSendFormActionUpdate(threadId: String, messageId: String) throws -> ApiAgentV2ClientUpdate {
@@ -4946,7 +5784,7 @@ private final class AgentThreadBridgeWebView: WKWebView {
         let arguments: [Any]
     }
 
-    var response = "{}"
+    var response: String? = "{}"
     private(set) var calls: [Call] = []
 
     override func evaluateJavaScript(
@@ -5062,6 +5900,10 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
     func consent() async throws -> Bool {
         if let consentError { throw consentError }
         return hasConsent
+    }
+    var isConsentKnownGiven = false
+    func forgetKnownConsent() {
+        isConsentKnownGiven = false
     }
     var blocksConsentAcceptance = false
     var consentAcceptanceError: Error?
@@ -5181,6 +6023,7 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
         guard let threadListResult else { throw FakeAgentV2ClientError.unavailable }
         return threadListResult
     }
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? { nil }
     var createdThreadIsNew = true
     var createdThread: ApiAgentV2ThreadSummary?
     private(set) var newsThreadRequests: [ApiAgentV2ThreadNewsRequest] = []
@@ -5209,6 +6052,11 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
                 "created": createdThreadIsNew
             ])
         )
+    }
+    var digestThreadRequests: [ApiAgentV2ThreadDigestRequest] = []
+    func createThread(digest: ApiAgentV2ThreadDigestRequest) async throws -> ApiAgentV2ThreadCreateResponse {
+        digestThreadRequests.append(digest)
+        return try await createThread()
     }
     func createThread(news: ApiAgentV2ThreadNewsRequest) async throws -> ApiAgentV2ThreadCreateResponse {
         newsThreadRequests.append(news)
@@ -5246,6 +6094,12 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
         guard let result else { throw FakeAgentV2ClientError.unavailable }
         return result
     }
+    func cachedMessages(threadId: String) async -> ApiAgentV2CachedMessages? { nil }
+    /// The ids of the next runs; after them every run is `client-<defaultThreadId>`
+    var clientRunIds: [String] = []
+    func makeClientRunId() -> String {
+        clientRunIds.isEmpty ? "client-\(defaultThreadId)" : clientRunIds.removeFirst()
+    }
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
         startedCommands.append(command)
         startRunObserver?()
@@ -5255,7 +6109,7 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
         if let runStartError { throw runStartError }
         guard shouldCompleteRun else { throw FakeAgentV2ClientError.unavailable }
         var result: [String: Any] = [
-            "clientRunId": "client-thread-a",
+            "clientRunId": command.clientRunId,
             "runId": "run-thread-a",
             "state": runResultState.rawValue
         ]
@@ -5277,7 +6131,10 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
             ])
         )
     }
-    func cancelRun(_ runId: String) async {}
+    private(set) var stoppedThreadIds: [String] = []
+    func stopRun(threadId: String) async {
+        stoppedThreadIds.append(threadId)
+    }
     var blocksClear = false
     var clearError: Error?
     private var clearContinuation: CheckedContinuation<Void, Never>?
@@ -5346,5 +6203,12 @@ final class FakeAgentV2Client: AgentV2Client, AgentThreadListClient {
                 "messageCount": 0
             ])
         )
+    }
+}
+
+/// Pushes without the animation, so a test sees the chat laid out at its place at once
+private final class ListQuestionTestNavigationController: UINavigationController {
+    override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        super.pushViewController(viewController, animated: false)
     }
 }

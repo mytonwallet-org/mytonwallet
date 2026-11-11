@@ -12,6 +12,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.doOnLayout
+import androidx.core.view.isVisible
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -21,6 +24,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.FontFamily
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
+import org.mytonwallet.app_air.uicomponents.helpers.HomeToolbarActions
+import org.mytonwallet.app_air.uicomponents.helpers.HomeToolbarLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -28,8 +33,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
+import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.toolbar.AppearanceToolbarPreviewView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -39,6 +46,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MToolbarItem
 import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -94,7 +102,7 @@ class AppearanceVC(context: Context) :
             isLast = false
         ).apply {
             setValueView(showOnCardDropdownView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 WMenuPopup.present(
                     showOnCardDropdownView,
                     MWalletCardTopLine.entries.map { topLine ->
@@ -145,6 +153,83 @@ class AppearanceVC(context: Context) :
         setTextColor(WColor.SecondaryText)
     }
 
+    private val toolbarPreviewView: AppearanceToolbarPreviewView by lazy {
+        AppearanceToolbarPreviewView(context).apply {
+            configure(AccountStore.activeAccount)
+            onOrderChanged = {
+                Logger.d(
+                    Logger.LogTag.SETTINGS,
+                    "toolbar: ${WGlobalStorage.getToolbarConfiguration().order}"
+                )
+                notifyToolbarSettingsChanged()
+            }
+        }
+    }
+
+    private val toolbarAccountsRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Accounts"),
+        isChecked = WGlobalStorage.getToolbarConfiguration().isShown(MToolbarItem.ACCOUNTS),
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "toolbarAccountsRow: isChecked=$isChecked")
+            setToolbarItemShown(MToolbarItem.ACCOUNTS, isChecked)
+        }
+    )
+
+    private val toolbarScanRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Scan QR"),
+        isChecked = WGlobalStorage.getToolbarConfiguration().isShown(MToolbarItem.SCAN),
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "toolbarScanRow: isChecked=$isChecked")
+            setToolbarItemShown(MToolbarItem.SCAN, isChecked)
+        }
+    )
+
+    private val toolbarSharedBackgroundRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Shared Background"),
+        isChecked = WGlobalStorage.getToolbarConfiguration().isSharedBackground,
+        isLast = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "toolbarSharedBackgroundRow: isChecked=$isChecked")
+            val configuration = WGlobalStorage.getToolbarConfiguration()
+            if (configuration.isSharedBackground == isChecked) return@SwitchCell
+            WGlobalStorage.setToolbarConfiguration(
+                WGlobalStorage.getToolbarConfiguration().copy(isSharedBackground = isChecked)
+            )
+            onToolbarConfigurationChanged()
+            updateToolbarSwitchesEnabled()
+        }
+    )
+
+    // Kept for the visit, so a switched-off action can come back
+    private val toolbarActionRows = WGlobalStorage.getToolbarConfiguration().let { configuration ->
+        configuration.order
+            .filter { it.isAction && it != MToolbarItem.SCAN && configuration.isShown(it) }
+            .associateWith { item ->
+                SwitchCell(
+                    context,
+                    title = HomeToolbarActions.getTitle(item),
+                    isChecked = true,
+                    onChange = { isChecked ->
+                        Logger.d(
+                            Logger.LogTag.SETTINGS,
+                            "toolbar ${item.value}: isChecked=$isChecked"
+                        )
+                        setToolbarItemShown(item, isChecked)
+                    }
+                )
+            }
+    }
+
+    private val toolbarViews
+        get() = listOf<View>(
+            toolbarPreviewView,
+            toolbarAccountsRow,
+            toolbarScanRow
+        ) + toolbarActionRows.values + toolbarSharedBackgroundRow
+
     private val appFontDropdownView = WEditableItemView(context).apply {
         id = generateViewId()
         drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
@@ -159,7 +244,7 @@ class AppearanceVC(context: Context) :
             isLast = false
         ).apply {
             setValueView(appFontDropdownView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 WMenuPopup.present(
                     appFontDropdownView,
                     FontFamily.entries.map {
@@ -301,6 +386,7 @@ class AppearanceVC(context: Context) :
             Logger.d(Logger.LogTag.SETTINGS, "sideGuttersRow: isChecked=$isChecked")
             WGlobalStorage.setAreSideGuttersActive(isChecked)
             ViewConstants.HORIZONTAL_PADDINGS = if (isChecked) 10 else 0
+            updateToolbarSwitchesEnabled()
             val fromPadding =
                 (if (LocaleController.isRTL) scrollView.paddingLeft else scrollView.paddingRight) -
                     systemBarEndInset
@@ -416,6 +502,11 @@ class AppearanceVC(context: Context) :
         v.addView(showOnCardRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(actionButtonsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(walletCardHintLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(toolbarPreviewView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
+        v.addView(toolbarAccountsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(toolbarScanRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        toolbarActionRows.values.forEach { v.addView(it, ConstraintLayout.LayoutParams(0, 50.dp)) }
+        v.addView(toolbarSharedBackgroundRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedBalanceFontRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(liquidGlassRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -448,12 +539,28 @@ class AppearanceVC(context: Context) :
             toCenterX(actionButtonsRow)
             topToBottom(walletCardHintLabel, actionButtonsRow, 8f)
             toCenterX(walletCardHintLabel, 16f)
-            // Group 2: App Font, Rounded Balance Font
-            topToBottom(appFontView, walletCardHintLabel, (ViewConstants.GAP + 4).toFloat())
+            // Group 2: Toolbar, hidden on tablet
+            topToBottom(toolbarPreviewView, walletCardHintLabel, (ViewConstants.GAP + 4).toFloat())
+            toCenterX(toolbarPreviewView)
+            topToBottom(toolbarAccountsRow, toolbarPreviewView)
+            toCenterX(toolbarAccountsRow)
+            topToBottom(toolbarScanRow, toolbarAccountsRow)
+            toCenterX(toolbarScanRow)
+            var lastToolbarRow: View = toolbarScanRow
+            for (row in toolbarActionRows.values) {
+                topToBottom(row, lastToolbarRow)
+                toCenterX(row)
+                lastToolbarRow = row
+            }
+            topToBottom(toolbarSharedBackgroundRow, lastToolbarRow)
+            toCenterX(toolbarSharedBackgroundRow)
+            // Group 3: App Font, Rounded Balance Font
+            topToBottom(appFontView, toolbarSharedBackgroundRow, ViewConstants.GAP.toFloat())
+            setGoneMargin(appFontView.id, ConstraintSet.TOP, (ViewConstants.GAP + 4).dp)
             toCenterX(appFontView)
             topToBottom(roundedBalanceFontRow, appFontView)
             toCenterX(roundedBalanceFontRow)
-            // Group 3: Enable Liquid Glass, Enable Blur, Enable Animations, 3D Card, Seasonal Theming
+            // Group 4: Enable Liquid Glass, Enable Blur, Enable Animations, 3D Card, Seasonal Theming
             topToBottom(liquidGlassRow, roundedBalanceFontRow, ViewConstants.GAP.toFloat())
             toCenterX(liquidGlassRow)
             topToBottom(blurRow, liquidGlassRow)
@@ -464,7 +571,7 @@ class AppearanceVC(context: Context) :
             toCenterX(cardEffectsRow)
             topToBottom(seasonalThemingRow, cardEffectsRow)
             toCenterX(seasonalThemingRow)
-            // Group 4: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
+            // Group 5: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
             topToBottom(gradientNavigationBarRow, seasonalThemingRow, ViewConstants.GAP.toFloat())
             toCenterX(gradientNavigationBarRow)
             topToBottom(roundedCornersRow, gradientNavigationBarRow)
@@ -516,8 +623,58 @@ class AppearanceVC(context: Context) :
             toBottom(scrollView)
         }
 
+        updateToolbarSectionVisibility()
+        view.doOnLayout { updateToolbarSwitchesEnabled() }
         updateTheme()
         WalletCore.registerObserver(this)
+    }
+
+    private fun setToolbarItemShown(item: MToolbarItem, isShown: Boolean) {
+        val configuration = WGlobalStorage.getToolbarConfiguration()
+        if (configuration.isShown(item) == isShown) return
+        WGlobalStorage.setToolbarConfiguration(configuration.withShown(item, isShown))
+        onToolbarConfigurationChanged()
+        updateToolbarSwitchesEnabled()
+    }
+
+    private fun updateToolbarSwitchesEnabled() {
+        val screenWidth = window?.windowView?.width?.takeIf { it > 0 } ?: return
+        val configuration = WGlobalStorage.getToolbarConfiguration()
+        val rows = toolbarActionRows +
+            mapOf(MToolbarItem.ACCOUNTS to toolbarAccountsRow, MToolbarItem.SCAN to toolbarScanRow)
+        for ((item, row) in rows) {
+            row.isEnabled = HomeToolbarLayout.canHold(configuration, item, screenWidth)
+        }
+    }
+
+    private fun onToolbarConfigurationChanged() {
+        toolbarPreviewView.update(animated = true)
+        notifyToolbarSettingsChanged()
+    }
+
+    private var isNotifyingToolbarSettings = false
+
+    private fun notifyToolbarSettingsChanged() {
+        isNotifyingToolbarSettings = true
+        WalletCore.notifyEvent(WalletEvent.ToolbarSettingsChanged)
+        isNotifyingToolbarSettings = false
+    }
+
+    // Rows for actions added elsewhere come with the next visit
+    private fun syncToolbarSettings() {
+        val configuration = WGlobalStorage.getToolbarConfiguration()
+        toolbarPreviewView.update(animated = false)
+        toolbarAccountsRow.isChecked = configuration.isShown(MToolbarItem.ACCOUNTS)
+        toolbarScanRow.isChecked = configuration.isShown(MToolbarItem.SCAN)
+        toolbarActionRows.forEach { (item, row) -> row.isChecked = configuration.isShown(item) }
+        toolbarSharedBackgroundRow.isChecked = configuration.isSharedBackground
+        updateToolbarSwitchesEnabled()
+    }
+
+    private fun updateToolbarSectionVisibility() {
+        val isShown = window?.isWideLayout != true
+        toolbarViews.forEach { it.isVisible = isShown }
+        updateToolbarSwitchesEnabled()
     }
 
     override fun updateTheme() {
@@ -561,6 +718,13 @@ class AppearanceVC(context: Context) :
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
                 appPaletteView.configure(AccountStore.activeAccount)
+                toolbarPreviewView.configure(AccountStore.activeAccount)
+            }
+
+            WalletEvent.WideLayoutChanged -> updateToolbarSectionVisibility()
+
+            WalletEvent.ToolbarSettingsChanged -> {
+                if (!isNotifyingToolbarSettings) syncToolbarSettings()
             }
 
             WalletEvent.NftCardUpdated -> {

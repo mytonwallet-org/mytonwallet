@@ -98,6 +98,13 @@ export function formatShortDay(langCode: LangCode, datetime: string | number | D
   return formatDayToStringWithCache(langCode, targetAt, noYear, !noDate && 'short', noDate, withTime);
 }
 
+export function formatShortMonth(langCode: LangCode, datetime: string | number | Date) {
+  const date = new Date(datetime);
+  const monthStartAt = new Date(date.getFullYear(), date.getMonth()).getTime();
+
+  return formatDayToStringWithCache(langCode, monthStartAt, false, 'short', true);
+}
+
 export function formatChartDate(langCode: LangCode, datetime: string | number | Date) {
   const isCurrentYear = new Date(datetime).getFullYear() === new Date().getFullYear();
   return formatShortDay(langCode, datetime, isCurrentYear, isCurrentYear);

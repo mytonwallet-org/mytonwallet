@@ -39,6 +39,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                     id: filter.rawValue,
                     title: filter.title,
                     isDeletable: false,
+                    accessibilityIdentifier: "wallets_tab_\(filter.rawValue)",
                     viewController: vc
                 )
                 segmentedControlItems.append(item)
@@ -159,8 +160,8 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
         self.segmentedControlContainerWidthConstraint = segmentedControlContainerWidthConstraint
         NSLayoutConstraint.activate([
             segmentedControl.topAnchor.constraint(equalTo: segmentedControlContainer.topAnchor, constant: 12),
-            segmentedControl.centerXAnchor.constraint(equalTo: segmentedControlContainer.centerXAnchor),
-            segmentedControl.widthAnchor.constraint(equalTo: segmentedControlContainer.widthAnchor),
+            segmentedControl.centerXAnchor.constraint(equalTo: segmentedControlContainer.safeAreaLayoutGuide.centerXAnchor),
+            segmentedControl.widthAnchor.constraint(equalTo: segmentedControlContainer.safeAreaLayoutGuide.widthAnchor),
             segmentedControlContainerWidthConstraint,
         ])
         segmentedControlContainer.frame.size.height = 54
@@ -302,6 +303,7 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
             rightBarButtonItem = UIBarButtonItem.doneButtonItem { [weak self] in
                 self?.viewModel.stopReordering(isCanceled: false)
             }
+            rightBarButtonItem.accessibilityIdentifier = "wallets_done_button"
             isEditing = true
         case .select:
             leftBarButtonItem = UIBarButtonItem.textButtonItem(text: lang("Select All")) { [weak self] in
@@ -347,11 +349,13 @@ public final class WalletSettingsVC: SettingsBaseVC, WSegmentedController.Delega
                 image: UIImage(systemName: "line.3.horizontal.decrease"),
                 menu: UIMenu(children: menuItems),
             )
+            leftBarButtonItem.accessibilityIdentifier = "wallets_menu_button"
             
             rightBarButtonItem = UIBarButtonItem(
                 systemItem: .close,
                 primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
             )
+            rightBarButtonItem.accessibilityIdentifier = "nav_close"
         }
         
         leftBarButtonItem.isEnabled = !isDeleting

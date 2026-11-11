@@ -79,6 +79,7 @@ const solanaSdk: ChainSdk<'solana'> = {
   fetchWalletPermissions: notSupported,
   revokeWalletPermission: notSupported,
   fetchWalletPlugins: notSupported,
+  estimatePerpsDepositNetworkFee: notSupported,
 };
 
 export default solanaSdk;

@@ -21,6 +21,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.ViewTreeObserver
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -47,6 +48,7 @@ import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.util.Date
 import kotlin.coroutines.resume
+import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,31 +67,40 @@ import org.mytonwallet.app_air.uiagent.agentV2.AndroidAgentDictationRecorder
 import org.mytonwallet.app_air.uiagent.agentV2.agentActionUnavailableText
 import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
 import org.mytonwallet.app_air.uiagent.agentV2.agentV2ErrorText
+import org.mytonwallet.app_air.uiagent.agentV2.hasPost
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
 import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentBulletinDurations
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentDateHeaderCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageTextCache
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentNewsPostCell
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentReactionAnimation
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSupportEventCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentUnreadDividerCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.isAgentPicturePinchStart
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.isMessageMenuTapTarget
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AGENT_HISTORY_LOAD_THRESHOLD
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBottomFadeView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBulletin
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentChatTitleView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentConsentView
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentCopyBulletin
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDustEffect
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentEdgeGlow
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentHistorySpinner
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentLoadErrorView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMessagesSkeletonView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMorphClock
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentPreDrawBinding
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentReactionAnimations
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentScrollToBottomButton
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSentMessageFlight
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSentMessageSource
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSkeletonReveal
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSuggestionMorph
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSuggestionRipple
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.attachAgentEdgeGlow
 import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsSourceLinks
 import org.mytonwallet.app_air.uiagent.viewControllers.news.agentNewsErrorText
@@ -101,6 +112,7 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
+import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -120,7 +132,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -135,7 +149,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
 class AgentVC(
@@ -143,8 +156,11 @@ class AgentVC(
     thread: AgentV2ThreadSummary? = null,
     prompt: AgentPromptChatRequest? = null,
     private val news: AgentNewsChatRequest? = null,
+    // The thread's summary comes from the cached list, which may predate an answer
+    isSummaryCached: Boolean = false,
     private val onNewsThreadCreated: ((AgentV2ThreadSummary) -> Unit)? = null,
-    private val onNewsThreadMissing: ((String) -> Unit)? = null
+    private val onNewsThreadMissing: ((String) -> Unit)? = null,
+    private val digestId: String? = null
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     AgentVM.Delegate,
@@ -162,6 +178,7 @@ class AgentVC(
         val HINTS_CELL = WCell.Type(4)
         val NEWS_POST_CELL = WCell.Type(5)
         val UNREAD_CELL = WCell.Type(6)
+        val SUPPORT_EVENT_CELL = WCell.Type(7)
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
 
         // The idle field's bottom sits this far above the navigation bar, on the root toolbar's line as the list's
@@ -202,31 +219,43 @@ class AgentVC(
             val padding = composerView.paddingBottom / context.resources.displayMetrics.density
             return FIELD_LINE_LIFT + extra - padding.roundToInt()
         }
-    private val chatOpening = if (prompt != null || news != null) {
-        AgentChatOpening(prompt = prompt, news = news)
+    private val chatOpening = if (prompt != null || news != null || digestId != null) {
+        AgentChatOpening(prompt = prompt, news = news, digestId = digestId)
     } else {
         null
     }
-    private var preparedVM = thread?.let(AgentSession::acquire) ?: chatOpening?.acquireDiscussion()
+    private val unreadOpening = AgentUnreadOpening(
+        thread,
+        hasOpening = chatOpening != null,
+        isSummaryCached = isSummaryCached,
+        readState = AgentThreadReadState.shared
+    )
 
-    private val unreadSeenMessageCount = thread?.takeIf { chatOpening == null }
-        ?.let(AgentThreadReadState.shared::getSeenMessageCountIfUnread)
+    private var preparedVM = thread?.let {
+        AgentSession.acquire(it, canShowCachedMessages = unreadOpening.canShowCachedMessages)
+    } ?: chatOpening?.acquireDiscussion()
 
     private var unreadDividerMessageId: String? = null
-    private var hasResolvedUnreadDivider = false
     private val vm: AgentVM get() = checkNotNull(preparedVM)
     private val creationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var creationJob: Job? = null
     private var isViewActive = false
     private var edgeGlow: AgentEdgeGlow? = null
     private var newsPostArrival: AgentNewsPostArrival? = null
-    private var newsFollowupsExpired = false
-    private var newsFollowupsTimeout: Runnable? = null
+    private val newsFollowupWait by lazy {
+        AgentNewsFollowupWait(view::postDelayed, view::removeCallbacks) {
+            onHintsUpdated(emptyList())
+        }
+    }
 
     // The keyboard's own show or hide animation, which carries the composer frame by frame
     private class KeyboardMotion(val startIme: Int, val startRawIme: Int)
 
     private var keyboardMotion: KeyboardMotion? = null
+
+    // The field keeps the sides it has without a keyboard while the keyboard the chat came in
+    // over goes, as the field it took the place of did
+    private var shouldKeepRestingSides = false
     private val keyboardAnimationCallback = object : WindowInsetsAnimationCompat.Callback(
         DISPATCH_MODE_CONTINUE_ON_SUBTREE
     ) {
@@ -275,6 +304,11 @@ class AgentVC(
     private var isAttachedToSession = false
     private var isSessionReleased = false
     private var hasAppeared = false
+    private var isAppInForeground = true
+
+    // A recording asked for before the chat went from the screen doesn't start after; the consent sheet covering the
+    // chat keeps it
+    private val heldDictation = AgentHeldDictation()
     private var readStateThreadId: String? = null
 
     // Changes only through applyTimeline, which tells the list what changed
@@ -296,6 +330,50 @@ class AgentVC(
     private val pendingIncomingReveals = linkedMapOf<String, PendingIncomingReveal>()
     private val outgoingMessageIdsAwaitingIncoming = mutableListOf<String>()
     private val hiddenIncomingMessageIds = mutableSetOf<String>()
+
+    // Debug builds show the answer, and pin its question, without the pause while system animations
+    // are off, to keep E2E runs fast
+    private val incomingMessageDelayMs: Long
+        get() = if (!DEBUG_MODE || areSystemAnimatorsEnabled) INCOMING_MESSAGE_DELAY_MS else 0L
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
+    // What the question being sent came from, its text in the field or the suggestion tapped, for
+    // its bubble to grow out of; then, once the chat has added the question, the question's id with
+    // it, until its cell takes it
+    private var pendingSentSource: AgentSentMessageSource? = null
+    private var sentMorphSource: Pair<String, AgentSentMessageSource>? = null
+
+    // A tapped suggestion's morph into its question, started as the chat adds the question and held
+    // until its bubble is laid out, with the question's id, until its cell takes it
+    private var heldSentMorph: Pair<String, AgentMorphClock>? = null
+
+    // The question this chat opens with, growing out of where it was asked on the screen before
+    private var openingMorph: AgentMorphClock? = null
+
+    // The answer this chat opens with, out of the timeline while its question grows into its
+    // bubble and the suggestions it was asked among leave
+    private var heldOpeningAnswerId: String? = null
+    private var openingSuggestionsRipple: AgentSuggestionRipple? = null
+    private val releaseOpeningAnswer = Runnable {
+        val answerId = heldOpeningAnswerId ?: return@Runnable
+        heldOpeningAnswerId = null
+        if (!hiddenIncomingMessageIds.contains(answerId)) return@Runnable
+        val questionId = findOpeningQuestionId()
+        if (questionId == null) {
+            hiddenIncomingMessageIds.remove(answerId)
+            if (isViewConfigured) rebuildTimeline()
+            return@Runnable
+        }
+        pendingIncomingReveals[questionId] = PendingIncomingReveal(
+            questionId,
+            incomingMessageId = answerId,
+            isOutgoingAnimationFinished = true,
+            isDelayElapsed = true
+        )
+        revealDelayedIncomingMessage(questionId, answerId)
+    }
     private var agentState = AgentVM.State.LOADING
     private var accessibilityStatus: String? = null
     private var isDeletingChat = false
@@ -314,7 +392,8 @@ class AgentVC(
             SYSTEM_CELL,
             HINTS_CELL,
             NEWS_POST_CELL,
-            UNREAD_CELL
+            UNREAD_CELL,
+            SUPPORT_EVENT_CELL
         )
     )
 
@@ -430,7 +509,6 @@ class AgentVC(
                 ?: displayMessages.firstOrNull { it.matchesMessageId(messageId) }?.id
 
             override fun applyComposerBottom(bottom: Int) {
-                consentView.updateInsets(topPadding, bottom)
                 contentContainer.setConstraints {
                     toBottomPx(composerView, bottom + composerBottomOffset.dp)
                 }
@@ -528,7 +606,7 @@ class AgentVC(
     private var editFadeAnimator: ValueAnimator? = null
     private var regeneratingMessageId: String? = null
     private var dustEffect: AgentDustEffect? = null
-    private val copyBulletin = AgentCopyBulletin()
+    private val bulletin = AgentBulletin()
     private val messageTextCache = AgentMessageTextCache()
     private var isDissolving = false
     private var editingMessageId: String? = null
@@ -556,10 +634,6 @@ class AgentVC(
         dictation.cancel()
     }
 
-    private fun showDictationToast(text: String) {
-        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-    }
-
     private suspend fun requestMicrophonePermission(): Boolean {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
@@ -573,13 +647,9 @@ class AgentVC(
                     results
                 ->
                 val granted = results.firstOrNull() == PackageManager.PERMISSION_GRANTED
-                if (continuation.isActive) {
-                    continuation.resume(granted)
-                } else if (!granted && hasAppeared && !isDestroyed) {
-                    showDictationToast(
-                        LocaleController.getString("\$agent_dictation_microphone_denied")
-                    )
-                }
+                // The request's own activity pauses the screen, which may cancel the recording before it learns this
+                if (!granted && !isDestroyed && !isDisappeared) showMicrophoneDeniedAlert()
+                if (continuation.isActive) continuation.resume(granted)
             }
         }
     }
@@ -587,12 +657,16 @@ class AgentVC(
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
             WalletEvent.AppBackground -> {
+                isAppInForeground = false
                 setMessageRenderingActive(false)
                 dictation.onAppBackground()
             }
 
             WalletEvent.AppForeground -> {
+                isAppInForeground = true
+                updateReadStateVisibility()
                 if (!isDisappeared) setMessageRenderingActive(true)
+                settleThinkingGlow()
             }
 
             is WalletEvent.OpenUrl -> {
@@ -674,17 +748,70 @@ class AgentVC(
         }
     }
 
-    private val consentView by lazy {
-        AgentConsentView(context).apply {
-            isGone = true
-            onAllow = {
-                showError(null)
+    private var isConsentSheetShown = false
+    private var hasDeclinedConsent = false
+
+    /**
+     * A news discussion opened before the user allowed the Agent shows its post, its suggestions and the composer, and
+     * asks for consent once the user sends, picks a suggestion or dictates there
+     */
+    private val isAwaitingConsent: Boolean
+        get() {
+            val model = preparedVM ?: return false
+            return model.currentThread.hasPost &&
+                model.hasConsent != true &&
+                model.state != AgentVM.State.CONSENT_REQUIRED
+        }
+
+    private val discussionConsentGate = createDiscussionConsentGate(
+        model = { vm },
+        askForConsent = ::askForConsent
+    )
+
+    // Carries out [action], which sends to the Agent, at once, or once the user allows the Agent in the sheet
+    private fun withConsent(action: () -> Unit) {
+        if (isAwaitingConsent) requestDiscussionConsent(action = action) else action()
+    }
+
+    private fun requestDiscussionConsent(onDeclined: () -> Unit = {}, action: () -> Unit) {
+        creationScope.launch { discussionConsentGate.request(onDeclined, action) }
+    }
+
+    /**
+     * A chat opened before the user allowed the Agent asks for consent in a sheet; without it, the chat closes. A news
+     * discussion asks as the user sends, picks a suggestion or dictates, carries that out with [onAllowed], and stays
+     * open without consent, after [onDeclined].
+     */
+    private fun askForConsent(onAllowed: () -> Unit = {}, onDeclined: () -> Unit = {}) {
+        if (isConsentSheetShown || hasDeclinedConsent || isDeletingChat) return
+        isConsentSheetShown = true
+        AgentConsentSheetVC.present(
+            this,
+            onAllowed = {
+                isConsentSheetShown = false
                 if (preparedVM == null) {
                     createChatThread(shouldAcceptConsent = true)
                 } else {
                     vm.acceptConsent()
                 }
+                onAllowed()
+            },
+            onDeclined = {
+                isConsentSheetShown = false
+                if (isAwaitingConsent) return@present onDeclined()
+                hasDeclinedConsent = true
+                leaveDeclinedChat()
             }
+        )
+    }
+
+    // Debug builds only: shows UI automation that a run has ended, which nothing else on screen does.
+    // It sits at the center, since UI automation does not report a view in the top left corner as displayed.
+    private val runIdleMarker: View by lazy {
+        View(context).apply {
+            id = UIComponentsR.id.agent_run_idle
+            contentDescription = "agent_run_idle"
+            isGone = true
         }
     }
 
@@ -699,7 +826,7 @@ class AgentVC(
         // The bar keeps trailing views 8 dp in; the design's dots box ends 12 dp from the edge
         btn.translationX = MORE_BUTTON_SHIFT.dp * LocaleController.rtlMultiplier
         btn.contentDescription = LocaleController.getString("More")
-        btn.setOnClickListener { presentMoreMenu() }
+        btn.setOnMenuClickListener { presentMoreMenu() }
         btn
     }
 
@@ -713,8 +840,23 @@ class AgentVC(
 
         composerView.onSend = { text ->
             val messageId = editingMessageId
-            if (messageId == null) {
-                sendMessage(text)
+            if (isAwaitingConsent) {
+                // The draft stays while the sheet asks, and goes once the user allows the Agent. Closing the sheet
+                // gives the keyboard back to a question sent from it.
+                val isFromKeyboard = window?.let(::isAgentKeyboardShown) == true
+                requestDiscussionConsent(
+                    onDeclined = { if (isFromKeyboard) composerView.focusInputWithKeyboard() }
+                ) {
+                    if (sendMessage(text)) composerView.setDraftText("", focusInput = false)
+                }
+                false
+            } else if (messageId == null) {
+                pendingSentSource = composerView.makeSentTextSource()
+                val ripple = rippleInitialHintsAway()
+                sendMessage(text).also { isSent ->
+                    pendingSentSource = null
+                    if (!isSent) ripple?.cancel()
+                }
             } else {
                 submitEditedMessage(messageId, text).also { accepted ->
                     if (accepted) {
@@ -725,12 +867,21 @@ class AgentVC(
             }
         }
         composerView.onDraftCleared = { editingMessageId = null }
+        composerView.onStop = { preparedVM?.stopAnswer() }
         // The button keeps to the field's trailing edge
         composerView.onSideInsetChanged = { inset ->
             val shift = (AGENT_SCROLL_BUTTON_END.dp - inset).toFloat()
             scrollButton.translationX = if (LocaleController.isRTL) -shift else shift
         }
         composerView.bindDictation(dictation)
+        composerView.shouldHoldDictation = holdDictationForConsent(
+            isAwaitingConsent = { isAwaitingConsent },
+            heldDictation = heldDictation,
+            askForConsent = { onAllowed, onDeclined ->
+                requestDiscussionConsent(onDeclined, onAllowed)
+            },
+            startDictation = { dictation.startHandsFree() }
+        )
         composerView.onRecordingCircleVisibilityChanged = { isShown ->
             isRecordingCircleShown = isShown
             updateScrollButton(isAnimated = true)
@@ -745,7 +896,17 @@ class AgentVC(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             ViewCompat.setWindowInsetsAnimationCallback(contentContainer, keyboardAnimationCallback)
         }
-        view.addView(consentView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        if (DEBUG_MODE) {
+            view.addView(
+                runIdleMarker,
+                ConstraintLayout.LayoutParams(1.dp, 1.dp).apply {
+                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                    bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                    startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                }
+            )
+        }
         scrollButtonGlass = WGlassView.attachTo(
             scrollButton,
             AgentScrollToBottomButton.SIZE.dp / 2f,
@@ -756,14 +917,14 @@ class AgentVC(
         chatRecyclerView.addOnItemTouchListener(keyboardDismissal)
 
         composerView.post { updateGradientHeight(animated = false) }
-        edgeGlow = attachAgentEdgeGlow(view) {
-            Rect(
-                contentContainer.left + contentContainer.paddingLeft,
-                0,
-                contentContainer.right - contentContainer.paddingRight,
-                view.height
-            )
-        }
+        edgeGlow = attachAgentEdgeGlow(
+            host = view,
+            headerContent = navigationBar,
+            pane = contentContainer,
+            under = composerView,
+            // The header's rounded corners hang below it, over the chat, and the glow goes over them
+            headerBottom = { max(agentHeaderBottom(), topReversedCornerView?.bottom ?: 0) }
+        )
 
         ContextCompat.registerReceiver(
             context,
@@ -785,13 +946,20 @@ class AgentVC(
     }
 
     private fun showChatOpening() {
-        checkNotNull(chatOpening).onChange = ::renderChatOpening
+        val opening = checkNotNull(chatOpening)
+        opening.onChange = ::renderChatOpening
         renderChatOpening()
+        // With the user's consent, the menu offers Report a Problem while the thread is being created
+        creationScope.launch {
+            opening.readConsent()
+            updateMoreButton()
+        }
         createChatThread()
     }
 
     private fun attachToSession() {
         showSkeletonIfLoading()
+        updateSupportPresentation()
         vm.attach(this)
         isAttachedToSession = true
         if (isViewActive) vm.setActive(this, true)
@@ -799,16 +967,35 @@ class AgentVC(
         onNewsThreadCreated?.invoke(vm.currentThread)
     }
 
-    // A chat on screen holds no unseen answer, for the list's unread dot
     private fun updateReadStateVisibility() {
-        val isShown = hasAppeared && !isSessionReleased
+        val isShown = hasAppeared && !isSessionReleased && !unreadOpening.isAwaitingLoadedThread
         val threadId = preparedVM?.currentThread?.id?.takeIf { isShown }
-        if (readStateThreadId == threadId) return
-        readStateThreadId?.let {
-            AgentThreadReadState.shared.onChatDisappeared(it, preparedVM?.seenMessageCount)
+        if (readStateThreadId != threadId) {
+            readStateThreadId?.let {
+                AgentThreadReadState.shared.onChatDisappeared(it, preparedVM?.seenMessageCount)
+            }
+            readStateThreadId = threadId
+            threadId?.let(AgentThreadReadState.shared::onChatAppeared)
         }
-        readStateThreadId = threadId
-        threadId?.let(AgentThreadReadState.shared::onChatAppeared)
+        markVisibleSupportSeen()
+    }
+
+    // While support has the chat, the header and the composer tell so, and the list scrolls as a messenger does
+    private fun updateSupportPresentation() {
+        val model = preparedVM
+        val isChatWithSupport = model?.isChatWithSupport == true
+        chatTitleView.setSubtitle(model?.supportState?.let(::getAgentSupportSubtitle))
+        composerView.placeholder = getAgentComposerPlaceholder(isChatWithSupport)
+        viewport.setLiveTailDisabled(isChatWithSupport)
+    }
+
+    private fun markVisibleSupportSeen() {
+        val model = preparedVM ?: return
+        if (!isAppInForeground || readStateThreadId != model.currentThread.id) return
+        AgentThreadReadState.shared.markSupportSeen(
+            model.currentThread.id,
+            model.loadedOperatorMessageAt
+        )
     }
 
     private fun createChatThread(shouldAcceptConsent: Boolean = false) {
@@ -819,12 +1006,16 @@ class AgentVC(
                 val thread = opening.create(shouldAcceptConsent) ?: return@launch
                 currentCoroutineContext().ensureActive()
                 if (isDeletingChat) return@launch
-                preparedVM = if (opening.messages.isNotEmpty()) {
+                val model = if (opening.messages.isNotEmpty()) {
                     AgentSession.acquireOpening(thread, opening.messages, opening.entryPoint)
                 } else {
                     AgentSession.acquire(thread)
                 }
+                preparedVM = model
                 attachToSession()
+                opening.releaseHeldReports { comment, onResult ->
+                    model.reportProblem(null, comment, onResult)
+                }
             } finally {
                 creationJob = null
                 renderChatOpening()
@@ -838,11 +1029,7 @@ class AgentVC(
     private fun renderChatOpening() {
         val opening = chatOpening ?: return
         if (isDeletingChat || preparedVM != null || isSessionReleased) return
-        val showsConsent = opening.isConsentRequired
-        contentContainer.isGone = showsConsent
-        consentView.isGone = !showsConsent
-        consentView.setLoading(opening.isCreating)
-        if (showsConsent) consentView.showError(opening.error?.let(::openingErrorText))
+        if (opening.isConsentRequired && !opening.isCreating) askForConsent()
         composerView.setSubmissionEnabled(false)
         onMessagesLoaded(displayMessages)
     }
@@ -854,7 +1041,7 @@ class AgentVC(
         AgentHeaderHandoff.begin(this)
         updateChatTitle()
         isViewActive = true
-        updateThinkingGlow()
+        settleThinkingGlow()
         setMessageRenderingActive(window?.isPaused != true)
         preparedVM?.setActive(this, true)
         updateVisibleHintsAvailability()
@@ -873,6 +1060,7 @@ class AgentVC(
     override fun viewWillDisappear() {
         AgentHeaderHandoff.begin(this)
         isViewActive = false
+        if (!isConsentSheetShown) heldDictation.drop()
         finishKeyboardMotion()
         updateThinkingGlow()
         setMessageRenderingActive(false)
@@ -883,6 +1071,97 @@ class AgentVC(
         viewport.shareScrollPosition()
         super.viewWillDisappear()
         preparedVM?.setActive(this, false)
+    }
+
+    /**
+     * Where the question this chat opens with was asked on the screen before, the chat list's field
+     * or suggestion, in the window: its bubble grows out of [source] as the chat comes in, over
+     * [host], the window's root, which shows both screens. The field's text goes in Telegram's
+     * send transition, as the chat's field fades in empty, and the suggestion in its morph, each
+     * lasting at least as long as the chat's transition of [transitionMs], and each holding where
+     * it was asked until the chat lays the bubble out. The answer comes in as soon as the question
+     * has landed and [suggestionsRipple], that of the suggestions it was asked among, has ended.
+     */
+    internal fun setOpeningSentSource(
+        source: AgentSentMessageSource,
+        transitionMs: Long,
+        host: ViewGroup,
+        suggestionsRipple: AgentSuggestionRipple?
+    ) {
+        openingMorph?.cancel()
+        val morph = when (source.kind) {
+            is AgentSentMessageSource.Kind.Text -> AgentSentMessageFlight.start(
+                host,
+                ::findOpeningQuestionCell,
+                source,
+                transitionMs = transitionMs,
+                onEnd = ::finishOpeningMorph
+            )?.also { composerView.fadeInFieldText(it.durationMs) }
+
+            is AgentSentMessageSource.Kind.Suggestion -> AgentSuggestionMorph.start(
+                host,
+                ::findOpeningQuestionCell,
+                source,
+                transitionMs,
+                ::finishOpeningMorph
+            )
+        }
+        openingMorph = morph?.takeUnless { it.isFinished }
+        if (openingMorph == null) return
+        heldOpeningAnswerId = chatOpening?.messages
+            ?.lastOrNull { it.role == AgentMessageRole.ASSISTANT }?.id
+            ?.also(hiddenIncomingMessageIds::add)
+        openingSuggestionsRipple = suggestionsRipple
+        suggestionsRipple?.doOnEnd(::releaseOpeningAnswerOnceReady)
+    }
+
+    private fun finishOpeningMorph() {
+        openingMorph = null
+        releaseOpeningAnswerOnceReady()
+    }
+
+    // The answer comes in as soon as its question has landed and the suggestions have gone, with
+    // no pause after
+    private fun releaseOpeningAnswerOnceReady() {
+        if (heldOpeningAnswerId == null || openingMorph != null) return
+        if (openingSuggestionsRipple?.isFinished == false) return
+        openingSuggestionsRipple = null
+        chatRecyclerView.removeCallbacks(releaseOpeningAnswer)
+        chatRecyclerView.post(releaseOpeningAnswer)
+    }
+
+    /**
+     * Comes in where the screen it continues was, without a transition of its own: the header's
+     * title and menu and the timeline fade in over [durationMs] as that screen's go, and the
+     * field, which takes the place of that screen's, keeps its resting sides as the keyboard goes
+     */
+    internal fun takePlaceOfPreviousScreen(durationMs: Long) {
+        if (!isViewConfigured) return
+        shouldKeepRestingSides = true
+        updateLayout()
+        if (!WGlobalStorage.getAreAnimationsActive()) return
+        (headerHandoffContent + chatRecyclerView).forEach { part ->
+            part.animate().cancel()
+            part.alpha = 0f
+            part.animate().alpha(1f).setDuration(durationMs)
+                .setInterpolator(LinearInterpolator()).start()
+        }
+    }
+
+    // The bubble of the question the chat opens with, once the chat shows it
+    private fun findOpeningQuestionCell(): AgentMessageCell? =
+        findOpeningQuestionId()?.let(::findMessageCell)
+
+    // The question the chat opens with, its first
+    private fun findOpeningQuestionId(): String? = timelineItems.firstNotNullOfOrNull { item ->
+        val message = (item as? AgentTimelineItem.Message)?.message
+        message?.id?.takeIf { message.role == AgentMessageRole.USER }
+    }
+
+    private fun findMessageCell(messageId: String): AgentMessageCell? {
+        val position = viewport.timelineIndexOf(messageId).takeIf { it >= 0 } ?: return null
+        val holder = chatRecyclerView.findViewHolderForAdapterPosition(position) as? WCell.Holder
+        return (holder?.cell as? AgentMessageCell)?.takeIf { it.messageId == messageId }
     }
 
     /**
@@ -954,15 +1233,19 @@ class AgentVC(
     }
 
     override fun onDestroy() {
-        newsFollowupsTimeout?.let(view::removeCallbacks)
+        newsFollowupWait.cancel()
         isViewActive = false
         menuAfterKeyboard = null
         setComposerHandoff(null)
         chatRecyclerView.removeCallbacks(openMenuAfterKeyboardRunnable)
         newsPostArrival?.cancel()
+        heldOpeningAnswerId = null
+        openingMorph?.cancel()
+        chatRecyclerView.removeCallbacks(releaseOpeningAnswer)
+        heldSentMorph?.second?.cancel()
         dustEffect?.kill()
         dustEffect = null
-        copyBulletin.dismiss()
+        bulletin.dismiss()
         if (isViewConfigured) ViewCompat.setWindowInsetsAnimationCallback(contentContainer, null)
         keyboardMotion = null
         edgeGlow?.detach()
@@ -1025,7 +1308,6 @@ class AgentVC(
         bottomGradientView.isGone = !AgentBottomFadeView.isShown(window?.isWideLayout == true)
         bottomGradientView.updateTheme()
         composerView.updateTheme()
-        consentView.updateTheme()
         chatTitleView.updateTheme()
         scrollButton.updateTheme()
         scrollButtonGlass?.updateTheme()
@@ -1043,13 +1325,10 @@ class AgentVC(
         super.insetsUpdated()
         // Margins keep the column's color out from under the side panel
         val start = additionalTabletPadding + systemBarStartInset
-        for (column in listOf(contentContainer, consentView)) {
-            column.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                leftMargin = if (LocaleController.isRTL) systemBarEndInset else start
-                rightMargin = if (LocaleController.isRTL) start else systemBarEndInset
-            }
+        contentContainer.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+            leftMargin = if (LocaleController.isRTL) systemBarEndInset else start
+            rightMargin = if (LocaleController.isRTL) start else systemBarEndInset
         }
-        consentView.updateInsets(chatTopPadding(), viewport.currentBottom)
         contentContainer.setConstraints {
             toTopPx(historySpinner, agentHeaderBottom() + AgentHistorySpinner.TOP_GAP.dp)
         }
@@ -1061,24 +1340,13 @@ class AgentVC(
         updateBlurViews(chatRecyclerView)
     }
 
+    // The chat's header keeps its own background at every scroll position, the chat's very top included
     override fun updateBlurViews(recyclerView: RecyclerView) {
-        if (window?.isWideLayout == true) {
-            topReversedCornerView?.setBlurAlpha(1f)
-            return
-        }
-        super.updateBlurViews(recyclerView)
+        topReversedCornerView?.setBlurAlpha(1f)
     }
 
     private fun syncTopBlurAfterLayout() {
-        chatRecyclerView.doOnPreDraw {
-            if (chatRecyclerView.computeVerticalScrollOffset() > 0 ||
-                viewport.pinnedMessageId != null
-            ) {
-                topReversedCornerView?.setBlurAlpha(1f)
-            } else {
-                updateBlurViews(chatRecyclerView)
-            }
-        }
+        updateBlurViews(chatRecyclerView)
     }
 
     private fun chatTopPadding(): Int = agentHeaderBottom() + AGENT_LIST_TOP_INSET.dp
@@ -1089,7 +1357,8 @@ class AgentVC(
         val isFollowingKeyboard = keyboardMotion != null
         val bottom = computeComposerBottom(ime, navigationBarInset)
         viewport.updateLayout(bottom, ime, navigationBarInset, isFollowingKeyboard)
-        composerView.setKeyboardShown(ime > 0, isFollowingKeyboard)
+        if (ime <= 0 && !isFollowingKeyboard) shouldKeepRestingSides = false
+        composerView.setKeyboardShown(ime > 0 && !shouldKeepRestingSides, isFollowingKeyboard)
         updateComposerMaxHeight(bottom)
     }
 
@@ -1125,7 +1394,7 @@ class AgentVC(
         val ime = motion.startIme + ((endIme - motion.startIme) * fraction).roundToInt()
         val navigationBarInset = navigationController?.getSystemBars()?.bottom ?: 0
         viewport.followKeyboard(computeComposerBottom(ime, navigationBarInset))
-        if ((motion.startIme > 0) != (endIme > 0)) {
+        if (!shouldKeepRestingSides && (motion.startIme > 0) != (endIme > 0)) {
             composerView.followKeyboard(if (endIme > 0) fraction else 1f - fraction)
         }
     }
@@ -1134,7 +1403,8 @@ class AgentVC(
         if (keyboardMotion == null) return
         keyboardMotion = null
         viewport.finishKeyboardMotion()
-        composerView.followKeyboard(if ((navigationController?.imeInsetBottom ?: 0) > 0) 1f else 0f)
+        val isKeyboardUp = (navigationController?.imeInsetBottom ?: 0) > 0
+        composerView.followKeyboard(if (isKeyboardUp && !shouldKeepRestingSides) 1f else 0f)
         updateLayout()
         if ((navigationController?.imeInsetBottom ?: 0) <= 0) openMenuAfterKeyboard()
     }
@@ -1178,8 +1448,61 @@ class AgentVC(
         return accepted
     }
 
-    private fun sendFollowup(messageId: String, followupId: String) {
-        if (preparedVM?.sendFollowup(messageId, followupId) == true) view.hideKeyboard()
+    /**
+     * Sends the question of [card], one of [hints], with [send], which tells whether the chat took
+     * it: the card turns into its question as the suggestions beside it ripple away
+     */
+    private fun sendSuggestion(card: WAgentHintView, hints: AgentHintsCell, send: () -> Boolean) {
+        hints.finishReveal()
+        val source = AgentSentMessageSource.makeSuggestion(card)
+        val ripple = source?.let { AgentSuggestionRipple.start(hints.contentViews, card, view) }
+        pendingSentSource = source
+        val isSent = send()
+        pendingSentSource = null
+        if (isSent) view.hideKeyboard() else ripple?.cancel()
+    }
+
+    /**
+     * The question the chat has just added turns into its bubble out of what it came from, wherever
+     * the bubble lands: a tapped suggestion in the morph that took its place at the tap, or the
+     * field's text in Telegram's send transition, as the emptied field fades back in
+     */
+    private fun startSentMorph(cell: AgentMessageCell, onEnd: () -> Unit): AgentMorphClock? {
+        heldSentMorph?.takeIf { it.first == cell.messageId }?.let { (_, morph) ->
+            heldSentMorph = null
+            morph.doOnEnd(onEnd)
+            return morph.takeUnless { it.isFinished }
+        }
+        val (messageId, source) = sentMorphSource ?: return null
+        sentMorphSource = null
+        if (cell.messageId != messageId || !source.isFresh) return null
+        return AgentSentMessageFlight.start(
+            view,
+            { cell },
+            source,
+            clipTop = agentHeaderBottom().toFloat(),
+            onEnd = onEnd
+        )?.also { composerView.fadeInFieldText(it.durationMs) }
+    }
+
+    /**
+     * The empty chat's suggestions, its spinning top included, ripple away from the field as its
+     * first question goes, as a tapped suggestion's neighbours do
+     */
+    private fun rippleInitialHintsAway(): AgentSuggestionRipple? {
+        if (!WGlobalStorage.getAreAnimationsActive() ||
+            timelineItems.any { it is AgentTimelineItem.Message }
+        ) {
+            return null
+        }
+        val index = timelineItems.indexOfLast {
+            it is AgentTimelineItem.Hints && it.followupMessageId == null && !it.isLoading
+        }
+        if (index < 0) return null
+        val holder = chatRecyclerView.findViewHolderForAdapterPosition(index) as? WCell.Holder
+        val hints = holder?.cell as? AgentHintsCell ?: return null
+        hints.finishReveal()
+        return AgentSuggestionRipple.start(hints.contentViews, composerView, view)
     }
 
     private fun presentMoreMenu() {
@@ -1195,7 +1518,7 @@ class AgentVC(
             )
         }
 
-        if (model?.canReportProblem == true) {
+        if (canReportProblem) {
             items.add(
                 WMenuPopup.Item(
                     org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
@@ -1232,16 +1555,24 @@ class AgentVC(
         )
     }
 
+    // A news discussion the user hasn't written in, before consent or after it, is left out of the chat list and has
+    // nothing to delete
     private val canDeleteChat: Boolean
-        get() = !isDeletingChat && (preparedVM != null || chatOpening != null)
+        get() {
+            if (isDeletingChat) return false
+            val model = preparedVM ?: return chatOpening != null && news == null && digestId == null
+            return model.isThreadStarted
+        }
 
+    // The conversation can be reported from the start: while its thread is being created, the report waits for it
+    private val canReportProblem: Boolean
+        get() = preparedVM?.canReportProblem ?: (chatOpening?.canReportProblem == true)
+
+    // A menu without items shows no button
     private fun updateMoreButton() {
         val model = preparedVM
-        moreButton.isGone = model == null && chatOpening == null
-        val hasItems = agentState == AgentVM.State.ERROR ||
-            model?.canReportProblem == true || canDeleteChat
-        moreButton.isEnabled = hasItems
-        moreButton.alpha = if (hasItems) 1f else DISABLED_BUTTON_ALPHA
+        val hasItems = agentState == AgentVM.State.ERROR || canReportProblem || canDeleteChat
+        moreButton.isGone = (model == null && chatOpening == null) || !hasItems
     }
 
     private fun showDeleteConfirmation() {
@@ -1329,7 +1660,7 @@ class AgentVC(
                     title = LocaleController.getString("Send"),
                     onTap = {
                         val comment = input.text?.toString().orEmpty()
-                        vm.reportProblem(presentationId, comment) { isSent ->
+                        reportProblem(presentationId, comment) { isSent ->
                             showProblemReportResult(presentationId, comment, isSent)
                         }
                     }
@@ -1343,9 +1674,20 @@ class AgentVC(
         ).presentOn(this)
     }
 
+    private fun reportProblem(
+        presentationId: String?,
+        comment: String,
+        onResult: (Boolean) -> Unit
+    ) {
+        preparedVM?.let { return it.reportProblem(presentationId, comment, onResult) }
+        val opening = chatOpening
+        if (presentationId != null || opening == null) return onResult(false)
+        opening.reportProblem(comment, onResult)
+    }
+
     private fun showProblemReportResult(presentationId: String?, comment: String, isSent: Boolean) {
         // A failed report opens again with its comment, unless the user has left the screen or can no longer report
-        if (!isSent && vm.canReportProblem && !isDestroyed && !isDisappeared) {
+        if (!isSent && canReportProblem && !isDestroyed && !isDisappeared) {
             presentProblemReportForm(presentationId, comment)
             return
         }
@@ -1361,6 +1703,8 @@ class AgentVC(
     // AgentVM.Delegate
 
     override fun onThreadChanged(thread: AgentV2ThreadSummary) {
+        reloadLastFailureRowIfRetryChanged()
+        updateSupportPresentation()
         scheduleChatTitleUpdate()
         updateOpeningTimelineInPlace(buildTimelineItems(displayMessages))
     }
@@ -1388,7 +1732,9 @@ class AgentVC(
     private fun updateChatTitle() {
         val firstMessage = displayMessages.firstOrNull { it.role == AgentMessageRole.USER }?.text
         val thread = preparedVM?.currentThread
-        val title = if (news != null && thread?.title.isNullOrBlank()) {
+        val title = if (news != null && news.headline.isNotBlank() &&
+            thread?.title.isNullOrBlank()
+        ) {
             news.headline
         } else {
             thread?.let { resolveAgentThreadTitle(it, firstMessage) } ?: firstMessage.orEmpty()
@@ -1434,30 +1780,53 @@ class AgentVC(
         reloadLastFailureRowIfRetryChanged()
         updateThinkingGlow()
         updateAccessibilityStatus(state)
-        val showsConsent = state == AgentVM.State.CONSENT_REQUIRED ||
-            state == AgentVM.State.ACCEPTING_CONSENT
-        contentContainer.isGone = showsConsent
-        consentView.isGone = !showsConsent
-        consentView.setLoading(state == AgentVM.State.ACCEPTING_CONSENT)
-        if (state == AgentVM.State.ACCEPTING_CONSENT) consentView.showError(null)
+        if (state == AgentVM.State.CONSENT_REQUIRED) askForConsent()
+        if (DEBUG_MODE) {
+            runIdleMarker.isGone = state != AgentVM.State.READY && state != AgentVM.State.ERROR
+        }
         updateComposerSubmission()
         updateMoreButton()
     }
 
+    override fun onProblemReportAvailabilityChanged() = updateMoreButton()
+
+    override fun onMessagesRefreshed(messages: List<AgentMessage>) {
+        updateSupportPresentation()
+        resolveUnreadDivider()
+        updateReadStateVisibility()
+        val items = buildTimelineItems(messages)
+        val hasChanged = items != timelineItems
+        val arrivingDividerIndex = items.findArrivingUnreadDividerIndex(timelineItems)
+        val isAtEnd = viewport.isAtEnd
+        applyTimeline(items, TimelineUpdate.DIFF)
+        // Replies that came while the chat was away show from the first unread one, as when the chat opens at it
+        when {
+            arrivingDividerIndex != null -> viewport.showItemAtTop(arrivingDividerIndex)
+            hasChanged -> viewport.followNewMessages(isAtEnd)
+        }
+        markVisibleSupportSeen()
+    }
+
     override fun onMessagesLoaded(messages: List<AgentMessage>) {
+        updateSupportPresentation()
         updateLoadError()
         updateThinkingGlow()
         scheduleChatTitleUpdate()
         updateMoreButton()
         val opensAtUnreadDivider = resolveUnreadDivider()
+        updateReadStateVisibility()
         val items = buildTimelineItems(messages)
-        if (updateOpeningTimelineInPlace(items)) return
+        if (updateOpeningTimelineInPlace(items)) {
+            markVisibleSupportSeen()
+            return
+        }
         // A news post's suggestions that come with its loaded messages appear as an answer's do
         val followups = (items.lastOrNull() as? AgentTimelineItem.Hints)?.followupMessageId
         if (followups != null && timelineItems.lastOrNull() !is AgentTimelineItem.Hints &&
             updateOpeningTimelineInPlace(items.dropLast(1))
         ) {
             appendHintsAfterContentSettles(followups)
+            markVisibleSupportSeen()
             return
         }
         editFadeAnimator?.cancel()
@@ -1486,13 +1855,13 @@ class AgentVC(
         if (messages.isNotEmpty() && !awaitsNewsPostFollowups(messages)) {
             revealMessagesFromSkeleton()
         }
+        markVisibleSupportSeen()
     }
 
     private fun resolveUnreadDivider(): Boolean {
-        val seen = unreadSeenMessageCount ?: return false
-        if (hasResolvedUnreadDivider || preparedVM?.seenMessageCount == null) return false
-        hasResolvedUnreadDivider = true
-        unreadDividerMessageId = preparedVM?.findFirstUnseenMessageId(seen)
+        val model = preparedVM ?: return false
+        val seen = unreadOpening.resolveSeenMessageCount(model) ?: return false
+        unreadDividerMessageId = model.findFirstUnseenMessageId(seen)
         return unreadDividerMessageId != null
     }
 
@@ -1504,7 +1873,7 @@ class AgentVC(
     }
 
     private fun updateOpeningTimelineInPlace(items: List<AgentTimelineItem>): Boolean {
-        if (chatOpening == null && preparedVM?.currentThread?.news == null &&
+        if (chatOpening == null && preparedVM?.currentThread?.hasPost != true &&
             timelineItems.none { it is AgentTimelineItem.Message && it.newsPost != null }
         ) {
             return false
@@ -1573,7 +1942,7 @@ class AgentVC(
                 false
             ).dispatchUpdatesTo(WRecyclerViewAdapter.OffsetUpdateCallback(rvAdapter, 0))
         }
-        updateNewsPostTails(previous, items)
+        updateFollowupTails(previous, items)
         return update == TimelineUpdate.IN_PLACE && isRefreshedOnCell
     }
 
@@ -1594,8 +1963,8 @@ class AgentVC(
     private fun hasSameTimelineRows(a: List<AgentTimelineItem>, b: List<AgentTimelineItem>) =
         a.size == b.size && a.indices.all { timelineRowKey(a, it) == timelineRowKey(b, it) }
 
-    // The News post that suggestions come under or leave loses or regains its tail
-    private fun updateNewsPostTails(
+    // The message that suggestions come under or leave loses or regains its tail
+    private fun updateFollowupTails(
         previous: List<AgentTimelineItem>,
         items: List<AgentTimelineItem>
     ) {
@@ -1610,7 +1979,7 @@ class AgentVC(
             val index = items.indexOfFirst {
                 it is AgentTimelineItem.Message && it.message.id == messageId
             }
-            if (index >= 0) updateNewsPostTail(index)
+            if (index >= 0) updateFollowupTail(index)
         }
     }
 
@@ -1820,6 +2189,9 @@ class AgentVC(
     }
 
     override fun onMessageAdded(message: AgentMessage, animated: Boolean) {
+        val sentSource = pendingSentSource.takeIf { message.role == AgentMessageRole.USER }
+        pendingSentSource = null
+        updateSupportPresentation()
         updateLoadError()
         updateMoreButton()
         updateThinkingGlow()
@@ -1843,15 +2215,37 @@ class AgentVC(
         val isEditInsertion = message.role == AgentMessageRole.USER &&
             editPresentation?.outgoingMessageId == null && editPresentation != null
         if (isEditInsertion) editPresentation?.outgoingMessageId = message.id
+        // The empty chat's first question takes the place of its suggestions, which left as it
+        // went: their row goes at once, and the question pins under the header at once
+        val isFirstQuestion = message.role == AgentMessageRole.USER && !isEditInsertion &&
+            oldItems.none { it is AgentTimelineItem.Message }
         var shouldStartOffscreenPin = false
+        val isSentToEnd = message.role == AgentMessageRole.USER &&
+            getAgentSentQuestionPlacement(viewport.isLiveTailDisabled) ==
+            AgentSentQuestionPlacement.END
+        val isAtEnd = viewport.isAtEnd
         if (message.role == AgentMessageRole.USER) {
+            val source = sentSource?.takeIf { !isEditInsertion }
+            sentMorphSource = source?.takeIf { it.kind is AgentSentMessageSource.Kind.Text }
+                ?.let { message.id to it }
+            // A tapped suggestion turns into its question at once, holding until its bubble is
+            // laid out
+            heldSentMorph?.second?.cancel()
+            heldSentMorph = source?.takeIf { it.kind is AgentSentMessageSource.Kind.Suggestion }
+                ?.let { AgentSuggestionMorph.start(view, { findMessageCell(message.id) }, it) }
+                ?.let { message.id to it }
             pendingIncomingReveals[message.id] = PendingIncomingReveal(message.id)
             outgoingMessageIdsAwaitingIncoming.add(message.id)
-            shouldStartOffscreenPin = viewport.prepareOutgoingMessage(
-                message.id,
-                oldItems,
-                forcePin = isEditInsertion
-            )
+            if (isSentToEnd) {
+                viewport.prepareMessageAtEnd()
+            } else {
+                shouldStartOffscreenPin = viewport.prepareOutgoingMessage(
+                    message.id,
+                    oldItems,
+                    forcePin = isEditInsertion,
+                    isInstant = isFirstQuestion
+                )
+            }
         } else if (message.role == AgentMessageRole.ASSISTANT) {
             val outgoingMessageId = outgoingMessageIdsAwaitingIncoming.removeFirstOrNull()
             val pendingReveal = outgoingMessageId?.let { pendingIncomingReveals[it] }
@@ -1863,16 +2257,16 @@ class AgentVC(
             }
         }
         if (animateFromIndex < 0) {
-            animateFromIndex = oldItems.size
+            animateFromIndex = if (isFirstQuestion) 0 else oldItems.size
             chatRecyclerView.doOnNextLayout {
                 animateFromIndex = -1
             }
         }
         // Visible trailing hints keep their place and collapse animated while the new
         // messages are appended after them.
-        val trailingHints = oldItems.lastOrNull() as? AgentTimelineItem.Hints
+        val trailingHints = (oldItems.lastOrNull() as? AgentTimelineItem.Hints)
+            ?.takeUnless { isFirstQuestion }
         var dismissalCell: AgentHintsCell? = null
-        var shouldScrollInitialHintsOffscreen = false
         if (trailingHints != null && dismissingHints == null) {
             dismissingHints = trailingHints
             dismissingHintsAnchorId = (
@@ -1881,18 +2275,15 @@ class AgentVC(
                 )?.message?.id
             val holder = chatRecyclerView.findViewHolderForAdapterPosition(oldItems.size - 1)
             dismissalCell = (holder as? WCell.Holder)?.cell as? AgentHintsCell
-            shouldScrollInitialHintsOffscreen = message.role == AgentMessageRole.USER &&
-                dismissingHintsAnchorId == null &&
-                dismissalCell != null
         }
         val newItems = buildTimelineItems(displayMessages)
         val isAppended =
             newItems.size > oldItems.size && newItems.subList(0, oldItems.size) == oldItems
-        applyTimeline(newItems, if (isAppended) TimelineUpdate.DIFF else TimelineUpdate.RELOAD)
-        if (trailingHints != null &&
-            dismissingHints === trailingHints &&
-            !shouldScrollInitialHintsOffscreen
-        ) {
+        applyTimeline(
+            newItems,
+            if (isAppended || isFirstQuestion) TimelineUpdate.DIFF else TimelineUpdate.RELOAD
+        )
+        if (trailingHints != null && dismissingHints === trailingHints) {
             if (dismissalCell != null) {
                 dismissalCell.collapse { finishHintsDismissal() }
             } else {
@@ -1900,6 +2291,21 @@ class AgentVC(
             }
         }
         when {
+            isSentToEnd -> {
+                viewport.scrollToBottom()
+                chatRecyclerView.doOnNextLayout {
+                    chatRecyclerView.post {
+                        val pendingReveal = pendingIncomingReveals[message.id]
+                        val messageIndex = viewport.timelineIndexOf(message.id)
+                        if (pendingReveal?.isOutgoingAnimationFinished == false &&
+                            chatRecyclerView.findViewHolderForAdapterPosition(messageIndex) == null
+                        ) {
+                            onOutgoingInsertAnimationFinished(message.id)
+                        }
+                    }
+                }
+            }
+
             message.role == AgentMessageRole.USER -> {
                 val preparePinning = {
                     chatRecyclerView.post {
@@ -1925,6 +2331,8 @@ class AgentVC(
                     chatRecyclerView.doOnNextLayout { preparePinning() }
                 }
             }
+
+            viewport.isLiveTailDisabled -> viewport.followNewMessages(isAtEnd)
 
             viewport.pendingPinMessageId != null ||
                 viewport.pinnedMessageId != null ||
@@ -1994,10 +2402,27 @@ class AgentVC(
 
     // The screen's edge glows while the Agent works on an answer it has not started writing
     private fun updateThinkingGlow() {
-        val glow = edgeGlow ?: return
-        val answer = displayMessages.lastOrNull { it.role == AgentMessageRole.ASSISTANT }
-        glow.setGlowing(isViewActive && answer != null && answer.isStreaming && !answer.hasText)
+        edgeGlow?.setGlowing(isViewActive && isThinking)
     }
+
+    /**
+     * As the chat comes back, from another screen or the background, the glow goes on while the Agent still thinks,
+     * and one it no longer needs goes at once rather than fading out
+     */
+    private fun settleThinkingGlow() {
+        val glow = edgeGlow ?: return
+        if (isThinking) {
+            updateThinkingGlow()
+        } else {
+            glow.hideAtOnce()
+        }
+    }
+
+    private val isThinking: Boolean
+        get() {
+            val answer = displayMessages.lastOrNull { it.role == AgentMessageRole.ASSISTANT }
+            return answer != null && answer.isStreaming && !answer.hasText
+        }
 
     override fun onFollowupsChanged(messageId: String, animated: Boolean) {
         streamRenderer.enqueue(messageId)
@@ -2144,7 +2569,7 @@ class AgentVC(
             revealReadyIncomingMessages()
         }
         pendingReveal.revealRunnable = reveal
-        chatRecyclerView.postDelayed(reveal, INCOMING_MESSAGE_DELAY_MS)
+        chatRecyclerView.postDelayed(reveal, incomingMessageDelayMs)
     }
 
     private fun revealReadyIncomingMessages() {
@@ -2203,6 +2628,8 @@ class AgentVC(
         pendingIncomingReveals.clear()
         outgoingMessageIdsAwaitingIncoming.clear()
         hiddenIncomingMessageIds.clear()
+        // The answer the chat opens with stays out until its question has landed
+        heldOpeningAnswerId?.let(hiddenIncomingMessageIds::add)
         viewport.clearOutgoingPlacement()
     }
 
@@ -2224,7 +2651,7 @@ class AgentVC(
         chatRecyclerView.doOnNextLayout { pendingHintsReveal = false }
     }
 
-    // A News post that suggestions hang from, right under it, has no tail, as an answer's bubble does
+    // A message that suggestions hang from, right under it, has no tail
     private fun hasFollowupsBelow(index: Int): Boolean {
         val message = (timelineItems.getOrNull(index) as? AgentTimelineItem.Message)?.message
             ?: return false
@@ -2232,9 +2659,12 @@ class AgentVC(
         return shouldShowFollowups(message) || hints?.followupMessageId != null
     }
 
-    private fun updateNewsPostTail(index: Int) {
+    private fun updateFollowupTail(index: Int) {
         val holder = chatRecyclerView.findViewHolderForAdapterPosition(index) as? WCell.Holder
-        (holder?.cell as? AgentNewsPostCell)?.setHasFollowupsBelow(hasFollowupsBelow(index))
+        when (val cell = holder?.cell) {
+            is AgentMessageCell -> cell.setHasFollowupsBelow(hasFollowupsBelow(index))
+            is AgentNewsPostCell -> cell.setHasFollowupsBelow(hasFollowupsBelow(index))
+        }
     }
 
     private fun onHintsCollapseFrame(delta: Int) {
@@ -2304,7 +2734,9 @@ class AgentVC(
                     item.message,
                     chatRecyclerView.width,
                     preparedVM?.publishesAnswerLinks == true,
-                    hasFollowupsBelow = shouldShowFollowups(item.message)
+                    hasFollowupsBelow = hasFollowupsBelow(idx),
+                    areActionsDisabled = preparedVM?.isCachedMessage(item.message.id) == true,
+                    hasAuthor = item.hasAuthor
                 )
 
                 is AgentNewsPostCell -> {
@@ -2393,12 +2825,12 @@ class AgentVC(
         chatRecyclerView.post { if (isViewActive && !isDestroyed) open() }
     }
 
-    private fun openNewsPhoto(messageId: String, news: AgentV2ThreadNewsCard) {
+    private fun openNewsPhoto(messageId: String, post: AgentNewsPostContent) {
         val window = window ?: return
-        val url = news.imageUrl ?: return
+        val url = post.imageUrl ?: return
         cancelDictation()
         view.hideKeyboard()
-        MediaViewerVC.present(window, listOf(agentNewsMediaViewerItem(window, url, news)), 0) {
+        MediaViewerVC.present(window, listOf(agentNewsMediaViewerItem(window, url, post)), 0) {
             chatRecyclerView.children
                 .filterIsInstance<AgentNewsPostCell>()
                 .firstOrNull { it.shownPostId == messageId }
@@ -2407,9 +2839,31 @@ class AgentVC(
     }
 
     private fun showCopyBulletin() {
-        val bottomOffset = (view.height - composerView.top).coerceAtLeast(0)
-        copyBulletin.show(view, LocaleController.getString("Message Copied"), bottomOffset)
+        val text = LocaleController.getString("\$agent_message_copied")
+        bulletin.showCopied(view, chatRecyclerView, text, ::bulletinBottomOffset)
     }
+
+    // The first like or dislike explains itself in the bulletin, with the reaction's own animation as its icon
+    private fun showReactionBulletin(feedback: AgentAnswerFeedback, text: String) {
+        val animation =
+            AgentReactionAnimations.drawable(context, feedback, AgentReactionAnimation.CENTER)
+                ?: return
+        bulletin.show(
+            view,
+            chatRecyclerView,
+            text,
+            ::bulletinBottomOffset,
+            animation,
+            AgentBulletinDurations.REACTION_MS
+        )
+    }
+
+    // The bulletin stands on the question field's top edge, the composer's visible top, wherever the keyboard carries
+    // the composer; it rises from behind that edge and hides behind it
+    private fun bulletinBottomOffset(): Int =
+        (view.height - contentContainer.y - composerView.y - composerView.fieldTop)
+            .roundToInt()
+            .coerceAtLeast(0)
 
     private fun onCopyPopupVisibilityChanged(visible: Boolean) {
         if (visible) {
@@ -2422,10 +2876,12 @@ class AgentVC(
         chatRecyclerView.suppressLayout(visible || !streamRenderer.isActive)
     }
 
+    // The chat's rows a menu's message shows in, lifted over the dim: from the header's bottom down to the field's top,
+    // as the chat shows through the composer's space above its field
     private fun getMenuRows(): IntRange {
         val top = navigationBar?.let { it.getLocationInWindow().y + it.height }
             ?: chatRecyclerView.getLocationInWindow().y
-        return top until composerView.getLocationInWindow().y
+        return top until composerView.getLocationInWindow().y + composerView.fieldTop
     }
 
     override fun onHintsUpdated(hints: List<AgentHint>) {
@@ -2487,7 +2943,8 @@ class AgentVC(
                 displayMessages,
                 model.historyCursor,
                 model.currentThread.news,
-                news
+                news,
+                model.currentThread.digest
             )
                 .takeIf { messages ->
                     messages.isNotEmpty() && messages.all { it.message.isFailure }
@@ -2518,6 +2975,7 @@ class AgentVC(
                 agentState != AgentVM.State.CLEARING && editFadeAnimator == null &&
                 !isDissolving && regeneratingMessageId == null && !model.isInputBlockedByLimit
         )
+        composerView.isAnswering = model != null && agentState == AgentVM.State.RUNNING
         // As the design's "Limit Reached" frame shows it, the composer's contents are at half their opacity while a
         // limit blocks sending
         composerView.contentAlpha =
@@ -2560,7 +3018,7 @@ class AgentVC(
         if (agentState == AgentVM.State.CONSENT_REQUIRED ||
             agentState == AgentVM.State.ACCEPTING_CONSENT
         ) {
-            consentView.showError(agentUnavailableText())
+            Toast.makeText(context, agentUnavailableText(), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -2624,27 +3082,31 @@ class AgentVC(
     }
 
     // An existing chat whose messages are still to load shows placeholder bubbles in place of its timeline, which
-    // a News discussion already fills with its post
+    // a News discussion already fills with its post. A card flying in from the feed lands on the post as it is,
+    // without placeholders turning into it under the card.
     private fun showSkeletonIfLoading() {
         val model = preparedVM ?: return
-        if (chatOpening != null || model.state != AgentVM.State.LOADING ||
-            model.messages.isNotEmpty() || model.currentThread.messageCount == 0
-        ) {
-            return
-        }
+        val hasOpening = chatOpening != null
+        if (newsPostArrival != null || !shouldShowAgentMessagesSkeleton(model, hasOpening)) return
         skeletonReveal.show()
+        updateBlurViews(chatRecyclerView)
     }
 
     private fun revealMessagesFromSkeleton() {
         skeletonReveal.reveal(hasRows = displayMessages.isNotEmpty())
+        syncTopBlurAfterLayout()
     }
 
-    private fun hideSkeleton() = skeletonReveal.hide()
+    private fun hideSkeleton() {
+        skeletonReveal.hide()
+        syncTopBlurAfterLayout()
+    }
 
     // Whether the suggestions under the answer show, as the timeline lists them
     private fun shouldShowFollowups(message: AgentMessage): Boolean {
         val owner = displayMessages.findFollowupOwner() ?: return false
-        return owner.id == message.id && owner.followups.isNotEmpty() && !owner.isStreaming &&
+        val followups = preparedVM?.visibleFollowups(owner.id) ?: owner.followups
+        return owner.id == message.id && followups.isNotEmpty() && !owner.isStreaming &&
             (!owner.newsPost || preparedVM?.state == AgentVM.State.READY) &&
             !hiddenIncomingMessageIds.contains(owner.id) && dismissingHints == null
     }
@@ -2669,10 +3131,21 @@ class AgentVC(
             presentationMessages,
             preparedVM?.historyCursor,
             preparedVM?.currentThread?.news,
-            news
+            news,
+            preparedVM?.currentThread?.digest
         )
         val shownItems = messageItems.filterNot { hiddenIncomingMessageIds.contains(it.message.id) }
-        for (item in shownItems.insertFailureLines()) {
+        val hasAuthors = presentationMessages.hasSupportOperatorJoined()
+        for (shownItem in shownItems.insertFailureLines()) {
+            val item = if (hasAuthors && shownItem.newsPost == null &&
+                shownItem.message.role.let {
+                    it == AgentMessageRole.ASSISTANT || it == AgentMessageRole.OPERATOR
+                }
+            ) {
+                shownItem.copy(hasAuthor = true)
+            } else {
+                shownItem
+            }
             val message = item.message
             if (lastDate == null || message.date.time - lastDate.time > DATE_HEADER_GAP_MS) {
                 items.add(AgentTimelineItem.DateHeader(message.date))
@@ -2696,24 +3169,20 @@ class AgentVC(
             return items
         }
         val followupOwner = messages.findFollowupOwner()
-        val followups = followupOwner?.followups.orEmpty()
+        val followups = followupOwner?.let {
+            preparedVM?.visibleFollowups(it.id) ?: it.followups
+        }.orEmpty()
         val pendingNews = shownItems.lastOrNull()?.takeIf { it.newsPost != null }
         if ((followups.isEmpty() || agentState == AgentVM.State.LOADING) &&
-            pendingNews != null && !newsFollowupsExpired &&
+            pendingNews != null && !newsFollowupWait.isExpired &&
             displayMessages.none { it.role == AgentMessageRole.USER } &&
             preparedVM?.state != AgentVM.State.ERROR
         ) {
-            if (newsFollowupsTimeout == null) {
-                val timeout = Runnable {
-                    newsFollowupsExpired = true
-                    onHintsUpdated(emptyList())
-                }
-                newsFollowupsTimeout = timeout
-                view.postDelayed(timeout, 25_000)
+            if (newsFollowupWait.arePlaceholdersDue()) {
+                items.add(
+                    AgentTimelineItem.Hints(emptyList(), pendingNews.message.id, isLoading = true)
+                )
             }
-            items.add(
-                AgentTimelineItem.Hints(emptyList(), pendingNews.message.id, isLoading = true)
-            )
             return items
         }
         if (followups.isNotEmpty() && followupOwner?.isStreaming == false &&
@@ -2753,6 +3222,7 @@ class AgentVC(
                 val item = timelineItems[indexPath.row] as AgentTimelineItem.Message
                 when {
                     item.newsPost != null -> NEWS_POST_CELL
+                    item.message.supportEvent != null -> SUPPORT_EVENT_CELL
                     item.message.role == AgentMessageRole.SYSTEM -> SYSTEM_CELL
                     else -> MESSAGE_CELL
                 }
@@ -2763,6 +3233,7 @@ class AgentVC(
         when (cellType) {
             DATE_CELL -> AgentDateHeaderCell(context)
             SYSTEM_CELL -> AgentSystemMessageCell(context)
+            SUPPORT_EVENT_CELL -> AgentSupportEventCell(context)
             HINTS_CELL -> AgentHintsCell(context)
             UNREAD_CELL -> AgentUnreadDividerCell(context)
             NEWS_POST_CELL -> AgentNewsPostCell(context, messageTextCache)
@@ -2808,12 +3279,16 @@ class AgentVC(
 
             is AgentTimelineItem.Hints -> {
                 (cellHolder.cell as AgentHintsCell).apply {
-                    onHintTap = { hint ->
+                    onHintTap = { hint, card ->
                         val messageId = item.followupMessageId
-                        if (messageId != null) {
-                            sendFollowup(messageId, hint.id)
-                        } else {
-                            sendMessage(hint.prompt, vm.hintEntryPoint(hint))
+                        withConsent {
+                            sendSuggestion(card, this) {
+                                if (messageId != null) {
+                                    preparedVM?.sendFollowup(messageId, hint.id) == true
+                                } else {
+                                    sendMessage(hint.prompt, vm.hintEntryPoint(hint))
+                                }
+                            }
                         }
                     }
                     onCollapseFrame = { delta -> onHintsCollapseFrame(delta) }
@@ -2916,8 +3391,13 @@ class AgentVC(
                             preparedVM?.canRegenerateMessage(messageId) == true
                         }
                         cell.onRegenerate = { regenerateMessage(messageId) }
-                        cell.onRate = { feedback ->
-                            vm.rateMessage(messageId, feedback) {
+                        cell.onRate = { ratedMessageId, feedback, onSettled ->
+                            vm.rateMessage(
+                                ratedMessageId,
+                                feedback,
+                                onSaved = { onSettled(true) }
+                            ) {
+                                onSettled(false)
                                 Toast.makeText(
                                     context,
                                     LocaleController.getString("\$agent_feedback_failed"),
@@ -2932,6 +3412,7 @@ class AgentVC(
                             }
                         }
                         cell.onCopied = ::showCopyBulletin
+                        cell.onReactionToast = ::showReactionBulletin
                         cell.onPopupVisibilityChanged = ::onCopyPopupVisibilityChanged
                         cell.canOpenMenuOnTap = ::canOpenMenuOnTap
                         cell.menuPresenter = ::presentMenuAfterKeyboard
@@ -2965,12 +3446,21 @@ class AgentVC(
                             } else {
                                 null
                             }
+                        val hasSentMorph = sentMorphSource?.first == messageId ||
+                            heldSentMorph?.first == messageId
+                        cell.startSentMorph = if (animate && hasSentMorph) {
+                            ::startSentMorph
+                        } else {
+                            null
+                        }
                         cell.configure(
                             item.message,
                             rv.width,
                             preparedVM?.publishesAnswerLinks == true,
                             animate,
-                            hasFollowupsBelow = shouldShowFollowups(item.message)
+                            hasFollowupsBelow = hasFollowupsBelow(indexPath.row),
+                            areActionsDisabled = preparedVM?.isCachedMessage(messageId) == true,
+                            hasAuthor = item.hasAuthor
                         )
                     }
 
@@ -2978,6 +3468,8 @@ class AgentVC(
                         item.message,
                         buildFailureRetry(item.message)
                     )
+
+                    is AgentSupportEventCell -> cell.configure(item.message)
                 }
             }
         }

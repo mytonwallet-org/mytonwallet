@@ -13,6 +13,8 @@ import android.view.Choreographer
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.core.graphics.ColorUtils
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentDebugAnimations
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentOnScreenTracker
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -37,7 +39,16 @@ internal class AgentThreadListSkeletonView(context: Context) :
     private var shimmer: LinearGradient? = null
     private var startTimeNanos = 0L
     private var isFrameScheduled = false
-    private var isShownOnScreen = false
+
+    // A page of the tabs laid out beside the selected one still counts as visible
+    private val onScreenTracker = AgentOnScreenTracker(this) { scheduleFrameIfNeeded() }
+    private val isShownOnScreen: Boolean
+        get() = onScreenTracker.isOnScreen
+
+    private val onSystemAnimationsChanged: () -> Unit = {
+        invalidate()
+        scheduleFrameIfNeeded()
+    }
 
     private val frameCallback = Choreographer.FrameCallback {
         isFrameScheduled = false
@@ -61,12 +72,19 @@ internal class AgentThreadListSkeletonView(context: Context) :
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
-        isShownOnScreen = isVisible
-        scheduleFrameIfNeeded()
+        onScreenTracker.setVisibilityAggregated(isVisible)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        onScreenTracker.attach()
+        AgentDebugAnimations.addListener(context, onSystemAnimationsChanged)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        onScreenTracker.detach()
+        AgentDebugAnimations.removeListener(context, onSystemAnimationsChanged)
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         isFrameScheduled = false
     }
@@ -98,7 +116,8 @@ internal class AgentThreadListSkeletonView(context: Context) :
     }
 
     private val isMoving: Boolean
-        get() = isShownOnScreen && isAttachedToWindow && WGlobalStorage.getAreAnimationsActive()
+        get() = isShownOnScreen && isAttachedToWindow && WGlobalStorage.getAreAnimationsActive() &&
+            AgentDebugAnimations.areSystemAnimationsOn(context)
 
     private fun scheduleFrameIfNeeded() {
         if (!isMoving || isFrameScheduled) return

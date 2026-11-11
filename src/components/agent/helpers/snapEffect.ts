@@ -6,21 +6,30 @@ import {
 
 import styles from '../SnapEffect.module.scss';
 
-/** How a removed message leaves: as dust, shrinking where dust is not drawn, or only fading where motion is reduced */
-export type SnapEffectKind = 'dust' | 'shrink' | 'fade';
+/** How a removed message or chat leaves: as dust, or fading out where dust is not drawn or motion is reduced */
+export type SnapEffectKind = 'dust' | 'fade';
 
 // Telegram Web A turns deleted messages to dust with an SVG filter over a copy of the message. It leaves Firefox
-// (https://bugzilla.mozilla.org/show_bug.cgi?id=1896504), Safari and phones out and shrinks the message there instead.
+// (https://bugzilla.mozilla.org/show_bug.cgi?id=1896504), Safari and phones out, where the message fades out instead.
 const IS_SNAP_EFFECT_SUPPORTED = !IS_IOS && !IS_ANDROID && !IS_FIREFOX && !IS_SAFARI;
 
 const SNAP_EFFECT_DURATION = 1000;
-const SNAP_SHRINK_DURATION = 200;
-const SNAP_FADE_DURATION = 200;
+const SNAP_FADE_DURATION = 350;
+// The place a removed message or chat leaves closes once its dust has mostly drifted off, as Telegram Web A removes a
+// message after its snap, or once it has faded out
+const SNAP_GAP_CLOSE_DELAY = 600;
 
 // A ghost whose animation end never comes is still removed
 const GHOST_REMOVAL_MARGIN = 500;
 
+const LAYER_ID = 'agent-snap-effect-layer';
+
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+// Inherited colors that follow the text color by default. Copied onto the copy as the element's resolved color, they
+// would paint the text of everything inside in that one color, as a gradient label or a colored suggestion.
+const CURRENT_COLOR_PROPERTIES = new Set([
+  '-webkit-text-fill-color', '-webkit-text-stroke-color', 'text-emphasis-color', 'caret-color',
+]);
 // Telegram Web A's dust: a fine noise eats the copy away while two noises, a broad drift and a grain, scatter it as far
 // as three times its shorter side
 const DUST_NOISE_FREQUENCY = 0.5;
@@ -32,18 +41,32 @@ const DUST_SPREAD = 3;
 
 export function getSnapEffectKind(shouldAnimate: boolean): SnapEffectKind {
   if (!shouldAnimate) return 'fade';
-  return IS_SNAP_EFFECT_SUPPORTED ? 'dust' : 'shrink';
+  return IS_SNAP_EFFECT_SUPPORTED ? 'dust' : 'fade';
 }
 
 /**
- * Copies the element into a ghost standing over it in the layer, which turns to dust, shrinks or fades away and
- * then removes itself. It reads the layout, so it is called in a measure phase and the ghost is added in a mutation.
+ * The layer ghosts turn to dust in. It covers the window over everything, as Telegram Web A's does, so the dust drifts
+ * past the list it leaves instead of being cut at its edges.
  */
-export function createSnapGhost(element: HTMLElement, layerRect: DOMRect, kind: SnapEffectKind) {
-  const rect = element.getBoundingClientRect();
-  const left = rect.left - layerRect.left;
-  const top = rect.top - layerRect.top;
-  const { width, height } = rect;
+export function getSnapEffectLayer() {
+  let layer = document.getElementById(LAYER_ID);
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = LAYER_ID;
+    layer.classList.add(styles.layer);
+    layer.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+
+/**
+ * Copies the element into a ghost standing over it in the snap layer, which turns to dust or fades away and
+ * then removes itself. It reads the layout, so it is called in a measure phase and the ghost is added to
+ * `getSnapEffectLayer()` in a mutation.
+ */
+export function createSnapGhost(element: HTMLElement, kind: SnapEffectKind) {
+  const { left, top, width, height } = element.getBoundingClientRect();
   const copy = copyElement(element);
 
   let ghost: HTMLElement | SVGSVGElement;
@@ -72,7 +95,7 @@ export function createSnapGhost(element: HTMLElement, layerRect: DOMRect, kind: 
 
   ghost.classList.add(
     styles.ghost,
-    kind === 'dust' ? styles.dust : kind === 'shrink' ? styles.shrinking : styles.fading,
+    kind === 'dust' ? styles.dust : styles.fading,
   );
   ghost.style.left = `${left}px`;
   ghost.style.top = `${top}px`;
@@ -88,6 +111,11 @@ export function createSnapGhost(element: HTMLElement, layerRect: DOMRect, kind: 
   window.setTimeout(removeGhost, getSnapEffectDuration(kind) + GHOST_REMOVAL_MARGIN);
 
   return ghost;
+}
+
+/** How long the place of what leaves holds before the rest closes it, so they don't run into its dust */
+export function getSnapGapCloseDelay(kind: SnapEffectKind) {
+  return kind === 'dust' ? SNAP_GAP_CLOSE_DELAY : SNAP_FADE_DURATION;
 }
 
 // The copy takes the element's computed look, so that it stays the same out of the list, as in Web A
@@ -113,8 +141,11 @@ function copyElement(element: HTMLElement) {
   });
 
   const computedStyle = window.getComputedStyle(element);
+  const { color } = computedStyle;
   Array.from(computedStyle).forEach((key) => {
-    copy.style.setProperty(key, computedStyle.getPropertyValue(key), 'important');
+    const value = computedStyle.getPropertyValue(key);
+    if (CURRENT_COLOR_PROPERTIES.has(key) && value === color) return;
+    copy.style.setProperty(key, value, 'important');
   });
   // The copy stands where the ghost is, as the element had settled
   copy.style.setProperty('margin', '0', 'important');
@@ -136,8 +167,8 @@ function copyCanvas(source: HTMLCanvasElement, copy: HTMLCanvasElement) {
   }
 }
 
-export function getSnapEffectDuration(kind: SnapEffectKind) {
-  return kind === 'dust' ? SNAP_EFFECT_DURATION : kind === 'shrink' ? SNAP_SHRINK_DURATION : SNAP_FADE_DURATION;
+function getSnapEffectDuration(kind: SnapEffectKind) {
+  return kind === 'dust' ? SNAP_EFFECT_DURATION : SNAP_FADE_DURATION;
 }
 
 function createDustFilter(id: string, smallestSide: number, seed: number) {

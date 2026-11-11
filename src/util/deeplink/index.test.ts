@@ -1,3 +1,4 @@
+import { Address } from '@ton/core/dist/address/Address';
 import { getActions, getGlobal } from '../../global';
 
 import type { Account, GlobalState } from '../../global/types';
@@ -436,12 +437,46 @@ describe('processSelfDeeplink', () => {
       else expect(mockActions.setSwapAmountOut).not.toHaveBeenCalled();
     });
 
+    it('waits for the swap token list when a link token is not loaded yet', async () => {
+      setTimeout(() => {
+        mockGlobal.swapTokenInfo = {
+          bySlug: { ...mockGlobal.swapTokenInfo.bySlug, 'ton-new': { slug: 'ton-new' } as any },
+          isLoaded: true,
+        };
+      }, 150);
+
+      const result = await processSelfDeeplink('mtw://swap?in=toncoin&out=ton-new');
+
+      expect(result).toBe(true);
+      expect(mockActions.showError).not.toHaveBeenCalled();
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: TONCOIN.slug,
+        tokenOutSlug: 'ton-new',
+        amountIn: DEFAULT_SWAP_AMOUNT,
+      });
+    });
+
+    it('reports an unavailable swap when the swap token list never loads', async () => {
+      jest.useFakeTimers();
+      try {
+        const resultPromise = processSelfDeeplink('mtw://swap?in=toncoin&out=ton-new');
+        await jest.advanceTimersByTimeAsync(10_000);
+
+        expect(await resultPromise).toBe(true);
+        expect(mockActions.showError).toHaveBeenCalledWith({ error: '$swap_service_unavailable' });
+        expect(mockActions.startSwap).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('should show error without substituting tokenInSlug when in param is unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
           [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
         },
+        isLoaded: true,
       };
 
       const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=ton-usdt&utm_source=partner');
@@ -460,6 +495,7 @@ describe('processSelfDeeplink', () => {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
           [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
         },
+        isLoaded: true,
       };
 
       const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin');
@@ -477,6 +513,7 @@ describe('processSelfDeeplink', () => {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
           [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
         },
+        isLoaded: true,
       };
 
       const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token`);
@@ -494,6 +531,7 @@ describe('processSelfDeeplink', () => {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
           [TON_USDT_MAINNET.slug]: { slug: TON_USDT_MAINNET.slug } as any,
         },
+        isLoaded: true,
       };
 
       const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out');
@@ -968,6 +1006,23 @@ describe('processSelfDeeplink', () => {
           tokenSlug: TONCOIN.slug,
           amount: 5n,
           comment: 'Hello',
+        }),
+      );
+    });
+  });
+
+  describe('Offramp', () => {
+    it.each(['ton', 'gram', 'GRAM'])('should start Toncoin transfer for baseCurrencyCode=%s', async (code) => {
+      const result = await processSelfDeeplink(
+        `mtw://offramp?depositWalletAddress=${TEST_TON_ADDRESS}&baseCurrencyCode=${code}&baseCurrencyAmount=1`,
+      );
+
+      expect(result).toBe(true);
+      expect(mockActions.startTransfer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toAddress: TEST_TON_ADDRESS,
+          tokenSlug: TONCOIN.slug,
+          amount: 1_000_000_000n,
         }),
       );
     });
@@ -1484,6 +1539,39 @@ describe('processSelfDeeplink Transaction command', () => {
         txId,
         chain: 'tron',
         activities: mockActivities,
+      });
+    });
+
+    it('should open the wallet the activities are parsed for and hide tiny transfers as its history does', async () => {
+      const txId = '7L5W9sxhKIhl/N0aXP6CEXaBxLF6p2wRlMRkD9d2G/U=';
+      const tinyIncomingTransfer = {
+        kind: 'transaction',
+        slug: TONCOIN.slug,
+        amount: 964669n,
+        fromAddress: 'EQCeimEuQx6sEw64-4L8s3_lEEfnuw5EI-MJCcuUSjZhdsP3',
+        toAddress: TEST_TON_ADDRESS,
+        isIncoming: true,
+      };
+      const tokenTransfer = {
+        kind: 'transaction',
+        slug: TON_USDT_MAINNET.slug,
+        amount: -1840163920n,
+        fromAddress: TEST_TON_ADDRESS,
+        toAddress: 'UQAWHBhdRcIWKIdCu3ceR6lFhAtE8_Ycx6ODKY_iyNMGIVcQ',
+        isIncoming: false,
+      };
+      mockActivities = [tinyIncomingTransfer, tokenTransfer];
+
+      const result = await processSelfDeeplink(`https://my.tt/tx/ton/${encodeURIComponent(txId)}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTemporaryViewAccount).toHaveBeenCalledWith({
+        addressByChain: { ton: Address.parse(TEST_TON_ADDRESS).toRawString() },
+      });
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'ton',
+        activities: [tokenTransfer],
       });
     });
   });

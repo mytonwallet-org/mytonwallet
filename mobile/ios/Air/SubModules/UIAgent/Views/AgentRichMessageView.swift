@@ -10,6 +10,7 @@ private enum AgentRichMessageMetrics {
     static let maximumColumnWidth: CGFloat = 220
     static let minimumRowHeight: CGFloat = 36
     static let tableCornerRadius: CGFloat = 8
+    static let tableBorderWidth: CGFloat = 1
     static let maximumRenderedRows = 200
     static let maximumRenderedCells = 1_000
 }
@@ -100,12 +101,16 @@ final class AgentRichMessageView: UIStackView {
         )
     }
 
+    /// `isStreaming`: the answer is still arriving, at the end of its last block, where a marker not yet closed waits
+    /// for its text rather than showing
     func configure(
         blocks: [AgentMessageBlock],
         textColor: UIColor,
         maximumContentWidth: CGFloat,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont = AgentMessageTextRenderer.baseFont,
+        isStreaming: Bool = false,
         onURLTap: ((URL) -> Void)?
     ) {
         arrangedSubviews.forEach { view in
@@ -121,10 +126,12 @@ final class AgentRichMessageView: UIStackView {
                 return ([table.title] + table.rows.flatMap { $0.map(\.text) })
                     .compactMap { $0 }
                     .joined(separator: "\n")
+            case .code(let code):
+                return code.text
             }
         }.joined(separator: "\n")
 
-        for block in blocks {
+        for (index, block) in blocks.enumerated() {
             let view: UIView
             switch block {
             case .text(let text):
@@ -133,6 +140,8 @@ final class AgentRichMessageView: UIStackView {
                     textColor: textColor,
                     detectsLinks: detectsLinks,
                     markdownProfile: markdownProfile,
+                    baseFont: baseFont,
+                    isArriving: isStreaming && index == blocks.count - 1,
                     onURLTap: onURLTap
                 )
             case .table(let table):
@@ -143,9 +152,19 @@ final class AgentRichMessageView: UIStackView {
                     maximumContentWidth: maximumContentWidth,
                     detectsLinks: detectsLinks,
                     markdownProfile: markdownProfile,
+                    baseFont: baseFont,
                     onURLTap: onURLTap
                 )
                 view = tableView
+            case .code(let code):
+                let codeView = AgentCodeBlockView()
+                codeView.configure(code: code, baseFont: baseFont)
+                codeView.onCopy = { AgentClipboard.copy(code.text) }
+                // A code block spans the text's full width, whatever its lines' lengths
+                let fullWidth = codeView.widthAnchor.constraint(equalToConstant: maximumContentWidth)
+                fullWidth.priority = .defaultHigh
+                fullWidth.isActive = true
+                view = codeView
             }
             addArrangedSubview(view)
             view.widthAnchor.constraint(lessThanOrEqualToConstant: maximumContentWidth).isActive = true
@@ -157,6 +176,8 @@ final class AgentRichMessageView: UIStackView {
         textColor: UIColor,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont,
+        isArriving: Bool,
         onURLTap: ((URL) -> Void)?
     ) -> AgentRichTextView {
         let textView = AgentRichTextView()
@@ -165,6 +186,8 @@ final class AgentRichMessageView: UIStackView {
             textColor: textColor,
             detectsLinks: detectsLinks,
             markdownProfile: markdownProfile,
+            baseFont: baseFont,
+            isArriving: isArriving,
             onURLTap: onURLTap
         )
         return textView
@@ -218,6 +241,7 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
         baseFont: UIFont = AgentMessageTextRenderer.baseFont,
         isHeader: Bool = false,
         alignment: AgentMessageTableAlignment = .start,
+        isArriving: Bool = false,
         onURLTap: ((URL) -> Void)?
     ) {
         self.onURLTap = onURLTap
@@ -232,21 +256,26 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
                 rendersMarkdown: rendersMarkdown,
                 detectsLinks: detectsLinks,
                 markdownProfile: markdownProfile,
+                isStreaming: isArriving,
                 baseFont: baseFont,
                 linkColor: tintColor
             )
         )
         let fullRange = NSRange(location: 0, length: attributedText.length)
         if isHeader, fullRange.length > 0 {
+            // A header is semibold, as Telegram's are, and a face without that weight, as Persian's, takes its bold
             attributedText.enumerateAttribute(.font, in: fullRange) { value, range, _ in
                 let font = (value as? UIFont) ?? baseFont
-                let traits = font.fontDescriptor.symbolicTraits.union(.traitBold)
-                guard let descriptor = font.fontDescriptor.withSymbolicTraits(traits) else { return }
-                attributedText.addAttribute(
-                    .font,
-                    value: UIFont(descriptor: descriptor, size: font.pointSize),
-                    range: range
-                )
+                let traits = font.fontDescriptor.symbolicTraits
+                let headerFont: UIFont
+                if font.fontName.hasPrefix("."), !traits.contains(.traitMonoSpace) {
+                    headerFont = .systemFont(ofSize: font.pointSize, weight: traits.contains(.traitBold) ? .bold : .semibold)
+                } else if let descriptor = font.fontDescriptor.withSymbolicTraits(traits.union(.traitBold)) {
+                    headerFont = UIFont(descriptor: descriptor, size: font.pointSize)
+                } else {
+                    return
+                }
+                attributedText.addAttribute(.font, value: headerFont, range: range)
             }
         }
         if fullRange.length > 0 {
@@ -349,6 +378,7 @@ private final class AgentTableBlockView: UIStackView {
         maximumContentWidth: CGFloat,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont,
         onURLTap: ((URL) -> Void)?
     ) {
         if let title = table.title, !title.isEmpty {
@@ -358,6 +388,7 @@ private final class AgentTableBlockView: UIStackView {
                 textColor: textColor,
                 detectsLinks: detectsLinks,
                 markdownProfile: markdownProfile,
+                baseFont: baseFont,
                 isHeader: true,
                 onURLTap: onURLTap
             )
@@ -372,6 +403,7 @@ private final class AgentTableBlockView: UIStackView {
             maximumContentWidth: maximumContentWidth,
             detectsLinks: detectsLinks,
             markdownProfile: markdownProfile,
+            baseFont: baseFont,
             onURLTap: onURLTap
         )
         addArrangedSubview(scrollView)
@@ -415,6 +447,7 @@ private final class AgentTableScrollView: UIScrollView {
         maximumContentWidth: CGFloat,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont,
         onURLTap: ((URL) -> Void)?
     ) {
         self.maximumContentWidth = maximumContentWidth
@@ -423,6 +456,7 @@ private final class AgentTableScrollView: UIScrollView {
             textColor: textColor,
             detectsLinks: detectsLinks,
             markdownProfile: markdownProfile,
+            baseFont: baseFont,
             onURLTap: onURLTap
         )
         invalidateIntrinsicContentSize()
@@ -438,6 +472,13 @@ private final class AgentTableScrollView: UIScrollView {
     }
 }
 
+/// A table's colors over the answer's bubble, as Telegram's incoming tables: the header row darker by black in the light
+/// theme and lighter by white in the dark one, and the borders likewise
+enum AgentTableColors {
+    static let headerFill = UIColor.label.withAlphaComponent(0.05)
+    static let border = UIColor.label.withAlphaComponent(0.12)
+}
+
 @MainActor
 private final class AgentTableGridView: UIView {
     private struct RenderedCell {
@@ -448,7 +489,6 @@ private final class AgentTableGridView: UIView {
     private var renderedCells: [RenderedCell] = []
     private var tableSize = CGSize(width: 1, height: 1)
     private var isBordered = true
-    private var isStriped = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -470,6 +510,7 @@ private final class AgentTableGridView: UIView {
         textColor: UIColor,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont,
         onURLTap: ((URL) -> Void)?
     ) {
         subviews.forEach { $0.removeFromSuperview() }
@@ -478,7 +519,6 @@ private final class AgentTableGridView: UIView {
         let table = AgentMessageTableRenderer.limitedForRendering(table)
         let grid = AgentMessageBlockParser.resolveGrid(table)
         isBordered = table.isBordered
-        isStriped = table.isStriped
 
         for placement in grid.cells {
             let cellView = AgentTableCellView(
@@ -489,6 +529,7 @@ private final class AgentTableGridView: UIView {
                 textColor: textColor,
                 detectsLinks: detectsLinks,
                 markdownProfile: markdownProfile,
+                baseFont: baseFont,
                 onURLTap: onURLTap
             )
             addSubview(cellView)
@@ -507,25 +548,16 @@ private final class AgentTableGridView: UIView {
             cornerRadius: AgentRichMessageMetrics.tableCornerRadius
         ).addClip()
 
-        for renderedCell in renderedCells {
-            let fillColor: UIColor?
-            if renderedCell.placement.cell.isHeader {
-                fillColor = UIColor.label.withAlphaComponent(0.055)
-            } else if isStriped, renderedCell.placement.row.isMultiple(of: 2) == false {
-                fillColor = UIColor.label.withAlphaComponent(0.028)
-            } else {
-                fillColor = nil
-            }
-            fillColor?.setFill()
-            if fillColor != nil {
-                context.fill(renderedCell.view.frame)
-            }
+        // Telegram's grey table: the header row a shade off the bubble, the other rows on the bubble itself
+        AgentTableColors.headerFill.setFill()
+        for renderedCell in renderedCells where renderedCell.placement.cell.isHeader {
+            context.fill(renderedCell.view.frame)
         }
 
         if isBordered {
-            let scale = window?.screen.scale ?? UIScreen.main.scale
-            context.setStrokeColor(UIColor.air.separator.cgColor)
-            context.setLineWidth(1 / scale)
+            let lineWidth = AgentRichMessageMetrics.tableBorderWidth
+            context.setStrokeColor(AgentTableColors.border.cgColor)
+            context.setLineWidth(lineWidth)
             for renderedCell in renderedCells {
                 let frame = renderedCell.view.frame
                 if frame.minX > 0 {
@@ -538,13 +570,13 @@ private final class AgentTableGridView: UIView {
                 }
             }
             context.strokePath()
-            UIColor.air.separator.setStroke()
-            let inset = 0.5 / scale
+            AgentTableColors.border.setStroke()
+            let inset = lineWidth / 2
             let border = UIBezierPath(
                 roundedRect: bounds.insetBy(dx: inset, dy: inset),
-                cornerRadius: AgentRichMessageMetrics.tableCornerRadius
+                cornerRadius: AgentRichMessageMetrics.tableCornerRadius - inset
             )
-            border.lineWidth = 1 / scale
+            border.lineWidth = lineWidth
             border.stroke()
         }
         context.restoreGState()
@@ -707,6 +739,7 @@ private final class AgentTableCellView: UIView {
         textColor: UIColor,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        baseFont: UIFont,
         onURLTap: ((URL) -> Void)?
     ) {
         textView.configure(
@@ -715,6 +748,7 @@ private final class AgentTableCellView: UIView {
             detectsLinks: detectsLinks && !cell.isPlainText,
             markdownProfile: markdownProfile,
             rendersMarkdown: !cell.isPlainText,
+            baseFont: baseFont,
             isHeader: cell.isHeader,
             alignment: cell.alignment,
             onURLTap: onURLTap

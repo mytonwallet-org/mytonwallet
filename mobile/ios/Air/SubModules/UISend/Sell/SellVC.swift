@@ -156,7 +156,10 @@ public class SellVC: WViewController {
                 
                 // Get the best currency
                 let preferredCurrency = requestedCurrency ?? TokenStore.baseCurrency
-                let currency = Moonpay.Offramp.supportedCurrencies.first { $0 == preferredCurrency } ?? Moonpay.Offramp.supportedCurrencies.first!
+                let supportedCurrencies = Moonpay.Offramp.supportedCurrencies
+                guard let currency = supportedCurrencies.first(where: { $0 == preferredCurrency }) ?? supportedCurrencies.first else {
+                    throw DisplayError(text: lang("Selling is not supported for this token."))
+                }
                 
                 // fetch signed moonpay url
                 let result = try await Api.getMoonpayOfframpUrl(

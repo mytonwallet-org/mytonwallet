@@ -17,8 +17,31 @@ import UIKit
     static let queue = device?.makeCommandQueue()
 }
 
-/// The glow that runs around the display's edge while the Agent thinks: a blue and a purple light travelling
-/// clockwise, each side in the same time, fading inward over a few points, as in Apple Intelligence.
+/// The Agent's blue and violet: the colours of the thinking glow's stretches and lights. The glow lays the deep pair on
+/// dark, where it adds light, and the bright pair over light.
+public enum AgentGlowPalette {
+    public static let deepBlue = SIMD3<Float>(5, 109, 205) / 255
+    public static let deepViolet = SIMD3<Float>(144, 70, 203) / 255
+    public static let brightBlue = SIMD3<Float>(50, 158, 255) / 255
+    public static let brightViolet = SIMD3<Float>(190, 118, 253) / 255
+
+    /// Text in the Agent's colours takes the pair that stands out from the background: the deep one on light and the
+    /// bright one on dark, the other way round from the glow
+    public static let textBlue = makeTextColor(deep: deepBlue, bright: brightBlue)
+    public static let textViolet = makeTextColor(deep: deepViolet, bright: brightViolet)
+
+    private static func makeTextColor(deep: SIMD3<Float>, bright: SIMD3<Float>) -> UIColor {
+        UIColor { traits in
+            let rgb = traits.userInterfaceStyle == .dark ? bright : deep
+            return UIColor(red: CGFloat(rgb.x), green: CGFloat(rgb.y), blue: CGFloat(rgb.z), alpha: 1)
+        }
+    }
+}
+
+/// The glow of the display's edge while the Agent thinks, as the Agent's field glows while it listens: a thin, almost
+/// white core line along the rounded edge giving off a short bright bloom and a longer softer haze inward, with blue
+/// and purple stretches running along it at their own speeds. The edge is brighter toward the bottom and toward both
+/// sides alike, and faint lights drift behind the composer and the bottom bar, at half the strength they once had.
 ///
 /// Place this view behind glass controls so their backdrop includes and refracts the moving light.
 public final class AgentEdgeGlowView: UIView {
@@ -47,10 +70,27 @@ public final class AgentEdgeGlowView: UIView {
         overlay?.updateFrame()
     }
 
-    public func setGlowing(_ isGlowing: Bool) {
+    /// The glow is on screen and moving or fading: frames come while the app is active
+    var isAnimating: Bool {
+        overlay?.isAnimating == true
+    }
+
+    /// Without `animated`, a glow that ends goes at once, as when the Agent finished thinking while the app was away
+    public func setGlowing(_ isGlowing: Bool, animated: Bool = true) {
+        if !isGlowing, !animated {
+            self.isGlowing = false
+            overlay?.removeAtOnce()
+            overlay = nil
+            return
+        }
         guard self.isGlowing != isGlowing else { return }
         self.isGlowing = isGlowing
         updateOverlay()
+    }
+
+    /// The glow is on screen, glowing or fading
+    public var isShown: Bool {
+        overlay?.superview != nil
     }
 
     private func updateOverlay() {
@@ -148,27 +188,32 @@ public final class AgentEdgeGlowView: UIView {
     }
 }
 
-/// Passthrough overlay over a whole window. It renders the glow only into four strips along the edges, so
-/// the rest of the window is never recomposited because of it.
+/// Passthrough overlay over a whole window. It renders the glow only into four strips along the edges, the bottom one
+/// tall enough for the drifting lights, so the rest of the window is never recomposited because of it.
 @MainActor
 private final class AgentEdgeGlowOverlayView: UIView {
-    /// Matches `AgentEdgeGlowUniforms` in `AgentEdgeGlow.metal`: three `float4`, 48 bytes
+    /// Matches `AgentEdgeGlowUniforms` in `AgentEdgeGlow.metal`: five `float4`, 80 bytes
     private struct Uniforms {
         /// Window size and the strip's origin in the window, in points
         var frame: SIMD4<Float>
         /// Drawable pixels per point, display corner radius, time, opacity
         var parameters: SIMD4<Float>
-        /// Dark appearance; the rest is reserved
+        /// Dark appearance, a reserved value, how far up the drifting lights reach; the rest is reserved
         var appearance: SIMD4<Float>
+        /// The Agent's blue and violet for the appearance, in their first three components
+        var blue: SIMD4<Float>
+        var purple: SIMD4<Float>
     }
 
-    /// One loop of the lights, as in the shader
-    private static let loopDuration: CFTimeInterval = 2.667
+    /// The motion repeats over this period, as in the shader, so the time wraps without a jump
+    private static let motionPeriod: CFTimeInterval = 24
     /// The glow comes in slowly and goes a little faster, each eased at both ends
     private static let fadeInDuration: CFTimeInterval = 0.7
     private static let fadeOutDuration: CFTimeInterval = 0.4
-    /// The shader draws up to 30 pt in from the rounded edge
-    private static let glowDepth: CGFloat = 30
+    /// The shader draws the edge's light up to 32 pt in from the rounded edge
+    private static let glowDepth: CGFloat = 32
+    /// The drifting lights reach this far up from the bottom, behind the composer and the bottom bar
+    private static let lightsHeight: CGFloat = 150
 
     private weak var owner: UIView?
     private let strips: [AgentEdgeGlowStripView]
@@ -179,8 +224,17 @@ private final class AgentEdgeGlowOverlayView: UIView {
     private var fadeStart: CFTimeInterval = 0
     private var fadeFrom: Float = 0
     private var fadeTarget: Float = 0
+    /// `hide` asked the glow to leave
+    private var isHiding = false
     private var cornerRadius: CGFloat = 0
     private let inFlight = DispatchSemaphore(value: 2)
+    /// Kept from the app's notifications rather than read from its state, which is still the background's as the app
+    /// is about to enter the foreground
+    private var isInBackground = UIApplication.shared.applicationState == .background
+
+    var isAnimating: Bool {
+        superview != nil && clock.isRunning
+    }
 
     init(owner: UIView) {
         self.owner = owner
@@ -193,8 +247,10 @@ private final class AgentEdgeGlowOverlayView: UIView {
         for strip in strips {
             addSubview(strip)
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(handlePlaybackChange), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handlePlaybackChange), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        // The glow resumes once the app is active again, from where its time and its fade stand by then: still glowing,
+        // or gone if the Agent stopped thinking meanwhile
+        NotificationCenter.default.addObserver(self, selector: #selector(handleDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handlePlaybackChange), name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
     }
 
@@ -239,13 +295,14 @@ private final class AgentEdgeGlowOverlayView: UIView {
         let innerRadius: CGFloat = max(0, cornerRadius - Self.glowDepth)
         let cornerDepth: CGFloat = cornerRadius - innerRadius * 0.7071
         let depth: CGFloat = ceil(max(Self.glowDepth, cornerDepth)) + 2
+        let bottomDepth = min(max(depth, Self.lightsHeight), bounds.height / 2)
         let width = bounds.width
         let height = bounds.height
-        let sideHeight = max(0, height - 2 * depth)
+        let sideHeight = max(0, height - depth - bottomDepth)
         let frames = [
             CGRect(x: 0, y: 0, width: width, height: min(depth, height)),
             CGRect(x: max(0, width - depth), y: depth, width: min(depth, width), height: sideHeight),
-            CGRect(x: 0, y: max(0, height - depth), width: width, height: min(depth, height)),
+            CGRect(x: 0, y: max(0, height - bottomDepth), width: width, height: min(bottomDepth, height)),
             CGRect(x: 0, y: depth, width: min(depth, width), height: sideHeight),
         ]
         let scale = min(2, window?.screen.scale ?? traitCollection.displayScale)
@@ -266,6 +323,7 @@ private final class AgentEdgeGlowOverlayView: UIView {
     }
 
     private func fade(to target: Float) {
+        isHiding = target == 0
         let now = CACurrentMediaTime()
         fadeFrom = getOpacity(at: now)
         fadeTarget = target
@@ -280,6 +338,13 @@ private final class AgentEdgeGlowOverlayView: UIView {
     private func finishHiding() {
         clock.stop()
         removeFromSuperview()
+    }
+
+    /// Leaves the window without a fade
+    func removeAtOnce() {
+        fadeFrom = 0
+        fadeTarget = 0
+        finishHiding()
     }
 
     /// Fade at a constant rate, so reversing it midway takes only as long as the distance back
@@ -297,17 +362,32 @@ private final class AgentEdgeGlowOverlayView: UIView {
         return value * value * (3 - 2 * value)
     }
 
+    @objc private func handleDidEnterBackground() {
+        isInBackground = true
+        handlePlaybackChange()
+    }
+
+    @objc private func handleDidBecomeActive() {
+        isInBackground = false
+        handlePlaybackChange()
+    }
+
     @objc private func handlePlaybackChange() {
         guard window != nil else {
             clock.stop()
             return
         }
         let currentOpacity = getOpacity(at: CACurrentMediaTime())
+        // A fade out that ran its time without frames, as in the background, ends here: its last frame would otherwise
+        // stay on screen
+        if isHiding, currentOpacity <= 0 {
+            finishHiding()
+            return
+        }
         let isVisible = fadeTarget > 0 || currentOpacity > 0
         let isFading = currentOpacity != fadeTarget
         // With Reduce Motion the lights stand still, so frames are only needed while the glow fades
-        let shouldRun = isVisible && UIApplication.shared.applicationState != .background
-            && (isFading || !UIAccessibility.isReduceMotionEnabled)
+        let shouldRun = isVisible && !isInBackground && (isFading || !UIAccessibility.isReduceMotionEnabled)
         if shouldRun {
             clock.start()
         } else {
@@ -343,8 +423,11 @@ private final class AgentEdgeGlowOverlayView: UIView {
         let currentOpacity = getShownOpacity(at: now)
         let time = UIAccessibility.isReduceMotionEnabled
             ? 0
-            : (now - startTime).truncatingRemainder(dividingBy: Self.loopDuration)
+            : (now - startTime).truncatingRemainder(dividingBy: Self.motionPeriod)
         let style = owner?.traitCollection.userInterfaceStyle ?? traitCollection.userInterfaceStyle
+        let isDark = style == .dark
+        let blue = isDark ? AgentGlowPalette.deepBlue : AgentGlowPalette.brightBlue
+        let purple = isDark ? AgentGlowPalette.deepViolet : AgentGlowPalette.brightViolet
         for strip in strips {
             guard let metalLayer = strip.metalLayer, strip.bounds.width > 0, strip.bounds.height > 0,
                   let drawable = metalLayer.nextDrawable() else { continue }
@@ -367,7 +450,9 @@ private final class AgentEdgeGlowOverlayView: UIView {
                     Float(time),
                     currentOpacity
                 ),
-                appearance: SIMD4(style == .dark ? 1 : 0, 0, 0, 0)
+                appearance: SIMD4(isDark ? 1 : 0, 0, Float(Self.lightsHeight), 0),
+                blue: SIMD4(blue, 1),
+                purple: SIMD4(purple, 1)
             )
             encoder.setRenderPipelineState(pipeline)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)

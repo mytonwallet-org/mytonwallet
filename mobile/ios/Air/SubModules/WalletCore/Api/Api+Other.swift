@@ -51,9 +51,15 @@ public struct Moonpay: Sendable {
     
     public struct Offramp: Sendable {
         
-        /// https://support.moonpay.com/en/articles/362475-moonpay-s-supported-currencies
-        /// Ordereded by priority
-        public static let supportedCurrencies: [MBaseCurrency] = [.USD, .EUR]
+        // The app's MoonPay sell integration offers EUR; the shared buy/sell allowlist may only narrow it
+        private static let BASELINE_CURRENCIES: [MBaseCurrency] = [.EUR]
+
+        public static var supportedCurrencies: [MBaseCurrency] {
+            let allowed = ConfigStore.shared.config?.allowedOnOffRampCurrencies
+            return BASELINE_CURRENCIES.filter { currency in
+                allowed?.contains { $0.uppercased() == currency.rawValue } ?? true
+            }
+        }
 
         public static let limitsBySlug: [String: Double] = [
             TONCOIN_SLUG: 2000

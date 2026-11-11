@@ -102,6 +102,11 @@ export function removeSecretPhrases(text: string, wordList: ReadonlySet<string>,
   );
 }
 
+/** Whether the text holds a recovery phrase that `removeSecretPhrases` replaces */
+export function hasSecretPhrase(text: string, wordList: ReadonlySet<string>) {
+  return removeSecretPhrases(text, wordList, '') !== text;
+}
+
 function isMistypedWord(token: Token, wordList: ReadonlySet<string>) {
   return !wordList.has(token.word) && MISTYPED_WORD_PATTERN.test(token.word);
 }

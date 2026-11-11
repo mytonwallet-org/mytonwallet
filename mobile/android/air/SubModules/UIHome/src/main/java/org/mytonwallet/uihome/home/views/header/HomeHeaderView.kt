@@ -931,6 +931,9 @@ open class HomeHeaderView(
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
         }
         nextCardView.isInGoneState = expandProgress <= 0.9f
+        prevCardView.setTestViewIdsEnabled(false)
+        nextCardView.setTestViewIdsEnabled(false)
+        cardView.setTestViewIdsEnabled(true)
         if (isAccountSwipeGesture || abs(horizontalScrollOffset) > 0.5f.dp) {
             prevCardView.syncEffectsFrom(cardView)
             nextCardView.syncEffectsFrom(cardView)

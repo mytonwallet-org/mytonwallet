@@ -11,15 +11,16 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
     public var isPreparingClose = false {
         didSet { if isViewLoaded { updateActionButtons() } }
     }
-    private var data: PerpsPositionDisplayData
-    private let onSelectPeriod: (ApiPriceHistoryPeriod) -> Void
+    private(set) var data: PerpsPositionDisplayData
+    let onSelectPeriod: (ApiPriceHistoryPeriod) -> Void
     private let onAction: (PerpsPositionAction) -> Void
     private var positionController: UIHostingController<PerpsPositionView>?
-    private var infoView: PerpsMarketInfoView?
+    private lazy var infoModel = TokenInfoModel(state: .summary(data.market.infoSummary), hasBalance: true)
+    private let infoCard = TokenInfoCardView(sizesItself: true)
     private var detailsView: AssetDetailsView?
+    private var titleKey: String?
     private lazy var activitySection = PerpsPositionActivitySectionView { [weak self] id in
-        guard let self, data.activities.contains(where: { $0.id == id && $0.canSelect }) else { return }
-        onAction(.activity(id))
+        self?.onAction(.activity(id))
     }
     private lazy var chartView = TokenExpandableChartView(usesStoredPresentation: false) { [weak self] in
         self?.view.layoutIfNeeded()
@@ -44,23 +45,15 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         configureNavigationItemWithTransparentBackground()
         view.backgroundColor = .air.groupedBackground
         let position = addHostingController(PerpsPositionView(data: data))
-        let info = PerpsMarketInfoView(data: data.market, collapsesMetrics: true)
         position.sizingOptions = .intrinsicContentSize
         positionController = position
-        infoView = info
-        let layout = AssetDetailsView(sections: [position.view, chartView, info, activitySection], buttons: [editButton, closeButton])
+        let layout = AssetDetailsView(sections: [position.view, chartView, infoCard, activitySection], buttons: [editButton, closeButton])
         detailsView = layout
         layout.content.setCustomSpacing(24, after: position.view)
         layout.scrollView.delegate = self
         layout.scrollView.accessibilityIdentifier = "Perps.Position.Content"
-        info.onHeightChange = { [weak layout] in layout?.layoutKeepingScrollPosition() }
-        view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+        infoCard.configure(model: infoModel, onHeightChange: { [weak layout] in layout?.layoutKeepingScrollPosition() })
+        layout.install(in: view)
         addCustomNavigationBarBackground(color: .air.groupedBackground)
         applyData()
     }
@@ -71,7 +64,6 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         }
     }
 
-    /// Adapters should discard stale requests before supplying a new snapshot of this position.
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         onVisibilityChanged?(true)
@@ -82,6 +74,7 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         onVisibilityChanged?(false)
     }
 
+    /// Ignores snapshots of another position.
     public func update(data: PerpsPositionDisplayData) {
         guard data.id == self.data.id else { return }
         self.data = data
@@ -89,23 +82,10 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
     }
 
     private func applyData() {
-        title = data.market.token.symbol
-        let token = data.market.token.symbol
-        let direction = data.direction
-        let leverage = L10n.perpsLeverageDirection(
-            leverage: data.leverage.formatted(.number.locale(.forNumberFormatters)),
-            direction: lang(direction == .long ? "Long" : "Short"))
-        navigationItem.titleView = HostingView {
-            NavigationHeader {
-                HStack(spacing: 4) {
-                    Text(verbatim: token).foregroundStyle(Color.air.primaryLabel)
-                    Text(verbatim: leverage).foregroundStyle(direction == .long ? Color.air.positiveAmount : Color.air.negativeAmount)
-                }
-                .accessibilityElement(children: .combine)
-            }
-        }
+        updateTitle()
         positionController?.rootView = PerpsPositionView(data: data)
-        infoView?.configure(data: data.market)
+        infoModel.configure(state: .summary(data.market.infoSummary))
+        infoCard.modelStateDidChange()
         activitySection.configure(activities: data.activities, title: data.activityTitle, isStale: data.isActivityStale)
         activitySection.isHidden = data.activities.isEmpty
         chartView.configure(token: data.market.token, price: data.market.price, percentChange24h: data.market.percentChange24h,
@@ -117,11 +97,32 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         updateActionButtons()
     }
 
+    private func updateTitle() {
+        let token = data.market.token.symbol
+        let direction = data.direction
+        let leverage = L10n.perpsLeverageDirection(
+            leverage: data.leverage.formatted(.number.locale(.forNumberFormatters)),
+            direction: lang(direction == .long ? "Long" : "Short"))
+        let key = token + " " + leverage
+        guard key != titleKey else { return }
+        titleKey = key
+        title = token
+        navigationItem.titleView = HostingView {
+            NavigationHeader {
+                HStack(spacing: 4) {
+                    Text(verbatim: token).foregroundStyle(Color.air.primaryLabel)
+                    Text(verbatim: leverage).foregroundStyle(direction == .long ? Color.air.positiveAmount : Color.air.negativeAmount)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
     private func updateActionButtons() {
-        detailsView?.setActionNotice(data.market.tradingUnavailableReason)
-        editButton.isEnabled = data.canEdit && !isPreparingClose
+        detailsView?.setActionNotice(data.market.tradingUnavailableReason, isInformational: data.market.isUnavailableReasonInformational)
+        editButton.isEnabled = data.market.canTrade && !isPreparingClose
         closeButtonPresenter.apply(.init(title: .text(lang("PerpsClosePositionAction")),
-                                         isEnabled: data.canClose && !isPreparingClose,
+                                         isEnabled: data.market.canTrade && !isPreparingClose,
                                          showLoading: isPreparingClose))
     }
 
@@ -133,11 +134,6 @@ public final class PerpsPositionVC: WViewController, UIScrollViewDelegate {
         if style == .secondary { button.customTintColor = .label }
         button.addAction(UIAction { [weak self] _ in
             guard let self, !isPreparingClose else { return }
-            switch action {
-            case .edit: guard data.canEdit else { return }
-            case .close: guard data.canClose else { return }
-            case .activity: return
-            }
             onAction(action)
         }, for: .touchUpInside)
         return button

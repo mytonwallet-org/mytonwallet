@@ -2,14 +2,11 @@ import type { ApiBaseCurrency, ApiChain } from '../../../api/types';
 import type { UserToken } from '../../../global/types';
 import type { LangFn } from '../../../hooks/useLang';
 
-import { getChainConfig, getChainTitle } from '../../../util/chain';
+import { getChainConfig, getChainTitle, getStablecoinSlugs } from '../../../util/chain';
 import { toBig } from '../../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { clamp } from '../../../util/math';
 import { getIsNativeToken } from '../../../util/tokens';
-
-const STABLECOIN_PRICE_MIN = 0.95;
-const STABLECOIN_PRICE_MAX = 1.05;
 
 const TOKEN_TYPE_COLORS = {
   native: '#2C92F0',
@@ -40,6 +37,7 @@ export function buildSegmentsByTokenKind(
   tokens: UserToken[],
   baseCurrency: ApiBaseCurrency,
 ) {
+  const stablecoinSlugs = getStablecoinSlugs();
   const totals: Record<TokenKind, number> = { native: 0, stablecoins: 0, altcoins: 0 };
 
   for (const token of tokens) {
@@ -48,7 +46,7 @@ export function buildSegmentsByTokenKind(
 
     if (getIsNativeToken(token.slug)) {
       totals.native += value;
-    } else if (getIsStablecoin(token)) {
+    } else if (stablecoinSlugs.has(token.slug)) {
       totals.stablecoins += value;
     } else {
       totals.altcoins += value;
@@ -186,10 +184,4 @@ function getTokenValue(token: UserToken): number {
   }
 
   return toBig(token.amount, token.decimals).mul(token.price).toNumber();
-}
-
-function getIsStablecoin(token: UserToken): boolean {
-  if (token.symbol.toUpperCase().includes('USD')) return true;
-
-  return token.priceUsd >= STABLECOIN_PRICE_MIN && token.priceUsd <= STABLECOIN_PRICE_MAX;
 }

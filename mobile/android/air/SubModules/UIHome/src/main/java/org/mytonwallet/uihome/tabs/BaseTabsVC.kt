@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
+import org.mytonwallet.app_air.uifutures.viewControllers.futures.FuturesVC
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
@@ -100,6 +101,8 @@ abstract class BaseTabsVC(context: Context) :
                 }
 
                 AppTabsManager.ID_MARKET -> MarketVC(context)
+
+                AppTabsManager.ID_FUTURES -> FuturesVC(context)
 
                 AppTabsManager.ID_AGENT -> AgentThreadListVC(context)
 

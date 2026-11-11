@@ -1,3 +1,6 @@
+// Imports schedule layout work, so they must share the test clock.
+import '../../../tests/initFakeTimers';
+
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
@@ -71,8 +74,15 @@ const TON_TOKEN = { ...TONCOIN, percentChange24h: 0 };
 describe('StakingInitial restake amount', () => {
   let root: HTMLDivElement;
 
+  beforeAll(async () => {
+    await import('../../../tests/initGlobal');
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
     root = document.createElement('div');
     document.body.appendChild(root);
@@ -82,7 +92,6 @@ describe('StakingInitial restake amount', () => {
     TeactDOM.render(undefined, root);
     await jest.runAllTimersAsync();
     root.remove();
-    jest.useRealTimers();
   });
 
   it('follows the growing maximum up to the restake amount until the user edits it', async () => {

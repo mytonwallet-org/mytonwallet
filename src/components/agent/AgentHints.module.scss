@@ -22,6 +22,12 @@
   @include mixins.transition("opacity 250ms ease-in-out, transform 250ms ease-in-out");
 }
 
+// As the chat's first question comes, the hints leave where they stood, out of the list's flow, so that the question
+// neither pushes them away nor moves on them
+.wrapperLeaving {
+  position: absolute;
+}
+
 // The Agent's spinning top, at half its speed
 .icon {
   width: 2.625rem;

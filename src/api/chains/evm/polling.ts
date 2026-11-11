@@ -98,7 +98,17 @@ export function setupActivePolling<C extends EVMChain>(
   };
 }
 
-const BALANCE_ACTIVITY_CATCH_UP_ATTEMPTS = 60;
+// The activity indexer can lag behind socket balance updates by hours
+const BALANCE_ACTIVITY_CATCH_UP_DELAYS = [
+  0,
+  ...Array<number>(59).fill(2 * SEC),
+  30 * SEC,
+  MINUTE,
+  2 * MINUTE,
+  4 * MINUTE,
+  8 * MINUTE,
+  ...Array<number>(11).fill(15 * MINUTE),
+];
 
 function setupActivityPolling(
   chain: EVMChain,
@@ -158,22 +168,26 @@ function setupActivityPolling(
   }
 
   function scheduleCrossApiActivityCatchUp(source: 'socket' | 'poll') {
+    if (source === 'poll') {
+      void checkActivitiesOnce();
+      return;
+    }
+
     balanceCatchUpGeneration += 1;
     const generation = balanceCatchUpGeneration;
 
     void (async () => {
-      for (let attempt = 0; attempt < BALANCE_ACTIVITY_CATCH_UP_ATTEMPTS; attempt++) {
+      for (const delay of BALANCE_ACTIVITY_CATCH_UP_DELAYS) {
+        if (delay) {
+          await pause(delay);
+        }
         if (generation !== balanceCatchUpGeneration) {
           return;
         }
         lastEmptyTimestamp = undefined;
         // A socket event is proof that something landed on chain, so it overrides the
         // "this address has nothing here" verdict the poll path is allowed to trust.
-        const found = await rawUpdate(source === 'socket');
-
-        if (source === 'poll') {
-          return;
-        }
+        const found = await rawUpdate(true);
 
         if (found) {
           return;
@@ -181,10 +195,20 @@ function setupActivityPolling(
         if (generation !== balanceCatchUpGeneration) {
           return;
         }
-
-        await pause(SEC * 2);
       }
     })();
+  }
+
+  // A poll snapshot often differs from the socket deltas only by a token the socket does not track, so a poll
+  // event that finds nothing leaves a running socket catch-up waiting for the lagging transfer
+  async function checkActivitiesOnce() {
+    const generation = balanceCatchUpGeneration;
+    lastEmptyTimestamp = undefined;
+    const found = await rawUpdate();
+
+    if (found && generation === balanceCatchUpGeneration) {
+      cancelCrossApiActivityCatchUp();
+    }
   }
 
   function cancelCrossApiActivityCatchUp() {

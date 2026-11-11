@@ -31,6 +31,9 @@ export type AgentDictationNotice = { kind: 'microphoneDenied' };
 
 export interface AgentDictation {
   phase: AgentDictationPhase;
+  /** The recording is held, and `resume` continues it */
+  isPaused: boolean;
+  /** How long the recording has run, without its pauses */
   elapsedMs: number;
   /** The latest input level, 0…1 */
   level: number;
@@ -44,6 +47,8 @@ export interface AgentDictation {
   start: NoneToVoidFunction;
   finish: NoneToVoidFunction;
   cancel: NoneToVoidFunction;
+  pause: NoneToVoidFunction;
+  resume: NoneToVoidFunction;
   cancelRecognition: NoneToVoidFunction;
   dismissNotice: NoneToVoidFunction;
 }
@@ -67,6 +72,7 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
   onTranscript: (text: string) => void;
 }): AgentDictation {
   const [phase, setPhase] = useState<AgentDictationPhase>('idle');
+  const [isPaused, setIsPaused] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [level, setLevel] = useState(0);
   const [notice, setNotice] = useState<AgentDictationNotice>();
@@ -75,11 +81,24 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
   const [failureCount, setFailureCount] = useState(0);
   const recorderRef = useRef<DictationRecorder>();
   const recordingStartedAtRef = useRef(0);
+  // A pause holds the recording as Telegram Web A's does: its time and its limit wait for it to go on
+  const pausedAtRef = useRef<number>();
+  const pausedMsRef = useRef(0);
   // The browser is asking for the microphone or opening it
   const isStartingRef = useRef(false);
   const limitTimerRef = useRef<number>();
   // A cancelled start or recognition can still resolve; only the latest one may change the state
   const attemptRef = useRef(0);
+
+  const getRecordedMs = useLastCallback(() => (
+    (pausedAtRef.current ?? Date.now()) - recordingStartedAtRef.current - pausedMsRef.current
+  ));
+
+  const resetPause = useLastCallback(() => {
+    pausedAtRef.current = undefined;
+    pausedMsRef.current = 0;
+    setIsPaused(false);
+  });
 
   const fail = useLastCallback((reason: AgentDictationFailure) => {
     setFailure(reason);
@@ -129,10 +148,12 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
     const recorder = recorderRef.current;
     if (!recorder) return;
     const attempt = attemptRef.current;
+    const recordedMs = getRecordedMs();
     recorderRef.current = undefined;
     window.clearTimeout(limitTimerRef.current);
+    resetPause();
 
-    if (Date.now() - recordingStartedAtRef.current < DICTATION_MIN_DURATION_MS) {
+    if (recordedMs < DICTATION_MIN_DURATION_MS) {
       recorder.cancel();
       setPhase('idle');
       fail({ kind: 'tooShort' });
@@ -164,6 +185,7 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
     setNotice(undefined);
     setLevel(0);
     setElapsedMs(0);
+    resetPause();
     setPhase('recording');
     isStartingRef.current = true;
 
@@ -177,7 +199,7 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
       }
       recorder = await startDictationRecorder((inputLevel) => {
         setLevel(inputLevel);
-        setElapsedMs(Date.now() - startedAt);
+        if (pausedAtRef.current === undefined) setElapsedMs(Date.now() - startedAt - pausedMsRef.current);
       });
       // The clock starts once the microphone is open, not while the browser asks for it
       startedAt = Date.now();
@@ -211,8 +233,34 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
     window.clearTimeout(limitTimerRef.current);
     recorderRef.current?.cancel();
     recorderRef.current = undefined;
+    resetPause();
     setPhase('idle');
     setLevel(0);
+  });
+
+  const pause = useLastCallback(() => {
+    const recorder = recorderRef.current;
+    if (!recorder || pausedAtRef.current !== undefined) return;
+    pausedAtRef.current = Date.now();
+    window.clearTimeout(limitTimerRef.current);
+    recorder.pause();
+    setElapsedMs(getRecordedMs());
+    setLevel(0);
+    setIsPaused(true);
+  });
+
+  // The same recording goes on, with the time it has left before its limit
+  const resume = useLastCallback(() => {
+    const recorder = recorderRef.current;
+    const pausedAt = pausedAtRef.current;
+    if (!recorder || pausedAt === undefined) return;
+    pausedMsRef.current += Date.now() - pausedAt;
+    pausedAtRef.current = undefined;
+    recorder.resume();
+    setIsPaused(false);
+    limitTimerRef.current = window.setTimeout(
+      () => void stopRecording(), Math.max(0, DICTATION_MAX_DURATION_MS - getRecordedMs()),
+    );
   });
 
   // A recording let go of while the browser is still opening the microphone never starts
@@ -255,6 +303,7 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
 
   return {
     phase,
+    isPaused,
     elapsedMs,
     level,
     notice,
@@ -264,6 +313,8 @@ export default function useAgentV2Dictation({ isActive, langCode, onTranscript }
     start,
     finish,
     cancel,
+    pause,
+    resume,
     cancelRecognition,
     dismissNotice,
   };

@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.uicomponents.commonViews
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -40,8 +41,8 @@ class KeyValueRowView(
     context: Context,
     val key: String,
     private var value: CharSequence,
-    val mode: Mode,
-    private var isLast: Boolean,
+    val mode: Mode = Mode.SECONDARY,
+    private var isLast: Boolean = false,
     // Stable resource id for UI automation, set before children are anchored to the row's id
     viewId: Int? = null
 ) : WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
@@ -159,6 +160,7 @@ class KeyValueRowView(
                 }
             }
         )
+        keyIconView?.setColorFilter(WColor.SecondaryText.color, PorterDuff.Mode.SRC_IN)
         ripple.rippleColor = WColor.SecondaryBackground.color
         valueLabel.contentView.setTextColor(WColor.PrimaryText.color)
         progressIndicator?.setIndicatorColor(WColor.SecondaryText.color)
@@ -170,6 +172,25 @@ class KeyValueRowView(
 
     fun setKey(newValue: String?) {
         keyLabel.text = newValue
+    }
+
+    private var keyIconView: AppCompatImageView? = null
+
+    fun setHint(onClick: () -> Unit) {
+        setOnClickListener { onClick() }
+        if (keyIconView != null) return
+        keyIconView = AppCompatImageView(context).apply {
+            id = generateViewId()
+            setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_info_24)
+            setColorFilter(WColor.SecondaryText.color, PorterDuff.Mode.SRC_IN)
+            imageAlpha = 128
+            addView(this, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            setConstraints {
+                startToEnd(this@apply, keyLabel, 4f)
+                centerYToCenterY(this@apply, keyLabel)
+                startToEnd(valueLabel, this@apply, 12f)
+            }
+        }
     }
 
     fun setValue(newValue: CharSequence?, fadeIn: Boolean = false) {

@@ -128,6 +128,39 @@ struct ActivityDateFormattingTests {
         ) == "Dec 31, 2025")
     }
 
+    @Test
+    func `next timestamp change waits for both midnight and twelve hours`() {
+        let early = date(2026, 8, 29, 10)
+        let late = date(2026, 8, 29, 22)
+        let now = date(2026, 8, 29, 23)
+        #expect(ActivityDateFormatting.getNextTimestampUpdate(
+            for: early, mode: .dateWhenOlderThanTwelveHours, relativeTo: now, calendar: calendar
+        ) == date(2026, 8, 30))
+        let transition = date(2026, 8, 30, 10).addingTimeInterval(1)
+        #expect(ActivityDateFormatting.getNextTimestampUpdate(
+            for: late, mode: .dateWhenOlderThanTwelveHours, relativeTo: now, calendar: calendar
+        ) == transition)
+        #expect(ActivityDateFormatting.shouldShowDate(for: late, relativeTo: transition, calendar: calendar))
+        #expect(ActivityDateFormatting.getNextTimestampUpdate(
+            for: late, mode: .dateWhenOlderThanTwelveHours, relativeTo: transition, calendar: calendar
+        ) == nil)
+        #expect(ActivityDateFormatting.getNextTimestampUpdate(
+            for: late, mode: .timeOnly, relativeTo: now, calendar: calendar
+        ) == nil)
+    }
+
+    @Test(arguments: [3, 11])
+    func `midnight scheduling follows daylight saving changes`(month: Int) throws {
+        var calendar = calendar
+        calendar.timeZone = try #require(TimeZone(identifier: "America/New_York"))
+        let day = month == 3 ? 8 : 1
+        let timestamp = try #require(calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: 1)))
+        let nextDay = try #require(calendar.date(from: DateComponents(year: 2026, month: month, day: day + 1)))
+        #expect(ActivityDateFormatting.getNextTimestampUpdate(
+            for: timestamp, mode: .dateWhenOlderThanTwelveHours, relativeTo: timestamp, calendar: calendar
+        ) == nextDay)
+    }
+
     private func date(
         _ year: Int,
         _ month: Int,

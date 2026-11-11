@@ -10,19 +10,31 @@ export const airAppCallWindow = <T extends keyof WindowMethods>(methodName: T, .
   return new Promise<Awaited<WindowMethodResponse<T>>>((resolve, reject) => {
     nativeCallNumber++;
     const requestNumber = nativeCallNumber;
+    const hasDeadline = methodName.startsWith('airInstallation');
+    const timeout = hasDeadline ? setTimeout(() => {
+      delete bridge.nativeCallCallbacks[requestNumber];
+      reject(new Error('Installation service timed out'));
+    }, 5000) : undefined;
     bridge.nativeCallCallbacks[requestNumber] = (response) => {
+      clearTimeout(timeout);
       delete bridge.nativeCallCallbacks[requestNumber];
       if (!response.ok) reject(new Error(ApiCommonError.Unexpected));
       else resolve(response.result as Awaited<WindowMethodResponse<T>>);
     };
-    if (airWindow.webkit) {
-      airWindow.webkit?.messageHandlers.nativeCall.postMessage({
-        requestNumber, methodName, arg0: args[0], arg1: args[1],
-      });
-    } else {
-      airWindow.androidApp!.nativeCall(
-        requestNumber, methodName, args[0], args[1],
-      );
+    try {
+      if (airWindow.webkit) {
+        airWindow.webkit?.messageHandlers.nativeCall.postMessage({
+          requestNumber, methodName, arg0: args[0], arg1: args[1],
+        });
+      } else {
+        const [arg0, arg1] = args;
+        // eslint-disable-next-line no-null/no-null -- The Java bridge turns `undefined` into the string "undefined"
+        airWindow.androidApp!.nativeCall(requestNumber, methodName, arg0 ?? null, arg1 ?? null);
+      }
+    } catch (error) {
+      clearTimeout(timeout);
+      delete bridge.nativeCallCallbacks[requestNumber];
+      reject(error);
     }
   });
 };
