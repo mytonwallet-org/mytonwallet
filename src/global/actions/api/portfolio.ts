@@ -1,7 +1,7 @@
 import type {
   ApiBaseCurrency, ApiPortfolioHistoryResponse, ApiPortfolioPnlChangeResponse, ApiPriceHistoryPeriod,
 } from '../../../api/types';
-import type { GlobalState, PortfolioHistoryBundle, PortfolioPnlChange } from '../../types';
+import type { PortfolioHistoryBundle, PortfolioPnlChange } from '../../types';
 
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import {
@@ -16,17 +16,11 @@ import { selectCurrentAccountId, selectPortfolioMainnetWalletKeys } from '../../
 
 const HISTORY_REFRESH_DELAY_MS = 8000;
 const HISTORY_REFRESH_MAX_ATTEMPTS = 6;
-// Throttle window for the card's per-tick P&L-change refresh (see `runLoadPortfolioPnlChange`)
-const PNL_CHANGE_THROTTLE_MS = 30_000;
 const PORTFOLIO_UNAVAILABLE_ERROR = 'Unavailable';
 let historyRefreshTimerId: number | undefined;
 let historyRefreshAttempts = 0;
 let historyRefreshAccountId: string | undefined;
 let activeRequestId = 0;
-let activePnlChangeRequestId = 0;
-// Single-slot throttle for the card's P&L-change refresh: only the current (account, currency, range)
-// is ever checked, so the latest key/time is all we keep - it self-evicts when the key changes
-let lastPnlChangeFetch: { key: string; at: number } | undefined;
 
 addActionHandler('loadPortfolioHistory', (global, actions, payload) => {
   const { range } = payload || {};
@@ -46,11 +40,6 @@ addActionHandler('closePortfolio', () => {
   historyRefreshAttempts = 0;
   // Invalidate any in-flight `runLoadPortfolioHistory` so its post-await `setGlobal` is dropped
   activeRequestId += 1;
-});
-
-// Lightweight counterpart of `loadPortfolioHistory` for the wallet card
-addActionHandler('loadPortfolioPnlChange', (global) => {
-  void runLoadPortfolioPnlChange(global);
 });
 
 // `force=true` is used by the `historyScanCursor` poll - it must bypass the slot cache because
@@ -94,9 +83,7 @@ async function runLoadPortfolioHistory(force = false) {
     existingBundle?.netWorth || existingBundle?.pnlCumulative || existingBundle?.pnl,
   );
 
-  // Slot cache hit: skip the fetch only if the series are actually here. The card's pnl-change path
-  // stamps the same slot without them, and series aren't persisted - so a slot-only match would leave
-  // the charts empty after a reload.
+  // Failed requests can stamp a slot without series, and series are not persisted across reloads
   if (!force && hasSeries && existingBundle?.fetchedAtSlot === currentSlot) {
     return;
   }
@@ -178,7 +165,7 @@ async function runLoadPortfolioHistory(force = false) {
     historyByAccountId: isSameBundle
       ? updatedSlice
       : updateHistoryBundle(updatedSlice, accountId, baseCurrency, range, mergedBundle),
-    // Single-slot mirror for the wallet card (it never loads the full bundle)
+    // Keep the last value visible while Portfolio loads a different range
     pnlChangeByAccountId: pnlChange
       ? updatePnlChangeByAccountId(global.portfolio?.pnlChangeByAccountId, accountId, pnlChange)
       : global.portfolio?.pnlChangeByAccountId,
@@ -189,66 +176,6 @@ async function runLoadPortfolioHistory(force = false) {
   }));
 
   scheduleHistoryRefreshIfNeeded(netWorth, pnlCumulative, pnl);
-}
-
-async function runLoadPortfolioPnlChange(global: GlobalState) {
-  const accountId = selectCurrentAccountId(global);
-  if (!accountId) return;
-
-  const wallets = selectPortfolioMainnetWalletKeys(global);
-  // Portfolio history is mainnet-only; leave the card on its 24h fallback otherwise
-  if (wallets.length === 0) return;
-
-  const { baseCurrency } = global.settings;
-  const range = global.portfolio?.activeRange ?? DEFAULT_PORTFOLIO_TIME_RANGE;
-
-  // The card re-requests on every balance tick; skip if this (account, currency, range) was fetched
-  // within the throttle window. Stamped before the request so rapid ticks neither spam nor pile up
-  // parallel in-flight calls
-  const throttleKey = `${accountId}_${baseCurrency}_${range}`;
-  if (lastPnlChangeFetch?.key === throttleKey && Date.now() - lastPnlChangeFetch.at < PNL_CHANGE_THROTTLE_MS) {
-    return;
-  }
-  lastPnlChangeFetch = { key: throttleKey, at: Date.now() };
-
-  const requestId = ++activePnlChangeRequestId;
-  const params = buildPortfolioHistoryParams(range);
-  const pnlChangeResponse = await callApi('fetchPortfolioPnlChange', wallets, baseCurrency, params);
-
-  if (requestId !== activePnlChangeRequestId) return;
-
-  const pnlChange = buildPnlChange(pnlChangeResponse, range, baseCurrency);
-  if (!pnlChange) {
-    // Reset the throttle so the next balance tick can retry rather than waiting out the window
-    lastPnlChangeFetch = undefined;
-    return;
-  }
-
-  global = getGlobal();
-  // Drop the result if the account, range or currency changed while awaiting
-  if (
-    selectCurrentAccountId(global) !== accountId
-    || (global.portfolio?.activeRange ?? DEFAULT_PORTFOLIO_TIME_RANGE) !== range
-    || global.settings.baseCurrency !== baseCurrency
-  ) {
-    return;
-  }
-
-  // Store per-range in the bundle (so the card and portfolio show the right value across range switches),
-  // plus the single-slot mirror that the card reads on cold start before any bundle exists
-  const baseSlice = global.portfolio?.historyByAccountId ?? {};
-  const existingBundle = baseSlice[accountId]?.[baseCurrency]?.[range];
-  global = updatePortfolio(global, {
-    historyByAccountId: updateHistoryBundle(baseSlice, accountId, baseCurrency, range, {
-      ...existingBundle,
-      pnlChange,
-      // Stamp the slot so a subsequent `runLoadPortfolioHistory` doesn't fire immediately after this
-      fetchedAtSlot: existingBundle?.fetchedAtSlot ?? getPortfolioHistorySlot(range),
-    }),
-    pnlChangeByAccountId: updatePnlChangeByAccountId(global.portfolio?.pnlChangeByAccountId, accountId, pnlChange),
-  });
-
-  setGlobal(global);
 }
 
 // Maps the backend's precomputed P&L-change response into the persisted shape. Returns undefined when

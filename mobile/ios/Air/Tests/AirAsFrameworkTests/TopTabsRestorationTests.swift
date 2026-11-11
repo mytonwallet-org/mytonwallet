@@ -1,3 +1,4 @@
+import ContextMenuKit
 import Dependencies
 import GRDB
 import UIKit
@@ -53,6 +54,53 @@ final class TopTabsRestorationTests: XCTestCase {
             XCTAssertTrue(root.isViewLoaded)
             XCTAssertEqual(root.currentTabId, id)
         }
+    }
+
+    func testDigestFeedOpensBeforeNavigationIsInAWindow() {
+        let root = TopTabsRootViewController()
+        let navigation = WNavigationController(rootViewController: root)
+        navigation.loadViewIfNeeded()
+        defer { navigation.setViewControllers([], animated: false) }
+        XCTAssertNil(navigation.viewIfLoaded?.window)
+        root.showAgentNewsFeed(digestId: "en:2026-11-08T18:00:00.000Z")
+        XCTAssertEqual(root.currentTabId, .agent)
+        XCTAssertEqual(navigation.viewControllers.count, 2)
+        XCTAssertTrue(navigation.topViewController is AgentNewsFeedVC)
+    }
+
+    func testTabMenuTracksAvailableTabsAndTheirOrder() throws {
+        let root = TopTabsRootViewController()
+        root.loadViewIfNeeded()
+        let header = try XCTUnwrap(root.navigationItem.titleView)
+        func findControl(in view: UIView) -> WSegmentedControl? {
+            if let control = view as? WSegmentedControl { return control }
+            return view.subviews.lazy.compactMap { findControl(in: $0) }.first
+        }
+        let control = try XCTUnwrap(findControl(in: header))
+        let provider = try XCTUnwrap(control.longPressContextMenuProvider)
+        let originalItems = control.model.items
+        defer { control.model.setItems(originalItems) }
+
+        func getMenuActions() -> [ContextMenuAction] {
+            provider.makeConfiguration().rootPage.items.compactMap {
+                guard case .action(let action) = $0 else { return nil }
+                return action
+            }
+        }
+
+        XCTAssertFalse(getMenuActions().contains { $0.id == "tab_menu_futures" })
+        XCTAssertTrue(getMenuActions().contains { $0.id == "tab_menu_agent" })
+        let withoutAgent = originalItems.filter { $0.id != AppTabId.agent.rawValue }
+        control.model.setItems(withoutAgent)
+        XCTAssertEqual(getMenuActions().map(\.id), withoutAgent.map { "tab_menu_\($0.id)" })
+        XCTAssertEqual(getMenuActions().map(\.title), withoutAgent.map(\.title))
+        XCTAssertFalse(getMenuActions().contains { $0.id == "tab_menu_agent" })
+
+        let reorderedItems = Array(originalItems.reversed())
+        control.model.setItems(reorderedItems)
+        XCTAssertEqual(getMenuActions().map(\.id), reorderedItems.map { "tab_menu_\($0.id)" })
+        XCTAssertEqual(getMenuActions().map(\.title), reorderedItems.map(\.title))
+        XCTAssertTrue(getMenuActions().contains { $0.id == "tab_menu_agent" })
     }
 
     func testFuturesRootReplacesItsAccountScopedContentWhenWalletChanges() async throws {
@@ -187,6 +235,60 @@ final class TopTabsRestorationTests: XCTestCase {
         ToolbarSettings.notifyDidChange()
         XCTAssertFalse(avatar.isHidden)
         XCTAssertTrue(root.searchController.searchToolbar.accountsButton.isHidden)
+    }
+
+    @available(iOS 17.0, *)
+    func testDraggingInTheTabMenuReordersTheTabsAndKeepsTheSelectedPage() throws {
+        let adaptive = AdaptiveRootViewController()
+        adaptive.traitOverrides.horizontalSizeClass = .compact
+        adaptive.loadViewIfNeeded()
+        let navigation = try XCTUnwrap(adaptive.children.first as? WNavigationController)
+        let root = try XCTUnwrap(navigation.viewControllers.first as? TopTabsRootViewController)
+        // The navigation controller loads its root's view only to show it, and the header comes with the view
+        root.loadViewIfNeeded()
+        func findControl(in view: UIView) -> WSegmentedControl? {
+            if let control = view as? WSegmentedControl { return control }
+            return view.subviews.lazy.compactMap { findControl(in: $0) }.first
+        }
+        let control = try XCTUnwrap(findControl(in: try XCTUnwrap(root.navigationItem.titleView)))
+        let menuPage = try XCTUnwrap(control.longPressContextMenuProvider).makeConfiguration().rootPage
+        XCTAssertTrue(root.selectTab(.agent, animated: false))
+
+        // Wallet is dragged past Agent
+        menuPage.onReorder?(0, 2)
+
+        XCTAssertEqual(AppTabManager.shared.orderedTabIds, [.market, .agent, .wallet, .explore, .settings])
+        XCTAssertEqual(control.model.items.map(\.id), [AppTabId.market, .agent, .wallet, .explore].map(\.rawValue))
+        XCTAssertEqual(root.currentTabId, .agent)
+        XCTAssertTrue(root.visibleContentProviderViewController is AgentThreadListVC)
+
+        XCTAssertTrue(root.selectTab(.market, animated: false))
+        XCTAssertEqual(root.currentTabId, .market)
+        XCTAssertEqual(control.model.selectedItem?.id, AppTabId.market.rawValue)
+    }
+
+    /// Top Tabs shows a page left out of the user's order after the others, and the menu's drags still reorder the rest
+    @available(iOS 17.0, *)
+    func testTabMenuReordersTheTabsWhileAPageIsLeftOutOfTheOrder() throws {
+        AppTabManager.shared.setTabIds([.wallet, .market, .explore, .settings])
+        let adaptive = AdaptiveRootViewController()
+        adaptive.traitOverrides.horizontalSizeClass = .compact
+        adaptive.loadViewIfNeeded()
+        let navigation = try XCTUnwrap(adaptive.children.first as? WNavigationController)
+        let root = try XCTUnwrap(navigation.viewControllers.first as? TopTabsRootViewController)
+        root.loadViewIfNeeded()
+        func findControl(in view: UIView) -> WSegmentedControl? {
+            if let control = view as? WSegmentedControl { return control }
+            return view.subviews.lazy.compactMap { findControl(in: $0) }.first
+        }
+        let control = try XCTUnwrap(findControl(in: try XCTUnwrap(root.navigationItem.titleView)))
+        let menuPage = try XCTUnwrap(control.longPressContextMenuProvider).makeConfiguration().rootPage
+
+        // Explore is dragged to the first place, over the Agent page shown after it
+        menuPage.onReorder?(2, 0)
+
+        XCTAssertEqual(AppTabManager.shared.orderedTabIds, [.explore, .wallet, .market, .settings])
+        XCTAssertEqual(control.model.items.map(\.id), [AppTabId.explore, .wallet, .market, .agent].map(\.rawValue))
     }
 
     @available(iOS 17.0, *)

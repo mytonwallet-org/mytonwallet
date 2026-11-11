@@ -38,10 +38,14 @@ jest.mock('../../../hooks/useLang', () => ({
   LangProvider: ({ children }: { children: unknown }) => children,
   useLangForCode: () => mockLang,
 }));
-jest.mock('../../../global/agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
+jest.mock('../../../global/agentV2/buildHostContext', () => {
+  // The hook reads the snapshot through the memoized selector, which the tests stub as the builder
+  const buildAgentV2HostContext = jest.fn();
+  return { buildAgentV2HostContext, selectAgentV2HostContext: buildAgentV2HostContext };
+});
 jest.mock('../../../global', () => ({
   ...jest.requireActual('../../../global'),
-  getGlobal: () => ({}),
+  getGlobal: () => ({ settings: {} }),
   getActions: () => ({
     openReceiveModal: jest.fn(),
     openTransactionInfo: jest.fn(),

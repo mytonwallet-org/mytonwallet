@@ -58,7 +58,9 @@ const RUN_ACTIVITY_CODES: ReadonlySet<string> = new Set(AGENT_RUN_ACTIVITY_CODES
 
 const RUN_ACTIVITY_STATUSES = new Set(['active', 'completed']);
 
-const FINISH_REASONS = new Set(['complete', 'cancelled', 'tool_unavailable', 'run_interrupted']);
+const FINISH_REASONS = new Set([
+  'complete', 'cancelled', 'tool_unavailable', 'run_interrupted', 'delivered_to_support',
+]);
 
 export interface AgentV2StreamEnvelope {
   ephemeral?: true;

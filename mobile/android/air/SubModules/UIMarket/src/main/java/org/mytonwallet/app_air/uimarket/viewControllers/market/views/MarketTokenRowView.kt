@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.text.TextUtils
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.isGone
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -49,6 +50,7 @@ class MarketTokenRowView(context: Context, private val onTap: (MarketToken) -> U
     private var marketToken: MarketToken? = null
 
     init {
+        id = UIComponentsR.id.market_row
         background = ripple
         addView(iconView, LayoutParams(44.dp, 44.dp))
         addView(symbolLabel, LayoutParams(0, WRAP_CONTENT))

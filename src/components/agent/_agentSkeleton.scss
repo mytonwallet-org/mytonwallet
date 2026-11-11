@@ -1,5 +1,59 @@
 $shimmerWidth: 17.5rem;
 
+// A band of light runs across the shape, left to right, on a layer of its own that moves on the compositor. It starts
+// at the shape's start, so shapes that line up there share it. The band is stronger in the light theme, where it passes
+// over light placeholders on a white background.
+
+@mixin band-shimmer(
+  $fill: var(--color-activity-gray-background),
+  $light: rgba(255, 255, 255, 0.7),
+  $darkLight: rgba(255, 255, 255, 0.14)
+) {
+  --skeleton-shimmer: #{$light};
+
+  position: relative;
+  overflow: hidden;
+  background-color: $fill;
+
+  :global(html.theme-dark) & {
+    --skeleton-shimmer: #{$darkLight};
+  }
+
+  &::before {
+    content: "";
+
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-$shimmerWidth);
+
+    width: $shimmerWidth;
+
+    background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-shimmer) 50%, transparent 100%);
+
+    animation: skeleton-band-shimmer 1.6s ease-out infinite;
+
+    :global(html.animation-level-0) & {
+      display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      display: none;
+    }
+  }
+
+  @keyframes skeleton-band-shimmer {
+    0% {
+      transform: translateX(-$shimmerWidth);
+    }
+
+    100% {
+      transform: translateX(100vw);
+    }
+  }
+}
+
 @mixin shimmer {
   --skeleton-shimmer: rgba(255, 255, 255, 0.7);
 

@@ -76,6 +76,32 @@ describe('buildMessageTurnIds', () => {
     });
   });
 
+  it('groups each day\'s messages with the day\'s lines into a turn named after the day', () => {
+    // News 1 and 2 came on October 20, news 3 and 4 on October 21
+    const messagesById = buildMessagesById([
+      [1, false],
+      [2, false],
+      [3, false],
+      [4, false],
+    ], (id) => new Date(2026, 9, id < 3 ? 20 : 21, 9 + id).getTime());
+    const firstDay = `day:${new Date(2026, 9, 20).getTime()}`;
+    const secondDay = `day:${new Date(2026, 9, 21).getTime()}`;
+
+    expect(buildMessageTurnIds(['date:1', '1', '2', 'date:3', 'unread:3', '3', '4'], messagesById, true)).toEqual({
+      'date:1': firstDay,
+      1: firstDay,
+      2: firstDay,
+      'date:3': secondDay,
+      'unread:3': secondDay,
+      3: secondDay,
+      4: secondDay,
+    });
+    // Older news of a day join its turn, which keeps its name
+    expect(buildMessageTurnIds(['date:2', '2', 'date:3', '3', '4'], messagesById, true)).toEqual(
+      expect.objectContaining({ 'date:2': firstDay, 2: firstDay, 3: secondDay }),
+    );
+  });
+
   it('keeps the "New" line with the message after it, inside or at the start of a turn', () => {
     const messagesById = buildMessagesById([
       [1, true],
@@ -93,11 +119,11 @@ describe('buildMessageTurnIds', () => {
   });
 });
 
-function buildMessagesById(entries: [number, boolean][]) {
+function buildMessagesById(entries: [number, boolean][], getTimestamp = (id: number) => id) {
   return Object.fromEntries(entries.map(([id, isOutgoing]): [number, AgentMessage] => [id, {
     id,
     text: `Message ${id}`,
     isOutgoing,
-    timestamp: id,
+    timestamp: getTimestamp(id),
   }]));
 }

@@ -113,6 +113,11 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
     // ApiSwapError
     case slippageError
 
+    // EvmSmartAccountError
+    case evmBundlerNotConfigured
+    case evmUserOperationFailed
+    case evmUserOperationMismatch
+
     case unknown(String)
 
     public init?(rawValue: String) {
@@ -194,6 +199,12 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return "NotATokenAddress"
         case .slippageError:
             return "SlippageError"
+        case .evmBundlerNotConfigured:
+            return "EvmBundlerNotConfigured"
+        case .evmUserOperationFailed:
+            return "EvmUserOperationFailed"
+        case .evmUserOperationMismatch:
+            return "EvmUserOperationMismatch"
         case .unknown(let rawValue):
             return rawValue
         }
@@ -288,6 +299,12 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return .notATokenAddress
         case "SlippageError":
             return .slippageError
+        case "EvmBundlerNotConfigured":
+            return .evmBundlerNotConfigured
+        case "EvmUserOperationFailed":
+            return .evmUserOperationFailed
+        case "EvmUserOperationMismatch":
+            return .evmUserOperationMismatch
         default:
             return nil
         }
@@ -361,6 +378,12 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return lang("The address is not a token minter address")
         case .slippageError:
             return lang("$swap_slippage_violation")
+        case .evmBundlerNotConfigured:
+            return lang("Unexpected error. Please let the support know.")
+        case .evmUserOperationFailed:
+            return lang("Transfer was unsuccessful. Try again later.")
+        case .evmUserOperationMismatch:
+            return lang("EvmUserOperationMismatch")
         case .unknown(let rawValue):
             return Self.localizedFallback(forRawValue: rawValue) ?? rawValue
         }

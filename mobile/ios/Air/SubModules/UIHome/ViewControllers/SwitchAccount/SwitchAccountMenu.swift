@@ -41,6 +41,7 @@ public enum SwitchAccountMenu {
                 ContextMenuAction(
                     title: lang("Manage Wallets"),
                     icon: .system("ellipsis"),
+                    accessibilityIdentifier: "wallet_switcher_manage",
                     handler: {
                         AppActions.showWalletSettings()
                     }
@@ -65,6 +66,7 @@ public enum SwitchAccountMenu {
                 ContextMenuAction(
                     title: lang("Add Wallet"),
                     icon: .system("plus"),
+                    accessibilityIdentifier: "wallet_switcher_add",
                     handler: { [weak sourceView] in
                         AppActions.showAddWallet(network: .mainnet, sourceView: sourceView)
                     }
@@ -143,6 +145,8 @@ public enum SwitchAccountMenu {
             AccountMenuCell(accountContext: accountContext)
                 .padding(.horizontal, switchAccountAccountRowHorizontalPadding)
                 .padding(.vertical, switchAccountAccountRowVerticalMargin)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("wallet_switcher_account")
         }
     }
 

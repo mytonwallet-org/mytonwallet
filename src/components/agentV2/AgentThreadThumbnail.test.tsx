@@ -31,13 +31,13 @@ const DISCUSSION: AgentThreadListItemV2 = {
     createdAt: '2026-10-27T23:57:00.000Z',
     updatedAt: '2026-10-27T23:57:00.000Z',
     lastActivityAt: '2026-10-27T23:57:00.000Z',
-    messageCount: 3,
+    messageCount: 1,
     title: 'TON rallies',
     news: {
       eventId: 42, headline: 'TON rallies', imageUrl: IMAGE_URL, publishedAt: '2026-10-27T23:50:00.000Z',
     },
   },
-  preview: 'Why did it go up?',
+  preview: 'TON is up 3%.',
 };
 
 describe('a picture before the preview of a chat list row', () => {
@@ -77,7 +77,11 @@ describe('a picture before the preview of a chat list row', () => {
   });
 
   it.each([
-    ['leads a discussion\'s preview with its news picture', DISCUSSION, 'Why did it go up?'],
+    ['leads a discussion\'s preview with its news picture while the post is its latest message', DISCUSSION,
+      'TON is up 3%.'],
+    ['shows no picture in a discussion once a message follows the post', {
+      ...DISCUSSION, thread: { ...DISCUSSION.thread, messageCount: 3 }, preview: 'Why did it go up?',
+    }, undefined],
     ['shows no picture in a chat that names itself with its preview', {
       ...DISCUSSION, thread: { ...DISCUSSION.thread, title: undefined },
     }, undefined],

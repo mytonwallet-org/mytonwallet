@@ -18,10 +18,10 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
                 : image
         }
         config.imagePlacement = .top
-        let titleVerticalOffset = WScalableButton.preferredTitleVerticalOffset
-        config.imagePadding = 4 + titleVerticalOffset
-        config.contentInsets = .init(top: 11, leading: 8, bottom: 9 - titleVerticalOffset, trailing: 8)
-        config.cornerStyle = .capsule
+        config.imagePadding = 2
+        config.contentInsets = .init(top: 8, leading: 8, bottom: 9, trailing: 8)
+        config.cornerStyle = .fixed
+        config.background.cornerRadius = WScalableButton.preferredCornerRadius
         config.titleLineBreakMode = .byTruncatingTail
         configuration = config
         setTitleFont(baseFont)
@@ -102,7 +102,7 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
             let availableWidth = max(1, layoutContext.itemWidth - 16)
             var font = baseFont
             while font.pointSize > 6,
-                  (title as NSString).size(withAttributes: [.font: font]).width > availableWidth {
+                  (title as NSString).size(withAttributes: [.font: font, .kern: WScalableButton.preferredTitleTracking]).width > availableWidth {
                 font = baseFont.withSize(max(6, font.pointSize - 0.5))
             }
             if layoutContext.font == nil || layoutContext.font!.pointSize > font.pointSize {
@@ -119,6 +119,8 @@ public final class WGlassActionButton: UIButton, ButtonsToolbarItem {
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
             outgoing.font = font
+            outgoing.kern = WScalableButton.preferredTitleTracking
+            outgoing.paragraphStyle = WScalableButton.preferredTitleParagraphStyle
             return outgoing
         }
         configuration = config

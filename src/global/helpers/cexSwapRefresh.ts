@@ -1,20 +1,26 @@
-import type { ApiActivity } from '../../api/types';
+import type { ApiActivity, ApiSwapActivity } from '../../api/types';
 import type { AccountState, GlobalState } from '../types';
 
-import { getIsActivityPendingForUser } from '../../util/activities';
+import { getIsActivityPendingForUser, getIsBackendSwapId } from '../../util/activities';
+import { getChainBySlug } from '../../util/tokens';
 import { selectAccountState } from '../selectors';
 
 const CEX_SWAP_REFRESH_CONTEXT_LIMIT = 250;
 
-export function selectPendingCexSwapActivities(global: GlobalState, accountId: string) {
+/** CEX and cross-chain swaps settle on the backend after their source transaction, so pending ones are polled */
+export function selectPendingBackendSwapActivities(global: GlobalState, accountId: string) {
   const { activities } = selectAccountState(global, accountId) ?? {};
   if (!activities) return [];
 
   return Object.values(activities.byId).filter((activity) => {
     return activity.kind === 'swap'
-      && Boolean(activity.cex)
+      && (Boolean(activity.cex) || getIsCrossChainBackendSwap(activity))
       && getIsActivityPendingForUser(activity);
   });
+}
+
+export function getIsCrossChainBackendSwap(activity: ApiSwapActivity) {
+  return getIsBackendSwapId(activity.id) && getChainBySlug(activity.from) !== getChainBySlug(activity.to);
 }
 
 export function selectCexSwapRefreshContextActivities(

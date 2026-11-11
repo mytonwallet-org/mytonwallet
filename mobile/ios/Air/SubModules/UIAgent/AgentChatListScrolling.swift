@@ -128,12 +128,25 @@ extension AgentChatListScrolling {
         return AgentListAnchor(itemID: itemID, minY: frame.minY, offsetY: collectionView.contentOffset.y)
     }
 
-    /// Moves the list so the anchor's row stands where it stood
+    /// Moves the list so the anchor's row stands where it stood. Rows that come into view above it at their estimated
+    /// heights take their own as the list lays them out, which moves the row again, so the list keeps it in place until
+    /// they have settled.
     func restorePaginationAnchor(_ anchor: AgentListAnchor<AnchorItemID>) {
         collectionView.layoutIfNeeded()
-        guard let indexPath = getIndexPath(forAnchorItemID: anchor.itemID),
-              let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
-        collectionView.contentOffset.y = clampedContentOffsetY(anchor.offsetY + frame.minY - anchor.minY)
+        guard let indexPath = getIndexPath(forAnchorItemID: anchor.itemID) else { return }
+        // A list pulled past its top keeps the pull for UIKit to spring back from, rather than jumping by it
+        let isPulledPastTop = anchor.offsetY < -collectionView.adjustedContentInset.top
+        for _ in 0...collectionView.numberOfItems(inSection: indexPath.section) {
+            guard let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
+            let rawOffsetY = anchor.offsetY + frame.minY - anchor.minY
+            let offsetY = isPulledPastTop ? min(rawOffsetY, maxContentOffsetY) : clampedContentOffsetY(rawOffsetY)
+            let shift = abs(collectionView.contentOffset.y - offsetY)
+            if shift > 0.01 {
+                collectionView.contentOffset.y = offsetY
+            }
+            guard shift > 0.5 else { return }
+            collectionView.layoutIfNeeded()
+        }
     }
 
     /// The list is close enough to its top to load what came before its first row

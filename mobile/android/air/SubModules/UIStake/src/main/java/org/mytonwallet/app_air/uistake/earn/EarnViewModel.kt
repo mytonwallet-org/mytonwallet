@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -138,7 +139,7 @@ class EarnViewModel(val tokenSlug: String) :
             stakingBalanceValue.smartDecimalsCount(token.decimals),
             showPositiveSign = false,
             forceCurrencyToRight = true,
-            roundUp = false
+            rounding = RoundingMode.DOWN
         )
         val stakingBalanceIsLarge =
             stakingBalanceValue?.doubleAbsRepresentation(token.decimals)?.let { it >= 10 }

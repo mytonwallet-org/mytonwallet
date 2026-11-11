@@ -8,14 +8,13 @@ struct PerpsPositionEditStateTests {
     private func fixture(change: PerpsOrderDisplayData.EditingPosition.Change? = nil,
                          id: String = "position-1") -> PerpsOrderDisplayData {
         var data = PerpsOrderDisplayData(token: .TONCOIN, direction: .long, paymentToken: .TON_USDT,
-                                        input: .init(amount: change == nil ? "100.2" : "125.2", leverage: 10))
-        data.editingPosition = .init(id: id, currentInput: .init(text: "100.2"), currentAmount: "$100.2",
-                                     change: change, liquidationPrice: "$4.50")
+                                        input: .init(amount: change == nil ? "100.2" : "125.2", leverage: 10), maxLeverage: 10)
+        data.editingPosition = .init(id: id, currentInput: .init(text: "100.2"), currentCollateral: "100.213", currentAmount: "$100.2",
+                                     currentLeverage: 10, change: change, liquidationPrice: "$4.50")
         data.status = change == nil ? .idle : .ready
         data.positionSize = "$1 252"
         data.paymentAmount = "25"
         data.networkFee = "$0.01"
-        data.canUseFractions = true
         return data
     }
 
@@ -62,7 +61,9 @@ struct PerpsPositionEditStateTests {
         state.request(.resetAmount)
         let reset = try #require(requests.last)
         #expect(reset.action == .resetAmount)
-        #expect(reset.input.amount.text == "75.2")
+        #expect(reset.input.amount.text == "100.2")
+        #expect(reset.input.intent == .current)
+        #expect(state.data.input.amount.text == "100.2")
         #expect(!state.update(data: fixture(change: .reduce), for: edit))
         #expect(state.update(data: fixture(), for: reset))
         #expect(state.data.input.amount.text == "100.2")
@@ -84,19 +85,19 @@ struct PerpsPositionEditStateTests {
         #expect(!openState.update(data: fixture()))
     }
 
-    @Test func `signed adjustments update dollars from the current position and keep leverage fixed`() {
+    @Test func `signed adjustments ask the SDK for a share of the current collateral at the current leverage`() {
         var data = fixture()
-        data.leverageOptions = [.init(value: 2), .init(value: 10)]
+        data.input.amount = .init(text: "125.2")
         var requests: [PerpsOrderRequest] = []
         let state = PerpsOrderState(data: data) { requests.append($0) }
-        state.selectLeverage(2)
         state.request(.leverageChanged)
         state.request(.fraction(100))
         #expect(requests.isEmpty)
         for value in [-25, -5, 5, 25] { state.request(.fraction(value)) }
-        #expect(requests.map(\.action) == Array(repeating: .amountChanged, count: 4))
-        #expect(requests.map { $0.input.amount.text } == ["75.15", "95.19", "105.21", "125.25"])
-        #expect(requests.allSatisfy { $0.input.leverage == 10 })
+        #expect(requests.map(\.input.fraction) == [-25, -5, 5, 25])
+        // The fill rounds the exact collateral changed by the percentage to cents.
+        #expect(requests.map(\.input.amount.text) == ["75.16", "95.2", "105.22", "125.27"])
+        #expect(requests.allSatisfy { $0.input.leverage == 10 && $0.positionID == "position-1" })
     }
 
     @Test func `a funding notice after an increase does not block a reduction request`() throws {
@@ -110,9 +111,7 @@ struct PerpsPositionEditStateTests {
         #expect(requests.isEmpty)
         state.request(.fraction(-25))
         let reduction = try #require(requests.last)
-        #expect(reduction.action == .amountChanged)
-        #expect(reduction.input.amount.text == "75.15")
-        #expect(state.data.input.amount.text == "75.15")
+        #expect(reduction.input.fraction == -25)
         #expect(reduction.positionID == "position-1")
         #expect(!state.canReview)
         var response = fixture(change: .reduce)

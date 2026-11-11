@@ -86,7 +86,8 @@ object CollectionsMenuHelpers {
         }
         actionBar.addTrailingAction(
             WActionBar.ActionItem(
-                iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_more
+                iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_more,
+                opensMenu = true
             ) { moreButton ->
                 presentSelectionActionBarMenu(moreButton, onSelectAllTapped)
             }
@@ -363,7 +364,9 @@ object CollectionsMenuHelpers {
         shouldShowCollectionItem: Boolean = true,
         roundRadius: Float,
         onReorderTapped: (() -> Unit)? = null,
-        onSelectTapped: (() -> Unit)? = null
+        onSelectTapped: (() -> Unit)? = null,
+        onWillDismiss: (() -> Unit)? = null,
+        onDidDismiss: (() -> Unit)? = null
     ): INavigationPopup? {
         val menuItems = buildNftMenuItems(
             showingAccountId,
@@ -396,7 +399,9 @@ object CollectionsMenuHelpers {
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                 view,
                 roundRadius = roundRadius
-            )
+            ),
+            onWillDismiss = onWillDismiss,
+            onDidDismiss = onDidDismiss
         )
     }
 
@@ -548,6 +553,21 @@ object CollectionsMenuHelpers {
                     presentLinkToWalletModal(navigationController, nft)
                 }
             )
+            if (!linkedAddress.isNullOrBlank()) {
+                items.add(
+                    WMenuPopup.Item(
+                        WMenuPopup.Item.Config.Item(
+                            icon = Icon(
+                                org.mytonwallet.app_air.icons.R.drawable.ic_link,
+                                WColor.PrimaryLightText
+                            ),
+                            title = LocaleController.getString("Unlink Wallet")
+                        )
+                    ) {
+                        presentLinkToWalletModal(navigationController, nft, isUnlinking = true)
+                    }
+                )
+            }
         }
         val isHidden = NftStore.shouldHide(showingAccountId, nft)
         items.add(
@@ -804,7 +824,11 @@ object CollectionsMenuHelpers {
         navigationController.window.present(nav)
     }
 
-    fun presentLinkToWalletModal(navigationController: WNavigationController, nft: ApiNft) {
+    fun presentLinkToWalletModal(
+        navigationController: WNavigationController,
+        nft: ApiNft,
+        isUnlinking: Boolean = false
+    ) {
         val nav = WNavigationController(
             navigationController.window,
             WNavigationController.PresentationConfig(
@@ -812,7 +836,7 @@ object CollectionsMenuHelpers {
                 aboveKeyboard = true
             )
         )
-        nav.setRoot(LinkToWalletVC(navigationController.context, nft))
+        nav.setRoot(LinkToWalletVC(navigationController.context, nft, isUnlinking))
         navigationController.window.present(nav)
     }
 

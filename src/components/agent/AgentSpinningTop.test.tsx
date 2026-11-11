@@ -1,3 +1,4 @@
+import type { VirtualElement } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
@@ -126,6 +127,95 @@ describe('AgentSpinningTop', () => {
     expect(mark.classList.contains('wobble')).toBe(true);
     expect(root.querySelector('canvas')).toBeNull();
   });
+
+  it('stands a large top on the ground, and spins it up while the Agent thinks', async () => {
+    const { gl, renderTop, unmountTop } = await prepareFreshTop();
+
+    renderTop({ className: 'box', shouldShowGround: true });
+    await showTop();
+
+    // Its canvas reaches below its box for the shadow and the reflection, and the ground draws under the top
+    const canvas = root.querySelector('.box canvas') as HTMLCanvasElement;
+    expect(canvas.height).toBeGreaterThan(canvas.width);
+    expect(gl.drawArrays).toHaveBeenCalledWith(expect.anything(), 0, 4);
+    // The reflection's walls, then the top's
+    const reflectionOpacities = gl.uniform4f.mock.calls.slice(-2).map((call) => call[4]);
+    expect(reflectionOpacities[0]).toBeGreaterThan(0);
+    expect(reflectionOpacities[1]).toBe(0);
+    const getStreaks = () => gl.uniform4f.mock.calls.at(-1)![3] as number;
+    expect(getStreaks()).toBe(0);
+
+    renderTop({ className: 'box', shouldShowGround: true, agentState: 'thinking' });
+    await pause(900);
+
+    // Thinking spins it so fast that its surface smears into rings
+    expect(getStreaks()).toBeGreaterThan(0);
+
+    renderTop({ className: 'box', shouldShowGround: true });
+    await pause(2500);
+
+    expect(getStreaks()).toBe(0);
+    unmountTop();
+  });
+
+  it('shrinks a top a Stop grew as soon as the next state comes', async () => {
+    const { renderTop, unmountTop } = await prepareFreshTop();
+    // The grown top draws on a canvas of its own over the window
+    const getLiftedCanvas = () => document.body.querySelector(':scope > canvas');
+
+    renderTop({ isTouchInteractive: true, agentState: 'thinking' });
+    await showTop();
+    expect(getLiftedCanvas()).toBeNull();
+
+    renderTop({ isTouchInteractive: true, agentState: 'stopped' });
+    await pause(100);
+    expect(getLiftedCanvas()).not.toBeNull();
+
+    // A question sent right after the Stop: the top springs back into its place, which takes under 2 s
+    renderTop({ isTouchInteractive: true, agentState: 'thinking' });
+    await pause(2300);
+
+    expect(getLiftedCanvas()).toBeNull();
+    unmountTop();
+  });
+
+  // A lost context fails the renderer for good, so the top comes from modules of its own, with a global of their own
+  async function prepareFreshTop() {
+    jest.resetModules();
+    await import('../../../tests/initGlobal');
+    const { default: FreshReact } = await import('../../lib/teact/teact');
+    const { default: FreshTeactDOM } = await import('../../lib/teact/teact-dom');
+    const { default: FreshTop } = await import('./AgentSpinningTop');
+    window.WebGL2RenderingContext = class {} as unknown as typeof WebGL2RenderingContext;
+    const gl = createFakeWebGl2();
+    const context2d = { clearRect: jest.fn(), drawImage: jest.fn() };
+    jest.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(((type: string) => {
+      if (type === 'webgl2') return gl as unknown as RenderingContext;
+      // eslint-disable-next-line no-null/no-null
+      return type === '2d' ? context2d as unknown as RenderingContext : null;
+    }) as HTMLCanvasElement['getContext']);
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, top: 0, left: 0, right: 100, bottom: 100, width: 100, height: 100, toJSON: () => undefined,
+    });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+
+    return {
+      gl,
+      renderTop: (props: Parameters<typeof FreshTop>[0]) => FreshTeactDOM.render(
+        FreshReact.createElement(FreshTop, props) as VirtualElement, root,
+      ),
+      unmountTop: () => FreshTeactDOM.render(undefined, root),
+    };
+  }
+
+  // The first frame waits for the intersection observer to tell the top is in view
+  async function showTop() {
+    await pause(50);
+    intersectionCallbacks.forEach((callback) => callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver,
+    ));
+    await pause(100);
+  }
 });
 
 function createFakeWebGl2() {

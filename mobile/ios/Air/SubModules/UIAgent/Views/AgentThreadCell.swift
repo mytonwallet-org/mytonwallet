@@ -979,8 +979,10 @@ final class AgentThreadCell: AgentThreadRowCell, UIGestureRecognizerDelegate {
             relativeTo: now
         )
         setTexts(title: title ?? preview ?? lang("New Chat"), preview: title == nil ? nil : preview, time: time)
-        // A news discussion shows its news's picture before the preview
-        setPreviewImage(url: title == nil ? nil : thread.news?.imageUrl.flatMap(URL.init(string:)))
+        // A row shows the picture of its latest message, as Telegram's chat list does. Only a news post has one, and it
+        // is a discussion's latest message while it is the thread's only one.
+        let isNewsPostLatest = thread.messageCount <= 1
+        setPreviewImage(url: title == nil || !isNewsPostLatest ? nil : thread.news?.imageUrl.flatMap(URL.init(string:)))
         isPinIconVisible = isPinned
         isPinnedThread = isPinned
         actionButtons[1].setSystemName(isPinned ? "pin.slash.fill" : "pin.fill")

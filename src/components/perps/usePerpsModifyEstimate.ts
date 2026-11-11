@@ -45,7 +45,7 @@ export default function usePerpsModifyEstimate({
 }: ModifyEstimateInput) {
   const [add, setAdd] = useState<EstimateChannel<ApiPerpsQuote>>({});
   const [reduce, setReduce] = useState<EstimateChannel<ApiPerpsQuote>>({});
-  const [leverageDeposit, setLeverageDeposit] = useState<EstimateChannel<string>>({});
+  const [leverageDeposit, setLeverageDeposit] = useState<EstimateChannel<ApiPerpsQuote>>({});
   const [isEstimating, setIsEstimating] = useState(false);
 
   const assetId = asset.trim();
@@ -145,7 +145,7 @@ export default function usePerpsModifyEstimate({
           setLeverageDeposit({ error: 'Estimate unavailable.' });
           return;
         }
-        setLeverageDeposit({ value: result.paymentAmount });
+        setLeverageDeposit({ value: result });
       }
     };
 
@@ -181,7 +181,8 @@ export default function usePerpsModifyEstimate({
     addError: add.error,
     reduce: reduce.value,
     reduceError: reduce.error,
-    leverageDeposit: leverageDeposit.value,
+    leverageDeposit: leverageDeposit.value?.paymentAmount,
+    leverageEstimate: leverageDeposit.value,
     leverageError: leverageDeposit.error,
     isEstimating,
   };

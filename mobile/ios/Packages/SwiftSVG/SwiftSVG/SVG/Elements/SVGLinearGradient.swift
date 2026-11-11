@@ -8,7 +8,7 @@ protocol SVGGradientContainer: SVGContainerElement {
     func addStop(_ stop: SVGGradientStop)
 }
 
-final class SVGLinearGradient: SVGGradientContainer {
+final class SVGLinearGradient: SVGGradientContainer, Transformable {
     internal static let elementName = "linearGradient"
 
     internal var delayedAttributes = [String: String]()
@@ -55,6 +55,7 @@ final class SVGLinearGradient: SVGGradientContainer {
             return
         }
 
+        definition.transform = containerLayer.affineTransform()
         context.gradients[definition.id] = definition
     }
 }

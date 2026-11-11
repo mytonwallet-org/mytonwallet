@@ -61,7 +61,7 @@ $swipeCardRadius: 1.625rem;
     // Nothing moves on the hidden list
     .activityMarkFlat,
     .activityText,
-    .skeletonShape {
+    .skeletonShape::before {
       animation-play-state: paused;
     }
   }
@@ -122,6 +122,26 @@ $swipeCardRadius: 1.625rem;
 
 .composeEmpty {
   top: calc(var(--header-padding-top) + var(--header-title-height) + #{$rowHeight});
+}
+
+// Chats that failed to load leave the News row, with the failure in the middle of the list under it, where an empty
+// list has its suggestions
+.loadFailure {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--header-padding-top) + var(--header-title-height) + #{$rowHeight});
+  right: 0;
+  bottom: var(--agent-input-bar-height, 3.5rem);
+  left: 0;
+
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+// A page that failed to load ends the list, as a chat's failure ends its messages
+.pageFailure {
+  padding: 0 0.5rem;
 }
 
 .section {
@@ -299,12 +319,26 @@ $swipeCardRadius: 1.625rem;
   top: 50%;
   inset-inline-end: $swipeActionSpacing;
 
+  // The pill keeps the widest size a swipe can stretch it to, set as the swipe starts, and shows its trailing
+  // `--swipe-pill-width`, so stretching it repaints the pill without laying the row out again
+  transform-origin: calc(100% - var(--swipe-pill-width, #{$swipeActionSize}) / 2) 50%;
+
   justify-content: flex-end;
 
-  width: var(--swipe-pill-width, #{$swipeActionSize});
+  width: var(--swipe-pill-max-width, #{$swipeActionSize});
   margin-top: calc(#{$swipeActionSize} / -2);
 
   background-color: var(--color-red);
+  clip-path: inset(
+    0 0 0 calc(100% - var(--swipe-pill-width, #{$swipeActionSize})) round calc(#{$swipeActionSize} / 2)
+  );
+
+  :global(html[dir="rtl"]) & {
+    transform-origin: calc(var(--swipe-pill-width, #{$swipeActionSize}) / 2) 50%;
+    clip-path: inset(
+      0 calc(100% - var(--swipe-pill-width, #{$swipeActionSize})) 0 0 round calc(#{$swipeActionSize} / 2)
+    );
+  }
 
   &.swipeActionShown {
     opacity: 1;
@@ -622,37 +656,46 @@ $swipeCardRadius: 1.625rem;
   @include mixins.separatorList($separatorInset);
 }
 
-// A band of light runs down across every shape at once
+// A band of light runs down across every shape at once. Each shape holds its own copy of the band, which moves on the
+// compositor, raised by the shape's distance from the placeholder's top that `AgentThreadListSkeleton` measures.
 .skeletonShape {
+  position: relative;
+  overflow: hidden;
   flex-shrink: 0;
-
   background-color: var(--color-activity-gray-background);
-  background-image: linear-gradient(180deg, transparent 0%, var(--color-skeleton-shimmer) 50%, transparent 100%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-position: 0 (-$shimmerHeight);
-  background-size: 100% $shimmerHeight;
 
-  animation: skeletonShimmer 1.3s ease-out infinite;
+  &::before {
+    content: "";
 
-  :global(html.animation-level-0) & {
-    background-image: none;
-    animation: none;
-  }
+    position: absolute;
+    top: calc(-1 * var(--skeleton-offset, 0px));
+    left: 0;
+    transform: translateY(-$shimmerHeight);
 
-  @media (prefers-reduced-motion: reduce) {
-    background-image: none;
-    animation: none;
+    width: 100%;
+    height: $shimmerHeight;
+
+    background-image: linear-gradient(180deg, transparent 0%, var(--color-skeleton-shimmer) 50%, transparent 100%);
+
+    animation: skeletonShimmer 1.3s ease-out infinite;
+
+    :global(html.animation-level-0) & {
+      display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      display: none;
+    }
   }
 }
 
 @keyframes skeletonShimmer {
   0% {
-    background-position: 0 (-$shimmerHeight);
+    transform: translateY(-$shimmerHeight);
   }
 
   100% {
-    background-position: 0 100vh;
+    transform: translateY(100vh);
   }
 }
 
@@ -696,4 +739,9 @@ $swipeCardRadius: 1.625rem;
   --offset-y-bottom-value: 0;
 
   @include agentMenu.contextMenu;
+}
+
+// A deleted chat's row stands in its dust, keeping its place until the chat leaves the list
+.dissolved {
+  visibility: hidden;
 }

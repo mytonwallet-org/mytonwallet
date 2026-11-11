@@ -9,34 +9,43 @@ private const val FAILED_RUN_RETRY_GRACE_MS = 5 * 60_000L
 // Matches `FAILED_RUN_RETRY_MAX_TTL_MS` (`UTC_DAY_MS`) in `src/api/agentV2/runtime.ts`
 private const val FAILED_RUN_RETRY_MAX_TTL_MS = 24 * 60 * 60_000L
 
+/** A run the chat follows; the chat chooses its [clientRunId] before the SDK sees it, so every update is told apart */
 internal class AgentActiveRun(
+    val clientRunId: String,
     val inputPresentationId: String,
     val authority: AgentV2AuthorityBinding,
+    var canResendSupportConflict: Boolean = false,
     val editedMessage: AgentMessage? = null,
     val editFallbackMessages: List<AgentMessage>? = null,
-    val regenerationTargetId: String? = null
+    val regenerationTargetId: String? = null,
+    /**
+     * The stopped answers an edit or a regeneration replaces, forgotten once the server admits the run. Until then a
+     * history read leaves them out; a run that fails before admission keeps them.
+     */
+    var replacedStoppedAnswerIds: Set<String> = emptySet()
 ) {
     var isEditAdmitted = false
     var assistantPresentationId: String? = null
+
+    /** The answers the run's updates have written to */
+    val answerMessageIds = mutableSetOf<String>()
     var hasStartedAssistant = false
+    var hasDeliveredToSupport = false
     var hasReceivedStreamEvent = false
     var hasFailed = false
+    var shouldResendSupportConflict = false
     var failureCode: String? = null
     var shouldResyncThread = false
 
     /** Set when a limit stopped the run before it started, so it can go again once the limit resets */
     var limitRetry: AgentLimitRetry? = null
-    var clientRunId: String? = null
-        private set
     var runId: String? = null
         private set
 
     fun bind(clientRunId: String, runId: String?): Boolean {
-        val currentClientRunId = this.clientRunId
-        if (currentClientRunId != null && currentClientRunId != clientRunId) return false
+        if (clientRunId != this.clientRunId) return false
         val currentRunId = this.runId
         if (currentRunId != null && runId != null && currentRunId != runId) return false
-        this.clientRunId = clientRunId
         if (runId != null) this.runId = runId
         return true
     }
@@ -58,7 +67,8 @@ internal data class AgentLimitRetry(
     val failureMessageId: String? = null,
     val editedMessage: AgentMessage? = null,
     val editFallbackMessages: List<AgentMessage>? = null,
-    val regenerationTargetId: String? = null
+    val regenerationTargetId: String? = null,
+    val replacedStoppedAnswerIds: Set<String> = emptySet()
 ) {
     val expiresAt: Long
         get() = minOf(

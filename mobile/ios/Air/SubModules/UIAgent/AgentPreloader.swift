@@ -22,12 +22,27 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
     /// Recently opened chats stay loaded, so reopening one shows its messages at once
     private var recentModels: [AgentV2Model] = []
     private static let recentModelLimit = 8
+    private let cachedHistories: AgentCachedHistories
+    /// The wallet is ready, and the SDK's cached histories belong to it
+    private var isWalletReady = false
 
     init(client: AgentV2Client) {
         self.client = client
+        cachedHistories = AgentCachedHistories(client: client)
+    }
+
+    /// Reads ahead the SDK's cached histories of the list's top threads, so their chats open with them
+    func prefetchCachedHistories(of threads: [ApiAgentV2ThreadSummary]) {
+        guard isWalletReady else { return }
+        cachedHistories.prefetch(threads)
+    }
+
+    func getCachedHistory(threadId: String) -> AgentCachedHistory? {
+        cachedHistories.getHistory(threadId: threadId)
     }
 
     func setWalletReady(_ isReady: Bool) {
+        isWalletReady = isReady
         WalletCoreData.remove(observer: self)
         if isReady {
             WalletCoreData.addImmediately(eventObserver: self)
@@ -41,13 +56,17 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             newsModels.removeAll()
             openingModels.removeAll()
             deletedThreadIds.removeAll()
+            cachedHistories.removeAll()
             activeModels.forEach { $0.stop() }
         }
     }
 
+    /// With `isSummaryCached`, a new chat shows no cached history: the summary is the SDK's copy, whose unread state is
+    /// unknown
     func acquireModel(
         thread: ApiAgentV2ThreadSummary,
-        news: (item: ApiAgentV2NewsFeedItem, locale: String)? = nil
+        news: (item: ApiAgentV2NewsFeedItem, locale: String)? = nil,
+        isSummaryCached: Bool = false
     ) -> AgentV2Model? {
         guard !isThreadDeleted(thread.id) else { return nil }
         models = models.filter { $0.value.value != nil }
@@ -59,8 +78,14 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         if let news {
             model = AgentV2Model(client: client, thread: thread, news: news.item, locale: news.locale) { _ in }
         } else {
-            model = AgentV2Model(client: client, thread: thread)
+            model = AgentV2Model(
+                client: client,
+                thread: thread,
+                cachedHistory: isSummaryCached ? nil : cachedHistories.getHistory(threadId: thread.id),
+                isSummaryCached: isSummaryCached
+            )
         }
+        observeCachedHistory(of: model)
         models[thread.id] = WeakModel(model)
         model.onStop = { [weak self, weak model] in
             guard let self, let model, self.models[thread.id]?.value === model else { return }
@@ -117,6 +142,19 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
         }
     }
 
+    func acquireNewsModel(request: ApiAgentV2ThreadNewsRequest) -> AgentV2Model {
+        if let model = newsModel(eventId: request.eventId) { return model }
+        return acquireOpeningModel(newsEventId: request.eventId) { onCreated in
+            AgentV2Model(client: client, newsRequest: request, onThreadCreated: onCreated)
+        }
+    }
+
+    func acquireDigestModel(id: String) -> AgentV2Model {
+        acquireOpeningModel { onCreated in
+            AgentV2Model(client: client, digestRequest: .init(id: id), onThreadCreated: onCreated)
+        }
+    }
+
     private func acquireOpeningModel(
         newsEventId: Int? = nil,
         onThreadCreated: @escaping (ApiAgentV2ThreadSummary) -> Void = { _ in },
@@ -152,6 +190,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             }
             return nil
         }
+        observeCachedHistory(of: model)
         openingModels.append(WeakModel(model))
         if let newsEventId { newsModels[newsEventId] = WeakModel(model) }
         model.onStop = { [weak self, weak model] in
@@ -165,6 +204,20 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
             }
         }
         return model
+    }
+
+    /// A history the chat loads takes the place of its thread's cached history
+    private func observeCachedHistory(of model: AgentV2Model) {
+        let generation = sessionGeneration
+        model.onCachedHistoryChange = { [weak self] threadId, history in
+            guard let self, self.isWalletReady, self.sessionGeneration == generation,
+                  !self.isThreadDeleted(threadId) else { return }
+            if let history {
+                self.cachedHistories.store(history)
+            } else {
+                self.cachedHistories.remove(threadId: threadId)
+            }
+        }
     }
 
     func newsModel(eventId: Int) -> AgentV2Model? {
@@ -182,6 +235,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
 
     private func invalidateDeletedThread(_ threadId: String) {
         deletedThreadIds.insert(threadId)
+        cachedHistories.remove(threadId: threadId)
         let deleted = recentModels.filter { $0.threadId == threadId }
         recentModels.removeAll { $0.threadId == threadId }
         deleted.forEach { $0.releasePresentation() }
@@ -191,6 +245,7 @@ final class AgentPreloader: WalletCoreData.EventsObserver {
     func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .accountsReset:
+            client.forgetKnownConsent()
             setWalletReady(false)
         case .agentThreadDeleted(let threadId):
             invalidateDeletedThread(threadId)

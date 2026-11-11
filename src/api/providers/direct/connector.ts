@@ -1,102 +1,67 @@
-import type { InstallAttributionCandidate } from '../../../util/installAttribution';
-import type { InstallMetadata } from '../../methods/installMetadata';
 import type { ApiInitArgs, OnApiUpdate } from '../../types';
 import type { MethodArgsWithMaybePrefix, MethodResponseWithMaybePrefix } from '../../types/methods';
 import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 
-import { normalizeAttributionCandidate } from '../../../util/installAttribution';
+import { throttle } from '../../../util/schedulers';
+import { isUpdaterAlive } from '../../common/helpers';
 import { getProtocolManager } from '../../dappProtocols';
-import { acceptInstallAttribution, setInstallChannel as claimLegacyInstallChannel } from '../../methods/attribution';
+import { reportAndroidInstallation } from '../../methods/androidInstallation';
+import { syncAndroidWalletAttribution } from '../../methods/attribution';
 import init from '../../methods/init';
-import { acceptInstallMetadata, normalizeInstallMetadata } from '../../methods/installMetadata';
 import { methods } from '../../methods/registry';
 import { createStorage, withStorage } from '../../storages';
 
+const INSTALLATION_RETRY_DELAY = 30000;
+
 export function createDirectApiConnector() {
   let initPromise: Promise<void> | undefined;
-  let attributionDrain: Promise<void> | undefined;
-  let metadataDrain: Promise<void> | undefined;
-  const pendingMetadata: InstallMetadata[] = [];
-  const pendingAttribution: (
-    { snapshot: InstallAttributionCandidate }
-    | { channel: string; referrerDomain?: string; technicalKind?: 'referral' }
-  )[] = [];
+  let requestReport = () => {};
+  let requestWalletClaim = () => {};
+  let stopReporting = () => {};
   let runtimeStorage = createStorage();
 
   function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
+    stopReporting();
     const args = typeof initArgs === 'function' ? initArgs() : initArgs;
 
+    const isAndroidInstallation = Boolean(args.isAndroidApp);
     runtimeStorage = createStorage(args.storage);
-    initPromise = withStorage(runtimeStorage, () => init(onUpdate, args));
-    flushAttribution();
-    flushMetadata();
-  }
-
-  function flushMetadata() {
-    if (!initPromise || metadataDrain === initPromise) return;
-    const ready = initPromise;
-    metadataDrain = ready;
     const targetStorage = runtimeStorage;
-    let failed = false;
-    void ready.then(async () => {
-      while (pendingMetadata.length && initPromise === ready) {
-        const pending = pendingMetadata[0];
-        await acceptInstallMetadata(pending, targetStorage);
-        if (pendingMetadata[0] === pending) pendingMetadata.shift();
-      }
-    }).catch(() => { failed = true; }).finally(() => {
-      if (metadataDrain === ready) metadataDrain = undefined;
-      if (pendingMetadata.length && (!failed || initPromise !== ready)) flushMetadata();
-    });
-  }
-
-  function captureInstallMetadata(value: unknown) {
-    const metadata = normalizeInstallMetadata(value);
-    if (!metadata) return;
-    pendingMetadata.push(metadata);
-    flushMetadata();
-  }
-
-  function flushAttribution() {
-    if (!initPromise || attributionDrain === initPromise) return;
-    const ready = initPromise;
-    attributionDrain = ready;
-    const targetStorage = runtimeStorage;
-    let initialized = false;
-    let failed = false;
-    void ready.then(async () => {
-      initialized = true;
-      while (pendingAttribution.length && initPromise === ready) {
-        const pending = pendingAttribution[0];
-        if ('snapshot' in pending) {
-          await acceptInstallAttribution(pending.snapshot, targetStorage);
-        } else {
-          await claimLegacyInstallChannel(
-            pending.channel, targetStorage, pending.referrerDomain, pending.technicalKind,
-          );
-        }
-        if (pendingAttribution[0] === pending) pendingAttribution.shift();
-      }
-    }).catch(() => { failed = true; }).finally(() => {
-      if (attributionDrain === ready) attributionDrain = undefined;
-      if (pendingAttribution.length && ((initialized && !failed) || initPromise !== ready)) flushAttribution();
-    });
-  }
-
-  function captureInstallAttribution(snapshot: InstallAttributionCandidate) {
-    const candidate = normalizeAttributionCandidate(snapshot);
-    if (!candidate) return;
-    pendingAttribution.push({ snapshot: candidate });
-    flushAttribution();
-  }
-
-  function setInstallChannel(channel: string, referrerDomain?: string, technicalKind?: 'referral') {
-    if (technicalKind === 'referral' || (!referrerDomain && ['organic', 'unknown'].includes(channel))) {
-      pendingAttribution.push({ channel, referrerDomain, technicalKind });
-      flushAttribution();
-      return;
+    const ready = withStorage(targetStorage, () => init(onUpdate, args));
+    void ready.catch(() => {});
+    initPromise = ready;
+    const isAlive = () => initPromise === ready && isUpdaterAlive(onUpdate);
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    let claimRetryTimeout: ReturnType<typeof setTimeout> | undefined;
+    const report = throttle(async () => {
+      clearTimeout(retryTimeout);
+      if (!isAlive()) return;
+      const isAcknowledged = await reportAndroidInstallation(isAlive);
+      if (!isAcknowledged && isAlive()) retryTimeout = setTimeout(report, INSTALLATION_RETRY_DELAY);
+    }, () => Promise.resolve());
+    const claim = throttle(async () => {
+      clearTimeout(claimRetryTimeout);
+      try {
+        await ready;
+        if (!isAlive()) return;
+        const isClaimed = await syncAndroidWalletAttribution(targetStorage, isAlive);
+        if (!isClaimed && isAlive()) claimRetryTimeout = setTimeout(claim, INSTALLATION_RETRY_DELAY);
+      } catch { /* Wallet initialization failure must not stop installation delivery. */ }
+    }, () => Promise.resolve());
+    stopReporting = () => {
+      clearTimeout(retryTimeout);
+      clearTimeout(claimRetryTimeout);
+    };
+    requestReport = () => {
+      if (isAndroidInstallation && isAlive()) report();
+    };
+    requestWalletClaim = () => {
+      if (isAndroidInstallation && isAlive()) claim();
+    };
+    if (isAndroidInstallation) {
+      requestReport();
+      requestWalletClaim();
     }
-    captureInstallAttribution({ channel, attributionKind: referrerDomain ? 'referrer' : 'utm', referrerDomain });
   }
 
   async function callApi<T extends keyof AllMethods>(
@@ -123,17 +88,20 @@ export function createDirectApiConnector() {
     });
   }
 
+  function handleInstallationStateChange() {
+    requestReport();
+    requestWalletClaim();
+  }
+
   return {
+    handleInstallationStateChange,
     initApi,
     callApi,
-    setInstallChannel,
-    captureInstallAttribution,
-    captureInstallMetadata,
   };
 }
 
 const defaultConnector = createDirectApiConnector();
 
 export const {
-  initApi, callApi, setInstallChannel, captureInstallAttribution, captureInstallMetadata,
+  initApi, callApi, handleInstallationStateChange,
 } = defaultConnector;

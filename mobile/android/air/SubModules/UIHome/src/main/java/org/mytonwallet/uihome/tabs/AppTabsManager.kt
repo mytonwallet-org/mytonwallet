@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.tabs
 
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
+import org.mytonwallet.app_air.walletcontext.PerpsAvailability
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -25,9 +26,11 @@ object AppTabsManager {
     const val ID_SETTINGS = 4
     const val ID_PORTFOLIO = 5
     const val ID_MARKET = 6
+    const val ID_FUTURES = 7
 
     const val TAB_WALLET = "wallet"
     const val TAB_MARKET = "market"
+    const val TAB_FUTURES = "futures"
     const val TAB_AGENT = "agent"
     const val TAB_EXPLORE = "explore"
     const val TAB_SETTINGS = "settings"
@@ -53,6 +56,14 @@ object AppTabsManager {
             testViewId = UIComponentsR.id.tab_market
         ),
         AppTab(
+            TAB_FUTURES,
+            ID_FUTURES,
+            R.drawable.ic_futures_thin,
+            R.drawable.ic_futures_filled,
+            "Futures",
+            isRequired = false
+        ),
+        AppTab(
             TAB_AGENT,
             ID_AGENT,
             R.drawable.ic_agent_thin,
@@ -66,7 +77,7 @@ object AppTabsManager {
             ID_EXPLORE,
             R.drawable.ic_explore_thin,
             R.drawable.ic_explore_filled,
-            "Explore",
+            "Apps",
             isRequired = false,
             testViewId = UIComponentsR.id.tab_explore
         ),
@@ -87,9 +98,11 @@ object AppTabsManager {
             isRequired = false,
             testViewId = UIComponentsR.id.tab_portfolio
         )
-    )
+    ).filter { it.id != TAB_FUTURES || PerpsAvailability.isAvailable() }
 
-    val defaultTabIds = listOf(TAB_WALLET, TAB_MARKET, TAB_AGENT, TAB_EXPLORE, TAB_SETTINGS)
+    val defaultTabIds =
+        listOf(TAB_WALLET, TAB_MARKET, TAB_FUTURES, TAB_AGENT, TAB_EXPLORE, TAB_SETTINGS)
+            .filter { tabFor(it) != null }
 
     private val legacyDefaultTabIds = listOf(TAB_WALLET, TAB_AGENT, TAB_EXPLORE, TAB_SETTINGS)
 
@@ -114,6 +127,17 @@ object AppTabsManager {
         _orderedTabIds = validated
         WGlobalStorage.setAppTabOrder(validated)
         WalletCore.notifyEvent(WalletEvent.AppTabsChanged)
+    }
+
+    /**
+     * Puts [ids] in their new order on the places they take, keeping every other tab where it is,
+     * so a list that shows only some of the tabs can reorder them
+     */
+    fun reorderTabs(ids: List<String>) {
+        val movedIds = ids.toSet()
+        if (movedIds.size != ids.size || !orderedTabIds.containsAll(movedIds)) return
+        val remainingIds = ArrayDeque(ids)
+        setTabIds(orderedTabIds.map { if (it in movedIds) remainingIds.removeFirst() else it })
     }
 
     // Drops unknown/duplicate ids and re-appends missing required tabs, so a stale or foreign

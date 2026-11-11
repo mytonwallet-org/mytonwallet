@@ -79,9 +79,22 @@ public enum ActivityDateFormatting {
         }
         return stringForTimestamp(timestamp: Int32(clamping: Int64(date.timeIntervalSince1970)))
     }
+
+    public static func getNextTimestampUpdate(
+        for date: Date,
+        mode: ActivityTimestampDisplayMode,
+        relativeTo now: Date,
+        calendar: Calendar = LocalizationSupport.shared.calendar
+    ) -> Date? {
+        guard mode == .dateWhenOlderThanTwelveHours,
+              let nextDay = calendar.dateInterval(of: .day, for: date)?.end else { return nil }
+        // The time stays visible through exactly twelve hours
+        let transition = max(nextDay, date.addingTimeInterval(dateThreshold + 1))
+        return transition > now ? transition : nil
+    }
 }
 
-public class ActivityDateCell: UICollectionReusableView {
+public class ActivityDateCell: UICollectionReusableView, ActivityDateDisplaying {
 
     public let contentView = UIView()
 
@@ -95,6 +108,7 @@ public class ActivityDateCell: UICollectionReusableView {
     
     public var skeletonView: DateSkeletonView? = nil
     private let dateLabel = UILabel()
+    private var itemDate: Date?
     
     private func setupViews() {
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -123,23 +137,27 @@ public class ActivityDateCell: UICollectionReusableView {
     
     public override func prepareForReuse() {
         super.prepareForReuse()
+        itemDate = nil
         contentView.alpha = 1
     }
     
     // MARK: - Configure using ApiActivity
     public func configure(with itemDate: Date) {
+        self.itemDate = itemDate
         skeletonView?.alpha = 0
         dateLabel.alpha = 1
         dateLabel.text = ActivityDateFormatting.headerText(for: itemDate)
     }
 
     public func configure(title: String) {
+        itemDate = nil
         skeletonView?.alpha = 0
         dateLabel.alpha = 1
         dateLabel.text = title
     }
 
     public func configureSkeleton() {
+        itemDate = nil
         if skeletonView == nil {
             let skeletonView = DateSkeletonView()
             skeletonView.translatesAutoresizingMaskIntoConstraints = false
@@ -159,6 +177,13 @@ public class ActivityDateCell: UICollectionReusableView {
             setNeedsLayout()
             layoutIfNeeded()
         }
+    }
+
+    @discardableResult public func updateDate(relativeTo now: Date) -> Date? {
+        guard let itemDate else { return nil }
+        let text = ActivityDateFormatting.headerText(for: itemDate, relativeTo: now)
+        if dateLabel.text != text { dateLabel.text = text }
+        return nil
     }
 
 }

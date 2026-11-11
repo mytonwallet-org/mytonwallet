@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiPriceHistoryBackfill
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
@@ -425,15 +426,21 @@ object TokenStore : IStore {
         }
     }
 
-    // Load price history from cache and update the price history instantly
+    // Load price history from cache and update the price history instantly. The backfill comes with the loaded
+    // series only, as the cached one is stored without it.
     fun loadPriceHistory(
         token: MToken,
         period: MHistoryTimePeriod,
-        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit
+        callback: (
+            data: Array<Array<Double>>?,
+            backfill: ApiPriceHistoryBackfill?,
+            fromCache: Boolean,
+            MBridgeError?
+        ) -> Unit
     ) {
         val cachedData = WGlobalStorage.getPriceHistory(token.slug, period.value)
         if (cachedData != null && isPriceHistoryFresh(cachedData, period)) {
-            callback(cachedData, true, null)
+            callback(cachedData, null, true, null)
         }
         updatePriceHistory(token, period, callback)
     }
@@ -457,7 +464,12 @@ object TokenStore : IStore {
     private fun updatePriceHistory(
         token: MToken,
         period: MHistoryTimePeriod,
-        callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit
+        callback: (
+            data: Array<Array<Double>>?,
+            backfill: ApiPriceHistoryBackfill?,
+            fromCache: Boolean,
+            MBridgeError?
+        ) -> Unit
     ) {
         val baseCurrency = WalletCore.baseCurrency
         WalletCore.call(
@@ -465,12 +477,12 @@ object TokenStore : IStore {
         ) { res, err ->
             if (WalletCore.baseCurrency != baseCurrency) return@call
             if (res == null || err != null) {
-                callback(null, false, err?.parsed)
+                callback(null, null, false, err?.parsed)
                 return@call
             }
-            val data = res.map { it.toTypedArray() }.toTypedArray()
+            val data = res.points.map { it.toTypedArray() }.toTypedArray()
             WGlobalStorage.setPriceHistory(token.slug, period.value, data)
-            callback(data, false, null)
+            callback(data, res.backfill, false, null)
         }
     }
 

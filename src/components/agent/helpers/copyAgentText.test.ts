@@ -28,7 +28,7 @@ describe('copyAgentText', () => {
 
     resolveCopy();
     await copying;
-    expect(mockShowToast).toHaveBeenCalledWith({ message: '[Message Copied]', icon: 'icon-copy' });
+    expect(mockShowToast).toHaveBeenCalledWith({ message: '[$agent_message_copied]', icon: 'icon-copy' });
   });
 
   it('shows no toast when the clipboard refuses the text', async () => {
@@ -41,7 +41,7 @@ describe('copyAgentText', () => {
   it('names what was copied with the text it is given', async () => {
     copyMock.mockResolvedValue(undefined);
 
-    await copyAgentText('Today 9:41', 'Copied');
-    expect(mockShowToast).toHaveBeenCalledWith({ message: '[Copied]', icon: 'icon-copy' });
+    await copyAgentText('Today 9:41', '$agent_copied');
+    expect(mockShowToast).toHaveBeenCalledWith({ message: '[$agent_copied]', icon: 'icon-copy' });
   });
 });

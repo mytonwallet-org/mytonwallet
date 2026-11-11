@@ -364,7 +364,7 @@ fun WalletCore.resetAccounts(callback: (Boolean?, MBridgeError?) -> Unit) {
     val accountIds = WGlobalStorage.accountIds()
     AccountStore.updateActiveAccount(null)
     fun wipeNativeState() {
-        AirPushNotifications.unsubscribeAll()
+        AirPushNotifications.unsubscribeAll(shouldResetNews = true)
         WalletCore.stores.forEach { it.wipeData() }
         WSdkStorage.clearStorage()
         WalletCore.enclaveReset()

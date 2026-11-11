@@ -36,6 +36,8 @@ import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uiagent.R as UIAgentR
 import org.mytonwallet.app_air.uiagent.agentV2.resolveAgentThreadTitle
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportLabelStyle
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.getAgentSupportLabelStyle
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSpinningTopView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentStatusTextView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentUnreadBadgeDrawable
@@ -231,10 +233,10 @@ internal class AgentThreadCell(context: Context) :
                 Date(),
                 shouldShowDateWhenNotToday = isPinned,
                 is24HourFormat = is24HourFormat,
-                yesterday = LocaleController.getString("Yesterday"),
                 locale = Locale.forLanguageTag(LocaleController.activeLanguage.langCode)
             ),
-            previewImageUrl = thread.news?.imageUrl?.takeIf { it.isNotBlank() }
+            previewImageUrl = agentThreadPreviewImageUrl(thread),
+            supportLabel = getAgentSupportLabelStyle(thread.support)
         )
         rowView.isPinned = isPinned
         rowView.isUnread = isUnread
@@ -281,6 +283,7 @@ internal class AgentThreadCell(context: Context) :
     private fun updateAccessibility(isPinned: Boolean) {
         rowView.contentDescription = listOfNotNull(
             rowView.titleText,
+            LocaleController.getString("\$agent_support_label").takeIf { rowView.hasSupportLabel },
             rowView.activityText ?: rowView.previewText,
             rowView.timeText,
             LocaleController.getString("Pinned").takeIf { isPinned },
@@ -526,6 +529,7 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
     }
     private var previewImageUrl: String? = null
     private var preview: String? = null
+    private var supportLabel: AgentSupportLabelStyle? = null
     private val unreadDot = AgentUnreadDotView(context)
     private val unreadBadge = WLabel(context).apply {
         setStyle(AgentThreadRowMetrics.UNREAD_BADGE_TEXT_SIZE, WFont.Bold)
@@ -582,6 +586,7 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
     val isUnreadDotShown: Boolean get() = unreadDot.isVisible || unreadBadge.isVisible
     val titleText: String get() = titleLabel.text?.toString().orEmpty()
     val previewText: String get() = preview.orEmpty()
+    val hasSupportLabel: Boolean get() = supportLabel != null
     val timeText: String get() = timeLabel.text?.toString().orEmpty()
     val activityText: String? get() = activityLine?.text
 
@@ -609,10 +614,18 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
         unreadBadge.isVisible = false
     }
 
-    fun setTexts(title: String, preview: String?, time: String, previewImageUrl: String? = null) {
+    /** [supportLabel]: a chat with support carries its label before the preview */
+    fun setTexts(
+        title: String,
+        preview: String?,
+        time: String,
+        previewImageUrl: String? = null,
+        supportLabel: AgentSupportLabelStyle? = null
+    ) {
         titleLabel.text = title
         timeLabel.text = time
         this.preview = preview
+        this.supportLabel = supportLabel
         val imageUrl = previewImageUrl?.takeIf { preview != null }
         if (imageUrl != this.previewImageUrl) {
             this.previewImageUrl = imageUrl
@@ -632,18 +645,26 @@ internal class AgentThreadRowView(context: Context, private val avatarView: View
             }
         }
         previewThumbnail.isVisible = imageUrl != null
-        // Keeps its place while loading, so the text doesn't move
-        previewLabel.text = if (imageUrl == null || preview == null) {
+        previewLabel.text = if (imageUrl == null && supportLabel == null) {
             preview
         } else {
-            SpannableStringBuilder(" ").apply {
-                setSpan(
-                    ThumbnailSpace(AgentThreadRowMetrics.PREVIEW_THUMBNAIL_SPACE.dp),
-                    0,
-                    1,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                append(preview)
+            SpannableStringBuilder().apply {
+                // Keeps its place while loading, so the text doesn't move
+                if (imageUrl != null) {
+                    append(
+                        " ",
+                        ThumbnailSpace(AgentThreadRowMetrics.PREVIEW_THUMBNAIL_SPACE.dp),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                if (supportLabel != null) {
+                    append(
+                        " ",
+                        AgentSupportLabelSpan(context, supportLabel),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                if (preview != null) append(preview)
             }
         }
     }

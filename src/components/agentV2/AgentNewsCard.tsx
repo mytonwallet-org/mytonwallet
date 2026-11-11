@@ -3,17 +3,14 @@ import React, { memo, useRef } from '../../lib/teact/teact';
 import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
 
 import buildClassName from '../../util/buildClassName';
-import buildStyle from '../../util/buildStyle';
-import { formatTime } from '../../util/dateFormat';
-import { getAvatarGradientColors } from '../ui/helpers/getAvatarGradientColor';
+import { formatAgentTime } from '../agent/helpers/agentDateFormat';
 import { getAgentNewsPictureId } from './agentNewsPictures';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
-import AgentMark from '../agent/AgentMark';
-import AgentSearchGlyph from '../agent/AgentSearchGlyph';
 import AgentNewsBubble from './AgentNewsBubble';
+import AgentNewsDiscussStrip from './AgentNewsDiscussStrip';
 
 import bubbleStyles from '../agent/MessageBubble.module.scss';
 import styles from './AgentNews.module.scss';
@@ -53,11 +50,6 @@ function AgentNewsCard({
     onOpenDiscussion(item, e.currentTarget.closest<HTMLElement>(CARD_SELECTOR) ?? undefined);
   });
 
-  // The strip is a button of its own: pressing it does not open the card's menu
-  const handleDiscussionPointer = useLastCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-  });
-
   return (
     <div
       className={buildClassName(bubbleStyles.message, bubbleStyles.messageIncoming)}
@@ -67,33 +59,22 @@ function AgentNewsCard({
       <div className={styles.cardColumn}>
         <AgentNewsBubble
           news={item}
-          time={formatTime(deliveredAt)}
+          time={formatAgentTime(lang.code ?? 'en', deliveredAt)}
           timeDateTime={item.deliveredAt}
           menuTimestamp={deliveredAt}
           pictureId={getAgentNewsPictureId('feed', eventId)}
           isPictureLazy
-          isFeedCard
+          feedEventId={eventId}
           className={shouldAnimateAppearance ? bubbleStyles.appearing : undefined}
           footer={(
-            <button
-              type="button"
-              className={styles.cardDiscussion}
-              data-agent-news-discuss
-              aria-label={isDiscussionContinued
+            <AgentNewsDiscussStrip
+              label={discussionLabel}
+              ariaLabel={isDiscussionContinued
                 ? lang('$agent_news_continue_discussion_accessibility', { headline }) as string
                 : `${discussionLabel}, ${headline}`}
-              onMouseDown={handleDiscussionPointer}
-              onContextMenu={handleDiscussionPointer}
+              discussion={isDiscussionContinued ? discussion : undefined}
               onClick={handleDiscussionClick}
-            >
-              <span className={styles.cardDiscussionContent}>
-                {renderDiscussionIcon(isDiscussionContinued ? discussion : undefined)}
-                <span className={styles.cardDiscussionLabel}>{discussionLabel}</span>
-                <svg className={styles.cardDiscussionChevron} viewBox="0 0 24 24" aria-hidden>
-                  <path d="M9.5 6.5L15 12l-5.5 5.5" />
-                </svg>
-              </span>
-            </button>
+            />
           )}
           onOpenPicture={handleImageClick}
         />
@@ -103,25 +84,3 @@ function AgentNewsCard({
 }
 
 export default memo(AgentNewsCard);
-
-/** The Agent mark for a new discussion, or the avatar of the chat the discussion continues in */
-function renderDiscussionIcon(discussion: AgentNewsFeedItemV2['discussion']) {
-  if (!discussion) {
-    return (
-      <span className={styles.cardDiscussionIcon} aria-hidden>
-        <AgentMark className={styles.cardDiscussionMark} />
-      </span>
-    );
-  }
-
-  const [startColor, endColor] = getAvatarGradientColors(discussion.threadId);
-  return (
-    <span
-      className={buildClassName(styles.cardDiscussionIcon, styles.cardDiscussionAvatar)}
-      style={buildStyle(`--start-color: ${startColor}; --end-color: ${endColor}`)}
-      aria-hidden
-    >
-      {discussion.icon || <AgentSearchGlyph className={styles.cardDiscussionAvatarMark} />}
-    </span>
-  );
-}

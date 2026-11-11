@@ -9,7 +9,7 @@ import { getChainConfig, getChainsByStandard, getSupportedChains } from '../../.
 import Deferred from '../../../util/Deferred';
 import { pick } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
-import { throttle } from '../../../util/schedulers';
+import { onTickEnd, throttle } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
 import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
 import { buildTokenSlug, getTokenByAddress, tokensPreload } from '../../common/tokens';
@@ -33,8 +33,15 @@ const SOCKET_THROTTLE_DELAY = 100;
 const MISSING_POSITION_BLOCK_TIMEOUT = 10 * 60_000;
 const OLDER_POSITION_BLOCK_TIMEOUT = 30 * 60_000;
 
-const crosschainAssetsByChain = new Map<string, ApiBalanceBySlug>();
-const crosschainBlocksByChain = new Map<string, Record<string, { block: number; observedAt: number }>>();
+type CrosschainEntry = {
+  /** The standard-chain stream whose poll published the entry. The entry leaves with it. */
+  publisher: BalanceStream;
+  balances: ApiBalanceBySlug;
+  blocks: Record<string, { block: number; observedAt: number }>;
+};
+
+/** The snapshots of the non-standard chains of a standard, keyed by `network:chain:address` */
+const crosschainEntries = new Map<string, CrosschainEntry>();
 
 type BalanceStreamOptions = {
   chain: ApiChain;
@@ -206,8 +213,8 @@ export class BalanceStream {
     let chainBalances = this.#balances;
 
     if (config.chainStandard && config.chainStandard !== this.#chain) {
-      const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
-      chainBalances = crosschainAssetsByChain.get(crosschainKey) || {};
+      chainBalances = crosschainEntries.get(buildCrosschainKey(this.#network, this.#chain, this.#address))?.balances
+        || {};
     }
 
     return chainBalances;
@@ -231,6 +238,11 @@ export class BalanceStream {
 
   public destroy() {
     this.#isDestroyed = true;
+    for (const [crosschainKey, entry] of crosschainEntries) {
+      if (entry.publisher === this) {
+        crosschainEntries.delete(crosschainKey);
+      }
+    }
     this.#removeSlugMoveListener();
     this.#walletWatcher.destroy();
     this.#fallbackPollingScheduler?.destroy();
@@ -269,11 +281,13 @@ export class BalanceStream {
    * UI would show with the new holder's decimals and price. They are dropped at once, before the UI gets the new
    * holder, and fetched again. A poll yet to start assigns the new slugs itself, while a running one may have assigned
    * the old ones, so it is followed by another and cannot bring the dropped balances back. A stream holding the slugs of
-   * other chains fetches them all again.
+   * other chains fetches them all again. The cross-chain entries of the address lose the slugs too, so a stream that
+   * inherits its snapshot from them later does not get the previous holder's amounts.
    */
   #handleTokenSlugsMove = (slugs: string[]) => {
-    const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
-    const crosschainBalances = crosschainAssetsByChain.get(crosschainKey);
+    const crosschainBalances = crosschainEntries.get(
+      buildCrosschainKey(this.#network, this.#chain, this.#address),
+    )?.balances;
     const affectedSlugs = slugs.filter((slug) => {
       const chain = getChainBySlug(slug);
       if (this.#pollChains?.includes(chain)) return true;
@@ -282,6 +296,8 @@ export class BalanceStream {
         ? slug in this.#balances
         : chain === this.#chain && crosschainBalances !== undefined && slug in crosschainBalances;
     });
+    // Every stream of the address checks the entries before they lose the slugs
+    onTickEnd(() => removeCrosschainSlugs(this.#network, this.#address, slugs));
     if (!affectedSlugs.length) return;
 
     this.#dropBalances(affectedSlugs);
@@ -315,13 +331,15 @@ export class BalanceStream {
     // A stream on a non-standard chain usually receives its snapshot via the standard-chain
     // cross-chain fan-out rather than its own poll. The map is only a fallback: when this stream
     // has completed its own poll, its `#balances` are authoritative, and the map may legitimately
-    // be empty (the standard-chain stream is inactive for wallets with no activity there).
+    // be empty (the standard-chain stream is inactive for wallets with no activity there). The map
+    // holds only the entries of live standard-chain streams, so a stream started for the next
+    // polling cycle waits for the new publication instead of inheriting the previous cycle's one.
     if (!chainBalances && config.chainStandard && config.chainStandard !== this.#chain) {
-      const crosschainKey = `${this.#network}:${this.#chain}:${this.#address.toLowerCase()}`;
-      chainBalances = crosschainAssetsByChain.get(crosschainKey);
-      if (chainBalances) {
-        this.#balances = { ...chainBalances };
-        for (const [slug, stamp] of Object.entries(crosschainBlocksByChain.get(crosschainKey) ?? {})) {
+      const entry = crosschainEntries.get(buildCrosschainKey(this.#network, this.#chain, this.#address));
+      chainBalances = entry?.balances;
+      if (entry) {
+        this.#balances = { ...entry.balances };
+        for (const [slug, stamp] of Object.entries(entry.blocks)) {
           if (!this.#balanceBlockBySlug.has(slug)) {
             this.#balanceBlockBySlug.set(slug, { ...stamp, source: 'snapshot' });
           }
@@ -386,32 +404,45 @@ export class BalanceStream {
           const pollVersion = ++this.#clock;
           const crosschainResult
             = await this.#fetchCrosschainBalancesCb?.(this.#network, this.#address, this.#sendUpdateTokens);
+          if (this.#isDestroyed) return;
 
           if (crosschainResult) {
             const { balances: crosschainBalances, asOf: crosschainAsOf, blockBySlug } = crosschainResult;
             const knownChains = getSupportedChains();
             const observedAt = Date.now();
+            const publishedEntries = new Map<string, CrosschainEntry>();
 
             for (const [slug, balance] of Object.entries(crosschainBalances)) {
               const assetChain = getChainBySlug(slug);
 
-              if (!knownChains.includes(assetChain)) {
+              // A slug moved after this request started is left to the poll the move forced. Socket deltas stamp only
+              // the slugs of this chain, whose entry no stream reads.
+              if (!knownChains.includes(assetChain) || pollVersion < (this.#balanceVersionBySlug.get(slug) ?? -1)) {
                 continue;
               }
 
-              const crosschainKey = `${this.#network}:${assetChain}:${this.#address.toLowerCase()}`;
-              crosschainAssetsByChain.set(crosschainKey, {
-                ...crosschainAssetsByChain.get(crosschainKey),
-                [slug]: balance,
-              });
-              const blocks = { ...crosschainBlocksByChain.get(crosschainKey) };
+              const crosschainKey = buildCrosschainKey(this.#network, assetChain, this.#address);
+              let entry = publishedEntries.get(crosschainKey);
+              if (!entry) {
+                // The publication of another stream is replaced as a whole, so none of its slugs outlives it
+                const currentEntry = crosschainEntries.get(crosschainKey);
+                entry = currentEntry?.publisher === this
+                  ? { publisher: this, balances: { ...currentEntry.balances }, blocks: { ...currentEntry.blocks } }
+                  : { publisher: this, balances: {}, blocks: {} };
+                publishedEntries.set(crosschainKey, entry);
+              }
+
+              entry.balances[slug] = balance;
               const block = blockBySlug?.[slug];
               if (block === undefined) {
-                delete blocks[slug];
+                delete entry.blocks[slug];
               } else {
-                blocks[slug] = { block, observedAt };
+                entry.blocks[slug] = { block, observedAt };
               }
-              crosschainBlocksByChain.set(crosschainKey, blocks);
+            }
+
+            for (const [crosschainKey, entry] of publishedEntries) {
+              crosschainEntries.set(crosschainKey, entry);
             }
 
             this.#setAllBalances(crosschainBalances, pollVersion, crosschainAsOf, blockBySlug);
@@ -704,6 +735,24 @@ async function splitKnownAndUnknownTokens(balances: BalanceByTokenAddress) {
   }
 
   return { known, unknown };
+}
+
+function buildCrosschainKey(network: ApiNetwork, chain: ApiChain, address: string) {
+  return `${network}:${chain}:${address.toLowerCase()}`;
+}
+
+function removeCrosschainSlugs(network: ApiNetwork, address: string, slugs: string[]) {
+  for (const slug of slugs) {
+    const crosschainKey = buildCrosschainKey(network, getChainBySlug(slug), address);
+    const entry = crosschainEntries.get(crosschainKey);
+    if (!entry || (!(slug in entry.balances) && !(slug in entry.blocks))) continue;
+
+    const balances = { ...entry.balances };
+    const blocks = { ...entry.blocks };
+    delete balances[slug];
+    delete blocks[slug];
+    crosschainEntries.set(crosschainKey, { ...entry, balances, blocks });
+  }
 }
 
 function balanceByTokenAddressToBySlug<T>(chain: ApiChain, byAddress: Record<string, T>) {

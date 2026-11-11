@@ -10,10 +10,21 @@ private enum AgentHintsSectionMetrics {
 
 final class AgentHintsSectionView: UIView {
     private let stackView = UIStackView()
-    /// The Agent's spinning top, half as fast as in a thinking reply
-    private let sparkleView = AgentSpinningTopView(speedMultiplier: 0.5)
+    /// The Agent's spinning top, half as fast as in a thinking reply, large enough to stand on the ground with its
+    /// shadow and reflection
+    private let sparkleView = AgentSpinningTopView(speedMultiplier: 0.5, showsGround: true)
     var isActive = true {
         didSet { sparkleView.isActive = isActive }
+    }
+    /// The chat's run, which the large top shows
+    var agentState: AgentSpinningTopView.AgentState {
+        get { sparkleView.agentState }
+        set { sparkleView.agentState = newValue }
+    }
+
+    /// The user stopped the Agent while it thought: the large top is knocked as by a failure
+    func knockTop() {
+        sparkleView.knock()
     }
     private var buttons: [AgentSuggestionButton] = []
     private var hints: [AgentHint] = []
@@ -89,8 +100,17 @@ final class AgentHintsSectionView: UIView {
         }
         for (button, hint) in zip(buttons, hints) {
             button.configure(title: hint.title)
+            // A pill that turned into its question shows again with the suggestions
+            button.alpha = 1
         }
         stackView.isHidden = hints.isEmpty
+    }
+
+    /// The pill of `hint`, while it shows
+    func getButton(for hint: AgentHint) -> AgentSuggestionButton? {
+        guard !stackView.isHidden, let index = hints.firstIndex(where: { $0.id == hint.id }),
+              buttons.indices.contains(index) else { return nil }
+        return buttons[index]
     }
 
     func applyTheme() {

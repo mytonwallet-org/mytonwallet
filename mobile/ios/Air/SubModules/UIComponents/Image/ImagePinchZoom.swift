@@ -150,7 +150,9 @@ public final class ImagePinchZoom: NSObject, UIGestureRecognizerDelegate {
         animator.startAnimation()
     }
 
-    /// Keeps enclosing lists still for the whole two-finger sequence
+    /// Keeps enclosing lists still for the whole two-finger sequence. It turns off their pan rather than their
+    /// scrolling: a scroll view that can't scroll leaves the safe area out of its insets, which moves a list resting at
+    /// its end by the home indicator's height.
     private func setScrollingSuspended(_ isSuspended: Bool) {
         guard let imageView else { return }
         if isSuspended {
@@ -158,15 +160,16 @@ public final class ImagePinchZoom: NSObject, UIGestureRecognizerDelegate {
             var scrollViews: [UIScrollView] = []
             var ancestor = imageView.superview
             while let view = ancestor {
-                if let scrollView = view as? UIScrollView, scrollView.isScrollEnabled {
-                    scrollView.isScrollEnabled = false
+                if let scrollView = view as? UIScrollView, scrollView.isScrollEnabled,
+                   scrollView.panGestureRecognizer.isEnabled {
+                    scrollView.panGestureRecognizer.isEnabled = false
                     scrollViews.append(scrollView)
                 }
                 ancestor = view.superview
             }
             suspendedScrollViews = scrollViews
         } else {
-            suspendedScrollViews.forEach { $0.isScrollEnabled = true }
+            suspendedScrollViews.forEach { $0.panGestureRecognizer.isEnabled = true }
             suspendedScrollViews = []
         }
     }

@@ -8,6 +8,7 @@ struct ImportExistingPickerView: View {
 
     let introModel: IntroModel
     var onHeightChange: (CGFloat) -> ()
+    var shouldIgnoreHorizontalSafeArea = false
 
     @Environment(\.dismiss) var dismiss
 
@@ -45,6 +46,7 @@ struct ImportExistingPickerView: View {
         .padding(.top, 20)
         .padding(.bottom, 24)
         .fixedSize(horizontal: false, vertical: true)
+        .ignoresSafeArea(.container, edges: shouldIgnoreHorizontalSafeArea ? .horizontal : [])
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
             onHeightChange(height)
         }

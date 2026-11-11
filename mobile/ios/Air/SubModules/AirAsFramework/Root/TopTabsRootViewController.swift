@@ -17,11 +17,21 @@ private let topTabsNavigationBarSpacing: CGFloat = 10
 
 @MainActor
 final class TopTabsRootViewController: WViewController, VisibleContentProviding {
-    private enum Page: Int {
+    private enum Page: CaseIterable {
         case wallet
         case market
         case agent
         case explore
+
+        init?(tabId: AppTabId) {
+            switch tabId {
+            case .wallet: self = .wallet
+            case .market: self = .market
+            case .agent: self = .agent
+            case .explore: self = .explore
+            default: return nil
+            }
+        }
 
         var navigationTitle: String {
             switch self {
@@ -29,6 +39,42 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             case .market: lang("Market")
             case .agent: lang("Agent")
             case .explore: lang("Explore")
+            }
+        }
+
+        var tabId: AppTabId {
+            switch self {
+            case .wallet: .wallet
+            case .market: .market
+            case .agent: .agent
+            case .explore: .explore
+            }
+        }
+
+        var menuDescription: String {
+            switch self {
+            case .wallet: lang("View your assets and activity")
+            case .market: lang("$perps_explore_market")
+            case .agent: lang("Ask AI and follow the news")
+            case .explore: lang("$perps_explore_apps")
+            }
+        }
+
+        var menuIconName: String {
+            switch self {
+            case .wallet: "TabMenuWallet"
+            case .market: "TabMenuMarket"
+            case .agent: "TabMenuAgent"
+            case .explore: "TabMenuApps"
+            }
+        }
+
+        var menuAnimationName: String {
+            switch self {
+            case .wallet: "tab_menu_wallet"
+            case .market: "tab_menu_market"
+            case .agent: "tab_menu_agent"
+            case .explore: "tab_menu_explore"
             }
         }
     }
@@ -50,6 +96,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private let explorePage: TopTabsPageViewController
 
     private var pager: WPagerViewController!
+    /// The pages in the user's tab order; the pager, the segmented control and the side tab bar follow it
+    private var pageOrder = TopTabsRootViewController.pageOrder(for: AppTabManager.shared.orderedTabIds)
     private var segmentedControl: WSegmentedControl!
     private let tabControlContainer = UIView()
     private var headerContentView: UIView?
@@ -80,6 +128,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
     private let accountSwitcherButton = WalletAccountButton()
     let searchController: RootSearchToolbarController
+    var presentHiddenTab = presentTabModally
     private var accountSwitcherMenuInteraction: ContextMenuInteraction?
     private var isSearchVisible: Bool { searchController.isSearchVisible }
 
@@ -91,7 +140,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var tintedPageBackgrounds: [ObjectIdentifier: [TintedBackground]] = [:]
     private var appliedPageTintShares: [Page: CGFloat?] = [:]
     private var sharedNavigationPaths: [Page: [UIViewController]] = [:]
-    private var activePage: Page = .wallet {
+    /// The screen opens on the first page in the user's tab order
+    private var activePage: Page = TopTabsRootViewController.pageOrder(for: AppTabManager.shared.orderedTabIds)[0] {
         didSet {
             title = activePage.navigationTitle
         }
@@ -132,7 +182,21 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private var selectedPage: Page {
-        Page(rawValue: pager?.selectedIndex ?? Page.wallet.rawValue) ?? .wallet
+        guard let pager else { return activePage }
+        return page(at: pager.selectedIndex) ?? .wallet
+    }
+
+    private static func pageOrder(for ids: [AppTabId]) -> [Page] {
+        let order = ids.compactMap(Page.init(tabId:))
+        return order + Page.allCases.filter { !order.contains($0) }
+    }
+
+    private func pageIndex(of page: Page) -> Int {
+        pageOrder.firstIndex(of: page)!
+    }
+
+    private func page(at index: Int) -> Page? {
+        pageOrder.indices.contains(index) ? pageOrder[index] : nil
     }
 
     init(searchController: RootSearchToolbarController = RootSearchToolbarController()) {
@@ -372,7 +436,39 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     func finishPaging() { pager?.finishPaging() }
 
     func applyTabConfiguration(_ orderedIds: [AppTabId]) {
-        // Top Tabs follows the fixed order from the design.
+        let order = Self.pageOrder(for: orderedIds)
+        guard order != pageOrder else { return }
+        pageOrder = order
+        guard isViewLoaded, let pager, let segmentedControl else { return }
+        let items = segmentedControl.model.items
+        segmentedControl.model.setItems(order.compactMap { page in
+            items.first { $0.id == page.tabId.rawValue }
+        })
+        pager.reorderPages(order.map(\.tabId.rawValue))
+        segmentedControl.setPagingProgress(CGFloat(pager.selectedIndex))
+        updateAgentBottomBar(committedIndex: pager.committedIndex)
+        updateSideTabBarOrder()
+    }
+
+    /// Saves the order the tab menu or the side tab bar was given. A page shown without being in the user's order
+    /// keeps its place after the others
+    private func reorderTabs(_ ids: [AppTabId]) {
+        AppTabManager.shared.reorderTabs(ids.filter { AppTabManager.shared.contains($0) })
+        updateSideTabBarOrder()
+    }
+
+    /// The side tab bar takes its items once, so it is built again when the pages' order differs from its own. A bar
+    /// that moved a tab itself already shows the order
+    private func updateSideTabBarOrder() {
+        guard let sideTabBar else { return }
+        if #available(iOS 26.0, *),
+           (sideTabBar as? WVerticalTabBar)?.itemIds == pageOrder.map(\.tabId.rawValue) {
+            return
+        }
+        sideTabBar.removeFromSuperview()
+        self.sideTabBar = nil
+        sideTabEdge = nil
+        updateTabBarPlacement()
     }
 
     func takeNavigationStack(for id: AppTabId, keepingRoot: Bool) -> [UIViewController]? {
@@ -456,13 +552,43 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if popToRoot {
             sharedNavigationPaths[page] = []
         }
-        if animated, page.rawValue != pager.selectedIndex {
+        let index = pageIndex(of: page)
+        if animated, index != pager.selectedIndex {
             segmentedControl.beginSelectionScroll(toItemId: id.rawValue)
         }
-        pager.select(index: page.rawValue, animated: animated)
-        if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(page.rawValue, animated: animated) }
+        pager.select(index: index, animated: animated)
+        if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(index, animated: animated) }
         installSharedNavigationPath(for: page)
         return true
+    }
+
+    func showAgentNewsChat(_ controller: UIViewController) {
+        guard AppTabManager.shared.contains(.agent) else {
+            presentHiddenTab(.agent, topViewController() ?? self, { _ in [controller] })
+            return
+        }
+        discardSearch()
+        selectTab(.agent, popToRoot: true, animated: false)
+        sharedMainNavigationController?.pushViewController(
+            controller, animated: sharedMainNavigationController?.viewIfLoaded?.window != nil
+        )
+    }
+
+    func showAgentNewsFeed(digestId: String) {
+        guard AppTabManager.shared.contains(.agent) else {
+            presentHiddenTab(.agent, topViewController() ?? self) { root in
+                let list = root as! AgentThreadListVC
+                return [list.makeNewsFeedViewController(requestedDigestId: digestId)]
+            }
+            return
+        }
+        discardSearch()
+        selectTab(.agent, popToRoot: true, animated: false)
+        guard let list = agentPage.contentViewController as? AgentThreadListVC else { return }
+        sharedMainNavigationController?.pushViewController(
+            list.makeNewsFeedViewController(requestedDigestId: digestId),
+            animated: sharedMainNavigationController?.viewIfLoaded?.window != nil
+        )
     }
 
     func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
@@ -515,7 +641,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private func configurePager() {
-        let items = [
+        let itemsInDefaultOrder = [
             SegmentedControlItem(
                 id: AppTabId.wallet.rawValue,
                 title: lang("Wallet"),
@@ -545,35 +671,80 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 viewController: explorePage
             ),
         ]
+        let items = pageOrder.compactMap { page in
+            itemsInDefaultOrder.first { $0.id == page.tabId.rawValue }
+        }
 
         let model = SegmentedControlModel(
             items: items,
-            selection: .init(item1: AppTabId.wallet.rawValue),
+            selection: .init(item1: activePage.tabId.rawValue),
             primaryColor: .tintColor,
             capsuleColor: .air.thumbBackground,
             style: .compactRootHeader
         )
         let segmentedControl = WSegmentedControl(model: model, isGlassInteractive: true)
+        if #available(iOS 26, *) {
+            segmentedControl.tintAdjustmentMode = .normal
+        }
         self.segmentedControl = segmentedControl
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        segmentedControl.longPressContextMenuAccessibilityLabel = lang("Tabs")
+        segmentedControl.longPressContextMenuProvider = SegmentedControlContextMenuProvider { [weak self, weak model] in
+            let pages = (model?.items ?? []).compactMap { item in
+                Page.allCases.first { $0.tabId.rawValue == item.id }
+            }
+            // Reduced motion and turned-off animations keep the static icons
+            let areIconsAnimated = AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+            var menuOrder = pages
+            return ContextMenuConfiguration(
+                rootPage: ContextMenuPage(items: pages.map { page in
+                    .action(ContextMenuAction(
+                        id: "tab_menu_\(page.tabId.rawValue)",
+                        title: page.navigationTitle,
+                        subtitle: page.menuDescription,
+                        icon: .image(UIImage.airBundle(page.menuIconName), renderingMode: .template),
+                        handler: { [weak self] in
+                            guard let self, self.segmentedControl.model.items.contains(where: {
+                                $0.id == page.tabId.rawValue
+                            }) else { return }
+                            let isSelected = self.pager.selectedIndex == self.pageIndex(of: page)
+                            self.selectTab(page.tabId)
+                            if isSelected { self.segmentedControl.centerSelectedItem(animated: true) }
+                        },
+                        animatedIcon: {
+                            areIconsAnimated ? ContextMenuStickerIconView(animationName: page.menuAnimationName) : nil
+                        }
+                    ))
+                }, onReorder: { sourceIndex, destinationIndex in
+                    menuOrder.insert(menuOrder.remove(at: sourceIndex), at: destinationIndex)
+                    self?.reorderTabs(menuOrder.map(\.tabId))
+                }),
+                backdrop: .none,
+                popoverUsesSourceViewBounds: true,
+                popoverDisablesInteractiveDismissal: true,
+                style: ContextMenuStyle(minWidth: 340, maxWidth: 340, subtitleNumberOfLines: 2)
+            )
+        }
         model.onSelect = { [weak self] item in
             self?.selectTab(AppTabId(item.id))
         }
 
-        let pages = [walletPage, marketPage, agentPage, explorePage]
-        let pager = WPagerViewController(pages: zip(items, pages).map { item, page in
-            .init(id: item.id, makeViewController: { page })
-        }, preloadsPages: true)
+        let initialIndex = pageIndex(of: activePage)
+        let pager = WPagerViewController(pages: pageOrder.map { page in
+            .init(id: page.tabId.rawValue, makeViewController: { [unowned self] in self.page(for: page) })
+        }, selectedIndex: initialIndex, preloadsPages: true)
         self.pager = pager
+        segmentedControl.setPagingProgress(CGFloat(initialIndex))
         pager.onProgressChanged = { [weak self] progress in
-            self?.segmentedControl.setPagingProgress(progress.logicalOffset)
-            let agent = Page.agent.rawValue
+            guard let self else { return }
+            self.segmentedControl.setPagingProgress(progress.logicalOffset)
+            let agent = self.pageIndex(of: .agent)
             if progress.source == agent, progress.destination != agent {
-                self?.updateAgentPaging(agentShare: 1 - progress.fraction, neighbor: Page(rawValue: progress.destination))
+                self.updateAgentPaging(agentShare: 1 - progress.fraction, neighbor: self.page(at: progress.destination))
             } else if progress.destination == agent, progress.source != agent {
-                self?.updateAgentPaging(agentShare: progress.fraction, neighbor: Page(rawValue: progress.source))
+                self.updateAgentPaging(agentShare: progress.fraction, neighbor: self.page(at: progress.source))
             } else {
-                self?.updateAgentPaging(agentShare: progress.source == agent ? 1 : 0, neighbor: nil)
+                self.updateAgentPaging(agentShare: progress.source == agent ? 1 : 0, neighbor: nil)
             }
         }
         pager.onSelectionChanged = { [weak self] index in
@@ -681,7 +852,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         sideTabTopConstraint = nil
         if let edge, #available(iOS 27.1, *) {
             if sideTabBar == nil {
-                let ids: [AppTabId] = [.wallet, .market, .agent, .explore]
+                let ids = pageOrder.map(\.tabId)
                 let items = ids.compactMap { id -> WVerticalTabBar.Item? in
                     guard let registration = AppTabManager.shared.registration(for: id) else { return nil }
                     return .init(id: id.rawValue, title: registration.titleProvider(), image: registration.compactIcon)
@@ -689,16 +860,20 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 let bar = WVerticalTabBar(items: items)
                 bar.tintColor = .tintColor
                 bar.onSelect = { [weak self] index, repeated in
-                    guard ids.indices.contains(index) else { return }
-                    self?.selectTab(ids[index], popToRoot: repeated)
-                    if repeated { self?.scrollToTop() }
+                    guard let self, let page = self.page(at: index) else { return }
+                    self.selectTab(page.tabId, popToRoot: repeated)
+                    if repeated { self.scrollToTop() }
+                }
+                bar.onReorder = { [weak self, weak bar] _, _ in
+                    guard let self, let bar else { return }
+                    self.reorderTabs(bar.itemIds.map { AppTabId($0) })
                 }
                 bar.translatesAutoresizingMaskIntoConstraints = false
                 sideTabBar = bar
                 view.addSubview(bar)
             }
             (sideTabBar as? WVerticalTabBar)?.isOnLeftEdge = edge == .left
-            (sideTabBar as? WVerticalTabBar)?.select(selectedPage.rawValue, animated: false)
+            (sideTabBar as? WVerticalTabBar)?.select(pageIndex(of: selectedPage), animated: false)
             NSLayoutConstraint.deactivate(horizontalHeaderConstraints)
             accountSwitcherButton.removeFromSuperview()
             accountSwitcherButton.translatesAutoresizingMaskIntoConstraints = false
@@ -815,11 +990,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func installAgentBottomBar(from controller: UIViewController) {
         guard let list = controller as? AgentThreadListVC else { return }
         list.presentComposedChat = { [weak self] chat in self?.presentComposedChat(chat) ?? false }
-        list.onConsentChanged = { [weak self, weak list] in
-            guard let self, let list else { return }
-            self.searchController.applyChromeInsets(to: list)
-            self.updateAgentBottomBar(committedIndex: self.pager?.committedIndex ?? self.selectedPage.rawValue)
-        }
         // A side tab bar keeps the toolbar beside the content, so the list lays out its own field there
         let isBarHostedInToolbar = sideTabEdge == nil
         list.setBottomBarHostedExternally(isBarHostedInToolbar)
@@ -827,16 +997,14 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             searchController.agentBar.install(list.bottomBar)
         }
         updateAgentPaging(agentShare: selectedPage == .agent ? 1 : 0, neighbor: nil)
-        updateAgentBottomBar(committedIndex: pager?.committedIndex ?? selectedPage.rawValue)
+        updateAgentBottomBar(committedIndex: pager?.committedIndex ?? pageIndex(of: selectedPage))
     }
 
     /// The Agent tab's bar grows out of the toolbar once paging commits to the Agent tab, and goes back into it once
     /// paging commits elsewhere: as with Telegram's bars, nothing changes while the finger holds the pages
     private func updateAgentBottomBar(committedIndex: Int) {
-        let isAgent = committedIndex == Page.agent.rawValue
-        let list = agentPage.loadedContentViewController as? AgentThreadListVC
-        searchController.agentBar.isAvailable = list?.isConsentRequired != true
-        searchController.isAgentConsentVisible = isAgent && list?.isConsentRequired == true
+        let isAgent = committedIndex == pageIndex(of: .agent)
+        searchController.agentBar.isAvailable = true
         searchController.agentBar.setMorphProgress(sideTabEdge == nil && isAgent ? 1 : 0)
     }
 
@@ -1225,10 +1393,10 @@ extension TopTabsRootViewController {
     private func pagerDidSelect(_ index: Int) {
         segmentedControl.setPagingProgress(CGFloat(index))
         segmentedControl.endSelectionScroll()
-        updateAgentPaging(agentShare: index == Page.agent.rawValue ? 1 : 0, neighbor: nil)
+        updateAgentPaging(agentShare: index == pageIndex(of: .agent) ? 1 : 0, neighbor: nil)
         updateAgentBottomBar(committedIndex: index)
         let page = selectedPage
-        if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(page.rawValue) }
+        if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.select(pageIndex(of: page)) }
         if page != activePage {
             captureSharedNavigationPath(for: activePage)
             activePage = page

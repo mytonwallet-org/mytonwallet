@@ -11,6 +11,7 @@ import UIComponents
 import WalletContext
 import WalletCore
 import Perception
+import ContextMenuKit
 
 let headerHeight: CGFloat = 360
 
@@ -19,8 +20,12 @@ public class ReceiveVC: WViewController {
     private let selectedChain: ApiChain?
     private let buyingToken: String?
     
-    private var segmentedController: WSegmentedController!
+    private var model: SegmentedControlModel!
+    private var segmentedControl: WSegmentedControl!
+    private var pager: WPagerViewController?
+    private let headerTransition = ReceiveHeaderTransitionModel()
     private var hostingController: UIHostingController<ReceiveHeaderView>!
+    private var headerHeightConstraint: NSLayoutConstraint!
     private var previousNavigationBarStyle: UIUserInterfaceStyle = .unspecified
     private var displayedAccount: MAccount?
     private var isSwitchingAccount = false
@@ -60,42 +65,31 @@ public class ReceiveVC: WViewController {
         let chainItems = makeChainItems()
         let initialChainId = chainItems.first(where: { $0.id == selectedChain?.rawValue })?.id
 
-        segmentedController = WSegmentedController(
+        model = SegmentedControlModel(
             items: chainItems,
-            defaultItemId: initialChainId,
-            barHeight: 0,
-            goUnderNavBar: true,
-            animationSpeed: .slow,
-            primaryTextColor: .white,
-            secondaryTextColor: .white,
-            capsuleFillColor: .white.withAlphaComponent(0.16),
+            primaryColor: .white,
+            secondaryColor: .white,
+            capsuleColor: .white.withAlphaComponent(0.16),
             style: .colorHeader
         )
-        
-        segmentedController.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(segmentedController)
-        NSLayoutConstraint.activate([
-            segmentedController.topAnchor.constraint(equalTo: view.topAnchor),
-            segmentedController.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            segmentedController.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            segmentedController.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-        segmentedController.backgroundColor = .clear
-        segmentedController.blurView.isHidden = true
-        segmentedController.separator.isHidden = true
+        segmentedControl = WSegmentedControl(model: model, isGlassInteractive: true)
+        model.onSelect = { [weak self] item in self?.selectChain(item.id) }
+        configureChainMenu()
+        replaceChainPages(items: chainItems, selectedId: initialChainId)
 
         self.hostingController = addHostingController(makeHeader()) { hv in
+            self.headerHeightConstraint = hv.heightAnchor.constraint(equalToConstant: headerHeight)
             NSLayoutConstraint.activate([
                 hv.topAnchor.constraint(equalTo: self.view.topAnchor),
                 hv.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
                 hv.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-                hv.heightAnchor.constraint(equalToConstant: headerHeight)
+                self.headerHeightConstraint
             ])
         }
         hostingController.disableSafeArea()
         hostingController.view.clipsToBounds = true
         
-        view.bringSubviewToFront(segmentedController)
+        if let pager { view.bringSubviewToFront(pager.view) }
 
         if IS_GRAM_WALLET {
             let diamondTouchView = TelegramReceiveDiamondTouchView()
@@ -106,7 +100,7 @@ public class ReceiveVC: WViewController {
                 diamondTouchView.topAnchor.constraint(equalTo: view.topAnchor),
                 diamondTouchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 diamondTouchView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                diamondTouchView.heightAnchor.constraint(equalToConstant: headerHeight),
+                diamondTouchView.heightAnchor.constraint(equalTo: hostingController.view.heightAnchor),
             ])
         }
         
@@ -143,7 +137,8 @@ public class ReceiveVC: WViewController {
             updateAccountSwitcher()
             guard displayedAccount != account else { return }
             displayedAccount = account
-            segmentedController.replace(items: makeChainItems())
+            let selectedId = selectedChainId
+            replaceChainPages(items: makeChainItems(), selectedId: selectedId)
             updateChainSelector()
         }
 
@@ -155,15 +150,42 @@ public class ReceiveVC: WViewController {
         previousNavigationBarStyle = navigationController?.navigationBar.overrideUserInterfaceStyle ?? .unspecified
         navigationController?.navigationBar.overrideUserInterfaceStyle = .dark
     }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Keep at least 40% of short sheets available for the address and actions
+        let height = min(headerHeight, view.bounds.height * 0.6)
+        headerHeightConstraint.constant = height
+        if hostingController.rootView.availableHeight != height {
+            hostingController.rootView.availableHeight = height
+        }
+        for item in model.items {
+            (item.viewController as? ReceiveTableVC)?.setHeaderHeight(height)
+        }
+    }
+
+    public override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        setNavigationControlsAppearance()
+    }
     
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.navigationBar.overrideUserInterfaceStyle = previousNavigationBarStyle
     }
     
-    /// Overrides user interface style to dark to turn off whitish tint for navigation controls (segmented tabs + close button)
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if isViewLoaded, traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            setNavigationControlsAppearance()
+        }
+    }
+
+    /// Match the dark navigation buttons while keeping the menu's appearance independent.
     private func setNavigationControlsAppearance() {
-        segmentedController.segmentedControl.overrideUserInterfaceStyle = .dark
+        guard let segmentedControl else { return }
+        segmentedControl.overrideUserInterfaceStyle = .dark
+        segmentedControl.glassUserInterfaceStyle = .dark
     }
 
     private func updateNavigationItems() {
@@ -208,13 +230,13 @@ public class ReceiveVC: WViewController {
     }
 
     private func updateChainSelector() {
-        let isMultichain = segmentedController.model.items.count > 1
-        segmentedController.scrollView.isScrollEnabled = isMultichain
-        segmentedController.segmentedControl.isHidden = !isMultichain
+        let isMultichain = model.items.count > 1
+        pager?.isPagingEnabled = isMultichain
+        segmentedControl.isHidden = !isMultichain
         if isMultichain {
-            segmentedController.segmentedControl.embed(in: navigationItem)
+            segmentedControl.embed(in: navigationItem)
         } else {
-            segmentedController.segmentedControl.removeFromSuperview()
+            segmentedControl.removeFromSuperview()
             let header = NavigationHeader2()
             let title = NavigationHeader2.makeTitleLabel(lang("Add Crypto"), fixedColor: true)
             title.textColor = .white
@@ -223,6 +245,50 @@ public class ReceiveVC: WViewController {
             header.setContentView(title)
             navigationItem.titleView = header
         }
+    }
+
+    private func configureChainMenu() {
+        segmentedControl.longPressContextMenuAccessibilityLabel = lang("All Chains")
+        segmentedControl.longPressContextMenuProvider = SegmentedControlContextMenuProvider { [weak self] in
+            self?.makeChainMenuConfiguration() ?? ContextMenuConfiguration(rootPage: ContextMenuPage(items: []))
+        }
+    }
+
+    private func makeChainMenuConfiguration() -> ContextMenuConfiguration {
+        let accountId = account.id
+        let selectedId = selectedChainId
+        let items = model.items.compactMap { item -> ContextMenuItem? in
+            guard let chain = ApiChain(rawValue: item.id), let chainInfo = account.getChainInfo(chain: chain) else {
+                return nil
+            }
+            let subtitle = if let domain = chainInfo.domain {
+                "\(domain) \(formatStartEndAddress(chainInfo.address, prefix: 0, suffix: 6))"
+            } else {
+                formatStartEndAddress(chainInfo.address, prefix: 6, suffix: 6)
+            }
+            return .custom(.swiftUI(
+                id: chain.rawValue,
+                preferredWidth: 294,
+                sizing: .fixed(height: 60),
+                interaction: .selectable(handler: { [weak self] in
+                    guard let self, self.account.id == accountId, !self.isSwitchingAccount else { return }
+                    let isSelected = self.selectedChainId == chain.rawValue
+                    self.selectChain(chain.rawValue)
+                    if isSelected { self.segmentedControl.centerSelectedItem(animated: true) }
+                })
+            ) { _ in
+                ReceiveChainMenuRow(chain: chain, subtitle: subtitle, isSelected: item.id == selectedId)
+            })
+        }
+        return ContextMenuConfiguration(
+            rootPage: ContextMenuPage(items: items),
+            backdrop: .none,
+            userInterfaceStyle: view.traitCollection.userInterfaceStyle,
+            popoverUsesSourceViewBounds: true,
+            popoverDisablesInteractiveDismissal: true,
+            popoverBackgroundMaterial: .systemMaterial,
+            style: ContextMenuStyle(minWidth: 294, maxWidth: 294, sourceSpacing: 0)
+        )
     }
 
     private func selectAccount(accountId: String) {
@@ -253,17 +319,113 @@ public class ReceiveVC: WViewController {
             )
         }
     }
+
+    private func replaceChainPages(items: [SegmentedControlItem], selectedId: String?) {
+        let pageViewIndex = pager.flatMap { view.subviews.firstIndex(of: $0.view) }
+        if let pager {
+            pager.onProgressChanged = nil
+            pager.onSelectionChanged = nil
+            pager.finishPaging()
+            pager.willMove(toParent: nil)
+            pager.view.removeFromSuperview()
+            pager.removeFromParent()
+            self.pager = nil
+        }
+        model.setItems(items)
+        segmentedControl.endSelectionScroll()
+        guard !items.isEmpty else {
+            headerTransition.selection = nil
+            return
+        }
+        let index = items.firstIndex { $0.id == selectedId } ?? 0
+        model.selection = .init(item1: items[index].id)
+        headerTransition.settle(on: items[index].id)
+        let pager = WPagerViewController(pages: items.map { item in
+            .init(id: item.id, makeViewController: { item.viewController })
+        }, selectedIndex: index, preloadsPages: true)
+        self.pager = pager
+        pager.onProgressChanged = { [weak self] progress in
+            guard let self else { return }
+            segmentedControl.setPagingProgress(progress.logicalOffset)
+            headerTransition.selection = .init(
+                source: items[progress.source].id,
+                destination: items[progress.destination].id,
+                fraction: progress.fraction
+            )
+        }
+        pager.onSelectionChanged = { [weak self] index in
+            guard let self else { return }
+            segmentedControl.setPagingProgress(CGFloat(index))
+            segmentedControl.endSelectionScroll()
+            headerTransition.settle(on: items[index].id)
+        }
+        addChild(pager)
+        view.addStretchedToBounds(subview: pager.view)
+        if let pageViewIndex { view.insertSubview(pager.view, at: pageViewIndex) }
+        pager.didMove(toParent: self)
+    }
+
+    private func selectChain(_ id: String) {
+        guard let index = model.getItemIndexById(itemId: id), let pager else { return }
+        if index != pager.selectedIndex {
+            segmentedControl.beginSelectionScroll(toItemId: id)
+        }
+        pager.select(index: index, animated: true)
+    }
+
+    private var selectedChainId: String? {
+        guard let index = pager?.selectedIndex, model.items.indices.contains(index) else { return nil }
+        return model.items[index].id
+    }
     
     private func updateTheme() {
         view.backgroundColor = .air.sheetBackground
     }
     
     public override func scrollToTop(animated: Bool) {
-        segmentedController?.scrollToTop(animated: animated)
+        guard let model, let index = pager?.selectedIndex, model.items.indices.contains(index) else { return }
+        model.items[index].viewController.scrollToTop(animated: animated)
     }
             
     private func makeHeader() -> ReceiveHeaderView {
-        ReceiveHeaderView(viewModel: segmentedController.model, accountContext: _account)
+        ReceiveHeaderView(viewModel: model, accountContext: _account, transition: headerTransition)
+    }
+}
+
+private struct ReceiveChainMenuRow: View {
+    let chain: ApiChain
+    let subtitle: String
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(uiImage: chain.image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 40, height: 40)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chain.title)
+                    .textStyle(.body)
+                    .foregroundStyle(Color.air.primaryLabel)
+                    .lineLimit(1)
+                Text(subtitle)
+                    .textStyle(.footnote, content: .technical)
+                    .foregroundStyle(Color.air.secondaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "checkmark")
+                .textStyle(.body)
+                .foregroundStyle(Color.air.primaryLabel)
+                .opacity(isSelected ? 1 : 0)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 

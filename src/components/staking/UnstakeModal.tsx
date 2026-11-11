@@ -506,7 +506,6 @@ function UnstakeModal({
     <Modal
       isOpen={isOpen}
       hasCloseButton
-      noBackdropClose
       dialogClassName={styles.modalDialog}
       onClose={cancelStaking}
       onCloseAnimationEnd={updateNextKey}

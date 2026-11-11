@@ -6,8 +6,8 @@ import WalletContext
 /// elsewhere shows or hides the bars. Each picture zooms as an NFT does. The viewer opens out of the picture in the list
 /// and closes back into it, and a swipe down closes it.
 ///
-/// The bars are Telegram's: the back button, the picture's author and date on a capsule with "N of M" under it while
-/// the pictures page, and a footer with the picture's caption over its buttons.
+/// The bars are Telegram's: the back button, "N of M" over the picture's date on a capsule, and a footer with the
+/// picture's caption over its buttons.
 @MainActor
 public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
     public struct Picture {
@@ -36,8 +36,6 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     private static let edgeFadeWidth: CGFloat = 70
     /// The proportions a picture is shown at until it loads
     private static let placeholderRatio: CGFloat = 9 / 16
-    /// How long the counter stays after the pictures stop, as in Telegram
-    private static let counterHideDelay: TimeInterval = 2
     /// How far a swipe down goes before the bars are gone, as in Telegram
     private static let chromeFadeDistance: CGFloat = 50
     /// Telegram's gallery brings its backdrop and its bars in together over 0.15 s, linearly, so its bars come over the
@@ -71,7 +69,6 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     /// The source of the current picture, hidden while the viewer shows it
     private weak var hiddenSource: UIImageView?
     private var isLayingOutPages = false
-    private var counterHider: DispatchWorkItem?
     /// Holds the picture flying between the list and the viewer, under the list's header until the viewer covers it
     private let flightHostView = UIView()
     /// The picture flying in from the list until it lands, which a closing started meanwhile turns back
@@ -248,10 +245,6 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     public func setChromeHidden(_ isHidden: Bool, animated: Bool) {
         guard isChromeHidden != isHidden else { return }
         isChromeHidden = isHidden
-        if isHidden {
-            counterHider?.cancel()
-            headerView.setCounterShown(false, animated: false)
-        }
         guard animated else {
             applyChromeAppearance()
             layoutChrome()
@@ -276,9 +269,9 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
         pictures.count > 1 ? L10n.agentWalletPageIndicator(current: currentIndex + 1, total: pictures.count) : nil
     }
 
-    private func updateChromeContent() {
+    private func updateChromeContent(direction: MediaViewerAnimatedLabel.Direction, animated: Bool) {
         let details = pictures[currentIndex].details
-        headerView.configure(author: details?.author, date: details?.date, counter: counterText)
+        headerView.configure(counter: counterText, date: details?.date, direction: direction, animated: animated)
         footerView.configure(with: details)
         setNeedsLayout()
     }
@@ -294,10 +287,11 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     /// Shows the picture `index`, as a swipe or an edge tap does
     public func showPicture(at index: Int) {
         guard pictures.indices.contains(index), index != currentIndex else { return }
+        let previousIndex = currentIndex
         currentIndex = index
         pagerView.contentOffset.x = pagerView.bounds.width * CGFloat(index)
         updatePages()
-        currentPageDidChange()
+        currentPageDidChange(from: previousIndex)
     }
 
     private func updatePages() {
@@ -366,12 +360,14 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
         return size.height / size.width
     }
 
-    private func currentPageDidChange() {
+    /// Shows the bars' content of the current page, changing it from the one of `previousIndex`, if any
+    private func currentPageDidChange(from previousIndex: Int?) {
         // The list's picture of the shown page gives way to it, as Telegram's thumbnail does
         hiddenSource?.alpha = 1
         hiddenSource = sourceProvider(currentIndex)
         hiddenSource?.alpha = 0
-        updateChromeContent()
+        let isForward = previousIndex.map { $0 < currentIndex } ?? true
+        updateChromeContent(direction: isForward ? .forward : .backward, animated: previousIndex != nil)
         UIAccessibility.post(notification: .layoutChanged, argument: pages[currentIndex]?.imageView)
     }
 
@@ -379,40 +375,10 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
         guard scrollView === pagerView, !isLayingOutPages, pagerView.bounds.width > 0 else { return }
         let index = Int((pagerView.contentOffset.x / pagerView.bounds.width).rounded())
         guard pictures.indices.contains(index), index != currentIndex else { return }
+        let previousIndex = currentIndex
         currentIndex = index
         updatePages()
-        currentPageDidChange()
-    }
-
-    /// The counter shows while the pictures are dragged and for 2 s after they stop, as in Telegram
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        guard scrollView === pagerView else { return }
-        setPagingInteraction(true)
-    }
-
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        guard scrollView === pagerView, !decelerate else { return }
-        setPagingInteraction(false)
-    }
-
-    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        guard scrollView === pagerView else { return }
-        setPagingInteraction(false)
-    }
-
-    /// Shows the counter while the pictures page and hides it 2 s after they stop
-    func setPagingInteraction(_ isInteracting: Bool) {
-        counterHider?.cancel()
-        guard counterText != nil else { return }
-        if isInteracting {
-            headerView.setCounterShown(!isChromeHidden, animated: true)
-        } else {
-            let hider = DispatchWorkItem { [weak self] in
-                self?.headerView.setCounterShown(false, animated: true)
-            }
-            counterHider = hider
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.counterHideDelay, execute: hider)
-        }
+        currentPageDidChange(from: previousIndex)
     }
 
     /// The width at each side that a tap pages from, as in Telegram's gallery
@@ -484,7 +450,7 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
     private func open() {
         let source = sourceProvider(currentIndex)
         listContentTop = source.flatMap(getListContentTop(of:))
-        currentPageDidChange()
+        currentPageDidChange(from: nil)
         guard let page = pages[currentIndex] else { return }
         Haptics.play(.transition)
         // The bars fade in with the backdrop as the picture flies out of the list
@@ -532,7 +498,6 @@ public final class MediaViewer: UIView, UIScrollViewDelegate, UIGestureRecognize
         guard !isClosing else { return }
         isClosing = true
         Haptics.play(.transition)
-        counterHider?.cancel()
         let page = pages[currentIndex]
         let source = sourceProvider(currentIndex)
         let finish = { [weak self] in

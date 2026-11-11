@@ -1,5 +1,6 @@
 import Testing
 import UIKit
+import WalletCore
 import UIComponents
 import WalletContext
 import WalletResources
@@ -11,11 +12,11 @@ struct PerpsOrderUIKitTests {
 
     @Test(arguments: [false, true])
     func tokenEquivalentIsReadOnlyAndDoesNotReserveSpaceForAnArrow(_ isEditing: Bool) throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH,
-            input: .init(amount: "5", leverage: 2))
+        var data = order(amount: "5")
         data.conversion = "0.025 ETH"
         if isEditing {
-            data.editingPosition = .init(id: "position", currentInput: .init(text: "10"), currentAmount: "$10", change: .reduce)
+            data.editingPosition = .init(id: "position", currentInput: .init(text: "10"), currentCollateral: "10", currentAmount: "$10",
+                currentLeverage: 5, change: .reduce)
         }
         var requests: [PerpsOrderRequest] = []
         let content = PerpsOrderView(state: .init(data: data, onRequest: { requests.append($0) }), selectLeverage: {})
@@ -40,10 +41,8 @@ struct PerpsOrderUIKitTests {
 
     @Test(arguments: [CGFloat(320), 390, 600])
     func quoteUpdatesRetainEditingAndKeepThePaymentRowReachable(_ width: CGFloat) async throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH,
-            input: .init(amount: "5", leverage: 2))
-        data.canUseFractions = true
-        data.leverageOptions = [.init(value: 2)]
+        var data = order(amount: "5")
+        data.availableCollateral = .init(text: "100")
         data.status = .ready
         var request: PerpsOrderRequest?
         let state = PerpsOrderState(data: data) { request = $0 }
@@ -79,19 +78,126 @@ struct PerpsOrderUIKitTests {
         content.setNeedsLayout()
         content.layoutIfNeeded()
         #expect(scroll.contentOffset.y == bottom)
-        #expect(content.payment.frame.maxY <= scroll.bounds.maxY)
+        #expect(content.method.frame.maxY <= scroll.bounds.maxY)
         #expect(!scroll.delaysContentTouches)
         #expect(!scroll.showsVerticalScrollIndicator)
     }
 
+    @Test(arguments: [-25, -5, 5, 25, 0])
+    func animateAmountLayoutWhenCurrentAmountAppearsAndDisappears(_ percentage: Int) async throws {
+        var data = order(amount: "100")
+        data.editingPosition = .init(id: "position", currentInput: .init(text: "100"), currentCollateral: "100",
+            currentAmount: "$100", currentLeverage: 5, liquidationPrice: "$1 500")
+        data.positionSize = "$500"
+        let state = PerpsOrderState(data: data, onRequest: { _ in })
+        let content = PerpsOrderView(state: state, selectLeverage: {})
+        let controller = UIViewController()
+        controller.view = content
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 740))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { content.endEditing(true); window.isHidden = true }
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(50))
+        try #require(TradeMotion.enabled)
+        let amount = content.amountField
+        let initialAmountPosition = amount.layer.position
+        let initialConversionPosition = content.conversion.layer.position
+        let current = try #require(descendants(content).first { $0.accessibilityIdentifier == "perps.order.current" } as? UIControl)
+        if percentage == 0 {
+            amount.selectedTextRange = amount.textRange(from: amount.endOfDocument, to: amount.endOfDocument)
+            amount.insertText("0")
+        } else {
+            let fraction = try #require(descendants(content).first {
+                $0.accessibilityIdentifier == "perps.order.fraction.\(percentage)"
+            } as? UIControl)
+            fraction.sendActions(for: .touchUpInside)
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(state.hasPositionChanges)
+        #expect(amount.layer.position.y < initialAmountPosition.y)
+        #expect(content.conversion.layer.position.y < initialConversionPosition.y)
+        #expect(amount.layer.animation(forKey: "position") != nil)
+        #expect(content.conversion.layer.animation(forKey: "position") != nil)
+        try await Task.sleep(for: .milliseconds(400))
+        current.sendActions(for: .touchUpInside)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!state.hasPositionChanges)
+        #expect(amount.layer.position == initialAmountPosition)
+        #expect(content.conversion.layer.position == initialConversionPosition)
+        #expect(amount.layer.animation(forKey: "position") != nil)
+        #expect(content.conversion.layer.animation(forKey: "position") != nil)
+    }
+
+    @Test(arguments: [false, true], ["funds", "unavailable"])
+    func animateWarningsAlongsideAmountChanges(_ isDelayed: Bool, _ kind: String) async throws {
+        var data = order(amount: "100")
+        data.editingPosition = .init(id: "position", currentInput: .init(text: "100"), currentCollateral: "100",
+            currentAmount: "$100", currentLeverage: 5, liquidationPrice: "$1 500")
+        data.positionSize = "$500"
+        var request: PerpsOrderRequest?
+        let state = PerpsOrderState(data: data, onRequest: { request = $0 })
+        let content = PerpsOrderView(state: state, selectLeverage: {})
+        let controller = UIViewController()
+        controller.view = content
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 640))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { content.endEditing(true); window.isHidden = true }
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(50))
+        try #require(TradeMotion.enabled)
+        let initialCardHeight = content.amountCard.bounds.height
+        let initialPaymentPosition = content.method.layer.position
+        let views = descendants(content)
+        let current = try #require(views.first { $0.accessibilityIdentifier == "perps.order.current" } as? UIControl)
+        let notice = try #require(views.first { $0.accessibilityIdentifier == "perps.order.unavailable" } as? NativeTradeNoticeView)
+        let presence = try #require(notice.superview?.superview as? TradePresenceView)
+        state.editAmount(.init(text: "125"))
+        if isDelayed { try await Task.sleep(for: .milliseconds(100)) }
+        var response = state.data
+        response.status = .unavailable("The minimum position amount is $150.")
+        if kind == "funds" { response.fundingRequirement = fundingRequirement(kind) }
+        #expect(state.update(data: response, for: try #require(request)))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(state.hasPositionChanges)
+        #expect(presence.showsContent)
+        #expect(presence.content.layer.animation(forKey: "opacity") != nil)
+        #expect(content.amountField.layer.animation(forKey: "position") != nil)
+        #expect(content.conversion.layer.animation(forKey: "position") != nil)
+        #expect(content.amountCard.bounds.height > initialCardHeight)
+        #expect(content.amountCard.layer.animation(forKey: "bounds.size") != nil,
+                "Card animations: \(content.amountCard.layer.animationKeys() ?? [])")
+        #expect(content.method.layer.position.y > initialPaymentPosition.y)
+        #expect(content.method.layer.animation(forKey: "position") != nil)
+        let currentFrame = current.convert(current.bounds, to: content.amountCard)
+        #expect(currentFrame.maxY <= presence.frame.minY)
+        #expect(presence.frame.maxY <= content.amountCard.bounds.height)
+        try await Task.sleep(for: .milliseconds(400))
+        current.sendActions(for: .touchUpInside)
+        #expect(state.update(data: data, for: try #require(request)))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!state.hasPositionChanges)
+        #expect(!presence.showsContent)
+        #expect(presence.content.layer.animation(forKey: "opacity") != nil)
+        #expect(content.amountCard.bounds.height == initialCardHeight)
+        #expect(content.amountCard.layer.animation(forKey: "bounds.size") != nil,
+                "Card animations: \(content.amountCard.layer.animationKeys() ?? [])")
+        #expect(content.method.layer.position == initialPaymentPosition)
+        #expect(content.method.layer.animation(forKey: "position") != nil)
+    }
+
     @Test func positionEditingUsesTheSharedUIKitControlsWithoutHostingTheForm() throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .short, paymentToken: .ETH, input: .init(amount: "5", leverage: 2))
-        data.editingPosition = .init(id: "position", currentInput: .init(text: "10"), currentAmount: "$10", change: .reduce)
+        var data = order(amount: "5")
+        data.direction = .short
+        data.editingPosition = .init(id: "position", currentInput: .init(text: "10"), currentCollateral: "10", currentAmount: "$10",
+            currentLeverage: 5, change: .reduce)
         data.status = .ready
         let controller = PerpsOrderVC(data: data, onRequest: { _ in })
         controller.loadViewIfNeeded()
         #expect(controller.children.isEmpty)
         let views = descendants(controller.view)
+        #expect(views.contains { $0 is NativeTradeEntryView })
         let field = try #require(views.compactMap { $0 as? TradeTextField }.first)
         #expect(!field.showsClearButton)
         #expect(views.contains { $0 is NativeTradeInputControls })
@@ -100,7 +206,7 @@ struct PerpsOrderUIKitTests {
     }
 
     @Test func unavailableReasonWrapsOutsideTheDisabledAction() throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH, input: .init(amount: "10"))
+        var data = order(amount: "10")
         let reason = "You already have a position in this market. Edit that position instead."
         data.status = .unavailable(reason)
         let content = PerpsOrderView(state: .init(data: data, onRequest: { _ in }), selectLeverage: {})
@@ -115,47 +221,37 @@ struct PerpsOrderUIKitTests {
         #expect(button.accessibilityLabel != reason)
     }
 
-    @Test(arguments: ["funds", "usdc", "eth", "unsupported"])
-    func fundingNoticeReplacesMetricsBeforeAnAmountAndOffersTheCorrectBuyAction(_ kind: String) throws {
-        let requirement = fundingRequirement(kind)
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH)
-        data.fundingRequirement = requirement
-        data.leverageOptions = [.init(value: 2)]
-        data.positionSize = "$20"
-        data.canUseFractions = true
-        var requests: [PerpsOrderRequest] = []
-        let content = PerpsOrderView(state: .init(data: data, onRequest: { requests.append($0) }), selectLeverage: {})
-        content.frame = CGRect(x: 0, y: 0, width: 402, height: 844)
+    @Test(arguments: [CGSize(width: 402, height: 844), CGSize(width: 375, height: 667)], [
+        "Required: 3.01 USDC including fees. Available on Hyperliquid: 0.5 USDC.",
+        "Нужно: 3,01 USDC с учётом комиссий. Доступно на Hyperliquid: 0,5 USDC.",
+    ])
+    func keepPaymentAccessibleWhenAnEditWarningAppears(size: CGSize, reason: String) throws {
+        var data = order(amount: "14.95")
+        data.editingPosition = .init(id: "position", currentInput: .init(text: "11.96"), currentCollateral: "11.96",
+            currentAmount: "$11.96", currentLeverage: 5, change: .increase, liquidationPrice: "$335.00")
+        data.positionSize = "$74.75"
+        data.paymentAmount = "3.01"
+        data.status = .unavailable(reason)
+        let content = PerpsOrderView(state: .init(data: data, onRequest: { _ in }), selectLeverage: {})
+        content.frame = CGRect(origin: .zero, size: size)
         content.layoutIfNeeded()
-        let views = descendants(content)
-        let notice = try #require(views.first { $0.accessibilityIdentifier == "perps.order.unavailable" } as? NativeTradeNoticeView)
-        let presence = try #require(notice.superview?.superview as? TradePresenceView)
-        presence.layoutIfNeeded()
-        let card = try #require(presence.superview)
-        #expect(presence.frame.minX == 16)
-        #expect(card.bounds.width - presence.frame.maxX == 16)
-        #expect(card.bounds.height - presence.frame.maxY == 16)
-        #expect(notice.bounds.height >= 78)
-        #expect(notice.configuration?.title == requirement.title)
-        #expect(notice.configuration?.message == requirement.message)
-        for id in ["perps.order.leverage", "perps.order.liquidationPrice", "perps.order.positionSize"] {
-            let metric = try #require(views.first { $0.accessibilityIdentifier == id })
-            #expect(metric.isHidden)
+        if size.height < 800 {
+            content.scrollView.contentOffset.y = max(0, content.scrollView.contentSize.height - content.scrollView.bounds.height)
+            content.setNeedsLayout()
+            content.layoutIfNeeded()
         }
-        let review = try #require(views.first { $0.accessibilityIdentifier == "perps.order.review" } as? WButton)
-        #expect(!review.isEnabled)
-        #expect(review.accessibilityLabel == requirement.buttonTitle)
-        let action = try #require(descendants(notice).first { $0.accessibilityLabel == requirement.actionTitle } as? UIButton)
-        action.sendActions(for: .touchUpInside)
-        #expect(requests.last?.action == (kind == "eth" ? .buyEth : .buyUsdc))
-        #expect(requests.last?.input.amount.text == "")
+        let payment = content.method.convert(content.method.bounds, to: content)
+        let keypad = content.keypad.convert(content.keypad.bounds, to: content)
+        #expect(payment.maxY <= keypad.minY - 88)
+        #expect(payment.minY >= 0)
+        let leverage = try #require(descendants(content).first { $0.accessibilityIdentifier == "perps.order.leverage" })
+        #expect(leverage.isHidden)
     }
 
     @Test(arguments: [CGFloat(320), 402])
     func fundingUpdatesRetainTheAmountEditorAndReflowTheFooter(_ width: CGFloat) async throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH, input: .init(amount: "15"))
+        var data = order(amount: "15")
         data.fundingRequirement = fundingRequirement("funds")
-        data.leverageOptions = [.init(value: 2)]
         let state = PerpsOrderState(data: data, onRequest: { _ in })
         let content = PerpsOrderView(state: state, selectLeverage: {})
         let controller = UIViewController()
@@ -190,13 +286,48 @@ struct PerpsOrderUIKitTests {
         let selection = try #require(field.selectedTextRange)
         #expect(field.offset(from: field.beginningOfDocument, to: selection.start) == 2)
         let leverage = try #require(descendants(content).first { $0.accessibilityIdentifier == "perps.order.leverage" })
-        #expect(!leverage.isHidden)
+        #expect(try #require(leverage.superview?.superview as? TradePresenceView).showsContent)
         let review = try #require(descendants(content).first { $0.accessibilityIdentifier == "perps.order.review" } as? WButton)
         #expect(review.isEnabled)
     }
 
+    @Test(arguments: ["funds", "usdc", "eth"])
+    func fundingNoticeReplacesMetricsAndOffersTheMissingAsset(_ kind: String) throws {
+        let requirement = fundingRequirement(kind)
+        var data = order()
+        data.fundingRequirement = requirement
+        data.positionSize = "$20"
+        data.availableCollateral = .init(text: "100")
+        var requests: [PerpsOrderRequest] = []
+        let content = PerpsOrderView(state: .init(data: data, onRequest: { requests.append($0) }), selectLeverage: {})
+        content.frame = CGRect(x: 0, y: 0, width: 402, height: 844)
+        content.layoutIfNeeded()
+        let views = descendants(content)
+        let notice = try #require(views.first { $0.accessibilityIdentifier == "perps.order.unavailable" } as? NativeTradeNoticeView)
+        let presence = try #require(notice.superview?.superview as? TradePresenceView)
+        presence.layoutIfNeeded()
+        let card = try #require(presence.superview)
+        #expect(presence.frame.minX == 16)
+        #expect(card.bounds.width - presence.frame.maxX == 16)
+        #expect(card.bounds.height - presence.frame.maxY == 16)
+        #expect(notice.bounds.height >= 78)
+        #expect(notice.configuration?.title == requirement.title)
+        #expect(notice.configuration?.message == requirement.message)
+        for id in ["perps.order.leverage", "perps.order.liquidationPrice", "perps.order.positionSize"] {
+            let metric = try #require(views.first { $0.accessibilityIdentifier == id })
+            #expect(try #require(metric.superview?.superview as? TradePresenceView).showsContent == false)
+        }
+        let review = try #require(views.first { $0.accessibilityIdentifier == "perps.order.review" } as? WButton)
+        #expect(!review.isEnabled)
+        #expect(review.accessibilityLabel == requirement.buttonTitle)
+        let action = try #require(descendants(notice).first { $0.accessibilityLabel == requirement.actionTitle } as? UIButton)
+        action.sendActions(for: .touchUpInside)
+        #expect(requests.last?.action == (kind == "eth" ? .buyEth : .buyUsdc))
+        #expect(requests.last?.input.amount.text == "")
+    }
+
     @Test func returningToTheOrderRefreshesFundingWithTheUnchangedDraft() throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH, input: .init(amount: "15"))
+        var data = order(amount: "15")
         data.fundingRequirement = fundingRequirement("usdc")
         var requests: [PerpsOrderRequest] = []
         let controller = PerpsOrderVC(data: data, onRequest: { requests.append($0) })
@@ -217,8 +348,7 @@ struct PerpsOrderUIKitTests {
 
     @Test(arguments: ["", "15"])
     func failedFundingRefreshOffersRetryWithoutChangingTheDraft(_ amount: String) async throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH,
-            input: .init(amount: amount, leverage: 5))
+        var data = order(amount: amount)
         var requests: [PerpsOrderRequest] = []
         let controller = PerpsOrderVC(data: data, onRequest: { requests.append($0) })
         controller.loadViewIfNeeded()
@@ -248,10 +378,8 @@ struct PerpsOrderUIKitTests {
 
     @Test(arguments: [false, true])
     func balanceUpdatesDoNotSupersedeFundedEditingOrReview(_ isReview: Bool) throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH,
-            input: .init(amount: "15", leverage: 5))
+        var data = order(amount: "15")
         data.status = .ready
-        data.leverageOptions = [.init(value: 5)]
         var requests: [PerpsOrderRequest] = []
         let controller = PerpsOrderVC(data: data, onRequest: { requests.append($0) })
         controller.loadViewIfNeeded()
@@ -273,11 +401,9 @@ struct PerpsOrderUIKitTests {
         #expect(controller.update(data: data, for: request))
     }
 
-    @Test(arguments: ["50", "150"])
-    func balanceUpdatesRefreshTheMaximumOfFundedEmptyOpeningForms(_ availableCollateral: String) throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH)
+    @Test func balanceUpdatesRefreshAFundedEmptyOpeningForm() throws {
+        var data = order()
         data.availableCollateral = .init(text: "100")
-        data.canUseFractions = true
         var requests: [PerpsOrderRequest] = []
         let controller = PerpsOrderVC(data: data, onRequest: { requests.append($0) })
         controller.loadViewIfNeeded()
@@ -289,22 +415,20 @@ struct PerpsOrderUIKitTests {
         controller.refreshBlockedFunding()
         #expect(requests.count == 1)
 
-        data.availableCollateral = .init(text: availableCollateral)
         #expect(controller.update(data: data, for: refresh))
         let maximum = try #require(descendants(controller.view).first {
             $0.accessibilityIdentifier == "perps.order.fraction.100"
         } as? UIControl)
         maximum.sendActions(for: .touchUpInside)
-        #expect(requests.last?.action == .amountChanged)
-        #expect(requests.last?.input.amount.text == availableCollateral + ".00")
+        #expect(requests.last?.input.fraction == 100)
+        #expect(requests.last?.input.amount.text == "100")
         controller.refreshBlockedFunding()
         #expect(requests.count == 2)
     }
 
     @Test(arguments: [false, true])
     func balanceUpdatesRecheckBlockedFundingWithTheSameDraft(_ hasRefreshError: Bool) throws {
-        var data = PerpsOrderDisplayData(token: .ETH, direction: .short, paymentToken: .ETH,
-            input: .init(amount: "15", leverage: 5))
+        var data = order(amount: "15")
         data.fundingRequirement = fundingRequirement("eth")
         var requests: [PerpsOrderRequest] = []
         let controller = PerpsOrderVC(data: data, onRequest: { requests.append($0) })
@@ -324,6 +448,24 @@ struct PerpsOrderUIKitTests {
         #expect(!controller.update(data: data, for: initial))
     }
 
+    @Test func editingAPositionHasNoAccountSwitcherAndCannotSelectAnotherAccount() async {
+        var data = order(amount: "100")
+        data.account = MAccount(id: "1-mainnet", title: "Wallet", type: .mnemonic,
+                               byChain: [.arbitrum: .init(address: "0x1234")])
+        data.editingPosition = .init(id: "position", currentInput: .init(text: "100"), currentCollateral: "100",
+                                    currentAmount: "$100", currentLeverage: 5)
+        var selectedAccounts: [String] = []
+        let controller = PerpsOrderVC(data: data, onSelectAccount: { selectedAccounts.append($0) }, onRequest: { _ in })
+        controller.loadViewIfNeeded()
+        await controller.selectAccount("2-mainnet")
+        #expect(controller.navigationItem.leftBarButtonItem == nil)
+        #expect(selectedAccounts.isEmpty)
+    }
+
+    private func order(amount: String = "") -> PerpsOrderDisplayData {
+        PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH, input: .init(amount: amount, leverage: 5), maxLeverage: 40)
+    }
+
     private func fundingRequirement(_ kind: String) -> PerpsOrderDisplayData.FundingRequirement {
         let title: String
         let message: String
@@ -337,10 +479,6 @@ struct PerpsOrderUIKitTests {
             title = "Not enough USDC"
             message = "You need at least 10.2 USDC on Arbitrum to open a position."
             button = "Not Enough USDC"
-        case "unsupported":
-            title = "Pay with USDC on Arbitrum"
-            message = "Other tokens aren't supported yet. Buy USDC to continue."
-            button = "Unsupported Token"
         default:
             title = "No USDC or ETH on Arbitrum"
             message = "Buy at least 10.2 USDC and 0.0001 ETH for fees."

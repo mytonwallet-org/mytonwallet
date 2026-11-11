@@ -104,6 +104,7 @@ final class QRScanView: UIView {
             frameView.bottomAnchor.constraint(equalTo: focusView.bottomAnchor, constant: 2),
         ])
 
+        torchButton.accessibilityIdentifier = "qr_scan_torch"
         addSubview(torchButton)
         NSLayoutConstraint.activate([
             torchButton.widthAnchor.constraint(equalToConstant: 72),

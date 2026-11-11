@@ -9,6 +9,10 @@ extension Api {
         try await bridge.callApi("subscribeNotifications", props, decoding: ApiSubscribeNotificationsResult.self)
     }
 
+    public static func setNewsNotifications(props: ApiSetNewsNotificationsProps) async throws -> ApiSetNewsNotificationsResult {
+        try await bridge.callApi("setNewsNotifications", props, decoding: ApiSetNewsNotificationsResult.self)
+    }
+
     public static func unsubscribeNotifications(props: ApiUnsubscribeNotificationsProps) async throws -> Any? {
         try await bridge.callApiRaw("unsubscribeNotifications", props)
     }
@@ -62,4 +66,26 @@ public struct ApiUnsubscribeNotificationsProps: Encodable, Sendable {
         self.userToken = userToken
         self.addresses = addresses
     }
+}
+
+public struct ApiSetNewsNotificationsProps: Encodable, Sendable {
+    public let mode: AgentNewsNotificationSettings.Mode
+    public let userToken: String
+    public let platform: NativePlatform
+    public let langCode: String
+    public let digestHour: Int
+    public let timeZone: String
+
+    public init(mode: AgentNewsNotificationSettings.Mode, userToken: String, platform: NativePlatform, langCode: String, digestHour: Int, timeZone: String) {
+        self.mode = mode
+        self.userToken = userToken
+        self.platform = platform
+        self.langCode = langCode
+        self.digestHour = digestHour
+        self.timeZone = timeZone
+    }
+}
+
+public struct ApiSetNewsNotificationsResult: Decodable, Sendable {
+    public let ok: Bool
 }

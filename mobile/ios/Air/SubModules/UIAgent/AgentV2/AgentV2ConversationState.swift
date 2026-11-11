@@ -155,6 +155,12 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         self.status = status
     }
 
+    /// A stopped answer is cancelled, also once its text has ended
+    mutating func cancel() {
+        status = .cancelled
+        isStoredAsComplete = false
+    }
+
     mutating func complete(finishReason: String) {
         finalize()
         isStoredAsComplete = role == .assistant
@@ -258,6 +264,12 @@ struct AgentV2ConversationState {
 
     mutating func setFeedback(id: String, feedback: ApiAgentV2AnswerFeedback?) {
         mutateMessage(id: id) { $0.feedback = feedback }
+    }
+
+    mutating func cancelMessages(ids: Set<String>) {
+        for id in ids {
+            mutateMessage(id: id) { $0.cancel() }
+        }
     }
 
     mutating func endMessageContent(id: String) {

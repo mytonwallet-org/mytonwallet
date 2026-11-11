@@ -143,8 +143,8 @@ You can always enable seasonal theming again in the appearance settings.: Ви �
 Base Currency: Базова валюта
 Investor View: Режим інвестора
 Toggle Investor View: Переключити в режим інвестора
-Hide Tiny Transfers: Приховувати дрібні перекази
-Toggle Hide Tiny Transfers: Переключити відображення дрібних переказів
+Hide Tiny Transfers and Spam: Приховувати дрібні перекази та спам
+Toggle Hide Tiny Transfers and Spam: Переключити відображення дрібних переказів і спаму
 Network: Мережа
 Developer Options: Інструменти розробника
 All Wallet Versions: Всі версії гаманців
@@ -1343,13 +1343,12 @@ Ask a Question: Задати питання
 Ask anything: Запитайте будь-що
 Agent: Агент
 Learn more: Докладніше
-Data shared with Agent: Дані, що передаються Агенту
-$agent_consent_allow_button: Дозволити Агенту
-$agent_consent_subtitle: Запитайте Агента про допомогу з гаманцем, інформацію про токени та підтримувані дії.
+Data shared with Agent: Дані, що передаються агенту
+$agent_consent_allow_button: Дозволити агенту
 $agent_consent_feature_answers: Отримуйте відповіді про %app_name%, токени й активність гаманця.
 $agent_consent_feature_actions: Підготовуйте підтримувані дії, як-от надсилання, отримання та стейкінг.
 $agent_consent_feature_context: Використовуйте контекст гаманця, щоб відповіді могли враховувати релевантні активи та адреси.
-$agent_consent_disclosure_text: Натискаючи «Дозволити Агенту», ви дозволяєте %app_name% надсилати ваші повідомлення Агенту та релевантний контекст гаманця до %app_name% Agent (agent.mywallet.io) і Anthropic Claude API, нашого стороннього постачальника ШІ, для обробки ваших запитів. Контекст гаманця може містити адреси гаманця, баланси, токени, активність і деталі запитаних дій. Дані використовуються лише для надання відповідей Агента та підготовки дій, які ви запитуєте.
+$agent_consent_disclosure_text: Натискаючи «Дозволити агенту», ви дозволяєте %app_name% надсилати ваші повідомлення агенту та релевантний контекст гаманця до %app_name% Agent (agent.mywallet.io) і Anthropic Claude API, нашого стороннього постачальника ШІ, для обробки ваших запитів. Контекст гаманця може містити адреси гаманця, баланси, токени, активність і деталі запитаних дій. Дані використовуються лише для надання відповідей агента та підготовки дій, які ви запитуєте.
 $agent_consent_search_disclosure_text: Для пошуку в інтернеті Serper можуть передаватися лише пошукові запити; контекст гаманця та історія чату не передаються.
 $settings_token_change_threshold: Поріг зміни у %
 $settings_token_change_threshold_description: Приховує зміни за 24 години, що нижчі за вибраний поріг.
@@ -1418,8 +1417,8 @@ $agent_hint_receive_title: Отримання токенів
 $agent_hint_receive_prompt: Допоможіть мені отримати токени.
 $agent_notice_content_over_budget: Результат занадто великий для повного відображення.
 $agent_notice_web_search_no_results: Не вдалося знайти відповідну інформацію за вашим запитом.
-$agent_error_session: Ваш сеанс Агента закінчився. Відкрийте Агент знову та спробуйте ще раз.
-$agent_error_limit: Запит неможливо виконати, оскільки досягнуто ліміту Агента.
+$agent_error_session: Ваш сеанс агента закінчився. Відкрийте агента знову та спробуйте ще раз.
+$agent_error_limit: Запит неможливо виконати, оскільки досягнуто ліміту агента.
 $agent_error_tool: Не вдалося завершити операцію з гаманцем. Спробуйте ще раз.
 $agent_error_conversation_updated: Розмову оновлено. Будь ласка, спробуйте ще раз.
 $agent_error_generic: Агент не зміг виконати запит. Будь ласка, спробуйте ще раз.
@@ -1433,6 +1432,7 @@ $agent_dictation_no_speech: "Не вдалося розчути мовлення
 $agent_dictation_time_left: "Залишилося %seconds% с"
 $agent_dictation_time_left_short: "%seconds% с"
 $agent_dictation_limit_reached: "Диктування зупинено через хвилину — це максимальна тривалість запису."
+$agent_stop_answer: "Зупинити відповідь"
 $agent_dictation_microphone_denied: "Дозвольте доступ до мікрофона, щоб диктувати."
 $agent_dictation_hold_hint: "Утримуйте, щоб диктувати. Угору — запис без рук."
 $agent_dictation_too_short: "Надто коротко — утримуйте, поки говорите."
@@ -2042,9 +2042,9 @@ $agent_capacity_limit_known: Нові запити можна буде надс�
 $agent_capacity_degraded_title: Агент може відповідати нестабільно
 $agent_capacity_limit_unknown: Можна спробувати ще раз, але відповідь може не завантажитися.
 $agent_retry_request: Повторити запит
-$agent_rate_limit_title: Забагато запитів до Агента
+$agent_rate_limit_title: Забагато запитів до агента
 $agent_rate_limit_body: Спробуйте знову за %duration%.
-$agent_user_quota_exhausted_title: Недостатньо квоти Агента
+$agent_user_quota_exhausted_title: Недостатньо квоти агента
 $agent_user_quota_exhausted_body: Для цього запиту недостатньо квоти. Денний ліміт — %limit% од., скидання за %duration%.
 $agent_time_hours: "%value% год"
 $agent_time_minutes: "%value% хв"
@@ -2177,6 +2177,8 @@ News: "Новини"
 Crypto Market News: "Новини крипторинку"
 $agent_news_new: "Нові"
 $agent_news_open_source: "Відкрити джерело"
+$agent_news_source: "Джерело: %sources%"
+$agent_news_sources: "Джерела: %sources%"
 $agent_news_unavailable: "Новини зараз недоступні"
 $agent_news_read_more: "Докладніше"
 $agent_news_discuss: "Обговорити"
@@ -2215,7 +2217,6 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "Review": "Перевірити"
 "$perps_order_long": "Лонг %asset%"
 "$perps_order_short": "Шорт %asset%"
-"$perps_swap_fee_hint": "Комісія за обмін одного токена на інший у межах цієї транзакції."
 "$perps_trading_fee_hint": "Комісія за відкриття цієї позиції."
 "$perps_position_size_hint": "Розмір позиції — загальна вартість позиції з урахуванням кредитного плеча."
 "$perps_position_size_details_hint": "Загальна вартість вашої позиції з урахуванням плеча.\n\nНаприклад, якщо ви вкладаєте $100 із плечем 5x, розмір позиції становить $500."
@@ -2225,14 +2226,13 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "$perps_closing_value_hint": "Сума, що залишилася після ліквідації вашої позиції. Залежно від результату ліквідації ця сума може бути меншою за вкладену або дорівнювати нулю."
 "$perps_fees_hint": "Загальна сума комісій за цю транзакцію. Залежно від транзакції сюди можуть входити торгова комісія, комісія за обмін і мережева комісія."
 "$perps_liquidation_price_hint": "Розрахункова ціна, за якої вашу позицію може бути автоматично закрито через недостатню кількість коштів для її підтримання."
-"$perps_high_leverage_warning": "Високе плече: невелика зміна ціни призведе до ліквідації."
 "$perps_leverage_disclaimer": "Вище плече збільшує потенційні прибутки та збитки. Навіть невелика зміна ціни проти вашої позиції може призвести до її автоматичного закриття."
 
 # Perps order review
 "Open Position": "Відкрити позицію"
 "$perps_asset_price": "Ціна %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Підтверджуючи, я розумію, що позицію може бути ліквідовано й я можу втратити вкладені кошти."
+"$perps_liquidation_acknowledgment": "Підтверджуючи, я розумію, що позицію може бути ліквідовано й я можу втратити вкладені кошти."
 
 # Perps position receipt
 "Position Opened": "Позицію відкрито"
@@ -2303,7 +2303,16 @@ $perps_open_interest_hint: "Загальна вартість контракті
 "PerpsQuoteExpired": "Ціни або позиція змінилися. Поверніться та перевірте ордер ще раз."
 "PerpsReviewChanged": "Ордер змінився. Поверніться та перевірте його ще раз."
 "PerpsInsufficientUsdc": "Недостатньо USDC в Arbitrum з урахуванням комісії мосту."
+"EvmUserOperationMismatch": "Оплата газу не збігається з цією транзакцією."
+"PerpsInsufficientBalance": "Недостатньо USDC на балансі Hyperliquid з урахуванням торгових комісій."
+"PerpsMarketNeedsUnifiedAccount": "Цей ринок не можна поповнити з гаманця з поточним типом акаунта Hyperliquid."
+"PerpsRequiresMultichainWallet": "Для ф’ючерсів потрібен мультичейн-гаманець. Перейдіть на нього або створіть новий, щоб почати торгувати."
+"PerpsSwitchesToUnifiedAccount": "Цей ордер також переведе ваш акаунт Hyperliquid у режим Unified, і один баланс USDC покриватиме всі ринки."
 "PerpsAmountTooSmall": "Ця сума нижча за мінімальну для ринку."
+"$perps_minimum_amount": "Мінімальна сума: %amount% USDC."
+"$perps_minimum_reduction": "Зменште суму більш ніж на %amount% USDC, щоб покрити комісію мосту."
+"$perps_required_balance": "Потрібно: %required% USDC з урахуванням комісій. Доступно на Hyperliquid: %available% USDC."
+"$perps_available_balance": "Доступно на Hyperliquid: %available% USDC. Зменште суму, щоб залишити кошти на торгові комісії."
 "PerpsUnchanged": "Введіть іншу суму, щоб змінити позицію."
 "PerpsPositionChanged": "Позиція змінилася. Оновіть дані та спробуйте ще раз."
 "PerpsPositionExists": "У вас уже є позиція на цьому ринку. Змініть наявну позицію."
@@ -2350,8 +2359,6 @@ Could not save the image. Please try again.: Не вдалося зберегт�
 "$perps_funding_usdc_increase": "Щоб збільшити цю позицію, потрібно щонайменше %minUSDC% USDC в Arbitrum."
 "PerpsFundingGasTitle": "Недостатньо ETH для комісії"
 "$perps_funding_gas": "Комісії в Arbitrum сплачуються в ETH. Отримайте %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Сплачуйте USDC в Arbitrum"
-"PerpsFundingTokenDescription": "Інші токени поки не підтримуються. Отримайте USDC, щоб продовжити."
 "Not Enough Funds": "Недостатньо коштів"
 "Unsupported Token": "Токен не підтримується"
 "PerpsReviewUpdated": "Ціни оновлено. Перевірте ордер ще раз перед підтвердженням."
@@ -2370,13 +2377,14 @@ Could not save the image. Please try again.: Не вдалося зберегт�
 "PerpsExchangeFee": "Комісія біржі"
 "PerpsServiceFee": "Комісія гаманця"
 "PerpsBridgeFee": "Комісія мосту"
+"PerpsFirstWithdrawalFee": "Комісія за перше виведення"
 "PerpsTotalFees": "Усього комісій в USDC"
 "PerpsFeeEstimateHint": "Комісії зі знаком ≈ орієнтовні та можуть змінитися під час виконання. Комісія мережі Arbitrum сплачується окремо в ETH."
 "PerpsUnallocatedCollateral": "Нерозподілене забезпечення"
 "PerpsUnallocatedCollateralHint": "Через округлення до дозволеного розміру угоди частина USDC може залишитися поза позицією. Ці кошти залишаються на вашому ф’ючерсному рахунку й не є комісією."
-"PerpsOnboardingTitle": "Вперше торгуєте ф’ючерсами?"
-"PerpsOnboardingDescription": "Дізнайтеся, як це працює, менш ніж за 1 хвилину."
-"PerpsOnboardingOpen": "Відкрити навчання"
+"PerpsOnboardingTitle": "Ф’ючерси\nв %app_name%!"
+"PerpsOnboardingDescription": "Торгуйте на зростанні\nй падінні цін."
+"PerpsOnboardingOpen": "Як це працює"
 "PerpsStoryIntroTitle": "Знайомтеся з безстроковими ф’ючерсами"
 "PerpsStoryIntroBody": "Відкривайте позиції як на зростання, так і на падіння ціни активу."
 "PerpsStoryLongTitle": "Очікуєте зростання? Відкрийте лонг"
@@ -2391,17 +2399,15 @@ Could not save the image. Please try again.: Не вдалося зберегт�
 "PerpsStoryFundingBody": "За додатної ставки фінансування власники лонгів платять власникам шортів. За від’ємної — власники шортів платять власникам лонгів."
 "PerpsStoryStart": "Почати"
 
-"Funding Payment": "Платіж фінансування"
 "Withdrawal": "Виведення"
 "Transfer": "Переказ"
-"Spot Balance": "Спотовий баланс"
 "From": "Звідки"
 "To": "Куди"
 
 Delete Chat: Видалити чат
 Unread: Непрочитано
 $agent_connection_lost: З’єднання з агентом перервано.
-$agent_daily_limit_reached: Денний ліміт Агента вичерпано
+$agent_daily_limit_reached: Денний ліміт агента вичерпано
 $media_viewer_date_at_time: "%date% о %time%"
 Picture: Зображення
 
@@ -2416,3 +2422,75 @@ $enclave_data_missing_message: |
   Якщо у вас є секретні слова гаманців, можна вийти з усіх гаманців та імпортувати їх знову.
 
 Install the TON App on your Ledger and try again.: Встановіть застосунок TON на ваш Ledger і спробуйте ще раз.
+Liked: Сподобалося
+Disliked: Не сподобалося
+$agent_feedback_liked_toast: "Агент частіше відповідатиме так."
+$agent_feedback_disliked_toast: "Ми розглянемо цю відповідь, щоб покращити агента."
+$agent_voice_pause: "Призупинити запис"
+$agent_voice_resume: "Продовжити запис"
+$agent_message_copied: Повідомлення скопійовано.
+$agent_copied: "Скопійовано."
+$agent_news_empty: "Новин поки немає"
+$agent_chats_unavailable: "Не вдалося завантажити чати"
+
+"PerpsAvailable": "Доступно"
+"PerpsWithdraw": "Вивести"
+"PerpsBalanceWithdrawalTitle": "Виведення в гаманець"
+"PerpsWithdrawalFromHyperliquid": "З Hyperliquid"
+"PerpsWithdrawalToWallet": "У гаманець Arbitrum"
+"PerpsBalanceWithdrawalNote": "USDC надійдуть у гаманець Arbitrum протягом кількох хвилин. 0,03 USDC залишаться на Hyperliquid для оплати газу за виведення."
+"PerpsBalanceWithdrawalUpdated": "Баланс на Hyperliquid змінився. Перевірте виведення ще раз перед підтвердженням."
+"PerpsWithdrawalStatus": "Статус виведення"
+"PerpsWithdrawalCompleted": "Виведення надіслано"
+"PerpsWithdrawalOnItsWay": "USDC вже в дорозі до вашого гаманця Arbitrum. Це може тривати кілька хвилин."
+"PerpsWithdrawalProcessing": "Виведення обробляється. Переказ через міст може тривати кілька хвилин."
+"PerpsWithdrawalUnknown": "Результат ще не підтверджено. Перевірте баланс на Hyperliquid і гаманець перед наступною дією."
+"PerpsAcknowledgeWithdrawalUnknown": "Виведення ще може завершитися. Спершу перевірте баланс на Hyperliquid і гаманець. Дозвіл нових ордерів його не скасовує."
+"PerpsNothingToWithdraw": "Зараз на балансі Hyperliquid нічого виводити."
+"PerpsWithdrawalRejected": "Hyperliquid відхилив це виведення. USDC залишаються на балансі Hyperliquid."
+"View your assets and activity": "Переглядайте активи та історію операцій"
+"Ask AI and follow the news": "Запитуйте ШІ та стежте за новинами"
+$underlying_stock: 'Акція %symbol%'
+$agent_support_requested: "Ви покликали підтримку. Оператор відповість тут"
+$agent_support_operator_joined: "До чату приєдналася підтримка: %name%"
+$agent_support_closed_operator: "Підтримка закрила звернення. Далі відповідає агент"
+$agent_support_closed_inactivity: "Звернення закрито: 48 годин без відповіді. Далі відповідає агент"
+$agent_support_waiting: "Підтримка · чекаємо на оператора"
+$agent_support_with_operator: "Підтримка · %name%"
+$agent_support_label: "Підтримка"
+$agent_support_badge: "Підтримка %app_name%"
+$agent_support_placeholder: "Повідомлення для підтримки"
+"PerpsStoryFinaleTitle": "Готові спробувати ф’ючерси?"
+"PerpsStoryFinaleBody": "Обирайте ринок, відкривайте позиції та стежте за ними просто в %app_name%!"
+"PerpsStoryViewMarkets": "Переглянути ринки"
+Unlink Wallet: Відвʼязати гаманець
+Confirm Unlinking: Підтвердити відвʼязування
+Domain Unlinked: Домен відвʼязано
+Drag here to add to the toolbar: Перетягніть сюди, щоб додати на панель
+$send_only_chain_and_token: Надсилайте на цю адресу лише %symbol%, %tokenSymbol% або інші активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
+$agent_digest_unavailable: "Це зведення більше недоступне"
+$agent_digest_title: "Головне за добу"
+$agent_digest_meta:
+  oneValue: "%count% новина · %time%"
+  fewValue: "%count% новини · %time%"
+  manyValue: "%count% новин · %time%"
+  otherValue: "%count% новини · %time%"
+$agent_digest_more:
+  oneValue: "і ще %count% новина — вони вище в стрічці"
+  fewValue: "і ще %count% новини — вони вище в стрічці"
+  manyValue: "і ще %count% новин — вони вище в стрічці"
+  otherValue: "і ще %count% новини — вони вище в стрічці"
+$agent_digest_settings_title: "Зведення та сповіщення"
+$agent_digest_settings_text: "Раз на добу в стрічці з’являється зведення — головні новини за день."
+$agent_digest_time: "Час зведення"
+$agent_digest_time_zone: "За часовим поясом телефона."
+$agent_digest_notifications_off: "Вимкнені"
+$agent_digest_notifications_off_hint: "Зведення буде лише в стрічці"
+$agent_digest_notifications_daily: "Зведення раз на день"
+$agent_digest_notifications_daily_hint: "О %time%, головні новини одним сповіщенням"
+$agent_digest_notifications_every: "Кожна новина"
+$agent_digest_notifications_every_hint: "Окреме сповіщення про кожну новину"
+$agent_digest_post_header: "MyPulse · зведення · %time%"
+$agent_digest_sheet_title: "Щоденне зведення"
+$agent_digest_device_time_zone: "За часовим поясом цього пристрою."
+$agent_dictation_microphone_denied_device: "Дозвольте доступ до мікрофона в налаштуваннях пристрою, щоб диктувати."

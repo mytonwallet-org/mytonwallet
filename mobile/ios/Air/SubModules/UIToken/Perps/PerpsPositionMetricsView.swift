@@ -1,6 +1,7 @@
 import SwiftUI
 import UIComponents
 import WalletContext
+import WalletCore
 
 struct PerpsPositionMetricsView: View {
     let tokenName: String
@@ -8,11 +9,11 @@ struct PerpsPositionMetricsView: View {
     let price: String
     let liquidationPrice: String?
     let paymentAmount: String
-    var fee: String? = nil
-    var feeExplanation: String? = nil
+    let fee: String?
+    var feeRows: [PerpsFeeRow] = []
+    var areFeesEstimated = false
     var previous: PerpsPositionChange? = nil
     var paymentTitle: String = lang("You Pay")
-    var entryPrice: String? = nil
     var isTradeSize = false
 
     var body: some View {
@@ -22,8 +23,7 @@ struct PerpsPositionMetricsView: View {
                                previousValue: isTradeSize ? nil : previous?.positionSize)
                 .background(Color.air.groupedItem, in: .rect(cornerRadius: 26))
             VStack(spacing: 0) {
-                AssetInfoMetricRow(title: entryPrice == nil ? L10n.perpsAssetPrice(asset: tokenName) : lang("Entry / Exit Price"),
-                                   value: entryPrice.map { $0 + " / " + price } ?? price)
+                AssetInfoMetricRow(title: L10n.perpsAssetPrice(asset: tokenName), value: price)
                 Divider().padding(.horizontal, 16)
                 AssetInfoMetricRow(title: lang("Liquidation Price"), info: lang("$perps_liquidation_price_hint"),
                                    value: liquidationPrice ?? "—", previousValue: liquidationPrice == nil ? nil : previous?.liquidationPrice)
@@ -31,44 +31,72 @@ struct PerpsPositionMetricsView: View {
             .background(Color.air.groupedItem, in: .rect(cornerRadius: 26))
             VStack(spacing: 0) {
                 AssetInfoMetricRow(title: paymentTitle, value: paymentAmount)
-                if let fee {
-                    Divider().padding(.horizontal, 16)
-                    AssetInfoMetricRow(title: lang("Fees"), info: lang("$perps_fees_hint"), value: fee)
-                }
+                Divider().padding(.horizontal, 16)
+                PerpsFeeSummaryRow(fee: fee, rows: feeRows, isEstimated: areFeesEstimated)
             }
             .background(Color.air.groupedItem, in: .rect(cornerRadius: 26))
         }
     }
 }
 
-struct PerpsFeeDetailsView: View {
-    let rows: [PerpsFeeRow]
-    let remainingCollateral: String?
-    var isEstimated = true
+struct PerpsFeeSummaryRow: View {
+    let fee: String?
+    var rows: [PerpsFeeRow] = []
+    var isEstimated = false
 
     var body: some View {
-        if !rows.isEmpty {
-            VStack(spacing: 12) {
-                InsetSection(dividersTrailingInset: 16, horizontalPadding: 0) {
-                    ForEach(rows) { row in
-                        AssetInfoMetricRow(title: row.title, info: row.id == "total" ? lang("$perps_fees_hint") : nil, value: row.value)
-                            .accessibilityIdentifier("perps.fees." + row.id)
-                    }
-                }
-                if isEstimated {
-                    Text(lang("PerpsFeeEstimateHint"))
-                        .textStyle(.footnote)
-                        .foregroundStyle(Color.air.secondaryLabel)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                }
-            }
+        AssetInfoMetricRow(title: lang("Fee"), info: hint, value: fee ?? "—")
+            .accessibilityIdentifier("perps.fees.summary")
+    }
+
+    var hint: String {
+        var sections: [String] = []
+        if fee == nil {
+            sections.append(lang("PerpsFeesAtExecution"))
         }
+        if !rows.isEmpty {
+            sections.append(rows.map { $0.title + ": " + $0.value }.joined(separator: "\n"))
+        } else if fee != nil {
+            sections.append(lang("$perps_fees_hint"))
+        }
+        if isEstimated {
+            sections.append(lang("PerpsFeeEstimateHint"))
+        }
+        return sections.joined(separator: "\n\n")
+    }
+}
+
+struct PerpsRemainingCollateralView: View {
+    let remainingCollateral: String?
+
+    var body: some View {
         if let remainingCollateral {
             AssetInfoMetricRow(title: lang("PerpsUnallocatedCollateral"), info: lang("PerpsUnallocatedCollateralHint"), value: remainingCollateral)
                 .background(Color.air.groupedItem, in: .rect(cornerRadius: 26))
                 .accessibilityIdentifier("perps.remainingCollateral")
         }
     }
+}
 
+/// The Arbitrum transaction that moved this trade's USDC.
+struct PerpsTransferIDSection: View {
+    let hash: String
+
+    var body: some View {
+        InsetSection(horizontalPadding: 0) {
+            InsetDetailCell {
+                Text(lang("Transfer ID"))
+                    .foregroundStyle(Color.air.secondaryLabel)
+                    .fixedSize()
+                    .accessibilityHidden(true)
+            } value: {
+                TappableTransactionId(chain: .arbitrum, txId: hash, isTraceId: false)
+                    .fixedSize()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(lang("Transfer ID") + ", " + hash)
+                    .accessibilityAddTraits(.isButton)
+            }
+        }
+        .accessibilityIdentifier("perps.transferID")
+    }
 }

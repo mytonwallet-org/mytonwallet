@@ -21,7 +21,8 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         AgentComposerMetrics.threadVerticalInset - AgentComposerMetrics.getFieldBottomInset(safeAreaBottom: view.safeAreaInsets.bottom)
     }
     private let chatTitleView = AgentChatTitleView()
-    private let consentView = AgentConsentView()
+    /// Consent was found missing before the chat was on screen, where the consent sheet asks for it
+    private var isConsentPending = false
     /// A chat that couldn't load shows the failure in its middle with Retry, as the News feed does
     private let loadErrorView = AgentLoadErrorView()
     private let contentLayoutGuide = UILayoutGuide()
@@ -32,6 +33,8 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     private var isModelPrepared = false
     private var selectedThreadId: String?
     private var isThreadDeleted = false
+    /// The thread's summary is the SDK's copy, so the chat shows only its loaded history
+    private let isSummaryCached: Bool
 
     convenience init(
         client: AgentV2Client = LiveAgentV2Client(),
@@ -41,14 +44,14 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         }
     ) {
         self.init(
-            client: client, thread: nil, preloader: preloader, showError: showError
+            client: client, thread: nil, preloader: preloader, showError: showError, isSummaryCached: false
         )
     }
 
-    convenience init(thread: ApiAgentV2ThreadSummary, preloader: AgentPreloader) {
+    convenience init(thread: ApiAgentV2ThreadSummary, preloader: AgentPreloader, isSummaryCached: Bool = false) {
         self.init(
             client: preloader.client, thread: thread, preloader: preloader,
-            showError: { AppActions.showError(error: DisplayError(text: $0)) }
+            showError: { AppActions.showError(error: DisplayError(text: $0)) }, isSummaryCached: isSummaryCached
         )
     }
 
@@ -56,10 +59,12 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         client: AgentV2Client,
         thread: ApiAgentV2ThreadSummary?,
         preloader: AgentPreloader?,
-        showError: @escaping (String) -> Void
+        showError: @escaping (String) -> Void,
+        isSummaryCached: Bool
     ) {
         self.client = client
         self.thread = thread
+        self.isSummaryCached = isSummaryCached
         self.preloader = preloader
         sessionGeneration = preloader?.sessionGeneration
         self.showError = showError
@@ -114,6 +119,9 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         backSwipe.install(for: self)
+        if isConsentPending {
+            showConsent()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -173,10 +181,6 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         loadConsent()
     }
 
-    override func scrollToTop(animated: Bool) {
-        consentView.scrollToTop(animated: animated)
-    }
-
     private func loadConsent() {
         guard !isThreadDeleted else { return }
         transitionTask?.cancel()
@@ -203,47 +207,38 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
         }
     }
 
+    /// The chat waits under the consent sheet with its skeleton: Allow records consent and opens it, and closing the
+    /// sheet leaves it
     private func showConsent() {
-        skeletonView.isHidden = true
-        composerView.isHidden = true
-        navigationItem.rightBarButtonItem = nil
-        consentView.translatesAutoresizingMaskIntoConstraints = false
-        consentView.onLearnMore = {
-            guard let url = URL(string: APP_PRIVACY_POLICY_URL) else { return }
-            AppActions.openInBrowser(url, title: lang("Privacy Policy"), injectDappConnect: false)
+        guard view.window != nil, presentedViewController == nil,
+              navigationController?.transitionCoordinator == nil else {
+            isConsentPending = true
+            return
         }
-        consentView.onContinue = { [weak self] in self?.acceptConsent() }
-        view.addSubview(consentView)
-        NSLayoutConstraint.activate([
-            consentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            consentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            consentView.topAnchor.constraint(equalTo: view.topAnchor),
-            consentView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-    }
-
-    private func acceptConsent() {
-        guard transitionTask == nil else { return }
-        consentView.isUserInteractionEnabled = false
-        transitionTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await self.client.acceptConsent()
-                guard !Task.isCancelled, self.isSessionCurrent else { return }
-                await self.showAgent()
-                self.transitionTask = nil
-            } catch {
-                self.transitionTask = nil
-                self.consentView.isUserInteractionEnabled = true
-                guard !Task.isCancelled, self.parent != nil,
-                      let displayError = AgentV2Copy.displayError(error) else { return }
-                self.showError(displayError.text)
+        isConsentPending = false
+        AgentConsentPrompt.present(
+            from: self,
+            accept: { [client] in try await client.acceptConsent() },
+            onError: { [weak self] error in
+                // A chat already left keeps its errors to itself
+                guard let self, parent != nil else { return }
+                showError(error.text)
+            },
+            onCancel: { [weak self] in
+                guard let self else { return }
+                AgentEntryPoint.removeDeletedChat(self, animated: true)
+            },
+            onAllow: { [weak self] in
+                guard let self, isSessionCurrent else { return }
+                transitionTask = Task { [weak self] in
+                    await self?.showAgent()
+                    self?.transitionTask = nil
+                }
             }
-        }
+        )
     }
 
     private func showAgent() async {
-        consentView.removeFromSuperview()
         composerView.isHidden = false
         skeletonView.isHidden = thread == nil
         // The placeholder shown from the start stays: a header transition may be drawing over it, hiding it, and a new
@@ -264,7 +259,7 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
             selectedThreadId = selectedThread.id
             let model: AgentV2Model
             if let preloader {
-                guard let acquiredModel = preloader.acquireModel(thread: selectedThread) else {
+                guard let acquiredModel = preloader.acquireModel(thread: selectedThread, isSummaryCached: isSummaryCached) else {
                     closeDeletedThread()
                     return
                 }
@@ -274,9 +269,22 @@ final class AgentRootVC: WViewController, WalletCoreData.EventsObserver {
             }
             model.retainPresentation()
             preparingModel = model
-            await model.waitForInitialLoad()
+            // A chat with unread messages opens at the first of them, which only its loaded history places
+            let isCacheAllowed = thread != nil && !isSummaryCached && !AgentThreadReadState.shared.isUnread(selectedThread)
+            if isCacheAllowed {
+                await model.waitForInitialContent()
+            } else {
+                await model.waitForInitialLoad()
+            }
             guard !Task.isCancelled, isSessionCurrent else {
                 releasePreparingModel()
+                return
+            }
+            // Nor does its cached history show when the history fails to load: the failure shows here with Retry
+            if !isCacheAllowed, model.isShowingCachedMessages {
+                releasePreparingModel()
+                skeletonView.isHidden = true
+                loadErrorView.show(model.initialLoadFailure ?? lang("$agent_error_generic"))
                 return
             }
             isModelPrepared = true

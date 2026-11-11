@@ -18,6 +18,12 @@ internal const val AGENT_BOTTOM_FADE_EXTRA = 4
 
 internal const val AGENT_LIST_TOP_INSET = 8
 
+/**
+ * A sent question pinned under the header leaves the last line of the message above it in view: one line of an answer's
+ * text, 22 dp, the bubble's 10 dp under it and the row's 6 dp under the bubble
+ */
+internal const val AGENT_PIN_PREVIOUS_LINE = 38
+
 /** In px, including the status bar */
 internal fun WViewController.agentHeaderBottom(): Int {
     val bar = navigationBar

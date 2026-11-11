@@ -72,6 +72,7 @@ final class ChainDisplaySettingsVC: SettingsBaseVC {
 
     private func setupViews() {
         title = lang("Blockchains")
+        view.accessibilityIdentifier = "blockchains_title"
         view.backgroundColor = isModal ? .air.sheetBackground : .air.groupedBackground
 
         var layoutConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)

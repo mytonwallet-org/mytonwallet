@@ -54,16 +54,22 @@ public class WScalableButton: UIControl {
         }
     }
 
-    public static let preferredHeight: CGFloat = 66
-    public static let preferredCornerRadius: CGFloat = preferredHeight / 2
-    public static let preferredImageSize = CGSize(width: 24, height: 24)
+    public static let preferredHeight: CGFloat = 62
+    public static let preferredCornerRadius: CGFloat = 26
+    public static let preferredImageSize = CGSize(width: 27, height: 27)
+    static let preferredTitleHeight: CGFloat = 16
+    static let preferredTitleTracking: CGFloat = -0.24
 
     static var preferredTitleFont: UIFont {
-        WTypography.uiFont(Language.current == .ru ? .caption2Emphasized : .footnoteEmphasized)
+        WTypography.uiFont(.footnoteEmphasized).withSize(Language.current == .ru ? 11.5 : 13)
     }
 
-    static var preferredTitleVerticalOffset: CGFloat {
-        Language.current == .ru ? -1 : 0
+    static var preferredTitleParagraphStyle: NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = preferredTitleHeight
+        style.maximumLineHeight = preferredTitleHeight
+        style.alignment = .center
+        return style
     }
 
     private let baseCornerRadius: CGFloat = WScalableButton.preferredCornerRadius
@@ -98,7 +104,7 @@ public class WScalableButton: UIControl {
                 effect.isInteractive = true
                 effect.tintColor = UIColor.air.folderFill
                 let view = UIVisualEffectView(effect: effect)
-                view.cornerConfiguration = .capsule()
+                view.cornerConfiguration = .corners(radius: .init(floatLiteral: baseCornerRadius))
                 return view
             }
             
@@ -166,7 +172,10 @@ public class WScalableButton: UIControl {
     }
 
     private func configure(title: String, image: UIImage?) {
-        titleLabel.text = title
+        titleLabel.attributedText = NSAttributedString(string: title, attributes: [
+            .kern: Self.preferredTitleTracking,
+            .paragraphStyle: Self.preferredTitleParagraphStyle,
+        ])
         imageView.image = image
         accessibilityLabel = title
     }
@@ -194,9 +203,10 @@ public class WScalableButton: UIControl {
             containerView.heightAnchor.constraint(equalToConstant: Self.preferredHeight),
                   
             imageView.centerXAnchor.constraint(equalTo: containerContentView.centerXAnchor, constant: 0),
-            imageView.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor, constant: -9),
+            imageView.centerYAnchor.constraint(equalTo: containerContentView.topAnchor, constant: 21.5),
             
-            titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9 + Self.preferredTitleVerticalOffset),
+            titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9),
+            titleLabel.heightAnchor.constraint(equalToConstant: Self.preferredTitleHeight),
             titleLabel.leadingAnchor.constraint(equalTo: containerContentView.leadingAnchor, constant: titleLabelHorMargin),
             titleLabel.trailingAnchor.constraint(equalTo: containerContentView.trailingAnchor, constant: -titleLabelHorMargin),
         ]
@@ -296,7 +306,7 @@ extension WScalableButton: ButtonsToolbarItem {
 
     private func maxFontSize(for text: String, maxWidth: CGFloat) -> UIFont {
         // In most cases the base font is good enough so we check it immediately
-        let width = (text as NSString).size(withAttributes: [.font: baseTitleLabelFont]).width
+        let width = (text as NSString).size(withAttributes: [.font: baseTitleLabelFont, .kern: Self.preferredTitleTracking]).width
         if width <= maxWidth {
             return baseTitleLabelFont
         }
@@ -309,7 +319,7 @@ extension WScalableButton: ButtonsToolbarItem {
         while (high - low) > tolerance {
             let mid = (low + high) / 2
             let font = baseTitleLabelFont.withSize(mid)
-            let width = (text as NSString).size(withAttributes: [.font: font]).width
+            let width = (text as NSString).size(withAttributes: [.font: font, .kern: Self.preferredTitleTracking]).width
             if width <= maxWidth {
                 low = mid
             } else {

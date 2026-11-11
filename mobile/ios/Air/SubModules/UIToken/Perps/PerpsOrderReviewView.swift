@@ -20,11 +20,16 @@ struct PerpsOrderReviewView: View {
                 } else {
                     PerpsPositionMetricsView(tokenName: state.data.token.name, positionSize: state.data.positionSize,
                                              price: state.data.price, liquidationPrice: state.data.liquidationPrice,
-                                             paymentAmount: state.data.paymentAmount, previous: state.data.mode.previous,
+                                             paymentAmount: state.data.paymentAmount, fee: state.data.fee,
+                                             feeRows: state.data.feeRows, areFeesEstimated: true, previous: state.data.mode.previous,
                                              paymentTitle: lang(state.data.mode.operation == .reduce ? "You Receive" : "You Pay"))
                     riskNotice
+                    if let accountNotice = state.data.accountNotice {
+                        TradeNoticeView(title: "", message: accountNotice, isWarning: false)
+                            .accessibilityIdentifier("perps.review.accountMode")
+                    }
                 }
-                PerpsFeeDetailsView(rows: state.data.feeRows, remainingCollateral: state.data.remainingCollateral)
+                PerpsRemainingCollateralView(remainingCollateral: state.data.remainingCollateral)
                 if case .unavailable(let message) = state.data.status {
                     TradeNoticeView(title: "", message: message, isWarning: true)
                         .accessibilityIdentifier("perps.review.unavailable")
@@ -33,9 +38,7 @@ struct PerpsOrderReviewView: View {
                         .accessibilityIdentifier("perps.review.updated")
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 20)
+            .padding(.bottom, 4)
         }
     }
 
@@ -49,28 +52,12 @@ struct PerpsOrderReviewView: View {
                 AssetInfoMetricRow(title: L10n.perpsPriceWhenOpened(asset: state.data.token.name), value: closing.entryPrice)
                 AssetInfoMetricRow(title: L10n.perpsPriceNow(asset: state.data.token.name), value: state.data.price)
             }
-            receivePayment
-        }
-    }
-
-    @ViewBuilder private var receivePayment: some View {
-        if let token = state.data.paymentToken {
-            TradePaymentRow(title: lang("You Receive"), amount: state.data.paymentQuantity, symbol: token.symbol,
-                            action: selectPaymentAction) {
-                WUIIconViewToken(token: token, isWalletView: false, showldShowChain: false, size: 28,
-                                 chainSize: 12, chainBorderWidth: 1, chainHorizontalOffset: 1, chainVerticalOffset: 1)
-                    .frame(width: 28, height: 28)
+            InsetSection(dividersTrailingInset: 16, horizontalPadding: 0) {
+                AssetInfoMetricRow(title: lang("You Receive"), value: state.data.paymentAmount)
+                    .accessibilityIdentifier("perps.review.payment")
+                PerpsFeeSummaryRow(fee: state.data.fee, rows: state.data.feeRows, isEstimated: true)
             }
-            .accessibilityIdentifier("perps.review.payment")
-        } else {
-            AssetInfoMetricRow(title: lang("You Receive"), value: state.data.paymentAmount)
-                .background(Color.air.groupedItem, in: .capsule)
         }
-    }
-
-    private var selectPaymentAction: (() -> Void)? {
-        guard state.canSelectPayment else { return nil }
-        return { state.selectPayment() }
     }
 
     private var riskNotice: some View {
@@ -90,7 +77,6 @@ struct PerpsOrderReviewView: View {
         .background(Color.air.groupedItem, in: .rect(cornerRadius: 26))
         .accessibilityIdentifier("perps.review.risk")
     }
-
 }
 
 struct PerpsOrderReviewFooter: View {
@@ -98,18 +84,12 @@ struct PerpsOrderReviewFooter: View {
 
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: 16) {
-                Text(state.data.feeExplanation ?? L10n.feeValueWithColon(fee: state.data.fee))
-                    .textStyle(.supporting)
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .accessibilityIdentifier("perps.review.fee")
-                TradeContinueButton(configuration: .init(title: .text(lang("Confirm")), isEnabled: state.canConfirm,
-                                                          showLoading: state.data.status == .loading),
-                                    tintColor: AirTintColor, accessibilityIdentifier: "perps.review.confirm") {
-                    state.confirm()
-                }
-                .frame(height: 52)
+            TradeContinueButton(configuration: .init(title: .text(lang("Confirm")), isEnabled: state.canConfirm,
+                                                      showLoading: state.data.status == .loading),
+                                tintColor: AirTintColor, accessibilityIdentifier: "perps.review.confirm") {
+                state.confirm()
             }
+            .frame(height: 52)
         }
     }
 }

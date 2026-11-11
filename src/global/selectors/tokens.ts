@@ -258,12 +258,9 @@ export function selectHasLocalizedTokenNames(global: GlobalState) {
 export function selectChainTokenWithMaxBalanceSlow(global: GlobalState, chain: ApiChain): UserToken | undefined {
   return (selectCurrentAccountTokens(global) ?? [])
     .filter((token) => token.chain === chain)
-    .reduce((maxToken, currentToken) => {
-      const currentBalance = currentToken.priceUsd * Number(currentToken.amount);
-      const maxBalance = maxToken ? maxToken.priceUsd * Number(maxToken.amount) : 0;
-
-      return currentBalance > maxBalance ? currentToken : maxToken;
-    });
+    .reduce<UserToken | undefined>((maxToken, token) => (
+      maxToken && Number(maxToken.totalValue) >= Number(token.totalValue) ? maxToken : token
+    ), undefined);
 }
 
 function buildUserTokenFromTokenInfo(

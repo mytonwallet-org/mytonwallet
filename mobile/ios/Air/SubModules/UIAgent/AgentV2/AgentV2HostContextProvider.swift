@@ -32,6 +32,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
 
     private let client: AgentV2Client
     private let dynamicAuthorityUpdateRetryDelay: Duration
+    private let activeAccount: @MainActor () -> MAccount?
     private var initialUpdateTask: Task<Bool, Never>?
     private var updateTask: Task<Void, Never>?
     private var updateGeneration = 0
@@ -46,10 +47,12 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
 
     init(
         client: AgentV2Client,
-        dynamicAuthorityUpdateRetryDelay: Duration = .milliseconds(250)
+        dynamicAuthorityUpdateRetryDelay: Duration = .milliseconds(250),
+        activeAccount: @escaping @MainActor () -> MAccount? = { AccountStore.account }
     ) {
         self.client = client
         self.dynamicAuthorityUpdateRetryDelay = dynamicAuthorityUpdateRetryDelay
+        self.activeAccount = activeAccount
     }
 
     deinit {
@@ -285,7 +288,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
 
     private func makeSnapshot() async -> ApiAgentV2HostContext {
         // Capture actor-owned state together before suspending. Formatting must not read live stores.
-        let activeAccount = AccountStore.account
+        let activeAccount = self.activeAccount()
         let accounts = AccountStore.orderedAccounts.map { account in
             let context = AccountContext(accountId: account.id)
             return AccountSnapshot(

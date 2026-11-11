@@ -31,6 +31,7 @@ public final class AboutVC: SettingsBaseVC {
     
     private func setupViews() {
         title = nil
+        view.accessibilityIdentifier = "about_title"
         addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView(), constraints: .fill)

@@ -2,7 +2,7 @@ import type { ApiPerpsAccountPosition, ApiPerpsFill, ApiPerpsOperation, ApiPerps
   ApiPerpsReceiptDetails } from '../types/perpsTrading';
 
 import { Big } from '../../lib/big.js';
-import { PERPS_CCTP_FORWARD_FEE_USDC } from './perps';
+import { getPerpsCoinFromAssetId, PERPS_CCTP_FORWARD_FEE_USDC } from './perps';
 
 export function getPerpsResultingPositionSize(quote: ApiPerpsQuote, filledSize?: string): string | undefined {
   if (!filledSize || quote.kind === 'leverage' || quote.kind === 'unchanged'
@@ -16,22 +16,25 @@ export function getPerpsResultingPositionSize(quote: ApiPerpsQuote, filledSize?:
 export function getPerpsReceiptDetails({ quote, operation, position, fill }: {
   quote: ApiPerpsQuote; operation: ApiPerpsOperation; position?: ApiPerpsAccountPosition; fill?: ApiPerpsFill;
 }): ApiPerpsReceiptDetails {
-  const coin = operation.assetId.startsWith('hyperliquid:hl:')
-    ? operation.assetId.slice('hyperliquid:hl:'.length) : operation.assetId.slice('hyperliquid:'.length);
+  const coin = getPerpsCoinFromAssetId(operation.assetId);
   if (quote.accountId !== operation.accountId || quote.assetId !== operation.assetId || quote.kind !== operation.kind
     || (fill && (operation.orderId === undefined || fill.oid !== operation.orderId || fill.coin !== coin))) return {};
-  const depositing = ['open', 'increase'].includes(operation.kind)
-    || (operation.kind === 'leverage' && Big(quote.paymentAmount).gt(0));
+  // A rejected withdrawal left the money on the HyperCore balance, so its amount was never received.
+  const withdrawalAmount = operation.error?.startsWith('PerpsWithdrawalRejected')
+    ? undefined : operation.withdrawalAmount;
+  // A balance-funded order bridges nothing, so it has no deposit fee or unallocated deposit.
+  const depositing = quote.funding !== 'balance' && (['open', 'increase'].includes(operation.kind)
+    || (operation.kind === 'leverage' && Big(quote.paymentAmount).gt(0)));
   const bridge = fill?.receiptFees?.bridge ?? fill?.bridgeFee ?? fill?.deposit?.bridgeFee
     ?? (fill?.withdrawal?.status === 'completed' ? fill.withdrawal.bridgeFee : undefined)
     ?? (depositing ? (operation.depositTxHash ? quote.bridgeFee : undefined)
-      : !fill?.withdrawal && operation.withdrawalAmount && operation.state === 'completed'
+      : !fill?.withdrawal && withdrawalAmount && operation.state === 'completed'
         ? String(PERPS_CCTP_FORWARD_FEE_USDC) : undefined);
   const details: ApiPerpsReceiptDetails = {};
   if (fill?.withdrawal?.status === 'completed') {
     details.receiveAmount = fill.withdrawal.receivedAmount;
-  } else if (!fill?.withdrawal && !depositing && bridge !== undefined && operation.withdrawalAmount !== undefined) {
-    const received = Big(operation.withdrawalAmount).minus(bridge);
+  } else if (!fill?.withdrawal && !depositing && bridge !== undefined && withdrawalAmount !== undefined) {
+    const received = Big(withdrawalAmount).minus(bridge);
     if (received.gte(0)) details.receiveAmount = received.toFixed();
   }
   if (fill?.receiptFees) {
@@ -47,12 +50,8 @@ export function getPerpsReceiptDetails({ quote, operation, position, fill }: {
     }
     return details;
   }
-  const tradingAmount = fill?.receiptFees?.trading ?? fill?.fee;
-  if (!fill || tradingAmount === undefined || fill.feeToken !== 'USDC') return details;
-  const trading = Big(tradingAmount);
-  details.fees ??= { trading: trading.toFixed(), service: fill.builderFee,
-    exchange: fill.builderFee !== undefined ? trading.minus(fill.builderFee).toFixed() : undefined,
-    bridge, total: trading.plus(bridge ?? 0).toFixed() };
+  const trading = fill?.receiptFees?.trading;
+  if (!fill || trading === undefined || fill.feeToken !== 'USDC') return details;
   const positionSize = operation.positionSize ?? fill.positionSize
     ?? getPerpsResultingPositionSize(quote, operation.filledSize ?? fill.sz);
   if (depositing && bridge !== undefined && position?.id === `${operation.accountId}/${operation.assetId}`
@@ -62,7 +61,7 @@ export function getPerpsReceiptDetails({ quote, operation, position, fill }: {
     const collateralChange = Big(fill.collateralAfter ?? position.collateral)
       .minus(fill.collateralBefore ?? quote.previousCollateral ?? 0);
     const remainder = Big(fill.deposit?.grossAmount ?? quote.paymentAmount).minus(bridge)
-      .minus(collateralChange).minus(trading).minus(funding);
+      .minus(collateralChange).minus(trading).plus(funding);
     // A negative value can indicate other account activity; do not present it as available funds.
     if (remainder.gte(0)) details.remainingCollateral = remainder.round(6, Big.roundDown).toFixed();
   }

@@ -11,6 +11,7 @@ const NEWS_HEADLINE = 'Deterministic MyPulse headline';
 const NEWS_BODY = `The full **MyPulse** news body. ${'Market context. '.repeat(20)}`;
 const NEWS_SOURCES = [{ name: 'MyPulse Source', url: 'https://example.com/mypulse' }];
 const WALLET_SESSION_ID = '77777777-7777-4777-8777-777777777777';
+const REGENERATION_EVENT_DELAY = 600;
 const CONTENT_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.gif': 'image/gif',
@@ -31,6 +32,8 @@ const CONTENT_TYPES = {
 let state = createState();
 const pendingResponses = new Set();
 let completePendingRun;
+// Keeps what a held run has written, as the server does when the user stops it
+let stopPendingRun;
 
 const server = createServer(async (request, response) => {
   try {
@@ -257,6 +260,19 @@ function handleAgentRequest(request, response, url, body) {
       holdResponse(response);
       return;
     }
+    if (state.scenario === 'stop' && stopPendingRun) {
+      const lastSequence = stopPendingRun();
+      stopPendingRun = undefined;
+      completePendingRun = undefined;
+      writeJson(response, 200, {
+        protocolVersion: 3,
+        runId: cancelMatch[1],
+        state: 'cancelled',
+        lastSequence,
+        thread: threadSummary(),
+      });
+      return;
+    }
     writeJson(response, 200, {
       protocolVersion: 3,
       runId: cancelMatch[1],
@@ -315,6 +331,10 @@ function handleRun(response, body) {
   const runId = uuid(100 + state.runCount);
   const messageId = uuid(200 + state.runCount);
   const userMessage = body.input?.message;
+  // A regeneration answers the question before the answer again, in place of the answer and every message after it
+  const regeneratedQuestion = body.input?.kind === 'regenerate'
+    ? truncateForRegeneration(body.input.targetAssistantMessageId)
+    : undefined;
 
   // The run is interrupted before its answer has any text, and the server keeps it as failed
   if (state.scenario === 'run-interrupted' && state.runCount === 1) {
@@ -333,7 +353,9 @@ function handleRun(response, body) {
     ], 150);
     return;
   }
-  const answerParts = getAnswerParts(userMessage?.text);
+  const answerParts = regeneratedQuestion !== undefined
+    ? [`Regenerated response: ${regeneratedQuestion}`]
+    : getAnswerParts(userMessage?.text);
   const answerText = answerParts.filter((part) => typeof part === 'string').join('');
   const answerLinks = answerParts.filter((part) => typeof part !== 'string' && !part.messageId).map(({ link }) => link);
   const activityEvents = state.scenario === 'run-activity' ? [
@@ -387,6 +409,12 @@ function handleRun(response, body) {
         event(runId, { type: 'thread', sequence: sequence++, thread: threadSummary(2) }),
         event(runId, { type: 'message_end', sequence, messageId, finishReason: 'complete' }),
       ].map((item) => `${JSON.stringify(item)}\n`).join(''));
+    };
+    // The stopped run's stream stays open until the client lets it go
+    stopPendingRun = () => {
+      state.revision += 1;
+      persistStoppedRun(userMessage, messageId, runId, answerText);
+      return baseEvents.length;
     };
     return;
   }
@@ -446,7 +474,23 @@ function handleRun(response, body) {
     event(runId, { type: 'message_end', sequence, messageId, finishReason: 'complete' }),
   ];
   persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents, answerLinks);
-  writeNdjsonSlowly(response, events, state.scenario === 'run-activity' ? 650 : 150);
+  // The server takes a while to start answering again, as the real one does, so the regenerated answer turns to dust
+  // before the next one comes
+  writeNdjsonSlowly(
+    response,
+    events,
+    state.scenario === 'run-activity' ? 650 : regeneratedQuestion !== undefined ? REGENERATION_EVENT_DELAY : 150,
+  );
+}
+
+// Removes the regenerated answer and the messages after it, and returns the text of the question before it
+function truncateForRegeneration(targetMessageId) {
+  const targetIndex = state.messages.findIndex(({ id }) => id === targetMessageId);
+  if (targetIndex < 1) return '';
+
+  state.messages = state.messages.slice(0, targetIndex);
+  const question = state.messages.findLast(({ role }) => role === 'user');
+  return question?.content.text ?? '';
 }
 
 function persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents, links = []) {
@@ -478,6 +522,30 @@ function persistCompletedRun(userMessage, messageId, runId, answerText, extraEve
     runId,
     ...(actions.length ? { actions } : {}),
     ...(followups.length ? { followups } : {}),
+  });
+}
+
+function persistStoppedRun(userMessage, messageId, runId, answerText) {
+  if (userMessage?.id && userMessage.text) {
+    state.messages.push({
+      id: userMessage.id,
+      threadId: THREAD_ID,
+      role: 'user',
+      status: 'complete',
+      content: { kind: 'markdown', text: userMessage.text },
+      createdAt: FIXED_TIME,
+      runId,
+    });
+  }
+
+  state.messages.push({
+    id: messageId,
+    threadId: THREAD_ID,
+    role: 'assistant',
+    status: 'cancelled',
+    content: { kind: 'markdown', text: answerText },
+    createdAt: FIXED_TIME,
+    runId,
   });
 }
 
@@ -597,6 +665,7 @@ function getAnswerParts(text) {
 // Text deltas a held run streams once the test completes it
 function getContinuedDeltas() {
   if (state.scenario === 'wallet-switch') return [' The response continued after switching wallets.'];
+  if (state.scenario === 'stop') return [' This part is never written.'];
   if (state.scenario === 'answer-links') return ['docs', ' before you build.'];
   return undefined;
 }
@@ -607,6 +676,7 @@ function getAnswerText(text) {
   if (state.scenario === 'terminal-action-error') return 'This response will fail.';
   if (state.scenario === 'capacity-error') return 'A partial response was started.';
   if (state.scenario === 'wallet-switch') return 'Partial response before switching wallets.';
+  if (state.scenario === 'stop') return 'The answer written before the stop.';
   return `Deterministic response: ${text}`;
 }
 
@@ -739,6 +809,7 @@ function holdResponse(response) {
 
 function releasePendingResponses() {
   completePendingRun = undefined;
+  stopPendingRun = undefined;
   pendingResponses.forEach((response) => response.destroy());
   pendingResponses.clear();
 }

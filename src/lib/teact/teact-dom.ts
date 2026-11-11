@@ -1,4 +1,4 @@
-import type { ChangeEvent, FocusEvent } from 'react';
+import type { ChangeEvent, CompositionEvent, FocusEvent } from 'react';
 
 import type { Signal } from '../../util/signals';
 import type {
@@ -20,6 +20,7 @@ import {
   mountComponent,
   MountState,
   renderComponent,
+  requestAfterRender,
   unmountComponent,
   VirtualType,
 } from './teact';
@@ -29,8 +30,8 @@ interface VirtualDomHead {
 }
 
 interface SelectionState {
-  selectionStart: number | null;
-  selectionEnd: number | null;
+  selectionStart: number;
+  selectionEnd: number;
   isCaretAtEnd: boolean;
 }
 
@@ -52,11 +53,13 @@ const MAPPED_ATTRIBUTES: Partial<Record<string, string>> = {
   spellCheck: 'spellcheck',
 };
 const INDEX_KEY_PREFIX = '__indexKey#';
-const SELECTION_STATE_ATTRIBUTE = '__teactSelectionState';
 
 const headsByElement = new WeakMap<Element, VirtualDomHead>();
 const extraClasses = new WeakMap<Element, Set<string>>();
 const extraStyles = new WeakMap<Element, Record<string, string>>();
+const controlledInputProps = new WeakMap<Element, AnyLiteral>();
+const composingInputs = new WeakSet<Element>();
+const selectionStates = new WeakMap<Element, SelectionState>();
 
 const uniqueChildKeysCache = new WeakMap<VirtualElementChildren, (keyof any)[]>();
 
@@ -352,7 +355,7 @@ function createNode($element: VirtualElementReal, currentContext: CurrentContext
   const { tag, props, children } = $element;
   const element = document.createElementNS(namespace, tag) as DOMElement;
 
-  processControlled(tag, props);
+  processControlled(element, props);
 
   for (const key in props) {
     if (!props.hasOwnProperty(key)) continue;
@@ -419,6 +422,7 @@ function unmountRealTree($element: VirtualElement) {
   } else {
     if ($element.type === VirtualType.Tag) {
       extraClasses.delete($element.target!);
+      forgetControlledInput($element.target!);
       setElementRef($element, undefined);
       removeAllDelegatedListeners($element.target!);
     }
@@ -689,47 +693,100 @@ function setElementRef($element: VirtualElementTag, element: DOMElement | undefi
   }
 }
 
-function processControlled(tag: string, props: AnyLiteral) {
-  const isValueControlled = props.value !== undefined;
-  const isCheckedControlled = props.checked !== undefined;
-  const isControlled = (isValueControlled || isCheckedControlled) && CONTROLLABLE_TAGS.includes(tag.toUpperCase());
-  if (!isControlled) {
+/**
+ * Makes `value` and `checked` of a field follow its props. The field is brought back to the props after the render
+ * that follows an input, so a handler that rejects or trims the input gets its result in the field.
+ *
+ * Nothing is written into the field inside the input event or while an IME composes text, as with Chinese pinyin
+ * or the word an Android keyboard underlines. Such a write takes the text away from the keyboard: candidates
+ * disappear, the typed word is lost, or an autocorrected word lands next to the misspelled one.
+ */
+function processControlled(element: DOMElement, props: AnyLiteral) {
+  if (!CONTROLLABLE_TAGS.includes(element.tagName)) {
     return;
   }
 
+  const isValueControlled = props.value !== undefined;
+  if (!isValueControlled && props.checked === undefined) {
+    forgetControlledInput(element);
+    return;
+  }
+
+  controlledInputProps.set(element, props);
+
   const {
-    value, checked, onInput, onChange, onBlur,
+    onInput, onChange, onBlur, onCompositionStart, onCompositionEnd,
   } = props;
 
-  props.onChange = undefined;
-  props.onInput = (e: ChangeEvent<HTMLInputElement>) => {
+  props.onCompositionStart = (e: CompositionEvent<HTMLInputElement>) => {
+    composingInputs.add(element);
+    selectionStates.delete(element);
+    onCompositionStart?.(e);
+  };
+  props.onCompositionEnd = (e: CompositionEvent<HTMLInputElement>) => {
+    composingInputs.delete(element);
+    if (isValueControlled) {
+      saveInputSelection(e.currentTarget);
+    }
+
+    onCompositionEnd?.(e);
+    requestAfterRender(() => reconcileControlledInput(element));
+  };
+  const isSelect = element.tagName === 'SELECT';
+  if (!isSelect) {
+    props.onChange = undefined;
+  }
+  props.onInput = (e: ChangeEvent<HTMLInputElement> & InputEvent) => {
     onInput?.(e);
-    onChange?.(e);
-
-    if (value !== undefined && value !== e.currentTarget.value) {
-      const { selectionStart, selectionEnd } = e.currentTarget;
-      const isCaretAtEnd = selectionStart === selectionEnd && selectionEnd === e.currentTarget.value.length;
-
-      e.currentTarget.value = value;
-
-      if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
-        e.currentTarget.setSelectionRange(selectionStart, selectionEnd);
-
-        const selectionState: SelectionState = { selectionStart, selectionEnd, isCaretAtEnd };
-
-        e.currentTarget.dataset[SELECTION_STATE_ATTRIBUTE] = JSON.stringify(selectionState);
-      }
+    if (!isSelect) {
+      onChange?.(e);
     }
 
-    if (checked !== undefined) {
-      e.currentTarget.checked = checked;
+    if (e.isComposing || composingInputs.has(element)) return;
+
+    if (isValueControlled) {
+      saveInputSelection(e.currentTarget);
     }
+
+    requestAfterRender(() => reconcileControlledInput(element));
   };
   props.onBlur = (e: FocusEvent<HTMLInputElement>) => {
-    delete e.currentTarget.dataset[SELECTION_STATE_ATTRIBUTE];
+    selectionStates.delete(element);
+
+    // A field that loses focus before `compositionend` arrives must not keep ignoring its `value`
+    if (composingInputs.delete(element)) {
+      requestAfterRender(() => reconcileControlledInput(element));
+    }
 
     onBlur?.(e);
   };
+}
+
+function saveInputSelection(element: HTMLInputElement) {
+  const { selectionStart, selectionEnd } = element;
+  if (typeof selectionStart !== 'number' || typeof selectionEnd !== 'number') return;
+
+  const isCaretAtEnd = selectionStart === selectionEnd && selectionEnd === element.value.length;
+  selectionStates.set(element, { selectionStart, selectionEnd, isCaretAtEnd });
+}
+
+function reconcileControlledInput(element: DOMElement) {
+  const props = controlledInputProps.get(element);
+  if (!props) return;
+
+  if (props.value !== undefined) {
+    setAttribute(element, 'value', props.value);
+  }
+
+  if (props.checked !== undefined && (element as HTMLInputElement).checked !== props.checked) {
+    setAttribute(element, 'checked', props.checked);
+  }
+}
+
+function forgetControlledInput(element: DOMElement) {
+  controlledInputProps.delete(element);
+  composingInputs.delete(element);
+  selectionStates.delete(element);
 }
 
 function processUncontrolledOnMount(element: DOMElement, props: AnyLiteral) {
@@ -749,7 +806,7 @@ function processUncontrolledOnMount(element: DOMElement, props: AnyLiteral) {
 function updateAttributes(
   $current: VirtualElementTag, $new: VirtualElementTag, element: DOMElement, namespace?: string,
 ) {
-  processControlled(element.tagName, $new.props);
+  processControlled(element, $new.props);
 
   const currentEntries = Object.entries($current.props);
   const newEntries = Object.entries($new.props);
@@ -783,17 +840,21 @@ function setAttribute(element: DOMElement, key: string, value: any, namespace?: 
   } else if (key === 'value') {
     const inputEl = element as HTMLInputElement;
 
+    if (composingInputs.has(inputEl)) {
+      return;
+    }
+
     if (inputEl.value !== value) {
       inputEl.value = value;
 
-      const selectionStateJson = inputEl.dataset[SELECTION_STATE_ATTRIBUTE];
-      if (selectionStateJson) {
-        const { selectionStart, selectionEnd, isCaretAtEnd } = JSON.parse(selectionStateJson) as SelectionState;
+      const selectionState = selectionStates.get(inputEl);
+      if (selectionState) {
+        const { selectionStart, selectionEnd, isCaretAtEnd } = selectionState;
 
         if (isCaretAtEnd) {
           const length = inputEl.value.length;
           inputEl.setSelectionRange(length, length);
-        } else if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+        } else {
           inputEl.setSelectionRange(selectionStart, selectionEnd);
         }
       }

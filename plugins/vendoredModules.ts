@@ -20,15 +20,6 @@ const NOBLE_ED25519_WRAPPER: ModuleWrapper = {
     + 'getSharedSecret, sign, sync, utils, verify } = module.exports;\n',
 };
 
-// The Emscripten glue is a classic script that detects its environment. These bindings make it take the
-// web worker branch, `locateFile` points it at the binary the bundler emits, and the globals the worker
-// uses become exports.
-const RLOTTIE_WRAPPER: ModuleWrapper = {
-  prologue: 'import wasmUrl from \'./rlottie-wasm.wasm?url\'; '
-    + 'var process, module, require, __dirname = \'\'; var Module = { locateFile: () => wasmUrl }; ',
-  epilogue: '\nexport default Module;\nexport { allocate, intArrayFromString };\n',
-};
-
 /**
  * Turns the vendored libraries in `src/lib` that are not ES modules into ones, leaving their files as
  * published.
@@ -41,7 +32,6 @@ export function vendoredModules(libDir: string): Plugin {
     [path.join(libDir, 'quantize.js')]: COMMONJS_WRAPPER,
     [path.join(libDir, 'aes-js/index.js')]: COMMONJS_WRAPPER,
     [path.join(libDir, 'noble-ed25519/index.js')]: NOBLE_ED25519_WRAPPER,
-    [path.join(libDir, 'rlottie/rlottie-wasm.js')]: RLOTTIE_WRAPPER,
   };
 
   return {

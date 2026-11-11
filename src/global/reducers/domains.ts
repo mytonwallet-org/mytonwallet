@@ -34,10 +34,3 @@ export function replaceCurrentDomainRenewalId(global: GlobalState, replaceMap: R
     txId: replaceActivityId(global.currentDomainRenewal.txId, replaceMap),
   });
 }
-
-/** replaceMap: keys - old (removed) activity ids, value - new (added) activity ids */
-export function replaceCurrentDomainLinkingId(global: GlobalState, replaceMap: Record<string, string>) {
-  return updateCurrentDomainLinking(global, {
-    txId: replaceActivityId(global.currentDomainLinking.txId, replaceMap),
-  });
-}

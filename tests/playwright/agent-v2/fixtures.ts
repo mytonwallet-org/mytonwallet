@@ -26,12 +26,13 @@ interface AgentV2MockState {
   pendingResponseCount: number;
 }
 
-interface AgentV2Fixture {
+export interface AgentV2Fixture {
   reset: (scenario?: string) => Promise<AgentV2MockState>;
-  seedWallet: (withSecondaryAccount?: boolean) => Promise<void>;
+  /** Seeds a view wallet; the Agent starts allowed unless `isAgentAllowed` is false */
+  seedWallet: (withSecondaryAccount?: boolean, isAgentAllowed?: boolean) => Promise<void>;
   open: () => Promise<void>;
   openPage: (page: Page) => Promise<void>;
-  acceptConsent: () => Promise<void>;
+  waitForList: () => Promise<void>;
   openThread: () => Promise<void>;
   openThreadFromPage: (page: Page) => Promise<void>;
   send: (text: string) => Promise<void>;
@@ -48,10 +49,12 @@ export const test = base.extend<{ agentV2: AgentV2Fixture }>({
 
     await use({
       reset: (scenario = 'conversation') => resetMock(request, scenario),
-      seedWallet: (withSecondaryAccount = false) => seedViewWallet(page, withSecondaryAccount),
+      seedWallet: (withSecondaryAccount = false, isAgentAllowed = true) => (
+        seedViewWallet(page, withSecondaryAccount, isAgentAllowed)
+      ),
       open: () => openAgent(page),
       openPage: (targetPage) => openAgent(targetPage),
-      acceptConsent: () => acceptConsent(page),
+      waitForList: () => waitForList(page),
       openThread: () => openThread(page),
       openThreadFromPage: (targetPage) => openThread(targetPage),
       send: (text) => sendMessage(page, text),
@@ -101,7 +104,7 @@ async function blockExternalRequests(context: BrowserContext, blockedRequests: s
   });
 }
 
-async function seedViewWallet(page: Page, withSecondaryAccount: boolean) {
+async function seedViewWallet(page: Page, withSecondaryAccount: boolean, isAgentAllowed: boolean) {
   await page.goto('/__agent-v2-seed', { waitUntil: 'domcontentloaded' });
   await page.evaluate(async ({
     primaryAccountId,
@@ -109,6 +112,7 @@ async function seedViewWallet(page: Page, withSecondaryAccount: boolean) {
     secondaryAccountId,
     secondaryAddress,
     shouldAddSecondaryAccount,
+    shouldAllowAgent,
   }) => {
     const localAccounts = {
       [primaryAccountId]: {
@@ -156,6 +160,11 @@ async function seedViewWallet(page: Page, withSecondaryAccount: boolean) {
       const store = transaction.objectStore('keyval');
       store.put(22, 'stateVersion');
       store.put(primaryAccountId, 'currentAccountId');
+      // The SDK's record of the user's consent, as Allow in the consent sheet stores it
+      if (shouldAllowAgent) {
+        const consent = { version: 2, accepted: true, updatedAt: new Date().toISOString() };
+        store.put(JSON.stringify(consent), 'agentV2Consent');
+      }
       store.put(Object.fromEntries(accountIds.map((id) => [id, {
         type: 'view',
         byChain: {
@@ -178,6 +187,7 @@ async function seedViewWallet(page: Page, withSecondaryAccount: boolean) {
     secondaryAccountId: SECONDARY_ACCOUNT_ID,
     secondaryAddress: SECONDARY_ADDRESS,
     shouldAddSecondaryAccount: withSecondaryAccount,
+    shouldAllowAgent: isAgentAllowed,
   });
 }
 
@@ -188,10 +198,8 @@ async function openAgent(page: Page) {
   await agentTab.click();
 }
 
-// The chat list opens in place of the consent screen
-async function acceptConsent(page: Page) {
-  await page.getByRole('heading', { name: 'Data shared with Agent' }).waitFor();
-  await page.getByRole('button', { name: 'Allow Agent', exact: true }).click();
+// The Agent's list has loaded once its News row shows, before consent as after it
+async function waitForList(page: Page) {
   await expect(page.getByRole('button', { name: /^News,/u })).toBeVisible();
 }
 

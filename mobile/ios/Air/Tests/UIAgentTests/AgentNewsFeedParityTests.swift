@@ -172,9 +172,13 @@ final class AgentNewsFeedParityTests: XCTestCase {
             XCTAssertEqual(cardFrame.minY, postFrame.minY, accuracy: 0.5)
             XCTAssertEqual(cardFrame.height, postFrame.height, accuracy: 0.5)
         }
-        // The source opens on a tap in the feed as in the discussion
-        XCTAssertNotNil(cardView.metaView.onSourceTap)
-        XCTAssertNotNil(postView.metaView.onSourceTap)
+        // Open Source stays among the actions in the feed as in the discussion
+        for view in [cardView, postView] {
+            XCTAssertEqual(
+                view.accessibilityContentElement.accessibilityCustomActions?.first?.name,
+                lang("$agent_news_open_source")
+            )
+        }
     }
 
     /// A drag that starts on a button scrolls a chat as it scrolls the feed: both lists are the same list view
@@ -229,8 +233,9 @@ final class AgentNewsFeedParityTests: XCTestCase {
     }
 
     /// The latest news ends as far above the bottom edge as a chat's latest message ends above its field, less the
-    /// field: 16 pt above the line where the field rests. The scroll button and the fade stand over that line as a
-    /// chat's stand over its field. Checked against a chat laid out the same, with and without a home indicator.
+    /// field: 16 pt above the line where the field rests. The scroll button stands over that line as a chat's stands
+    /// over its field, and nothing fades the news under it. Checked against a chat laid out the same, with and without
+    /// a home indicator.
     func testLatestNewsEndsWhereAChatsLatestMessageWouldWithoutItsField() async throws {
         for safeAreaBottom: CGFloat in [34, 0] {
             let feed = try await makeFeed(count: 8, safeAreaBottom: safeAreaBottom)
@@ -258,8 +263,9 @@ final class AgentNewsFeedParityTests: XCTestCase {
             XCTAssertEqual(button.convert(button.bounds, to: feedView).maxY, fieldLine - AgentVCLayout.scrollToBottomButtonSpacing, accuracy: 0.5)
             let chatButton = chat.controller.scrollToBottomButton
             XCTAssertEqual(chatButton.convert(chatButton.bounds, to: chatView).maxY, field.minY - AgentVCLayout.scrollToBottomButtonSpacing, accuracy: 0.5)
-            let fade = try XCTUnwrap(findDescendants(of: feedView).compactMap { $0 as? EdgeEffectView }.first { $0.frame.maxY == feedView.bounds.maxY })
-            XCTAssertEqual(fade.frame.minY, fieldLine - AgentVCLayout.bottomEdgeFadeHeight, accuracy: 0.5)
+            XCTAssertFalse(findDescendants(of: feedView).contains {
+                $0 is EdgeEffectView && $0.convert($0.bounds, to: feedView).maxY == feedView.bounds.maxY
+            })
             if #available(iOS 26.0, *) {
                 XCTAssertTrue(list.bottomEdgeEffect.isHidden)
             }
@@ -293,21 +299,144 @@ final class AgentNewsFeedParityTests: XCTestCase {
         XCTAssertFalse(lineKeys.contains("agentSkeletonReveal.position"))
     }
 
-    /// A chat shows the feed's spinner under its header while it loads older messages
-    func testChatAndFeedShowOneSpinnerWhileLoadingOlderRows() async throws {
-        let older = makeNewsItem(1)
-        let feed = TestFeed(page: .init(locale: "en", items: (2...12).map { makeNewsItem($0, isLong: true) }.reversed(), nextCursor: "older"))
+    /// Older news come in above with no spinner and no placeholders: they just appear, and the card on screen stays where
+    /// it is in the very update that brings them, before the list draws them
+    func testOlderNewsAppearAboveWithoutASpinnerAndTheCardOnScreenStays() async throws {
+        let feed = TestFeed(page: .init(locale: "en", items: (3...12).map { makeNewsItem($0, isLong: true) }.reversed(), nextCursor: "older"))
         defer { feed.close() }
-        feed.client.older = .init(locale: "en", items: [older])
+        feed.client.older = .init(locale: "en", items: [makeNewsItem(1, isLong: true), makeNewsItem(2, isLong: true)])
         feed.client.olderDelay = .milliseconds(300)
         try await feed.waitUntil { !feed.model.isLoading && !feed.controller.isScrollToBottomButtonHeld }
-        let feedSpinner = try XCTUnwrap(findDescendants(of: feed.controller.view).compactMap { $0 as? AgentLoadingOlderIndicator }.first)
-        XCTAssertFalse(feedSpinner.isAnimating)
-        let loading = Task { await feed.model.loadMore() }
-        try await feed.waitUntil { feedSpinner.isAnimating }
-        await loading.value
-        XCTAssertFalse(feedSpinner.isAnimating)
+        let view = try XCTUnwrap(feed.controller.view)
+        let list = feed.controller.collectionView
+        XCTAssertTrue(findDescendants(of: view).compactMap { $0 as? AgentLoadingOlderIndicator }.isEmpty)
+        // Scrolled up near the top by the program rather than the user, which loads no older news itself
+        list.contentOffset.y = -list.adjustedContentInset.top + 320
+        try await feed.waitForStableLayout()
+        func findCard(_ identifier: String?) -> AgentNewsFeedCardCell? {
+            list.visibleCells.compactMap { $0 as? AgentNewsFeedCardCell }.first {
+                $0.newsView.content?.accessibilityIdentifier == identifier
+            }
+        }
+        let topCard = try XCTUnwrap(list.visibleCells.compactMap { $0 as? AgentNewsFeedCardCell }.min { $0.frame.minY < $1.frame.minY })
+        let identifier = topCard.newsView.content?.accessibilityIdentifier
+        let cardY = topCard.convert(topCard.bounds, to: view).minY
+        var cardYsAfterUpdates: [CGFloat?] = []
+        let updateFeed = feed.model.onChange
+        feed.model.onChange = {
+            updateFeed?()
+            list.layoutIfNeeded()
+            cardYsAfterUpdates.append(findCard(identifier).map { $0.convert($0.bounds, to: view).minY })
+        }
 
+        let loading = Task { await feed.model.loadMore() }
+        try await feed.waitUntil { feed.model.isLoadingMore }
+        XCTAssertFalse(findDescendants(of: view).contains { ($0 as? UIActivityIndicatorView)?.isAnimating == true })
+        XCTAssertFalse(findDescendants(of: view).contains { ($0 as? AgentMessagesSkeletonView)?.isShowing == true })
+        await loading.value
+        XCTAssertEqual(feed.model.items.map(\.eventId), Array(1...12))
+        XCTAssertFalse(cardYsAfterUpdates.isEmpty)
+        for y in cardYsAfterUpdates {
+            XCTAssertEqual(try XCTUnwrap(y), cardY, accuracy: 1)
+        }
+        try await feed.waitForStableLayout()
+        let card = try XCTUnwrap(findCard(identifier))
+        XCTAssertEqual(card.convert(card.bounds, to: view).minY, cardY, accuracy: 1)
+        XCTAssertFalse(findDescendants(of: view).contains { ($0 as? UIActivityIndicatorView)?.isAnimating == true })
+    }
+
+    /// Older news start loading as the user scrolls up with five rows, day lines among them, left wholly above the header,
+    /// as on Android, and the cards on screen stay where they are as they come in
+    func testOlderNewsStartLoadingAsTheUserScrollsUpWithFiveRowsLeftAbove() async throws {
+        let feed = try await makeFeedOfSeveralDays()
+        let list = feed.controller.collectionView
+        let view = try XCTUnwrap(feed.controller.view)
+        let threshold = AgentNewsFeedVC.loadOlderRowThreshold
+        try await scrollByProgram(feed, bottomOfItem: threshold, belowHeaderBy: -30)
+        XCTAssertEqual(countRowsAboveHeader(in: list), threshold + 1)
+
+        // The user drags the feed up, and the sixth row stays above the header
+        feed.controller.scrollViewWillBeginDragging(list)
+        list.contentOffset.y -= 10
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(countRowsAboveHeader(in: list), threshold + 1)
+        XCTAssertEqual(feed.client.olderRequestCount, 0)
+
+        // The sixth row comes under the header
+        list.contentOffset.y -= 30
+        XCTAssertEqual(countRowsAboveHeader(in: list), threshold)
+        try await feed.waitUntil { feed.client.olderRequestCount == 1 }
+        let card = try XCTUnwrap(list.cellForItem(at: IndexPath(item: threshold + 1, section: 0)) as? AgentNewsFeedCardCell)
+        let identifier = try XCTUnwrap(card.newsView.content?.accessibilityIdentifier)
+        let cardY = card.convert(card.bounds, to: view).minY
+        feed.controller.scrollViewDidEndDragging(list, willDecelerate: false)
+
+        try await feed.waitUntil { feed.model.items.count == 15 && !feed.model.isLoadingMore }
+        try await feed.waitForStableLayout()
+        let shownCard = try XCTUnwrap(list.visibleCells.compactMap { $0 as? AgentNewsFeedCardCell }.first {
+            $0.newsView.content?.accessibilityIdentifier == identifier
+        })
+        XCTAssertEqual(shownCard.convert(shownCard.bounds, to: view).minY, cardY, accuracy: 1)
+    }
+
+    /// A drag that starts with five rows or fewer above the header loads older news at once, as on Android, and the
+    /// program taking the feed there loads none
+    func testDragThatStartsWithFiveRowsOrFewerAboveLoadsOlderNews() async throws {
+        let feed = try await makeFeedOfSeveralDays()
+        let list = feed.controller.collectionView
+        try await scrollByProgram(feed, bottomOfItem: 2, belowHeaderBy: -30)
+        XCTAssertEqual(countRowsAboveHeader(in: list), 3)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(feed.client.olderRequestCount, 0)
+
+        feed.controller.scrollViewWillBeginDragging(list)
+        try await feed.waitUntil { feed.client.olderRequestCount == 1 }
+        feed.controller.scrollViewDidEndDragging(list, willDecelerate: false)
+    }
+
+    /// Twelve long news over four days, newest last, at the feed's end, with an older day's three news to come
+    private func makeFeedOfSeveralDays() async throws -> TestFeed {
+        func makeItem(_ id: Int) -> ApiAgentV2NewsFeedItem {
+            let item = makeNewsItem(id, isLong: true)
+            return ApiAgentV2NewsFeedItem(
+                eventId: id,
+                deliveredAt: String(format: "2026-10-%02dT10:%02d:00Z", 10 + (id - 1) / 3, id),
+                headline: item.headline,
+                body: item.body,
+                imageUrl: nil,
+                sources: item.sources
+            )
+        }
+        let feed = TestFeed(page: .init(locale: "en", items: (4...15).map(makeItem).reversed(), nextCursor: "older"))
+        addTeardownBlock { feed.close() }
+        feed.client.older = .init(locale: "en", items: (1...3).map(makeItem).reversed())
+        feed.client.olderDelay = .milliseconds(300)
+        try await feed.waitUntil { !feed.model.isLoading && !feed.controller.isScrollToBottomButtonHeld }
+        try await feed.waitForStableLayout()
+        return feed
+    }
+
+    /// Scrolls the feed as the program does, not the user, until the bottom of the row at `item` stands `distance` below
+    /// the header's bottom. Rows take their heights as they come into view, so the offset is set again until they have.
+    private func scrollByProgram(_ feed: TestFeed, bottomOfItem item: Int, belowHeaderBy distance: CGFloat) async throws {
+        let list = feed.controller.collectionView
+        for _ in 0..<3 {
+            let frame = try XCTUnwrap(list.layoutAttributesForItem(at: IndexPath(item: item, section: 0))?.frame)
+            list.contentOffset.y = frame.maxY - distance - list.adjustedContentInset.top
+            try await feed.waitForStableLayout()
+        }
+    }
+
+    /// The rows that lie wholly above the part of the list under the header
+    private func countRowsAboveHeader(in list: UICollectionView) -> Int {
+        let visibleTop = list.contentOffset.y + list.adjustedContentInset.top
+        return (0..<list.numberOfItems(inSection: 0)).filter { item in
+            (list.layoutAttributesForItem(at: IndexPath(item: item, section: 0))?.frame.maxY ?? .infinity) <= visibleTop
+        }.count
+    }
+
+    /// A chat keeps its spinner under its header while it loads older messages
+    func testChatShowsItsSpinnerWhileLoadingOlderMessages() throws {
         let chat = AgentTestChat(messages: [AgentMessage(role: .assistant, text: "An answer", isStreaming: false)])
         defer { chat.close() }
         chat.layout()
@@ -316,10 +445,6 @@ final class AgentNewsFeedParityTests: XCTestCase {
         chat.backend.isLoadingOlderMessages = true
         chat.controller.agentModelDidUpdateState()
         XCTAssertTrue(chatSpinner.isAnimating)
-        let feedFrame = feedSpinner.convert(feedSpinner.bounds, to: nil)
-        let chatFrame = chatSpinner.convert(chatSpinner.bounds, to: nil)
-        XCTAssertEqual(feedFrame.midX, chatFrame.midX, accuracy: 0.5)
-        XCTAssertEqual(feedFrame.minY - feed.controller.view.safeAreaInsets.top, chatFrame.minY - chat.controller.view.safeAreaInsets.top, accuracy: 0.5)
         chat.backend.isLoadingOlderMessages = false
         chat.controller.agentModelDidUpdateState()
         XCTAssertFalse(chatSpinner.isAnimating)
@@ -505,12 +630,14 @@ final class TestFeed {
         var firstPageError: Error?
         /// How long an older page takes to come
         var olderDelay: Duration?
+        /// How many times the feed asked for an older page
+        var olderRequestCount = 0
 
         init(page: ApiAgentV2NewsFeedPage) {
             self.page = page
         }
 
-        func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
+        func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
             guard cursor != nil else {
                 if let firstPageError {
                     self.firstPageError = nil
@@ -518,6 +645,7 @@ final class TestFeed {
                 }
                 return page
             }
+            olderRequestCount += 1
             if let olderDelay {
                 try await Task.sleep(for: olderDelay)
             }

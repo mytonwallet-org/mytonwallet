@@ -37,7 +37,7 @@ import type {
   ApiWalletWithVersionInfo,
 } from './misc';
 import type { ApiPerpsExecutePositionResult, ApiPerpsGetAssetsResult } from './perps';
-import type { ApiPerpsOperation } from './perpsTrading';
+import type { ApiPerpsAccountSnapshot, ApiPerpsOperation } from './perpsTrading';
 import type { ApiTonWallet } from './storage';
 import type { ApiCheckTransactionDraftResult } from './transfer';
 
@@ -535,6 +535,18 @@ export type ApiUpdateAccountDomainData = {
   nfts: Record<string, ApiNft>;
 };
 
+/** The active account's positions, published when anything but their read time changes. */
+export type ApiUpdatePerpsPositions = ApiPerpsAccountSnapshot & {
+  type: 'updatePerpsPositions';
+  accountId: string;
+};
+
+/** Reads of the active account's positions failed for a minute. The next successful read publishes them again. */
+export type ApiUpdatePerpsPositionsUnavailable = {
+  type: 'updatePerpsPositionsUnavailable';
+  accountId: string;
+};
+
 /** Cached `GET /perps/assets` catalogue. Readers use this until the next poll replaces it. */
 export type ApiUpdatePerpsAssets = {
   type: 'updatePerpsAssets';
@@ -588,6 +600,8 @@ export type ApiUpdate =
   | ApiUpdatePerpsExecuteComplete
   | ApiUpdatePerpsExecuteFailed
   | ApiUpdatePerpsAssets
+  | ApiUpdatePerpsPositions
+  | ApiUpdatePerpsPositionsUnavailable
   | ApiUpdateMigrateLegacyCoreApplication
   | ApiUpdateLegacyCoreMigrationReady
   | ApiUpdateNfts

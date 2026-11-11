@@ -5,6 +5,7 @@ import {
 import type {
   TextRevealController } from '../../../util/agent/TextRevealController';
 
+import { requestMeasure } from '../../../lib/fasterdom/fasterdom';
 import {
   buildRevealTarget,
   type TextRevealPhase,
@@ -228,9 +229,11 @@ export default function useStreamingText({
     });
   });
 
+  // The height is read at the start of the next update pass, before anything changes the DOM in it, so reading it
+  // does not make the browser lay the page out ahead of the frame
   const scheduleContentHeightUpdate = useThrottledCallback(() => {
     updateContentHeight();
-  }, [updateContentHeight], requestAnimationFrame);
+  }, [updateContentHeight], requestMeasure);
 
   useEffect(() => {
     const now = getNowInSeconds();

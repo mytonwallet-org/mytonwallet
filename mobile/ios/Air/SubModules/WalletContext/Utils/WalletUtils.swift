@@ -248,11 +248,7 @@ public func formatBigIntText(_ value: BigInt,
     )
 
     if let currency, currency.count > 0 {
-        if currency.count > 1 || forceCurrencyToRight || currency == "₽" {
-            result = "\(result) \(currency)"
-        } else {
-            result = "\(currency)\(result)"
-        }
+        result = formatCurrency(result, currency: currency, forceCurrencyToRight: forceCurrencyToRight)
     }
 
     if value < 0, negativeSign {
@@ -261,6 +257,38 @@ public func formatBigIntText(_ value: BigInt,
         result.insert(contentsOf: "+\(signSpace)", at: result.startIndex)
     }
     return result
+}
+
+public func formatCompactNumber(_ value: Double, currency: String? = nil) -> String {
+    let magnitude = abs(value)
+    let (scaled, suffix): (Double, String) = if magnitude >= 1_000_000_000_000 {
+        (value / 1_000_000_000_000, "T")
+    } else if magnitude >= 1_000_000_000 {
+        (value / 1_000_000_000, "B")
+    } else if magnitude >= 1_000_000 {
+        (value / 1_000_000, "M")
+    } else if magnitude >= 1_000 {
+        (value / 1_000, "K")
+    } else {
+        (value, "")
+    }
+
+    let number = scaled.formatted(
+        .number
+            .locale(.forNumberFormatters)
+            .precision(.fractionLength(0...2))
+    ) + suffix
+    guard let currency, !currency.isEmpty else {
+        return number
+    }
+    return formatCurrency(number, currency: currency)
+}
+
+private func formatCurrency(_ number: String, currency: String, forceCurrencyToRight: Bool = false) -> String {
+    if currency.count > 1 || forceCurrencyToRight || currency == "₽" {
+        return "\(number) \(currency)"
+    }
+    return "\(currency)\(number)"
 }
 
 private func applyZeroCountSubscript(to value: String, minZeroCount: Int?) -> String {

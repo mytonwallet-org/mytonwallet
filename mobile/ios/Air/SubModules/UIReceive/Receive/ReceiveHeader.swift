@@ -5,10 +5,35 @@ import WalletContext
 import WalletCore
 import Perception
 
+@Perceptible @MainActor
+final class ReceiveHeaderTransitionModel {
+    struct Selection {
+        let source: String
+        let destination: String
+        let fraction: CGFloat
+
+        func distance(to id: String) -> CGFloat? {
+            if source == destination { return id == source ? 0 : nil }
+            if id == source { return -fraction }
+            if id == destination { return 1 - fraction }
+            return nil
+        }
+    }
+
+    var selection: Selection?
+
+    func settle(on id: String) {
+        selection = .init(source: id, destination: id, fraction: 0)
+    }
+}
+
 struct ReceiveHeaderView: View {
+    @Environment(\.layoutDirection) private var layoutDirection
     
     var viewModel: SegmentedControlModel
     var accountContext: AccountContext
+    var transition: ReceiveHeaderTransitionModel? = nil
+    var availableHeight: CGFloat = headerHeight
         
     var body: some View {
         WithPerceptionTracking {
@@ -18,9 +43,9 @@ struct ReceiveHeaderView: View {
                     // Should be a "dark" color to prevent navigation controls "thin glass" (non-whitish) appearance loosing
                     Color.black.opacity(0.51)
                     
-                    ForEach(viewModel.items) { item in
+                    ForEach(visibleItems) { item in
                         WithPerceptionTracking {
-                            let distance = viewModel.distanceToItem(itemId: item.id)
+                            let distance = abs(distance(to: item.id))
                             receiveBackground(for: item.id)
                                 .opacity(1 - distance)
                         }
@@ -28,17 +53,36 @@ struct ReceiveHeaderView: View {
                 }
                 
                 ZStack {
+                    // Keep QR views alive so network selection does not render codes during the transition
                     ForEach(viewModel.items) { item in
                         WithPerceptionTracking {
                             if let chain = ApiChain(rawValue: item.id) {
-                                ReceiveHeaderItemView(viewModel: viewModel, chain: chain, address: accountContext.account.getAddress(chain: chain) ?? "")
+                                let isVisible = transition == nil || transition?.selection?.distance(to: item.id) != nil
+                                ReceiveHeaderItemView(
+                                    progress: (isVisible ? distance(to: item.id) : 1) * (layoutDirection == .rightToLeft ? -1 : 1),
+                                    chain: chain,
+                                    address: accountContext.account.getAddress(chain: chain) ?? ""
+                                )
+                                .opacity(isVisible ? 1 : 0)
+                                .allowsHitTesting(isVisible)
+                                .accessibilityHidden(!isVisible)
                             }
                         }
                     }
                 }
+                .scaleEffect(min(1, max(0, availableHeight - 96) / 220))
                 .padding(.top, 48)
             }
         }
+    }
+
+    private var visibleItems: [SegmentedControlItem] {
+        guard let transition else { return viewModel.items }
+        return viewModel.items.filter { transition.selection?.distance(to: $0.id) != nil }
+    }
+
+    private func distance(to id: String) -> CGFloat {
+        transition?.selection?.distance(to: id) ?? viewModel.directionalDistanceToItem(itemId: id)
     }
 
     @ViewBuilder
@@ -53,13 +97,12 @@ struct ReceiveHeaderView: View {
 
 private struct ReceiveHeaderItemView: View {
     
-    var viewModel: SegmentedControlModel
+    var progress: CGFloat
     var chain: ApiChain
     var address: String
 
     var body: some View {
         WithPerceptionTracking {
-            let progress = viewModel.directionalDistanceToItem(itemId: chain.rawValue)
             let progressAbs = 1 - abs(progress)
             
             ZStack {

@@ -7,6 +7,7 @@ import type {
 } from './protocol/types';
 import type {
   AgentV2HostContextSnapshot,
+  AgentV2NewsFeedRequest,
   AgentV2ProblemReport,
   AgentV2RunCommand,
   AgentV2RuntimeStatus,
@@ -220,12 +221,20 @@ export function listAgentV2Threads(params: AgentThreadListRequestV2 = {}) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().listThreads(params));
 }
 
-export function getAgentV2NewsFeed(params: { lang: string; cursor?: string }) {
+export function getAgentV2CachedThreads() {
+  return runtime && isActiveRuntime(runtime) ? runtime.getCachedThreads() : Promise.resolve(undefined);
+}
+
+export function getAgentV2CachedMessages(threadId: string) {
+  return runtime && isActiveRuntime(runtime) ? runtime.getCachedMessages(threadId) : Promise.resolve(undefined);
+}
+
+export function getAgentV2NewsFeed(params: AgentV2NewsFeedRequest) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().getNewsFeed(params));
 }
 
 /**
- * News threads include a server-created post. Opening them does not require starting a run.
+ * News and digest threads include a server-created post. Opening them does not require starting a run.
  */
 export function createAgentV2Thread(params: Omit<AgentThreadCreateRequestV2, 'protocolVersion'> = {}) {
   return runSafeAgentV2Operation(() => getAgentV2Runtime().createThread(params));
@@ -253,6 +262,11 @@ export function retryAgentV2Run(clientRunId: string) {
 
 export function cancelAgentV2Run(runId: string) {
   return getAgentV2Runtime().cancelRun(runId);
+}
+
+/** Stops every answer of the thread at once; the runtime cancels them on the server by itself */
+export function stopAgentV2Run(threadId: string) {
+  return getAgentV2Runtime().stopRun(threadId);
 }
 
 export function clearAgentV2Thread(threadId: string, expectedRevision: number) {

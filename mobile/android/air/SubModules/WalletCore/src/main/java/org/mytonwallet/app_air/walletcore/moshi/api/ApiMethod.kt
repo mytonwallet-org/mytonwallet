@@ -23,6 +23,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
+import org.mytonwallet.app_air.walletcore.moshi.ApiPriceHistory
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
@@ -38,6 +39,16 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsActivityHistory
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsBalanceWithdrawal
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsDraftRequest
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsFill
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsFundingRequirements
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsLeverageEstimate
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsMarketSnapshot
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsOperation
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsQuote
+import org.mytonwallet.app_air.walletcore.moshi.MApiPerpsSnapshot
 import org.mytonwallet.app_air.walletcore.moshi.MApiReconcileActivityUpdateResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
@@ -70,6 +81,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerFeedbackResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
@@ -83,7 +95,9 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
@@ -105,10 +119,10 @@ sealed class ApiMethod<T> {
 
     /* Other */
     object Other {
-        class CaptureInstallAttribution(snapshot: JSONObject) : ApiMethod<Any>() {
-            override val name = "captureInstallAttribution"
-            override val type: Type = Any::class.java
-            override val arguments = ArgumentsBuilder().jsonObject(snapshot).build()
+        class GetLogs : ApiMethod<JSONArray?>() {
+            override val name = "getLogs"
+            override val type: Type = JSONArray::class.java
+            override val arguments = ArgumentsBuilder().build()
         }
 
         class SetIsAppFocused(isFocused: Boolean) : ApiMethod<Array<String>>() {
@@ -427,12 +441,9 @@ sealed class ApiMethod<T> {
         }
 
         class FetchPriceHistory(token: MToken, period: MHistoryTimePeriod, baseCurrency: String) :
-            ApiMethod<List<List<Double>>>() {
+            ApiMethod<ApiPriceHistory>() {
             override val name: String = "fetchPriceHistory"
-            override val type: Type = Types.newParameterizedType(
-                List::class.java,
-                Types.newParameterizedType(List::class.java, Double::class.javaObjectType)
-            )
+            override val type: Type = ApiPriceHistory::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(token.slug)
                 .string(period.value)
@@ -1106,7 +1117,7 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class CheckDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String) :
+        class CheckDnsChangeWalletDraft(accountId: String, nft: ApiNft, address: String?) :
             ApiMethod<CheckDnsChangeWalletDraft.Result>() {
 
             @JsonClass(generateAdapter = true)
@@ -1125,7 +1136,7 @@ sealed class ApiMethod<T> {
             accountId: String,
             enclaveToken: String,
             nft: ApiNft,
-            address: String,
+            address: String?,
             realFee: BigInteger
         ) : ApiMethod<ApiSubmitTransferResult>() {
 
@@ -1227,6 +1238,176 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
                 .jsObject(collection, Collection::class.java)
+                .build()
+        }
+    }
+
+    /* Perps */
+    object Perps {
+        class GetSnapshot(accountId: String, langCode: String?) : ApiMethod<MApiPerpsSnapshot>() {
+            override val name: String = "perpsGetSnapshot"
+            override val type: Type = MApiPerpsSnapshot::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(langCode)
+                .build()
+        }
+
+        class GetMarketSnapshot(langCode: String?) : ApiMethod<MApiPerpsMarketSnapshot>() {
+            override val name: String = "perpsGetMarketSnapshot"
+            override val type: Type = MApiPerpsMarketSnapshot::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(langCode)
+                .build()
+        }
+
+        /** USD close prices as `[timestampSeconds, price]`, oldest first. */
+        class GetCandles(assetId: String, period: String) : ApiMethod<List<List<Double>>>() {
+            override val name: String = "perpsGetCandles"
+            override val type: Type = Types.newParameterizedType(
+                List::class.java,
+                Types.newParameterizedType(List::class.java, Double::class.javaObjectType)
+            )
+            override val arguments: String = ArgumentsBuilder()
+                .string(assetId)
+                .string(period)
+                .build()
+        }
+
+        /** A page of activity, newest first; without a cursor, the latest one. */
+        class GetActivityHistory(accountId: String, cursor: String? = null) :
+            ApiMethod<MApiPerpsActivityHistory>() {
+            override val name: String = "perpsGetActivityHistory"
+            override val type: Type = MApiPerpsActivityHistory::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .apply { cursor?.let { jsonObject(JSONObject().put("cursor", it)) } }
+                .build()
+        }
+
+        class GetLeverageEstimate(accountId: String, draft: MApiPerpsDraftRequest) :
+            ApiMethod<MApiPerpsLeverageEstimate>() {
+            override val name: String = "perpsGetLeverageEstimate"
+            override val type: Type = MApiPerpsLeverageEstimate::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(draft, MApiPerpsDraftRequest::class.java)
+                .build()
+        }
+
+        /** What an order needs on Arbitrum, without quoting it. */
+        class GetFundingRequirements(accountId: String, draft: MApiPerpsDraftRequest) :
+            ApiMethod<MApiPerpsFundingRequirements>() {
+            override val name: String = "perpsGetFundingRequirements"
+            override val type: Type = MApiPerpsFundingRequirements::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(draft, MApiPerpsDraftRequest::class.java)
+                .build()
+        }
+
+        class PrepareOrder(accountId: String, draft: MApiPerpsDraftRequest) :
+            ApiMethod<MApiPerpsQuote>() {
+            override val name: String = "perpsPrepareOrder"
+            override val type: Type = MApiPerpsQuote::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(draft, MApiPerpsDraftRequest::class.java)
+                .build()
+        }
+
+        class PreviewOrder(accountId: String, draft: MApiPerpsDraftRequest) :
+            ApiMethod<MApiPerpsQuote>() {
+            override val name: String = "perpsPreviewOrder"
+            override val type: Type = MApiPerpsQuote::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(draft, MApiPerpsDraftRequest::class.java)
+                .build()
+        }
+
+        /** Resolves when the order has settled; call once per operation ID. */
+        class ExecuteReviewedOrder(
+            accountId: String,
+            enclaveToken: String,
+            quoteId: String,
+            operationId: String
+        ) : ApiMethod<MApiPerpsOperation>() {
+            override val name: String = "perpsExecuteReviewedOrder"
+            override val type: Type = MApiPerpsOperation::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .string(quoteId)
+                .string(operationId)
+                .build()
+        }
+
+        /** Unlocks new orders after an unknown result; the original order may still complete. */
+        class AcknowledgeOperation(accountId: String, operation: MApiPerpsOperation) :
+            ApiMethod<MApiPerpsOperation>() {
+            override val name: String = "perpsAcknowledgeOperation"
+            override val type: Type = MApiPerpsOperation::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(operation, MApiPerpsOperation::class.java)
+                .build()
+        }
+
+        /** Reviews the USDC a partial operation can still withdraw; returns the amount. */
+        class PrepareWithdrawal(accountId: String, operationId: String) : ApiMethod<String>() {
+            override val name: String = "perpsPrepareWithdrawal"
+            override val type: Type = String::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(operationId)
+                .build()
+        }
+
+        class PrepareBalanceWithdrawal(accountId: String) :
+            ApiMethod<MApiPerpsBalanceWithdrawal>() {
+            override val name: String = "perpsPrepareBalanceWithdrawal"
+            override val type: Type = MApiPerpsBalanceWithdrawal::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .build()
+        }
+
+        class ExecuteBalanceWithdrawal(
+            accountId: String,
+            enclaveToken: String,
+            quoteId: String,
+            operationId: String
+        ) : ApiMethod<MApiPerpsOperation>() {
+            override val name: String = "perpsExecuteBalanceWithdrawal"
+            override val type: Type = MApiPerpsOperation::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .string(quoteId)
+                .string(operationId)
+                .build()
+        }
+
+        class RetryWithdrawal(accountId: String, enclaveToken: String, operationId: String) :
+            ApiMethod<MApiPerpsOperation>() {
+            override val name: String = "perpsRetryWithdrawal"
+            override val type: Type = MApiPerpsOperation::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .string(operationId)
+                .build()
+        }
+
+        /** Read-only: restores a saved operation and its account lock after a restart. */
+        class ReconcileOperation(accountId: String, operation: MApiPerpsOperation) :
+            ApiMethod<MApiPerpsOperation>() {
+            override val name: String = "perpsReconcileOperation"
+            override val type: Type = MApiPerpsOperation::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(operation, MApiPerpsOperation::class.java)
                 .build()
         }
     }
@@ -1389,6 +1570,26 @@ sealed class ApiMethod<T> {
             override val arguments: String = ArgumentsBuilder()
                 .jsObject(props, Props::class.java)
                 .build()
+        }
+
+        class SetNewsNotifications private constructor(props: Props, builder: ArgumentsBuilder) :
+            ApiMethod<JSONObject>() {
+            constructor(props: Props) : this(props, ArgumentsBuilder())
+            internal constructor(props: Props, moshi: Moshi) : this(props, ArgumentsBuilder(moshi))
+
+            @JsonClass(generateAdapter = true)
+            data class Props(
+                val mode: String,
+                val userToken: String,
+                val langCode: String,
+                val digestHour: Int,
+                val timeZone: String,
+                val platform: String = "android"
+            )
+
+            override val name = "setNewsNotifications"
+            override val type: Type = JSONObject::class.java
+            override val arguments = builder.jsObject(props, Props::class.java).build()
         }
 
         class UnsubscribeNotifications(props: Props) : ApiMethod<Any>() {
@@ -1569,44 +1770,61 @@ sealed class ApiMethod<T> {
             }
         }
 
+        /** The SDK's cached first page of the thread list, `null` when none is cached */
+        class GetCachedThreads : ApiMethod<List<AgentV2ThreadListItem>?>() {
+            override val name = "getAgentV2CachedThreads"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, AgentV2ThreadListItem::class.java)
+            override val arguments = ArgumentsBuilder().build()
+        }
+
         class GetNewsFeed private constructor(
-            lang: String,
-            cursor: String?,
+            request: AgentV2NewsFeedRequest,
             argumentsBuilder: ArgumentsBuilder
         ) : ApiMethod<AgentV2MutationResult<AgentV2NewsFeedPage>>() {
-            constructor(lang: String, cursor: String? = null) :
-                this(lang, cursor, ArgumentsBuilder())
+            constructor(
+                lang: String,
+                cursor: String? = null,
+                digestHour: Int? = null,
+                timeZone: String? = null
+            ) : this(AgentV2NewsFeedRequest(lang, cursor, digestHour, timeZone), ArgumentsBuilder())
 
-            internal constructor(lang: String, cursor: String?, moshi: Moshi) :
-                this(lang, cursor, ArgumentsBuilder(moshi))
+            internal constructor(request: AgentV2NewsFeedRequest, moshi: Moshi) :
+                this(request, ArgumentsBuilder(moshi))
 
             override val name = "getAgentV2NewsFeed"
             override val type: Type = mutationType(AgentV2NewsFeedPage::class.java)
             override val arguments by lazy {
-                argumentsBuilder
-                    .jsObject(
-                        AgentV2NewsFeedRequest(lang, cursor),
-                        AgentV2NewsFeedRequest::class.java
-                    )
-                    .build()
+                argumentsBuilder.jsObject(request, AgentV2NewsFeedRequest::class.java).build()
             }
         }
 
         class CreateThread private constructor(
             news: AgentV2ThreadNewsRequest?,
+            digest: AgentV2ThreadDigestRequest?,
             argumentsBuilder: ArgumentsBuilder
         ) : ApiMethod<AgentV2MutationResult<AgentV2ThreadCreateResponse>>() {
-            constructor(news: AgentV2ThreadNewsRequest? = null) : this(news, ArgumentsBuilder())
+            constructor(
+                news: AgentV2ThreadNewsRequest? = null,
+                digest: AgentV2ThreadDigestRequest? = null
+            ) : this(news, digest, ArgumentsBuilder())
 
-            internal constructor(news: AgentV2ThreadNewsRequest?, moshi: Moshi) :
-                this(news, ArgumentsBuilder(moshi))
+            internal constructor(
+                news: AgentV2ThreadNewsRequest?,
+                digest: AgentV2ThreadDigestRequest?,
+                moshi: Moshi
+            ) : this(news, digest, ArgumentsBuilder(moshi))
+
+            init {
+                require(news == null || digest == null)
+            }
 
             override val name = "createAgentV2Thread"
             override val type: Type = mutationType(AgentV2ThreadCreateResponse::class.java)
             override val arguments by lazy {
-                if (news != null) {
+                if (news != null || digest != null) {
                     argumentsBuilder.jsObject(
-                        AgentV2ThreadCreateRequest(news),
+                        AgentV2ThreadCreateRequest(news, digest),
                         AgentV2ThreadCreateRequest::class.java
                     )
                 }
@@ -1671,6 +1889,21 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
+        /** The SDK's cached latest messages of the thread, `null` when none are cached */
+        class GetCachedMessages private constructor(
+            threadId: String,
+            argumentsBuilder: ArgumentsBuilder
+        ) : ApiMethod<AgentV2CachedMessages?>() {
+            constructor(threadId: String) : this(threadId, ArgumentsBuilder())
+
+            internal constructor(threadId: String, moshi: Moshi) :
+                this(threadId, ArgumentsBuilder(moshi))
+
+            override val name = "getAgentV2CachedMessages"
+            override val type: Type = AgentV2CachedMessages::class.java
+            override val arguments by lazy { argumentsBuilder.string(threadId).build() }
+        }
+
         class StartRun(
             threadId: String?,
             revision: Int,
@@ -1678,7 +1911,8 @@ sealed class ApiMethod<T> {
             entryPoint: AgentV2EntryPoint? = null,
             followupOf: AgentV2FollowUpReference? = null,
             targetUserMessageId: String? = null,
-            targetAssistantMessageId: String? = null
+            targetAssistantMessageId: String? = null,
+            clientRunId: String? = null
         ) : ApiMethod<AgentV2RunResult>() {
             init {
                 require(entryPoint == null || followupOf == null) {
@@ -1702,6 +1936,7 @@ sealed class ApiMethod<T> {
                     JSONObject()
                         .put("threadId", threadId)
                         .put("expectedThreadRevision", revision)
+                        .apply { clientRunId?.let { put("clientRunId", it) } }
                         .put(
                             "input",
                             JSONObject()
@@ -1748,6 +1983,13 @@ sealed class ApiMethod<T> {
             override val name = "cancelAgentV2Run"
             override val type: Type = AgentV2ThreadResponse::class.java
             override val arguments = ArgumentsBuilder().string(runId).build()
+        }
+
+        /** Stops every run of the thread the SDK holds; resolves even when nothing runs or the network fails */
+        class StopRun(threadId: String) : ApiMethod<Unit>() {
+            override val name = "stopAgentV2Run"
+            override val type: Type = Unit::class.java
+            override val arguments = ArgumentsBuilder().string(threadId).build()
         }
 
         class ClearThread(threadId: String, expectedRevision: Int) :

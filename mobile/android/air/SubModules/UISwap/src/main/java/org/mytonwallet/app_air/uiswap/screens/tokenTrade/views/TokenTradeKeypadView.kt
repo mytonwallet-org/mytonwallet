@@ -184,12 +184,16 @@ class TokenTradeKeypadView(
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     setPressedAppearance(false)
                     removeCallbacks(repeatRunnable)
-                    if (event.actionMasked == MotionEvent.ACTION_CANCEL || !isPressed) {
-                        isClickHandled = false
-                    }
                 }
             }
-            return super.onTouchEvent(event)
+            val isHandled = super.onTouchEvent(event)
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                // Queued after the click this release may post, so that click stays consumed
+                post { isClickHandled = false }
+            }
+            return isHandled
         }
 
         override fun performClick(): Boolean {

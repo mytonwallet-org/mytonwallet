@@ -8,6 +8,14 @@ public struct ContextMenuConfiguration {
     public var preservesSourceAppearance: Bool
     public var backdropBlurPolicy: ContextMenuBackdropBlurPolicy
     public var popoverVerticalAlignment: ContextMenuPopoverVerticalAlignment
+    /// Overrides the menu's appearance while preserving the source view's appearance.
+    public var userInterfaceStyle: UIUserInterfaceStyle?
+    /// Uses the visible source width for controls whose intrinsic content extends beyond their viewport.
+    public var popoverUsesSourceViewBounds: Bool
+    /// Disables native interactive popover dismissal; outside taps, row actions, and accessibility escape still dismiss.
+    public var popoverDisablesInteractiveDismissal: Bool
+    /// Adds adaptive system material behind content presented over visually busy surfaces.
+    public var popoverBackgroundMaterial: UIBlurEffect.Style?
     public var style: ContextMenuStyle
     /// A view over the source's top edge, which only the overlay presentation shows. With one, the panel attaches
     /// clear of the source and the accessory, so `style.verticalPlacementBehavior` does not apply.
@@ -25,6 +33,10 @@ public struct ContextMenuConfiguration {
         preservesSourceAppearance: Bool = false,
         backdropBlurPolicy: ContextMenuBackdropBlurPolicy = .enabled,
         popoverVerticalAlignment: ContextMenuPopoverVerticalAlignment = .automatic,
+        userInterfaceStyle: UIUserInterfaceStyle? = nil,
+        popoverUsesSourceViewBounds: Bool = false,
+        popoverDisablesInteractiveDismissal: Bool = false,
+        popoverBackgroundMaterial: UIBlurEffect.Style? = nil,
         style: ContextMenuStyle = .default,
         accessory: ContextMenuAccessory? = nil,
         sourceRelocation: ContextMenuSourceRelocation? = nil,
@@ -36,6 +48,10 @@ public struct ContextMenuConfiguration {
         self.preservesSourceAppearance = preservesSourceAppearance
         self.backdropBlurPolicy = backdropBlurPolicy
         self.popoverVerticalAlignment = popoverVerticalAlignment
+        self.userInterfaceStyle = userInterfaceStyle
+        self.popoverUsesSourceViewBounds = popoverUsesSourceViewBounds
+        self.popoverDisablesInteractiveDismissal = popoverDisablesInteractiveDismissal
+        self.popoverBackgroundMaterial = popoverBackgroundMaterial
         self.style = style
         self.accessory = accessory
         self.sourceRelocation = sourceRelocation
@@ -63,15 +79,21 @@ public struct ContextMenuPage {
     public var id: String
     public var items: [ContextMenuItem]
     public var layout: ContextMenuPageLayout
+    /// Holding an action row still lifts it, and dragging it reorders the page's actions.
+    /// Called with the row's old and new index on each step, while the finger is still down.
+    /// Only list pages made entirely of actions support it
+    public var onReorder: ((_ sourceIndex: Int, _ destinationIndex: Int) -> Void)?
 
     public init(
         id: String = UUID().uuidString,
         items: [ContextMenuItem],
-        layout: ContextMenuPageLayout = .list
+        layout: ContextMenuPageLayout = .list,
+        onReorder: ((_ sourceIndex: Int, _ destinationIndex: Int) -> Void)? = nil
     ) {
         self.id = id
         self.items = items
         self.layout = layout
+        self.onReorder = onReorder
     }
 
     @MainActor
@@ -136,7 +158,10 @@ public struct ContextMenuAction {
     public var role: ContextMenuRole
     public var isEnabled: Bool
     public var dismissesMenu: Bool
+    public var accessibilityIdentifier: String?
     public var handler: (() -> Void)?
+    /// Replaces the icon image, which still sizes and places it
+    public var animatedIcon: ContextMenuAnimatedIconProvider?
 
     public init(
         id: String = UUID().uuidString,
@@ -147,7 +172,10 @@ public struct ContextMenuAction {
         role: ContextMenuRole = .normal,
         isEnabled: Bool = true,
         dismissesMenu: Bool = true,
-        handler: (() -> Void)? = nil
+        accessibilityIdentifier: String? = nil,
+        handler: (() -> Void)? = nil,
+        // Follows `handler`, so that a trailing closure binds to `handler`
+        animatedIcon: ContextMenuAnimatedIconProvider? = nil
     ) {
         self.id = id
         self.title = title
@@ -157,7 +185,9 @@ public struct ContextMenuAction {
         self.role = role
         self.isEnabled = isEnabled
         self.dismissesMenu = dismissesMenu
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.handler = handler
+        self.animatedIcon = animatedIcon
     }
 }
 
@@ -301,6 +331,7 @@ public struct ContextMenuStyle: Sendable {
     public var highlightHorizontalInset: CGFloat
     public var rowSideInset: CGFloat
     public var rowVerticalInset: CGFloat
+    public var subtitleNumberOfLines: Int
     public var iconSideInset: CGFloat
     public var standardIconWidth: CGFloat
     public var iconSpacing: CGFloat
@@ -323,6 +354,7 @@ public struct ContextMenuStyle: Sendable {
         highlightHorizontalInset: CGFloat = 10.0,
         rowSideInset: CGFloat = 18.0,
         rowVerticalInset: CGFloat = 11.0,
+        subtitleNumberOfLines: Int = 1,
         iconSideInset: CGFloat = 20.0,
         standardIconWidth: CGFloat = 32.0,
         iconSpacing: CGFloat = 8.0,
@@ -344,6 +376,7 @@ public struct ContextMenuStyle: Sendable {
         self.highlightHorizontalInset = highlightHorizontalInset
         self.rowSideInset = rowSideInset
         self.rowVerticalInset = rowVerticalInset
+        self.subtitleNumberOfLines = subtitleNumberOfLines
         self.iconSideInset = iconSideInset
         self.standardIconWidth = standardIconWidth
         self.iconSpacing = iconSpacing

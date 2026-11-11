@@ -93,14 +93,14 @@ struct Transform {
 
         case "skewX":
             self.affineTransform = CGAffineTransform(
-                a: 1.0, b: tan(coordinates[0]),
-                c: 0.0, d: 1.0,
+                a: 1.0, b: 0.0,
+                c: tan(coordinates[0].toRadians), d: 1.0,
                 tx: 0.0, ty: 0.0
             )
         case "skewY":
             self.affineTransform = CGAffineTransform(
-                a: 1.0, b: 0.0,
-                c: tan(coordinates[0]), d: 1.0,
+                a: 1.0, b: tan(coordinates[0].toRadians),
+                c: 0.0, d: 1.0,
                 tx: 0.0, ty: 0.0
             )
 
@@ -119,7 +119,7 @@ struct Transform {
 
 
 private struct TransformableConstants {
-    static let attributesRegex = "(\\w+)\\(((\\-?\\d+\\.?\\d*e?\\-?\\d*\\s*,?\\s*)+)\\)"
+    static let attributesRegex = "(\\w+)\\s*\\(([^)]*)\\)"
 }
 
 /**

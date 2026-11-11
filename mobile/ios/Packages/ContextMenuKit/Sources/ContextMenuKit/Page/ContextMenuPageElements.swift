@@ -29,6 +29,8 @@ struct ContextMenuRowPresentation {
     let role: ContextMenuRole
     let isEnabled: Bool
     let accessory: Accessory
+    var accessibilityIdentifier: String? = nil
+    var animatedIcon: ContextMenuAnimatedIconProvider? = nil
 }
 
 final class ContextMenuScrollView: UIScrollView {
@@ -112,6 +114,7 @@ final class ContextMenuPageRowElement {
     private let applyLayoutImpl: (CGSize) -> Void
     private let updateColorsImpl: () -> Void
     private let setDirectInteractionEnabledImpl: (Bool) -> Void
+    private let onHighlight: (() -> Void)?
 
     init(
         view: UIView,
@@ -123,7 +126,8 @@ final class ContextMenuPageRowElement {
         measuredSize: @escaping (CGFloat) -> CGSize,
         applyLayout: @escaping (CGSize) -> Void,
         updateColors: @escaping () -> Void,
-        setDirectInteractionEnabled: @escaping (Bool) -> Void
+        setDirectInteractionEnabled: @escaping (Bool) -> Void,
+        onHighlight: (() -> Void)? = nil
     ) {
         self.view = view
         self.controlView = controlView
@@ -135,6 +139,7 @@ final class ContextMenuPageRowElement {
         self.applyLayoutImpl = applyLayout
         self.updateColorsImpl = updateColors
         self.setDirectInteractionEnabledImpl = setDirectInteractionEnabled
+        self.onHighlight = onHighlight
     }
 
     func measuredSize(maxWidth: CGFloat) -> CGSize {
@@ -151,6 +156,10 @@ final class ContextMenuPageRowElement {
 
     func setDirectInteractionEnabled(_ isEnabled: Bool) {
         self.setDirectInteractionEnabledImpl(isEnabled)
+    }
+
+    func notifyHighlighted() {
+        self.onHighlight?()
     }
 }
 
@@ -205,6 +214,7 @@ final class ContextMenuRowView: UIControl {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let iconView = UIImageView()
+    private let animatedIconView: (any ContextMenuAnimatedIconView)?
     private let badgeView = UIImageView()
     private let accessoryView = UIImageView()
 
@@ -216,6 +226,7 @@ final class ContextMenuRowView: UIControl {
         self.presentation = presentation
         self.style = style
         self.sourceUserInterfaceLayoutDirection = sourceUserInterfaceLayoutDirection
+        self.animatedIconView = presentation.icon?.resolvedImage == nil ? nil : presentation.animatedIcon?()
 
         super.init(frame: .zero)
 
@@ -228,8 +239,8 @@ final class ContextMenuRowView: UIControl {
 
         self.subtitleLabel.font = ContextMenuVisuals.subtitleFont()
         self.subtitleLabel.textAlignment = .natural
-        self.subtitleLabel.numberOfLines = 1
-        self.subtitleLabel.lineBreakMode = .byTruncatingTail
+        self.subtitleLabel.numberOfLines = style.subtitleNumberOfLines
+        self.subtitleLabel.lineBreakMode = style.subtitleNumberOfLines == 1 ? .byTruncatingTail : .byWordWrapping
 
         self.iconView.contentMode = .scaleAspectFit
         self.iconView.image = presentation.icon?.resolvedImage
@@ -244,13 +255,17 @@ final class ContextMenuRowView: UIControl {
         self.addSubview(self.titleLabel)
         self.addSubview(self.subtitleLabel)
         self.addSubview(self.iconView)
+        if let animatedIconView = self.animatedIconView {
+            animatedIconView.isUserInteractionEnabled = false
+            self.addSubview(animatedIconView)
+        }
         self.addSubview(self.badgeView)
         self.addSubview(self.accessoryView)
 
         self.titleLabel.text = presentation.title
         self.subtitleLabel.text = presentation.subtitle
         self.subtitleLabel.isHidden = presentation.subtitle == nil
-        self.iconView.isHidden = presentation.icon?.resolvedImage == nil
+        self.iconView.isHidden = presentation.icon?.resolvedImage == nil || self.animatedIconView != nil
         self.badgeView.isHidden = presentation.badgeText == nil
         self.accessoryView.isHidden = presentation.accessory == .none
 
@@ -259,6 +274,7 @@ final class ContextMenuRowView: UIControl {
         self.updateBadge()
         self.accessibilityTraits = .button
         self.accessibilityLabel = [presentation.title, presentation.subtitle].compactMap { $0 }.joined(separator: ", ")
+        self.accessibilityIdentifier = presentation.accessibilityIdentifier
     }
 
     required init?(coder: NSCoder) {
@@ -280,6 +296,7 @@ final class ContextMenuRowView: UIControl {
             self.titleLabel.alpha = alpha
             self.subtitleLabel.alpha = alpha
             self.iconView.alpha = alpha
+            self.animatedIconView?.alpha = alpha
             self.badgeView.alpha = alpha
             self.accessoryView.alpha = alpha
         }
@@ -323,6 +340,7 @@ final class ContextMenuRowView: UIControl {
         } else {
             self.iconView.frame = .zero
         }
+        self.animatedIconView?.frame = self.iconView.frame
 
         let accessorySize = CGSize(width: 13.0, height: 13.0)
         let textFrame: CGRect
@@ -412,7 +430,12 @@ final class ContextMenuRowView: UIControl {
         self.titleLabel.textColor = primaryColor
         self.subtitleLabel.textColor = ContextMenuVisuals.secondaryTextColor(for: self.traitCollection)
         self.iconView.tintColor = primaryColor
+        self.animatedIconView?.tintColor = primaryColor
         self.accessoryView.tintColor = ContextMenuVisuals.secondaryTextColor(for: self.traitCollection)
+    }
+
+    func playIconAnimation() {
+        self.animatedIconView?.playHighlightAnimation()
     }
 
     func updateBadge() {

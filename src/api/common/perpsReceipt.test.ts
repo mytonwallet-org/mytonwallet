@@ -5,15 +5,16 @@ import { getPerpsReceiptDetails } from './perpsReceipt';
 const quote = {
   accountId: 'a', assetId: 'hyperliquid:hl:BTC', kind: 'increase', side: 'long', leverage: 2,
   collateral: '30', previousCollateral: '19.886434', size: '0.00075', previousSize: '0.0005',
-  markPrice: '80124', paymentAmount: '10.313566', bridgeFee: '0.2', previousFunding: '0.000748',
+  markPrice: '80124', paymentAmount: '10.313566', bridgeFee: '0.2', previousFunding: '-0.000748',
 } as ApiPerpsQuote;
 
 const receipt = {
   quote,
   operation: { accountId: 'a', assetId: quote.assetId, kind: 'increase',
     state: 'completed', orderId: 123, depositTxHash: '0xdeposit' },
-  fill: { oid: 123, coin: 'BTC', fee: '0.026293', builderFee: '0.017636', feeToken: 'USDC', positionSize: '0.00075' },
-  position: { id: `a/${quote.assetId}`, side: 'long', size: '0.00075', collateral: '29.883141', funding: '0.000748' },
+  fill: { oid: 123, coin: 'BTC', fee: '0.026293', feeToken: 'USDC', positionSize: '0.00075',
+    receiptFees: { trading: '0.026293', service: '0.017636', exchange: '0.008657', total: '0.026293' } },
+  position: { id: `a/${quote.assetId}`, side: 'long', size: '0.00075', collateral: '29.883141', funding: '-0.000748' },
 } as Parameters<typeof getPerpsReceiptDetails>[0];
 
 test('settled receipt includes bridge fees once and reconciles the live rounding remainder', () => {
@@ -42,7 +43,7 @@ test.each([
 
 test('funding paid during settlement does not inflate the unallocated remainder', () => {
   expect(getPerpsReceiptDetails({ ...receipt,
-    position: { ...receipt.position!, collateral: '29.882141', funding: '0.001748' } })
+    position: { ...receipt.position!, collateral: '29.882141', funding: '-0.001748' } })
     .remainingCollateral).toBe('0.090566');
 });
 
@@ -62,6 +63,21 @@ test('a completed reduction reports net received USDC and never double-subtracts
   expect(getPerpsReceiptDetails({ ...reduced, fill: undefined }).receiveAmount).toBe('4.8');
   expect(getPerpsReceiptDetails({ ...reduced, operation: { ...reduced.operation, state: 'partial' } })
     .receiveAmount).toBeUndefined();
+});
+
+test('a rejected withdrawal reports nothing received, and a retry that succeeds does', () => {
+  const rejected = { ...receipt, quote: { ...quote, kind: 'close' as const },
+    operation: { ...receipt.operation, kind: 'close' as const, withdrawalAmount: '10.747442',
+      error: 'PerpsWithdrawalRejected: [HL_EXCHANGE_ERROR] Insufficient USDC or HYPE balance for gas.' } };
+  expect(getPerpsReceiptDetails(rejected).receiveAmount).toBeUndefined();
+  expect(getPerpsReceiptDetails({ ...rejected, fill: undefined }).receiveAmount).toBeUndefined();
+  expect(getPerpsReceiptDetails({ ...rejected, fill: undefined }).fees).toBeUndefined();
+  // A fill that reports its own bridge fee must not bring the rejected amount back.
+  expect(getPerpsReceiptDetails({ ...rejected, fill: { ...rejected.fill!, bridgeFee: '0.2' } }).receiveAmount)
+    .toBeUndefined();
+
+  const retried = { ...rejected, operation: { ...rejected.operation, error: undefined } };
+  expect(getPerpsReceiptDetails({ ...retried, fill: undefined }).receiveAmount).toBe('10.547442');
 });
 
 test('grouped activities use the execution result size for receipt reconciliation', () => {
@@ -108,4 +124,17 @@ test('funded leverage changes include the actual bridge fee and do not invent a 
     operation: { ...leverage.operation, depositTxHash: undefined } }).fees).toBeUndefined();
   expect(getPerpsReceiptDetails({ ...leverage,
     quote: { ...leverage.quote, paymentAmount: '0' } }).fees?.total).toBe('0');
+});
+
+test('balance-funded receipts report no bridge fee and no unallocated deposit', () => {
+  const balanceQuote = { ...quote, funding: 'balance' as const, paymentAmount: '10.113566', bridgeFee: '0' };
+  const increase = { ...receipt, quote: balanceQuote, operation: { ...receipt.operation, depositTxHash: undefined } };
+  expect(getPerpsReceiptDetails(increase)).toEqual({
+    fees: { exchange: '0.008657', service: '0.017636', trading: '0.026293', bridge: undefined, total: '0.026293' },
+  });
+  const leverage = { ...increase, quote: { ...balanceQuote, kind: 'leverage' as const },
+    operation: { ...increase.operation, kind: 'leverage' as const }, fill: undefined };
+  expect(getPerpsReceiptDetails(leverage).fees).toEqual({
+    exchange: '0', service: '0', trading: '0', bridge: '0', total: '0',
+  });
 });

@@ -26,7 +26,86 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe('agentThreadReadState', () => {
+  it('tracks operator replies by their timestamp and persists seeing them in the open chat', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-03T10:00:00.000Z'));
+    const readState = loadReadState();
+    const thread = {
+      ...buildThread('support', 2),
+      support: { state: 'operator' as const, lastOperatorMessageAt: '2026-11-03T09:59:00.000Z' },
+    };
+    readState.observeAgentThreadCounts([thread], NO_ANSWERS);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(true);
+    expect(readState.getAgentThreadUnreadStart(thread)).toBe('latestAnswer');
+    expect(readState.getAgentThreadUnreadStart({ ...thread, messageCount: 1 })).toBe('latestAnswer');
+    expect(readState.getAgentThreadUnreadStart({ ...thread, id: 'unknown-support' })).toBe('latestAnswer');
+
+    readState.markAgentThreadShown(thread.id);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(false);
+    readState.markAgentThreadSupportSeen(thread.id, thread.support.lastOperatorMessageAt);
+    jest.advanceTimersByTime(1000);
+    thread.support.lastOperatorMessageAt = new Date().toISOString();
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(false);
+    readState.markAgentThreadHidden(thread.id);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(true);
+    readState.markAgentThreadShown(thread.id);
+    readState.markAgentThreadSupportSeen(thread.id, thread.support.lastOperatorMessageAt);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(false);
+    readState.markAgentThreadHidden(thread.id);
+    expect(loadReadState().getIsAgentThreadUnread(thread)).toBe(false);
+
+    jest.advanceTimersByTime(1000);
+    thread.support.lastOperatorMessageAt = new Date().toISOString();
+    expect(loadReadState().getIsAgentThreadUnread(thread)).toBe(true);
+  });
+
+  it('keeps replies that did not load unread when the chat closes, including with the client clock ahead', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-03T10:00:00.000Z'));
+    const readState = loadReadState();
+    const thread = {
+      ...buildThread('support', 2),
+      support: { state: 'operator' as const, lastOperatorMessageAt: '2026-11-03T09:59:00.000Z' },
+    };
+    readState.markAgentThreadShown(thread.id);
+    readState.markAgentThreadSupportSeen(thread.id, thread.support.lastOperatorMessageAt);
+
+    thread.support.lastOperatorMessageAt = '2026-11-03T10:00:05.000Z';
+    jest.advanceTimersByTime(10_000);
+    readState.markAgentThreadHidden(thread.id);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(true);
+    expect(loadReadState().getIsAgentThreadUnread(thread)).toBe(true);
+    thread.support.lastOperatorMessageAt = '2026-11-03T09:59:30.000Z';
+    expect(loadReadState().getIsAgentThreadUnread(thread)).toBe(true);
+  });
+
+  it('does not acknowledge operator replies while the open tab is hidden', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-03T10:00:00.000Z'));
+    const readState = loadReadState();
+    const thread = {
+      ...buildThread('support', 2),
+      support: { state: 'operator' as const, lastOperatorMessageAt: '2026-11-03T10:00:01.000Z' },
+    };
+    readState.markAgentThreadShown(thread.id);
+    const visibility = jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    try {
+      jest.advanceTimersByTime(2000);
+      readState.markAgentThreadSupportSeen(thread.id, thread.support.lastOperatorMessageAt);
+      readState.markAgentThreadHidden(thread.id);
+      expect(readState.getIsAgentThreadUnread(thread)).toBe(true);
+    } finally {
+      visibility.mockRestore();
+    }
+    readState.markAgentThreadShown(thread.id);
+    expect(readState.getIsAgentThreadUnread(thread)).toBe(false);
+  });
+
   it('starts a chat this device has not shown as read', () => {
     const readState = loadReadState();
     readState.observeAgentThreadCounts([buildThread('a', 2)], NO_ANSWERS);
@@ -77,6 +156,17 @@ describe('agentThreadReadState', () => {
     expect(readState.findAgentThreadFirstUnreadMessage(messages.slice(0, 3), 3, 'latestAnswer'))
       .toEqual({ messageId: 2, position: 1 });
     expect(readState.findAgentThreadFirstUnreadMessage([], 0, 'latestAnswer')).toBeUndefined();
+  });
+
+  it('counts the messages of a chat with support without its lines about the handover, as the server does', () => {
+    const readState = loadReadState();
+    const messages = [
+      buildMessage(1, true), { ...buildMessage(2, false), supportEvent: { code: 'support_requested' as const } },
+      buildMessage(3, false), { ...buildMessage(4, false), supportEvent: { code: 'operator_joined' as const } },
+      { ...buildMessage(5, false), operator: { name: 'Anna' } },
+    ];
+
+    expect(readState.findAgentThreadFirstUnreadMessage(messages, 3, 2)).toEqual({ messageId: 5, position: 2 });
   });
 
   it('marks a chat whose answer completes off screen, and never the one on screen', () => {

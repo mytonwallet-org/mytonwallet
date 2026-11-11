@@ -20,6 +20,7 @@ import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.adapter.BaseListHolder
 import org.mytonwallet.app_air.uicomponents.adapter.implementation.Item
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
@@ -125,6 +126,7 @@ class ActivityCell(
     override fun setupViews() {
         super.setupViews()
 
+        id = UIComponentsR.id.activity_row
         addView(dateView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(
             mainContentView,

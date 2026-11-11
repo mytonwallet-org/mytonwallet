@@ -1,9 +1,13 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
+import type { AgentAnswerTableV1 } from '../../api/agentV2/protocol/types';
+
 import {
   disableStrict, enableStrict, setHandler, setPhase,
 } from '../../lib/fasterdom/stricterdom';
+import { closeStreamingInlineMarkdown } from '../../util/agent/streamingMarkdown';
+import renderMarkdown from '../../util/renderMarkdown';
 import { pause } from '../../util/schedulers';
 
 import StreamingText from './StreamingText';
@@ -218,6 +222,64 @@ describe('StreamingText', () => {
     expect(getTextElement().tagName).toBe('DIV');
   });
 
+  it('adds the letters that lengthen the tail to its nodes and replaces them on other changes', async () => {
+    const props = { isStreaming: true, shouldAnimate: false, shouldCommitMarkdownTail: false };
+    await renderText({ ...props, text: 'Growing **bold te' });
+    const tail = getTextElement().lastElementChild!;
+    const boldText = tail.querySelector('strong')!.firstChild;
+
+    // Inside the bold run, after it, before and after a space that `renderMarkdown` leaves after the paragraph
+    for (const text of [
+      'Growing **bold text',
+      'Growing **bold text** a',
+      'Growing **bold text** and ',
+      'Growing **bold text** and more',
+    ]) {
+      await renderText({ ...props, text });
+
+      expect(tail.innerHTML).toBe(renderTail(text));
+      expect(tail.querySelector('strong')!.firstChild).toBe(boldText);
+    }
+
+    // An escaped character is markup rather than a letter
+    const quotedText = 'Growing **bold text** and more "quotes';
+    await renderText({ ...props, text: quotedText });
+
+    expect(tail.innerHTML).toBe(renderTail(quotedText));
+    expect(tail.querySelector('strong')!.firstChild).not.toBe(boldText);
+  });
+
+  it.each([
+    ['a list item', '- First\n- Seco', '- First\n- Second', 'li:last-child'],
+    ['a heading', '## Head', '## Heading', 'h2'],
+  ])('adds the letters that lengthen %s to its text node', async (_, shownText, text, selector) => {
+    const props = { isStreaming: true, shouldAnimate: false, shouldCommitMarkdownTail: false };
+    await renderText({ ...props, text: shownText });
+    const tail = getTextElement().lastElementChild!;
+    const textNode = tail.querySelector(selector)!.firstChild;
+
+    await renderText({ ...props, text });
+
+    expect(tail.innerHTML).toBe(renderTail(text));
+    expect(tail.querySelector(selector)!.firstChild).toBe(textNode);
+  });
+
+  it('replaces the tail whose nodes no longer match its markup', async () => {
+    const props = { isStreaming: true, shouldAnimate: false, shouldCommitMarkdownTail: false };
+    await renderText({ ...props, text: '- First\n- Seco' });
+    const tail = getTextElement().lastElementChild!;
+    const item = tail.querySelector('li:last-child')!;
+    item.replaceChildren(document.createElement('span'));
+
+    await renderText({ ...props, text: '- First\n- Second' });
+    expect(tail.innerHTML).toBe(renderTail('- First\n- Second'));
+
+    tail.replaceChildren(document.createElement('ol'));
+
+    await renderText({ ...props, text: '- First\n- Second item' });
+    expect(tail.innerHTML).toBe(renderTail('- First\n- Second item'));
+  });
+
   it('activates a streamed Markdown link only after its destination is complete', async () => {
     await renderText({
       text: '[Store](https://example.com/store',
@@ -240,6 +302,66 @@ describe('StreamingText', () => {
     });
     expect(root.querySelectorAll('a')).toHaveLength(1);
     expect(root.querySelector('a')?.textContent).toBe('Store');
+  });
+
+  it('holds back a bullet whose bold text has not come in, then shows it bold, as the final text does', async () => {
+    // The answer's last paragraph stays open until its content ends
+    await renderText({
+      text: 'Fees:\n- **',
+      isStreaming: true,
+      shouldAnimate: false,
+      shouldCommitMarkdownTail: false,
+    });
+    expect(getTextElement().textContent).toBe('Fees:');
+    expect(root.querySelector('li')).toBeNull();
+
+    await renderText({
+      text: 'Fees:\n- **Low**',
+      isStreaming: true,
+      shouldAnimate: false,
+      shouldCommitMarkdownTail: false,
+    });
+    expect(root.querySelector('li strong')?.textContent).toBe('Low');
+    expect(getTextElement().textContent).toBe('Fees:Low');
+
+    await renderText({
+      text: 'Fees:\n- **Low**',
+      isStreaming: false,
+      shouldAnimate: false,
+    });
+    expect(root.querySelector('li strong')?.textContent).toBe('Low');
+    expect(getTextElement().textContent).toBe('Fees:Low');
+  });
+
+  it('holds back a bullet whose bold text has not come in after a table, then shows it bold', async () => {
+    const tables: AgentAnswerTableV1[] = [{
+      id: 't1',
+      content: { kind: 'display', headers: ['Asset', 'Value'], rows: [['TON', '1']], notes: [] },
+    }];
+    const tableReferences = [{ tableId: 't1', textOffset: 'Fees:\n\n'.length }];
+    const getLastProse = () => Array.from(root.querySelectorAll('[data-agent-answer-prose]')).pop();
+    // The answer's last paragraph stays open until its content ends
+    await renderText({
+      text: 'Fees:\n\nTotal:\n- **',
+      tables,
+      tableReferences,
+      isStreaming: true,
+      shouldAnimate: false,
+      shouldCommitMarkdownTail: false,
+    });
+    expect(root.querySelector('table')).not.toBeNull();
+    expect(getLastProse()?.textContent).toBe('Total:');
+    expect(root.querySelector('li')).toBeNull();
+
+    await renderText({
+      text: 'Fees:\n\nTotal:\n- **Low**',
+      tables,
+      tableReferences,
+      isStreaming: false,
+      shouldAnimate: false,
+    });
+    expect(root.querySelector('li strong')?.textContent).toBe('Low');
+    expect(getLastProse()?.textContent).toBe('Total:Low');
   });
 
   it('keeps an incomplete final Markdown tail mutable after the reveal completes', async () => {
@@ -390,7 +512,6 @@ describe('StreamingText', () => {
       }),
     });
     jest.spyOn(document, 'createRange').mockImplementation(buildRange);
-    mockOpaqueBackground();
 
     try {
       const onRevealComplete = jest.fn();
@@ -429,7 +550,6 @@ describe('StreamingText', () => {
       }),
     });
     jest.spyOn(document, 'createRange').mockImplementation(buildRange);
-    mockOpaqueBackground();
 
     try {
       const onRevealComplete = jest.fn();
@@ -455,6 +575,8 @@ describe('StreamingText', () => {
     }
   });
 
+  // Where the browser has no CSS highlights, as here, covers in the background's colour hide the text under copies that
+  // show the whole characters in their colours, which jsdom reads only where they are set
   it('uses an inherited streaming shell color for transparent edge sources', async () => {
     const originalAnimate = Object.getOwnPropertyDescriptor(Element.prototype, 'animate');
 
@@ -464,6 +586,7 @@ describe('StreamingText', () => {
     });
     jest.spyOn(document, 'createRange').mockImplementation(buildRange);
     root.style.setProperty('--agent-reveal-edge-background', 'rgb(12, 34, 56)');
+    root.style.color = 'rgb(20, 20, 20)';
 
     try {
       await renderText({
@@ -502,6 +625,7 @@ describe('StreamingText', () => {
       return style;
     });
     root.style.setProperty('--agent-reveal-edge-background', 'rgb(100 100 100)');
+    root.style.color = 'rgb(20, 20, 20)';
 
     try {
       await renderText({
@@ -543,6 +667,7 @@ describe('StreamingText', () => {
       return style;
     });
     root.style.setProperty('--agent-reveal-edge-background', 'rgb(100, 100, 100)');
+    root.style.color = 'rgb(20, 20, 20)';
 
     try {
       await renderText({
@@ -629,11 +754,11 @@ describe('StreamingText', () => {
       value: jest.fn(() => animation),
     });
     jest.spyOn(document, 'createRange').mockImplementation(buildRange);
-    mockOpaqueBackground();
 
     try {
       await renderText({
-        text: 'Pending animation ',
+        // Long enough that the reveal is still running on a slow machine
+        text: 'Pending animation '.repeat(300),
         isStreaming: true,
         shouldAnimate: true,
         revealSessionKey: 'pending-unmount',
@@ -665,7 +790,6 @@ describe('StreamingText', () => {
       }),
     });
     jest.spyOn(document, 'createRange').mockImplementation(buildRange);
-    mockOpaqueBackground();
     disableStrict();
     setPhase('measure');
     setHandler((error) => errors.push(error));
@@ -722,6 +846,14 @@ describe('StreamingText', () => {
   }
 });
 
+// The markup the browser builds from the tail's Markdown, written out as it writes it
+function renderTail(text: string) {
+  const { html } = renderMarkdown(closeStreamingInlineMarkdown(text), { areLinksEnabled: true, codeCopyLabel: 'Copy' });
+  const element = document.createElement('div');
+  element.innerHTML = html;
+  return element.innerHTML;
+}
+
 function buildRect(height: number): DOMRect {
   return {
     x: 0,
@@ -752,21 +884,6 @@ function buildAnimation() {
     },
     playState: 'running',
   } as unknown as Animation;
-}
-
-function mockOpaqueBackground() {
-  const getComputedStyle = window.getComputedStyle.bind(window);
-
-  jest.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
-    const style = getComputedStyle(element, pseudoElement);
-
-    Object.defineProperty(style, 'backgroundColor', {
-      configurable: true,
-      value: 'rgb(30, 30, 30)',
-    });
-
-    return style;
-  });
 }
 
 function restoreProperty(

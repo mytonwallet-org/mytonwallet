@@ -87,6 +87,28 @@ private final class AgentMessageTextView: UITextView {
     }
 }
 
+/// An answer's bubble with its action rows, and its reaction's emoji on the bubble's bottom trailing corner, over the
+/// action rows, which takes touches past the bubble's edge
+private final class AgentBubbleStackView: UIStackView {
+    let reactionBadgeView = AgentReactionBadgeView()
+    weak var bubbleView: UIView?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let bubbleView else { return }
+        bringSubviewToFront(reactionBadgeView)
+        reactionBadgeView.frame = AgentReactionBadgeView.getFrame(
+            forBubble: bubbleView.frame,
+            isRightToLeft: effectiveUserInterfaceLayoutDirection == .rightToLeft
+        )
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        super.point(inside: point, with: event)
+            || reactionBadgeView.point(inside: convert(point, to: reactionBadgeView), with: event)
+    }
+}
+
 protocol AgentContextMenuPresentingCell: UICollectionViewCell {
     var contextMenuCopyText: String? { get }
 }
@@ -116,33 +138,74 @@ final class AgentFollowupView: UIStackView {
         static let revealOffset: CGFloat = 8
         static let revealDuration: TimeInterval = 0.3
         static let revealStagger: TimeInterval = 0.15
+        /// The placeholders' widths, as of suggestions of a line
+        static let placeholderWidths: [CGFloat] = [230, 270, 200]
+        /// How long a placeholder's pill takes to resize to its suggestion, on Telegram's curve
+        static let fillDuration: CFTimeInterval = 0.36
+        /// When the suggestion's title starts fading in as its pill resizes, and how long it takes
+        static let fillTitleDelay: CFTimeInterval = 0.14
+        static let fillTitleDuration: CFTimeInterval = 0.22
+        /// How long the passing light takes to fade from a pill that got its suggestion
+        static let fillLightFadeDuration: TimeInterval = 0.15
+    }
+
+    /// A suggestion's pill standing in for it while it loads, with the passing light inside
+    private struct Placeholder {
+        let button: AgentSuggestionButton
+        let sizeConstraints: [NSLayoutConstraint]
+    }
+
+    /// A placeholder's pill resizing from `startFrame`, in its button, to the suggestion it got
+    private struct PillFill {
+        let button: AgentSuggestionButton
+        let startFrame: CGRect
+    }
+
+    static let placeholderIdentifier = "agent_followup_placeholder"
+    private static let fillCurve = AgentComposerMetrics.makeTelegramCurve()
+
+    /// How long one suggestion takes to come in, and its curve, which the tail of the bubble it hangs from follows
+    static let revealDuration = Metrics.revealDuration
+    static func makeRevealTimingFunction() -> CAMediaTimingFunction {
+        CAMediaTimingFunction(name: .easeOut)
     }
 
     private weak var contentLayoutGuide: UILayoutGuide?
     private var buttonsByID: [String: AgentSuggestionButton] = [:]
     private var onControlTap: ((String) -> Void)?
-    private var loadingViews: [UIView] = []
+    private var placeholders: [Placeholder] = []
     private var loadingRevealCompletedAt: CFTimeInterval?
+    private var pillFills: [PillFill] = []
+    private var pillFillStartTime: CFTimeInterval = 0
+    private lazy var pillFillClock = GlassMotionClock(frameRateRange: nil) { [weak self] time in
+        self?.stepPillFills(at: time)
+    }
 
+    /// Stands placeholders in for the suggestions: their pills, with the real pill's fill and border and the passing light
+    /// only inside, which the suggestions fill once they come
     func showLoading() {
-        guard loadingViews.isEmpty else { return }
+        guard placeholders.isEmpty else { return }
         reset()
         isHidden = false
         accessibilityLabel = lang("Loading...")
-        for width in [CGFloat(230), 270, 200] {
-            let placeholder = AgentMessagesSkeletonView(style: .suggestion)
-            placeholder.translatesAutoresizingMaskIntoConstraints = false
-            placeholder.isAccessibilityElement = false
-            addArrangedSubview(placeholder)
-            let preferred = placeholder.widthAnchor.constraint(equalToConstant: width)
-            preferred.priority = .defaultHigh
-            preferred.isActive = true
-            placeholder.heightAnchor.constraint(equalToConstant: 40).isActive = true
-            if let contentLayoutGuide {
-                placeholder.widthAnchor.constraint(lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
-                                                  constant: -Metrics.horizontalInset * 2).isActive = true
-            }
-            loadingViews.append(placeholder)
+        for width in Metrics.placeholderWidths {
+            let button = AgentSuggestionButton()
+            button.configure(title: "")
+            button.isUserInteractionEnabled = false
+            button.isAccessibilityElement = false
+            button.accessibilityIdentifier = Self.placeholderIdentifier
+            // The placeholder's width holds the pill until a title sizes it
+            button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            let light = AgentMessagesSkeletonView(style: .suggestion)
+            light.isAccessibilityElement = false
+            button.pillOverlayView = light
+            addArrangedSubview(button)
+            let preferredWidth = button.widthAnchor.constraint(equalToConstant: width)
+            preferredWidth.priority = .defaultHigh
+            let height = button.heightAnchor.constraint(equalToConstant: AgentSuggestionButton.height)
+            NSLayoutConstraint.activate([preferredWidth, height])
+            constrainToColumn(button)
+            placeholders.append(Placeholder(button: button, sizeConstraints: [preferredWidth, height]))
         }
     }
 
@@ -184,14 +247,14 @@ final class AgentFollowupView: UIStackView {
         onControlTap: ((String) -> Void)?
     ) {
         let controls = controls.filter { $0.kind == .followup }
-        let loadingFrames = loadingViews.map(\.frame)
-        let loadingAlreadyRevealed = loadingRevealCompletedAt.map { CACurrentMediaTime() >= $0 } ?? false
+        let isPlaceholderRevealDone = loadingRevealCompletedAt.map { CACurrentMediaTime() >= $0 } ?? false
         loadingRevealCompletedAt = nil
-        for view in loadingViews {
-            removeArrangedSubview(view)
-            view.removeFromSuperview()
+        // The placeholders keep their frames out of the arrangement, which the suggestions that fill them start from
+        var placeholdersLeft = placeholders[...]
+        placeholders.removeAll()
+        for placeholder in placeholdersLeft {
+            removeArrangedSubview(placeholder.button)
         }
-        loadingViews.removeAll()
         accessibilityLabel = nil
         let revealsFollowups = animatesAppearance && isVisible && isHidden
         isHidden = !isVisible
@@ -203,77 +266,141 @@ final class AgentFollowupView: UIStackView {
         for id in buttonsByID.keys.filter({ !controlIDs.contains($0) }) {
             buttonsByID.removeValue(forKey: id)?.removeFromSuperview()
         }
+        var filledPlaceholders: [PillFill] = []
+        var addedButtons: [AgentSuggestionButton] = []
         for control in controls {
             let button: AgentSuggestionButton
             if let existingButton = buttonsByID[control.id] {
                 button = existingButton
             } else {
-                button = AgentSuggestionButton()
+                if let placeholder = placeholdersLeft.popFirst() {
+                    // The suggestion fills the placeholder's pill: only its title comes in, and the pill takes its size
+                    button = placeholder.button
+                    NSLayoutConstraint.deactivate(placeholder.sizeConstraints)
+                    button.setContentHuggingPriority(.required, for: .horizontal)
+                    button.isUserInteractionEnabled = true
+                    button.isAccessibilityElement = true
+                    filledPlaceholders.append(PillFill(button: button, startFrame: button.frame))
+                } else {
+                    button = AgentSuggestionButton()
+                    addArrangedSubview(button)
+                    constrainToColumn(button)
+                    addedButtons.append(button)
+                }
                 button.accessibilityIdentifier = "agent_followup"
                 button.maximumNumberOfLines = 0
                 button.addAction(UIAction { [weak self] _ in
                     self?.onControlTap?(control.id)
                 }, for: .touchUpInside)
                 buttonsByID[control.id] = button
-                addArrangedSubview(button)
-                if let contentLayoutGuide {
-                    button.widthAnchor.constraint(
-                        lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
-                        constant: -Metrics.horizontalInset * 2
-                    ).isActive = true
-                }
             }
             button.configure(title: control.title, showsArrow: true)
             button.preferredMaxLayoutWidth = maxWidth
             button.isEnabled = control.isEnabled
             addArrangedSubview(button)
         }
-        if !loadingFrames.isEmpty, !UIAccessibility.isReduceMotionEnabled {
-            layoutIfNeeded()
-            for (index, pair) in zip(arrangedSubviews, loadingFrames).enumerated() {
-                let (button, source) = pair
-                guard button.bounds.width > 0, button.bounds.height > 0 else { continue }
-                let target = button.frame
-                let cover = UIView(frame: button.bounds)
-                cover.backgroundColor = .air.agentBubbleFill
-                cover.layer.cornerRadius = 20
-                cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                cover.isUserInteractionEnabled = false
-                button.addSubview(cover)
-                let geometry = CABasicAnimation(keyPath: "transform")
-                geometry.fromValue = CATransform3DConcat(
-                    CATransform3DMakeScale(source.width / target.width, source.height / target.height, 1),
-                    CATransform3DMakeTranslation(source.midX - target.midX, source.midY - target.midY, 0)
-                )
-                geometry.toValue = CATransform3DIdentity
-                geometry.duration = 0.36
-                geometry.timingFunction = AgentComposerMetrics.makeTelegramCurve()
-                button.layer.add(geometry, forKey: "loadingReveal")
-                cover.alpha = 0
-                let fade = CABasicAnimation(keyPath: "opacity")
-                fade.fromValue = 1
-                fade.toValue = 0
-                let revealDelay = loadingAlreadyRevealed ? 0 : Metrics.revealStagger * Double(index)
-                fade.beginTime = cover.layer.convertTime(CACurrentMediaTime(), from: nil) + 0.14 + revealDelay
-                fade.duration = 0.22
-                fade.fillMode = .backwards
-                cover.layer.add(fade, forKey: "loadingReveal")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.36 + revealDelay) { [weak cover] in
-                    cover?.removeFromSuperview()
-                }
-            }
-        } else if revealsFollowups {
-            animateAppearance()
+        for placeholder in placeholdersLeft {
+            placeholder.button.removeFromSuperview()
         }
+        guard !filledPlaceholders.isEmpty else {
+            if revealsFollowups {
+                animateAppearance()
+            }
+            return
+        }
+        guard !UIAccessibility.isReduceMotionEnabled, window != nil else {
+            for fill in filledPlaceholders {
+                fill.button.pillOverlayView = nil
+            }
+            return
+        }
+        layoutIfNeeded()
+        fillPlaceholders(filledPlaceholders, revealing: addedButtons, isPlaceholderRevealDone: isPlaceholderRevealDone)
+    }
+
+    /// The placeholders' pills take the sizes of the suggestions that fill them on Telegram's curve, with no change of
+    /// fill or border, as the titles fade in and the passing light fades out. While the placeholders still come in
+    /// one by one, the titles follow them. The suggestions beyond the placeholders come in after the last title, one
+    /// after another, as suggestions do.
+    private func fillPlaceholders(
+        _ fills: [PillFill],
+        revealing addedButtons: [AgentSuggestionButton],
+        isPlaceholderRevealDone: Bool
+    ) {
+        let now = CACurrentMediaTime()
+        pillFills = fills.map { fill in
+            PillFill(button: fill.button, startFrame: convert(fill.startFrame, to: fill.button))
+        }
+        var lastTitleDelay = Metrics.fillTitleDelay
+        for (index, fill) in pillFills.enumerated() {
+            fill.button.pillFrameOverride = fill.startFrame
+            fill.button.layoutIfNeeded()
+            let stagger = isPlaceholderRevealDone ? 0 : Metrics.revealStagger * Double(index)
+            lastTitleDelay = Metrics.fillTitleDelay + stagger
+            fill.button.animateContentAppearance(delay: lastTitleDelay, duration: Metrics.fillTitleDuration)
+            guard let light = fill.button.pillOverlayView else { continue }
+            UIView.animate(withDuration: Metrics.fillLightFadeDuration) {
+                light.alpha = 0
+            } completion: { [weak button = fill.button, weak light] _ in
+                guard let button, let light, button.pillOverlayView === light else { return }
+                button.pillOverlayView = nil
+            }
+        }
+        revealSuggestions(addedButtons, startingAt: now + lastTitleDelay + Metrics.revealStagger)
+        pillFillStartTime = CACurrentMediaTime()
+        pillFillClock.start()
+    }
+
+    private func stepPillFills(at time: CFTimeInterval) {
+        let fraction = min(1, max(0, (time - pillFillStartTime) / Metrics.fillDuration))
+        let progress = AgentLayerAnimationSampler.getEasedFraction(Self.fillCurve, at: fraction)
+        for fill in pillFills {
+            fill.button.pillFrameOverride = fraction < 1 ? Self.interpolate(fill.startFrame, fill.button.bounds, progress) : nil
+            fill.button.layoutIfNeeded()
+        }
+        guard fraction >= 1 else { return }
+        finishPillFills()
+    }
+
+    private func finishPillFills() {
+        pillFillClock.stop()
+        for fill in pillFills {
+            fill.button.pillFrameOverride = nil
+        }
+        pillFills.removeAll()
+    }
+
+    /// Whether placeholders' pills are resizing to the suggestions that fill them, which the chat's tests watch
+    var isFillingPlaceholders: Bool {
+        !pillFills.isEmpty
+    }
+
+    private static func interpolate(_ from: CGRect, _ to: CGRect, _ progress: CGFloat) -> CGRect {
+        CGRect(
+            x: from.minX + (to.minX - from.minX) * progress,
+            y: from.minY + (to.minY - from.minY) * progress,
+            width: from.width + (to.width - from.width) * progress,
+            height: from.height + (to.height - from.height) * progress
+        )
+    }
+
+    /// Long suggestions wrap within the column instead of being cut off
+    private func constrainToColumn(_ button: AgentSuggestionButton) {
+        guard let contentLayoutGuide else { return }
+        button.widthAnchor.constraint(
+            lessThanOrEqualTo: contentLayoutGuide.widthAnchor,
+            constant: -Metrics.horizontalInset * 2
+        ).isActive = true
     }
 
     func reset() {
         loadingRevealCompletedAt = nil
-        for view in loadingViews {
-            removeArrangedSubview(view)
-            view.removeFromSuperview()
+        finishPillFills()
+        for placeholder in placeholders {
+            removeArrangedSubview(placeholder.button)
+            placeholder.button.removeFromSuperview()
         }
-        loadingViews.removeAll()
+        placeholders.removeAll()
         for button in buttonsByID.values {
             removeArrangedSubview(button)
             button.removeFromSuperview()
@@ -281,6 +408,10 @@ final class AgentFollowupView: UIStackView {
         buttonsByID.removeAll()
         onControlTap = nil
         isHidden = true
+    }
+
+    func getButton(controlID: String) -> AgentSuggestionButton? {
+        buttonsByID[controlID].flatMap { $0.isHidden || isHidden ? nil : $0 }
     }
 
     func updateMaxWidth() {
@@ -294,18 +425,24 @@ final class AgentFollowupView: UIStackView {
         (contentLayoutGuide?.layoutFrame.width ?? 0) - Metrics.horizontalInset * 2
     }
 
-    /// The suggestions fade in and rise into place one after another. The reveal adds to what each suggestion shows
-    /// rather than setting it, so a suggestion enabled or disabled meanwhile ends as it is now, and it plays as well
-    /// inside an update that runs without animation, as the chat's update of its rows.
+    /// The suggestions come in one after another, each out of a blur as it fades in and rises into place. The reveal
+    /// adds to what each suggestion shows rather than setting it, so a suggestion enabled or disabled meanwhile ends as
+    /// it is now, and it plays as well inside an update that runs without animation, as the chat's update of its rows.
     func animateAppearance(delay: TimeInterval = 0) {
         guard !UIAccessibility.isReduceMotionEnabled else { return }
         let now = CACurrentMediaTime() + delay
-        if !loadingViews.isEmpty {
+        if !placeholders.isEmpty {
             loadingRevealCompletedAt = now + Metrics.revealDuration
-                + Metrics.revealStagger * Double(max(0, loadingViews.count - 1))
+                + Metrics.revealStagger * Double(max(0, placeholders.count - 1))
         }
-        for (index, view) in arrangedSubviews.enumerated() {
-            let beginTime = view.layer.convertTime(now, from: nil) + Metrics.revealStagger * Double(index)
+        revealSuggestions(arrangedSubviews, startingAt: now)
+    }
+
+    /// Each of `views` comes out of a blur as it fades in and rises into place, the first at `startTime` and each next
+    /// one `Metrics.revealStagger` later
+    private func revealSuggestions(_ views: [UIView], startingAt startTime: CFTimeInterval) {
+        for (index, view) in views.enumerated() {
+            let beginTime = view.layer.convertTime(startTime, from: nil) + Metrics.revealStagger * Double(index)
             view.layer.add(
                 Self.makeRevealAnimation(keyPath: "opacity", from: -1, beginTime: beginTime),
                 forKey: Self.revealOpacityKey
@@ -314,7 +451,39 @@ final class AgentFollowupView: UIStackView {
                 Self.makeRevealAnimation(keyPath: "transform.translation.y", from: Metrics.revealOffset, beginTime: beginTime),
                 forKey: Self.revealOffsetKey
             )
+            Self.addRevealBlur(to: view.layer, beginTime: beginTime)
         }
+    }
+
+    /// Whether the suggestions are coming in now, which the chat's tests watch
+    var isRevealing: Bool {
+        arrangedSubviews.contains { $0.layer.animation(forKey: Self.revealBlurKey) != nil }
+    }
+
+    /// The suggestion comes into focus from `AgentBlurTransition.radius` of blur as it fades in
+    private static func addRevealBlur(to layer: CALayer, beginTime: CFTimeInterval) {
+        guard let blur = WBlurredContentView.makeGaussianBlurFilter() else { return }
+        blur.setValue(0, forKey: "inputRadius")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.filters = [blur]
+        CATransaction.setCompletionBlock { [weak layer] in
+            // A later reveal keeps its own blur
+            guard let layer, layer.animation(forKey: revealBlurKey) == nil else { return }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.filters = nil
+            CATransaction.commit()
+        }
+        let animation = CABasicAnimation(keyPath: "filters.gaussianBlur.inputRadius")
+        animation.fromValue = AgentBlurTransition.radius
+        animation.toValue = 0
+        animation.duration = Metrics.revealDuration
+        animation.beginTime = beginTime
+        animation.fillMode = .backwards
+        animation.timingFunction = makeRevealTimingFunction()
+        layer.add(animation, forKey: revealBlurKey)
+        CATransaction.commit()
     }
 
     /// From `from` added to the layer's own value back to that value: an opacity of 1 less shows nothing until then
@@ -326,11 +495,12 @@ final class AgentFollowupView: UIStackView {
         animation.duration = Metrics.revealDuration
         animation.beginTime = beginTime
         animation.fillMode = .backwards
-        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        animation.timingFunction = makeRevealTimingFunction()
         return animation
     }
 
     private static let revealOpacityKey = "agentFollowupRevealOpacity"
+    private static let revealBlurKey = "agentFollowupRevealBlur"
     private static let revealOffsetKey = "agentFollowupRevealOffset"
 }
 
@@ -341,6 +511,10 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         var hasStreaming: Bool
         var hadStreaming: Bool
         var blocks: [AgentMessageBlock]
+        /// What the reveal view shows: the whole text, or while it streams, the text after its closed tables and code
+        var streamingText: String
+        /// How many of the text's lines went into `blocks` while it streams
+        var settledLineCount = 0
     }
 
     private struct AppliedRichContent {
@@ -348,6 +522,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         let blocks: [AgentMessageBlock]
         let layoutMaxWidth: CGFloat
         let renderingPolicy: AgentMessageRenderingPolicy
+        let isStreaming: Bool
     }
 
     private struct AppliedSemanticContent {
@@ -367,9 +542,20 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     }
 
     private let contentLayoutGuide = UILayoutGuide()
-    private let bubbleStackView = UIStackView()
+    private let bubbleStackView = AgentBubbleStackView()
     private let bubbleView = AgentBubbleBackgroundView()
     var skeletonRevealView: UIView { bubbleView }
+    /// The bubble, which an answer grows out of the typing row with, and a question out of the suggestion tapped
+    var bubbleBackgroundView: AgentBubbleBackgroundView { bubbleView }
+    /// What appears as a sent question appears where it lands: the bubble with what hangs from it
+    var sentAppearanceView: UIView { bubbleStackView }
+    /// A sent question's text, which the text it was sent from lines up with
+    var sentTextView: UIView { userMessageTextView }
+
+    /// The suggestion of `controlID` under the answer, which turns into the question's bubble once tapped
+    func getFollowupButton(controlID: String) -> AgentSuggestionButton? {
+        followupView.getButton(controlID: controlID)
+    }
     private let contentStackView = UIStackView()
     private let actionBackgroundView = AgentBubbleBackgroundView()
     private let userMessageTextView = AgentMessageTextView()
@@ -382,7 +568,30 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private var followupConstraints: [NSLayoutConstraint] = []
     private var controlButtonsByID: [String: UIButton] = [:]
     private var configuredMessageID: AgentItemID?
+    /// While the menu that changed the answer's rating closes, and while the reaction it chose flies to the corner, the
+    /// corner keeps the menu's choice, whatever ratings the message brings meanwhile; then it takes the rating the
+    /// message has by then
+    private(set) var isFeedbackHeld = false
+    private(set) var isReactionLanding = false
+    /// The rating of the message the cell shows
+    private var configuredFeedback: ApiAgentV2AnswerFeedback?
+    /// The row's layer in the collection, and whether it shows an answer, which stands over the other rows there
+    private var layoutZIndex = 0
+    private var isAnswerRow = false {
+        didSet { updateZPosition() }
+    }
+    /// The chosen reaction's flight to the corner
+    private(set) weak var reactionFlight: AgentReactionFlight?
+    /// The element VoiceOver reads the answer's reaction on, and the reaction it reads
+    private weak var reactionAccessibilityElement: NSObject?
+    private var appliedReactionAccessibilityValue: String?
     private var wasStreamingMessage = false
+    /// The configured answer was written here in this session, rather than coming with the chat's history
+    private var hasStreamedMessage = false
+    /// The streaming answer's lines its closed tables and code took, which only grows while the answer streams
+    private var streamingSettledLineCount = 0
+    /// The settled lines the reveal view started its text after
+    private var revealSettledLineCount = 0
     private var deferredShowsAction = false
     private var didShowDeferredAction = false
     private var deferredShowsSupplementaryError = false
@@ -399,9 +608,17 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private var suppressesSizeCallbacks = false
     private lazy var longPressMenuInteraction = makeContextMenuInteraction()
     private lazy var menuAccessibilityAction = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
-        guard let self else { return false }
+        guard let self, isMenuAvailable else { return false }
         longPressMenuInteraction.present()
         return true
+    }
+    /// An answer still being written has no menu and no reactions until it is complete
+    private var isMenuAvailable = true {
+        didSet {
+            if isMenuAvailable != oldValue {
+                setNeedsLayout()
+            }
+        }
     }
 
     private lazy var leadingConstraint = bubbleStackView.leadingAnchor.constraint(equalTo: contentLayoutGuide.leadingAnchor, constant: AgentMessageCellMetrics.horizontalInset)
@@ -412,6 +629,14 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     private lazy var bubbleStackViewBottomConstraint = bubbleStackView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
     private lazy var bubbleMinimumWidthConstraint = bubbleView.widthAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleWidth)
     private lazy var bubbleMinimumHeightConstraint = bubbleView.heightAnchor.constraint(greaterThanOrEqualToConstant: AgentMessageCellMetrics.minimumBubbleHeight)
+    /// Holds a streaming answer's closed blocks at the text's full width, so the bubble keeps its width while the
+    /// text after them starts revealing from its first letter. It outranks the reveal view's own width, which the
+    /// bubble's stack would otherwise share with them.
+    private lazy var assistantSettledBlocksWidthConstraint: NSLayoutConstraint = {
+        let constraint = assistantRichMessageView.widthAnchor.constraint(equalToConstant: 1)
+        constraint.priority = UILayoutPriority(999.5)
+        return constraint
+    }()
     private lazy var assistantSemanticContentWidthConstraint: NSLayoutConstraint = {
         let constraint = assistantSemanticContentView.widthAnchor.constraint(equalToConstant: 1)
         constraint.priority = UILayoutPriority(999)
@@ -436,7 +661,12 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         let isOutgoing = message.role == .user
         let messageIDChanged = configuredMessageID != message.id
         if messageIDChanged {
+            isFeedbackHeld = false
+            isReactionLanding = false
             wasStreamingMessage = false
+            hasStreamedMessage = false
+            streamingSettledLineCount = 0
+            revealSettledLineCount = 0
             didShowDeferredAction = false
             didShowDeferredSupplementaryError = false
             lastAppliedRichContent = nil
@@ -444,12 +674,15 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             lastAppliedTextLayoutMaxWidth = 0
         }
         let hasStreaming = message.role == .assistant && message.isStreaming
-        if !hasStreaming, wasStreamingMessage, message.answerBlocks?.contains(where: {
+        isMenuAvailable = !hasStreaming
+        let hasStructuredTable = message.answerBlocks?.contains(where: {
             if case .table = $0 { return true }
             return false
-        }) == true {
-            // Structured tables replace the reveal view immediately, so its completion callback
-            // cannot be responsible for releasing follow-ups or trimming reserved scroll space.
+        }) == true
+        if !hasStreaming, wasStreamingMessage, hasStructuredTable || isSettledTextBlank(message) {
+            // Structured tables replace the reveal view immediately, as does the whole answer once nothing is left to
+            // reveal after its closed blocks, so its completion callback cannot be responsible for releasing
+            // follow-ups or trimming reserved scroll space.
             wasStreamingMessage = false
             assistantMessageTextView.prepareForReuse()
         }
@@ -482,6 +715,11 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         }
 
         configuredMessageID = message.id
+        isAnswerRow = message.role == .assistant
+        configuredFeedback = message.role == .assistant ? message.feedback : nil
+        if !isFeedbackHeld, !isReactionLanding {
+            showFeedback(configuredFeedback)
+        }
         // A streaming answer has its own id, so a test can wait for the answer to finish
         accessibilityIdentifier = isOutgoing
             ? "agent_message_user"
@@ -514,6 +752,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             assistantRichMessageView.isHidden = true
             assistantSemanticContentView.isHidden = true
             assistantSemanticContentWidthConstraint.isActive = false
+            assistantSettledBlocksWidthConstraint.isActive = false
             lastAssistantConfiguration = nil
             lastAppliedRichContent = nil
             lastAppliedSemanticContent = nil
@@ -530,26 +769,29 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
                 textColor: messageTextColor
             )
         } else {
-            let blocks: [AgentMessageBlock]
-            if let answerBlocks = message.answerBlocks {
-                blocks = answerBlocks
-            } else if hasStreaming || hadStreaming {
-                blocks = []
-            } else if let existing = lastAssistantConfiguration,
-                      existing.message.id == message.id,
-                      existing.message.text == message.text,
-                      existing.message.answerBlocks == nil {
-                blocks = existing.blocks
-            } else {
-                blocks = AgentMessageBlockParser.parse(message.text)
-            }
-            lastAssistantConfiguration = AssistantConfiguration(
+            var configuration = AssistantConfiguration(
                 message: message,
                 textColor: messageTextColor,
                 hasStreaming: hasStreaming,
                 hadStreaming: hadStreaming,
-                blocks: blocks
+                blocks: [],
+                streamingText: message.text
             )
+            if let answerBlocks = message.answerBlocks {
+                configuration.blocks = Self.makeDisplayedBlocks(answerBlocks, of: message)
+            } else if hasStreaming || hadStreaming {
+                applyStreamingContent(to: &configuration)
+            } else if let existing = lastAssistantConfiguration,
+                      existing.message.id == message.id,
+                      existing.message.text == message.text,
+                      existing.message.answerBlocks == nil,
+                      !existing.hasStreaming,
+                      !existing.hadStreaming {
+                configuration.blocks = existing.blocks
+            } else {
+                configuration.blocks = Self.makeDisplayedBlocks(AgentMessageBlockParser.parse(message.text), of: message)
+            }
+            lastAssistantConfiguration = configuration
             assistantMessageTextView.onURLTap = self.onURLTap
             assistantMessageTextView.onPreferredHeightChanged = { [weak self] animated in
                 guard let self else { return }
@@ -582,35 +824,186 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 
         if hasStreaming {
             wasStreamingMessage = true
+            hasStreamedMessage = true
         }
         let resolvedShowsAction = hasActionRows && (showsAction || didShowDeferredAction)
+        // Suggestions come in only under an answer written in this session; those that come with the chat's history
+        // show with it, as the history does
         applyActionPresentation(
             showsAction: resolvedShowsAction,
             controls: controls,
             isOutgoing: isOutgoing,
             showsTail: !resolvedShowsAction || !controls.contains { $0.kind == .action },
-            animatesFollowups: !messageIDChanged
+            animatesFollowups: !messageIDChanged && hasStreamedMessage,
+            animatesTailBack: !messageIDChanged
         )
+    }
+
+    var messageID: AgentItemID? { configuredMessageID }
+    var reactionBadgeView: AgentReactionBadgeView { bubbleStackView.reactionBadgeView }
+
+    /// Keeps the corner's reaction while the menu that changes the rating closes, whatever ratings the message brings
+    /// meanwhile
+    func holdFeedback() {
+        isFeedbackHeld = true
+    }
+
+    /// Flies `feedback`, chosen in the menu's cloud, from `source`, its icon there, to the bubble's corner on Telegram's
+    /// path, where the corner's emoji takes it over in the frame it arrives and plays Telegram's landing, with the
+    /// hit's haptic. `getFrameOnReplica` tells where a part of the bubble shows on the menu's replica of it while the
+    /// menu has one. With Reduce Motion the corner's emoji fades in at once, with the hit's haptic, and off screen it
+    /// changes without one. `onLanding` runs as the reaction lands: on the hit, or at once when nothing flies.
+    func flyReaction(
+        _ feedback: ApiAgentV2AnswerFeedback,
+        from source: AgentReactionEmojiView?,
+        getFrameOnReplica: (@MainActor (CGRect) -> CGRect?)? = nil,
+        onLanding: (() -> Void)? = nil
+    ) {
+        guard !AgentReactionMotion.isReduced, let window, let source else {
+            animateFeedback(feedback)
+            if AgentReactionMotion.isReduced, window != nil {
+                Haptics.play(.lightTap)
+            }
+            onLanding?()
+            return
+        }
+        isReactionLanding = true
+        let land = makeLanding(of: feedback)
+        reactionFlight = AgentReactionFlight.start(
+            feedback: feedback,
+            in: window,
+            from: source,
+            at: makeBadgeIconFrameProvider(getFrameOnReplica: getFrameOnReplica),
+            onArrival: {
+                land()
+                onLanding?()
+            }
+        )
+    }
+
+    /// What happens as a chosen reaction reaches the corner, while the cell shows the same message: the corner's emoji
+    /// takes it over
+    private func makeLanding(of feedback: ApiAgentV2AnswerFeedback) -> () -> Void {
+        let messageID = messageID
+        return { [weak self] in
+            guard let self, self.messageID == messageID else { return }
+            self.isReactionLanding = false
+            self.reactionBadgeView.land(feedback)
+            self.updateReactionAccessibility()
+            self.updateHeldFeedback()
+        }
+    }
+
+    /// Changes the corner's reaction to `feedback` in place, without a flight
+    func animateFeedback(_ feedback: ApiAgentV2AnswerFeedback?) {
+        reactionBadgeView.animate(to: feedback)
+        updateReactionAccessibility()
+    }
+
+    /// Lets the message's ratings reach the corner again once the menu is gone
+    func releaseFeedback() {
+        isFeedbackHeld = false
+        updateHeldFeedback()
+    }
+
+    /// Once nothing holds the corner's reaction, the corner takes the rating the message has by then, should the
+    /// rating have failed meanwhile
+    private func updateHeldFeedback() {
+        guard !isFeedbackHeld, !isReactionLanding, reactionBadgeView.feedback != configuredFeedback else { return }
+        animateFeedback(configuredFeedback)
+    }
+
+    /// Shows `feedback` at the corner at once
+    private func showFeedback(_ feedback: ApiAgentV2AnswerFeedback?) {
+        if reactionBadgeView.feedback != feedback || reactionBadgeView.isHidden != (feedback == nil) {
+            reactionBadgeView.show(feedback)
+        }
+        updateReactionAccessibility()
+    }
+
+    /// VoiceOver reads the answer's reaction as the value of the bubble's first element, after its text
+    private func updateReactionAccessibility() {
+        let value = reactionBadgeView.feedback?.reactionStateTitle
+        let element = value == nil ? nil : findFirstAccessibilityElement(in: contentStackView)
+        if let previous = reactionAccessibilityElement, previous !== element || value == nil,
+           previous.accessibilityValue == appliedReactionAccessibilityValue {
+            previous.accessibilityValue = nil
+        }
+        reactionAccessibilityElement = element
+        appliedReactionAccessibilityValue = element == nil ? nil : value
+        if let element, element.accessibilityValue != value {
+            element.accessibilityValue = value
+        }
+    }
+
+    private func findFirstAccessibilityElement(in view: UIView) -> UIView? {
+        guard !view.isHidden, !view.accessibilityElementsHidden else { return nil }
+        if view.isAccessibilityElement {
+            return view
+        }
+        return view.subviews.lazy.compactMap { self.findFirstAccessibilityElement(in: $0) }.first
     }
 
     func updateStreamingMessage(_ message: AgentMessage) {
         guard message.role == .assistant, message.isStreaming else { return }
         guard configuredMessageID == message.id, let existing = lastAssistantConfiguration else { return }
 
-        lastAssistantConfiguration = AssistantConfiguration(
+        var configuration = AssistantConfiguration(
             message: message,
             textColor: existing.textColor,
             hasStreaming: true,
             hadStreaming: false,
-            blocks: []
+            blocks: [],
+            streamingText: message.text
         )
+        if message.answerBlocks == nil {
+            applyStreamingContent(to: &configuration)
+        }
+        lastAssistantConfiguration = configuration
         configureAssistantMessageContent(layoutMaxWidth: currentTextLayoutMaxWidth(isOutgoing: false))
+    }
+
+    /// Puts a streaming answer's closed tables and code into `configuration`'s blocks and leaves the reveal view the
+    /// text after them. They only grow while the answer streams; once it ends, the reveal finishes the text it has.
+    private func applyStreamingContent(to configuration: inout AssistantConfiguration) {
+        let message = configuration.message
+        if configuration.hasStreaming {
+            streamingSettledLineCount = max(
+                streamingSettledLineCount,
+                AgentMessageBlockParser.countSettledLines(in: message.text)
+            )
+        }
+        guard streamingSettledLineCount > 0 else { return }
+        let lines = message.text.components(separatedBy: "\n")
+        let blocks = Self.makeDisplayedBlocks(
+            AgentMessageBlockParser.parse(lines.prefix(streamingSettledLineCount).joined(separator: "\n")),
+            of: message
+        )
+        guard blocks.contains(where: \.standsApart) else { return }
+        configuration.blocks = blocks
+        configuration.streamingText = lines.dropFirst(streamingSettledLineCount).joined(separator: "\n")
+        configuration.settledLineCount = streamingSettledLineCount
+    }
+
+    /// Whether a streaming answer has nothing left to reveal after the closed tables and code it shows as blocks
+    private func isSettledTextBlank(_ message: AgentMessage) -> Bool {
+        guard let settledLineCount = lastAssistantConfiguration?.settledLineCount, settledLineCount > 0,
+              message.answerBlocks == nil else { return false }
+        return message.text.components(separatedBy: "\n").dropFirst(settledLineCount).allSatisfy {
+            $0.trimmingCharacters(in: .whitespaces).isEmpty
+        }
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
         configuredMessageID = nil
+        isFeedbackHeld = false
+        isReactionLanding = false
+        configuredFeedback = nil
+        showFeedback(nil)
         wasStreamingMessage = false
+        streamingSettledLineCount = 0
+        revealSettledLineCount = 0
         deferredShowsAction = false
         didShowDeferredAction = false
         deferredShowsSupplementaryError = false
@@ -626,6 +1019,13 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         userMessageTextView.attributedText = nil
         userMessageTextView.isSelectable = false
         userMessageTextView.isUserInteractionEnabled = false
+        // A morph into the bubble, from the typing row or from a suggestion, ends with the message
+        bubbleStackView.layer.removeAllAnimations()
+        bubbleStackView.alpha = 1
+        bubbleStackView.transform = .identity
+        bubbleView.layer.mask = nil
+        bubbleView.layer.removeAnimation(forKey: AgentTypingAnswerMorph.bubbleFadeKey)
+        AgentBlurTransition.cancel(bubbleView.contentView.layer)
         assistantMessageTextView.prepareForReuse()
         assistantMessageTextView.isAccessibilityElement = false
         assistantMessageTextView.accessibilityIdentifier = nil
@@ -639,6 +1039,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             onURLTap: nil
         )
         assistantRichMessageView.isHidden = true
+        assistantSettledBlocksWidthConstraint.isActive = false
         assistantSemanticContentView.reset()
         assistantSemanticContentView.isHidden = true
         assistantSemanticContentWidthConstraint.isActive = false
@@ -672,6 +1073,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     override func layoutSubviews() {
         super.layoutSubviews()
         offerMenuToAccessibility(in: bubbleStackView)
+        updateReactionAccessibility()
         followupView.updateMaxWidth()
         guard userMessageTextView.isHidden, lastAssistantConfiguration != nil else { return }
         let layoutMaxWidth = currentTextLayoutMaxWidth(isOutgoing: false)
@@ -681,6 +1083,20 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             configureAssistantMessageContent(layoutMaxWidth: layoutMaxWidth)
         }
     }
+
+    override func apply(_ layoutAttributes: UICollectionViewLayoutAttributes) {
+        super.apply(layoutAttributes)
+        layoutZIndex = layoutAttributes.zIndex
+        updateZPosition()
+    }
+
+    /// An answer's row stands over the other rows of its layer, so the reaction's emoji on its bubble's corner shows
+    /// over the next row where it reaches into it
+    private func updateZPosition() {
+        layer.zPosition = CGFloat(layoutZIndex) + (isAnswerRow ? Self.answerZPositionLift : 0)
+    }
+
+    private static let answerZPositionLift: CGFloat = 0.5
 
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
         // The collection fixes the row width. Fit its content at that width, not the previous
@@ -725,6 +1141,13 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
 
         bubbleView.translatesAutoresizingMaskIntoConstraints = false
         bubbleStackView.addArrangedSubview(bubbleView)
+        bubbleStackView.bubbleView = bubbleView
+        bubbleStackView.addSubview(bubbleStackView.reactionBadgeView)
+        // A tap on the reaction's emoji opens the answer's menu, as a long press on the bubble does
+        bubbleStackView.reactionBadgeView.onTap = { [weak self] in
+            guard let self, isMenuAvailable else { return }
+            longPressMenuInteraction.present()
+        }
 
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
         contentStackView.axis = .vertical
@@ -787,8 +1210,9 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         actionStackView.spacing = 0
 
         contentStackView.addArrangedSubview(userMessageTextView)
-        contentStackView.addArrangedSubview(assistantMessageTextView)
+        // A streaming answer's closed tables and code stand above the text still arriving after them
         contentStackView.addArrangedSubview(assistantRichMessageView)
+        contentStackView.addArrangedSubview(assistantMessageTextView)
         contentStackView.addArrangedSubview(assistantSemanticContentView)
         contentStackView.addArrangedSubview(assistantSupplementaryErrorLabel)
         contentStackView.setCustomSpacing(
@@ -811,6 +1235,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             below: bubbleStackView,
             contentLayoutGuide: contentLayoutGuide
         )
+        // The reaction's emoji on the bubble's corner shows over the suggestions under the bubble
+        contentView.bringSubviewToFront(bubbleStackView)
 
         leadingConstraint.isActive = true
         incomingTrailingLimitConstraint.isActive = true
@@ -869,22 +1295,50 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         } else {
             contentWidth = min(UIScreen.main.bounds.width, AgentContentLayout.maxContentWidth)
         }
-        let bubbleWidth: CGFloat
-        if isOutgoing {
-            let percentageCappedBubbleWidth = contentWidth * AgentMessageCellMetrics.outgoingMaxWidthMultiplier
-            let marginCappedBubbleWidth = contentWidth
-                - AgentMessageCellMetrics.horizontalInset
-                - AgentMessageCellMetrics.outgoingOppositeInset
-            bubbleWidth = min(percentageCappedBubbleWidth, marginCappedBubbleWidth)
-        } else {
-            bubbleWidth = contentWidth
-                - AgentMessageCellMetrics.horizontalInset
-                - AgentMessageCellMetrics.incomingTrailingInset
-        }
+        if isOutgoing { return Self.getOutgoingTextLayoutMaxWidth(contentWidth: contentWidth) }
+        let bubbleWidth = contentWidth
+            - AgentMessageCellMetrics.horizontalInset
+            - AgentMessageCellMetrics.incomingTrailingInset
         return max(
             120,
             bubbleWidth - AgentMessageCellMetrics.bodyHorizontalPadding * 2
         )
+    }
+
+    private static func getOutgoingTextLayoutMaxWidth(contentWidth: CGFloat) -> CGFloat {
+        let percentageCappedBubbleWidth = contentWidth * AgentMessageCellMetrics.outgoingMaxWidthMultiplier
+        let marginCappedBubbleWidth = contentWidth
+            - AgentMessageCellMetrics.horizontalInset
+            - AgentMessageCellMetrics.outgoingOppositeInset
+        let bubbleWidth = min(percentageCappedBubbleWidth, marginCappedBubbleWidth)
+        return max(120, bubbleWidth - AgentMessageCellMetrics.bodyHorizontalPadding * 2)
+    }
+
+    /// The lines `text` takes in a question's bubble in a chat `chatWidth` wide, as the cell lays it out
+    static func countQuestionLines(_ text: String, chatWidth: CGFloat) -> Int {
+        let attributedText = AgentMessageTextRenderer.makeAttributedText(
+            text,
+            textColor: .white,
+            rendersMarkdown: false,
+            detectsLinks: false
+        )
+        guard attributedText.length > 0 else { return 0 }
+        let contentWidth = min(chatWidth, AgentContentLayout.maxContentWidth)
+        let textContainer = NSTextContainer(size: CGSize(
+            width: getOutgoingTextLayoutMaxWidth(contentWidth: contentWidth),
+            height: .greatestFiniteMagnitude
+        ))
+        textContainer.lineFragmentPadding = 0
+        let layoutManager = NSLayoutManager()
+        layoutManager.addTextContainer(textContainer)
+        let textStorage = NSTextStorage(attributedString: attributedText)
+        textStorage.addLayoutManager(layoutManager)
+        var lineCount = 0
+        let glyphRange = layoutManager.glyphRange(for: textContainer)
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { _, _, _, _, _ in
+            lineCount += 1
+        }
+        return lineCount
     }
 
     private func configureAssistantMessageContent(layoutMaxWidth: CGFloat) {
@@ -899,6 +1353,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             assistantMessageTextView.accessibilityIdentifier = nil
             assistantMessageTextView.accessibilityLabel = nil
             assistantRichMessageView.isHidden = true
+            assistantSettledBlocksWidthConstraint.isActive = false
             assistantSemanticContentView.isHidden = false
             assistantSemanticContentWidthConstraint.constant = layoutMaxWidth
             assistantSemanticContentWidthConstraint.isActive = true
@@ -937,49 +1392,41 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             assistantMessageTextView.accessibilityIdentifier = nil
             assistantMessageTextView.accessibilityLabel = nil
             assistantRichMessageView.isHidden = true
+            assistantSettledBlocksWidthConstraint.isActive = false
             lastAppliedRichContent = nil
             return
         }
-        let containsTable = configuration.blocks.contains {
-            if case .table = $0 { return true }
-            return false
-        }
-        let showsRichContent = containsTable
-            && (configuration.message.answerBlocks != nil || (!configuration.hasStreaming && !configuration.hadStreaming))
+        let isRevealing = configuration.hasStreaming || configuration.hadStreaming
+        let showsRichContent = configuration.blocks.contains(where: \.standsApart)
+            && (configuration.message.answerBlocks != nil || !isRevealing)
+        let showsSettledBlocks = !showsRichContent && configuration.settledLineCount > 0
         assistantMessageTextView.isHidden = showsRichContent
-        assistantRichMessageView.isHidden = !showsRichContent
+        assistantRichMessageView.isHidden = !showsRichContent && !showsSettledBlocks
+        assistantSettledBlocksWidthConstraint.constant = layoutMaxWidth
+        assistantSettledBlocksWidthConstraint.isActive = showsSettledBlocks
 
+        if showsRichContent || showsSettledBlocks {
+            // Closed blocks above the text still arriving have no marker waiting for its text
+            applyRichContent(
+                configuration,
+                layoutMaxWidth: layoutMaxWidth,
+                isStreaming: showsRichContent && configuration.hasStreaming
+            )
+        } else {
+            lastAppliedRichContent = nil
+        }
         if showsRichContent {
             assistantMessageTextView.isAccessibilityElement = false
             assistantMessageTextView.accessibilityIdentifier = nil
             assistantMessageTextView.accessibilityLabel = nil
-            let appliedContent = AppliedRichContent(
-                messageID: configuration.message.id,
-                blocks: configuration.blocks,
-                layoutMaxWidth: layoutMaxWidth,
-                renderingPolicy: configuration.message.renderingPolicy
-            )
-            if let previous = lastAppliedRichContent,
-               previous.messageID == appliedContent.messageID,
-               previous.blocks == appliedContent.blocks,
-               previous.renderingPolicy == appliedContent.renderingPolicy,
-               abs(previous.layoutMaxWidth - appliedContent.layoutMaxWidth) <= 0.5 {
-                return
-            }
-            assistantRichMessageView.configure(
-                blocks: configuration.blocks,
-                textColor: configuration.textColor,
-                maximumContentWidth: layoutMaxWidth,
-                detectsLinks: configuration.message.renderingPolicy.allowsLinks,
-                markdownProfile: configuration.message.renderingPolicy.markdownProfile,
-                onURLTap: onURLTap
-            )
-            lastAppliedRichContent = appliedContent
             return
         }
-        lastAppliedRichContent = nil
+        if configuration.hasStreaming, configuration.settledLineCount != revealSettledLineCount {
+            revealSettledLineCount = configuration.settledLineCount
+            assistantMessageTextView.startOver()
+        }
         assistantMessageTextView.configure(
-            text: configuration.message.text,
+            text: configuration.streamingText,
             textColor: configuration.textColor,
             isStreaming: configuration.hasStreaming,
             hadStreaming: configuration.hadStreaming,
@@ -996,22 +1443,62 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         assistantMessageTextView.accessibilityLabel = assistantMessageTextView.displayText
     }
 
+    private func applyRichContent(
+        _ configuration: AssistantConfiguration,
+        layoutMaxWidth: CGFloat,
+        isStreaming: Bool
+    ) {
+        let appliedContent = AppliedRichContent(
+            messageID: configuration.message.id,
+            blocks: configuration.blocks,
+            layoutMaxWidth: layoutMaxWidth,
+            renderingPolicy: configuration.message.renderingPolicy,
+            isStreaming: isStreaming
+        )
+        if let previous = lastAppliedRichContent,
+           previous.messageID == appliedContent.messageID,
+           previous.blocks == appliedContent.blocks,
+           previous.renderingPolicy == appliedContent.renderingPolicy,
+           previous.isStreaming == appliedContent.isStreaming,
+           abs(previous.layoutMaxWidth - appliedContent.layoutMaxWidth) <= 0.5 {
+            return
+        }
+        assistantRichMessageView.configure(
+            blocks: configuration.blocks,
+            textColor: configuration.textColor,
+            maximumContentWidth: layoutMaxWidth,
+            detectsLinks: configuration.message.renderingPolicy.allowsLinks,
+            markdownProfile: configuration.message.renderingPolicy.markdownProfile,
+            isStreaming: isStreaming,
+            onURLTap: onURLTap
+        )
+        lastAppliedRichContent = appliedContent
+    }
+
     private func showFinalAssistantContentIfNeeded() -> Bool {
         guard var configuration = lastAssistantConfiguration else { return false }
         configuration.hasStreaming = false
         configuration.hadStreaming = false
-        configuration.blocks = configuration.message.answerBlocks
-            ?? AgentMessageBlockParser.parse(configuration.message.text)
+        configuration.blocks = Self.makeDisplayedBlocks(
+            configuration.message.answerBlocks ?? AgentMessageBlockParser.parse(configuration.message.text),
+            of: configuration.message
+        )
+        configuration.streamingText = configuration.message.text
+        configuration.settledLineCount = 0
         lastAssistantConfiguration = configuration
         wasStreamingMessage = false
-        let hasFinalContent = configuration.message.semanticContent != nil || configuration.blocks.contains(where: {
-            if case .table = $0 { return true }
-            return false
-        })
+        streamingSettledLineCount = 0
+        let hasFinalContent = configuration.message.semanticContent != nil
+            || configuration.blocks.contains(where: \.standsApart)
         guard hasFinalContent else { return false }
         configureAssistantMessageContent(layoutMaxWidth: currentTextLayoutMaxWidth(isOutgoing: false))
         setNeedsLayout()
         return true
+    }
+
+    /// An answer's code blocks stand apart from its text, as its tables do
+    private static func makeDisplayedBlocks(_ blocks: [AgentMessageBlock], of message: AgentMessage) -> [AgentMessageBlock] {
+        message.renderingPolicy.markdownProfile == .agentMarkdownV1 ? AgentMessageBlockParser.separatingCode(blocks) : blocks
     }
 
     private func showDeferredSupplementaryErrorIfNeeded() -> Bool {
@@ -1035,7 +1522,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             controls: configuredControls,
             isOutgoing: false,
             showsTail: false,
-            animatesFollowups: true
+            animatesFollowups: true,
+            animatesTailBack: true
         )
         onPreferredHeightChanged?(false)
     }
@@ -1045,7 +1533,8 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         controls: [AgentMessageControl],
         isOutgoing: Bool,
         showsTail: Bool,
-        animatesFollowups: Bool
+        animatesFollowups: Bool,
+        animatesTailBack: Bool
     ) {
         let showsActionRows = showsAction && controls.contains { $0.kind == .action }
         let showsFollowups = showsAction && controls.contains { $0.kind == .followup }
@@ -1067,14 +1556,18 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             onControlTap: onControlTap
         )
 
-        // An answer with suggestions under it has no tail: the suggestions hang from it. The tail comes back as they go.
+        // An answer with suggestions under it has no tail: the suggestions hang from it. The tail goes into its corner
+        // as they come in, in step with them, and comes back out of it as they go, under an answer of the chat's
+        // history as well.
+        let showsBubbleTail = !showsActionRows && !showsFollowups && showsTail
+        let animatesTail = showsBubbleTail ? animatesTailBack : animatesFollowups
         bubbleView.configure(
             direction: isOutgoing ? .outgoing : .incoming,
             fillColor: isOutgoing ? .tintColor : UIColor.air.agentBubbleFill,
             usesTintColor: isOutgoing,
-            showsTail: !showsActionRows && !showsFollowups && showsTail,
+            showsTail: showsBubbleTail,
             cornerRadii: showsActionRows ? .topActioned : .standAlone,
-            shouldAnimateTail: animatesFollowups && window != nil
+            shouldAnimateTail: animatesTail && window != nil
         )
 
         actionBackgroundView.configure(
@@ -1241,9 +1734,21 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         }
     }
 
+    /// Where the corner's emoji shows on screen while the cell shows the same message: on the menu's replica of the
+    /// bubble, through `getFrameOnReplica`, while the menu has one, and in the bubble once the menu is gone
+    private func makeBadgeIconFrameProvider(getFrameOnReplica: (@MainActor (CGRect) -> CGRect?)? = nil) -> () -> CGRect? {
+        let messageID = messageID
+        return { [weak self] in
+            guard let self, self.messageID == messageID else { return nil }
+            let badge = self.reactionBadgeView
+            return getFrameOnReplica?(badge.frame) ?? badge.presentedIconFrameInWindow
+        }
+    }
+
     /// A touch on a link keeps the link's own action, while a long press on a control in the bubble opens the menu. Link
     /// views take touches on links only.
     private func canOpenMenu(at point: CGPoint, in sourceView: UIView) -> Bool {
+        guard isMenuAvailable else { return false }
         var view = sourceView.hitTest(point, with: nil)
         while let currentView = view, currentView !== sourceView {
             if currentView is UITextView || currentView is AgentStreamingTextView {
@@ -1255,11 +1760,16 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     }
 
     /// VoiceOver finds the message's menu as an action on every element in the bubble (text, tables, semantic content
-    /// and action rows), as it did on the system context menu. Layout reaches the views rich content adds later.
+    /// and action rows), as it did on the system context menu, while the message has one. Layout reaches the views rich
+    /// content adds later.
     private func offerMenuToAccessibility(in view: UIView) {
         let actions = view.accessibilityCustomActions ?? []
-        if !actions.contains(where: { $0 === menuAccessibilityAction }) {
+        let hasMenuAction = actions.contains { $0 === menuAccessibilityAction }
+        if isMenuAvailable, !hasMenuAction {
             view.accessibilityCustomActions = actions + [menuAccessibilityAction]
+        } else if !isMenuAvailable, hasMenuAction {
+            let remainingActions = actions.filter { $0 !== menuAccessibilityAction }
+            view.accessibilityCustomActions = remainingActions.isEmpty ? nil : remainingActions
         }
         for subview in view.subviews {
             offerMenuToAccessibility(in: subview)
@@ -1276,7 +1786,14 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
             path.append(previewPath(for: actionBackgroundView))
         }
         path.apply(CGAffineTransform(translationX: attachmentRect.minX, y: attachmentRect.minY))
-        return path.cgPath
+        // The lifted answer keeps its reaction's emoji on its corner, and the square it plays its landing in, where a
+        // reaction chosen in the menu lands
+        let badge = bubbleStackView.reactionBadgeView
+        let emojiInset = (badge.iconView.boxSize - AgentReactionBadgeView.Metrics.iconSize) / 2
+        let emojiBox = badge.frame
+            .insetBy(dx: -emojiInset, dy: -emojiInset)
+            .offsetBy(dx: attachmentRect.minX, dy: attachmentRect.minY)
+        return path.cgPath.union(CGPath(rect: emojiBox, transform: nil))
     }
 
     private func previewPath(for backgroundView: AgentBubbleBackgroundView) -> UIBezierPath {
@@ -1322,8 +1839,11 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     private let label = UILabel()
     /// Shows a failure, with its controls as links after the text
     private let captionTextView = AgentMessageTextView()
+    /// Shows a News day as Telegram's date bubble
+    private let dayCapsule = AgentDateCapsuleView()
     private lazy var bottomConstraint = label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private lazy var captionBottomConstraint = captionTextView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+    private lazy var dayCapsuleBottomConstraint = dayCapsule.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
     private var configuredMessage: AgentMessage?
     private var onControlTap: ((String) -> Void)?
     private lazy var contextMenuInteraction = ContextMenuInteraction(
@@ -1351,16 +1871,24 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         configuredMessage = message
         self.onControlTap = onControlTap
         let isFailure = message.isFailureCaption
-        label.isHidden = isFailure
+        let isDay = message.isDayCapsule
+        label.isHidden = isFailure || isDay
         captionTextView.isHidden = !isFailure
+        dayCapsule.isHidden = !isDay
+        NSLayoutConstraint.deactivate([bottomConstraint, captionBottomConstraint, dayCapsuleBottomConstraint])
         if isFailure {
-            bottomConstraint.isActive = false
             captionBottomConstraint.isActive = true
+        } else if isDay {
+            dayCapsuleBottomConstraint.isActive = true
         } else {
-            captionBottomConstraint.isActive = false
             bottomConstraint.isActive = true
         }
         applyText(for: message)
+    }
+
+    /// Hides the day's capsule while the News feed shows it stuck under its header
+    func setDayCapsuleHidden(_ isHidden: Bool) {
+        dayCapsule.alpha = isHidden ? 0 : 1
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -1378,12 +1906,19 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         label.attributedText = nil
         captionTextView.attributedText = nil
         captionTextView.accessibilityCustomActions = nil
+        dayCapsule.text = nil
+        setDayCapsuleHidden(false)
     }
 
     var contextMenuCopyText: String? {
-        let text = configuredMessage?.isFailureCaption == true
-            ? configuredMessage?.text ?? ""
-            : label.attributedText?.string ?? label.text ?? ""
+        let text: String
+        if configuredMessage?.isFailureCaption == true {
+            text = configuredMessage?.text ?? ""
+        } else if configuredMessage?.isDayCapsule == true {
+            text = dayCapsule.text ?? ""
+        } else {
+            text = label.attributedText?.string ?? label.text ?? ""
+        }
         return text.isEmpty ? nil : text
     }
 
@@ -1411,6 +1946,10 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
     }
 
     private func applyText(for message: AgentMessage) {
+        if message.isDayCapsule {
+            dayCapsule.text = message.text
+            return
+        }
         guard message.isFailureCaption else {
             label.attributedText = makeAttributedText(for: message)
             label.accessibilityTraits = message.isDateLine ? [.staticText, .header] : .staticText
@@ -1452,10 +1991,14 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
 
     private static let controlLinkScheme = "agent-control"
 
-    /// The rounded label, in the coordinates of `attachmentRect`, which frames `contentView`
+    /// The rounded label, or the day's capsule, in the coordinates of `attachmentRect`, which frames `contentView`
     private func labelPath(in attachmentRect: CGRect) -> CGPath {
         contentView.layoutIfNeeded()
 
+        if configuredMessage?.isDayCapsule == true {
+            let capsuleRect = dayCapsule.frame.offsetBy(dx: attachmentRect.minX, dy: attachmentRect.minY)
+            return UIBezierPath(roundedRect: capsuleRect, cornerRadius: capsuleRect.height / 2).cgPath
+        }
         let previewRect = label.frame.inset(
             by: UIEdgeInsets(
                 top: -AgentMessageCellMetrics.systemPreviewInsets.top,
@@ -1511,15 +2054,17 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
         captionTextView.isHidden = true
         captionTextView.accessibilityIdentifier = "agent_message_failure"
         contentView.addSubview(captionTextView)
+        dayCapsule.isHidden = true
+        contentView.addSubview(dayCapsule)
         contextMenuInteraction.attach(to: contentView)
         // VoiceOver finds the row's menu as an action on its text, as it did on the system context menu
-        label.accessibilityCustomActions = [
-            UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
-                guard let self else { return false }
-                contextMenuInteraction.present()
-                return true
-            }
-        ]
+        let moreActions = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
+            guard let self else { return false }
+            contextMenuInteraction.present()
+            return true
+        }
+        label.accessibilityCustomActions = [moreActions]
+        dayCapsule.label.accessibilityCustomActions = [moreActions]
 
         NSLayoutConstraint.activate([
             label.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -1534,12 +2079,20 @@ final class AgentSystemMessageCell: UICollectionViewCell, AgentContextMenuPresen
             captionTextView.trailingAnchor.constraint(
                 equalTo: contentLayoutGuide.trailingAnchor,
                 constant: -AgentMessageCellMetrics.horizontalInset
-            )
+            ),
+            dayCapsule.topAnchor.constraint(equalTo: contentView.topAnchor),
+            dayCapsule.centerXAnchor.constraint(equalTo: contentLayoutGuide.centerXAnchor),
+            dayCapsule.leadingAnchor.constraint(
+                greaterThanOrEqualTo: contentLayoutGuide.leadingAnchor,
+                constant: AgentDateCapsuleView.minimumColumnInset
+            ),
         ])
     }
 
     private func makeAttributedText(for message: AgentMessage) -> NSAttributedString {
-        let textColor = UIColor.air.secondaryLabel.resolvedColor(with: traitCollection)
+        // Dates read in the text's own colour on every platform and theme
+        let textColor = (message.isDateLine ? UIColor.label : UIColor.air.secondaryLabel)
+            .resolvedColor(with: traitCollection)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: WTypography.uiFont(.caption2Emphasized),
             .foregroundColor: textColor
@@ -1588,6 +2141,9 @@ final class AgentSpacerCell: UICollectionViewCell {
 
 /// The Agent at work: its spinning top beside the current step, in the Agent's blue-to-purple gradient
 final class AgentTypingIndicatorCell: UICollectionViewCell {
+    /// The spinning top's size beside the step, which the consent sheet's title has beside it too
+    static let spinningTopSize: CGFloat = Metrics.iconSize
+
     private enum Metrics {
         static let iconSize: CGFloat = 24
         static let iconLeading: CGFloat = 12
@@ -1615,18 +2171,81 @@ final class AgentTypingIndicatorCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// How fast the status goes when the user stops the Agent
+    static let stoppedStatusFadeDuration: TimeInterval = 0.15
+
+    /// The user stopped the Agent while it thought: the status goes at once, and the row's top, no longer thinking,
+    /// grows as a press grows it and is knocked as by a failure, wobbling while grown. With Reduce Motion the top
+    /// neither grows nor is knocked.
+    func showStop() {
+        isStopped = true
+        spinningTopView.agentState = .idle
+        UIView.animate(
+            withDuration: Self.stoppedStatusFadeDuration,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.statusLabel.alpha = 0
+        }
+        spinningTopView.grow()
+        spinningTopView.knock()
+    }
+
+    /// The stopped row's top eases back to its resting size, never under it, and back into its place in the row
+    func releaseTop() {
+        spinningTopView.release()
+    }
+
+    /// The row and its top fade away together, the top at its resting size in its place: a top still grown ends its
+    /// growth at once rather than shrink away apart from the row
+    func fadeAway(duration: CFTimeInterval, completion: @escaping () -> Void) {
+        spinningTopView.endGrowth()
+        AgentBlurTransition.animateOut(contentView.layer, duration: duration, completion: completion)
+    }
+
+    /// The row's top, which the chat's tests watch
+    var topView: AgentSpinningTopView { spinningTopView }
+
+    /// The row stays a moment after a Stop, its top no longer thinking
+    private var isStopped = false
+
     @discardableResult
     func configure(statusText: String? = nil, accessibilityLabel: String? = nil) -> Bool {
         let normalizedStatusText = statusText?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
             ?? lang("$agent_activity_analyzing_request")
         let textChanged = statusLabel.text != normalizedStatusText
         spinningTopView.isActive = true
+        // The typing row shows while the Agent thinks
+        spinningTopView.agentState = isStopped ? .idle : .thinking
         if textChanged {
             statusLabel.setText(normalizedStatusText, animated: window != nil)
         }
         isAccessibilityElement = accessibilityLabel != nil
         self.accessibilityLabel = accessibilityLabel
         return textChanged
+    }
+
+    /// Pictures of the spinning top and the status as they show now, where they stand in `container`, and the frame the
+    /// two take up in the row, for the answer that takes the row's place to grow out of
+    func makeAnswerMorphSource(in container: UIView) -> AgentTypingRowSource? {
+        guard window != nil, !spinningTopView.bounds.isEmpty, !statusLabel.bounds.isEmpty,
+              let topPicture = spinningTopView.snapshotView(afterScreenUpdates: false) else { return nil }
+        let topFrame = spinningTopView.convert(spinningTopView.bounds, to: container)
+        let statusFrame = statusLabel.convert(statusLabel.bounds, to: container)
+        let content = topFrame.union(statusFrame)
+        let rowFrame = convert(bounds, to: container)
+        return AgentTypingRowSource(
+            topPicture: topPicture,
+            topFrame: topFrame,
+            statusPicture: UIImageView(image: statusLabel.makeLayerImage()),
+            statusFrame: statusFrame,
+            rowFrame: CGRect(
+                x: content.minX - Metrics.iconLeading,
+                y: rowFrame.minY,
+                width: content.width + 2 * Metrics.iconLeading,
+                height: rowFrame.height
+            )
+        )
     }
 
     /// The status comes up from transparency as it first appears, its text coming into focus out of a blur
@@ -1642,8 +2261,13 @@ final class AgentTypingIndicatorCell: UICollectionViewCell {
         contentView.layer.removeAllAnimations()
         contentView.alpha = 1
         statusLabel.setText(nil, animated: false)
+        statusLabel.layer.removeAllAnimations()
+        statusLabel.alpha = 1
+        // A top grown for a Stop shrinks away, out of the window
+        spinningTopView.dismiss()
         isAccessibilityElement = false
         accessibilityLabel = nil
+        isStopped = false
     }
 
     override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
@@ -1712,8 +2336,24 @@ final class AgentGradientLabel: UILabel {
         locations: [0, 0.1977, 0.5, 0.8023, 1]
     )
     static let textFont = UIFont.systemFont(ofSize: 17, weight: .medium)
+    /// A glint of whitish light passes across the text once each time it changes, as light runs over metal: it starts
+    /// `glintDelay` after the change, as the new text comes into focus, and takes `glintDuration`
+    static let glintDelay: CFTimeInterval = 0.3
+    static let glintDuration: CFTimeInterval = 0.75
+    /// Half the glint's width across, in points
+    static let glintHalfWidth: CGFloat = 16
+    /// The glint's opacity at its middle: a soft light rather than a white streak
+    static let glintPeakAlpha: CGFloat = 0.4
+    private static let glintGradient = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: [UIColor(white: 1, alpha: 0), UIColor(white: 1, alpha: glintPeakAlpha), UIColor(white: 1, alpha: 0)]
+            .map(\.cgColor) as CFArray,
+        locations: [0, 0.5, 1]
+    )
     private lazy var clock = GlassMotionClock(frameRateRange: nil) { [weak self] _ in self?.advance() }
     private var phase: CGFloat = 0
+    /// How long the glint has been running, negative while it waits for the new text, or nil once it has passed
+    private(set) var glintTime: CFTimeInterval?
     private var lastFrame: CFTimeInterval?
 
     override init(frame: CGRect) {
@@ -1728,6 +2368,11 @@ final class AgentGradientLabel: UILabel {
     }
 
     func setText(_ text: String?, animated: Bool) {
+        if let text, text != self.text {
+            glintTime = -Self.glintDelay
+        } else if text == nil {
+            glintTime = nil
+        }
         changeText(animated: animated) {
             self.attributedText = text.map {
                 NSAttributedString(string: $0, attributes: [.font: Self.textFont, .foregroundColor: UIColor.black])
@@ -1791,7 +2436,34 @@ final class AgentGradientLabel: UILabel {
                 options: []
             )
         }
+        // The glint lights only the text, over its gradient, slanted as light on a polished surface
+        if let glintTime, let centre = Self.getGlintCentre(
+            time: glintTime,
+            width: width,
+            isRightToLeft: effectiveUserInterfaceLayoutDirection == .rightToLeft
+        ), let glint = Self.glintGradient {
+            context.setBlendMode(.sourceAtop)
+            let slant = bounds.height * 0.35
+            context.drawLinearGradient(
+                glint,
+                start: CGPoint(x: centre - Self.glintHalfWidth - slant, y: bounds.maxY),
+                end: CGPoint(x: centre + Self.glintHalfWidth + slant, y: bounds.minY),
+                options: []
+            )
+        }
         context.endTransparencyLayer()
+    }
+
+    /// Where the glint's middle crosses the text `time` seconds into the glint, or nil before or after it. It runs in
+    /// the reading direction, from just before the text to just past it.
+    static func getGlintCentre(time: CFTimeInterval, width: CGFloat, isRightToLeft: Bool) -> CGFloat? {
+        let progress = time / glintDuration
+        guard progress >= 0, progress <= 1 else { return nil }
+        // Eased, so the light speeds up across the middle and lingers at the ends
+        let eased = CGFloat(progress * progress * (3 - 2 * progress))
+        let travel = width + 4 * glintHalfWidth
+        let distance = -2 * glintHalfWidth + eased * travel
+        return isRightToLeft ? width - distance : distance
     }
 
     /// Where the first of the two gradient tiles starts at `phase`. The sweep runs in the reading direction: rightward
@@ -1814,8 +2486,17 @@ final class AgentGradientLabel: UILabel {
         let now = CACurrentMediaTime()
         let dt = lastFrame.map { min(0.05, now - $0) } ?? 0
         lastFrame = now
+        step(by: dt)
+    }
+
+    /// Moves the sweep and the glint on by `dt` seconds
+    func step(by dt: CFTimeInterval) {
         // One sweep every two seconds, so the text reads as alive without flickering
         phase = (phase + CGFloat(dt) / 2).truncatingRemainder(dividingBy: 1)
+        if let glintTime {
+            let time = glintTime + dt
+            self.glintTime = time > Self.glintDuration ? nil : time
+        }
         setNeedsDisplay()
     }
 }

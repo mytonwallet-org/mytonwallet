@@ -24,6 +24,8 @@ type OwnProps = {
   loadMoreStrategy?: 'anchorMovement' | 'scrollDirection';
   preloadBackwards?: number;
   sensitiveArea?: number;
+  /** Tells whether the list is close enough to the top of its items to load more there, in place of `sensitiveArea` */
+  getIsNearTop?: (scrollContainer: HTMLDivElement) => boolean;
   withAbsolutePositioning?: boolean;
   /* A CSS value */
   maxHeight?: string;
@@ -59,6 +61,7 @@ const InfiniteScroll: FC<OwnProps> = ({
   loadMoreStrategy = 'anchorMovement',
   preloadBackwards = DEFAULT_PRELOAD_BACKWARDS,
   sensitiveArea = DEFAULT_SENSITIVE_AREA,
+  getIsNearTop,
   withAbsolutePositioning,
   maxHeight,
   // Used to turn off restoring scroll position (e.g. for frequently re-ordered chat or user lists)
@@ -88,6 +91,8 @@ const InfiniteScroll: FC<OwnProps> = ({
     isScrollTopJustUpdated?: boolean;
     currentAnchor?: HTMLDivElement | undefined;
     currentAnchorTop?: number;
+    /** The scroll `currentAnchorTop` was measured at */
+    currentAnchorScrollTop?: number;
     lastScrollTop?: number;
     wheelDirection?: ScrollDirection;
     wheelDirectionResetTimer?: ReturnType<typeof setTimeout>;
@@ -175,16 +180,25 @@ const InfiniteScroll: FC<OwnProps> = ({
 
     requestForcedReflow(() => {
       let newScrollTop: number | undefined;
+      let newAnchorTop: number | undefined;
 
       if (state.currentAnchor && Array.from(listItemElements).includes(state.currentAnchor)) {
         const { scrollTop } = scrollContainer;
-        const newAnchorTop = state.currentAnchor.getBoundingClientRect().top;
-        newScrollTop = scrollTop + (newAnchorTop - state.currentAnchorTop!);
+        newAnchorTop = state.currentAnchor.getBoundingClientRect().top;
+        // An anchor measured at another scroll, one that has not reached the scroll handler yet or one the change made
+        // by shortening the list, tells no place to keep the items at. They stay where they are, and it is measured again.
+        if (state.currentAnchorScrollTop === undefined || scrollTop === state.currentAnchorScrollTop) {
+          newScrollTop = scrollTop + (newAnchorTop - state.currentAnchorTop!);
+        } else {
+          state.currentAnchorTop = newAnchorTop;
+          state.currentAnchorScrollTop = scrollTop;
+        }
       } else {
         const nextAnchor = listItemElements[0];
         if (nextAnchor) {
           state.currentAnchor = nextAnchor;
           state.currentAnchorTop = nextAnchor.getBoundingClientRect().top;
+          state.currentAnchorScrollTop = scrollContainer.scrollTop;
         }
       }
 
@@ -200,6 +214,11 @@ const InfiniteScroll: FC<OwnProps> = ({
       return () => {
         resetScroll(scrollContainer, newScrollTop, shouldTrackScrollDirection);
 
+        if (newScrollTop !== undefined && newAnchorTop !== undefined) {
+          // The scroll event of this restore is skipped, so the anchor is placed here
+          state.currentAnchorTop = newAnchorTop - (newScrollTop - scrollTop);
+          state.currentAnchorScrollTop = newScrollTop;
+        }
         if (shouldTrackScrollDirection && newScrollTop !== undefined) state.lastScrollTop = newScrollTop;
         state.isScrollTopJustUpdated = true;
       };
@@ -264,7 +283,7 @@ const InfiniteScroll: FC<OwnProps> = ({
         }
       }
 
-      const isNearTop = scrollTop <= top + sensitiveArea;
+      const isNearTop = getIsNearTop ? getIsNearTop(scrollContainer) : scrollTop <= top + sensitiveArea;
       const isNearBottom = bottom - (scrollTop + offsetHeight) <= sensitiveArea;
       let isUpdated = false;
 
@@ -281,6 +300,7 @@ const InfiniteScroll: FC<OwnProps> = ({
           if (shouldLoadMore) {
             state.currentAnchor = nextAnchor;
             state.currentAnchorTop = nextAnchorTop;
+            state.currentAnchorScrollTop = scrollTop;
             isUpdated = true;
             loadMoreForwards();
           }
@@ -300,6 +320,7 @@ const InfiniteScroll: FC<OwnProps> = ({
           if (shouldLoadMore) {
             state.currentAnchor = nextAnchor;
             state.currentAnchorTop = nextAnchorTop;
+            state.currentAnchorScrollTop = scrollTop;
             isUpdated = true;
             loadMoreBackwards();
           }
@@ -309,12 +330,14 @@ const InfiniteScroll: FC<OwnProps> = ({
       if (!isUpdated) {
         if (currentAnchor?.offsetParent) {
           state.currentAnchorTop = currentAnchor.getBoundingClientRect().top;
+          state.currentAnchorScrollTop = scrollTop;
         } else {
           const nextAnchor = listItemElements[0];
 
           if (nextAnchor) {
             state.currentAnchor = nextAnchor;
             state.currentAnchorTop = nextAnchor.getBoundingClientRect().top;
+            state.currentAnchorScrollTop = scrollTop;
           }
         }
       }

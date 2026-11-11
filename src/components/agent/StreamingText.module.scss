@@ -1,3 +1,7 @@
+// A heading stands 6 px further from the text over it than a paragraph does, as Telegram's headings stand 10 px over
+// their text where its paragraphs stand 4 px
+$headingExtraGap: 0.375rem;
+
 .container,
 .text,
 .markdownSegment {
@@ -26,16 +30,70 @@
   }
 }
 
+// Headings are drawn as Telegram draws them in messages: semibold, in the text's colour, and larger than the text by
+// 7 px less their level, from 6 px for the first to 1 px for the sixth. The text under a heading follows a paragraph's
+// gap away.
+:global(.agent-text-heading) {
+  margin: calc(var(--agent-paragraph-gap, 1rem) + #{$headingExtraGap}) 0 var(--agent-paragraph-gap, 1rem);
+  font-weight: 600;
+  line-height: 1.4;
+
+  &:first-child {
+    margin-top: 0;
+  }
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+:global(.agent-text-heading-1) {
+  font-size: calc(1em + 0.375rem);
+}
+
+:global(.agent-text-heading-2) {
+  font-size: calc(1em + 0.3125rem);
+}
+
+:global(.agent-text-heading-3) {
+  font-size: calc(1em + 0.25rem);
+}
+
+:global(.agent-text-heading-4) {
+  font-size: calc(1em + 0.1875rem);
+}
+
+:global(.agent-text-heading-5) {
+  font-size: calc(1em + 0.125rem);
+}
+
+:global(.agent-text-heading-6) {
+  font-size: calc(1em + 0.0625rem);
+}
+
 .markdownSegment + .markdownSegment {
   // The paragraphs of a streaming answer are as far apart as once it is complete, so nothing moves when it ends
   margin-top: var(--agent-paragraph-gap, 1rem);
 }
 
+// A streaming paragraph that opens with a heading stands as far from the one over it as once the answer is complete
+.markdownSegment + .headingSegment {
+  margin-top: calc(var(--agent-paragraph-gap, 1rem) + #{$headingExtraGap});
+}
+
+// A copy of newly streamed text over it that draws its glow alone (`getStreamedCharacterGlowKeyframes`), as its shadow,
+// while the text itself takes the Agent's colours where it stands. Where the browser has no CSS highlights, its cover
+// hides the text and it shows the whole character (`getStreamedCharacterCopyKeyframes`). Its text is drawn from its
+// attribute rather than held in the page.
 .revealEdgeText {
-  transform-origin: bottom;
   display: block;
   width: max-content;
+  color: transparent;
   white-space: pre;
+
+  &::before {
+    content: attr(data-agent-streaming-reveal-edge-text);
+  }
 }
 
 .revealEdgeLayer {

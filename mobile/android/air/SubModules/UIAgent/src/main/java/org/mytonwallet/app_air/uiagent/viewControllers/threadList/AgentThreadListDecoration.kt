@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.threadList
 
+import android.animation.ValueAnimator
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -8,22 +9,26 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import android.os.Build
 import android.text.TextPaint
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.AnimationUtils
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 
 /**
  * Draws the list's card, which starts at the first row with rounded top corners and ends at the last row with
@@ -63,11 +68,25 @@ internal class AgentThreadListDecoration(
 
     var stickyTop: Int? = null
 
+    // The card's bottom as last drawn, and where it eases up from after rows below the last one went
+    private var drawnBottom = Float.NaN
+    private var easedFromBottom = Float.NaN
+    private var easeStartMs = 0L
+
+    // Debug builds set the bottom at once while system animations are off, to keep E2E runs fast
+    private val canEaseBottom: Boolean
+        get() = !DEBUG_MODE || areSystemAnimatorsEnabled
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
     private var titleLabel: WLabel? = null
     private val titleBaselines = HashMap<String, Float>()
 
     override fun onDraw(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         layoutPinnedHeader(parent, state.itemCount)
+        // A list without rows has no card, and shows the page
+        if (state.itemCount == 0) return
         val firstRow = parent.findViewHolderForAdapterPosition(0)?.itemView
         hasRoundedTop = firstRow != null
         val top = firstRow?.let { it.top + it.translationY } ?: 0f
@@ -78,8 +97,13 @@ internal class AgentThreadListDecoration(
             parent.paddingLeft.toFloat(),
             top,
             (parent.width - parent.paddingRight).toFloat(),
-            if (hasRoundedBottom) rowsBottom(parent) else parent.height.toFloat()
+            if (hasRoundedBottom) {
+                easeBottom(parent, lastRowBottom(parent, lastPosition))
+            } else {
+                parent.height.toFloat()
+            }
         )
+        drawnBottom = card.bottom
         cardPaint.color = WColor.Background.color
         val radius = ViewConstants.BLOCK_RADIUS.dp
         if ((!hasRoundedTop && !hasRoundedBottom) || radius <= 0f) {
@@ -93,17 +117,34 @@ internal class AgentThreadListDecoration(
         canvas.drawPath(cardPath, cardPaint)
     }
 
-    // The bottom of the lowest row, where a row that goes away counts the part of its height still shown
-    private fun rowsBottom(parent: RecyclerView): Float {
-        var bottom = 0f
-        for (index in 0 until parent.childCount) {
-            val child = parent.getChildAt(index)
-            val top = child.top + child.translationY
-            val params = child.layoutParams as? RecyclerView.LayoutParams
-            val isRemoved = params?.isItemRemoved == true
-            bottom = maxOf(bottom, top + child.height * if (isRemoved) child.alpha else 1f)
+    /**
+     * Makes the card's bottom ease up to where it ends after the next change, as the rows that close up a removed
+     * row's place do, rather than jump there when the rows under the last one go
+     */
+    fun easeBottomOnNextChange() {
+        if (drawnBottom.isNaN() || !canEaseBottom) return
+        easedFromBottom = drawnBottom
+        easeStartMs = AnimationUtils.currentAnimationTimeMillis()
+    }
+
+    // The bottom of the last row, which follows it as it moves
+    private fun lastRowBottom(parent: RecyclerView, lastPosition: Int): Float {
+        val lastRow = parent.findViewHolderForAdapterPosition(lastPosition)?.itemView
+            ?: return parent.height.toFloat()
+        return lastRow.top + lastRow.translationY + lastRow.height
+    }
+
+    private fun easeBottom(parent: RecyclerView, bottom: Float): Float {
+        if (easedFromBottom.isNaN()) return bottom
+        val progress = (AnimationUtils.currentAnimationTimeMillis() - easeStartMs).toFloat() /
+            AgentThreadListItemAnimator.MOVE_DURATION_MS
+        if (progress >= 1f || easedFromBottom <= bottom) {
+            easedFromBottom = Float.NaN
+            return bottom
         }
-        return bottom
+        parent.postInvalidateOnAnimation()
+        val eased = WInterpolator.smooth.getInterpolation(progress)
+        return easedFromBottom + (bottom - easedFromBottom) * eased
     }
 
     override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {

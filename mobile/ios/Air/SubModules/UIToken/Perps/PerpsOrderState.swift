@@ -1,9 +1,10 @@
 import Foundation
 import Perception
 import UIComponents
+import WalletCore
 import WalletContext
 
-/// Owns only local editing and response ordering. The caller owns order/quote semantics.
+/// Owns local editing and response ordering. The caller owns order and quote semantics.
 @Perceptible @MainActor
 final class PerpsOrderState {
     private(set) var data: PerpsOrderDisplayData
@@ -20,23 +21,16 @@ final class PerpsOrderState {
 
     var canReview: Bool {
         guard data.status == .ready, data.input.hasAmount, data.fundingRequirement == nil else { return false }
-        if let position = data.editingPosition { return position.change != nil }
-        return data.leverageOptions.contains { $0.value == data.input.leverage }
+        return data.editingPosition.map { $0.change != nil } ?? true
     }
 
     var hasPositionChanges: Bool {
         guard let position = data.editingPosition else { return false }
-        return data.input.amount != position.currentInput || isChangingLeverage
-    }
-
-    var isChangingLeverage: Bool {
-        data.editingPosition != nil && data.input.leverageOnly
+        return data.input.amount != position.currentInput
     }
 
     var canSelectLeverage: Bool {
-        guard data.fundingRequirement == nil, !data.leverageOptions.isEmpty else { return false }
-        guard let position = data.editingPosition else { return true }
-        return position.currentLeverage != nil && (data.input.amount == position.currentInput || isChangingLeverage)
+        data.editingPosition == nil && data.fundingRequirement == nil
     }
 
     var canRetryFunding: Bool {
@@ -53,17 +47,21 @@ final class PerpsOrderState {
         var requestID: UUID?
         var amount: String
         var leverage: Int
-        var leverageOnly: Bool
+        var intent: PerpsOrderInput.Intent
+        var funding: ApiPerpsFundingSource
         var positionID: String?
 
-        var input: PerpsOrderInput { .init(amount: amount, leverage: leverage, leverageOnly: leverageOnly) }
+        var input: PerpsOrderInput {
+            .init(amount: amount, leverage: leverage, intent: intent, funding: funding)
+        }
     }
 
     var estimateRefreshRequest: EstimateRefreshRequest? {
         guard estimateRefreshActive, data.input.hasAmount, data.fundingRequirement == nil,
               data.status == .ready || data.status == .idle else { return nil }
         return .init(generation: estimateRefreshGeneration, requestID: latestRequestID, amount: data.input.amount.text,
-                     leverage: data.input.leverage, leverageOnly: data.input.leverageOnly, positionID: data.editingPosition?.id)
+                     leverage: data.input.leverage, intent: data.input.intent, funding: data.input.funding,
+                     positionID: data.editingPosition?.id)
     }
 
     func setEstimateRefreshActive(_ active: Bool) {
@@ -75,11 +73,7 @@ final class PerpsOrderState {
     @discardableResult
     func applyEstimateRefresh(_ data: PerpsOrderDisplayData, for request: EstimateRefreshRequest) -> Bool {
         guard estimateRefreshRequest == request, data.editingPosition?.id == request.positionID else { return false }
-        var updated = data
-        updated.input = self.data.input
-        updated.availableCollateral = data.availableCollateral ?? self.data.availableCollateral
-        updated.canUseFractions = data.editingPosition != nil || updated.availableCollateral != nil
-        self.data = updated
+        replace(with: data, keepingInput: true)
         return true
     }
 
@@ -87,28 +81,47 @@ final class PerpsOrderState {
     func update(data: PerpsOrderDisplayData, for request: PerpsOrderRequest? = nil) -> Bool {
         guard latestRequestID == request?.id,
               data.editingPosition?.id == self.data.editingPosition?.id else { return false }
-        self.data = data
+        replace(with: data, keepingInput: false)
         return true
+    }
+
+    /// The opening maximum stays known between quotes that do not report it.
+    private func replace(with data: PerpsOrderDisplayData, keepingInput: Bool) {
+        var updated = data
+        if keepingInput { updated.input = self.data.input }
+        updated.availableCollateral = data.availableCollateral ?? self.data.availableCollateral
+        self.data = updated
     }
 
     func editAmount(_ input: TradeAmountInput) {
         guard data.input.amount != input else { return }
-        if isChangingLeverage {
-            data.paymentAmount = nil
-        }
-        if let leverage = data.editingPosition?.currentLeverage { data.input.leverage = leverage }
-        data.input.leverageOnly = false
+        resetLeverageToCurrent()
         data.input.amount = input
+        data.input.intent = input == data.editingPosition?.currentInput ? .current : .amount
         request(.amountChanged)
     }
 
     func selectLeverage(_ value: Int) {
-        guard canSelectLeverage,
-              data.leverageOptions.contains(where: { $0.value == value }), value != data.input.leverage else { return }
-        if let position = data.editingPosition { data.input.amount = position.currentInput }
+        guard canSelectLeverage, data.leverageRange.contains(value), value != data.input.leverage else { return }
         data.input.leverage = value
-        data.input.leverageOnly = data.editingPosition.map { $0.currentLeverage != value } ?? false
         request(.leverageChanged)
+    }
+
+    var canSelectFunding: Bool {
+        (data.hyperliquidBalance != nil || data.input.funding == .balance) && data.editingPosition?.change != .reduce
+    }
+
+    /// The opening maximum depends on the source, so percentages wait for its quote; a filled share stays as typed text.
+    func selectFunding(_ funding: ApiPerpsFundingSource) {
+        guard funding != data.input.funding, funding == .wallet || canSelectFunding else { return }
+        data.input.funding = funding
+        if data.input.fraction != nil { data.input.intent = .amount }
+        data.availableCollateral = nil
+        request(.fundingChanged)
+    }
+
+    private func resetLeverageToCurrent() {
+        if let leverage = data.editingPosition?.currentLeverage { data.input.leverage = leverage }
     }
 
     func request(_ action: PerpsOrderRequest.Action) {
@@ -116,20 +129,17 @@ final class PerpsOrderState {
         case .review: guard canReview else { return }
         case .fraction(let percentage):
             guard data.canUseFractions, fractionPresets.contains(percentage),
-                  data.fundingRequirement == nil || (data.editingPosition != nil && percentage < 0),
-                  let basis = data.editingPosition?.currentInput ?? data.availableCollateral else { return }
-            let factor = data.editingPosition == nil ? percentage : 100 + percentage
-            var input = TradeAmountInput()
-            input.set(basis.amount(decimals: data.currencyDecimals) * BigInt(factor) / 100, decimals: data.currencyDecimals)
-            editAmount(input)
-            return
+                  data.fundingRequirement == nil || (data.editingPosition != nil && percentage < 0) else { return }
+            resetLeverageToCurrent()
+            // Fills at once; the quote for the exact share follows.
+            if let amount = data.amount(forFraction: percentage) { data.input.amount = amount }
+            data.input.intent = .fraction(percentage)
         case .resetAmount:
             guard hasPositionChanges else { return }
-            if let leverage = data.editingPosition?.currentLeverage { data.input.leverage = leverage }
-            data.input.leverageOnly = false
+            resetLeverageToCurrent()
+            if let position = data.editingPosition { data.input.amount = position.currentInput }
+            data.input.intent = .current
         case .leverageChanged: guard canSelectLeverage else { return }
-        case .selectPayment: guard data.canSelectPayment else { return }
-        case .selectAccount: guard data.canSelectAccount else { return }
         case .buyUsdc, .buyEth:
             let expectedAction: PerpsOrderDisplayData.FundingAction = action == .buyUsdc ? .buyUsdc : .buyEth
             guard data.fundingRequirement?.action == expectedAction else { return }
@@ -143,7 +153,7 @@ final class PerpsOrderState {
         data.status = data.editingPosition == nil && !data.input.hasAmount
             && (action == .amountChanged || action == .leverageChanged) ? .idle : .loading
         if action != .review && action != .refreshFunding {
-            if action == .leverageChanged || data.editingPosition?.change == .leverage {
+            if action == .leverageChanged {
                 data.paymentAmount = nil
             }
             if !data.input.hasAmount {
@@ -151,15 +161,12 @@ final class PerpsOrderState {
                 data.paymentAmount = nil
             }
             data.positionSize = nil
-            data.swapFee = nil
+            data.bridgeFee = nil
             data.tradingFee = nil
             data.networkFee = nil
+            data.leverageEstimate = nil
             data.editingPosition?.change = nil
             data.editingPosition?.liquidationPrice = nil
-            // Estimates are tied to the previous draft. Keep supported values, clear derived details.
-            data.leverageOptions = data.leverageOptions.map {
-                .init(value: $0.value, isPreset: $0.isPreset)
-            }
         }
         onRequest(request)
     }

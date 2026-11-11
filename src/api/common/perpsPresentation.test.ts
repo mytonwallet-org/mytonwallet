@@ -1,11 +1,15 @@
 import type { ApiPerpsListedAsset, ApiPerpsPosition } from '../types/perps';
+import type { ApiPerpsQuote } from '../types/perpsTrading';
 
 import { Big } from '../../lib/big.js';
 import depositFixture from '../../../tests/fixtures/perpsDeposit.json';
 import {
-  applyPerpsLeverageChangeDeposit, getPerpsFundingRequirements, getPerpsMarketTradingAvailability,
-  getPerpsOpenInterestUsd, getPerpsReviewedLimitPrice, getPerpsWireAssetIndex,
-  isPerpsPositionNearLiquidation, normalizePerpsPosition,
+  applyPerpsLeverageChangeDeposit, applyPerpsLeverageChangeMargin, assertPerpsBalanceCovers,
+  getPerpsBalanceFundingRequirements, getPerpsBalanceWithdrawalPreview, getPerpsFundingRequirements,
+  getPerpsMarketTradingAvailability, getPerpsOpenInterestUsd, getPerpsReceiveEstimate, getPerpsReviewedLimitPrice,
+  getPerpsWireAssetIndex,
+  isPerpsPositionNearLiquidation, limitPerpsLeverageChangeDeposit,
+  normalizePerpsPosition, readPerpsSpendableUsdc,
   resolvePerpsDraft, validatePerpsReviewedBuild,
 } from './perpsPresentation';
 
@@ -44,14 +48,13 @@ const params = {
   depositLimits,
   now: Date.now(),
   id: 'quote',
-  draft: { assetId: asset.id, side: 'long' as const, amount: '50', unit: 'currency' as const, leverage: 10 },
+  draft: { assetId: asset.id, side: 'long' as const, amount: '50', leverage: 10 },
 };
 
 test.each(['', 'xyz'])('a market on %s without the canonical wire index cannot be traded', (dex) => {
   const market = { ...asset, dex, wireAssetIndex: undefined };
   expect(getPerpsWireAssetIndex(market)).toBeUndefined();
   expect(getPerpsMarketTradingAvailability(market).isAvailable).toBe(false);
-  expect(() => resolvePerpsDraft({ ...params, asset: market })).toThrow('PerpsTradingUnavailable');
   expect(getPerpsWireAssetIndex({ ...market, wireAssetIndex: 110005 })).toBe(110005);
 });
 
@@ -64,22 +67,41 @@ test.each([-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '1', null])(
   },
 );
 
-test.each([{ wireAssetIndex: -1 }, { isDelisted: true }])('unavailable market %j cannot resolve an order', (fields) => {
-  const unsupported = { ...asset, ...fields };
-  expect(getPerpsMarketTradingAvailability(unsupported))
+test.each([{ wireAssetIndex: -1 }, { isDelisted: true }])('unavailable market %j cannot be traded', (fields) => {
+  expect(getPerpsMarketTradingAvailability({ ...asset, ...fields }))
     .toEqual({ isAvailable: false, reason: 'PerpsTradingUnavailable' });
-  expect(() => resolvePerpsDraft({ ...params, asset: unsupported })).toThrow('PerpsTradingUnavailable');
-  expect(() => getPerpsFundingRequirements({ ...params, asset: unsupported, availableEth: '1' }))
-    .toThrow('PerpsTradingUnavailable');
 });
 
 test('an empty opening checks both Arbitrum funding minimums without requiring an order amount', () => {
   expect(getPerpsFundingRequirements({
     ...params, draft: { ...params.draft, amount: '' }, availableUsdc: '0', availableEth: '0',
   })).toEqual({
-    requiredUsdc: '10.2', requiredEth: '0.0001', requiredEthUsd: '0.25',
-    usdcBalance: '0', availableCollateral: '0', ethBalance: '0', needsUsdc: true, needsEth: true,
+    requiredUsdc: '10.2', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0',
+    usdcBalance: '0', availableCollateral: '0', ethBalance: '0', needsUsdc: true, needsEth: false,
   });
+});
+
+test('a covered native fee is required in ETH and does not reserve USDC', () => {
+  expect(getPerpsFundingRequirements({
+    ...params, availableEth: '0.001', nativeFee: { eth: '0.000012', usd: '0.024' },
+  })).toMatchObject({
+    requiredEth: '0.000012', requiredEthUsd: '0.024', requiredGasUsdc: '0', needsEth: false, needsUsdc: false,
+  });
+  expect(getPerpsFundingRequirements({
+    ...params, availableEth: '0', nativeFee: { eth: '0.000012' },
+  })).toMatchObject({ requiredEth: '0.0001', requiredEthUsd: '0.25', needsEth: true, requiredGasUsdc: '0' });
+});
+
+test('a gas reserve adds to the deposit USDC requirement and nothing else', () => {
+  const opening = { ...params, availableUsdc: '0', availableEth: '0', requiredGasUsdc: '0.05' };
+  expect(getPerpsFundingRequirements(opening)).toMatchObject({
+    requiredGasUsdc: '0.05', requiredEth: '0', needsUsdc: true, needsEth: false,
+  });
+  expect(getPerpsFundingRequirements({ ...opening, availableUsdc: '50.27' }))
+    .toMatchObject({ requiredGasUsdc: '0.05', needsUsdc: false });
+  const position = normalizePerpsPosition(params.accountId, asset, raw);
+  expect(getPerpsFundingRequirements({ ...opening, position, draft: { ...params.draft, editing: true, amount: '75' } }))
+    .toMatchObject({ requiredGasUsdc: '0', requiredEth: '0', needsEth: false });
 });
 
 test('funding checks honor backend minimums, the current draft and exact boundary balances', () => {
@@ -91,7 +113,7 @@ test('funding checks honor backend minimums, the current draft and exact boundar
   expect(getPerpsFundingRequirements(empty)).toMatchObject({ requiredUsdc: '12.2', needsUsdc: false, needsEth: false });
   expect(getPerpsFundingRequirements({ ...empty, draft: params.draft }))
     .toMatchObject({ requiredUsdc: '50.2', needsUsdc: true, needsEth: false });
-  expect(getPerpsFundingRequirements({ ...empty, availableEth: '0.000099999999999999' }))
+  expect(getPerpsFundingRequirements({ ...empty, availableEth: '0' }))
     .toMatchObject({ needsUsdc: false, needsEth: false });
   const position = normalizePerpsPosition(params.accountId, asset, raw);
   expect(getPerpsFundingRequirements({ ...empty, position, draft: { ...params.draft, editing: true, amount: '110' } }))
@@ -107,13 +129,9 @@ test.each([
   })).toMatchObject({ requiredUsdc: '0', requiredEth: '0', needsUsdc: false, needsEth: false });
 });
 
-test('funding requirements share fraction and token amount interpretation with order preparation', () => {
+test('funding requirements share fraction interpretation with order preparation', () => {
   expect(getPerpsFundingRequirements({ ...params, availableEth: '0.0001', draft: { ...params.draft, fraction: 100 } }))
     .toMatchObject({ requiredUsdc: '200', needsUsdc: false });
-  expect(getPerpsFundingRequirements({
-    ...params, availableEth: '0.0001', draft: { ...params.draft, unit: 'asset', amount: '0.005' },
-  }))
-    .toMatchObject({ requiredUsdc: '50.2', needsUsdc: false });
 });
 
 test.each(['200', '200.123456'])(
@@ -249,6 +267,7 @@ test('partial reduction releases a gross USDC amount with no incoming payment', 
   expect(q.kind).toBe('reduce');
   expect(q.modify).toMatchObject({ depositAmount: '25', reduceOnly: true });
   expect(q.paymentAmount).toBe('0');
+  expect(q.bridgeFee).toBe('0.2');
   expect(q.size).toBe('0.0075');
   expect(q.previousNotional).toBe('1000');
   expect(q.notional).toBe('750');
@@ -270,6 +289,7 @@ test.each(['10', '-10', '0'])('close review keeps P&L %s distinct from equity an
   expect(q.receiveStatus).toBe('pending');
   expect(q).not.toHaveProperty('receiveAmount');
   expect(q.paymentAmount).toBe('0');
+  expect(q.bridgeFee).toBe('0.2');
 });
 
 test('open interest is converted to USD with decimal precision and unavailable data stays absent', () => {
@@ -304,11 +324,11 @@ test('modify estimate deposit funds a leverage decrease and stays zero on an inc
     draft: { ...params.draft, amount: '100', leverage: 5, editing: true },
   });
   applyPerpsLeverageChangeDeposit(decrease, '100.2', params.availableUsdc);
-  expect(decrease.paymentAmount).toBe('100.2');
+  expect(decrease.paymentAmount).toBe('105.2');
   expect(decrease.bridgeFee).toBe('0.2');
-  expect(decrease.collateral).toBe('200');
+  expect(decrease.collateral).toBe('205');
   expect(decrease.size).toBe('0.01');
-  expect(decrease.modify).toMatchObject({ leverage: 5, depositAmount: '100.2' });
+  expect(decrease.modify).toMatchObject({ leverage: 5, depositAmount: '105.2' });
 
   const quoted = resolvePerpsDraft({
     ...params,
@@ -316,7 +336,7 @@ test('modify estimate deposit funds a leverage decrease and stays zero on an inc
     availableUsdc: '80',
     draft: { ...params.draft, amount: '100', leverage: 5, editing: true },
   });
-  applyPerpsLeverageChangeDeposit(quoted, '50.2', '80');
+  applyPerpsLeverageChangeDeposit(quoted, '45.2', '80');
   expect(() => validatePerpsReviewedBuild(quoted, asset, {
     updateLeverage: { action: { asset: 0, leverage: 5, isCross: false } },
     updateIsolatedMargin: { action: { type: 'updateIsolatedMargin', asset: 0, isBuy: true, ntli: 50_000_000 } },
@@ -334,6 +354,7 @@ test('modify estimate deposit funds a leverage decrease and stays zero on an inc
   });
   applyPerpsLeverageChangeDeposit(increase, '0', params.availableUsdc);
   expect(increase.paymentAmount).toBe('0');
+  expect(increase.bridgeFee).toBe('0');
   expect(increase.collateral).toBe('100');
   expect(increase.modify?.depositAmount).toBe('0');
   expect(() => validatePerpsReviewedBuild(increase, asset, {
@@ -345,10 +366,106 @@ test('modify estimate deposit funds a leverage decrease and stays zero on an inc
   })).toThrow('PerpsReviewChanged');
   expect(() => applyPerpsLeverageChangeDeposit(increase, '500', '10')).toThrow('PerpsInsufficientUsdc');
 });
+test.each([
+  ['the wallet covers the headroom', '56', '55.2', '155'],
+  ['the wallet covers only part of the headroom', '52', '52', '151.8'],
+  ['the wallet holds exactly the need', '50.2', '50.2', '150'],
+  ['a preview reads no wallet', undefined, '55.2', '155'],
+])('a leverage decrease reviews half a percent of the position above its need when %s', (
+  _, available, deposit, collateral,
+) => {
+  const quote = resolvePerpsDraft({ ...params, position: normalizePerpsPosition('a', asset, raw),
+    draft: { ...params.draft, amount: '100', leverage: 5, editing: true } });
+  applyPerpsLeverageChangeDeposit(quote, '50.2', available);
+  expect(quote).toMatchObject({ paymentAmount: deposit, collateral, modify: { depositAmount: deposit } });
+});
+test.each([
+  ['covers the headroom', '56', '55.2', '155'],
+  ['covers only part of the headroom', '52', '52', '151.8'],
+  ['does not cover the need', '40', '55.2', '155'],
+])('a previewed leverage deposit is limited by a wallet that %s', (_, available, deposit, collateral) => {
+  const quote = resolvePerpsDraft({ ...params, position: normalizePerpsPosition('a', asset, raw),
+    draft: { ...params.draft, amount: '100', leverage: 5, editing: true } });
+  applyPerpsLeverageChangeDeposit(quote, '50.2');
+  limitPerpsLeverageChangeDeposit(quote, '50.2', available);
+  expect(quote).toMatchObject({ paymentAmount: deposit, collateral, modify: { depositAmount: deposit } });
+});
+test.each([[-25, 'reduce', '0'], [-5, 'reduce', '0'], [5, 'increase', '5.2'], [25, 'increase', '25.2']] as const)(
+  'a %i%% position edit needs no wallet balance', (fraction, kind, paymentAmount) => {
+    const position = normalizePerpsPosition(params.accountId, asset, raw);
+    const quote = resolvePerpsDraft({
+      ...params, availableUsdc: undefined, position, draft: { ...params.draft, editing: true, fraction },
+    });
+    expect(quote).toMatchObject({ kind, paymentAmount });
+  },
+);
+
+test.each([['0.25', '-0.25'], ['-0.25', '0.25'], ['0', '0']])(
+  'a position with cumFunding.sinceOpen %s reports funding %s, positive when received', (sinceOpen, funding) => {
+    const cumFunding = { allTime: '1', sinceChange: '1', sinceOpen };
+    expect(normalizePerpsPosition(params.accountId, asset, { ...raw, cumFunding }).funding).toBe(funding);
+  },
+);
+
+test('the receive estimate is the share of the position value less trading and bridge fees', () => {
+  const estimatedFees = { trading: '0.3', bridge: '0.2', total: '0.5' };
+  const quote = { equity: '110', orderSize: '0.0025', previousSize: '0.01', estimatedFees } as ApiPerpsQuote;
+
+  expect(getPerpsReceiveEstimate({ ...quote, kind: 'reduce' })).toBe('27');
+  expect(getPerpsReceiveEstimate({ ...quote, kind: 'close' })).toBe('109.5');
+  expect(getPerpsReceiveEstimate({ ...quote, kind: 'close', estimatedFees: undefined })).toBeUndefined();
+  expect(getPerpsReceiveEstimate({ ...quote, kind: 'reduce', equity: '2' })).toBeUndefined();
+  expect(getPerpsReceiveEstimate({ ...quote, kind: 'increase' })).toBeUndefined();
+});
+
 test('fractions reserve bridge fee and enforce available collateral', () => {
   const q = resolvePerpsDraft({ ...params, draft: { ...params.draft, fraction: 100 } });
   expect(q.paymentAmount).toBe('200');
   expect(() => resolvePerpsDraft({ ...params, availableUsdc: '50' })).toThrow('PerpsInsufficientUsdc');
+});
+
+test.each([
+  { marginUsed: '15.49', unrealizedPnl: '-0.2', minimumAmount: '10.2' },
+  { marginUsed: '15.491', unrealizedPnl: '-0.199', minimumAmount: '10.199' },
+])('minimum amount explains the required collateral for a losing position: %j', (values) => {
+  const position = normalizePerpsPosition('a', asset, { ...raw, ...values });
+  const resolve = (amount: string) => resolvePerpsDraft({
+    ...params, position, draft: { ...params.draft, editing: true, amount },
+  });
+  expect(() => resolve('10')).toThrow(expect.objectContaining({
+    message: 'PerpsAmountTooSmall', minimumAmount: values.minimumAmount, isMinimumExclusive: false,
+  }));
+  expect(resolve(values.minimumAmount).kind).toBe('reduce');
+});
+
+test('minimum amount covers both bridge and margin limits and distinguishes a minimum reduction', () => {
+  expect(() => resolvePerpsDraft({
+    ...params, draft: { ...params.draft, amount: '1' },
+    depositLimits: { ...depositLimits, minPositionMarginUsdc: '15' },
+  })).toThrow(expect.objectContaining({ minimumAmount: '15', isMinimumExclusive: false }));
+  expect(() => resolvePerpsDraft({
+    ...params, draft: { ...params.draft, amount: '1' },
+    depositLimits: { ...depositLimits, minOpenDepositUsdc: '20.2' },
+  })).toThrow(expect.objectContaining({ minimumAmount: '20', isMinimumExclusive: false }));
+  const position = normalizePerpsPosition('a', asset, raw);
+  expect(() => resolvePerpsDraft({
+    ...params, position, draft: { ...params.draft, editing: true, amount: '100.3' },
+    depositLimits: { ...depositLimits, minIncreaseDepositUsdc: '0.5' },
+  })).toThrow(expect.objectContaining({ minimumAmount: '100.3', isMinimumExclusive: true }));
+  expect(() => resolvePerpsDraft({
+    ...params, position, draft: { ...params.draft, editing: true, amount: '99.9' },
+  })).toThrow(expect.objectContaining({ minimumReduction: '0.2' }));
+});
+
+test('insufficient balance reports the incremental payment and only a known fee', () => {
+  const quote = resolvePerpsDraft({
+    ...params, position: normalizePerpsPosition('a', asset, raw),
+    draft: { ...params.draft, editing: true, amount: '103', funding: 'balance' },
+  });
+  expect(() => assertPerpsBalanceCovers({ ...quote, estimatedFees: { trading: '0.019', total: '0.019' } }, asset, '2'))
+    .toThrow(expect.objectContaining({ requiredBalance: '3.019', availableBalance: '2' }));
+  expect(() => assertPerpsBalanceCovers(quote, asset, '2'))
+    .toThrow(expect.objectContaining({ requiredBalance: undefined, availableBalance: '2' }));
 });
 test('rejects unsupported leverage, dust and stale position intentions', () => {
   expect(() => resolvePerpsDraft({ ...params, draft: { ...params.draft, leverage: 41 } })).toThrow(
@@ -396,20 +513,36 @@ test('rejects unsupported leverage, dust and stale position intentions', () => {
   );
 });
 test.each([
-  { marginUsed: '120', unrealizedPnl: '20', rawUsd: undefined, amount: '5', accepted: true },
-  { marginUsed: '80', unrealizedPnl: '-20', rawUsd: undefined, amount: '25', accepted: false },
-  { marginUsed: '80', unrealizedPnl: '-20', rawUsd: '120', amount: '5', accepted: true },
-  { marginUsed: '120', unrealizedPnl: '20', rawUsd: '80', amount: '25', accepted: false },
+  { marginUsed: '120', unrealizedPnl: '20', amount: '5', accepted: true },
+  { marginUsed: '80', unrealizedPnl: '-20', amount: '25', accepted: false },
+  // Hyperliquid reports a short's rawUsd as its margin plus its position value, which is not margin to spare.
+  { marginUsed: '80', unrealizedPnl: '-20', szi: '-0.01', rawUsd: '1080', amount: '25', accepted: false },
 ])('minimum margin uses the backend balance independently of invested collateral: %j', (values) => {
+  const leverage = { ...raw.leverage, rawUsd: values.rawUsd };
   const position = normalizePerpsPosition('a', asset, {
-    ...raw, marginUsed: values.marginUsed, unrealizedPnl: values.unrealizedPnl,
-    leverage: { ...raw.leverage, rawUsd: values.rawUsd },
+    ...raw, marginUsed: values.marginUsed, unrealizedPnl: values.unrealizedPnl, szi: values.szi ?? raw.szi, leverage,
   });
   const resolve = () => resolvePerpsDraft({
     ...params, position, draft: { ...params.draft, editing: true, amount: values.amount },
   });
   if (values.accepted) expect(resolve().kind).toBe('reduce');
   else expect(resolve).toThrow('PerpsAmountTooSmall');
+});
+
+test('a build switches the account to Unified only when the reviewed quote says so', () => {
+  const q = resolvePerpsDraft({ ...params, now: Date.now() });
+  const build = {
+    marketReferencePrice: '100000',
+    action: { orders: [{ a: 0, b: true, r: false, s: '0.00497', p: '100500', t: { limit: { tif: 'Ioc' } } }] },
+    deposit: { ...depositFixture, requiresPermitSignature: true as const },
+    updateLeverage: { action: { asset: 0, leverage: 10, isCross: false } },
+  };
+  const setAbstraction = { action: { type: 'userSetAbstraction', abstraction: 'unifiedAccount' } };
+  expect(() => validatePerpsReviewedBuild(q, asset, { ...build, setAbstraction })).toThrow('PerpsReviewChanged');
+
+  const disclosed = { ...q, switchesToUnified: true };
+  expect(() => validatePerpsReviewedBuild(disclosed, asset, { ...build, setAbstraction })).not.toThrow();
+  expect(() => validatePerpsReviewedBuild(disclosed, asset, build)).toThrow('PerpsReviewChanged');
 });
 
 test('signed order must match reviewed asset, size, direction, slippage and deposit', () => {
@@ -484,7 +617,7 @@ test.each(['open', 'increase', 'reduce', 'close', 'leverage'] as const)(
       draft: { ...params.draft, assetId: market.id, editing: kind !== 'open',
         amount: kind === 'open' ? '50' : kind === 'increase' ? '250' : kind === 'reduce' ? '150' : '200',
         leverage: kind === 'leverage' ? 5 : 10, close: kind === 'close' } });
-    if (kind === 'leverage') applyPerpsLeverageChangeDeposit(quote, '50.2', params.availableUsdc);
+    if (kind === 'leverage') applyPerpsLeverageChangeDeposit(quote, '40.7', params.availableUsdc);
     const isBuy = kind === 'open' || kind === 'increase';
     const order = { a: 110012, b: isBuy, r: !isBuy, s: quote.orderSize,
       p: isBuy ? '195.7' : '184.3', t: { limit: { tif: 'Ioc' } } };
@@ -519,19 +652,17 @@ test.each(['open', 'increase', 'reduce', 'close', 'leverage'] as const)(
   },
 );
 
-test('unit conversion and reset can describe an unchanged position without creating an order', () => {
+test('the current collateral and a reset describe an unchanged position without creating an order', () => {
   const position = normalizePerpsPosition('a', asset, raw);
-  const quote = resolvePerpsDraft({ ...params, position,
-    draft: { ...params.draft, amount: '100', editing: true, convertFrom: 'currency', unit: 'asset' } });
+  const quote = resolvePerpsDraft({ ...params, position, draft: { ...params.draft, amount: '100', editing: true } });
   expect(quote.kind).toBe('unchanged');
-  expect(quote.inputAmount).toBe('0.01');
-  expect(quote.currentInputAmount).toBe('0.01');
+  expect(quote.inputAmount).toBe('100');
   expect(quote.modify).toBeUndefined();
   expect(() => validatePerpsReviewedBuild(quote, asset, {})).toThrow('PerpsUnchanged');
   const reset = resolvePerpsDraft({ ...params, position,
-    draft: { ...params.draft, amount: '0.1', unit: 'asset', editing: true, reset: true } });
+    draft: { ...params.draft, amount: '250', editing: true, reset: true } });
   expect(reset.kind).toBe('unchanged');
-  expect(reset.inputAmount).toBe('0.01');
+  expect(reset.inputAmount).toBe('100');
 });
 
 test('short reductions buy back only the reviewed delta and keep the margin mode', () => {
@@ -619,4 +750,218 @@ test('an explicit resize draft cannot turn into a leverage change when the live 
     ...params, position,
     draft: { ...params.draft, editing: true, leverageOnly: false, amount: position.collateral },
   })).toThrow('PerpsPositionChanged');
+});
+
+describe('balance withdrawal preview', () => {
+  test.each([
+    [{ withdrawable: '1.5' }, { balance: '1.5', amount: '1.47', receiveAmount: '1.27' }],
+    [{ withdrawable: '0', spotUsdcAvailable: '1.5' }, { balance: '1.5', amount: '1.47', receiveAmount: '1.27' }],
+    [{ withdrawable: '3', spotUsdcAvailable: '1.5' }, { balance: '3', amount: '2.97', receiveAmount: '2.77' }],
+    [{ withdrawable: '1.5', spotUsdcAvailable: '3' }, { balance: '3', amount: '2.97', receiveAmount: '2.77' }],
+    [{ withdrawable: '1.23456789' }, { balance: '1.23456789', amount: '1.204567', receiveAmount: '1.004567' }],
+    [{ withdrawable: '0.250001' }, { balance: '0.250001', amount: '0.220001', receiveAmount: '0.020001' }],
+  ])('sends the larger source less the reserve: %j', (balances, expected) => {
+    expect(getPerpsBalanceWithdrawalPreview(balances)).toEqual({ ...expected, bridgeFee: '0.2' });
+  });
+
+  test('leaves an unpaid first transfer fee on the balance and shows it', () => {
+    expect(getPerpsBalanceWithdrawalPreview({ withdrawable: '10.941402', firstTransferFeeUsdc: '1' })).toEqual({
+      balance: '10.941402', amount: '9.911402', bridgeFee: '0.2', firstTransferFee: '1', receiveAmount: '9.711402',
+    });
+    expect(getPerpsBalanceWithdrawalPreview({ withdrawable: '10', firstTransferFeeUsdc: '0' })?.firstTransferFee)
+      .toBeUndefined();
+  });
+
+  test('offers nothing when the first transfer fee leaves too little to send', () => {
+    expect(getPerpsBalanceWithdrawalPreview({ withdrawable: '1.25', firstTransferFeeUsdc: '1' })).toBeUndefined();
+    expect(getPerpsBalanceWithdrawalPreview({ withdrawable: '1.26', firstTransferFeeUsdc: '1' })?.receiveAmount)
+      .toBe('0.03');
+  });
+
+  test.each([
+    [{}],
+    [{ withdrawable: '0.25' }],
+    [{ withdrawable: '0.2', spotUsdcAvailable: '0.25' }],
+    [{ withdrawable: 'NaN', spotUsdcAvailable: '-5' }],
+  ])('offers nothing at or below the minimum balance: %j', (balances) => {
+    expect(getPerpsBalanceWithdrawalPreview(balances)).toBeUndefined();
+  });
+});
+
+describe('balance funding', () => {
+  const balanceDraft = { ...params.draft, funding: 'balance' as const };
+  const balance = { ...params, availableUsdc: undefined, spendableUsdc: '200', draft: balanceDraft };
+  const position = normalizePerpsPosition(params.accountId, asset, raw);
+  const order = { a: 0, b: true, r: false, s: '0.005', p: '103000', t: { limit: { tif: 'Ioc' } } };
+  const orderBuild = {
+    marketReferencePrice: '100000', action: { orders: [order] },
+    updateLeverage: { action: { asset: 0, leverage: 10, isCross: false } },
+  };
+
+  test('an open posts the whole amount and sizes the order without a bridge fee or deposit minimum', () => {
+    const quote = resolvePerpsDraft({ ...balance, depositLimits: { ...depositLimits, minOpenDepositUsdc: '60' } });
+    expect(quote).toMatchObject({
+      kind: 'open', funding: 'balance', paymentAmount: '50', collateral: '50', bridgeFee: '0', orderSize: '0.005',
+      openFromBalance: {
+        chain: 'hyperliquid', address: params.address, asset: asset.id, side: 'long', amount: '50', leverage: 10,
+        isCross: false, slippage: 0.03,
+      },
+    });
+    expect(quote.open).toBeUndefined();
+    expect(() => resolvePerpsDraft({ ...params, depositLimits: { ...depositLimits, minOpenDepositUsdc: '60' } }))
+      .toThrow('PerpsAmountTooSmall');
+    expect(() => resolvePerpsDraft({ ...balance, draft: { ...balanceDraft, amount: '5' } }))
+      .toThrow('PerpsAmountTooSmall');
+  });
+
+  test('an increase takes its margin from the balance below the bridge deposit minimum', () => {
+    const quote = resolvePerpsDraft({ ...balance, position,
+      depositLimits: { ...depositLimits, minIncreaseDepositUsdc: '80' },
+      draft: { ...balanceDraft, editing: true, amount: '100.1' } });
+    expect(quote).toMatchObject({
+      kind: 'increase', funding: 'balance', paymentAmount: '0.1', bridgeFee: '0', orderSize: '0.00001',
+      modify: { depositAmount: '0.1', reduceOnly: false, fundingSource: 'balance' },
+    });
+    // The whole 0.1 USDC is margin; a bridge credit would leave nothing to size the order with.
+    expect(() => validatePerpsReviewedBuild(quote, asset, {
+      marketReferencePrice: '100000', action: { orders: [{ ...order, s: '0.00001' }] },
+    })).not.toThrow();
+  });
+
+  test.each([{ amount: '75' }, { amount: '0', close: true }])(
+    'a reduction ignores the funding source: %j', (change) => {
+      const draft = { ...params.draft, editing: true, ...change };
+      expect(resolvePerpsDraft({ ...balance, position, draft: { ...draft, funding: 'balance' } }))
+        .toEqual(resolvePerpsDraft({ ...params, position, draft }));
+    },
+  );
+
+  test.each([
+    ['the native book at 10×', asset, 10, '197.238658'],
+    ['the native book at 1×', asset, 1, '199.720391'],
+    ['a HIP-3 book at 10×', { ...asset, dex: 'xyz', wireAssetIndex: 110005 }, 10, '193.050193'],
+  ] as const)('the most a balance funds on %s leaves trading-fee headroom', (_, market, leverage, available) => {
+    expect(getPerpsBalanceFundingRequirements(market, leverage, '200')).toEqual({
+      requiredUsdc: '0', requiredGasUsdc: '0', requiredEth: '0', requiredEthUsd: '0', usdcBalance: '200',
+      availableCollateral: available, ethBalance: '0', needsUsdc: false, needsEth: false,
+    });
+    const maximum = resolvePerpsDraft({ ...balance, asset: market,
+      draft: { ...balanceDraft, leverage, fraction: 100 } });
+    expect(maximum).toMatchObject({ inputAmount: available, paymentAmount: available });
+    expect(() => assertPerpsBalanceCovers(maximum, market, '200')).not.toThrow();
+    expect(resolvePerpsDraft({ ...balance, asset: market, draft: { ...balanceDraft, leverage, fraction: 25 } })
+      .paymentAmount).toBe(Big(available).div(4).round(6, Big.roundUp).toFixed());
+  });
+
+  test('the maximum stays covered by a native-book fee estimate at the highest taker rate', () => {
+    const maximum = resolvePerpsDraft({ ...balance, draft: { ...balanceDraft, fraction: 100 } });
+    const trading = Big(maximum.paymentAmount).mul(10).mul('0.00133').round(6, Big.roundUp).plus('0.000001');
+    expect(() => assertPerpsBalanceCovers({ ...maximum,
+      estimatedFees: { trading: trading.toFixed(), total: trading.toFixed() } }, asset, '200')).not.toThrow();
+  });
+
+  test('a quote is refused when its margin and estimated trading fee exceed the spendable balance', () => {
+    const quote = resolvePerpsDraft(balance);
+    const fees = { trading: '0.665', total: '0.665' };
+    expect(() => assertPerpsBalanceCovers({ ...quote, estimatedFees: fees }, asset, '50.665')).not.toThrow();
+    expect(() => assertPerpsBalanceCovers({ ...quote, estimatedFees: fees }, asset, '50.664999'))
+      .toThrow('PerpsInsufficientBalance');
+    // Without a fee estimate the margin may not exceed the headroom maximum: 50.7 / 1.014 = 50.
+    expect(() => assertPerpsBalanceCovers(quote, asset, '50.7')).not.toThrow();
+    expect(() => assertPerpsBalanceCovers(quote, asset, '50.699999')).toThrow('PerpsInsufficientBalance');
+    expect(() => assertPerpsBalanceCovers(resolvePerpsDraft(params), asset, '0')).not.toThrow();
+  });
+
+  test('a leverage change takes the estimated margin from the balance and pays no trading fee', () => {
+    const quote = resolvePerpsDraft({ ...balance, position,
+      draft: { ...balanceDraft, editing: true, leverageOnly: true, amount: '100', leverage: 5 } });
+    expect(quote).toMatchObject({ kind: 'leverage', funding: 'balance', bridgeFee: '0',
+      modify: { leverage: 5, fundingSource: 'balance' } });
+    applyPerpsLeverageChangeMargin(quote, '100');
+    expect(quote).toMatchObject({ paymentAmount: '105', bridgeFee: '0', collateral: '205' });
+    expect(quote.modify?.depositAmount).toBeUndefined();
+    expect(() => assertPerpsBalanceCovers(quote, asset, '105')).not.toThrow();
+    expect(() => assertPerpsBalanceCovers(quote, asset, '104.999999')).toThrow('PerpsInsufficientBalance');
+    expect(() => applyPerpsLeverageChangeMargin(quote, '1.0000001')).toThrow('PerpsInvalidAmount');
+    expect(() => applyPerpsLeverageChangeMargin(resolvePerpsDraft({ ...params, position,
+      draft: { ...params.draft, editing: true, leverageOnly: true, amount: '100', leverage: 5 } }), '100'))
+      .toThrow('PerpsReviewChanged');
+  });
+
+  test.each([
+    ['missing', undefined, '0'], ['another book', { xyz: '5' }, '0'], ['malformed', { '': 'n/a' }, '0'],
+    ['negative', { '': '-1' }, '0'], ['known', { '': '12.5' }, '12.5'],
+  ])('a %s spendable figure reads as its spendable USDC', (_, spendableUsdcByDex, expected) => {
+    expect(readPerpsSpendableUsdc(spendableUsdcByDex, '')).toBe(expected);
+  });
+
+  test('an order build paid from the balance keeps every order check and carries no bridge transfer', () => {
+    const quote = resolvePerpsDraft(balance);
+    expect(() => validatePerpsReviewedBuild(quote, asset, orderBuild)).not.toThrow();
+    const deposit = { ...depositFixture, requiresPermitSignature: true as const };
+    const spotToPerp = { action: { type: 'usdClassTransfer', amount: '50', toPerp: true } };
+    for (const change of [{ deposit }, { spotToPerp }, { action: { orders: [{ ...order, s: '0.006' }] } },
+      { action: { orders: [{ ...order, b: false }] } }, { marketReferencePrice: undefined }]) {
+      expect(() => validatePerpsReviewedBuild(quote, asset, { ...orderBuild, ...change }))
+        .toThrow('PerpsReviewChanged');
+    }
+    // The wallet build of the same order still needs its deposit.
+    expect(() => validatePerpsReviewedBuild(resolvePerpsDraft(params), asset, orderBuild))
+      .toThrow('PerpsReviewChanged');
+  });
+
+  test('a small low-leverage order rounded down to the lot validates against its review', () => {
+    const quote = resolvePerpsDraft({ ...balance, draft: { ...balanceDraft, amount: '15.5', leverage: 1 } });
+    expect(quote.orderSize).toBe('0.00015');
+    expect(() => validatePerpsReviewedBuild(quote, asset, {
+      ...orderBuild, action: { orders: [{ ...order, s: '0.00015' }] },
+      updateLeverage: { action: { asset: 0, leverage: 1, isCross: false } },
+    })).not.toThrow();
+  });
+
+  test.each([
+    ['covers the headroom', '106', '105', false],
+    ['covers only part of the headroom', '102', '102', false],
+    ['does not cover the need', '99', '105', true],
+    ['holds a fraction of a micro-USDC', '102.0000006', '102', false],
+  ])('a leverage change keeps its headroom within a balance that %s', (_, spendable, margin, isRefused) => {
+    const quote = resolvePerpsDraft({ ...balance, position,
+      draft: { ...balanceDraft, editing: true, leverageOnly: true, amount: '100', leverage: 5 } });
+    applyPerpsLeverageChangeMargin(quote, '100', spendable);
+    expect(quote.paymentAmount).toBe(margin);
+    const covers = () => assertPerpsBalanceCovers(quote, asset, spendable);
+    if (isRefused) expect(covers).toThrow('PerpsInsufficientBalance');
+    else expect(covers).not.toThrow();
+  });
+
+  test.each(['isolated', 'cross'] as const)('a %s leverage decrease adds exactly the reviewed margin', (type) => {
+    const current = normalizePerpsPosition(params.accountId, asset, { ...raw, leverage: { type, value: 10 } });
+    const quote = resolvePerpsDraft({ ...balance, position: current,
+      draft: { ...balanceDraft, editing: true, leverageOnly: true, leverage: 5 } });
+    applyPerpsLeverageChangeMargin(quote, '12.345678');
+    const isCross = type === 'cross';
+    const updateLeverage = { action: { type: 'updateLeverage', asset: 0, leverage: 5, isCross } };
+    const margin = { type: 'updateIsolatedMargin', asset: 0, isBuy: true, ntli: 17_350_000 };
+    const build = { updateLeverage, updateIsolatedMargin: isCross ? undefined : { action: margin } };
+    expect(() => validatePerpsReviewedBuild(quote, asset, build)).not.toThrow();
+    const changes = isCross
+      ? [{ updateIsolatedMargin: { action: margin } }]
+      : [{ updateIsolatedMargin: undefined }, { updateIsolatedMargin: { action: { ...margin, ntli: 17_349_999 } } },
+        { updateIsolatedMargin: { action: { ...margin, isBuy: false } } },
+        { updateIsolatedMargin: { action: { ...margin, asset: 1 } } }];
+    for (const change of [...changes, { deposit: { ...depositFixture, requiresPermitSignature: true as const } }]) {
+      expect(() => validatePerpsReviewedBuild(quote, asset, { ...build, ...change })).toThrow('PerpsReviewChanged');
+    }
+  });
+
+  test('a leverage increase needing no margin carries no isolated-margin top-up', () => {
+    const quote = resolvePerpsDraft({ ...balance, position,
+      draft: { ...balanceDraft, editing: true, leverageOnly: true, leverage: 20 } });
+    applyPerpsLeverageChangeMargin(quote, '0');
+    const updateLeverage = { action: { type: 'updateLeverage', asset: 0, leverage: 20, isCross: false } };
+    expect(() => validatePerpsReviewedBuild(quote, asset, { updateLeverage })).not.toThrow();
+    expect(() => validatePerpsReviewedBuild(quote, asset, { updateLeverage, updateIsolatedMargin: {
+      action: { type: 'updateIsolatedMargin', asset: 0, isBuy: true, ntli: 1 },
+    } })).toThrow('PerpsReviewChanged');
+  });
 });

@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uiwidgets.configurations.WidgetConfigurationVC
 import org.mytonwallet.app_air.uiwidgets.configurations.views.WidgetPreviewView
@@ -109,9 +110,9 @@ class PriceWidgetConfigurationVC(
             isLast = true
         ).apply {
             setValueView(periodView)
-            setOnClickListener {
+            setOnMenuClickListener {
                 if (continueButton.isLoading) {
-                    return@setOnClickListener
+                    return@setOnMenuClickListener
                 }
                 WMenuPopup.present(
                     periodView,

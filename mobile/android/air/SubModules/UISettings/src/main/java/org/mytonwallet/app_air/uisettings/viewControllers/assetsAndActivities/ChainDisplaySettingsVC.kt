@@ -9,6 +9,7 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
@@ -193,6 +194,7 @@ class ChainDisplaySettingsVC(context: Context) :
 
         setNavTitle(LocaleController.getString("Blockchains"))
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.blockchains_title
 
         normalizeManualOrderForPresentation()
         rebuildChains()

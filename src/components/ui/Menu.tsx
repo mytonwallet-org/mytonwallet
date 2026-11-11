@@ -1,5 +1,5 @@
 import type { ElementRef, FC, TeactNode } from '../../lib/teact/teact';
-import React, { beginHeavyAnimation, useEffect, useRef } from '../../lib/teact/teact';
+import React, { beginHeavyAnimation, useLayoutEffect, useRef } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
@@ -91,7 +91,8 @@ const Menu: FC<OwnProps> = ({
     withShouldRender: true,
   });
 
-  useEffect(
+  // A layout effect takes Escape before the open menu is painted, otherwise Escape reaches the screen underneath
+  useLayoutEffect(
     () => (isOpen && onClose ? captureEscKeyListener(onClose) : undefined),
     [isOpen, onClose],
   );

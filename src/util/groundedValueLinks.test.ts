@@ -2,7 +2,7 @@ import renderMarkdown from './renderMarkdown';
 
 it('renders a grounded escaped source URL as a link to the original URL', () => {
   const result = renderMarkdown(String.raw`[Board](https://www\.federalreserve\.gov/releases/h15/)`,
-    { areLinksEnabled: true });
+    { areLinksEnabled: true, codeCopyLabel: 'Copy' });
   const root = document.createElement('div');
   root.innerHTML = result.html;
 

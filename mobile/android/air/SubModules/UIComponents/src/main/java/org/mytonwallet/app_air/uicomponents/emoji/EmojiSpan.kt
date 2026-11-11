@@ -92,5 +92,10 @@ class EmojiSpan(private val unified: String, private val viewRef: WeakReference<
         }
     }
 
-    private fun emojiSize(paint: Paint): Int = (paint.textSize * 1.2f).roundToInt()
+    private fun emojiSize(paint: Paint): Int = (paint.textSize * TEXT_SIZE_RATIO).roundToInt()
+
+    companion object {
+        /** The emoji's square image is this many text sizes across */
+        const val TEXT_SIZE_RATIO = 1.2f
+    }
 }

@@ -22,6 +22,10 @@ extension AgentVC: WBackSwipeControlling {
 }
 
 extension AgentVC: AgentComposerHandoffTarget {
+    public var isComposerOnKeyboard: Bool {
+        composerView.isTextInputActive || composerView.isAboveKeyboard
+    }
+
     public func setComposerHandoffHidden(_ isHidden: Bool) {
         composerView.alpha = isHidden ? 0 : 1
     }

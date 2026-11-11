@@ -159,7 +159,7 @@ function validateWalletDataQuery(args: JsonObject, path: string) {
     validateUniqueStringArray(args.chains, `${path}.chains`);
     if (args.includePublicAddressReason !== undefined) {
       oneOf(args.includePublicAddressReason, new Set([
-        'receive', 'wallet_location', 'prepare_validation', 'chain_lookup',
+        'receive', 'wallet_location', 'prepare_validation', 'chain_lookup', 'support_handoff',
       ]), `${path}.includePublicAddressReason`);
     }
     if (args.includePortfolioTotals !== undefined) {

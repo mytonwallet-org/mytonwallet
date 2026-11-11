@@ -95,6 +95,7 @@ class UTXOChainSdk<T extends UTXOChain> implements ChainSdk<T> {
   fetchWalletPermissions = notSupported;
   revokeWalletPermission = notSupported;
   fetchWalletPlugins = notSupported;
+  estimatePerpsDepositNetworkFee = notSupported;
 }
 
 export default UTXOChainSdk;

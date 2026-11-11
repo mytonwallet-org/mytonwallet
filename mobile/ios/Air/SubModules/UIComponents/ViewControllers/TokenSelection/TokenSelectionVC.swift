@@ -109,15 +109,7 @@ public class TokenSelectionVC: WViewController {
     private let onlySupportedChains: Bool
     private let chainFilter: ApiChain?
     private let fiatOptions: [FiatOption]
-    private let showsAssetCategories: Bool
-    private enum Category: Int, CaseIterable {
-        case all, fiat, stablecoins, tokens
-        var title: String { lang(["All", "Fiat", "Stablecoins", "Tokens"][rawValue]) }
-    }
-    private var category = Category.all
-    private lazy var categoryControl = UISegmentedControl(items: Category.allCases.map(\.title))
-    private let emptyLabel = UILabel()
-    private var categoryPaletteWidth: NSLayoutConstraint?
+    private let isTokenTrade: Bool
     private var availablePairs: [MPair]?
     private let log = Log()
     private var walletTokens = [MTokenBalance]()
@@ -129,10 +121,10 @@ public class TokenSelectionVC: WViewController {
     private var tokenSearch = WalletCoreTokenSearch()
     private var tokenSearchNeedsUpdate = true
     private var keyword = String()
-    private var searchController: UISearchController?
+    private var contentView: TokenPickerContentView!
 
     private var secondaryAmountMode: TokenCell.SecondaryAmountMode {
-        showsAssetCategories ? .balanceValueOrPrice : myAssetsDisplayMode == .swap ? .tokenPrice : .balanceValue
+        isTokenTrade ? .balanceValueOrPrice : myAssetsDisplayMode == .swap ? .tokenPrice : .balanceValue
     }
     
     private var shouldSaveSelectedApiToken: Bool {
@@ -141,9 +133,8 @@ public class TokenSelectionVC: WViewController {
 
     @AccountContext(source: .current) private var account: MAccount
     
-    private var collectionView: UICollectionView?
     private var activityIndicatorView: WActivityIndicator?
-    private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
+    private var dataSources: [TokenPickerCategory: UICollectionViewDiffableDataSource<Section, Item>] = [:]
     
     // MARK: - Init
     
@@ -160,7 +151,7 @@ public class TokenSelectionVC: WViewController {
                 onlySupportedChains: Bool,
                 chainFilter: ApiChain? = nil,
                 fiatOptions: [FiatOption] = [],
-                showsAssetCategories: Bool = false) {
+                isTokenTrade: Bool = false) {
         self.forceAvailable = forceAvailable
         self.disabledTokenSlug = disabledTokenSlug
         self.extraWalletTokenSlugs = extraWalletTokenSlugs
@@ -173,7 +164,7 @@ public class TokenSelectionVC: WViewController {
         self.onlySupportedChains = onlySupportedChains
         self.chainFilter = chainFilter
         self.fiatOptions = fiatOptions
-        self.showsAssetCategories = showsAssetCategories
+        self.isTokenTrade = isTokenTrade
         super.init(nibName: nil, bundle: nil)
         self.title = title
         if isModal {
@@ -190,15 +181,14 @@ public class TokenSelectionVC: WViewController {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
+        view.accessibilityIdentifier = "token_selector_title"
         setupViews()
-        configureDataSource()
         WalletCoreData.add(eventObserver: self)
         
         filterTokens()
         
         if let otherSymbolOrMinterAddress {
             activityIndicatorView?.startAnimating(animated: true)
-            collectionView?.alpha = 0
             Task {
                 do {
                     let pairs = try await Api.swapGetPairs(symbolOrMinter: otherSymbolOrMinterAddress)
@@ -210,7 +200,6 @@ public class TokenSelectionVC: WViewController {
                 applySnapshot()
                 UIView.animate(withDuration: 0.2) { [weak self] in
                     guard let self else { return }
-                    collectionView?.alpha = 1
                     activityIndicatorView?.alpha = 0
                 } completion: { [weak self] _ in
                     guard let self else { return }
@@ -220,20 +209,15 @@ public class TokenSelectionVC: WViewController {
         }
     }
 
-    public override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        categoryPaletteWidth?.constant = view.safeAreaLayoutGuide.layoutFrame.width
-    }
-    
     // MARK: - Setup
     
-    private func makeLayout() -> UICollectionViewLayout {
+    private func makeLayout(for category: TokenPickerCategory) -> UICollectionViewLayout {
         UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             var listConfig = UICollectionLayoutListConfiguration(appearance: .plain)
             listConfig.showsSeparators = true
-            if self?.showsAssetCategories == true { listConfig.headerTopPadding = 0 }
-            let identifier = self?.dataSource?.sectionIdentifier(for: sectionIndex)
-            listConfig.headerMode = identifier == .search || (identifier == .fiat && self?.showsAssetCategories != true) ? .none : .supplementary
+            if self?.isTokenTrade == true { listConfig.headerTopPadding = 0 }
+            let identifier = self?.dataSources[category]?.sectionIdentifier(for: sectionIndex)
+            listConfig.headerMode = identifier == .search || (identifier == .fiat && self?.isTokenTrade != true) ? .none : .supplementary
 
             let separatorInsets = NSDirectionalEdgeInsets(top: 0, leading: 62, bottom: 0, trailing: IOS_26_MODE_ENABLED ? 12 : 0)
             var separatorConfig = UIListSeparatorConfiguration(listAppearance: .plain)
@@ -242,13 +226,13 @@ public class TokenSelectionVC: WViewController {
             listConfig.separatorConfiguration = separatorConfig
 
             let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
-            if self?.showsAssetCategories == true, listConfig.headerMode == .supplementary {
+            if self?.isTokenTrade == true, listConfig.headerMode == .supplementary {
                 section.boundarySupplementaryItems = [NSCollectionLayoutBoundarySupplementaryItem(
                     layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(40)),
                     elementKind: UICollectionView.elementKindSectionHeader, alignment: .top
                 )]
             }
-            section.contentInsets.bottom = self?.showsAssetCategories == true ? 8 : 12
+            section.contentInsets.bottom = self?.isTokenTrade == true ? 8 : 12
             return section
         }
     }
@@ -260,84 +244,30 @@ public class TokenSelectionVC: WViewController {
             })
         }
         
-        let sc = UISearchController(searchResultsController: nil)
-        sc.searchResultsUpdater = self
-        sc.obscuresBackgroundDuringPresentation = false
-        sc.searchBar.autocorrectionType = .no
-        sc.searchBar.spellCheckingType = .no
-        sc.searchBar.placeholder = lang("Search")
-        navigationItem.searchController = sc
-        navigationItem.hidesSearchBarWhenScrolling = false
-        if isModal {
-            navigationItem.preferredSearchBarPlacement = .stacked
+        contentView = TokenPickerContentView(parent: self) { [unowned self] category in
+            makeCollectionView(for: category)
         }
-        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            navigationItem.searchBarPlacementAllowsToolbarIntegration = !isModal
-            if !isModal {
-                navigationItem.preferredSearchBarPlacement = .integratedButton
-            }
+        contentView.searchBar.onTextChange = { [weak self] text in
+            guard let self else { return }
+            keyword = text
+            filterTokens()
         }
-        definesPresentationContext = true
-        self.searchController = sc
-        
-        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
-        self.collectionView = collectionView
-        collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.keyboardDismissMode = .onDrag
-        collectionView.delaysContentTouches = false
+        addCustomNavigationBarBackground(color: .air.pickerBackground)
 
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(hideKeyboard))
-        tapGesture.cancelsTouchesInView = false
-        collectionView.addGestureRecognizer(tapGesture)
-        view.addStretchedToSafeArea(subview: collectionView, top: \.topAnchor, bottom: \.bottomAnchor)
-        if showsAssetCategories {
-            if !showOnlyMyAssets || ownedTradeTokens.count > 5 {
-                installCategoryPalette()
-            }
-            addCustomNavigationBarBackground(color: .air.pickerBackground)
-            emptyLabel.text = lang("Not Found")
-            emptyLabel.textAlignment = .center
-            emptyLabel.textColor = .air.secondaryLabel
-            emptyLabel.applyTextStyle(.body)
-        }
-        
         let activityIndicatorView = WActivityIndicator()
         self.activityIndicatorView = activityIndicatorView
         activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(activityIndicatorView)
         NSLayoutConstraint.activate([
-            activityIndicatorView.centerXAnchor.constraint(equalTo: collectionView.centerXAnchor),
-            activityIndicatorView.centerYAnchor.constraint(equalTo: collectionView.centerYAnchor),
+            activityIndicatorView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activityIndicatorView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
 
         updateTheme()
     }
     
-    private func installCategoryPalette() {
-        categoryControl.selectedSegmentIndex = category.rawValue
-        categoryControl.apportionsSegmentWidthsByContent = true
-        categoryControl.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 15, weight: .medium), .foregroundColor: UIColor.label], for: .normal)
-        categoryControl.setTitleTextAttributes([.foregroundColor: UIColor(hex: "#0088FF")], for: .selected)
-        categoryControl.translatesAutoresizingMaskIntoConstraints = false
-        categoryControl.addTarget(self, action: #selector(categoryChanged), for: .valueChanged)
-
-        let contentView = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 56))
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(categoryControl)
-        let width = contentView.widthAnchor.constraint(equalToConstant: view.bounds.width)
-        categoryPaletteWidth = width
-        NSLayoutConstraint.activate([
-            width,
-            categoryControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            categoryControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            categoryControl.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
-            categoryControl.heightAnchor.constraint(equalToConstant: 40),
-        ])
-        PrivateAPI.setBottomPalette(of: navigationItem, contentView: contentView)
-    }
-
-    private func configureDataSource() {
-        guard let collectionView else { return }
+    private func makeCollectionView(for category: TokenPickerCategory) -> UICollectionView {
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout(for: category))
         let cellRegistration = UICollectionView.CellRegistration<TokenCell, Item> { [weak self] cell, indexPath, item in
             guard let self else { return }
             self.configure(cell: cell, for: item, at: indexPath)
@@ -347,7 +277,7 @@ public class TokenSelectionVC: WViewController {
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] headerView, _, indexPath in
             guard let self else { return }
-            guard let dataSource = self.dataSource else { return }
+            guard let dataSource = self.dataSources[category] else { return }
             let sectionIdentifiers = dataSource.snapshot().sectionIdentifiers
             guard indexPath.section < sectionIdentifiers.count else { return }
             var content = UIListContentConfiguration.plainHeader()
@@ -360,7 +290,7 @@ public class TokenSelectionVC: WViewController {
         let assetHeaderRegistration = UICollectionView.SupplementaryRegistration<AssetSectionHeader>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] header, _, indexPath in
-            guard let section = self?.dataSource?.sectionIdentifier(for: indexPath.section) else { return }
+            guard let section = self?.dataSources[category]?.sectionIdentifier(for: indexPath.section) else { return }
             header.label.text = section == .fiat ? lang("Fiat")
                 : section == .popular ? lang("Tokens") : section.title
         }
@@ -368,13 +298,14 @@ public class TokenSelectionVC: WViewController {
         let dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
         }
-        self.dataSource = dataSource
+        dataSources[category] = dataSource
         dataSource.supplementaryViewProvider = { [weak self] collectionView, _, indexPath in
-            if self?.showsAssetCategories == true {
+            if self?.isTokenTrade == true {
                 return collectionView.dequeueConfiguredReusableSupplementary(using: assetHeaderRegistration, for: indexPath)
             }
             return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
         }
+        return collectionView
     }
     
     private func configure(cell: TokenCell, for item: Item, at indexPath: IndexPath) {
@@ -432,11 +363,7 @@ public class TokenSelectionVC: WViewController {
     }
     
     private func updateTheme() {
-        collectionView?.backgroundColor = .air.pickerBackground
-    }
-        
-    @objc private func hideKeyboard() {
-        view.endEditing(false)
+        view.backgroundColor = .air.pickerBackground
     }
         
     private func updateWalletTokens() {
@@ -458,10 +385,10 @@ public class TokenSelectionVC: WViewController {
             return !onlySupportedChains || account.supports(chain: chain)
         }
         
-        showingWalletTokens = (showsAssetCategories ? ownedTradeTokens : walletTokens).filter { token in
+        showingWalletTokens = (isTokenTrade ? ownedTradeTokens : walletTokens).filter { token in
             guard let apiToken = TokenStore.tokens[token.tokenSlug] else { return false }
-            guard shouldIncludeChain(apiToken.chain), matchesCategory(apiToken) else { return false }
-            if !showsAssetCategories, myAssetsDisplayMode == .swap, (apiToken.price ?? 0) == 0 {
+            guard shouldIncludeChain(apiToken.chain) else { return false }
+            if !isTokenTrade, myAssetsDisplayMode == .swap, (apiToken.price ?? 0) == 0 {
                 return false
             }
             return true
@@ -472,7 +399,11 @@ public class TokenSelectionVC: WViewController {
         } else {
             TokenStore.swapAssets ?? []
         }
-        let eligibleAssets = showOnlyMyAssets ? [] : sourceAssets.filter { shouldIncludeChain($0.chain) && matchesCategory($0) }
+        let eligibleAssets = showOnlyMyAssets ? [] : sourceAssets.filter { shouldIncludeChain($0.chain) }
+        contentView.updateCategories(TokenPickerCategory.getAvailableCategories(
+            tokenSlugs: showingWalletTokens.map(\.tokenSlug) + eligibleAssets.map(\.slug),
+            hasFiat: !fiatOptions.isEmpty
+        ))
         showingStablecoins = []
         if !keyword.isEmpty {
             let balancesBySlug = Dictionary(
@@ -499,14 +430,14 @@ public class TokenSelectionVC: WViewController {
                 }
                 return assetsBySlug[slug].map { .apiToken($0, .search) }
             }
-            if showsAssetCategories {
+            if isTokenTrade {
                 showingWalletTokens = showingSearchItems.compactMap {
                     if case .walletToken(let token) = $0 { return token }
                     return nil
                 }
                 showingSearchItems = showingSearchItems.filter {
                     guard case .apiToken(let token, _) = $0 else { return false }
-                    if category == .all, isStablecoin(token) {
+                    if isStablecoin(token) {
                         showingStablecoins.append(token)
                         return false
                     }
@@ -537,13 +468,13 @@ public class TokenSelectionVC: WViewController {
                     .localizedCaseInsensitiveCompare($1.displayName(strippingLabelWhenShown: false)) == .orderedAscending
             }
 
-        if showsAssetCategories {
+        if isTokenTrade {
             let ownedSlugs = Set(showingWalletTokens.map(\.tokenSlug))
             let remainingAssets = filteredAssets.filter { !ownedSlugs.contains($0.slug) }
-            showingStablecoins = category == .all ? remainingAssets.filter(isStablecoin) : []
+            showingStablecoins = remainingAssets.filter(isStablecoin)
             let stablecoinSlugs = Set(showingStablecoins.map(\.slug))
             showingPopularTokens = remainingAssets.filter {
-                !stablecoinSlugs.contains($0.slug) && (category == .stablecoins || $0.isPopular == true)
+                !stablecoinSlugs.contains($0.slug) && $0.isPopular == true
             }
             showingAllAssets = []
         } else {
@@ -563,7 +494,7 @@ public class TokenSelectionVC: WViewController {
         }
         
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        for option in fiatOptions where category == .all || category == .fiat {
+        for option in fiatOptions {
             let query = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
             let matches = query.isEmpty || [option.currency.rawValue, option.currency.name, option.subtitle]
                 .contains { $0.localizedStandardContains(query) }
@@ -572,7 +503,7 @@ public class TokenSelectionVC: WViewController {
                 snapshot.appendItems([.fiatCurrency(option.currency)], toSection: .fiat)
             }
         }
-        if showsAssetCategories, !showingWalletTokens.isEmpty {
+        if isTokenTrade, !showingWalletTokens.isEmpty {
             snapshot.appendSections([.myAssets])
             snapshot.appendItems(showingWalletTokens.map { .walletToken($0) }, toSection: .myAssets)
         }
@@ -584,12 +515,11 @@ public class TokenSelectionVC: WViewController {
         if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             snapshot.appendSections([.search])
             snapshot.appendItems(showingSearchItems, toSection: .search)
-            updateEmptyState(snapshot)
             apply(snapshot)
             return
         }
         
-        if !showsAssetCategories, !showingWalletTokens.isEmpty {
+        if !isTokenTrade, !showingWalletTokens.isEmpty {
             snapshot.appendSections([.myAssets])
             snapshot.appendItems(showingWalletTokens.map { .walletToken($0) }, toSection: .myAssets)
         }
@@ -604,29 +534,30 @@ public class TokenSelectionVC: WViewController {
             snapshot.appendItems(showingAllAssets.map { .apiToken($0, .allAssets) }, toSection: .allAssets)
         }
         
-        updateEmptyState(snapshot)
         apply(snapshot)
     }
 
     private func apply(_ snapshot: NSDiffableDataSourceSnapshot<Section, Item>) {
-        var snapshot = snapshot
-        if showsAssetCategories, let current = dataSource?.snapshot() {
-            let existingItems = Set(current.itemIdentifiers)
-            snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { existingItems.contains($0) })
-        }
-        dataSource?.apply(snapshot, animatingDifferences: false)
-    }
-
-    private func updateEmptyState(_ snapshot: NSDiffableDataSourceSnapshot<Section, Item>) {
-        if showsAssetCategories { collectionView?.backgroundView = snapshot.numberOfItems == 0 ? emptyLabel : nil }
-    }
-
-    private func matchesCategory(_ token: ApiToken) -> Bool {
-        switch category {
-        case .all: true
-        case .fiat: false
-        case .tokens: true
-        case .stablecoins: isStablecoin(token)
+        for category in contentView.categories {
+            guard let dataSource = dataSources[category] else { continue }
+            var filteredSnapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+            for section in snapshot.sectionIdentifiers {
+                let items = snapshot.itemIdentifiers(inSection: section).filter { item in
+                    switch item {
+                    case .fiatCurrency: category == .all || category == .fiat
+                    case .walletToken(let token): category.shouldInclude(tokenSlug: token.tokenSlug)
+                    case .apiToken(let token, _): category.shouldInclude(tokenSlug: token.slug)
+                    }
+                }
+                if !items.isEmpty {
+                    filteredSnapshot.appendSections([section])
+                    filteredSnapshot.appendItems(items, toSection: section)
+                }
+            }
+            let existingItems = Set(dataSource.snapshot().itemIdentifiers)
+            filteredSnapshot.reconfigureItems(filteredSnapshot.itemIdentifiers.filter { existingItems.contains($0) })
+            dataSource.apply(filteredSnapshot, animatingDifferences: false)
+            contentView.updateEmptyState(filteredSnapshot.numberOfItems == 0, for: category)
         }
     }
 
@@ -636,30 +567,13 @@ public class TokenSelectionVC: WViewController {
     }
 
     private func isStablecoin(_ token: ApiToken) -> Bool {
-        if ApiChain.allCases.contains(where: { $0.usdtSlug[account.network] == token.slug }) {
-            return true
-        }
-        if token.slug == BASE_USDC_MAINNET_SLUG { return true }
-        return account.network == .mainnet && [SOLANA_USDC_MAINNET_SLUG, ETH_USDC_MAINNET_SLUG].contains(token.slug)
-    }
-
-    @objc private func categoryChanged() {
-        category = Category(rawValue: categoryControl.selectedSegmentIndex) ?? .all
-        tokenSearchNeedsUpdate = true
-        filterTokens()
+        getStablecoinSlugs().contains(token.slug)
     }
 
     private func recordSearchSelection(tokenSlug: String) {
         guard !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         tokenSearch.recordSelection(tokenSlug: tokenSlug, accountID: account.id)
         tokenSearchNeedsUpdate = true
-    }
-}
-
-extension TokenSelectionVC: UISearchResultsUpdating {
-    public func updateSearchResults(for searchController: UISearchController) {
-        keyword = searchController.searchBar.text ?? ""
-        filterTokens()
     }
 }
 

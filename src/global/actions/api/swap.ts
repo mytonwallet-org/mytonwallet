@@ -42,7 +42,7 @@ import { resolveSwapAssetId } from '../../helpers';
 import { runActivityUpdateInOrder } from '../../helpers/activityUpdateQueue';
 import {
   selectCexSwapRefreshContextActivities,
-  selectPendingCexSwapActivities,
+  selectPendingBackendSwapActivities,
 } from '../../helpers/cexSwapRefresh';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import {
@@ -1150,15 +1150,15 @@ addActionHandler('updatePendingSwaps', async (global, actions, payload) => {
     const { activities } = selectAccountState(global, accountId) ?? {};
     if (!activities) return;
 
-    const pendingCexSwaps = selectPendingCexSwapActivities(global, accountId);
-    const items = pendingCexSwaps.map((activity) => ({ id: parseTxId(activity.id).hash, chain: 'ton' as const }));
+    const pendingSwaps = selectPendingBackendSwapActivities(global, accountId);
+    const items = pendingSwaps.map((activity) => ({ id: parseTxId(activity.id).hash, chain: 'ton' as const }));
     if (!items.length) return;
 
     const result = await callApi(
       'fetchSwaps',
       accountId,
       items,
-      selectCexSwapRefreshContextActivities(activities, pendingCexSwaps, payload?.contextActivities),
+      selectCexSwapRefreshContextActivities(activities, pendingSwaps, payload?.contextActivities),
       { forceProviderRefresh: payload?.forceProviderRefresh },
     );
     const patch = result?.patch;

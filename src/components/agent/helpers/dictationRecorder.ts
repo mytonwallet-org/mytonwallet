@@ -13,6 +13,9 @@ export interface DictationRecording {
 export interface DictationRecorder {
   stop: () => Promise<DictationRecording>;
   cancel: NoneToVoidFunction;
+  /** Holds the recording, which `resume` continues; the level reads 0 meanwhile */
+  pause: NoneToVoidFunction;
+  resume: NoneToVoidFunction;
 }
 
 /** The longest dictation the agent accepts */
@@ -99,6 +102,15 @@ export async function startDictationRecorder(onLevel: (level: number) => void): 
       if (recorder.state !== 'inactive') recorder.stop();
       release();
     },
+    pause: () => {
+      if (recorder.state === 'recording') recorder.pause();
+      meter?.setIsPaused(true);
+      onLevel(0);
+    },
+    resume: () => {
+      if (recorder.state === 'paused') recorder.resume();
+      meter?.setIsPaused(false);
+    },
   };
 }
 
@@ -117,7 +129,10 @@ function startLevelMeter(stream: MediaStream, onLevel: (level: number) => void) 
 
     const samples = new Float32Array(analyser.fftSize);
     let hasSpeech = false;
+    // A paused recording does not hear what is said meanwhile
+    let isPaused = false;
     const timer = window.setInterval(() => {
+      if (isPaused) return;
       analyser.getFloatTimeDomainData(samples);
       let sum = 0;
       for (const sample of samples) sum += sample * sample;
@@ -134,12 +149,15 @@ function startLevelMeter(stream: MediaStream, onLevel: (level: number) => void) 
         void audioContext!.close().catch(() => undefined);
       },
       hasSpeech: () => hasSpeech || !hasRun,
+      setIsPaused: (value: boolean) => {
+        isPaused = value;
+      },
     };
   } catch {
     audioContext?.removeEventListener('statechange', handleStateChange);
     void audioContext?.close().catch(() => undefined);
     // Without a meter nothing tells silence from speech, so the recording is sent as it is
-    return { stop: () => undefined, hasSpeech: () => true };
+    return { stop: () => undefined, hasSpeech: () => true, setIsPaused: () => undefined };
   }
 
   function handleStateChange() {

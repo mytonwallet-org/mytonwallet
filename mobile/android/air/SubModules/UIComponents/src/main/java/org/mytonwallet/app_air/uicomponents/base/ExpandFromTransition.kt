@@ -42,6 +42,7 @@ internal class ExpandFromTransition private constructor(
     originCornerRadius: Float?,
     fillColor: Int?,
     private val sheetRadius: Float,
+    private val landingDistance: Float,
     // Where the sheet's bottom edge rests; the sheet lands flat-bottomed when that is the
     // window's bottom, otherwise it floats and keeps all four corners.
     private val sheetBottom: Float,
@@ -149,14 +150,14 @@ internal class ExpandFromTransition private constructor(
         var y = restingY + offsetY * (1f - expansion)
         val gapToBottom = sheetBottom - (y + pivotY + (height - pivotY) * scale)
         val landing =
-            if (floating) 0f else (1f - gapToBottom / (sheetRadius * scale)).coerceIn(0f, 1f)
+            if (floating) 0f else (1f - gapToBottom / (landingDistance * scale)).coerceIn(0f, 1f)
         if (landing > 0f && gapToBottom > 0f) y += gapToBottom
         nav.y = y
         val halfWidth = startWidth / 2f
         val halfHeight = startHeight / 2f
         clipRadius = (startRadius + (sheetRadius - startRadius) * growth).coerceAtLeast(0f)
         // The rect grows from the start shape to the full nav; see [landing] for the bottom.
-        val bottomPush = sheetRadius * landing
+        val bottomPush = landingDistance * landing
         clipRect.set(
             (pivotX - halfWidth) * (1f - growth),
             (pivotY - halfHeight) * (1f - growth),
@@ -308,13 +309,14 @@ internal class ExpandFromTransition private constructor(
                 originView,
                 animation.cornerRadius,
                 animation.fillColor,
-                sheetCornerRadius(),
+                ViewConstants.BLOCK_RADIUS.dp,
+                landingDistance(),
                 sheetBottom = window.windowView.height.toFloat() - nav.floatingSheetBottomGap,
                 floating = nav.floatingSheetInset > 0
             )
         }
 
-        private fun sheetCornerRadius(): Float =
+        private fun landingDistance(): Float =
             if (ViewConstants.BLOCK_RADIUS == 0f) 24f.dp else ViewConstants.BLOCK_RADIUS.dp
 
         // [view]'s frame in the window view's coordinates, translations included.

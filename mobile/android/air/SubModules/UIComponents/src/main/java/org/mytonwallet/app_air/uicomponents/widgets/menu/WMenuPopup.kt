@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.widgets.menu
 
 import android.graphics.Path
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
@@ -19,6 +20,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.theme.colorForTheme
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.Vec2i
 import org.mytonwallet.app_air.walletbasecontext.utils.x
@@ -34,6 +36,11 @@ class WMenuPopup {
     enum class SubmenuTransition {
         PAGE,
         EXPAND_FROM_ITEM
+    }
+
+    enum class RowStyle {
+        DEFAULT,
+        WALLET
     }
 
     data class Item(
@@ -71,7 +78,8 @@ class WMenuPopup {
                 val trailingView: View? = null,
                 val textMargin: Int? = null,
                 val trailingViewProvider: (() -> View)? = null,
-                val submenuTransition: SubmenuTransition = SubmenuTransition.PAGE
+                val submenuTransition: SubmenuTransition = SubmenuTransition.PAGE,
+                val rowStyle: RowStyle = RowStyle.DEFAULT
             ) : Config()
 
             data class SelectableItem(
@@ -87,7 +95,12 @@ class WMenuPopup {
                 val tintColor: WColor? = null,
                 val iconSize: Int? = null,
                 val iconMargin: Int? = null,
-                val drawable: Drawable? = null
+                val drawable: Drawable? = null,
+                /**
+                 * A Lottie animation whose last frame is the icon, played each time the item
+                 * becomes active. With animations off, the item shows [iconResId] instead.
+                 */
+                val animationResId: Int? = null
             )
         }
 
@@ -113,21 +126,22 @@ class WMenuPopup {
             }
         }
 
-        fun getIconTint(): Int? = when (config) {
+        /** In the theme [isDark] picks, or the app's */
+        fun getIconTint(isDark: Boolean? = null): Int? = when (config) {
             is Config.Item -> {
-                config.icon?.tintColor?.color
+                config.icon?.tintColor?.colorForTheme(isDark)
             }
 
             is Config.SelectableItem -> {
-                WColor.Tint.color
+                WColor.Tint.colorForTheme(isDark)
             }
 
             Config.Back -> {
-                WColor.PrimaryLightText.color
+                WColor.PrimaryLightText.colorForTheme(isDark)
             }
 
             else -> {
-                WColor.SecondaryText.color
+                WColor.SecondaryText.colorForTheme(isDark)
             }
         }
 
@@ -135,6 +149,8 @@ class WMenuPopup {
             is Config.Item -> config.icon?.drawable
             else -> null
         }
+
+        fun getIconAnimation(): Int? = (config as? Config.Item)?.icon?.animationResId
 
         fun getIconSize(): Int? = when (config) {
             is Config.Item -> {
@@ -165,6 +181,8 @@ class WMenuPopup {
                 null
             }
         }
+
+        fun getRowStyle(): RowStyle = (config as? Config.Item)?.rowStyle ?: RowStyle.DEFAULT
 
         fun getTitle(): CharSequence? = when (config) {
             is Config.Back -> {
@@ -250,6 +268,16 @@ class WMenuPopup {
     }
 
     companion object {
+        /** A menu surface's elevation: lower over a dimmed or blurred window, which already sets it apart */
+        fun surfaceElevation(isOverDim: Boolean): Float = (if (isOverDim) 2f else 4f).dp
+
+        /** Gives [view] the colours of a menu surface's shadow */
+        fun applySurfaceShadowColors(view: View) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                view.outlineAmbientShadowColor = WColor.PopupAmbientShadow.color
+                view.outlineSpotShadowColor = WColor.PopupSpotShadow.color
+            }
+        }
 
         fun present(
             view: View,
@@ -278,20 +306,52 @@ class WMenuPopup {
              * Places the menu itself: given its measured width and height, the window position of its top-left corner.
              * It then opens downward from there, and [positioning] and the offsets don't apply.
              */
-            placement: ((width: Int, height: Int) -> Vec2i)? = null
+            placement: ((width: Int, height: Int) -> Vec2i)? = null,
+            /** Morphs the root menu from [view]; closing root leaf actions run after the source is restored */
+            shouldMorphFromSource: Boolean = false,
+            /** Colors the menu in the dark (true) or light (false) theme whatever the app's, as over a dark screen */
+            themeIsDark: Boolean? = null,
+            /** Lets a finger slide across the root menu's items, choosing the one it lifts over */
+            isSlideSelectionEnabled: Boolean = false,
+            /**
+             * Lets a held item be dragged to another place. Called with the item's old and new
+             * position on each step, while the finger is still down
+             */
+            onReorder: ((fromPosition: Int, toPosition: Int) -> Unit)? = null
         ): INavigationPopup {
             if (cancelsAncestorTouches) view.cancelAncestorTouches()
             view.lockView()
 
             lateinit var popupWindow: WNavigationPopup
+            var selectedAction: (() -> Unit)? = null
+            val presentedItems = if (shouldMorphFromSource) {
+                items.map { item ->
+                    val action = item.onTap
+                    if (action == null || item.shouldKeepOpen ||
+                        !item.getSubItems().isNullOrEmpty()
+                    ) {
+                        item
+                    } else {
+                        item.copy(onTap = {
+                            if (selectedAction == null) selectedAction = action
+                        }).also { it.testViewId = item.testViewId }
+                    }
+                }
+            } else {
+                items
+            }
 
             val initialPopupView = WMenuPopupView(
                 view.context,
-                items,
+                presentedItems,
                 onWillDismiss = onWillDismiss,
                 onDismiss = {
                     popupWindow.dismiss()
-                }
+                },
+                verticalContentPadding = if (shouldMorphFromSource) 4.dp else 0,
+                themeIsDark = themeIsDark,
+                isSlideSelectionEnabled = isSlideSelectionEnabled,
+                onReorder = onReorder
             )
 
             popupWindow =
@@ -300,13 +360,17 @@ class WMenuPopup {
                     popupWidth,
                     windowBackgroundStyle,
                     backdropStyle,
-                    usePillShadow
+                    usePillShadow,
+                    morphSource = view.takeIf { shouldMorphFromSource }
                 ).apply {
                     setOnDismissListener {
                         view.post {
                             view.unlockView()
                         }
+                        val action = selectedAction
+                        selectedAction = null
                         onDidDismiss?.invoke()
+                        if (view.isAttachedToWindow) action?.invoke()
                     }
                     displayProgressListener?.let { setDisplayProgressListener(it) }
                 }
@@ -389,7 +453,8 @@ class WMenuPopup {
     sealed interface BackgroundStyle {
         object Transparent : BackgroundStyle
 
-        class Cutout(val cutoutPath: Path) : BackgroundStyle {
+        /** Dims the window but [cutoutPath]; [lifted] draws over the dim, lifted with what the path leaves out */
+        class Cutout(val cutoutPath: Path, val lifted: Drawable? = null) : BackgroundStyle {
 
             companion object {
 
@@ -418,6 +483,9 @@ class WMenuPopup {
 
     sealed interface BackdropStyle {
         object BlurDimmed : BackdropStyle
+
+        // Keeps colorful backgrounds unsaturated without adding a dim overlay
+        object PlainBlur : BackdropStyle
 
         object Dimmed : BackdropStyle
         object Transparent : BackdropStyle

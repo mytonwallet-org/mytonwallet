@@ -11,8 +11,8 @@ public final class LinkDomainVC: WViewController {
     private let viewModel: LinkDomainViewModel
     private var hostingController: UIHostingController<LinkDomainView>!
 
-    public init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
-        self.viewModel = LinkDomainViewModel(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
+    public init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil, isUnlinking: Bool = false) {
+        self.viewModel = LinkDomainViewModel(accountSource: accountSource, nftAddress: nftAddress, nft: nft, isUnlinking: isUnlinking)
         super.init(nibName: nil, bundle: nil)
         preferredContentSize = CGSize(width: 580, height: 480)
     }
@@ -44,11 +44,12 @@ public final class LinkDomainVC: WViewController {
 
     private func linkPressed() {
         guard let snapshot = viewModel.makeConfirmationSnapshot() else { return }
+        let toastMessage = snapshot.isUnlinking ? lang("Domain Unlinked") : lang("Domain Linked")
         let protectedAction = ProtectedAction.linkDomain(
             snapshot: snapshot,
             onCommitted: { [weak self] in
                 self?.dismiss(animated: true) {
-                    AppActions.showToast(message: lang("Domain Linked"))
+                    AppActions.showToast(message: toastMessage)
                 }
             }
         )
@@ -67,9 +68,11 @@ struct LinkDomainAuthHeader: ConfirmationContent {
         VStack(spacing: 16) {
             NftPreviewSection(nfts: [snapshot.nft], maxItems: 1, maxRows: 1)
 
-            CompactActionSummary {
-                Text(destination)
-                    .textStyle(.bodyEmphasized, content: destinationContent)
+            if let destination {
+                CompactActionSummary {
+                    Text(destination)
+                        .textStyle(.bodyEmphasized, content: destinationContent)
+                }
             }
         }
     }
@@ -79,14 +82,23 @@ struct LinkDomainAuthHeader: ConfirmationContent {
             NftImage(nft: snapshot.nft, animateIfPossible: false)
                 .clipShape(.rect(cornerRadius: 5))
         } label: {
-            Text(snapshot.nft.name?.nilIfEmpty ?? lang("Domain")).textStyle(.bodyEmphasized)
-                + Text(" \(lang("to")) ").textStyle(.body)
-                + Text(destination).textStyle(.bodyEmphasized, content: destinationContent)
+            if let destination {
+                domainName
+                    + Text(" \(lang("to")) ").textStyle(.body)
+                    + Text(destination).textStyle(.bodyEmphasized, content: destinationContent)
+            } else {
+                domainName
+            }
         }
     }
 
-    private var destination: String {
-        snapshot.destinationName?.nilIfEmpty ?? formatStartEndAddress(snapshot.destinationAddress)
+    private var domainName: Text {
+        Text(snapshot.nft.name?.nilIfEmpty ?? lang("Domain")).textStyle(.bodyEmphasized)
+    }
+
+    private var destination: String? {
+        guard let destinationAddress = snapshot.destinationAddress else { return nil }
+        return snapshot.destinationName?.nilIfEmpty ?? formatStartEndAddress(destinationAddress)
     }
 
     private var destinationContent: WTextContent {

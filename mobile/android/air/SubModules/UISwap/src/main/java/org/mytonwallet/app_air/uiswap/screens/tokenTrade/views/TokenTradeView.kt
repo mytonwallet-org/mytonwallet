@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -17,6 +18,10 @@ import androidx.core.animation.doOnEnd
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
+import androidx.transition.ChangeBounds
+import androidx.transition.Fade
+import androidx.transition.TransitionManager
+import androidx.transition.TransitionSet
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -31,8 +36,11 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimateDebugSummaryView
+import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapHintView
 import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeModel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -46,7 +54,8 @@ class TokenTradeView(
     context: Context,
     private val model: TokenTradeModel,
     private val onSelectMethod: () -> Unit,
-    private val onContinue: () -> Unit
+    private val onContinue: () -> Unit,
+    private val onHintAction: (SwapHint) -> Unit
 ) : FrameLayout(context),
     WThemedView {
 
@@ -99,7 +108,17 @@ class TokenTradeView(
         setStyle(14f)
         gravity = Gravity.END
         maxLines = 2
+        setOnClickListener {
+            model.toggleFeeCurrency()
+            render()
+        }
     }
+    private val hintView = SwapHintView(context, topPadding = 8, messageTopMargin = 1) {
+        shownHint?.let(onHintAction)
+    }.apply {
+        isVisible = false
+    }
+    private var shownHint: SwapHint? = null
 
     private val methodIconContainer = FrameLayout(context)
     private val methodTokenIcon = IconView(context, 28.dp, 12.dp)
@@ -229,6 +248,12 @@ class TokenTradeView(
                 setMargins(24.dp, 0, 24.dp, 22.dp)
             }
         )
+        amountCard.addView(
+            hintView,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                setMargins(HINT_INSET.dp, 0, HINT_INSET.dp, 16.dp)
+            }
+        )
         content.addView(amountCard, LinearLayout.LayoutParams(MATCH_PARENT, 300.dp))
         content.addView(
             methodRow,
@@ -255,32 +280,51 @@ class TokenTradeView(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val height = MeasureSpec.getSize(heightMeasureSpec)
+        val contentWidth = MeasureSpec.getSize(widthMeasureSpec) - paddingLeft - paddingRight
         val panelBottomPadding = max(16.dp, bottomInset)
-        val maxCardHeight = topInset + CARD_MAX_CONTENT_HEIGHT.dp
-        val minCardHeight = topInset + CARD_MIN_CONTENT_HEIGHT.dp
-        val compactCardHeight = topInset + CARD_COMPACT_CONTENT_HEIGHT.dp
+        val footerHeight = cardFooterHeight(contentWidth)
+        val extraHeight = max(0, footerHeight - DESIGN_FOOTER_HEIGHT.dp)
+        val minCardHeight = topInset + CARD_MIN_CONTENT_HEIGHT.dp + extraHeight
         // Screens too short for the minimum card and keypad tighten the gaps around the controls.
         val isTight = height - panelBottomPadding - KEYPAD_MIN_HEIGHT.dp -
             panelChromeHeight(isTight = false) - methodRowSpace(isTight = false) <
             minCardHeight
+        val cardTopPadding = if (isTight) 4.dp else 8.dp
+        val compactCardHeight = topInset + max(
+            CARD_COMPACT_CONTENT_HEIGHT.dp + extraHeight,
+            cardTopPadding + 26.dp + 1.dp + COMPACT_AMOUNT_FIELD_HEIGHT.dp + footerHeight +
+                footerBottomMargin(isTight, isCompact = true)
+        )
         val panelChromeHeight = panelChromeHeight(isTight) + panelBottomPadding
         val methodRowGap = methodRowGap(isTight).dp
         val cardAndKeypadHeight = height - panelChromeHeight - methodRowSpace(isTight)
+        val preferredKeypadHeight = TokenTradeKeypadView.preferredHeight
+
         // The card stops at its design height; taller screens give the rest to the keypad.
         // Short screens shrink the keypad to its minimum, then bring the card items closer down
         // to the compact card, then shrink the keypad to its compact minimum.
-        val preferredKeypadHeight = TokenTradeKeypadView.preferredHeight
-        val keypadHeight = when {
-            cardAndKeypadHeight - preferredKeypadHeight > maxCardHeight ->
-                cardAndKeypadHeight - maxCardHeight
+        fun layoutKeypad(cardExtraHeight: Int): Int {
+            val maxCardHeight = topInset + CARD_MAX_CONTENT_HEIGHT.dp + cardExtraHeight
+            val layoutMinCardHeight = topInset + CARD_MIN_CONTENT_HEIGHT.dp + cardExtraHeight
+            return when {
+                cardAndKeypadHeight - preferredKeypadHeight > maxCardHeight ->
+                    cardAndKeypadHeight - maxCardHeight
 
-            cardAndKeypadHeight - KEYPAD_MIN_HEIGHT.dp >= compactCardHeight -> min(
-                preferredKeypadHeight,
-                max(KEYPAD_MIN_HEIGHT.dp, cardAndKeypadHeight - minCardHeight)
-            )
+                cardAndKeypadHeight - KEYPAD_MIN_HEIGHT.dp >= compactCardHeight -> min(
+                    preferredKeypadHeight,
+                    max(KEYPAD_MIN_HEIGHT.dp, cardAndKeypadHeight - layoutMinCardHeight)
+                )
 
-            else -> max(KEYPAD_COMPACT_MIN_HEIGHT.dp, cardAndKeypadHeight - compactCardHeight)
+                else -> max(KEYPAD_COMPACT_MIN_HEIGHT.dp, cardAndKeypadHeight - compactCardHeight)
+            }
         }
+
+        // A taller footer takes the card's free space first, so a hint showing up doesn't
+        // resize the keypad
+        val designKeypadHeight = layoutKeypad(cardExtraHeight = 0)
+        val isDesignLayout = cardAndKeypadHeight - designKeypadHeight >= minCardHeight
+        val keypadHeight = if (isDesignLayout) designKeypadHeight else layoutKeypad(extraHeight)
+        val layoutExtraHeight = if (isDesignLayout) 0 else extraHeight
         (keypad.layoutParams as LinearLayout.LayoutParams).height = keypadHeight
         (controlsContainer.layoutParams as LinearLayout.LayoutParams).topMargin =
             panelTopMargin(isTight).dp
@@ -293,29 +337,54 @@ class TokenTradeView(
             methodRowGap
         val controlsHeight = panelChromeHeight + keypadHeight
         val cardHeight = max(compactCardHeight, cardAndKeypadHeight - keypadHeight)
-        val isCompact = cardHeight - topInset < 260.dp
+        val isCompact = cardHeight - topInset - layoutExtraHeight < CARD_FULL_CONTENT_HEIGHT.dp
         (amountCard.layoutParams as LinearLayout.LayoutParams).height = cardHeight
-        val amountFieldHeight = if (isCompact) 64.dp else 86.dp
-        val cardTopPadding = if (isTight) 4.dp else 8.dp
-        val feeBottomMargin = when {
-            isTight -> 8.dp
-            isCompact -> 12.dp
-            else -> 22.dp
-        }
+        val amountFieldHeight =
+            if (isCompact) COMPACT_AMOUNT_FIELD_HEIGHT.dp else AMOUNT_FIELD_HEIGHT.dp
+        val footerBottomMargin = footerBottomMargin(isTight, isCompact)
+        (feeLabel.layoutParams as LinearLayout.LayoutParams).bottomMargin =
+            if (hintView.isVisible) FEE_HINT_GAP.dp else footerBottomMargin
+        (hintView.layoutParams as LinearLayout.LayoutParams).bottomMargin = footerBottomMargin
         // Space above the pill is 78dp less than below the field; when that leaves less than
         // 48dp above the pill, the gap below is only 16dp larger.
         val freeHeight = max(
             0,
-            cardHeight - topInset - cardTopPadding - 26.dp - 1.dp - amountFieldHeight
+            cardHeight - topInset - cardTopPadding - 26.dp - 1.dp - amountFieldHeight -
+                extraHeight
         )
         val topGap = ((freeHeight - 78.dp) / 2).takeIf { it >= 48.dp }
             ?: max(0, (freeHeight - 16.dp) / 2)
         (cardTopSpacer.layoutParams as LinearLayout.LayoutParams).height =
             topInset + cardTopPadding + topGap
         (amountField.layoutParams as LinearLayout.LayoutParams).height = amountFieldHeight
-        (feeLabel.layoutParams as LinearLayout.LayoutParams).bottomMargin = feeBottomMargin
         (scrollView.layoutParams as LayoutParams).bottomMargin = controlsHeight
+        // Unchanged measure specs would return cached sizes and skip the params set above
+        scrollView.forceLayout()
+        content.forceLayout()
+        amountCard.forceLayout()
+        bottomPanel.forceLayout()
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
+    private fun cardFooterHeight(contentWidth: Int): Int {
+        val feeHeight = feeLabel.heightAt(contentWidth - 48.dp)
+        if (!hintView.isVisible) return feeHeight
+        return feeHeight + FEE_HINT_GAP.dp + hintView.heightAt(contentWidth - 2 * HINT_INSET.dp)
+    }
+
+    private fun footerBottomMargin(isTight: Boolean, isCompact: Boolean) = when {
+        isTight -> 8.dp
+        hintView.isVisible -> 16.dp
+        isCompact -> 12.dp
+        else -> 22.dp
+    }
+
+    private fun View.heightAt(width: Int): Int {
+        measure(
+            MeasureSpec.makeMeasureSpec(max(0, width), MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        )
+        return measuredHeight
     }
 
     override fun updateTheme() {
@@ -424,6 +493,29 @@ class TokenTradeView(
         val fee = model.feeText
         feeLabel.text = fee
         feeLabel.visibility = if (fee == null) INVISIBLE else VISIBLE
+        feeLabel.isClickable = model.canToggleFeeCurrency
+        // Kept while the next quote loads
+        val hint = model.hint ?: shownHint?.takeIf { model.isLoading }
+        if (hint != shownHint) {
+            if (isLaidOut && WGlobalStorage.getAreAnimationsActive()) {
+                val transition = TransitionSet()
+                    .addTransition(ChangeBounds())
+                    .addTransition(Fade())
+                    .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
+                    .setInterpolator(DecelerateInterpolator())
+                // Another kind fades in place instead of resizing in view
+                if (hint != null && shownHint != null && hint::class != shownHint!!::class) {
+                    transition.excludeTarget(hintView, true)
+                    transition.excludeChildren(hintView, true)
+                    hintView.alpha = 0f
+                    hintView.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+                }
+                TransitionManager.beginDelayedTransition(this, transition)
+            }
+            shownHint = hint
+        }
+        if (hint != null) configureHint(hint)
+        hintView.isVisible = hint != null
 
         val cardCurrency = model.cardCurrency
         methodFiatIcon.isVisible = cardCurrency != null
@@ -477,18 +569,50 @@ class TokenTradeView(
         keypad.setDeleteEnabled(model.input.text.isNotEmpty())
     }
 
+    private fun configureHint(hint: SwapHint) {
+        if (hint !is SwapHint.Intermediate || model.isBuying) {
+            if (hint is SwapHint.Intermediate) {
+                hintView.configure(
+                    LocaleController.getString("Direct exchange unavailable"),
+                    hint.message,
+                    hint.actionTitle
+                )
+            } else {
+                hintView.configure(hint)
+            }
+            return
+        }
+        val token = hint.token.symbol ?: ""
+        hintView.configure(
+            LocaleController.getString("Direct exchange unavailable"),
+            LocaleController.getStringWithKeyValues(
+                "To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.",
+                listOf("%buy_token%" to (hint.buyingToken.symbol ?: ""), "%token%" to token)
+            ),
+            LocaleController.getStringWithKeyValues("Receive %value%", listOf("%value%" to token))
+        )
+    }
+
     companion object {
         private const val METHOD_ROW_HEIGHT = 56
         private const val METHOD_ROW_GAP = 12
 
         // Card height below the top bars in the design (bottom at 390dp under 88dp of bars).
         private const val CARD_MAX_CONTENT_HEIGHT = 302
+        private const val CARD_FULL_CONTENT_HEIGHT = 260
         private const val CARD_MIN_CONTENT_HEIGHT = 200
         private const val CARD_COMPACT_CONTENT_HEIGHT = 124
         private const val KEYPAD_MIN_HEIGHT = 240
         private const val KEYPAD_COMPACT_MIN_HEIGHT = 186
         private const val CONTROLS_HEIGHT = 52
         private const val CONTROLS_BOTTOM_MARGIN = 12
+        private const val AMOUNT_FIELD_HEIGHT = 86
+        private const val COMPACT_AMOUNT_FIELD_HEIGHT = 64
+
+        // The design's one-line fee footer; taller footers grow the card.
+        private const val DESIGN_FOOTER_HEIGHT = 20
+        private const val FEE_HINT_GAP = 8
+        private const val HINT_INSET = 16
 
         private fun methodRowGap(isTight: Boolean) = if (isTight) 8 else METHOD_ROW_GAP
 

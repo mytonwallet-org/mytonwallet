@@ -1,17 +1,24 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent
 
+import android.content.res.Resources
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.LeadingMarginSpan
+import android.text.style.LineHeightSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.style.TabStopSpan
 import android.text.style.TypefaceSpan
 import android.util.Patterns
+import android.util.TypedValue
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WTypefaceSpan
@@ -54,9 +61,36 @@ object MarkdownParser {
             val bordered: Boolean = true,
             val striped: Boolean = false
         ) : Block
+
+        /** A fenced code block, with the language its fence names */
+        data class Code(val language: String?, val text: String) : Block
     }
 
     private class PassiveLinkSpan
+
+    /** A `#`–`######` line's level and text */
+    data class Heading(val level: Int, val text: String)
+
+    /** Lines [height] tall, the first of them [spaceAbove] further from the text above it */
+    private class FixedLineHeightSpan(private val height: Int, private val spaceAbove: Int = 0) :
+        LineHeightSpan {
+        override fun chooseHeight(
+            text: CharSequence,
+            start: Int,
+            end: Int,
+            spanstartv: Int,
+            lineHeight: Int,
+            fm: Paint.FontMetricsInt
+        ) {
+            val originalHeight = fm.descent - fm.ascent
+            if (originalHeight <= 0) return
+            fm.descent = (fm.descent * height.toFloat() / originalHeight).roundToInt()
+            fm.ascent = fm.descent - height
+            if (spaceAbove > 0 && (text as? Spanned)?.getSpanStart(this) == start) {
+                fm.ascent -= spaceAbove
+            }
+        }
+    }
 
     private val urlPattern: Regex by lazy { Patterns.WEB_URL.toRegex() }
 
@@ -84,6 +118,16 @@ object MarkdownParser {
     private val tableDelimiterPattern = Regex("^:?-{3,}:?$")
 
     private val listPrefixPattern = Regex("^([-+*]|([0-9]+)[.)])[\\t ]+")
+
+    // A list item's marker before its text, perhaps with the marks its bold, italics or code opens with
+    private val listMarksPattern = Regex("^(?:[-+*]|[0-9]+[.)])(?:[\\t ]+[*`]*[\\t ]*)?$")
+
+    // Only the marks make no heading
+    private val headingPattern = Regex("^ {0,3}(#{1,6})[\\t ]+(\\S.*)$")
+
+    // A heading's marks before its text, perhaps with the marks of its bold start
+    private val headingMarksPattern = Regex("^ {0,3}#{1,6}(?:[\\t ]+\\*{0,2})?$")
+    private val headingClosingMarksPattern = Regex("\\s+#+$")
     private val codeFencePattern = Regex("^[\\t ]*```[^`]*$")
     private val markdownLinkPattern = Regex(
         """\[((?:\\.|[^\]\\\n])+)\]\(((?:https?://|mtw://)(?:\\.|[^()\\\s]|\((?:\\.|[^()\\\s])*\))+)\)"""
@@ -176,6 +220,21 @@ object MarkdownParser {
 
         while (lineIndex < lines.size) {
             val line = lines[lineIndex].trimEnd('\r')
+            // A fence opens a code block of its own, which runs to its closing fence or to the text's end
+            if (codeFencePattern.matches(line)) {
+                flushText()
+                val codeLines = mutableListOf<String>()
+                lineIndex++
+                while (lineIndex < lines.size && lines[lineIndex].trimEnd('\r').trim() != "```") {
+                    codeLines.add(lines[lineIndex++].trimEnd('\r'))
+                }
+                lineIndex++
+                val language = line.trim().removePrefix("```").trim().takeIf { it.isNotEmpty() }
+                // A link in code is plain text: only its label shows, and Copy copies only the label
+                val code = AgentTextLinks.removeMarkers(codeLines.joinToString("\n"))
+                blocks.add(Block.Code(language, code))
+                continue
+            }
             if (line.trimStart().startsWith("```")) {
                 inCodeBlock = !inCodeBlock
                 textLines.add(line)
@@ -229,12 +288,31 @@ object MarkdownParser {
                 }
                 val start = result.length
                 result.append(codeLines.joinToString("\n"))
-                applyCodeSpan(result, start, result.length, codeColor)
+                applyCodeBlockSpans(result, start, codeColor, textSize)
                 if (index < lines.size) index++
                 continue
             }
             val isArriving = isStreaming && index == lines.lastIndex
-            if (isArriving && line in listOf("-", "+", "*")) {
+            // A list item's marker or a heading's marks still arriving wait for their text
+            if (isArriving && (isListMarks(line) || isHeadingMarks(line))) {
+                index++
+                continue
+            }
+            val heading = parseHeading(line)
+            if (heading != null) {
+                val hasTextAbove = result.isNotBlank()
+                val start = result.length
+                result.append(
+                    parseInline(
+                        heading.text,
+                        codeColor,
+                        linkColor,
+                        onUrlClick,
+                        detectsUrls,
+                        isArriving
+                    )
+                )
+                applyHeadingSpans(result, start, heading.level, textSize, hasTextAbove)
                 index++
                 continue
             }
@@ -275,6 +353,88 @@ object MarkdownParser {
         applyAnswerLinks(result, linkColor, onUrlClick)
         if (onUrlClick != null && detectsUrls) applyUrlSpans(result, linkColor, onUrlClick)
         return result
+    }
+
+    /** The line has only a heading's marks so far */
+    internal fun isHeadingMarks(line: String): Boolean = headingMarksPattern.matches(line)
+
+    /** The line has only a list item's marker so far, perhaps with the marks its text opens with */
+    internal fun isListMarks(line: String): Boolean = listMarksPattern.matches(line)
+
+    /** The level and text of a `#`–`######` heading line, without a closing run of `#` */
+    internal fun parseHeading(line: String): Heading? {
+        val match = headingPattern.matchEntire(line) ?: return null
+        val text = headingClosingMarksPattern.replace(match.groupValues[2].trimEnd(), "")
+        return Heading(match.groupValues[1].length, text)
+    }
+
+    /** Telegram's heading sizes: from 6 sp over the body's for the first level down to 1 sp for the sixth */
+    internal fun headingTextSize(bodyTextSize: Float, level: Int, spSize: Float): Float =
+        bodyTextSize + (HEADING_LEVELS + 1 - level) * spSize
+
+    /** A code block's text is 2 sp under the body's, as Telegram's 14 px code under its 16 px body */
+    internal fun codeBlockTextSize(bodyTextSize: Float, spSize: Float): Float =
+        bodyTextSize - CODE_BLOCK_SIZE_STEP * spSize
+
+    /** A code block's lines are 1.5 times its size, as Telegram's are */
+    internal fun codeBlockLineHeight(textSize: Float): Int =
+        ceil(textSize * CODE_BLOCK_LINE_HEIGHT).toInt()
+
+    /** The size in pixels of 1 sp */
+    internal fun getSpSize(): Float = TypedValue.applyDimension(
+        TypedValue.COMPLEX_UNIT_SP,
+        1f,
+        Resources.getSystem().displayMetrics
+    )
+
+    /** A code block's lines while its answer streams in its text: as the code block draws them, in [color] */
+    private fun applyCodeBlockSpans(
+        sb: SpannableStringBuilder,
+        start: Int,
+        color: Int,
+        bodyTextSize: Float
+    ) {
+        if (start == sb.length) return
+        val size = codeBlockTextSize(bodyTextSize, getSpSize())
+        listOf(
+            TypefaceSpan("monospace"),
+            AbsoluteSizeSpan(size.roundToInt()),
+            ForegroundColorSpan(color),
+            FixedLineHeightSpan(codeBlockLineHeight(size))
+        ).forEach { sb.setSpan(it, start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+    }
+
+    /** A heading's lines are about 1.4 times its size, as Telegram's are */
+    internal fun headingLineHeight(textSize: Float): Int =
+        ceil(textSize * HEADING_LINE_HEIGHT).toInt()
+
+    /**
+     * A heading takes its level's size in the medium face and the body's color. It stands 6 dp further from the text
+     * above it than lines do, unless it opens the text, and the text under it follows as lines do.
+     */
+    private fun applyHeadingSpans(
+        sb: SpannableStringBuilder,
+        start: Int,
+        level: Int,
+        bodyTextSize: Float,
+        hasTextAbove: Boolean
+    ) {
+        if (start == sb.length) return
+        val size = headingTextSize(bodyTextSize, level, getSpSize())
+        // Before the spans of its runs, so code keeps its face and size and bold and italic their style
+        val flags = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or
+            (HEADING_SPAN_PRIORITY shl Spanned.SPAN_PRIORITY_SHIFT)
+        sb.setSpan(AbsoluteSizeSpan(size.roundToInt()), start, sb.length, flags)
+        sb.setSpan(WTypefaceSpan(WFont.Medium), start, sb.length, flags)
+        sb.setSpan(
+            FixedLineHeightSpan(
+                headingLineHeight(size),
+                if (hasTextAbove) HEADING_SPACING_BEFORE.dp else 0
+            ),
+            start,
+            sb.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
     }
 
     private fun applyAnswerLinks(
@@ -526,6 +686,13 @@ object MarkdownParser {
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
     }
+
+    private const val HEADING_LEVELS = 6
+    private const val HEADING_LINE_HEIGHT = 1.4f
+    private const val HEADING_SPACING_BEFORE = 6
+    private const val HEADING_SPAN_PRIORITY = 100
+    private const val CODE_BLOCK_SIZE_STEP = 2
+    private const val CODE_BLOCK_LINE_HEIGHT = 1.5f
 
     private fun stripHtmlTableMarkupForDisplay(source: String): String {
         if (!htmlTableOpenPattern.containsMatchIn(source)) return source

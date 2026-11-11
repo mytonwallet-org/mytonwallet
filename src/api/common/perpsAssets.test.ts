@@ -41,12 +41,30 @@ const CATALOGUE = {
       },
     }],
   },
-} as ApiPerpsGetAssetsResult;
+  sections: [],
+  limitsByChain: {
+    hyperliquid: { minOpenDepositUsdc: '10.2', minIncreaseDepositUsdc: '0.2', minPositionMarginUsdc: '10' },
+  },
+} as unknown as ApiPerpsGetAssetsResult;
 
 beforeEach(() => {
   mockStore.clear();
   mockCallBackendGet.mockReset();
   jest.resetModules();
+});
+
+test.each([
+  ['sections', { ...CATALOGUE, sections: undefined }],
+  ['limits', { ...CATALOGUE, limitsByChain: {} }],
+])('does not restore a stored catalogue without %s', async (_, result) => {
+  mockStore.set('perpsAssets', { langCode: 'en', fetchedAt: 1, result });
+  mockCallBackendGet.mockResolvedValue(CATALOGUE);
+  const { getPerpsAssets, loadPerpsAssetsCache } = await loadCacheModule();
+
+  await loadPerpsAssetsCache();
+
+  await expect(getPerpsAssets('en')).resolves.toEqual(CATALOGUE);
+  expect(mockCallBackendGet).toHaveBeenCalledTimes(1);
 });
 
 test('serves the catalogue from cache until a refresh replaces it', async () => {
@@ -68,7 +86,7 @@ test('serves the catalogue from cache until a refresh replaces it', async () => 
   await expect(refreshPerpsAssets('en')).resolves.toBe(next);
   await expect(getPerpsAssets('en')).resolves.toBe(next);
   expect(mockCallBackendGet).toHaveBeenCalledTimes(2);
-  expect(mockCallBackendGet).toHaveBeenLastCalledWith('/perps/assets', { langCode: 'en' }, undefined, undefined);
+  expect(mockCallBackendGet).toHaveBeenLastCalledWith('/perps/assets', { langCode: 'en' });
   expect(updates).toHaveLength(2);
 });
 
@@ -80,16 +98,19 @@ test('a catalogue stored for another language is fetched again', async () => {
   await getPerpsAssets('ru');
 
   expect(mockCallBackendGet).toHaveBeenCalledTimes(2);
-  expect(mockCallBackendGet).toHaveBeenLastCalledWith('/perps/assets', { langCode: 'ru' }, undefined, undefined);
+  expect(mockCallBackendGet).toHaveBeenLastCalledWith('/perps/assets', { langCode: 'ru' });
 });
 
 test('restores the catalogue and its original freshness from storage before the next request', async () => {
   mockStore.set('perpsAssets', { langCode: 'en', fetchedAt: 10, result: CATALOGUE });
-  const { getPerpsAssets, getPerpsAssetsFetchedAt, loadPerpsAssetsCache } = await loadCacheModule();
+  const {
+    getPerpsAssets, getPerpsAssetsFetchedAt, loadPerpsAssetsCache, setPerpsAssetsUpdater,
+  } = await loadCacheModule();
   const updates: unknown[] = [];
-  await loadPerpsAssetsCache((update) => {
+  setPerpsAssetsUpdater((update) => {
     updates.push(update);
   });
+  await loadPerpsAssetsCache();
 
   await expect(getPerpsAssets('en')).resolves.toEqual(CATALOGUE);
   expect(getPerpsAssetsFetchedAt(CATALOGUE, 'en')).toBe(10);

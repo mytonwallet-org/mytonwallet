@@ -18,7 +18,7 @@ final class AgentClipboardTests: XCTestCase {
         let toast = AgentClipboard.copiedToast
         XCTAssertEqual(toast.style, .overlay)
         XCTAssertEqual(toast.icon, .animatedCopy)
-        XCTAssertEqual(toast.message, lang("Message Copied"))
+        XCTAssertEqual(toast.message, lang("$agent_message_copied"))
         XCTAssertEqual(toast.duration, 3)
         XCTAssertEqual(toast.transition, .scale)
     }

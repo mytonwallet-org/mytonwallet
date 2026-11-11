@@ -21,6 +21,9 @@ const mockStakingCommon = jest.fn();
 const mockAccount = jest.fn();
 const mockAccounts = jest.fn();
 const mockRefreshMfaStateAndNotify = jest.fn();
+const mockSetPerpsAssetsUpdater = jest.fn();
+const mockLoadPerpsAssetsCache = jest.fn();
+const mockRefreshPerpsAssets = jest.fn();
 const mockOnUpdate = jest.fn<void, Parameters<OnApiUpdate>>();
 const mockSetupActivePolling = jest.fn(
   (_accountId: string, _account: ApiAccountAny, _onUpdate: OnApiUpdate) => jest.fn(),
@@ -30,10 +33,13 @@ const mockSetupInactivePolling = jest.fn(
 );
 let mockNoExtraFeatures = true;
 let mockUseRealPollingLoop = false;
+let mockIsIosApp = false;
+let mockIsPerpsEnabled = true;
 
 jest.mock('../../config', () => ({
   ...jest.requireActual('../../config'),
   get NO_EXTRA_FEATURES() { return mockNoExtraFeatures; },
+  get IS_PERPS_ENABLED() { return mockIsPerpsEnabled; },
 }));
 
 jest.mock('../../util/logs', () => ({
@@ -72,11 +78,14 @@ jest.mock('./optional', () => ({
   }),
   requireSwapMethods: () => ({ swapGetAssetsText: jest.fn().mockResolvedValue('[]') }),
   requirePerpsAssets: () => ({
-    setPerpsAssetsUpdater: jest.fn(),
-    loadPerpsAssetsCache: jest.fn().mockResolvedValue(undefined),
-    refreshPerpsAssets: jest.fn().mockResolvedValue({ assetsByChain: {} }),
+    setPerpsAssetsUpdater: (...args: unknown[]) => mockSetPerpsAssetsUpdater(...args),
+    loadPerpsAssetsCache: (...args: unknown[]) => mockLoadPerpsAssetsCache(...args),
+    refreshPerpsAssets: (...args: unknown[]) => mockRefreshPerpsAssets(...args),
   }),
+  requirePerpsPositions: () => ({ setupPerpsPositionsPolling: () => undefined }),
 }));
+
+jest.mock('../environment', () => ({ getEnvironment: () => ({ isIosApp: mockIsIosApp }) }));
 
 jest.mock('../common/accounts', () => ({
   fetchStoredAccount: (...args: unknown[]) => mockAccount(...args),
@@ -130,6 +139,65 @@ jest.mock('../storages', () => ({
 jest.mock('./preload', () => ({
   resolveDataPreloadPromise: jest.fn(),
 }));
+
+describe('Perps catalogue polling', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockNoExtraFeatures = false;
+    mockUseRealPollingLoop = true;
+    mockAccounts.mockReset().mockResolvedValue({});
+    mockCallBackendGet.mockReset().mockResolvedValue({});
+    mockSetPerpsAssetsUpdater.mockClear();
+    mockLoadPerpsAssetsCache.mockReset().mockResolvedValue(undefined);
+    mockRefreshPerpsAssets.mockReset().mockResolvedValue({ assetsByChain: {} });
+  });
+
+  afterEach(async () => {
+    const { destroyPolling } = await import('./polling');
+    await destroyPolling();
+    mockNoExtraFeatures = true;
+    mockUseRealPollingLoop = false;
+    mockIsIosApp = false;
+    mockIsPerpsEnabled = true;
+    mockCallBackendGet.mockReset();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('restores the catalogue and refreshes it every minute in the iOS app', async () => {
+    mockIsIosApp = true;
+    const { initPolling } = await import('./polling');
+    initPolling(mockOnUpdate);
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockLoadPerpsAssetsCache).toHaveBeenCalledTimes(1);
+    expect(mockRefreshPerpsAssets).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(MINUTE);
+    expect(mockRefreshPerpsAssets).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not read the catalogue in the iOS app while Perps is closed', async () => {
+    mockIsIosApp = true;
+    mockIsPerpsEnabled = false;
+    const { initPolling } = await import('./polling');
+    initPolling(mockOnUpdate);
+
+    await jest.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(mockLoadPerpsAssetsCache).not.toHaveBeenCalled();
+    expect(mockRefreshPerpsAssets).not.toHaveBeenCalled();
+  });
+
+  it('does not read the catalogue on other clients but still publishes what they load', async () => {
+    const { initPolling } = await import('./polling');
+    initPolling(mockOnUpdate);
+
+    await jest.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(mockSetPerpsAssetsUpdater).toHaveBeenCalledTimes(1);
+    expect(mockLoadPerpsAssetsCache).not.toHaveBeenCalled();
+    expect(mockRefreshPerpsAssets).not.toHaveBeenCalled();
+  });
+});
 
 describe('backend config polling', () => {
   beforeEach(() => {

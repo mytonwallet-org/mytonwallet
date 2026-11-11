@@ -31,7 +31,7 @@ public class ActivityCellViewModel {
     }
 }
 
-public class ActivityCell: WHighlightCollectionViewCell {
+public class ActivityCell: WHighlightCollectionViewCell, ActivityDateDisplaying {
 
     @MainActor
     public protocol Delegate: AnyObject {
@@ -101,6 +101,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
     private var contextMenuInteraction: ContextMenuInteraction?
     private var trackedValue: Double?
     private var timestampDisplayMode: ActivityTimestampDisplayMode = .timeOnly
+    private var displayedTimestamp: String?
 
     private var viewModel: ActivityCellViewModel?
 
@@ -116,6 +117,8 @@ public class ActivityCell: WHighlightCollectionViewCell {
 
     public override func prepareForReuse() {
         super.prepareForReuse()
+        activity = nil
+        displayedTimestamp = nil
         contentView.alpha = 1
         setShowsRightChevron(false)
         resetTitleVisibility()
@@ -132,6 +135,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
     }
 
     func setupViews() {
+        accessibilityIdentifier = "activity_row"
         isExclusiveTouch = true
         layer.cornerRadius = 20
 
@@ -527,7 +531,21 @@ public class ActivityCell: WHighlightCollectionViewCell {
         }
     }
 
-    func configureDetails(_ options: ConfigureDetailsOptions) {
+    @discardableResult public func updateDate(relativeTo now: Date) -> Date? {
+        guard let activity, let viewModel, !viewModel.isEmulation, mainView.alpha > 0 else { return nil }
+        let timestamp = ActivityDateFormatting.timestampText(for: activity.timestampDate, mode: timestampDisplayMode, relativeTo: now)
+        if timestamp != displayedTimestamp {
+            configureDetails(.init(
+                activity: activity, accountContext: viewModel.$account, isEmulation: false,
+                timestampDisplayMode: timestampDisplayMode
+            ), relativeTo: now)
+        }
+        return ActivityDateFormatting.getNextTimestampUpdate(
+            for: activity.timestampDate, mode: timestampDisplayMode, relativeTo: now
+        )
+    }
+
+    func configureDetails(_ options: ConfigureDetailsOptions, relativeTo now: Date = .now) {
         let activity = options.activity
         let attr = NSMutableAttributedString()
         let detailsAttributes: [NSAttributedString.Key: Any] = [
@@ -605,14 +623,16 @@ public class ActivityCell: WHighlightCollectionViewCell {
             }
             let timestamp = ActivityDateFormatting.timestampText(
                 for: activity.timestampDate,
-                mode: options.timestampDisplayMode
+                mode: options.timestampDisplayMode,
+                relativeTo: now
             )
+            displayedTimestamp = timestamp
             attr.append(NSAttributedString(string: timestamp, attributes: [
                 .font: WTypography.uiFont(.supporting, content: .technical)
             ]))
         }
         detailsLabel.textColor = UIColor.air.secondaryLabel
-        detailsLabel.attributedText = attr
+        if detailsLabel.attributedText != attr { detailsLabel.attributedText = attr }
     }
 
     struct ConfigureAmountOptions {

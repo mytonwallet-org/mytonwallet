@@ -1,8 +1,6 @@
 import type { bigintReviver } from '../../util/bigint';
 import type { WindowMethodResponse, WindowMethods } from '../../util/windowProvider/types';
-import type {
-  callApi, captureInstallAttribution, captureInstallMetadata, initApi, setInstallChannel,
-} from '../providers/direct/connector';
+import type { callApi, handleInstallationStateChange, initApi } from '../providers/direct/connector';
 
 type NativeCallbackResponse =
   | { ok: false }
@@ -11,9 +9,7 @@ type NativeCallbackResponse =
 interface AirBridge {
   initApi: typeof initApi;
   callApi: typeof callApi;
-  setInstallChannel: typeof setInstallChannel;
-  captureInstallAttribution: typeof captureInstallAttribution;
-  captureInstallMetadata: typeof captureInstallMetadata;
+  handleInstallationStateChange: typeof handleInstallationStateChange;
   bigintReviver: typeof bigintReviver;
   nativeCallCallbacks: Record<number, (response: NativeCallbackResponse) => void>;
 }

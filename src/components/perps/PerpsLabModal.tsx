@@ -3,13 +3,13 @@ import { getActions, getGlobal, withGlobal } from '../../global';
 
 import type {
   ApiPerpsActivitiesSnapshot,
-  ApiPerpsActivityItem,
   ApiPerpsAssetsSnapshot,
   ApiPerpsClearinghouseState,
   ApiPerpsListedAsset,
   ApiPerpsOperation,
   ApiPerpsPositionSide,
   ApiPerpsQuote,
+  ApiPerpsTradeActivity,
   ApiPerpsTradeIntent,
 } from '../../api/types';
 import type { GlobalPerpsAssets, PerpsBalanceDepositProgress } from '../../global/types';
@@ -98,60 +98,13 @@ function formatPerpsActivityTime(timeMs: number): string {
   return new Date(timeMs).toLocaleString();
 }
 
-function readRecordField(record: Record<string, unknown> | undefined, key: string): string | undefined {
-  if (!record) {
-    return undefined;
-  }
-
-  const value = record[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-function formatPerpsActivitySummary(item: ApiPerpsActivityItem): string {
-  switch (item.kind) {
-    case 'fill': {
-      const coin = readRecordField(item, 'coin') ?? '?';
-      const px = readRecordField(item, 'px') ?? '—';
-      const sz = readRecordField(item, 'sz') ?? '—';
-      const side = readRecordField(item, 'side');
-      return [coin, side, `${sz} @ ${px}`].filter(Boolean).join(' ');
-    }
-    case 'historicalOrder': {
-      const order = item.order;
-      const orderRecord = order && typeof order === 'object'
-        ? order as Record<string, unknown>
-        : undefined;
-      const coin = readRecordField(orderRecord, 'coin') ?? '?';
-      const status = readRecordField(item, 'status') ?? '—';
-      return `${coin} · ${status}`;
-    }
-    case 'fundingPayment': {
-      const delta = item.delta;
-      const deltaRecord = delta && typeof delta === 'object'
-        ? delta as Record<string, unknown>
-        : undefined;
-      const coin = readRecordField(deltaRecord, 'coin') ?? '?';
-      const usdc = readRecordField(deltaRecord, 'usdc');
-      return usdc ? `${coin} · ${usdc} USDC` : coin;
-    }
-    case 'ledgerUpdate': {
-      const delta = item.delta;
-      const deltaRecord = delta && typeof delta === 'object'
-        ? delta as Record<string, unknown>
-        : undefined;
-      const type = readRecordField(deltaRecord, 'type') ?? 'update';
-      const usdc = readRecordField(deltaRecord, 'usdc');
-      return usdc ? `${type} · ${usdc} USDC` : type;
-    }
-    default: {
-      const range = item.positionSizeBefore !== undefined && item.positionSizeAfter !== undefined
-        ? `${item.positionSizeBefore} → ${item.positionSizeAfter}`
-        : undefined;
-      return [item.side, item.size, range, item.transferredAmount && `${item.transferredAmount} USDC`]
-        .filter(Boolean)
-        .join(' · ');
-    }
-  }
+function formatPerpsActivitySummary(item: ApiPerpsTradeActivity): string {
+  const range = item.positionSizeBefore !== undefined && item.positionSizeAfter !== undefined
+    ? `${item.positionSizeBefore} → ${item.positionSizeAfter}`
+    : undefined;
+  return [item.side, item.size, range, item.transferredAmount && `${item.transferredAmount} USDC`]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function findListedAssetById(
@@ -220,6 +173,28 @@ function balancePasswordCopy(
   };
 }
 
+function formatPerpsDepositGas(estimate: ApiPerpsQuote) {
+  if (estimate.estimatedNetworkFeeUsdc !== undefined) {
+    return `${estimate.estimatedNetworkFeeUsdc} USDC`;
+  }
+  if (estimate.estimatedNetworkFeeEth !== undefined) {
+    return `${estimate.estimatedNetworkFeeEth} ETH`;
+  }
+  return undefined;
+}
+
+function renderPerpsDepositGas(estimate: ApiPerpsQuote) {
+  const gas = formatPerpsDepositGas(estimate);
+  if (!gas) return undefined;
+
+  return (
+    <div>
+      <div className={styles.summaryLabel}>Network fee</div>
+      <div>{gas}</div>
+    </div>
+  );
+}
+
 function PerpsEstimateCard({ title, estimate }: { title: string; estimate: ApiPerpsQuote }) {
   return (
     <div className={styles.summary}>
@@ -242,6 +217,7 @@ function PerpsEstimateCard({ title, estimate }: { title: string; estimate: ApiPe
         <div className={styles.summaryLabel}>Liquidation price</div>
         <div>{estimate.estimatedLiquidationPrice ?? '—'}</div>
       </div>
+      {renderPerpsDepositGas(estimate)}
     </div>
   );
 }
@@ -333,12 +309,13 @@ function PerpsLabModal({
     }
   }, [isOpen, closePerpsAsset, currentPerpsAssetId]);
 
-  const fetchAssets = useLastCallback(async (force?: boolean) => {
+  const fetchAssets = useLastCallback(async () => {
     setError(undefined);
     markLoadingAssets();
 
     try {
-      const result = await callApi('perpsGetAssets', undefined, undefined, force ? { force: true } : undefined);
+      // This client does not poll the catalogue, so every load replaces the SDK's copy.
+      const result = await callApi('perpsGetAssets', getGlobal().settings.langCode, { force: true });
 
       if (!result) {
         setError('Failed to load perps assets (transport error).');
@@ -534,6 +511,7 @@ function PerpsLabModal({
     reduce: reduceEstimate,
     reduceError,
     leverageDeposit,
+    leverageEstimate,
     leverageError,
     isEstimating: isEstimatingModify,
   } = usePerpsModifyEstimate({
@@ -943,7 +921,7 @@ function PerpsLabModal({
     }
 
     if (activities.length === 0) {
-      return <div className={styles.hint}>No Hyperliquid fills, orders, funding, or ledger rows.</div>;
+      return <div className={styles.hint}>No Hyperliquid trades.</div>;
     }
 
     const preview = activities.slice(0, PERPS_LAB_ACTIVITIES_PREVIEW_LIMIT);
@@ -955,40 +933,24 @@ function PerpsLabModal({
           Hyperliquid activities ({activities.length})
         </div>
         <div className={styles.activityList}>
-          {preview.map((item, index) => {
-            let time: number;
-            let asset: string | undefined;
-            switch (item.kind) {
-              case 'fill':
-              case 'historicalOrder':
-              case 'fundingPayment':
-              case 'ledgerUpdate':
-                time = item.time;
-                asset = item.asset;
-                break;
-              default:
-                time = item.timestamp;
-                asset = item.assetId;
-            }
-            return (
-              <div
-                key={`${item.kind}-${time}-${index}`}
-                className={styles.activityRow}
-              >
-                <div className={styles.activityHeader}>
-                  <span className={styles.activityKind}>{item.kind}</span>
-                  <span className={styles.dexBadge} title={item.dex || 'Hyperliquid native perps'}>
-                    {formatDexBadge(item.dex)}
-                  </span>
-                  <span className={styles.activityTime}>{formatPerpsActivityTime(time)}</span>
-                </div>
-                <div>{formatPerpsActivitySummary(item)}</div>
-                {asset && (
-                  <div className={styles.assetCoinId}>{asset}</div>
-                )}
+          {preview.map((item) => (
+            <div
+              key={item.id}
+              className={styles.activityRow}
+            >
+              <div className={styles.activityHeader}>
+                <span className={styles.activityKind}>{item.kind}</span>
+                <span className={styles.dexBadge} title={item.dex || 'Hyperliquid native perps'}>
+                  {formatDexBadge(item.dex)}
+                </span>
+                <span className={styles.activityTime}>{formatPerpsActivityTime(item.timestamp)}</span>
               </div>
-            );
-          })}
+              <div>{formatPerpsActivitySummary(item)}</div>
+              {item.assetId && (
+                <div className={styles.assetCoinId}>{item.assetId}</div>
+              )}
+            </div>
+          ))}
         </div>
         {hiddenCount > 0 && (
           <div className={styles.hint}>
@@ -1006,6 +968,7 @@ function PerpsLabModal({
       ? balancePasswordCopy(balanceAction, balanceAmount.trim(), asset.trim(), side, parsedLeverage, isCross)
       : undefined;
     const quote = reviewedQuote;
+    const depositGas = quote ? formatPerpsDepositGas(quote) : undefined;
     return (
       <Modal isOpen={isOpen} onClose={onClose} isCompact title="Perps Lab">
         {!isWithdrawal && !isBalance && quote && (
@@ -1016,7 +979,9 @@ function PerpsLabModal({
             {Number(quote.paymentAmount) > 0 && <div>Pay: {quote.paymentAmount} USDC</div>}
             {quote.kind === 'reduce' && <div>Release: {quote.modify?.depositAmount} USDC before withdrawal fees</div>}
             <div>Estimated fees: {quote.estimatedFees?.total ?? '—'} USDC</div>
+            {depositGas !== undefined && <div>Network fee: {depositGas}</div>}
             <div>Estimated liquidation price: {quote.estimatedLiquidationPrice ?? '—'}</div>
+            {quote.switchesToUnified && <div>Also switches this Hyperliquid account to Unified</div>}
           </div>
         )}
         {isBalance && (
@@ -1104,7 +1069,7 @@ function PerpsLabModal({
               isLoading={isLoadingAssets || isLoadingPositions || isLoadingActivities}
               onClick={() => {
                 void restoreOperations();
-                void fetchAssets(true);
+                void fetchAssets();
                 if (arbAddress) {
                   void fetchPositions();
                   void fetchActivities();
@@ -1181,6 +1146,7 @@ function PerpsLabModal({
                   <div className={styles.summaryLabel}>Liquidation price</div>
                   <div>{openEstimate.estimatedLiquidationPrice ?? '—'}</div>
                 </div>
+                {renderPerpsDepositGas(openEstimate)}
               </div>
             )}
             {isEstimatingOpen && !openEstimate && (
@@ -1194,6 +1160,7 @@ function PerpsLabModal({
                   <div className={styles.summaryLabel}>Deposit</div>
                   <div>{leverageDeposit} USDC</div>
                 </div>
+                {leverageEstimate && renderPerpsDepositGas(leverageEstimate)}
               </div>
             )}
             {leverageDeposit === '0' && (

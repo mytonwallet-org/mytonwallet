@@ -14,7 +14,7 @@ extension ProtectedAction where HeaderView == LinkDomainAuthHeader, Result == Ap
             },
             hardware: makeLinkDomainLedgerOperation(snapshot: snapshot),
             confirmation: .init(
-                title: lang("Confirm Linking"),
+                title: snapshot.isUnlinking ? lang("Confirm Unlinking") : lang("Confirm Linking"),
                 header: LinkDomainAuthHeader(snapshot: snapshot)
             ),
             completion: .handoff { _ in

@@ -5,6 +5,7 @@ import java.lang.ref.WeakReference
 import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.ALL_DEFAULT_TOKENS
@@ -96,7 +97,6 @@ class WalletCreationVM(delegate: Delegate) {
                     notifySDK = true
                 ) { res, err ->
                     if (res == null || err != null) {
-                        // Should not happen!
                         Logger.e(
                             Logger.LogTag.ACCOUNT,
                             LogMessage.Builder()
@@ -105,7 +105,15 @@ class WalletCreationVM(delegate: Delegate) {
                                     LogMessage.MessagePartPrivacy.PUBLIC
                                 ).build()
                         )
-                        delegate.get()?.showError(err)
+                        // The accounts are stored, so a retry would import them again; recover like after a bridge
+                        // crash, which recreates the bridge and the screens itself and activates the stored active account
+                        WGlobalStorage.setActiveAccountId(
+                            primaryAccount.accountId,
+                            persistInstantly = true
+                        )
+                        if (err?.type != MBridgeError.Type.BRIDGE_INTERRUPTED) {
+                            WalletContextManager.delegate?.get()?.restartApp()
+                        }
                     } else {
                         delegate.get()?.finalizedCreation(primaryAccount, accounts.size)
                     }

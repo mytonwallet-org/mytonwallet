@@ -85,6 +85,52 @@ class ActivityHelpersTest {
         assertEquals(existing, adjusted)
     }
 
+    @Test
+    fun pollsPendingCrossChainBackendSwapsBesidesCexOnes() {
+        val crossChain =
+            crossChainSwap(
+                "vt-id:backend-swap",
+                to = "arbitrum-0xaf88d065e77c8cc2239327c5edb3a432268e5831"
+            )
+        val sameChain =
+            crossChainSwap(
+                "dex-id:backend-swap",
+                to = "base-0xfde4c96c8593536e31f229ea8f37b2ada2699bb2"
+            )
+        val local =
+            crossChainSwap(
+                "vt-id:local",
+                to = "arbitrum-0xaf88d065e77c8cc2239327c5edb3a432268e5831"
+            )
+        val completed =
+            crossChainSwap(
+                "done-id:backend-swap",
+                to = "arbitrum-0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+                status = ApiSwapStatus.COMPLETED
+            )
+
+        assertEquals(
+            listOf("vt-id"),
+            ActivityHelpers.pendingCexSwapHashes(listOf(crossChain, sameChain, local, completed))
+        )
+    }
+
+    private fun crossChainSwap(
+        id: String,
+        to: String,
+        status: ApiSwapStatus = ApiSwapStatus.PENDING_TRUSTED
+    ) = MApiTransaction.Swap(
+        id = id,
+        externalMsgHashNorm = null,
+        timestamp = 1,
+        from = "base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        fromAmount = 1.0,
+        to = to,
+        toAmount = 1.0,
+        status = status,
+        cex = null
+    )
+
     private fun swap(status: ApiSwapStatus, cexStatus: MApiSwapCexTransactionStatus) =
         MApiTransaction.Swap(
             id = "swap-id",

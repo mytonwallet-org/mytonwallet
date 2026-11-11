@@ -152,8 +152,25 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updateCollectionMargins()
         applyLayoutIfNeeded()
         updateVisibleNftAnimationPlayback()
+    }
+
+    public override func viewLayoutMarginsDidChange() {
+        super.viewLayoutMarginsDidChange()
+        updateCollectionMargins()
+    }
+
+    private func updateCollectionMargins() {
+        guard !layoutMode.isCompact, let collectionView else { return }
+        let margins = view.layoutMargins
+        let padding = layoutGeometry.horizontalMargins
+        let collectionMargins = UIEdgeInsets(top: 0, left: max(0, margins.left - padding),
+                                            bottom: 0, right: max(0, margins.right - padding))
+        guard collectionView.layoutMargins != collectionMargins else { return }
+        collectionView.layoutMargins = collectionMargins
+        collectionView.collectionViewLayout.invalidateLayout()
     }
     
     private var displayNfts: OrderedDictionary<String, DisplayNft>?
@@ -178,6 +195,10 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         
         let collectionViewClass = compactMode ? _NoInsetsCollectionView.self : UICollectionView.self
         collectionView = collectionViewClass.init(frame: .zero, collectionViewLayout: makeLayout())
+        if !compactMode {
+            collectionView.contentInsetAdjustmentBehavior = .scrollableAxes
+            collectionView.insetsLayoutMarginsFromSafeArea = false
+        }
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collectionView)
 
@@ -315,12 +336,15 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             actionsSection.contentInsets = contentInsets
         }
 
-        let layout = UICollectionViewCompositionalLayout { [weak self] idx, env in
+        let configuration = UICollectionViewCompositionalLayoutConfiguration()
+        configuration.contentInsetsReference = layoutMode.isCompact ? .automatic : .layoutMargins
+        let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] idx, env in
             guard let self, let dataSource else { return nil }
+            let containerWidth = layoutMode.isCompact ? geometryContainerWidth : env.container.effectiveContentSize.width
 
             switch dataSource.sectionIdentifier(for: idx)?.value {
             case .renewalWarning:
-                let (height, contentInsets) = layoutGeometry.calcRenewalWarningGeometry(containerWidth: geometryContainerWidth)
+                let (height, contentInsets) = layoutGeometry.calcRenewalWarningGeometry(containerWidth: containerWidth)
                 let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(height))
                 let item = NSCollectionLayoutItem(layoutSize: itemSize)
                 let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(height))
@@ -332,7 +356,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 let itemCount = dataSource.snapshot().numberOfItems(inSection: NativeIdentifier(.main))
                 let (cellSize, contentInsets) = layoutGeometry.calcNftItemGeometry(
                     itemCount: itemCount,
-                    containerWidth: geometryContainerWidth,
+                    containerWidth: containerWidth,
                     isRenewalWarningShown: domainRenewalWarning != nil
                 )
                 let itemHeight: NSCollectionLayoutDimension = layoutMode.isCompact ? .absolute(cellSize.height) : .estimated(cellSize.height)
@@ -350,7 +374,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 return actionsSection
             case .placeholder:
                 let (height, contentInsets) = layoutGeometry.calcPlaceholderItemGeometry(
-                    containerWidth: geometryContainerWidth,
+                    containerWidth: containerWidth,
                     isRenewalWarningShown: domainRenewalWarning != nil
                 )
                 let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
@@ -363,7 +387,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             default:
                 return nil
             }
-        }
+        }, configuration: configuration)
         return layout
     }
             
@@ -490,6 +514,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     
     private var geometryContainerWidth: CGFloat {
         collectionView.bounds.width - collectionView.adjustedContentInset.horizontal
+            - (layoutMode.isCompact ? 0 : collectionView.layoutMargins.horizontal)
     }
 
     public func calculateHeight(isHosted: Bool) -> CGFloat {
@@ -794,6 +819,11 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                     : lang("Change Linked Wallet")
                 items += UIAction(title: title, image: .airBundle("MenuLinkToWallet26")) { _ in
                     AppActions.showLinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address, nft: nft)
+                }
+                if linkedAddress != nil {
+                    items += UIAction(title: lang("Unlink Wallet"), image: .airBundle("MenuLinkToWallet26")) { _ in
+                        AppActions.showUnlinkDomain(accountSource: .accountId(accountId), nftAddress: nft.address, nft: nft)
+                    }
                 }
             }
             if displayNft.isHiddenByUser {
@@ -1182,7 +1212,7 @@ extension NftsVC: NftAnimationPlaybackControlling {
 
 @MainActor
 private class LayoutGeometry {
-    private let horizontalMargins: CGFloat = 16
+    let horizontalMargins: CGFloat = 16
     
     private let layoutMode: NftsVC.LayoutMode
     private let compactModeMinColumnCount: Int = 2 // occupy place as if at least 2 items are here

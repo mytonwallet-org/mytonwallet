@@ -1,4 +1,5 @@
 import CoreText
+import Metal
 import Testing
 import UIKit
 @testable import UIComponents
@@ -114,6 +115,65 @@ struct TelegramAmountMotionTests {
             #expect(first.morph == nil)
             #expect(first.alpha == 1)
         }
+    }
+
+    @Test(arguments: [(CGFloat(72), CGFloat(36)), (CGFloat(36), CGFloat(72))], [false, true])
+    func `rolling digits resize continuously in both directions`(_ sizes: (CGFloat, CGFloat), _ isIncreasing: Bool) throws {
+        let motion = TelegramAmountMotion(liquid: true)
+        let source = glyphs("6", size: sizes.0), target = glyphs("4", size: sizes.1)
+        motion.update(source, width: 300, timing: nil, at: 0)
+        motion.update(target, width: 300,
+            timing: TelegramAmountMotionTiming(spin: true, up: isIncreasing, start: 1), at: 1)
+        var previousSize = sizes.0
+        for frame in 0...56 {
+            let sprites = motion.frame(at: 1 + Double(frame) / 120)
+            let first = try #require(sprites.first)
+            let size = first.glyph.font.pointSize * first.scale
+            #expect(abs(size - previousSize) < 2)
+            #expect(size >= min(sizes.0, sizes.1) - 0.001)
+            #expect(size <= max(sizes.0, sizes.1) + 0.001)
+            #expect((size - previousSize) * (sizes.1 - sizes.0) >= -0.001)
+            #expect(sprites.allSatisfy { abs($0.glyph.font.pointSize * $0.scale - size) < 0.001 })
+            previousSize = size
+        }
+        let before = motion.frame(at: 1.124)
+        let after = motion.frame(at: 1.125)
+        for sprite in before {
+            let next = try #require(after.first { $0.glyph.text == sprite.glyph.text })
+            #expect(abs(next.glyph.position.y - sprite.glyph.position.y) < 1)
+            #expect(abs(next.soft - sprite.soft) < 1)
+        }
+        #expect(motion.frame(at: 2).map(\.glyph) == target)
+    }
+
+    @Test(arguments: [(CGFloat(72), CGFloat(36)), (CGFloat(36), CGFloat(72))],
+          [TelegramAmountGlyph.Group.prefix, .suffix])
+    func `resizing affixes only uses prepared glyph masks`(_ sizes: (CGFloat, CGFloat), _ group: TelegramAmountGlyph.Group) throws {
+        func makeAffix(_ text: String, size: CGFloat) -> [TelegramAmountGlyph] {
+            TelegramAmountGlyph.text(NSAttributedString(string: text, attributes: [
+                .font: UIFont.systemFont(ofSize: size, weight: .bold), .foregroundColor: UIColor.label
+            ]), origin: CGPoint(x: 0, y: 70), group: group)
+        }
+        let source = makeAffix("USD", size: sizes.0), target = makeAffix("MY", size: sizes.1)
+        let device = try #require(MTLCreateSystemDefaultDevice())
+        let sourceAtlas = try #require(TelegramAmountGlyphAtlas(device: device, key: .init(scale: 2, fonts: [
+            .init(font: source[0].font, characters: "0123456789.,USD")
+        ])))
+        let targetAtlas = try #require(TelegramAmountGlyphAtlas(device: device, key: .init(scale: 2, fonts: [
+            .init(font: target[0].font, characters: "0123456789.,MY")
+        ])))
+        let motion = TelegramAmountMotion(liquid: true)
+        motion.update(source, width: 300, timing: nil, at: 0)
+        motion.update(target, width: 300,
+            timing: TelegramAmountMotionTiming(spin: true, up: true, start: 1), at: 1)
+        for frame in 0...56 {
+            let sprites = motion.frame(at: 1 + Double(frame) / 120)
+            #expect(!sprites.isEmpty)
+            for sprite in sprites {
+                try #require(sourceAtlas.mask(for: sprite.glyph) ?? targetAtlas.mask(for: sprite.glyph))
+            }
+        }
+        #expect(motion.frame(at: 2).map(\.glyph) == target)
     }
 
     @Test(arguments: [("19", "14"), ("0", "1")])

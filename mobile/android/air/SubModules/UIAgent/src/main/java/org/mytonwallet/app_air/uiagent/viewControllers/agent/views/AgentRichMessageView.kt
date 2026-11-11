@@ -17,6 +17,8 @@ import androidx.core.view.ViewCompat
 import kotlin.math.abs
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentIncomingBubbleColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentTableBorderColor
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.agentTableHeaderColor
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.setMessageMenuTapListener
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
@@ -24,10 +26,8 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
-import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
 private const val MAX_RENDERED_TABLE_ROWS = 200
 private const val MAX_RENDERED_TABLE_CELLS = 1_000
@@ -63,6 +63,15 @@ internal fun limitTableForRendering(table: MarkdownParser.Block.Table): Markdown
     return retainedTable.copy(rows = clampedRows + listOf(truncationRow))
 }
 
+/** The block an answer still streaming writes into: its last, when that is text */
+internal fun arrivingRichBlockIndex(
+    blocks: List<MarkdownParser.Block>,
+    isStreaming: Boolean
+): Int? {
+    if (!isStreaming || blocks.lastOrNull() !is MarkdownParser.Block.Text) return null
+    return blocks.lastIndex
+}
+
 @SuppressLint("ViewConstructor")
 class AgentRichMessageView(context: Context) : LinearLayout(context) {
 
@@ -73,6 +82,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         setPaddingDpLocalized(22, 10, 14, 10)
     }
 
+    /** While the answer [isStreaming], its last text holds back the markup it has opened, as plain answers do */
     fun configure(
         blocks: List<MarkdownParser.Block>,
         maximumContentWidth: Int,
@@ -80,10 +90,13 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener,
-        onClickListener: OnClickListener
+        onClickListener: OnClickListener,
+        onCopyCode: (String) -> Unit,
+        isStreaming: Boolean
     ) {
         this.maximumContentWidth = maximumContentWidth
         removeAllViews()
+        val arrivingIndex = arrivingRichBlockIndex(blocks, isStreaming)
 
         blocks.forEachIndexed { index, block ->
             val child = when (block) {
@@ -94,7 +107,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                     onUrlClick,
                     detectsUrls,
                     onLongClickListener,
-                    onClickListener
+                    onClickListener,
+                    isStreaming = index == arrivingIndex
                 )
 
                 is MarkdownParser.Block.Table -> AgentTableBlockView(context).apply {
@@ -107,6 +121,16 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                         onLongClickListener,
                         onClickListener
                     )
+                }
+
+                is MarkdownParser.Block.Code -> AgentCodeBlockView(context).apply {
+                    configure(
+                        block,
+                        adaptiveFontSize() * MarkdownParser.getSpSize(),
+                        onLongClickListener,
+                        onClickListener
+                    )
+                    onCopy = onCopyCode
                 }
             }
             addView(
@@ -125,7 +149,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         onUrlClick: ((String) -> Unit)?,
         detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener,
-        onClickListener: OnClickListener
+        onClickListener: OnClickListener,
+        isStreaming: Boolean
     ) = WLabel(context).apply {
         setStyle(adaptiveFontSize())
         setTextColor(WColor.PrimaryText.color)
@@ -142,7 +167,8 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                 null,
                 onUrlClick,
                 detectsUrls,
-                textSize = textSize
+                textSize = textSize,
+                isStreaming = isStreaming
             )
         setOnLongClickListener(onLongClickListener)
         setMessageMenuTapListener(onClickListener)
@@ -321,20 +347,17 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
 
     private data class CellView(val view: WLabel, val placement: MarkdownParser.PlacedTableCell)
 
+    // Telegram's grey table: the header row a shade off the bubble, the other rows on the bubble itself
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (ThemeManager.isDark) 0xFF3A3A3D.toInt() else 0x333C3C43
+        color = agentTableBorderColor
         style = Paint.Style.STROKE
-        strokeWidth = 1f
+        strokeWidth = 1f.dp
     }
     private val headerPaint = Paint().apply {
-        color = WColor.PrimaryText.color.colorWithAlpha(14)
-    }
-    private val stripePaint = Paint().apply {
-        color = WColor.PrimaryText.color.colorWithAlpha(7)
+        color = agentTableHeaderColor
     }
     private val cellViews = mutableListOf<CellView>()
     private var bordered = true
-    private var striped = false
 
     init {
         orientation = HORIZONTAL
@@ -355,7 +378,6 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
         removeAllViews()
         cellViews.clear()
         bordered = table.bordered
-        striped = table.striped
         background = GradientDrawable().apply {
             setColor(Color.TRANSPARENT)
             cornerRadius = 8f.dp
@@ -412,23 +434,15 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
     }
 
     override fun dispatchDraw(canvas: Canvas) {
-        cellViews.forEach { cellView ->
+        cellViews.filter { it.placement.cell.header }.forEach { cellView ->
             val view = cellView.view
-            val cell = cellView.placement.cell
-            val backgroundPaint = when {
-                cell.header -> headerPaint
-                striped && cellView.placement.row % 2 == 1 -> stripePaint
-                else -> null
-            }
-            if (backgroundPaint != null) {
-                canvas.drawRect(
-                    view.left.toFloat(),
-                    view.top.toFloat(),
-                    view.right.toFloat(),
-                    view.bottom.toFloat(),
-                    backgroundPaint
-                )
-            }
+            canvas.drawRect(
+                view.left.toFloat(),
+                view.top.toFloat(),
+                view.right.toFloat(),
+                view.bottom.toFloat(),
+                headerPaint
+            )
         }
 
         super.dispatchDraw(canvas)

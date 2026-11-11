@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -331,7 +333,7 @@ class SwapViewModel :
                 currency = token.symbol ?: "",
                 currencyDecimals = available.smartDecimalsCount(token.decimals),
                 showPositiveSign = false,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
         }
     }
@@ -456,7 +458,7 @@ class SwapViewModel :
                 currency = token.symbol ?: "",
                 currencyDecimals = available.smartDecimalsCount(token.decimals),
                 showPositiveSign = false,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             ),
             amount = CoinUtils.toDecimalString(available, token.decimals),
             reverse = false,
@@ -597,7 +599,7 @@ class SwapViewModel :
 
     private companion object {
         private const val TIME_LIMIT = 1000L
-        private const val DELAY_NORMAL = 5000L
+        private const val DELAY_NORMAL = 1500L
         private const val DELAY_ERROR = 1000L
         private const val DELAY_ERROR_MAX = 32000L
 
@@ -732,7 +734,7 @@ class SwapViewModel :
                                         request.tokenToSend.decimals
                                     ),
                                     showPositiveSign = false,
-                                    roundUp = false
+                                    rounding = RoundingMode.DOWN
                                 )
                             )
                             val inputAmount = CoinUtils.fromDecimal(
@@ -961,8 +963,12 @@ class SwapViewModel :
                     estimated.fromAmountMin.toString(
                         decimals = tokenToSend.decimals,
                         currency = tokenToSend.symbol ?: "",
-                        currencyDecimals = tokenToSend.decimals,
-                        showPositiveSign = false
+                        currencyDecimals = estimated.fromAmountMin.smartDecimalsCount(
+                            tokenToSend.decimals
+                        ),
+                        showPositiveSign = false,
+                        // So the shown minimum passes the limit
+                        rounding = RoundingMode.UP
                     )
                 )
             )
@@ -978,8 +984,11 @@ class SwapViewModel :
                             "%amount%" to maxAmount.toString(
                                 decimals = tokenToSend.decimals,
                                 currency = tokenToSend.symbol ?: "",
-                                currencyDecimals = tokenToSend.decimals,
-                                showPositiveSign = false
+                                currencyDecimals = maxAmount.smartDecimalsCount(
+                                    tokenToSend.decimals
+                                ),
+                                showPositiveSign = false,
+                                rounding = RoundingMode.DOWN
                             )
                         )
                     )
@@ -1757,9 +1766,21 @@ class SwapViewModel :
     // Init and clear.
 
     init {
+        // Every applied estimate re-emits the input state; only a change to what the request asks
+        // for restarts the loop, so a stable form keeps its refresh interval.
         collectFlow(
             combine(
-                uiInputStateFlow,
+                uiInputStateFlow.distinctUntilChangedBy {
+                    listOf(
+                        it.key,
+                        it.isCex,
+                        it.wallet.accountId,
+                        it.wallet.addressByChain,
+                        it.nativeTokenToSendBalance,
+                        it.tokenToSendIsSupported,
+                        it.tokenToReceiveIsSupported
+                    )
+                },
                 isAppInForegroundFlow,
                 ::Pair
             )

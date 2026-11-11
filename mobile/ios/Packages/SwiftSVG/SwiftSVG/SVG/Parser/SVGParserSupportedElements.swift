@@ -29,6 +29,7 @@
 
 
 import Foundation
+import QuartzCore
 
 /**
  A struct that lists all the supported elements and attributes for a parser
@@ -88,6 +89,22 @@ public struct SVGParserSupportedElements {
      */
     public static var allSupportedElements: SVGParserSupportedElements {
         let renderContext = SVGRenderContext()
+        func fillHandler(_ layer: CAShapeLayer) -> (String) -> () {
+            renderContext.paintHandler(for: layer, isStroke: false) { SVGPath.applyFill($0, to: layer) }
+        }
+        func strokeHandler(_ layer: CAShapeLayer) -> (String) -> () {
+            renderContext.paintHandler(for: layer, isStroke: true) { SVGPath.applyStroke($0, to: layer) }
+        }
+        let makeGroup: ElementGenerator = {
+            let returnElement = SVGGroup()
+            returnElement.renderContext = renderContext
+            returnElement.supportedAttributes.add(returnElement.identityAttributes)
+            returnElement.supportedAttributes.add(returnElement.fillAttributes)
+            returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+            returnElement.supportedAttributes.add(returnElement.styleAttributes)
+            returnElement.supportedAttributes.add(returnElement.transformAttributes)
+            return returnElement
+        }
         let supportedElements: [String : ElementGenerator] = [
             SVGDefs.elementName: {
                 return SVGDefs()
@@ -101,6 +118,7 @@ public struct SVGParserSupportedElements {
                     "y1": unown(returnElement, SVGLinearGradient.parseY1),
                     "y2": unown(returnElement, SVGLinearGradient.parseY2),
                     "gradientUnits": unown(returnElement, SVGLinearGradient.parseUnits),
+                    "gradientTransform": unown(returnElement, SVGLinearGradient.transform),
                 ]
                 return returnElement
             },
@@ -116,9 +134,6 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 return returnElement
-            },
-            SVGStyle.elementName: {
-                return SVGStyle(context: renderContext)
             },
             SVGText.elementName: {
                 let returnElement = SVGText(context: renderContext)
@@ -143,7 +158,9 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
@@ -158,18 +175,30 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
             },
-            SVGGroup.elementName: {
-                let returnElement = SVGGroup()
-                returnElement.supportedAttributes.add(returnElement.identityAttributes)
-                returnElement.supportedAttributes.add(returnElement.fillAttributes)
-                returnElement.supportedAttributes.add(returnElement.strokeAttributes)
-                returnElement.supportedAttributes.add(returnElement.styleAttributes)
-                returnElement.supportedAttributes.add(returnElement.transformAttributes)
+            SVGGroup.elementName: makeGroup,
+            "a": makeGroup,
+            "switch": makeGroup,
+            SVGImage.elementName: {
+                let returnElement = SVGImage()
+                returnElement.renderContext = renderContext
+                returnElement.supportedAttributes = [
+                    "x": unown(returnElement, SVGImage.parseX),
+                    "y": unown(returnElement, SVGImage.parseY),
+                    "width": unown(returnElement, SVGImage.parseWidth),
+                    "height": unown(returnElement, SVGImage.parseHeight),
+                    "href": unown(returnElement, SVGImage.parseHref),
+                    "xlink:href": unown(returnElement, SVGImage.parseHref),
+                    "preserveAspectRatio": unown(returnElement, SVGImage.parseAspectRatio),
+                    "opacity": unown(returnElement, SVGImage.parseOpacity),
+                    "transform": unown(returnElement, SVGImage.transform),
+                ]
                 return returnElement
             },
             SVGLine.elementName: {
@@ -182,21 +211,24 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
             },
             SVGPath.elementName: {
-                let returnElement = SVGPath(context: renderContext)
+                let returnElement = SVGPath()
                 returnElement.supportedAttributes = [
                     "d": unown(returnElement, SVGPath.parseD),
                     "clip-rule": unown(returnElement, SVGPath.clipRule),
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
-                returnElement.supportedAttributes["fill"] = unown(returnElement, SVGPath.parseFill)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
@@ -208,7 +240,9 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
@@ -220,14 +254,15 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement
             },
             SVGRectangle.elementName: {
                 let returnElement = SVGRectangle()
-                returnElement.renderContext = renderContext
                 returnElement.supportedAttributes = [
                     "height": unown(returnElement, SVGRectangle.rectangleHeight),
                     "rx": unown(returnElement, SVGRectangle.xCornerRadius),
@@ -238,8 +273,9 @@ public struct SVGParserSupportedElements {
                 ]
                 returnElement.supportedAttributes.add(returnElement.identityAttributes)
                 returnElement.supportedAttributes.add(returnElement.fillAttributes)
-                returnElement.supportedAttributes["fill"] = unown(returnElement, SVGRectangle.fill)
+                returnElement.supportedAttributes["fill"] = fillHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.strokeAttributes)
+                returnElement.supportedAttributes["stroke"] = strokeHandler(returnElement.svgLayer)
                 returnElement.supportedAttributes.add(returnElement.styleAttributes)
                 returnElement.supportedAttributes.add(returnElement.transformAttributes)
                 return returnElement

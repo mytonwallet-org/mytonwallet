@@ -7,6 +7,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uisettings.R
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -21,6 +22,7 @@ class NotificationSettingsFooterCell(context: Context) :
         isChecked = WGlobalStorage.getAreSoundsActive(),
         isFirst = true,
         isLast = true,
+        switchViewId = R.id.notifications_play_sounds,
         onChange = { isChecked ->
             WGlobalStorage.setAreSoundsActive(isChecked)
         }

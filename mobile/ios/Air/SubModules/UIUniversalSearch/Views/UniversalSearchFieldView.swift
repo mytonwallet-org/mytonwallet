@@ -241,7 +241,9 @@ public final class UniversalSearchFieldView: UIView {
     }
 
     public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        if super.point(inside: point, with: event) { return true }
+        // Hosted glass reaching past this view, such as the recording's pause button standing above the Agent's field,
+        // takes its touches through containers that ask this view
+        if super.point(inside: point, with: event) || getHostedGlassHit(at: point, with: event) != nil { return true }
         guard presentation == .homeToolbar, bottomHitAreaExtension > 0, let window else {
             return false
         }
@@ -347,13 +349,18 @@ public final class UniversalSearchFieldView: UIView {
     }
 
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        getHostedGlassHit(at: point, with: event) ?? super.hitTest(point, with: event)
+    }
+
+    /// The view in the hosted glass that takes a touch at `point`
+    private func getHostedGlassHit(at point: CGPoint, with event: UIEvent?) -> UIView? {
         for view in hostedGlassViews().reversed() where !view.isHidden && view.alpha > 0.01 && view.isUserInteractionEnabled {
             let localPoint = view.convert(point, from: self)
             if view.point(inside: localPoint, with: event), let hit = view.hitTest(localPoint, with: event) {
                 return hit
             }
         }
-        return super.hitTest(point, with: event)
+        return nil
     }
 
     /// How much wider than the trailing button the home toolbar's buttons are: the scan and accounts buttons with

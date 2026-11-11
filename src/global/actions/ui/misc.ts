@@ -485,6 +485,16 @@ addActionHandler('toggleSeasonalTheming', (global, actions, { isEnabled }) => {
   };
 });
 
+addActionHandler('setNavigationTabOrder', (global, actions, { order }) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      navigationTabOrder: order,
+    },
+  };
+});
+
 addActionHandler('toggle3dCard', (global, actions, { isEnabled }) => {
   return {
     ...global,
@@ -773,6 +783,23 @@ addActionHandler('openAgent', (global) => {
 
 addActionHandler('closeAgent', (global) => {
   return { ...global, isAgentOpen: undefined };
+});
+
+// The first like and the first dislike chosen on this install tell what they do, each once
+addActionHandler('showAgentFeedbackToast', (global, actions, { feedback, animatedIcon }) => {
+  if (global.settings.shownAgentFeedbackToasts?.[feedback]) return;
+
+  setGlobal({
+    ...global,
+    settings: {
+      ...global.settings,
+      shownAgentFeedbackToasts: { ...global.settings.shownAgentFeedbackToasts, [feedback]: true },
+    },
+  });
+  actions.showToast({
+    message: getTranslation(feedback === 'like' ? '$agent_feedback_liked_toast' : '$agent_feedback_disliked_toast'),
+    animatedIcon,
+  });
 });
 
 addActionHandler('closeExplore', (global) => {

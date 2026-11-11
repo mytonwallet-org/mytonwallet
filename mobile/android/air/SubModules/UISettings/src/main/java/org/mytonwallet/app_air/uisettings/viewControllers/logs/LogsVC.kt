@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
@@ -53,6 +54,7 @@ class LogsVC(context: Context) : WViewController(context) {
 
         setNavTitle("Logs")
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.logs_title
 
         view.addView(recyclerView, ConstraintLayout.LayoutParams(0, 0))
         view.setConstraints {

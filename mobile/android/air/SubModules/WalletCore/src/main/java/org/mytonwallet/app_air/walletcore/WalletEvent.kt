@@ -16,6 +16,8 @@ sealed class WalletEvent {
     data object TokensChanged : WalletEvent()
 
     data object MarketAssetsUpdated : WalletEvent()
+    data object PerpsUpdated : WalletEvent()
+    data object PerpsAssetsUpdated : WalletEvent()
 
     data object BaseCurrencyChanged : WalletEvent()
 
@@ -83,6 +85,7 @@ sealed class WalletEvent {
     data object AppTabsChanged : WalletEvent()
     data object WalletCardTopLineChanged : WalletEvent()
     data object ActionButtonsRowChanged : WalletEvent()
+    data object ToolbarSettingsChanged : WalletEvent()
     data object CardEffectsChanged : WalletEvent()
 
     data class OpenUrl(

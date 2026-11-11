@@ -11,7 +11,7 @@ public actor DomainsStore: WalletCoreData.EventsObserver {
     
     private var db: (any DatabaseWriter)?
     
-    private init() {
+    init() {
     }
     
     func use(db: any DatabaseWriter) async {

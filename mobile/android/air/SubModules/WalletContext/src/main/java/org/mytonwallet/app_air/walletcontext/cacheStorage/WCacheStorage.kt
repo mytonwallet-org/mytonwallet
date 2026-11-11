@@ -7,11 +7,18 @@ import androidx.core.content.edit
 object WCacheStorage {
     private lateinit var sharedPreferences: SharedPreferences
 
+    // A separate file keeps synchronous commits small
+    private lateinit var perpsOperationsPreferences: SharedPreferences
+
     private const val CACHE_PREF_NAME = "airCache"
+    private const val PERPS_OPERATIONS_PREF_NAME = "airPerpsOperations"
     private const val CACHE_PREF_TOKENS = "tokens"
     private const val CACHE_PREF_SWAP_ASSETS = "swapAssets"
     private const val CACHE_PREF_TOKEN_DETAILS = "tokenDetails"
     private const val CACHE_PREF_MARKET_ASSETS = "marketAssets"
+    private const val CACHE_PREF_PERPS_ASSETS = "perpsAssets"
+    private const val CACHE_PREF_PERPS_POSITIONS = "perpsPositions."
+    private const val CACHE_PREF_PERPS_ACTIVITIES = "perpsActivities."
 
     private const val CACHE_PREF_STAKING_DATA = "stakingData."
     private const val CACHE_PREF_NFTS = "nfts."
@@ -24,6 +31,8 @@ object WCacheStorage {
 
     fun init(context: Context) {
         sharedPreferences = context.getSharedPreferences(CACHE_PREF_NAME, Context.MODE_PRIVATE)
+        perpsOperationsPreferences =
+            context.getSharedPreferences(PERPS_OPERATIONS_PREF_NAME, Context.MODE_PRIVATE)
     }
 
     fun getTokens(): String? = sharedPreferences.getString(CACHE_PREF_TOKENS, null)
@@ -63,6 +72,43 @@ object WCacheStorage {
             value?.let {
                 putString(CACHE_PREF_MARKET_ASSETS, it)
             } ?: remove(CACHE_PREF_MARKET_ASSETS)
+        }
+    }
+
+    fun getPerpsAssets(): String? = sharedPreferences.getString(CACHE_PREF_PERPS_ASSETS, null)
+
+    fun setPerpsAssets(value: String?) {
+        sharedPreferences.edit {
+            value?.let { putString(CACHE_PREF_PERPS_ASSETS, it) } ?: remove(CACHE_PREF_PERPS_ASSETS)
+        }
+    }
+
+    fun getPerpsPositions(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_PERPS_POSITIONS + accountId, null)
+
+    fun setPerpsPositions(accountId: String, value: String?) {
+        sharedPreferences.edit {
+            value?.let { putString(CACHE_PREF_PERPS_POSITIONS + accountId, it) }
+                ?: remove(CACHE_PREF_PERPS_POSITIONS + accountId)
+        }
+    }
+
+    fun getPerpsActivities(accountId: String): String? =
+        sharedPreferences.getString(CACHE_PREF_PERPS_ACTIVITIES + accountId, null)
+
+    fun setPerpsActivities(accountId: String, value: String?) {
+        sharedPreferences.edit {
+            value?.let { putString(CACHE_PREF_PERPS_ACTIVITIES + accountId, it) }
+                ?: remove(CACHE_PREF_PERPS_ACTIVITIES + accountId)
+        }
+    }
+
+    fun getPerpsOperations(accountId: String): String? =
+        perpsOperationsPreferences.getString(accountId, null)
+
+    fun setPerpsOperations(accountId: String, value: String?) {
+        perpsOperationsPreferences.edit(commit = true) {
+            value?.let { putString(accountId, it) } ?: remove(accountId)
         }
     }
 
@@ -209,14 +255,17 @@ object WCacheStorage {
             CACHE_PREF_TOKENS,
             CACHE_PREF_SWAP_ASSETS,
             CACHE_PREF_TOKEN_DETAILS,
-            CACHE_PREF_MARKET_ASSETS
+            CACHE_PREF_MARKET_ASSETS,
+            CACHE_PREF_PERPS_ASSETS
         )
         val prefixes = listOf(
             CACHE_PREF_STAKING_DATA,
             CACHE_PREF_NFTS,
             CACHE_PREF_NFT_COLLECTIONS,
             CACHE_PREF_HAS_HIDDEN_NFT,
-            CACHE_PREF_PORTFOLIO
+            CACHE_PREF_PORTFOLIO,
+            CACHE_PREF_PERPS_POSITIONS,
+            CACHE_PREF_PERPS_ACTIVITIES
         )
         return sharedPreferences.edit().apply {
             sharedPreferences.all.keys.forEach { key ->
@@ -237,6 +286,9 @@ object WCacheStorage {
         setHasHiddenNft(accountId, null)
         setStakingData(accountId, null)
         setExploreHistory(accountId, null)
+        setPerpsPositions(accountId, null)
+        setPerpsActivities(accountId, null)
+        setPerpsOperations(accountId, null)
         cleanPortfolio(accountId)
     }
 }

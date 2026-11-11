@@ -83,10 +83,18 @@ sealed class Deeplink {
     data class MintCard(override val accountAddress: String?) : Deeplink()
     data class Explore(override val accountAddress: String?, val targetUri: Uri?) : Deeplink()
 
-    data class Agent(override val accountAddress: String?) : Deeplink()
+    data class Agent(
+        override val accountAddress: String?,
+        val newsEventId: Int? = null,
+        val digestId: String? = null
+    ) : Deeplink()
 
-    // UI tests, debug builds only
-    data class E2EUnlock(override val accountAddress: String?, val passcode: String) : Deeplink()
+    // UI tests, debug builds only; `next` is a link opened once the app is unlocked
+    data class E2EUnlock(
+        override val accountAddress: String?,
+        val passcode: String,
+        val next: String? = null
+    ) : Deeplink()
 
     data class Url(override val accountAddress: String?, val config: InAppBrowserConfig) :
         Deeplink()
@@ -141,6 +149,8 @@ interface DeeplinkNavigator {
 class DeeplinkParser {
 
     companion object {
+        private const val MAX_DIGEST_ID_LENGTH = 64
+
         private val WC_WRAPPER_SCHEMES = setOf("mw", "mywallet-wc", "gramwallet-wc")
         private val WC_WRAPPER_UNIVERSAL_HOSTS = setOf(
             "connect.mywallet.io",
@@ -398,7 +408,15 @@ class DeeplinkParser {
             return when (uri.host) {
                 "e2e-unlock" -> uri.getQueryParameter("passcode")
                     ?.takeIf { DEBUG_MODE && it.isNotEmpty() }
-                    ?.let { Deeplink.E2EUnlock(accountAddress = null, passcode = it) }
+                    ?.let {
+                        Deeplink.E2EUnlock(
+                            accountAddress = null,
+                            passcode = it,
+                            next = uri.getQueryParameter("next")?.takeIf { next ->
+                                next.isNotEmpty()
+                            }
+                        )
+                    }
 
                 "swap", "buy-with-crypto" -> {
                     var from: String? = null
@@ -504,8 +522,9 @@ class DeeplinkParser {
                     targetUri = uri.extractSubUri()
                 )
 
-                "agent" -> Deeplink.Agent(
-                    accountAddress = null
+                "agent" -> parseAgentLink(
+                    uri.getQueryParameter("news"),
+                    uri.getQueryParameter("digest")
                 )
 
                 "settings" -> {
@@ -702,6 +721,16 @@ class DeeplinkParser {
                 expiry = expiry,
                 hasUnsupportedParams = hasUnsupportedParams
             )
+        }
+
+        internal fun parseAgentLink(news: String?, digest: String?): Deeplink.Agent {
+            if (news != null && digest != null) return Deeplink.Agent(null)
+            val eventId = news?.takeIf { it.all(Char::isDigit) }?.toIntOrNull()?.takeIf { it > 0 }
+            val digestId = digest?.takeIf { value ->
+                value.length in 1..MAX_DIGEST_ID_LENGTH &&
+                    value.none { it.isWhitespace() || it.isISOControl() }
+            }
+            return Deeplink.Agent(null, newsEventId = eventId, digestId = digestId)
         }
 
         private fun extractId(pathname: String, pattern: String): String? {

@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -94,6 +95,7 @@ class ExploreCategorySiteCell(
     override fun setupViews() {
         super.setupViews()
 
+        id = UIComponentsR.id.explore_site_row
         clipChildren = false
 
         addView(img, LayoutParams(48.dp, 48.dp))

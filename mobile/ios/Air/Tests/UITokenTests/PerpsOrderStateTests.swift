@@ -9,15 +9,14 @@ import WalletContext
 struct PerpsOrderStateTests {
     private func fixture() -> PerpsOrderDisplayData {
         var data = PerpsOrderDisplayData(token: .TONCOIN, direction: .short, paymentToken: .TON_USDT,
-                                        input: .init(amount: "100.2", leverage: 10))
+                                        input: .init(amount: "100.2", leverage: 10), maxLeverage: 10)
         data.status = .ready
         data.conversion = "25 TON"
         data.positionSize = "$1 002"
         data.paymentAmount = "100.2"
         data.tradingFee = "$3.61"
-        data.fundingPayments = "0.0012%"
-        data.leverageOptions = [.init(value: 2), .init(value: 10, liquidationPrice: "$4.50")]
-        data.canUseFractions = true
+        data.fundingRate = "0.0012%"
+        data.leverageEstimate = .init(leverage: 10, liquidationPrice: "$4.50")
         data.availableCollateral = .init(text: "400")
         return data
     }
@@ -32,8 +31,8 @@ struct PerpsOrderStateTests {
         #expect(state.data.positionSize == nil)
         #expect(state.data.paymentAmount == "100.2")
         #expect(state.data.tradingFee == nil)
-        #expect(state.data.fundingPayments == "0.0012%")
-        #expect(state.data.leverageOptions.last?.liquidationPrice == nil)
+        #expect(state.data.fundingRate == "0.0012%")
+        #expect(state.data.leverageEstimate == nil)
         state.editAmount(.init(text: "12"))
         let first = try #require(requests.first)
         let latest = try #require(requests.last)
@@ -72,54 +71,85 @@ struct PerpsOrderStateTests {
         #expect(state.canReview)
     }
 
-    @Test(arguments: [25, 50, 100])
-    func `opening fractions fill an empty dollar input through the normal edit path`(_ percentage: Int) {
+    @Test(arguments: [(25, "3.09"), (50, "6.17"), (100, "12.35")])
+    func `opening fractions fill in cents at once and ask the SDK for the exact share`(_ percentage: Int, _ amount: String) {
         var data = fixture()
         data.input.amount = .init()
+        data.availableCollateral = .init(text: "12.345678")
         data.status = .idle
         var requests: [PerpsOrderRequest] = []
         let state = PerpsOrderState(data: data) { requests.append($0) }
         state.request(.fraction(percentage))
+        #expect(state.data.input.amount.text == amount)
         #expect(requests.count == 1)
-        #expect(requests.last?.action == .amountChanged)
-        #expect(requests.last?.input.amount.text == "\(percentage * 4).00")
-        #expect(state.data.input == requests.last?.input)
+        #expect(requests.last?.input.fraction == percentage)
+        #expect(requests.last?.input.amount.text == amount)
         #expect(state.data.status == .loading)
         #expect(!state.canReview)
+        state.editAmount(.init(text: "5"))
+        #expect(requests.last?.input.intent == .amount)
     }
 
-    @Test func `fractions round down to input precision and supersede older estimates`() throws {
-        var data = fixture()
-        data.currencyDecimals = 6
-        data.availableCollateral = .init(text: "200.123459")
+    @Test func `a fraction's quote supersedes older estimates and keeps the filled amount`() throws {
         var requests: [PerpsOrderRequest] = []
-        let state = PerpsOrderState(data: data) { requests.append($0) }
+        let state = PerpsOrderState(data: fixture()) { requests.append($0) }
         state.editAmount(.init(text: "10"))
         let earlier = try #require(requests.last)
         state.request(.fraction(25))
         let fraction = try #require(requests.last)
-        #expect(fraction.action == .amountChanged)
-        #expect(fraction.input.amount.text == "50.030864")
+        #expect(state.data.input.amount.text == "100")
         #expect(!state.update(data: fixture(), for: earlier))
-        state.editAmount(.init(text: "51"))
-        #expect(!state.update(data: fixture(), for: fraction))
-        #expect(state.data.input.amount.text == "51")
+        var response = fixture()
+        response.input = fraction.input
+        #expect(state.update(data: response, for: fraction))
+        #expect(state.data.input.amount.text == "100")
+        #expect(state.data.input.fraction == 25)
+        #expect(state.data.availableCollateral?.text == "400")
     }
 
-    @Test func `fractions wait for a known maximum and retain small fixed point amounts`() {
+    @Test func `the Hyperliquid balance can be chosen only when offered and switching drops the old maximum`() throws {
+        var data = fixture()
+        var requests: [PerpsOrderRequest] = []
+        let state = PerpsOrderState(data: data) { requests.append($0) }
+        state.selectFunding(.balance)
+        #expect(requests.isEmpty)
+
+        data.hyperliquidBalance = "12.5"
+        let offered = PerpsOrderState(data: data) { requests.append($0) }
+        offered.request(.fraction(25))
+        offered.selectFunding(.balance)
+        let change = try #require(requests.last)
+        #expect(change.action == .fundingChanged)
+        #expect(change.input.funding == .balance)
+        #expect(change.input.intent == .amount)
+        #expect(change.input.amount.text == "100")
+        #expect(offered.data.availableCollateral == nil)
+        #expect(!offered.data.canUseFractions)
+        offered.selectFunding(.balance)
+        #expect(requests.count == 2)
+
+        // A selected balance that falls below the minimum can still be switched back.
+        var empty = data
+        empty.hyperliquidBalance = nil
+        empty.input = change.input
+        #expect(offered.update(data: empty, for: change))
+        #expect(offered.canSelectFunding)
+        offered.selectFunding(.wallet)
+        #expect(requests.last?.input.funding == .wallet)
+    }
+
+    @Test func `fractions wait for a known maximum`() {
         var data = fixture()
         data.input.amount = .init()
-        data.currencyDecimals = 6
         data.availableCollateral = nil
         var requests: [PerpsOrderRequest] = []
         let state = PerpsOrderState(data: data) { requests.append($0) }
         state.request(.fraction(100))
         #expect(requests.isEmpty)
-        #expect(state.data.input.amount.text.isEmpty)
         data.availableCollateral = .init(text: "0.000007")
         #expect(state.update(data: data))
         state.request(.fraction(25))
-        #expect(requests.last?.input.amount.text == "0.000001")
+        #expect(requests.last?.input.fraction == 25)
     }
 
     @Test func `opening controls require an SDK supplied collateral maximum`() throws {
@@ -130,7 +160,7 @@ struct PerpsOrderStateTests {
         let account = MAccount(id: "wallet", title: "Wallet", type: .mnemonic,
                                byChain: [.arbitrum: AccountChain(address: "0x1234")])
         var requirements = try JSONDecoder().decode(ApiPerpsFundingRequirements.self, from: Data("""
-        {"requiredUsdc":"10.2","requiredEth":"0.0001","requiredEthUsd":"0.25",
+        {"requiredUsdc":"10.2","requiredGasUsdc":"0","requiredEth":"0.0001","requiredEthUsd":"0.25",
          "usdcBalance":"400.2","ethBalance":"1","needsUsdc":false,"needsEth":false}
         """.utf8))
         let unavailable = PerpsSDKAdapter.order(asset: asset, account: account, side: .long, input: .init(), fundingRequirements: requirements)
@@ -147,6 +177,7 @@ struct PerpsOrderStateTests {
         let state = PerpsOrderState(data: fixture()) { requests.append($0) }
         state.selectLeverage(40)
         state.selectLeverage(10)
+        state.selectLeverage(0)
         #expect(requests.isEmpty)
         state.selectLeverage(2)
         #expect(requests.last?.action == .leverageChanged)
@@ -178,21 +209,6 @@ struct PerpsOrderStateTests {
         #expect(!state.update(data: fixture(), for: previous))
         state.selectLeverage(2)
         #expect(state.data.status == .idle)
-    }
-
-    @Test func `selection supersedes an in flight amount response and cancellation can restore the draft`() throws {
-        var requests: [PerpsOrderRequest] = []
-        let state = PerpsOrderState(data: fixture()) { requests.append($0) }
-        state.editAmount(.init(text: "123"))
-        let amountRequest = try #require(requests.last)
-        state.request(.selectPayment)
-        let selectionRequest = try #require(requests.last)
-        var response = fixture()
-        response.input = selectionRequest.input
-        #expect(!state.update(data: response, for: amountRequest))
-        #expect(state.update(data: response, for: selectionRequest))
-        #expect(state.data.input.amount.text == "123")
-        #expect(state.canReview)
     }
 
     @Test func `funding requirements prevent review and leverage changes while allowing amount edits`() {

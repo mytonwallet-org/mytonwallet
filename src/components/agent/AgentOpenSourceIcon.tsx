@@ -1,9 +1,9 @@
-import React from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
 import styles from './AgentMenuIcon.module.scss';
 
 /** The outlined arrow out of a ring of "Open Source", drawn as "Report a Problem" and the wallet's outlined menu icons */
-export default function AgentOpenSourceIcon() {
+function AgentOpenSourceIcon() {
   return (
     <svg className={styles.icon} viewBox="0 0 768 768" aria-hidden>
       <circle className={styles.ring} cx="384" cy="384" r="276" />
@@ -11,3 +11,5 @@ export default function AgentOpenSourceIcon() {
     </svg>
   );
 }
+
+export default memo(AgentOpenSourceIcon);

@@ -158,7 +158,7 @@ final class ActionsView: ButtonsToolbar {
         
         addButton = WScalableButton(
             title: lang("Fund"),
-            image: .airBundle("DepositIconLarge"),
+            image: WActionButtonIcon.fund,
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
                 AppActions.showReceive(accountContext: accountContext, chain: nil)
@@ -169,7 +169,7 @@ final class ActionsView: ButtonsToolbar {
         
         let sendButton = WScalableButton(
             title: lang("Send"),
-            image: .airBundle("SendIconBold"),
+            image: WActionButtonIcon.send,
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
                 AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
@@ -200,7 +200,7 @@ final class ActionsView: ButtonsToolbar {
         
         swapButton = WScalableButton(
             title: lang("Trade"),
-            image: .airBundle("SwapIconBold"),
+            image: WActionButtonIcon.trade,
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
                 Task {
@@ -213,7 +213,7 @@ final class ActionsView: ButtonsToolbar {
         
         earnButton = WScalableButton(
             title: lang("Earn"),
-            image: .airBundle("EarnIconBold"),
+            image: WActionButtonIcon.earn,
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
                 AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
@@ -236,6 +236,7 @@ final class ActionsView: ButtonsToolbar {
                 ContextMenuAction(
                     title: lang("Send"),
                     icon: .airBundle("MenuSend26"),
+                    accessibilityIdentifier: "send_menu_send",
                     handler: {
                         AppActions.showSend(accountContext: accountContext, prefilledValues: .init())
                     }
@@ -245,6 +246,7 @@ final class ActionsView: ButtonsToolbar {
                 ContextMenuAction(
                     title: lang("Multisend"),
                     icon: .airBundle("MenuMultisend26"),
+                    accessibilityIdentifier: "send_menu_multisend",
                     handler: {
                         AppActions.showMultisend()
                     }
@@ -258,6 +260,7 @@ final class ActionsView: ButtonsToolbar {
                     ContextMenuAction(
                         title: lang("Sell"),
                         icon: .airBundle("MenuSell26"),
+                        accessibilityIdentifier: "send_menu_sell",
                         handler: {
                             AppActions.showSell(accountContext: accountContext, tokenSlug: nil)
                         }

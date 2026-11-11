@@ -6,9 +6,7 @@ import { getEnvironment } from '../environment';
 
 let cache: AnyLiteral = {};
 
-const storage: Storage & {
-  getKeys: () => Promise<string[] | undefined>;
-} = {
+const storage: Storage = {
   async getItem(key: StorageKey, force?: boolean) {
     if (getEnvironment().isAndroidApp && key in cache && !force) {
       return cache[key];
@@ -50,12 +48,6 @@ const storage: Storage & {
     if (getEnvironment().isAndroidApp) {
       cache = {};
     }
-  },
-
-  async getKeys() {
-    const result = await callWindow('airStorageKeys');
-
-    return result?.value;
   },
 };
 

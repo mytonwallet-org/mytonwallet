@@ -1,0 +1,244 @@
+@use "../../styles/mixins";
+
+// It comes in over 0.3 s and goes over 0.18 s, eased at both ends as a smoothstep, as on iOS
+.root {
+  pointer-events: none;
+
+  position: absolute;
+  inset: 0;
+
+  border-radius: inherit;
+
+  opacity: 0;
+
+  @include mixins.transition(opacity 180ms cubic-bezier(0.333, 0, 0.667, 1));
+
+  &:global(.open) {
+    opacity: 1;
+    transition-duration: 300ms;
+  }
+}
+
+// The canvas reaches 1.75rem beyond the field on every side, for the rim's bloom. It takes the accent as its colour,
+// which the shader draws in.
+.canvas {
+  position: absolute;
+  top: -1.75rem;
+  left: -1.75rem;
+
+  display: block;
+
+  width: calc(100% + 3.5rem);
+  height: calc(100% + 3.5rem);
+
+  color: var(--color-accent);
+}
+
+// Without WebGL, Android's lights: soft blue lights drift through the field and along its bottom and leading side, and
+// its border gives light, a bright core in a blue bloom spilling out over the background and in as a haze, with lit
+// stretches running along it
+.lights {
+  position: absolute;
+  inset: 0;
+
+  overflow: hidden;
+
+  border-radius: inherit;
+
+  box-shadow:
+    inset 0 0 0 0.0625rem rgb(0 136 255 / 0.2),
+    inset 0 -0.75rem 1.25rem -0.75rem rgb(0 136 255 / 0.35);
+
+  :global(html[dir="rtl"]) & {
+    transform: scaleX(-1);
+  }
+}
+
+// Each light sways on a track across the field, as Android's do on their sines
+.bottomTrack,
+.driftTrack {
+  position: absolute;
+  inset: 0;
+  animation: agent-glow-sway-x var(--agent-glow-sway-duration) ease-in-out infinite alternate;
+}
+
+.driftRise,
+.sideTrack {
+  position: absolute;
+  inset: 0;
+  animation: agent-glow-sway-y var(--agent-glow-sway-duration) ease-in-out infinite alternate;
+}
+
+.bottomTrack {
+  --agent-glow-sway: 50%;
+  --agent-glow-sway-duration: 2.86s;
+
+  animation-delay: -1.43s;
+}
+
+.driftTrack {
+  --agent-glow-sway: 65%;
+  --agent-glow-sway-duration: 4.25s;
+
+  animation-delay: -3.2s;
+}
+
+.driftRise {
+  --agent-glow-sway: 55%;
+  --agent-glow-sway-duration: 1.96s;
+
+  animation-delay: -0.98s;
+}
+
+.sideTrack {
+  --agent-glow-sway: 70%;
+  --agent-glow-sway-duration: 3.49s;
+
+  animation-delay: -2.5s;
+}
+
+.bottomTrack,
+.driftTrack,
+.driftRise,
+.sideTrack,
+.coreSweep,
+.bloomSweep {
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// A light is a gaussian drawn out to 2.5 sigma, centred where it stands
+.bottomLight,
+.driftLight,
+.sideLight {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 1;
+  background: radial-gradient(
+    closest-side,
+    rgb(0 136 255 / var(--agent-glow-light)),
+    rgb(0 136 255 / calc(var(--agent-glow-light) * 0.88)) 20%,
+    rgb(0 136 255 / calc(var(--agent-glow-light) * 0.61)) 40%,
+    rgb(0 136 255 / calc(var(--agent-glow-light) * 0.32)) 60%,
+    rgb(0 136 255 / calc(var(--agent-glow-light) * 0.14)) 80%,
+    rgb(0 136 255 / 0)
+  );
+}
+
+// Along the bottom, from a tenth to six tenths of the width from the leading side
+.bottomLight {
+  --agent-glow-light: 0.225;
+
+  top: 100%;
+  left: 10%;
+  width: 8.75rem;
+}
+
+// Through the field, from a quarter to nine tenths of its width and from 45% of its height to its bottom
+.driftLight {
+  --agent-glow-light: 0.11;
+
+  top: 45%;
+  left: 25%;
+  width: 12.5rem;
+}
+
+// Up and down the leading side, from 30% of the height to the bottom
+.sideLight {
+  --agent-glow-light: 0.175;
+
+  top: 30%;
+  left: 0;
+  width: 6.875rem;
+}
+
+// The bloom: a band 1.25rem wide astride the border, blurred, so it spills out over the background and in as a haze
+.bloom {
+  position: absolute;
+  inset: -0.625rem;
+  opacity: 0.85;
+  filter: blur(0.5rem);
+}
+
+.bloomRing,
+.core {
+  position: absolute;
+  overflow: hidden;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+
+  mask-composite: exclude;
+}
+
+.bloomRing {
+  inset: 0;
+  padding: 1.25rem;
+  border-radius: 2.0625rem;
+}
+
+// The core: a line 2 px thick astride the border, nearly white where it is lit
+.core {
+  inset: -0.0625rem;
+  padding: 0.125rem;
+  border-radius: 1.5rem;
+}
+
+// The lit stretches turn round the field's centre, the core's and the bloom's together
+.coreSweep,
+.bloomSweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  aspect-ratio: 1;
+  width: 300%;
+
+  animation: agent-glow-sweep 3.5s linear infinite;
+}
+
+.coreSweep {
+  background: conic-gradient(
+    rgb(110 190 255 / 0.45),
+    rgb(232 249 255) 50deg,
+    rgb(110 190 255 / 0.45) 110deg,
+    rgb(110 190 255 / 0.3) 180deg,
+    rgb(225 246 255) 235deg,
+    rgb(110 190 255 / 0.45) 290deg
+  );
+}
+
+.bloomSweep {
+  background: conic-gradient(
+    rgb(0 136 255 / 0.35),
+    rgb(40 160 255 / 0.95) 50deg,
+    rgb(0 136 255 / 0.35) 110deg,
+    rgb(0 136 255 / 0.2) 180deg,
+    rgb(40 160 255 / 0.9) 235deg,
+    rgb(0 136 255 / 0.35) 290deg
+  );
+}
+
+@keyframes agent-glow-sway-x {
+  to {
+    transform: translateX(var(--agent-glow-sway));
+  }
+}
+
+@keyframes agent-glow-sway-y {
+  to {
+    transform: translateY(var(--agent-glow-sway));
+  }
+}
+
+@keyframes agent-glow-sweep {
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
+  }
+}

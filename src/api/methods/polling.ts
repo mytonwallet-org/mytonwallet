@@ -72,12 +72,14 @@ import {
   updateTokensFromBackend,
 } from '../common/tokens';
 import { MINUTE, SEC } from '../constants';
+import { getEnvironment } from '../environment';
 import { storage } from '../storages';
 import { canBuildForeignUnstakeTransaction } from './foreignStakingUnstakeBuilders';
 import {
   requireAgentV2Lifecycle,
   requireMfaMethods,
   requirePerpsAssets,
+  requirePerpsPositions,
   requireStakingMethods,
   requireSwapMethods,
 } from './optional';
@@ -148,7 +150,7 @@ export function initPolling(_onUpdate: OnApiUpdate) {
     }).then(() => currencyRatesPreload),
     !NO_EXTRA_FEATURES && tryUpdateSwapTokens(swapAssetsResponse),
     !NO_EXTRA_FEATURES && requireStakingMethods().tryUpdateStakingCommonData(),
-    !NO_EXTRA_FEATURES && IS_PERPS_ENABLED && loadAndUpdatePerpsAssets(),
+    canPollPerpsAssets() && loadAndUpdatePerpsAssets(),
   ]).then(() => resolveDataPreloadPromise());
 
   void tryUpdateConfig();
@@ -238,7 +240,7 @@ function setupCommonBackendPolling(
         }
         await Promise.all([
           tryUpdateTokens(currencyRatesPolling.update),
-          !NO_EXTRA_FEATURES && IS_PERPS_ENABLED && tryUpdatePerpsAssets(),
+          canPollPerpsAssets() && tryUpdatePerpsAssets(),
         ]);
       },
     }).stop,
@@ -255,6 +257,11 @@ function setupCommonBackendPolling(
       stopFn?.();
     }
   };
+}
+
+/** Only the iOS app renders the Perps catalogue. The developer Lab of other clients loads it when it opens. */
+function canPollPerpsAssets() {
+  return !NO_EXTRA_FEATURES && IS_PERPS_ENABLED && getEnvironment()?.isIosApp === true;
 }
 
 async function loadAndUpdatePerpsAssets() {
@@ -606,6 +613,9 @@ function setupActivePolling(
     activeForeignStakingPolling?.stop,
     !NO_EXTRA_FEATURES && account.type !== 'view' && doesAccountHaveChain(account, 'ton')
       ? setupMfaPolling(accountId).stop : undefined,
+    !NO_EXTRA_FEATURES && IS_PERPS_ENABLED
+      ? requirePerpsPositions().setupPerpsPositionsPolling(accountId, account)?.stop
+      : undefined,
 
     ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
       if (doesAccountHaveChain(account, chain)) {

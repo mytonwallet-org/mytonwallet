@@ -79,11 +79,7 @@ jest.mock('./optional', () => ({
       '/swap/assets', undefined, undefined, undefined, { shouldReturnText: true },
     ),
   }),
-  requirePerpsAssets: () => ({
-    setPerpsAssetsUpdater: () => undefined,
-    loadPerpsAssetsCache: () => Promise.resolve(),
-    refreshPerpsAssets: () => Promise.resolve({ assetsByChain: {} }),
-  }),
+  requirePerpsAssets: () => ({ setPerpsAssetsUpdater: () => undefined }),
 }));
 jest.mock('./preload', () => ({ resolveDataPreloadPromise: jest.fn() }));
 

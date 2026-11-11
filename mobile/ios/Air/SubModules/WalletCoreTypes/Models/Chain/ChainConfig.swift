@@ -115,6 +115,7 @@ public struct ChainConfig: Sendable {
     public var buySwap: BuySwap? = nil
     /// The slug of the USDT token in this chain, if it has USDT
     public var usdtSlug: [ApiNetwork: String]
+    public var usdcSlug: [ApiNetwork: String] = [:]
     /// The token slugs of this chain added to new accounts by default.
     public var defaultEnabledSlugs: [ApiNetwork: [String]]
     /// The token slugs of this chain supported by the crosschain (CEX) swap mechanism.
@@ -209,6 +210,14 @@ private let EVM_FEE_CHECK_ADDRESS = "0x93fa28647b06ab40554d6905e4e9d8e8bb24380c"
 
 public func getSupportedChains() -> [ApiChain] {
     CHAIN_ORDER
+}
+
+private let STABLECOIN_SLUGS: Set<String> = Set(CHAIN_CONFIG.values.flatMap {
+    Array($0.usdtSlug.values) + Array($0.usdcSlug.values)
+}.filter { !$0.isEmpty })
+
+public func getStablecoinSlugs() -> Set<String> {
+    STABLECOIN_SLUGS
 }
 
 public func isSupportedChain(_ chain: ApiChain) -> Bool {
@@ -374,6 +383,7 @@ private func makeEvmChainConfig(
     isOffRampSupported: Bool = true,
     isOnchainSwapSupported: Bool = true,
     usdtSlug: String? = nil,
+    usdcSlug: [ApiNetwork: String] = [:],
     defaultEnabledSlugs: [String],
     crosschainSwapSlugs: [String],
     tokenInfo: [ApiToken],
@@ -413,6 +423,7 @@ private func makeEvmChainConfig(
             .mainnet: usdtSlug,
             .testnet: usdtSlug,
         ],
+        usdcSlug: usdcSlug,
         defaultEnabledSlugs: [
             .mainnet: defaultEnabledSlugs,
             .testnet: defaultEnabledSlugs,
@@ -690,7 +701,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isLedgerSupported: false,
         multiWalletSupport: .path,
         defaultDerivationPath: SOLANA_DEFAULT_DERIVATION_PATH,
-        addressRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{32,44}$"#),
+        // A 32-byte Base58 address shorter than 43 characters starts with `1`
+        addressRegex: .init(pattern: #"^(?:[1-9A-HJ-NP-Za-km-z]{43,44}|1[1-9A-HJ-NP-Za-km-z]{31,41})$"#),
         addressPrefixRegex: .init(pattern: #"^[1-9A-HJ-NP-Za-km-z]{0,44}$"#),
         nativeToken: .solana,
         doesBackendSocketSupport: false,
@@ -702,6 +714,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         usdtSlug: [
             .mainnet: SOLANA_USDT_MAINNET_SLUG,
         ],
+        usdcSlug: [.mainnet: SOLANA_USDC_MAINNET_SLUG],
         defaultEnabledSlugs: [
             .mainnet: [SOLANA_SLUG],
             .testnet: [SOLANA_SLUG],
@@ -822,6 +835,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .mainnet: ETH_USDT_MAINNET_SLUG,
             .testnet: ETH_USDT_MAINNET_SLUG,
         ],
+        usdcSlug: [.mainnet: ETH_USDC_MAINNET_SLUG],
         defaultEnabledSlugs: [
             .mainnet: [ETH_SLUG],
             .testnet: [ETH_SLUG],
@@ -889,6 +903,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .mainnet: BASE_USDT_MAINNET_SLUG,
             .testnet: BASE_USDT_MAINNET_SLUG,
         ],
+        usdcSlug: [.mainnet: BASE_USDC_MAINNET_SLUG],
         defaultEnabledSlugs: [
             .mainnet: [],
             .testnet: [],
@@ -975,6 +990,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "Arbitrum",
         nativeToken: .ARBITRUM,
         buySwapAmountIn: "0.001",
+        usdcSlug: [.mainnet: "arbitrum-0xaf88d065"],
         defaultEnabledSlugs: [],
         crosschainSwapSlugs: [ARBITRUM_SLUG],
         tokenInfo: [
@@ -1061,6 +1077,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isOffRampSupported: false,
         isOnchainSwapSupported: false,
         usdtSlug: HYPERLIQUID_USDC_MAINNET_SLUG,
+        usdcSlug: [.mainnet: HYPERLIQUID_USDC_MAINNET_SLUG],
         defaultEnabledSlugs: [HYPERLIQUID_SLUG],
         crosschainSwapSlugs: [HYPERLIQUID_SLUG, HYPERLIQUID_USDC_MAINNET_SLUG],
         tokenInfo: [
@@ -1088,10 +1105,10 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         tokenInfo: [
             .ROBINHOOD,
         ],
-        explorerId: "robinscan",
-        explorerName: "Robinscan",
-        explorerMainnetUrl: "https://robinscan.io/",
-        explorerTestnetUrl: "https://robinscan.io/",
+        explorerId: "blockscout",
+        explorerName: "Blockscout",
+        explorerMainnetUrl: "https://robinhoodchain.blockscout.com/",
+        explorerTestnetUrl: "https://robinhoodchain.blockscout.com/",
         isNftSupported: false,
         walletConnectChainIds: [
             .mainnet: 4663,

@@ -78,22 +78,58 @@ public extension UIColor {
      - SeeAlso: See officially supported color formats: [https://www.w3.org/TR/SVGColor12/#sRGBcolor](https://www.w3.org/TR/SVGColor12/#sRGBcolor)
      */
     internal convenience init?(svgString: String) {
+        let svgString = svgString.trimmingCharacters(in: .whitespacesAndNewlines)
         if svgString.hasPrefix("#") {
             self.init(hexString: svgString)
             return
         }
 
-        if svgString.hasPrefix("rgb") {
-            self.init(rgbString: svgString)
-            return
-        }
-
-        if svgString.hasPrefix("rgba") {
-            self.init(rgbaString: svgString)
+        if let open = svgString.firstIndex(of: "("), svgString.hasSuffix(")") {
+            self.init(function: svgString[..<open].lowercased(),
+                      arguments: svgString[svgString.index(after: open)..<svgString.index(before: svgString.endIndex)])
             return
         }
 
         self.init(cssName: svgString)
+    }
+
+    /// Parses `rgb()`, `rgba()` and `color(srgb | display-p3 …)`, with commas, spaces or a slash before alpha.
+    private convenience init?(function: String, arguments: Substring) {
+        let tokens = arguments.split(whereSeparator: { $0 == "," || $0 == "/" || $0.isWhitespace }).map(String.init)
+        func number(_ token: String, percentScale: CGFloat) -> CGFloat? {
+            if token.hasSuffix("%") {
+                return CGFloat(String(token.dropLast())).map { $0 / 100 * percentScale }
+            }
+            return CGFloat(token)
+        }
+        switch function {
+        case "rgb", "rgba":
+            guard tokens.count == 3 || tokens.count == 4 else {
+                return nil
+            }
+            let channels = tokens.prefix(3).compactMap { number($0, percentScale: 255) }
+            let alpha = tokens.count == 4 ? number(tokens[3], percentScale: 1) : 1
+            guard channels.count == 3, let alpha else {
+                return nil
+            }
+            self.init(red: channels[0] / 255, green: channels[1] / 255, blue: channels[2] / 255, alpha: alpha)
+        case "color":
+            guard tokens.count == 4 || tokens.count == 5, tokens[0] == "srgb" || tokens[0] == "display-p3" else {
+                return nil
+            }
+            let channels = tokens[1...3].compactMap { number($0, percentScale: 1) }
+            let alpha = tokens.count == 5 ? number(tokens[4], percentScale: 1) : 1
+            guard channels.count == 3, let alpha else {
+                return nil
+            }
+            if tokens[0] == "display-p3" {
+                self.init(displayP3Red: channels[0], green: channels[1], blue: channels[2], alpha: alpha)
+            } else {
+                self.init(red: channels[0], green: channels[1], blue: channels[2], alpha: alpha)
+            }
+        default:
+            return nil
+        }
     }
 
     /**
@@ -150,32 +186,6 @@ public extension UIColor {
             return nil
         }
         self.init(red: colorArray[0], green: colorArray[1], blue: colorArray[2], alpha: colorArray[3])
-    }
-
-    /**
-     Convenience initializer that creates a new UIColor from a integer functional, taking the form `rgb(rrr, ggg, bbb)`
-     */
-    internal convenience init(rgbString: String) {
-        let valuesString = rgbString.dropFirst(4).dropLast()
-        self.init(colorValuesString: valuesString)
-    }
-
-    /**
-     Convenience initializer that creates a new UIColor from an integer functional, taking the form `rgba(rrr, ggg, bbb, <alphavalue>)`
-     */
-    internal convenience init(rgbaString: String) {
-        let valuesString = rgbaString.dropFirst(5).dropLast()
-        self.init(colorValuesString: valuesString)
-    }
-
-    /// :nodoc:
-    private convenience init(colorValuesString: Substring) {
-        let colorsArray = colorValuesString
-            .split(separator: ",")
-            .map { (numberString) -> CGFloat in
-                return CGFloat(String(numberString).trimmingCharacters(in: CharacterSet.whitespaces))!
-            }
-        self.init(red: colorsArray[0] / 255.0, green: colorsArray[1] / 255.0, blue: colorsArray[2] / 255.0, alpha: (colorsArray.count > 3 ? colorsArray[3] / 1.0 : 1.0))
     }
 
     /**

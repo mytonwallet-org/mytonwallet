@@ -37,6 +37,24 @@ $listHorizontalPadding: 1rem;
   }
 }
 
+.title {
+  display: none;
+
+  // Fills the row of Telegram buttons, which the slide padding reserves above the content
+  :global(html.is-mobile-telegram-app.is-fullscreen) & {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    height: var(--tg-content-safe-area-inset-top);
+    margin: calc(-0.5rem - var(--tg-content-safe-area-inset-top)) 0 0.5rem;
+
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--color-black);
+  }
+}
+
 .list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));

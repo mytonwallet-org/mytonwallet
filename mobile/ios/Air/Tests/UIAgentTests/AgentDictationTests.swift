@@ -11,7 +11,7 @@ final class AgentDictationTests: XCTestCase {
     }
 
     @MainActor
-    func testLeavingThreadListCancelsLockedRecordingWithoutTranscription() async throws {
+    func testLeavingThreadListCancelsHandsFreeRecordingWithoutTranscription() async throws {
         let fixture = Fixture()
         let client = FakeAgentV2Client()
         client.threadListResult = try JSONDecoder().decode(
@@ -27,7 +27,7 @@ final class AgentDictationTests: XCTestCase {
         let controller = try XCTUnwrap(list.bottomBar.composerView.dictationController)
         controller.startHandsFree()
         await fixture.waitForRecording()
-        XCTAssertEqual(controller.state.phase, .locked)
+        XCTAssertEqual(controller.state.phase, .handsFree)
 
         list.viewWillDisappear(false)
         fixture.scheduler.advance(by: 60)
@@ -38,19 +38,50 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertTrue(fixture.requests.isEmpty)
     }
 
+    /// Recording starts at touch-down. A touch released within 0.2 s is a tap, which records on hands-free until the
+    /// next tap puts the transcript into the field; one held longer is push-to-talk, whose release sends it. The
+    /// recording's haptic waits for the touch to be one or the other.
     @MainActor
-    func testTapBefore220MillisecondsNeitherOpensMicrophoneNorFails() async {
-        let fixture = Fixture()
-        fixture.controller.touchBegan()
-        fixture.scheduler.advance(by: 0.219)
-        fixture.controller.touchEnded()
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        fixture.scheduler.advance(by: 1)
+    func testTapRecordsHandsFreeAndAHoldIsPushToTalk() async {
+        XCTAssertEqual(AgentDictationController.tapDuration, 0.2)
+        let tapping = Fixture()
+        tapping.controller.touchBegan()
+        XCTAssertEqual(tapping.controller.state.phase, .holding, "Recording from touch-down")
+        await tapping.waitForRecorder()
+        XCTAssertEqual(tapping.recordingReadyCount, 0, "No haptic before the touch is a tap or a hold")
+        tapping.scheduler.advance(by: 0.19)
+        XCTAssertFalse(tapping.controller.state.isHeld)
+        tapping.controller.touchEnded()
+        XCTAssertEqual(tapping.controller.state.phase, .handsFree)
+        XCTAssertEqual(tapping.recordingReadyCount, 1, "The tap's haptic")
+        tapping.scheduler.advance(by: 5)
+        XCTAssertEqual(tapping.controller.state.phase, .handsFree, "It records until the next tap")
+        tapping.controller.finish()
+        await tapping.waitForRequest()
+        tapping.resumeTranscription(text: "Tapped")
         await drainTasks()
+        XCTAssertEqual(tapping.transcripts, ["Tapped"])
+        XCTAssertTrue(tapping.sentTranscripts.isEmpty)
+        XCTAssertEqual(tapping.controller.state.phase, .idle)
+        XCTAssertTrue(tapping.controller.state.canDictateMore)
 
-        XCTAssertEqual(fixture.recordingStarts, 0)
-        XCTAssertEqual(fixture.controller.state.phase, .idle)
-        XCTAssertEqual(fixture.failureFeedbackCount, 0)
+        let holding = Fixture()
+        holding.controller.touchBegan()
+        await holding.waitForRecorder()
+        XCTAssertEqual(holding.recordingReadyCount, 0)
+        holding.scheduler.advance(by: 0.2)
+        XCTAssertTrue(holding.controller.state.isHeld)
+        XCTAssertEqual(holding.recordingReadyCount, 1, "The hold's haptic")
+        holding.scheduler.advance(by: 1)
+        holding.controller.touchEnded()
+        XCTAssertEqual(holding.controller.state.phase, .recognizing)
+        XCTAssertFalse(holding.controller.state.canDictateMore, "A transcript to send brings no floating microphone")
+        await holding.waitForRequest()
+        holding.resumeTranscription(text: "Held")
+        await drainTasks()
+        XCTAssertEqual(holding.sentTranscripts, ["Held"], "Releasing a hold sends the question at once")
+        XCTAssertTrue(holding.transcripts.isEmpty)
+        XCTAssertEqual(holding.controller.state, AgentDictationState())
     }
 
     @MainActor
@@ -73,7 +104,7 @@ final class AgentDictationTests: XCTestCase {
     }
 
     @MainActor
-    func testReleasingPastTelegramThresholdsCancelsOrLocks() async {
+    func testReleasingPastTelegramThresholdsCancelsOrPauses() async {
         let cancelling = Fixture()
         cancelling.controller.touchBegan()
         cancelling.scheduler.advance(by: 0.22)
@@ -84,14 +115,19 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertEqual(cancelling.controller.state.phase, .idle)
         XCTAssertEqual(cancelling.recorder.cancelCount, 1)
 
-        let locking = Fixture()
-        locking.controller.touchBegan()
-        locking.scheduler.advance(by: 0.22)
-        await locking.waitForRecording()
-        locking.controller.touchMoved(x: 0, y: -20)
-        locking.controller.touchEnded(x: 0, y: -20, velocityY: -500)
-        XCTAssertEqual(locking.controller.state.phase, .locked)
-        locking.controller.cancel()
+        let pausing = Fixture()
+        pausing.controller.touchBegan()
+        pausing.scheduler.advance(by: 0.22)
+        await pausing.waitForRecording()
+        pausing.scheduler.advance(by: 0.8)
+        pausing.controller.touchMoved(x: 0, y: -20)
+        pausing.controller.touchEnded(x: 0, y: -20, velocityY: -500)
+        XCTAssertEqual(pausing.controller.state.phase, .recognizing)
+        await pausing.waitForRequest()
+        pausing.resumeTranscription(text: "Kept")
+        await drainTasks()
+        XCTAssertEqual(pausing.transcripts, ["Kept"], "A swipe up keeps the question in the field")
+        XCTAssertTrue(pausing.sentTranscripts.isEmpty)
     }
 
     @MainActor
@@ -188,7 +224,7 @@ final class AgentDictationTests: XCTestCase {
                 let fixture = Fixture()
                 fixture.blocksPermission = true
                 fixture.controller.touchBegan()
-                fixture.scheduler.advance(by: 0.22)
+                fixture.scheduler.advance(by: Self.holdDuration)
                 for _ in 0..<100 where fixture.permissionContinuation == nil { await Task.yield() }
                 XCTAssertNotNil(fixture.permissionContinuation)
 
@@ -222,7 +258,7 @@ final class AgentDictationTests: XCTestCase {
             let fixture = Fixture()
             fixture.blocksRecorderCreation = true
             fixture.controller.touchBegan()
-            fixture.scheduler.advance(by: 0.22)
+            fixture.scheduler.advance(by: Self.holdDuration)
             await fixture.waitForRecorderFactory()
             XCTAssertEqual(fixture.controller.state.phase, .holding)
 
@@ -233,7 +269,7 @@ final class AgentDictationTests: XCTestCase {
             }
 
             XCTAssertNotNil(fixture.recorderContinuation)
-            // Releasing before the recorder is ready is too short to dictate
+            // Releasing a hold before the recorder is ready is too short to dictate
             XCTAssertEqual(fixture.controller.state.phase, releaseTouch ? .failed : .idle)
             XCTAssertEqual(fixture.controller.state.failure, releaseTouch ? .tooShort : nil)
             XCTAssertEqual(fixture.recorder.cancelCount, 0)
@@ -253,29 +289,112 @@ final class AgentDictationTests: XCTestCase {
         }
     }
 
+    /// Swiping a held microphone up 110 pt stops the recording at once and recognizes it into the field instead of
+    /// sending it, and the floating microphone then dictates more
     @MainActor
-    func testLockedRecordingStopsAtOneMinuteAndFillsTranscript() async {
+    func testSwipingUpKeepsTheTranscriptInTheField() async {
+        let fixture = Fixture()
+        fixture.controller.touchBegan()
+        await fixture.waitForRecorder()
+        fixture.scheduler.advance(by: 1)
+        XCTAssertTrue(fixture.controller.state.isHeld)
+        XCTAssertEqual(fixture.recordingReadyCount, 1)
+
+        fixture.controller.touchMoved(x: 0, y: -109)
+        XCTAssertEqual(fixture.controller.state.phase, .holding)
+        XCTAssertEqual(fixture.gestureFeedbackCount, 0)
+        fixture.controller.touchMoved(x: 0, y: -110)
+        XCTAssertEqual(fixture.controller.state.phase, .recognizing)
+        XCTAssertEqual(fixture.gestureFeedbackCount, 1, "A light tap marks the pause")
+        await fixture.waitForRequest()
+        XCTAssertEqual(fixture.recorder.stopCount, 1)
+        // The finger that is still down neither records nor sends anything
+        fixture.controller.touchMoved(x: 0, y: -200)
+        fixture.controller.touchEnded(x: 0, y: -200)
+        XCTAssertEqual(fixture.recordingStarts, 1)
+
+        fixture.resumeTranscription(text: "Recognized phrase")
+        await drainTasks()
+        XCTAssertEqual(fixture.transcripts, ["Recognized phrase"])
+        XCTAssertTrue(fixture.sentTranscripts.isEmpty)
+        XCTAssertEqual(fixture.controller.state.phase, .idle)
+        XCTAssertTrue(fixture.controller.state.canDictateMore)
+
+        fixture.controller.endDictatingMore()
+        XCTAssertEqual(fixture.controller.state, AgentDictationState(), "A sent or cleared question ends it")
+    }
+
+    /// A hands-free recording stops by itself at one minute, and its transcript goes into the field
+    @MainActor
+    func testRecordingStopsAtOneMinuteIntoTheField() async {
         let fixture = Fixture()
         fixture.recorder.averagePowerValue = -40
         fixture.controller.touchBegan()
-        fixture.scheduler.advance(by: 0.22)
-        await fixture.waitForRecording()
-        fixture.controller.touchMoved(x: 0, y: -110)
+        await fixture.waitForRecorder()
+        fixture.scheduler.advance(by: 0.1)
         fixture.controller.touchEnded()
-        XCTAssertEqual(fixture.controller.state.phase, .locked)
-        fixture.scheduler.advance(by: 60)
-        await fixture.waitForRequest()
+        XCTAssertEqual(fixture.controller.state.phase, .handsFree)
+        fixture.scheduler.advance(by: 59.8)
+        XCTAssertEqual(fixture.controller.state.phase, .handsFree)
+        fixture.scheduler.advance(by: 0.1)
         XCTAssertEqual(fixture.controller.state.phase, .recognizing)
+        XCTAssertTrue(fixture.controller.state.canDictateMore, "The floating microphone comes up as recognition starts")
+        await fixture.waitForRequest()
         XCTAssertEqual(fixture.requests.first?.format, .m4a)
         XCTAssertEqual(fixture.requests.first?.audio, Data([1, 2, 3]).base64EncodedString())
         XCTAssertEqual(fixture.requests.first?.lang, "ru")
 
         fixture.resumeTranscription(text: "Recognized phrase")
         await drainTasks()
-
         XCTAssertEqual(fixture.transcripts, ["Recognized phrase"])
         XCTAssertEqual(fixture.recorder.stopCount, 1)
         XCTAssertEqual(fixture.controller.state.phase, .idle)
+        XCTAssertTrue(fixture.controller.state.canDictateMore)
+    }
+
+    /// The floating microphone records hands-free after a transcript in the field, and its transcript goes into the
+    /// field too. While the field holds dictated text, it comes back after a further dictation that is cancelled or
+    /// fails; a sent or cleared field ends it.
+    @MainActor
+    func testDictatingMoreRecordsHandsFreeIntoTheField() async {
+        let fixture = Fixture()
+        fixture.controller.startHandsFree()
+        await fixture.waitForRecording()
+        fixture.scheduler.advance(by: 1)
+        fixture.controller.finish()
+        await fixture.waitForRequest()
+        fixture.resumeTranscription(text: "First")
+        await drainTasks()
+        XCTAssertTrue(fixture.controller.state.canDictateMore)
+
+        fixture.controller.startHandsFree()
+        XCTAssertEqual(fixture.controller.state.phase, .handsFree)
+        XCTAssertFalse(fixture.controller.state.canDictateMore)
+        await fixture.waitForRecording(count: 2)
+        fixture.scheduler.advance(by: 1)
+        fixture.controller.finish()
+        await fixture.waitForRequest(count: 2)
+        fixture.resumeTranscription(text: "Second")
+        await drainTasks()
+        XCTAssertEqual(fixture.transcripts, ["First", "Second"])
+        XCTAssertTrue(fixture.controller.state.canDictateMore)
+
+        fixture.controller.startHandsFree()
+        await fixture.waitForRecording(count: 3)
+        fixture.controller.cancel()
+        XCTAssertEqual(fixture.controller.state.phase, .idle)
+        XCTAssertTrue(fixture.controller.state.canDictateMore, "The field still holds its dictated text")
+
+        fixture.controller.startHandsFree()
+        await fixture.waitForRecording(count: 4)
+        fixture.controller.finish()
+        XCTAssertEqual(fixture.controller.state.phase, .failed, "Too short")
+        fixture.scheduler.advance(by: AgentDictationController.failureDuration)
+        XCTAssertEqual(fixture.controller.state.phase, .idle)
+        XCTAssertTrue(fixture.controller.state.canDictateMore)
+
+        fixture.controller.endDictatingMore()
+        XCTAssertEqual(fixture.controller.state, AgentDictationState())
     }
 
     @MainActor
@@ -341,9 +460,7 @@ final class AgentDictationTests: XCTestCase {
         retrying.controller.finish()
         XCTAssertEqual(retrying.controller.state.phase, .failed)
         retrying.controller.touchBegan()
-        XCTAssertEqual(retrying.controller.state.phase, .idle)
-        retrying.scheduler.advance(by: 0.22)
-        XCTAssertEqual(retrying.controller.state.phase, .holding)
+        XCTAssertEqual(retrying.controller.state.phase, .holding, "A new touch records at once")
         retrying.scheduler.advance(by: AgentDictationController.failureDuration)
         XCTAssertEqual(retrying.controller.state.phase, .holding)
         retrying.controller.cancel()
@@ -365,10 +482,14 @@ final class AgentDictationTests: XCTestCase {
         XCTAssertEqual(AgentDictationState.Failure.tooShort.accessibilityAnnouncement, lang("$agent_dictation_too_short"))
         XCTAssertEqual(
             AgentDictationState.Failure.microphoneDenied.accessibilityAnnouncement,
-            lang("$agent_dictation_microphone_denied")
+            lang("$agent_dictation_microphone_denied_device")
         )
         XCTAssertEqual(AgentDictationState.Failure.error(.networkError).accessibilityAnnouncement, AgentV2Copy.error(.networkError))
     }
+
+    /// A touch held past a tap's time
+    @MainActor
+    private static var holdDuration: TimeInterval { AgentDictationController.tapDuration }
 
     @MainActor
     private func drainTasks() async {
@@ -384,13 +505,15 @@ private final class Fixture {
     var recordingReadyCount = 0
     var requests: [ApiAgentV2TranscriptionRequest] = []
     var transcripts: [String] = []
+    var sentTranscripts: [String] = []
     var failureFeedbackCount = 0
+    var gestureFeedbackCount = 0
     var blocksPermission = false
     var isPermissionDenied = false
     var permissionContinuation: CheckedContinuation<Bool, Never>?
     var blocksRecorderCreation = false
     var recorderContinuation: CheckedContinuation<any AgentDictationRecording, Error>?
-    private var transcriptionContinuation: CheckedContinuation<ApiAgentV2TranscriptionResponse, Error>?
+    private var transcriptionContinuations: [CheckedContinuation<ApiAgentV2TranscriptionResponse, Error>?] = []
 
     lazy var controller: AgentDictationController = {
         let controller = AgentDictationController(
@@ -410,24 +533,34 @@ private final class Fixture {
             },
             transcribe: { [unowned self] request in
                 requests.append(request)
-                return try await withCheckedThrowingContinuation { transcriptionContinuation = $0 }
+                return try await withCheckedThrowingContinuation { transcriptionContinuations.append($0) }
             },
             language: { "ru" },
             haptic: { [unowned self] in recordingReadyCount += 1 },
-            gestureFeedback: {},
+            gestureFeedback: { [unowned self] in gestureFeedbackCount += 1 },
             failureFeedback: { [unowned self] in failureFeedbackCount += 1 },
             observeLifecycle: false
         )
         controller.onTranscript = { [unowned self] in
             transcripts.append($0)
         }
+        controller.onSendTranscript = { [unowned self] in
+            sentTranscripts.append($0)
+        }
         return controller
     }()
 
-    func waitForRecording() async {
-        for _ in 0..<100 where recordingReadyCount == 0 { await Task.yield() }
-        XCTAssertEqual(recordingStarts, 1)
-        XCTAssertEqual(recordingReadyCount, 1)
+    func waitForRecording(count: Int = 1) async {
+        for _ in 0..<100 where recordingReadyCount < count { await Task.yield() }
+        XCTAssertEqual(recordingStarts, count)
+        XCTAssertEqual(recordingReadyCount, count)
+    }
+
+    /// The recorder of a touch not yet a tap or a hold is recording, without its haptic yet
+    func waitForRecorder(count: Int = 1) async {
+        for _ in 0..<100 where recordingStarts < count { await Task.yield() }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(recordingStarts, count)
     }
 
     func waitForRecorderFactory() async {
@@ -448,24 +581,28 @@ private final class Fixture {
         XCTAssertEqual(recordingReadyCount, 0)
     }
 
-    func waitForRequest() async {
-        for _ in 0..<100 where requests.isEmpty { await Task.yield() }
-        XCTAssertEqual(requests.count, 1)
-        XCTAssertNotNil(transcriptionContinuation)
+    func waitForRequest(count: Int = 1) async {
+        for _ in 0..<100 where transcriptionContinuations.count < count { await Task.yield() }
+        XCTAssertEqual(requests.count, count)
+        XCTAssertEqual(transcriptionContinuations.count, count)
     }
 
-    func resumeTranscription(text: String) {
-        resumeTranscription(.init(outcome: .transcribed, text: text))
+    /// Answers the request at `index`, the latest one by default
+    func resumeTranscription(text: String, at index: Int? = nil) {
+        resumeTranscription(.init(outcome: .transcribed, text: text), at: index)
     }
 
-    func resumeTranscription(_ response: ApiAgentV2TranscriptionResponse) {
-        transcriptionContinuation?.resume(returning: response)
-        transcriptionContinuation = nil
+    func resumeTranscription(_ response: ApiAgentV2TranscriptionResponse, at index: Int? = nil) {
+        let index = index ?? transcriptionContinuations.count - 1
+        guard transcriptionContinuations.indices.contains(index) else { return }
+        transcriptionContinuations[index]?.resume(returning: response)
+        transcriptionContinuations[index] = nil
     }
 
     func failTranscription(_ error: Error) {
-        transcriptionContinuation?.resume(throwing: error)
-        transcriptionContinuation = nil
+        guard let index = transcriptionContinuations.indices.last else { return }
+        transcriptionContinuations[index]?.resume(throwing: error)
+        transcriptionContinuations[index] = nil
     }
 }
 

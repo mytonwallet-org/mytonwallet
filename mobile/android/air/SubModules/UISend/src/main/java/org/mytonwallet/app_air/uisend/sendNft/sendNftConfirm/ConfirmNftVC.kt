@@ -18,6 +18,7 @@ import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
 import java.lang.ref.WeakReference
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -615,7 +616,7 @@ class ConfirmNftVC(
             currency = WalletCore.baseCurrency.sign,
             currencyDecimals = WalletCore.baseCurrency.decimalsCount,
             smartDecimals = true,
-            roundUp = false
+            rounding = RoundingMode.DOWN
         )
     }
 

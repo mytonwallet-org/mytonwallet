@@ -2,14 +2,23 @@ package org.mytonwallet.app_air.uicomponents.widgets.segmentedController
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.animation.doOnEnd
+import androidx.core.graphics.withSave
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
@@ -21,6 +30,8 @@ import kotlin.math.abs
 import kotlin.math.max
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
+import org.mytonwallet.app_air.uicomponents.base.IChromeOverlapHost
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WActionBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -28,9 +39,13 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
+import org.mytonwallet.app_air.uicomponents.extensions.cancelSpringScroll
+import org.mytonwallet.app_air.uicomponents.extensions.captureHardwareImage
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setupSpringFling
 import org.mytonwallet.app_air.uicomponents.extensions.springToItem
+import org.mytonwallet.app_air.uicomponents.helpers.OverlappedChromeFader
+import org.mytonwallet.app_air.uicomponents.helpers.frameInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -46,6 +61,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 
@@ -79,13 +95,22 @@ class WSegmentedController(
     // Stretches pilled tabs across the screen with a tinted active thumb.
     private val pilledTabsFillWidth: Boolean = false,
     private val pilledTabsHeight: Int = PILLED_TABS_HEIGHT,
-    private val pilledTabsThumbHeight: Float = WClearSegmentedControl.THUMB_HEIGHT
+    private val pilledTabsThumbHeight: Float = WClearSegmentedControl.THUMB_HEIGHT,
+    private val shouldSkipIntermediatePages: Boolean = false,
+    private var onDirectPageTransitionProgress: (
+        (
+            from: Int,
+            to: Int,
+            progress: Float
+        ) -> Unit
+    )? = null
 ) : WView(navigationController.context),
     WThemedView,
     WProtectedView,
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     WClearSegmentedControl.Delegate,
-    ISortableView {
+    ISortableView,
+    IChromeOverlapHost {
 
     companion object {
         val PAGE_CELL = WCell.Type(1)
@@ -109,11 +134,107 @@ class WSegmentedController(
     private var lastNotifiedSelectedIndex: Int? = null
     private var isUserInteracting = false
     private var lastTargetIndex = 0
+    private class DirectPageTransition(
+        val from: Int,
+        val to: Int,
+        val source: WViewController,
+        val destination: WViewController,
+        val shouldRestoreUserInput: Boolean,
+        val accessibility: Int,
+        val selectionScroll: WClearSegmentedControl.SelectionScroll?,
+        val onCompletion: (() -> Unit)?
+    ) {
+        var snapshot: PageSnapshot? = null
+        var animator: ValueAnimator? = null
+    }
+
+    private class PageSnapshot(val bitmap: Bitmap) : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        private val frame = RectF()
+        var offset = 0f
+
+        override fun draw(canvas: Canvas) {
+            canvas.withSave {
+                clipRect(bounds)
+                frame.set(
+                    bounds.left + offset,
+                    bounds.top.toFloat(),
+                    bounds.left + offset + bitmap.width,
+                    (bounds.top + bitmap.height).toFloat()
+                )
+                drawBitmap(bitmap, null, frame, paint)
+            }
+        }
+
+        override fun setAlpha(alpha: Int) {
+            paint.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: ColorFilter?) {
+            paint.colorFilter = colorFilter
+        }
+
+        @Suppress("DEPRECATION")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+    }
+
+    private var directPageTransition: DirectPageTransition? = null
+    val isPageTransitioning: Boolean
+        get() = directPageTransition != null
     var targetIndex: Int? = null
         private set(value) {
             field = value
             if (value != null) lastTargetIndex = value
         }
+    private fun updatePageOffset(position: Int, positionOffset: Float) {
+        currentOffset = position + positionOffset
+        if (currentOffset == position.toFloat() && lastFullyVisible != position) {
+            (
+                items.getOrNull(
+                    lastFullyVisible
+                )?.viewController as? WSegmentedControllerItemVC
+                )?.onPartiallyVisible()
+            lastFullyVisible = position
+            isLastFullyVisiblePartial = false
+            (
+                items.getOrNull(
+                    lastFullyVisible
+                )?.viewController as? WSegmentedControllerItemVC
+                )?.onFullyVisible()
+            notifySelectedIndexChanged(position)
+        } else if (currentOffset != position.toFloat()) {
+            if (!isLastFullyVisiblePartial) {
+                isLastFullyVisiblePartial = true
+                (
+                    items.getOrNull(
+                        lastFullyVisible
+                    )?.viewController as? WSegmentedControllerItemVC
+                    )?.onPartiallyVisible()
+            }
+        } else if (isLastFullyVisiblePartial) {
+            isLastFullyVisiblePartial = false
+            (
+                items.getOrNull(
+                    lastFullyVisible
+                )?.viewController as? WSegmentedControllerItemVC
+                )?.onFullyVisible()
+        }
+        onOffsetChange?.invoke(position, currentOffset)
+        clearSegmentedControl.updateThumbPosition(
+            position,
+            offset = currentOffset,
+            targetIndex = targetIndex ?: lastTargetIndex,
+            force = false,
+            isAnimatingToPosition = isAnimatingChangeTab
+        )
+        val blur1 = abs(blurState[position] ?: 0f)
+        val blur2 = abs(blurState[position + 1] ?: 0f)
+        val currentBlur = blur1 * (1 - (positionOffset)) + blur2 * positionOffset
+        if (currentBlur > 0 || positionOffset != 0f) {
+            reversedCornerView.resumeBlurring()
+        }
+    }
+
     private val viewPager: ViewPager2 by lazy {
         val vp = ViewPager2(context)
         vp.id = generateViewId()
@@ -129,56 +250,12 @@ class WSegmentedController(
                 if (isUserInteracting && clearSegmentedControl.isInDragMode) {
                     onForceEndReorderingRequested?.invoke()
                 }
-                currentOffset = position + positionOffset
-                if (currentOffset == position.toFloat() && lastFullyVisible != position) {
-                    (
-                        items.getOrNull(
-                            lastFullyVisible
-                        )?.viewController as? WSegmentedControllerItemVC
-                        )?.onPartiallyVisible()
-                    lastFullyVisible = position
-                    isLastFullyVisiblePartial = false
-                    (
-                        items.getOrNull(
-                            lastFullyVisible
-                        )?.viewController as? WSegmentedControllerItemVC
-                        )?.onFullyVisible()
-                    notifySelectedIndexChanged(position)
-                } else if (currentOffset != position.toFloat()) {
-                    if (!isLastFullyVisiblePartial) {
-                        isLastFullyVisiblePartial = true
-                        (
-                            items.getOrNull(
-                                lastFullyVisible
-                            )?.viewController as? WSegmentedControllerItemVC
-                            )?.onPartiallyVisible()
-                    }
-                } else if (isLastFullyVisiblePartial) {
-                    isLastFullyVisiblePartial = false
-                    (
-                        items.getOrNull(
-                            lastFullyVisible
-                        )?.viewController as? WSegmentedControllerItemVC
-                        )?.onFullyVisible()
-                }
-                onOffsetChange?.invoke(position, currentOffset)
-                clearSegmentedControl.updateThumbPosition(
-                    position,
-                    offset = currentOffset,
-                    targetIndex = targetIndex ?: lastTargetIndex,
-                    force = false,
-                    isAnimatingToPosition = isAnimatingChangeTab
-                )
-                val blur1 = abs(blurState[position] ?: 0f)
-                val blur2 = abs(blurState[position + 1] ?: 0f)
-                val currentBlur = blur1 * (1 - (positionOffset)) + blur2 * positionOffset
-                if (currentBlur > 0 || positionOffset != 0f) {
-                    reversedCornerView.resumeBlurring()
-                }
+                if (directPageTransition == null) updatePageOffset(position, positionOffset)
             }
 
             override fun onPageScrollStateChanged(state: Int) {
                 super.onPageScrollStateChanged(state)
+                if (directPageTransition != null) return
                 when (state) {
                     ViewPager2.SCROLL_STATE_DRAGGING -> {
                         targetIndex = null
@@ -243,6 +320,22 @@ class WSegmentedController(
         ).apply {
             fillAvailableWidth = pilledTabsFillWidth
         }
+    var onTabsLongPress: ((View) -> Boolean)?
+        get() = clearSegmentedControl.onLongPress
+        set(value) {
+            clearSegmentedControl.onLongPress = value
+        }
+    var shouldCenterSelectedTab: Boolean
+        get() = clearSegmentedControl.centersThumb
+        set(value) {
+            clearSegmentedControl.centersThumb = value
+        }
+    var onSelectedTabClick: ((View) -> Boolean)?
+        get() = clearSegmentedControl.onSelectedItemClick
+        set(value) {
+            clearSegmentedControl.onSelectedItemClick = value
+        }
+
     private var underTabsView: View? = null
     private var underTabsHeight = 0
     private val blurSourceContainerView: WView by lazy {
@@ -279,6 +372,7 @@ class WSegmentedController(
         get() = actionBar
     private val closeButton: WImageButton by lazy {
         val v = WImageButton(context)
+        v.id = UIComponentsR.id.nav_close
         v.setPadding(8.dp)
         val closeDrawable = context.getDrawableCompat(R.drawable.ic_close)
         v.setImageDrawable(closeDrawable)
@@ -332,6 +426,20 @@ class WSegmentedController(
         v
     }
 
+    private val headerFader = OverlappedChromeFader()
+
+    override fun hideChromeOverlapping(windowRect: Rect): Boolean {
+        if (!isFullScreen) return false
+        val headerViews = listOf(contentView, underTabsContainerView)
+        return headerFader.hideIfOverlapping(
+            windowRect,
+            headerViews.mapNotNull { it.frameInWindow() },
+            headerViews + listOfNotNull(reversedCornerView.takeIf { it.parent === this })
+        )
+    }
+
+    override fun showOverlappedChrome() = headerFader.show()
+
     private val shouldShowSegmentedControl: Boolean
         get() = items.size > 1 || showSingleItemTabs
 
@@ -360,7 +468,22 @@ class WSegmentedController(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w != oldw) insetsUpdated()
+        if (w != oldw) {
+            finishPageTransition()
+            insetsUpdated()
+        }
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
+        (directPageTransition != null && event.y >= headerHeight) ||
+            super.onInterceptTouchEvent(event)
+
+    override fun onTouchEvent(event: MotionEvent): Boolean =
+        directPageTransition != null || super.onTouchEvent(event)
+
+    override fun onDetachedFromWindow() {
+        finishPageTransition(shouldNotifyOffset = false)
+        super.onDetachedFromWindow()
     }
 
     fun insetsUpdated() {
@@ -589,7 +712,8 @@ class WSegmentedController(
                     title = it.viewController.title ?: "",
                     onRemove = it.onRemovePressed,
                     onClick = it.onMenuPressed,
-                    color = it.color
+                    color = it.color,
+                    testViewId = it.testViewId
                 )
             },
             selectedItem,
@@ -687,6 +811,7 @@ class WSegmentedController(
         keepSelection: Boolean = false,
         onUpdated: (() -> Unit)? = null
     ) {
+        finishPageTransition()
         if (closeButton.parent != null) {
             contentView.setConstraints {
                 val centeredTabs = items.size < 3 || forceCenterTabs
@@ -744,6 +869,7 @@ class WSegmentedController(
 
     var removingItem = false
     fun removeItem(index: Int, onCompletion: () -> Unit): WSegmentedControllerItem? {
+        finishPageTransition()
         if (removingItem) return null
         removingItem = true
         val removedItem = items.getOrNull(index) ?: return null
@@ -762,7 +888,8 @@ class WSegmentedController(
         return removedItem
     }
 
-    fun setActiveIndex(index: Int) {
+    fun setActiveIndex(index: Int, shouldAnimateTabScroll: Boolean = false) {
+        finishPageTransition()
         currentOffset = index.toFloat()
         targetIndex = index
         viewPager.setCurrentItem(index, false)
@@ -775,7 +902,8 @@ class WSegmentedController(
             offset = index.toFloat(),
             force = true,
             isAnimatingToPosition = isAnimatingChangeTab,
-            animateScroll = false
+            animateScroll = shouldAnimateTabScroll,
+            shouldAnimateCenter = shouldAnimateTabScroll
         )
         notifySelectedIndexChanged(index)
     }
@@ -845,6 +973,7 @@ class WSegmentedController(
         }
     ) {
         val btn = WImageButton(context).apply {
+            id = UIComponentsR.id.nav_back
             setPadding(8.dp)
             setImageDrawable(context.getDrawableCompat(R.drawable.ic_nav_back))
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
@@ -1001,6 +1130,7 @@ class WSegmentedController(
     private var isTabLocked = false
 
     fun lockTab() {
+        finishPageTransition()
         isTabLocked = true
         clearSegmentedControl.isEnabled = false
         viewPager.isUserInputEnabled = false
@@ -1048,9 +1178,24 @@ class WSegmentedController(
     }
 
     fun onIndexChanged(to: Int, animated: Boolean, onCompletion: (() -> Unit)?) {
-        isAnimatingChangeTab = true
+        if (to !in items.indices || isTabLocked || isInDragMode) return
+        finishPageTransition()
+        val shouldAnimate = animated && WGlobalStorage.getAreAnimationsActive()
+        if (to == viewPager.currentItem) {
+            viewPager.cancelSpringScroll()
+            setActiveIndex(to, shouldAnimateTabScroll = shouldAnimate && shouldCenterSelectedTab)
+            onCompletion?.invoke()
+            return
+        }
+        if (shouldSkipIntermediatePages && shouldAnimate &&
+            viewPager.width > 0 && isAttachedToWindow
+        ) {
+            selectPageDirectly(to, onCompletion)
+            return
+        }
+        isAnimatingChangeTab = shouldAnimate
         targetIndex = to
-        if (animated) {
+        if (shouldAnimate) {
             viewPager.springToItem(to, 0f, onCompletion)
         } else {
             viewPager.setCurrentItem(to, false)
@@ -1058,7 +1203,152 @@ class WSegmentedController(
         }
     }
 
+    private fun selectPageDirectly(to: Int, onCompletion: (() -> Unit)?) {
+        viewPager.cancelSpringScroll()
+        val from = viewPager.currentItem
+        val source = items.getOrNull(from)?.viewController ?: return
+        val destination = items.getOrNull(to)?.viewController ?: return
+        val selectionScroll = clearSegmentedControl.beginSelectionScroll(to)
+        jumpToPage(from)
+        updatePageOffset(from, 0f)
+        val transition = DirectPageTransition(
+            from,
+            to,
+            source,
+            destination,
+            viewPager.isUserInputEnabled,
+            viewPager.importantForAccessibility,
+            selectionScroll,
+            onCompletion
+        )
+        directPageTransition = transition
+        isAnimatingChangeTab = true
+        isUserInteracting = false
+        targetIndex = to
+        viewPager.isUserInputEnabled = false
+        viewPager.importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        onDirectPageTransitionProgress?.invoke(from, to, 0f)
+        viewPager.doOnPreDraw {
+            if (!isCurrentPageTransition(transition)) return@doOnPreDraw
+            viewPager.captureHardwareImage { bitmap ->
+                if (!isCurrentPageTransition(transition)) {
+                    bitmap?.recycle()
+                    return@captureHardwareImage
+                }
+                if (bitmap == null) {
+                    jumpToPage(to)
+                    finishPageTransition()
+                    onCompletion?.invoke()
+                    return@captureHardwareImage
+                }
+                val snapshot = PageSnapshot(bitmap)
+                transition.snapshot = snapshot
+                blurSourceContainerView.overlay.add(snapshot)
+                updateDirectPageTransition(transition, 0f)
+                jumpToPage(to)
+                currentOffset = to.toFloat()
+                viewPager.doOnPreDraw startAnimation@{
+                    if (!isCurrentPageTransition(transition)) return@startAnimation
+                    transition.animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = AnimationConstants.QUICK_ANIMATION
+                        interpolator = WInterpolator.emphasized
+                        addUpdateListener {
+                            if (directPageTransition === transition) {
+                                updateDirectPageTransition(transition, it.animatedValue as Float)
+                            }
+                        }
+                        doOnEnd {
+                            if (directPageTransition === transition) {
+                                finishPageTransition()
+                                transition.onCompletion?.invoke()
+                            }
+                        }
+                        start()
+                    }
+                }
+                viewPager.invalidate()
+            }
+        }
+        viewPager.invalidate()
+    }
+
+    private fun isCurrentPageTransition(transition: DirectPageTransition): Boolean =
+        directPageTransition === transition && isAttachedToWindow &&
+            items.getOrNull(transition.from)?.viewController === transition.source &&
+            items.getOrNull(transition.to)?.viewController === transition.destination
+
+    private fun jumpToPage(index: Int) {
+        viewPager.setCurrentItem(index, false)
+        val recyclerView = viewPager.getChildAt(0) as? RecyclerView ?: return
+        (recyclerView.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 0)
+    }
+
+    private fun updateDirectPageTransition(transition: DirectPageTransition, progress: Float) {
+        transition.selectionScroll?.let {
+            clearSegmentedControl.updateSelectionScroll(it, progress)
+        }
+        val direction = (if (transition.to > transition.from) 1f else -1f) *
+            (if (LocaleController.isRTL) -1f else 1f)
+        val distance = direction * viewPager.width
+        viewPager.translationX = distance * (1f - progress)
+        transition.snapshot?.apply {
+            setBounds(viewPager.left, viewPager.top, viewPager.right, viewPager.bottom)
+            offset = -distance * progress
+            invalidateSelf()
+        }
+        clearSegmentedControl.updateThumbPosition(
+            transition.to,
+            offset = transition.from + (transition.to - transition.from) * progress,
+            targetIndex = transition.to,
+            force = false,
+            isAnimatingToPosition = true,
+            animateScroll = false,
+            shouldFollowThumb = transition.selectionScroll == null
+        )
+        onDirectPageTransitionProgress?.invoke(transition.from, transition.to, progress)
+    }
+
+    fun finishPageTransition() {
+        finishPageTransition(shouldNotifyOffset = true)
+    }
+
+    private fun finishPageTransition(shouldNotifyOffset: Boolean) {
+        val transition = directPageTransition ?: return
+        directPageTransition = null
+        transition.animator?.apply {
+            removeAllListeners()
+            removeAllUpdateListeners()
+            cancel()
+        }
+        transition.animator = null
+        transition.snapshot?.let {
+            blurSourceContainerView.overlay.remove(it)
+            it.bitmap.recycle()
+        }
+        transition.snapshot = null
+        val shouldCenterSelection = transition.selectionScroll
+            ?.let(clearSegmentedControl::finishSelectionScroll) ?: true
+        viewPager.translationX = 0f
+        viewPager.isUserInputEnabled =
+            transition.shouldRestoreUserInput && !isTabLocked && !actionBar.isVisible
+        viewPager.importantForAccessibility = transition.accessibility
+        isAnimatingChangeTab = false
+        val index = viewPager.currentItem
+        currentOffset = index.toFloat()
+        targetIndex = index
+        clearSegmentedControl.updateThumbPosition(
+            index,
+            offset = currentOffset,
+            targetIndex = index,
+            force = true,
+            isAnimatingToPosition = !shouldCenterSelection,
+            animateScroll = false
+        )
+        if (shouldNotifyOffset && index in items.indices) updatePageOffset(index, 0f)
+    }
+
     override fun onItemMoved(from: Int, to: Int) {
+        finishPageTransition()
         if (from < 0 || from >= items.size || to < 0 || to >= items.size || from == to) {
             return
         }
@@ -1107,9 +1397,11 @@ class WSegmentedController(
         }
 
     fun onDestroy() {
+        finishPageTransition(shouldNotifyOffset = false)
         if (ownsItems) items.forEach { it.viewController.onDestroy() }
         items = mutableListOf()
         onOffsetChange = null
+        onDirectPageTransitionProgress = null
         onItemsReordered = null
         removeAllViews()
     }

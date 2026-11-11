@@ -32,7 +32,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
  * Two ways to place it:
  * - as a child filling a container (shelves, backdrops), with [glassPadding] 0;
  * - as a halo sibling under a pill via [attachTo]: the view is inset by [glassPadding] around the
- *   target and mirrors its position, scale, alpha and visibility, so the rim and shadow can extend
+ *   target and mirrors its position, scale, rotation, alpha and visibility, so the rim and shadow can extend
  *   past the target's own clip.
  */
 @SuppressLint("ViewConstructor")
@@ -345,6 +345,11 @@ class WGlassView(context: Context) :
     }
 
     /** [glassRoot] is only ever non-null on API 31+, but lint needs to see the check. */
+    // For targets changed after the root's pre-draw
+    fun syncRootNow() {
+        withGlassRoot { it.updateNow() }
+    }
+
     private inline fun withGlassRoot(block: (GlassRoot) -> Unit) {
         val glassRoot = glassRoot ?: return
         if (Blur3Settings.isRenderNodeGlassAvailable()) block(glassRoot)
@@ -462,6 +467,8 @@ class WGlassView(context: Context) :
             lp.width = needW
             lp.height = needH
             layoutParams = lp
+            // Resize now; the next layout would lag a frame
+            layout(left, top, left + needW, top + needH)
         }
     }
 
@@ -474,6 +481,7 @@ class WGlassView(context: Context) :
         pivotY = glassPadding + target.pivotY
         scaleX = target.scaleX
         scaleY = target.scaleY
+        rotation = target.rotation
         alpha = target.alpha
         visibility = target.visibility
     }

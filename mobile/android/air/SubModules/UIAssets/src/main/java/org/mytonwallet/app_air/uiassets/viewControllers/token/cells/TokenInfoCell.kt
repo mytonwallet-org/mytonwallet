@@ -37,6 +37,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R as IconsR
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVM
+import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.formatCompactNumber
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
@@ -62,7 +63,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
-import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -1225,24 +1225,9 @@ class TokenInfoCell(
 
     private fun formatCurrency(value: Double) = "\$${formatCompactNumber(value)}"
 
-    private fun formatCompactNumber(value: Double): String {
-        if (!value.isFinite()) return "0".withLocalizedNumbers
-        val magnitude = abs(value)
-        val (scaled, suffix) = when {
-            magnitude >= 1_000_000_000_000 -> value / 1_000_000_000_000 to "T"
-            magnitude >= 1_000_000_000 -> value / 1_000_000_000 to "B"
-            magnitude >= 1_000_000 -> value / 1_000_000 to "M"
-            magnitude >= 1_000 -> value / 1_000 to "K"
-            else -> value to ""
-        }
-        val formatter = DecimalFormat("0.##", DecimalFormatSymbols(Locale.US))
-        return (formatter.format(scaled) + suffix).withLocalizedNumbers
-    }
-
     private fun formatPercent(value: Double): String {
         val formatter = DecimalFormat("+0.##;-0.##", DecimalFormatSymbols(Locale.US))
-        return ((if (LocaleController.isRTL) "\u202D" else "") + formatter.format(value) + "%")
-            .withLocalizedNumbers
+        return (if (LocaleController.isRTL) "\u202D" else "") + formatter.format(value) + "%"
     }
 
     private fun formatCreatedAt(rawValue: String): String? {

@@ -69,6 +69,7 @@ final class TokenExpandableChartView: UIView {
     private var baseCurrency: MBaseCurrency = .USD
     private var displayedPeriod: ApiPriceHistoryPeriod? = nil
     private var historyData: [[Double]]? = nil
+    private var backfill: ApiPriceHistoryBackfill? = nil
     private var isHistoryRestored = false
     private var historyLoadingState: TokenHistoryLoadingState = .loading
     private struct Configuration: Equatable {
@@ -77,6 +78,7 @@ final class TokenExpandableChartView: UIView {
         var percentChange24h: Double?
         var baseCurrency: MBaseCurrency
         var historyData: [[Double]]?
+        var backfill: ApiPriceHistoryBackfill?
         var isHistoryRestored: Bool
         var historyLoadingState: TokenHistoryLoadingState
         var isHistoryStale: Bool
@@ -135,13 +137,14 @@ final class TokenExpandableChartView: UIView {
     func configure(token: ApiToken,
                    showsTokenIcon: Bool = false,
                    historyData: [[Double]]?,
+                   backfill: ApiPriceHistoryBackfill?,
                    isHistoryRestored: Bool,
                    historyLoadingState: TokenHistoryLoadingState? = nil,
                    onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
                    onAnalyze: (() -> Void)?) {
         configure(token: token, price: token.price, percentChange24h: token.percentChange24h,
                   baseCurrency: TokenStore.baseCurrency, showsTokenIcon: showsTokenIcon,
-                  historyData: historyData, isHistoryRestored: isHistoryRestored,
+                  historyData: historyData, backfill: backfill, isHistoryRestored: isHistoryRestored,
                   historyLoadingState: historyLoadingState,
                   onPeriodChange: onPeriodChange, onAnalyze: onAnalyze)
     }
@@ -154,6 +157,7 @@ final class TokenExpandableChartView: UIView {
                    showsTokenIcon: Bool = true,
                    priceTitle: String? = nil,
                    historyData: [[Double]]?,
+                   backfill: ApiPriceHistoryBackfill? = nil,
                    isHistoryRestored: Bool = false,
                    historyLoadingState: TokenHistoryLoadingState? = nil,
                    isHistoryStale: Bool = false,
@@ -175,6 +179,7 @@ final class TokenExpandableChartView: UIView {
             percentChange24h: percentChange24h,
             baseCurrency: baseCurrency,
             historyData: historyData,
+            backfill: backfill,
             isHistoryRestored: isHistoryRestored,
             historyLoadingState: historyLoadingState ?? (historyData == nil ? .loading : .loaded),
             isHistoryStale: isHistoryStale,
@@ -191,6 +196,7 @@ final class TokenExpandableChartView: UIView {
         self.percentChange24h = percentChange24h
         self.baseCurrency = baseCurrency
         self.historyData = historyData
+        self.backfill = backfill
         self.isHistoryRestored = isHistoryRestored
         self.historyLoadingState = configuration.historyLoadingState
         [collapsedChartShine, expandedChartShine, chartAnimationShine].forEach {
@@ -627,9 +633,11 @@ final class TokenExpandableChartView: UIView {
             ])
             priceValueLabel.attributedText = attr
 
-            let percent = NSAttributedString(string: chartAxisDateFormatter.string(
-                from: Date(timeIntervalSince1970: lastSelection.point.timestamp)
-            ), attributes: [
+            var selectionCaption = chartAxisDateFormatter.string(from: Date(timeIntervalSince1970: lastSelection.point.timestamp))
+            if let backfill, lastSelection.point.timestamp < launchTimestamp(historyData: historyData) {
+                selectionCaption += " · " + L10n.underlyingStock(symbol: backfill.symbol)
+            }
+            let percent = NSAttributedString(string: selectionCaption, attributes: [
                 .font: WTypography.uiFont(.supporting, content: .technical),
                 .foregroundColor: UIColor.air.secondaryLabel
             ])
@@ -676,6 +684,8 @@ final class TokenExpandableChartView: UIView {
                            historyData data: [[Double]]?,
                            range: ClosedRange<CGFloat>,
                            completion: (@MainActor () -> Void)? = nil) {
+        let dimmedBefore = backfill == nil ? nil : launchTimestamp(historyData: data)
+        let data = data.map { (backfill?.points ?? []) + $0 }
         let historyData = reduceNumberOfPoints(data, to: 200)
         let expandedHistoryData = data
         updateTimeAxis(data)
@@ -719,7 +729,8 @@ final class TokenExpandableChartView: UIView {
             },
             previewPoints: (historyData ?? []).map {
                 CompactLineChartPoint(timestamp: $0[0], value: $0[1])
-            }
+            },
+            dimmedBefore: dimmedBefore
         )
         graph.setRange(range, animated: false)
         refreshChartTint()
@@ -733,6 +744,7 @@ final class TokenExpandableChartView: UIView {
         let period = timePeriods[timeFrameSwitcherView.selectedSegmentIndex]
         configuration = nil
         historyData = nil
+        backfill = nil
         historyLoadingState = .loading
         lastSelection = nil
         selectedRange = 0...1
@@ -796,6 +808,7 @@ final class TokenExpandableChartView: UIView {
         let endGeometry = isExpanded ? expandedGeometry : collapsedGeometry
 
         let updateBlock: (CGFloat, CGFloat) -> () = { [self] progress, value in
+            let hasData = historyData != nil && (historyData?.isEmpty == false || backfill?.points.isEmpty == false)
             heightConstraint.constant = value
             chartExpansionProgress = isExpanded ? progress : 1 - progress
             loadingIndicatorCenterYConstraint.constant = expandedLoadingIndicatorOffset * (isExpanded ? progress : 1 - progress)
@@ -814,12 +827,12 @@ final class TokenExpandableChartView: UIView {
             if isExpanded {
                 largeChartImageView.alpha = progress
                 smallChartImageView.alpha = 1 - progress
-                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : max(0, 2 * (progress - 0.5))
+                rangeChart.alpha = hasData ? max(0, 2 * (progress - 0.5)) : 0
                 timeFrameSwitcherView.alpha = max(0, 2 * (progress - 0.5))
             } else {
                 smallChartImageView.alpha = progress
                 largeChartImageView.alpha = 1 - progress
-                rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : max(0, 1 - 2 * progress)
+                rangeChart.alpha = hasData ? max(0, 1 - 2 * progress) : 0
                 timeFrameSwitcherView.alpha = max(0, 1 - 2 * progress)
             }
             analyzeButton.alpha = timeFrameSwitcherView.alpha
@@ -910,7 +923,13 @@ final class TokenExpandableChartView: UIView {
 
     private func updateTimeAxisVisibility() {
         let alpha = min(1, max(0, (chartExpansionProgress - 0.85) / 0.15))
-        timeAxisView.alpha = historyData?.isEmpty == false ? alpha : 0
+        let hasData = historyData?.isEmpty == false || (historyData != nil && backfill?.points.isEmpty == false)
+        timeAxisView.alpha = hasData ? alpha : 0
+    }
+
+    /// The first token price; the backfill covers everything earlier, or the whole series when the token has no history
+    private func launchTimestamp(historyData: [[Double]]?) -> TimeInterval {
+        historyData?.first?.first ?? .infinity
     }
 }
 

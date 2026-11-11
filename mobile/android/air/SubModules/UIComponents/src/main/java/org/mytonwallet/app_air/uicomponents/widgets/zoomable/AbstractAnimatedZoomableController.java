@@ -20,12 +20,16 @@ import com.facebook.common.logging.FLog;
  */
 public abstract class AbstractAnimatedZoomableController extends DefaultZoomableController {
 
+    /** Telegram's photo viewer animates a zoom, a double tap's or a return within the limits, in 250 ms */
+    public static final long ZOOM_DURATION_MS = 250;
+
     private final float[] mStartValues = new float[9];
     private final float[] mStopValues = new float[9];
     private final float[] mCurrentValues = new float[9];
     private final Matrix mNewTransform = new Matrix();
     private final Matrix mWorkingTransform = new Matrix();
     private boolean mIsAnimating;
+    private boolean mIsSpringingBack;
 
     public AbstractAnimatedZoomableController(TransformGestureDetector transformGestureDetector) {
         super(transformGestureDetector);
@@ -141,8 +145,27 @@ public abstract class AbstractAnimatedZoomableController extends DefaultZoomable
     @Override
     public void onGestureBegin(TransformGestureDetector detector) {
         FLog.v(getLogTag(), "onGestureBegin");
+        // The finger left on the image waits for the zoom to come back within its limits; the animation's end
+        // restarts its gesture
+        if (mIsSpringingBack && isAnimating()) {
+            return;
+        }
         stopAnimation();
         super.onGestureBegin(detector);
+    }
+
+    @Override
+    public void onGestureEnd(TransformGestureDetector detector) {
+        super.onGestureEnd(detector);
+        // A pinch past the limits springs back once fewer than two fingers are left, about where it was pinched
+        if (!isOverzoomEnabled() || detector.getNewPointerCount() >= 2 || isAnimating()) {
+            return;
+        }
+        if (calculateLimitedTransform(mNewTransform, detector.getPivotX(), detector.getPivotY())) {
+            mIsSpringingBack = true;
+            setTransformAnimated(
+                mNewTransform, ZOOM_DURATION_MS, () -> mIsSpringingBack = false);
+        }
     }
 
     @Override

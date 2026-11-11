@@ -82,6 +82,7 @@ private struct TokenSendFormSections: View {
             }
             if model.shouldShowMultisigWarning {
                 MultisigWalletWarning()
+                    .padding(.horizontal, 16)
             }
             TokenSendAmountSection(
                 model: model,
@@ -97,6 +98,11 @@ private struct TokenSendFormSections: View {
             }
             TokenSendPayloadSection(model: model)
         }
+        .environment(\.openURL, OpenURLAction { url in
+            topViewController()?.view.endEditing(true)
+            AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
+            return .handled
+        })
     }
 }
 
@@ -171,6 +177,7 @@ struct TokenSendComposeTitleView: View {
             HStack(spacing: 12) {
                 HStack(spacing: 4) {
                     Text(lang("Send"))
+                        .accessibilityIdentifier("send_title_menu")
                     Image.airBundle("ArrowUpDownSmall")
                         .opacity(0.5)
                 }
@@ -207,6 +214,7 @@ struct TokenSendComposeTitleView: View {
                 .action(ContextMenuAction(
                     title: lang("Multisend"),
                     icon: .airBundle("MenuMultisend26"),
+                    accessibilityIdentifier: "send_menu_multisend",
                     handler: onMultisendTapped
                 )),
             ]),

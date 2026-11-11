@@ -38,7 +38,17 @@ public struct MarketItemDisplayData: Identifiable {
 }
 
 public struct MarketSectionDisplayData: Identifiable {
-    public enum Layout: Sendable, Hashable { case largeHorizontal, grid, rows }
+    public enum Layout: Sendable, Hashable {
+        case largeHorizontal, grid, rows
+
+        init(_ layout: MarketSection.Layout) {
+            self = switch layout {
+            case .largeHorizontal: .largeHorizontal
+            case .grid: .grid
+            case .rows: .rows
+            }
+        }
+    }
     public let id: String
     public var title: String
     public var layout: Layout
@@ -62,12 +72,7 @@ extension MarketToken {
 
 extension MarketSection {
     func presentation(columnCount: Int) -> MarketSectionDisplayData {
-        let layout: MarketSectionDisplayData.Layout = switch layout {
-        case .largeHorizontal: .largeHorizontal
-        case .grid: .grid
-        case .rows: .rows
-        }
-        return .init(id: id, title: title, layout: layout, tokens: visibleTokens(columnCount: columnCount).map(\.presentation),
-                     showsSeeAll: showsSeeAll(columnCount: columnCount))
+        .init(id: id, title: title, layout: .init(layout), tokens: visibleTokens(columnCount: columnCount).map(\.presentation),
+              showsSeeAll: showsSeeAll(columnCount: columnCount))
     }
 }

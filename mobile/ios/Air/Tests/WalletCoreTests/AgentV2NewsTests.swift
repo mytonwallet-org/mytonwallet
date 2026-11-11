@@ -1,5 +1,7 @@
 import Foundation
 import Testing
+import Perception
+import WalletContext
 @testable import WalletCore
 
 @Suite("Agent V2 news")
@@ -69,6 +71,7 @@ struct AgentV2NewsTests {
         )
         #expect(empty.items.isEmpty)
         #expect(empty.nextCursor == nil)
+        #expect(empty.digests == nil)
 
         let item = try JSONDecoder().decode(
             ApiAgentV2NewsFeedItem.self,
@@ -91,6 +94,7 @@ struct AgentV2NewsTests {
             ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: thread)
         )
         #expect(plain.news == nil)
+        #expect(plain.digest == nil)
 
         var threadWithNews = thread
         threadWithNews["news"] = [
@@ -170,12 +174,12 @@ struct AgentV2NewsTests {
 
     @Test
     func feedRequestPassesAppLanguageWithoutNormalizingIt() throws {
-        let request = ApiAgentV2NewsFeedRequest(lang: "ru-RU", cursor: "older-news")
+        let request = ApiAgentV2NewsFeedRequest(lang: "ru-RU", cursor: "older-news", digestHour: 21, timeZone: "Europe/Moscow")
         let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? NSDictionary)
-        #expect(encoded == ["lang": "ru-RU", "cursor": "older-news"] as NSDictionary)
-        let firstPage = ApiAgentV2NewsFeedRequest(lang: "es", cursor: nil)
+        #expect(encoded == ["lang": "ru-RU", "cursor": "older-news", "digestHour": 21, "timeZone": "Europe/Moscow"] as NSDictionary)
+        let firstPage = ApiAgentV2NewsFeedRequest(lang: "es", cursor: nil, digestHour: 7, timeZone: "Europe/Madrid")
         let firstPageEncoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(firstPage)) as? NSDictionary)
-        #expect(firstPageEncoded == ["lang": "es"] as NSDictionary)
+        #expect(firstPageEncoded == ["lang": "es", "digestHour": 7, "timeZone": "Europe/Madrid"] as NSDictionary)
     }
 
     @Test
@@ -189,15 +193,243 @@ struct AgentV2NewsTests {
         #expect(plainEncoded.count == 0)
     }
 
-    @Test
-    func unavailableNewsRetainsItsRetryableSDKError() throws {
+    @Test(arguments: [ApiAgentV2ErrorCode.newsUnavailable, .digestUnavailable])
+    func unavailableDiscussionRetainsItsRetryableSDKError(code: ApiAgentV2ErrorCode) throws {
         let result = try JSONDecoder().decode(
             ApiAgentV2MutationResult<ApiAgentV2NewsFeedPage>.self,
-            from: Data(#"{"ok":false,"error":{"code":"news_unavailable","retryable":true}}"#.utf8)
+            from: Data("{\"ok\":false,\"error\":{\"code\":\"\(code.rawValue)\",\"retryable\":true}}".utf8)
         )
         #expect(!result.ok)
         #expect(result.value == nil)
-        #expect(result.error?.code == .newsUnavailable)
+        #expect(result.error?.code == code)
         #expect(result.error?.retryable == true)
     }
+    @Test
+    func digestsDecodeOnFeedAndThreadAndKeepUnstartedThreadsOutOfTheList() throws {
+        let digestId = "ru:2026-11-08T18:00:00.000Z"
+        let top: [[String: Any]] = [["eventId": 307, "headline": "Market news"]]
+        let page = try JSONDecoder().decode(ApiAgentV2NewsFeedPage.self, from: JSONSerialization.data(withJSONObject: [
+            "locale": "ru", "items": [], "digests": [[
+                "id": digestId, "deliveredAt": "2026-11-08T18:00:00.000Z", "top": top, "total": 5,
+                "discussion": ["threadId": "digest-thread", "icon": "📰"]
+            ]]
+        ]))
+        let digest = try #require(page.digests?.first)
+        #expect(digest.id == digestId)
+        #expect(digest.top.first?.eventId == 307)
+        #expect(digest.total == 5)
+        #expect(digest.discussion?.threadId == "digest-thread")
+        for count in [1, 2] {
+            let thread = try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: [
+                "id": "digest-thread", "revision": 1, "createdAt": digest.deliveredAt,
+                "updatedAt": digest.deliveredAt, "lastActivityAt": digest.deliveredAt, "messageCount": count,
+                "digest": ["id": digestId, "windowEnd": digest.deliveredAt, "top": top, "total": 5]
+            ]))
+            #expect(thread.digest?.id == digestId)
+            #expect(thread.digest?.windowEnd == digest.deliveredAt)
+            #expect(thread.digest?.top == digest.top)
+            #expect(thread.isStarted == (count > 1))
+            #expect(thread.makeCopy(isPinned: true).digest == thread.digest)
+        }
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(
+            ApiAgentV2ThreadCreateRequest(news: nil, digest: .init(id: digestId))
+        )) as? NSDictionary
+        #expect(encoded == ["digest": ["id": digestId]] as NSDictionary)
+    }
+
+    @Test @MainActor
+    func notificationModesRequirePermissionAndOnlyPersistSuccessfulCalls() async throws {
+        let name = "AgentNewsSettings.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var hasPermission = false
+        var shouldSucceed = true
+        var calls: [ApiSetNewsNotificationsProps] = []
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" },
+            ensureToken: { hasPermission ? "token" : nil }, apply: { calls.append($0); return shouldSucceed }
+        )
+        #expect(store.mode == .off)
+        #expect(store.digestHour == 21)
+        #expect(await store.setMode(.digest) == .permissionDenied)
+        #expect(store.mode == .off)
+        #expect(calls.isEmpty)
+        hasPermission = true
+        let hasObservedChange = UnfairLock(initialState: false)
+        withPerceptionTracking { _ = store.mode } onChange: { hasObservedChange.withLock { $0 = true } }
+        #expect(await store.setMode(.digest) == .ok)
+        #expect(hasObservedChange.withLock { $0 })
+        #expect(store.mode == .digest)
+        shouldSucceed = false
+        #expect(await store.setMode(.news) == .failed)
+        #expect(store.mode == .digest)
+        hasPermission = false
+        #expect(await store.setMode(.news) == .permissionDenied)
+        #expect(store.mode == .digest)
+        #expect(calls.count == 2)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).mode == .digest)
+        shouldSucceed = true
+        #expect(await store.setMode(.off) == .ok)
+        #expect(store.mode == .off)
+        #expect(calls.last?.mode == .off)
+    }
+
+    @Test @MainActor
+    func digestHourPersistsImmediatelyAndOnlyReappliesDigestMode() async {
+        let name = "AgentNewsHour.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var calls: [ApiSetNewsNotificationsProps] = []
+        var shouldSucceed = true
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" }, ensureToken: { "token" },
+            apply: { calls.append($0); return shouldSucceed }
+        )
+        #expect(await store.setDigestHour(8) == .ok)
+        #expect(calls.isEmpty)
+        #expect(await store.setMode(.news) == .ok)
+        #expect(await store.setDigestHour(9) == .ok)
+        #expect(calls.count == 1)
+        #expect(await store.setMode(.digest) == .ok)
+        shouldSucceed = false
+        #expect(await store.setDigestHour(10) == .failed)
+        #expect(store.digestHour == 10)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).digestHour == 10)
+        #expect(calls.map(\.digestHour) == [8, 9, 10])
+    }
+
+    @Test @MainActor
+    func subscriptionsReapplyChangedDeviceParametersAndResetToOff() async {
+        let name = "AgentNewsReapply.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var token = "token-1"
+        var language = "en"
+        var zone = "Europe/London"
+        var calls: [ApiSetNewsNotificationsProps] = []
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { token }, ensureToken: { token },
+            language: { language }, timeZone: { zone }, apply: { calls.append($0); return true }
+        )
+        #expect(await store.reapplyIfNeeded() == .ok)
+        #expect(calls.isEmpty)
+        #expect(await store.setMode(.digest) == .ok)
+        #expect(await store.reapplyIfNeeded() == .ok)
+        #expect(calls.count == 1)
+        token = "token-2"
+        #expect(await store.reapplyIfNeeded() == .ok)
+        language = "ru"
+        #expect(await store.reapplyIfNeeded() == .ok)
+        zone = "Europe/Moscow"
+        #expect(await store.reapplyIfNeeded() == .ok)
+        #expect(calls.count == 4)
+        #expect(calls.last?.userToken == token)
+        #expect(calls.last?.langCode == language)
+        #expect(calls.last?.timeZone == zone)
+        let restored = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { token }, language: { language }, timeZone: { zone },
+            apply: { calls.append($0); return true }
+        )
+        #expect(await restored.reapplyIfNeeded() == .ok)
+        #expect(calls.count == 4)
+        #expect(await restored.reset().value == .ok)
+        #expect(restored.mode == .off)
+        #expect(calls.last?.mode == .off)
+        token = "token-3"
+        #expect(await restored.reapplyIfNeeded() == .ok)
+        #expect(calls.count == 5)
+    }
+
+    @Test @MainActor
+    func resetPersistsOffBeforePendingRequestsAndRetriesAfterFailedDelivery() async {
+        let name = "AgentNewsReset.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let started = AsyncStream<Void>.makeStream()
+        var pendingRequest: CheckedContinuation<Bool, Never>?
+        var modes: [AgentNewsNotificationSettings.Mode] = []
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" }, ensureToken: { "token" },
+            apply: { props in
+                modes.append(props.mode)
+                if props.mode == .news {
+                    return await withCheckedContinuation {
+                        pendingRequest = $0
+                        started.continuation.yield(())
+                    }
+                }
+                return props.mode == .digest
+            }
+        )
+        #expect(await store.setMode(.digest) == .ok)
+        let pendingMode = Task { await store.setMode(.news) }
+        var iterator = started.stream.makeAsyncIterator()
+        await iterator.next()
+        let reset = store.reset()
+        #expect(store.mode == .off)
+        #expect(AgentNewsNotificationSettings(userDefaults: defaults).mode == .off)
+        pendingRequest?.resume(returning: true)
+        #expect(await pendingMode.value == .failed)
+        #expect(await reset.value == .failed)
+        #expect(store.mode == .off)
+        #expect(modes == [.digest, .news, .off])
+        let restored = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" },
+            apply: { modes.append($0.mode); return true }
+        )
+        #expect(await restored.reapplyIfNeeded() == .ok)
+        #expect(await restored.reapplyIfNeeded() == .ok)
+        #expect(modes == [.digest, .news, .off, .off])
+    }
+
+    @Test @MainActor
+    func resetTimeoutAllowsRestartWithoutWalletsToRetryOff() async {
+        let name = "AgentNewsResetTimeout.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let started = AsyncStream<Void>.makeStream()
+        var pendingOff: CheckedContinuation<Bool, Never>?
+        var modes: [AgentNewsNotificationSettings.Mode] = []
+        let store = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" }, ensureToken: { "token" },
+            apply: { props in
+                modes.append(props.mode)
+                if props.mode == .off {
+                    return await withCheckedContinuation {
+                        pendingOff = $0
+                        started.continuation.yield(())
+                    }
+                }
+                return true
+            }
+        )
+        defer { pendingOff?.resume(returning: false) }
+        #expect(await store.setMode(.digest) == .ok)
+        let reset = store.reset()
+        var startedIterator = started.stream.makeAsyncIterator()
+        await startedIterator.next()
+        #expect(await store.waitForReset(reset, timeout: .milliseconds(30)) == .failed)
+        #expect(pendingOff != nil)
+        #expect(store.mode == .off)
+        #expect(AccountStore.accountsById.isEmpty)
+        let retried = AsyncStream<Void>.makeStream()
+        let restarted = AgentNewsNotificationSettings(
+            userDefaults: defaults, getToken: { "token" },
+            apply: { props in
+                modes.append(props.mode)
+                retried.continuation.yield(())
+                return true
+            }
+        )
+        restarted.start()
+        defer { restarted.stop() }
+        var retryIterator = retried.stream.makeAsyncIterator()
+        await retryIterator.next()
+        #expect(await restarted.reapplyIfNeeded() == .ok)
+        #expect(modes == [.digest, .off, .off])
+        pendingOff?.resume(returning: false)
+        pendingOff = nil
+        #expect(await reset.value == .failed)
+    }
+
 }

@@ -230,7 +230,7 @@ function SettingsAssets({
           </div>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleTinyTransfersHiddenToggle}>
             <div>
-              <span className={styles.itemTitle}>{lang('Hide Tiny Transfers')}</span>
+              <span className={styles.itemTitle}>{lang('Hide Tiny Transfers and Spam')}</span>
               {' '}
               <IconWithTooltip
                 message={
@@ -246,7 +246,7 @@ function SettingsAssets({
 
             <Switcher
               className={styles.menuSwitcher}
-              label={lang('Hide Tiny Transfers')}
+              label={lang('Hide Tiny Transfers and Spam')}
               checked={areTinyTransfersHidden}
             />
           </div>

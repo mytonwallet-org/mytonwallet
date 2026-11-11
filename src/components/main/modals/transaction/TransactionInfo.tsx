@@ -173,7 +173,9 @@ function TransactionInfo({
       savedAddresses,
     });
     // `metadata?.name` applies to the counterparty, which is sender for incoming transactions
-    return localName || (isIncoming ? transaction?.metadata?.name : undefined);
+    return localName
+      || getCurrentAccountDomain(accounts, currentAccountId, chain, fromAddress)
+      || (isIncoming ? transaction?.metadata?.name : undefined);
   }, [
     showBothAddresses, chain, fromAddress, currentAccountId, accounts,
     savedAddresses, isIncoming, transaction?.metadata?.name,
@@ -190,7 +192,9 @@ function TransactionInfo({
       savedAddresses,
     });
     // `metadata?.name` applies to the counterparty, which is recipient for outgoing transactions
-    return localName || (!isIncoming ? transaction?.metadata?.name : undefined);
+    return localName
+      || getCurrentAccountDomain(accounts, currentAccountId, chain, toAddress)
+      || (!isIncoming ? transaction?.metadata?.name : undefined);
   }, [
     showBothAddresses, chain, toAddress, currentAccountId, accounts,
     savedAddresses, isIncoming, transaction?.metadata?.name,
@@ -494,6 +498,17 @@ function formatUtxoEtaDuration(lang: LangFn, etaSeconds: number) {
 
   const days = Math.ceil(hours / 24);
   return lang('day', days, undefined, days) as string;
+}
+
+function getCurrentAccountDomain(
+  accounts: Record<string, Account> | undefined,
+  currentAccountId: string,
+  chain: ApiChain,
+  address: string,
+) {
+  const accountChain = accounts?.[currentAccountId]?.byChain[chain];
+
+  return accountChain?.address === address ? accountChain.domain : undefined;
 }
 
 export default memo(TransactionInfo);

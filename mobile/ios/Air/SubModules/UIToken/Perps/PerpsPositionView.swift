@@ -3,16 +3,6 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-extension PerpsPositionDisplayData.Value.Tone {
-    var color: Color {
-        switch self {
-        case .positive: .air.positiveAmount
-        case .negative: .air.negativeAmount
-        case .neutral: .air.primaryLabel
-        }
-    }
-}
-
 struct PerpsPositionView: View {
     let data: PerpsPositionDisplayData
 

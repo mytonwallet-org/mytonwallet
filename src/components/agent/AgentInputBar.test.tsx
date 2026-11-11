@@ -8,6 +8,14 @@ import { pause } from '../../util/schedulers';
 import AgentInputBar from './AgentInputBar';
 
 jest.mock('../ui/Input', () => ({ __esModule: true, default: () => undefined }));
+// Class names are their own keys, so that what the button holds shows in them
+jest.mock('./AgentInputBar.module.scss', () => new Proxy({}, {
+  get: (target, key) => {
+    if (key === '__esModule') return false;
+    if (key === Symbol.toPrimitive) return () => 'test-file-stub';
+    return key;
+  },
+}));
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => (key: string, values?: number | string) => {
@@ -33,11 +41,17 @@ describe('AgentInputBar dictation', () => {
     jest.restoreAllMocks();
   });
 
-  function renderBar(dictation: AgentInputBarDictation, inputValue = '') {
+  function renderBar(
+    dictation: AgentInputBarDictation | undefined,
+    inputValue = '',
+    stop?: { canStop: boolean; onStop: NoneToVoidFunction },
+  ) {
     TeactDOM.render(
       <AgentInputBar
         inputValue={inputValue}
         dictation={dictation}
+        canStop={stop?.canStop}
+        onStop={stop?.onStop}
         onInput={jest.fn()}
         onKeyDown={jest.fn()}
         onSend={jest.fn()}
@@ -63,6 +77,68 @@ describe('AgentInputBar dictation', () => {
     await renderBar(dictation, 'Hi');
     expect(getButton('$agent_dictation_start').classList.contains('not-open')).toBe(true);
     expect(getButton('Send').classList.contains('not-open')).toBe(false);
+  });
+
+  it('turns the microphone into Stop while an answer is being written, and back once it ends', async () => {
+    const dictation = buildDictation({ phase: 'idle' });
+    const onStop = jest.fn();
+    await renderBar(dictation, '', { canStop: true, onStop });
+
+    const stop = getButton('$agent_stop_answer');
+    expect(stop.title).toBe('$agent_stop_answer');
+    expect(stop.classList.contains('not-open')).toBe(false);
+    expect(stop.disabled).toBe(false);
+    expect(getButton('Send').classList.contains('not-open')).toBe(true);
+    stop.click();
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(dictation.start).not.toHaveBeenCalled();
+
+    await renderBar(dictation, '', { canStop: false, onStop });
+    expect(root.querySelector('button[aria-label="$agent_stop_answer"]')).toBeNull();
+    expect(getButton('$agent_dictation_start').classList.contains('not-open')).toBe(false);
+    getButton('$agent_dictation_start').click();
+    expect(dictation.start).toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Stop over a draft during an answer, then trades it for send without the microphone', async () => {
+    const dictation = buildDictation({ phase: 'idle' });
+    const stop = { canStop: true, onStop: jest.fn() };
+    await renderBar(dictation, '', stop);
+    const button = getButton('$agent_stop_answer');
+    const getStates = recordButtonStates(button);
+
+    await renderBar(dictation, 'Next', stop);
+    expect(button.classList.contains('not-open')).toBe(false);
+    expect(getButton('Send').classList.contains('not-open')).toBe(true);
+
+    // The answer ends under the draft
+    await renderBar(dictation, 'Next', { ...stop, canStop: false });
+    expect(button.classList.contains('not-open')).toBe(true);
+    expect(button.disabled).toBe(true);
+    expect(getButton('Send').classList.contains('not-open')).toBe(false);
+    expect(getButton('Send').disabled).toBe(false);
+
+    // Every state the button passed through, however briefly, held Stop
+    const { classNames, labels } = getStates();
+    expect(classNames.every((className) => className.split(' ').includes('stopButton'))).toBe(true);
+    expect(new Set(labels)).toEqual(new Set(['$agent_stop_answer']));
+
+    // The empty field gets the microphone back
+    await renderBar(dictation, '', { ...stop, canStop: false });
+    expect(button.classList.contains('stopButton')).toBe(false);
+    expect(getButton('$agent_dictation_start').classList.contains('not-open')).toBe(false);
+  });
+
+  it('offers Stop where there is no dictation', async () => {
+    const onStop = jest.fn();
+    await renderBar(undefined, '', { canStop: true, onStop });
+    getButton('$agent_stop_answer').click();
+    expect(onStop).toHaveBeenCalledTimes(1);
+
+    await renderBar(undefined, '', { canStop: false, onStop });
+    expect(getButton('$agent_stop_answer').classList.contains('not-open')).toBe(true);
+    expect(getButton('$agent_stop_answer').disabled).toBe(true);
   });
 
   it('shows the recording with a countdown near the limit, finishes it and cancels it on Escape', async () => {
@@ -162,6 +238,20 @@ describe('AgentInputBar dictation', () => {
     dispatchPointer('pointerup', 300, 220);
     expect(dictation.finish).toHaveBeenCalledTimes(1);
     expect(dictation.cancel).toHaveBeenCalledTimes(1);
+
+    // The hint follows a finger that slides toward cancelling, and comes back with it
+    dispatchPointer('pointerdown', 300, 300, microphone);
+    await pause(260);
+    await renderBar({ ...dictation, phase: 'recording' });
+    const hint = [...root.querySelectorAll<HTMLElement>('span[aria-hidden]')]
+      .find((element) => element.textContent?.includes('$agent_dictation_slide_to_cancel'))!;
+    dispatchPointer('pointermove', 245, 300);
+    await pause(40);
+    expect(hint.style.transform).toBe('translateX(-55px)');
+    dispatchPointer('pointermove', 300, 300);
+    await pause(40);
+    expect(hint.style.transform).toBe('');
+    dispatchPointer('pointerup', 300, 300);
   });
 
   it('ignores a second finish click until recognition has been in progress for 400 ms', async () => {
@@ -183,9 +273,30 @@ describe('AgentInputBar dictation', () => {
   });
 });
 
+// Every class and label the button takes on until the returned function is called
+function recordButtonStates(button: HTMLButtonElement) {
+  const records: MutationRecord[] = [];
+  const observer = new MutationObserver((mutations) => records.push(...mutations));
+  observer.observe(button, { attributeFilter: ['class', 'aria-label'], attributeOldValue: true });
+
+  return () => {
+    records.push(...observer.takeRecords());
+    observer.disconnect();
+    function getValues(attribute: string) {
+      return records
+        .filter(({ attributeName }) => attributeName === attribute)
+        .map(({ oldValue }) => oldValue ?? '')
+        .concat(button.getAttribute(attribute) ?? '');
+    }
+
+    return { classNames: getValues('class'), labels: getValues('aria-label') };
+  };
+}
+
 function buildDictation(state: Partial<AgentInputBarDictation>): AgentInputBarDictation {
   return {
     phase: 'idle',
+    isPaused: false,
     elapsedMs: 0,
     level: 0,
     transcriptCount: 0,
@@ -193,6 +304,8 @@ function buildDictation(state: Partial<AgentInputBarDictation>): AgentInputBarDi
     start: jest.fn(),
     finish: jest.fn(),
     cancel: jest.fn(),
+    pause: jest.fn(),
+    resume: jest.fn(),
     cancelRecognition: jest.fn(),
     ...state,
   };

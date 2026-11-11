@@ -3,9 +3,9 @@ import UIKit
 import WalletContext
 import WalletCore
 
-/// News pictures in the media viewer, as Telegram's gallery shows a chat's pictures: the post's source and date on the
-/// capsule over the picture, the post under it as the caption, and the post's menu as the footer's buttons. The feed
-/// and a discussion open their pictures through it.
+/// News pictures in the media viewer, as Telegram's gallery shows a chat's pictures: the post's date on the capsule over
+/// the picture, under "N of M" among several, the post under it as the caption, and the post's menu as the footer's
+/// buttons. The feed and a discussion open their pictures through it.
 @MainActor
 enum AgentNewsPictureViewer {
     struct Post {
@@ -78,7 +78,6 @@ enum AgentNewsPictureViewer {
             }
         }
         return MediaViewer.Details(
-            author: content.sourceName,
             date: "\(date), \(time)",
             caption: makeCaption(for: content),
             actions: actions,

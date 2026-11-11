@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -44,6 +45,7 @@ class AccountDialogHelpers {
                     setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
                 }
             }.apply {
+                id = R.id.rename_wallet_input
                 hint = LocaleController.getString("Wallet Name")
                 setText(account.name)
             }

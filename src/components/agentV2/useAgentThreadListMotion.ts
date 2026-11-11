@@ -56,9 +56,11 @@ export default function useAgentThreadListMotion(
 
       const { scrollTop } = body;
       const shift = getAnchorShift(previous, positions, scrollTop);
-      return shift ? () => {
-        body.scrollTop = scrollTop + shift;
-      } : undefined;
+      // The list scrolls smoothly (`.custom-scroll`), which would slide the rows rather than keep them in place.
+      // `scrollTo` lays the page out, so it belongs to the measure phase.
+      if (shift) body.scrollTo({ top: scrollTop + shift, behavior: 'instant' });
+
+      return undefined;
     });
   }, [bodyRef, isUserChange, items]);
 }

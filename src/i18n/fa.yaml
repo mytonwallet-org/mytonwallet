@@ -138,8 +138,8 @@ You can always enable seasonal theming again in the appearance settings.: همی
 Base Currency: ارز پایه
 Investor View: نمای سرمایه‌گذار
 Toggle Investor View: تغییر وضعیت نمای سرمایه‌گذار
-Hide Tiny Transfers: پنهان کردن انتقال‌های ناچیز
-Toggle Hide Tiny Transfers: تغییر وضعیت پنهان کردن انتقال‌های ناچیز
+Hide Tiny Transfers and Spam: پنهان کردن انتقال‌های ناچیز و اسپم
+Toggle Hide Tiny Transfers and Spam: تغییر وضعیت پنهان کردن انتقال‌های ناچیز و اسپم
 Network: شبکه
 Developer Options: گزینه‌های توسعه‌دهنده
 All Wallet Versions: همه نسخه‌های کیف پول
@@ -1320,7 +1320,6 @@ Agent: دستیار
 Learn more: بیشتر بدانید
 Data shared with Agent: داده‌های به اشتراک گذاشته‌شده با عامل
 $agent_consent_allow_button: اجازه دادن به عامل
-$agent_consent_subtitle: از عامل برای کمک درباره کیف پول، اطلاعات توکن و اقدامات پشتیبانی‌شده بپرسید.
 $agent_consent_feature_answers: پاسخ‌هایی درباره %app_name%، توکن‌ها و فعالیت کیف پول دریافت کنید.
 $agent_consent_feature_actions: اقدامات پشتیبانی‌شده مانند ارسال، دریافت و استیکینگ را آماده کنید.
 $agent_consent_feature_context: از زمینه کیف پول استفاده کنید تا پاسخ‌ها بتوانند به دارایی‌ها و آدرس‌های مرتبط ارجاع دهند.
@@ -1408,6 +1407,7 @@ $agent_dictation_no_speech: "صدایی شنیده نشد. نزدیک‌تر ب�
 $agent_dictation_time_left: "%seconds% ثانیه باقی مانده"
 $agent_dictation_time_left_short: "%seconds% ثانیه"
 $agent_dictation_limit_reached: "دیکته پس از یک دقیقه متوقف شد؛ این حداکثر مدت ضبط است."
+$agent_stop_answer: "توقف پاسخ"
 $agent_dictation_microphone_denied: "برای دیکته، اجازه دسترسی به میکروفون را بدهید."
 $agent_dictation_hold_hint: "برای دیکته، دکمه را نگه دارید. برای ضبط بدون نگه داشتن دکمه، به بالا بکشید."
 $agent_dictation_too_short: "خیلی کوتاه بود. هنگام صحبت کردن، دکمه را نگه دارید."
@@ -2125,6 +2125,8 @@ News: "اخبار"
 Crypto Market News: "اخبار بازار رمزارزها"
 $agent_news_new: "جدید"
 $agent_news_open_source: "باز کردن منبع"
+$agent_news_source: "منبع: %sources%"
+$agent_news_sources: "منابع: %sources%"
 $agent_news_unavailable: "اخبار در حال حاضر در دسترس نیست"
 $agent_news_read_more: "بیشتر بخوانید"
 $agent_news_discuss: "گفتگو"
@@ -2161,7 +2163,6 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "Review": "بررسی"
 "$perps_order_long": "لانگ %asset%"
 "$perps_order_short": "شورت %asset%"
-"$perps_swap_fee_hint": "کارمزد تبدیل یک توکن به توکن دیگر در چارچوب این تراکنش."
 "$perps_trading_fee_hint": "کارمزد باز کردن این موقعیت."
 "$perps_position_size_hint": "اندازه موقعیت — ارزش کل موقعیت شما با احتساب اهرم."
 "$perps_position_size_details_hint": "ارزش کل موقعیت شما با احتساب اهرم.\n\nبرای مثال، اگر $100 با اهرم 5x سرمایه‌گذاری کنید، اندازه موقعیت شما $500 خواهد بود."
@@ -2171,14 +2172,13 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "$perps_closing_value_hint": "مبلغ باقی‌مانده پس از لیکویید شدن موقعیت شما. بسته به نتیجه لیکویید شدن، این مبلغ ممکن است کمتر از مبلغ سرمایه‌گذاری‌شده شما یا صفر باشد."
 "$perps_fees_hint": "مجموع کارمزدهای دریافت‌شده برای این تراکنش. بسته به تراکنش، ممکن است شامل کارمزد معامله، تبدیل و شبکه باشد."
 "$perps_liquidation_price_hint": "قیمت تخمینی که در آن ممکن است موقعیت شما به دلیل نبود موجودی کافی برای باز نگه داشتن آن، به‌طور خودکار بسته شود."
-"$perps_high_leverage_warning": "اهرم بالا: یک تغییر کوچک در قیمت باعث لیکویید شدن می‌شود."
 "$perps_leverage_disclaimer": "اهرم بالاتر سود و زیان احتمالی را افزایش می‌دهد. حتی تغییر کوچکی در قیمت برخلاف جهت موقعیت شما می‌تواند باعث بسته شدن خودکار آن شود."
 
 # Perps order review
 "Open Position": "باز کردن موقعیت"
 "$perps_asset_price": "قیمت %asset%"
 "$perps_leverage_direction": "%direction% با اهرم %leverage%×"
-"$perps_liquidation_acknowledgment": "با تأیید، می‌پذیرم که این موقعیت ممکن است لیکویید شود و ممکن است پولی را که سرمایه‌گذاری کرده‌ام از دست بدهم."
+"$perps_liquidation_acknowledgment": "با تأیید، می‌پذیرم که این موقعیت ممکن است لیکویید شود و ممکن است پولی را که سرمایه‌گذاری کرده‌ام از دست بدهم."
 
 # Perps position receipt
 "Position Opened": "موقعیت باز شد"
@@ -2249,7 +2249,16 @@ $perps_open_interest_hint: "ارزش کل قراردادهایی که در حا�
 "PerpsQuoteExpired": "قیمت‌ها یا موقعیت شما تغییر کرده‌اند. برگردید و سفارش را دوباره بررسی کنید."
 "PerpsReviewChanged": "سفارش تغییر کرده است. برگردید و دوباره آن را بررسی کنید."
 "PerpsInsufficientUsdc": "موجودی USDC در Arbitrum با احتساب کارمزد پل کافی نیست."
+"EvmUserOperationMismatch": "پرداخت کارمزد گاز با این تراکنش مطابقت ندارد."
+"PerpsInsufficientBalance": "موجودی USDC شما در Hyperliquid با احتساب کارمزد معامله کافی نیست."
+"PerpsMarketNeedsUnifiedAccount": "این بازار را نمی‌توان با نوع حساب فعلی Hyperliquid شما از کیف پول تأمین کرد."
+"PerpsRequiresMultichainWallet": "فیوچرز به کیف پول چندزنجیره‌ای نیاز دارد. برای شروع معامله به یکی از آن‌ها بروید یا کیف پول جدیدی بسازید."
+"PerpsSwitchesToUnifiedAccount": "این سفارش حساب Hyperliquid شما را نیز به Unified تغییر می‌دهد تا یک موجودی USDC همهٔ بازارها را پوشش دهد."
 "PerpsAmountTooSmall": "این مبلغ کمتر از حداقل مجاز بازار است."
+"$perps_minimum_amount": "حداقل مبلغ: %amount% USDC."
+"$perps_minimum_reduction": "برای پوشش کارمزد پل، مبلغ را بیش از %amount% USDC کاهش دهید."
+"$perps_required_balance": "مبلغ موردنیاز با احتساب کارمزدها: %required% USDC. موجودی قابل استفاده در Hyperliquid: %available% USDC."
+"$perps_available_balance": "موجودی قابل استفاده در Hyperliquid: %available% USDC. مبلغ را کاهش دهید تا موجودی کافی برای کارمزد معامله باقی بماند."
 "PerpsUnchanged": "برای تغییر موقعیت، مبلغ دیگری وارد کنید."
 "PerpsPositionChanged": "این موقعیت تغییر کرده است. تازه‌سازی کنید و دوباره تلاش کنید."
 "PerpsPositionExists": "در این بازار از قبل موقعیت دارید. همان موقعیت را ویرایش کنید."
@@ -2296,8 +2305,6 @@ Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن ن
 "$perps_funding_usdc_increase": "برای افزایش این موقعیت، حداقل به %minUSDC% USDC در Arbitrum نیاز دارید."
 "PerpsFundingGasTitle": "ETH برای کارمزد کافی نیست"
 "$perps_funding_gas": "کارمزدها در Arbitrum با ETH پرداخت می‌شوند. %feeETH% ETH (~%feeFiat%) دریافت کنید."
-"PerpsFundingTokenTitle": "با USDC در Arbitrum پرداخت کنید"
-"PerpsFundingTokenDescription": "سایر توکن‌ها هنوز پشتیبانی نمی‌شوند. برای ادامه USDC دریافت کنید."
 "Not Enough Funds": "موجودی کافی نیست"
 "Unsupported Token": "توکن پشتیبانی نمی‌شود"
 "PerpsReviewUpdated": "قیمت‌ها به‌روز شده‌اند. پیش از تأیید، سفارش را دوباره بررسی کنید."
@@ -2316,13 +2323,14 @@ Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن ن
 "PerpsExchangeFee": "کارمزد صرافی"
 "PerpsServiceFee": "کارمزد کیف پول"
 "PerpsBridgeFee": "کارمزد پل"
+"PerpsFirstWithdrawalFee": "کارمزد اولین برداشت"
 "PerpsTotalFees": "مجموع کارمزدهای USDC"
 "PerpsFeeEstimateHint": "کارمزدهای دارای علامت ≈ تخمینی هستند و ممکن است هنگام اجرا تغییر کنند. کارمزد شبکه Arbitrum جداگانه با ETH پرداخت می‌شود."
 "PerpsUnallocatedCollateral": "وثیقه تخصیص‌نیافته"
 "PerpsUnallocatedCollateralHint": "گرد کردن به اندازه مجاز معامله ممکن است مقداری USDC را خارج از موقعیت باقی بگذارد. این وجه در حساب فیوچرز شما می‌ماند و کارمزد نیست."
-"PerpsOnboardingTitle": "تازه با معاملات آتی آشنا شده‌اید؟"
-"PerpsOnboardingDescription": "در کمتر از ۱ دقیقه با نحوهٔ کار آن آشنا شوید."
-"PerpsOnboardingOpen": "باز کردن راهنما"
+"PerpsOnboardingTitle": "معاملات آتی\nدر %app_name%!"
+"PerpsOnboardingDescription": "با چند لمس، موقعیت خرید یا فروش باز کنید."
+"PerpsOnboardingOpen": "ببینید چطور کار می‌کند"
 "PerpsStoryIntroTitle": "با قراردادهای آتی بدون سررسید آشنا شوید"
 "PerpsStoryIntroBody": "برای افزایش و کاهش قیمت دارایی‌ها موقعیت باز کنید."
 "PerpsStoryLongTitle": "انتظار افزایش قیمت دارید؟ لانگ بگیرید"
@@ -2337,10 +2345,8 @@ Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن ن
 "PerpsStoryFundingBody": "وقتی نرخ فاندینگ مثبت است، دارندگان موقعیت لانگ به دارندگان موقعیت شورت پرداخت می‌کنند. وقتی منفی است، دارندگان موقعیت شورت به دارندگان موقعیت لانگ پرداخت می‌کنند."
 "PerpsStoryStart": "شروع"
 
-"Funding Payment": "پرداخت تأمین مالی"
 "Withdrawal": "برداشت"
 "Transfer": "انتقال"
-"Spot Balance": "موجودی اسپات"
 "From": "از"
 "To": "به"
 
@@ -2362,3 +2368,71 @@ $enclave_data_missing_message: |
   اگر کلمات محرمانه کیف پول‌های خود را دارید، می‌توانید از همه کیف پول‌ها خارج شوید و آن‌ها را دوباره وارد کنید.
 
 Install the TON App on your Ledger and try again.: اپلیکیشن TON را روی لجر خود نصب کنید و دوباره تلاش کنید.
+Liked: پسندیده شد
+Disliked: پسندیده نشد
+$agent_feedback_liked_toast: "عامل بیشتر این‌گونه پاسخ خواهد داد."
+$agent_feedback_disliked_toast: "این مورد را بررسی می‌کنیم تا عامل بهتر شود."
+$agent_voice_pause: "توقف موقت ضبط"
+$agent_voice_resume: "ادامهٔ ضبط"
+$agent_message_copied: پیام کپی شد.
+$agent_copied: "کپی شد."
+$agent_news_empty: "هنوز خبری نیست"
+$agent_chats_unavailable: "امکان بارگذاری گفتگوها وجود ندارد"
+
+"PerpsAvailable": "موجود"
+"PerpsWithdraw": "برداشت"
+"PerpsBalanceWithdrawalTitle": "برداشت به کیف پول"
+"PerpsWithdrawalFromHyperliquid": "از Hyperliquid"
+"PerpsWithdrawalToWallet": "به کیف پول Arbitrum"
+"PerpsBalanceWithdrawalNote": "USDC تا چند دقیقه دیگر به کیف پول Arbitrum شما می‌رسد. ۰٫۰۳ USDC برای پوشش گس برداشت در Hyperliquid می‌ماند."
+"PerpsBalanceWithdrawalUpdated": "موجودی Hyperliquid شما تغییر کرده است. پیش از تأیید، برداشت را دوباره بررسی کنید."
+"PerpsWithdrawalStatus": "وضعیت برداشت"
+"PerpsWithdrawalCompleted": "برداشت ارسال شد"
+"PerpsWithdrawalOnItsWay": "USDC شما در راه کیف پول Arbitrum است. این کار ممکن است چند دقیقه طول بکشد."
+"PerpsWithdrawalProcessing": "برداشت شما در حال پردازش است. انتقال از طریق پل ممکن است چند دقیقه طول بکشد."
+"PerpsWithdrawalUnknown": "نتیجه هنوز تأیید نشده است. پیش از اقدام بعدی، موجودی Hyperliquid و کیف پول خود را بررسی کنید."
+"PerpsAcknowledgeWithdrawalUnknown": "برداشت هنوز ممکن است انجام شود. ابتدا موجودی Hyperliquid و کیف پول خود را بررسی کنید. اجازه سفارش‌های جدید، آن را لغو نمی‌کند."
+"PerpsNothingToWithdraw": "در حال حاضر چیزی برای برداشت از موجودی Hyperliquid شما وجود ندارد."
+"PerpsWithdrawalRejected": "Hyperliquid این برداشت را رد کرد. USDC شما در موجودی Hyperliquid باقی می‌ماند."
+"View your assets and activity": "دارایی‌ها و فعالیت خود را ببینید"
+"Ask AI and follow the news": "از هوش مصنوعی بپرسید و اخبار را دنبال کنید"
+$underlying_stock: 'سهام %symbol%'
+$agent_support_requested: "درخواست پشتیبانی کردید. یک کارشناس همین‌جا پاسخ می‌دهد"
+$agent_support_operator_joined: "پشتیبانی به گفتگو پیوست: %name%"
+$agent_support_closed_operator: "پشتیبانی درخواست را بست. از این به بعد دستیار پاسخ می‌دهد"
+$agent_support_closed_inactivity: "درخواست پس از ۴۸ ساعت بدون پاسخ بسته شد. از این به بعد دستیار پاسخ می‌دهد"
+$agent_support_waiting: "پشتیبانی · در انتظار کارشناس"
+$agent_support_with_operator: "پشتیبانی · %name%"
+$agent_support_label: "پشتیبانی"
+$agent_support_badge: "پشتیبانی %app_name%"
+$agent_support_placeholder: "پیام به پشتیبانی"
+"PerpsStoryFinaleTitle": "آماده‌اید معاملات آتی را امتحان کنید؟"
+"PerpsStoryFinaleBody": "بازار را انتخاب کنید، موقعیت باز کنید و آن‌ها را مستقیماً در %app_name% دنبال کنید!"
+"PerpsStoryViewMarkets": "مشاهده بازارها"
+Unlink Wallet: قطع اتصال کیف پول
+Confirm Unlinking: تأیید قطع اتصال
+Domain Unlinked: اتصال دامنه قطع شد
+Drag here to add to the toolbar: برای افزودن به نوار ابزار به اینجا بکشید
+$send_only_chain_and_token: تنها %symbol%، %tokenSymbol% یا سایر دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$agent_digest_unavailable: "این خلاصه دیگر در دسترس نیست"
+$agent_digest_title: "مهم‌ترین خبرهای روز"
+$agent_digest_meta:
+  oneValue: "%count% خبر · %time%"
+  otherValue: "%count% خبر · %time%"
+$agent_digest_more:
+  oneValue: "و %count% خبر دیگر — بالاتر در فید است"
+  otherValue: "و %count% خبر دیگر — بالاتر در فید هستند"
+$agent_digest_settings_title: "خلاصه و اعلان‌ها"
+$agent_digest_settings_text: "روزی یک بار خلاصه‌ای از مهم‌ترین خبرهای روز در فید نمایش داده می‌شود."
+$agent_digest_time: "زمان خلاصه"
+$agent_digest_time_zone: "بر اساس منطقه زمانی تلفن شما."
+$agent_digest_notifications_off: "خاموش"
+$agent_digest_notifications_off_hint: "خلاصه فقط در فید نمایش داده می‌شود"
+$agent_digest_notifications_daily: "خلاصه روزانه"
+$agent_digest_notifications_daily_hint: "ساعت %time%، مهم‌ترین خبرها در یک اعلان"
+$agent_digest_notifications_every: "هر خبر"
+$agent_digest_notifications_every_hint: "یک اعلان جداگانه برای هر خبر"
+$agent_digest_post_header: "MyPulse · خلاصه · %time%"
+$agent_digest_sheet_title: "خلاصه روزانه"
+$agent_digest_device_time_zone: "بر اساس منطقه زمانی این دستگاه."
+$agent_dictation_microphone_denied_device: "برای دیکته، در تنظیمات دستگاه اجازه دسترسی به میکروفون را بدهید."

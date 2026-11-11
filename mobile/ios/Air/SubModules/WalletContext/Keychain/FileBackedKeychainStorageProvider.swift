@@ -1,10 +1,10 @@
+#if DEBUG
 import Foundation
 
 private let log = Log("FileBackedKeychainStorageProvider")
 
-// JSON-file replacement for the iOS Keychain, used only under E2E flows.
-// Backing file lives in the app's Application Support directory so that
-// simctl clone preserves it as part of the sandbox.
+// Debug builds only: a JSON-file replacement for the Keychain for UI automation,
+// kept in Application Support so a copied simulator keeps it. Not compiled into Release.
 public final class FileBackedKeychainStorageProvider: IKeychainStorageProvider, @unchecked Sendable {
 
     private let fileURL: URL
@@ -113,3 +113,4 @@ public final class FileBackedKeychainStorageProvider: IKeychainStorageProvider, 
         return dict
     }
 }
+#endif

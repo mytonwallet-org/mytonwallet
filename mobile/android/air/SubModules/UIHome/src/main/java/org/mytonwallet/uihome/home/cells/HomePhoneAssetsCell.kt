@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.ISortableController
 import org.mytonwallet.app_air.uicomponents.base.ISortableView
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
@@ -298,6 +299,7 @@ class HomePhoneAssetsCell(
                 WSegmentedControllerItem(
                     tokensVC,
                     identifier = AssetsTabVC.identifierForVC(tokensVC),
+                    testViewId = UIComponentsR.id.assets_tab_tokens,
                     onMenuPressed = { v ->
                         tokensVC.presentHomeAssetsMenu(
                             v,
@@ -312,6 +314,7 @@ class HomePhoneAssetsCell(
                 WSegmentedControllerItem(
                     collectiblesVC,
                     identifier = AssetsTabVC.TAB_COLLECTIBLES,
+                    testViewId = UIComponentsR.id.assets_tab_collectibles,
                     onMenuPressed = if (showCollectionsMenu) {
                         { v ->
                             CollectionsMenuHelpers.presentCollectionsMenuOn(
@@ -343,6 +346,7 @@ class HomePhoneAssetsCell(
                             WSegmentedControllerItem(
                                 tokensVC,
                                 AssetsTabVC.identifierForVC(tokensVC),
+                                testViewId = UIComponentsR.id.assets_tab_tokens,
                                 onMenuPressed = { v ->
                                     tokensVC.presentHomeAssetsMenu(
                                         v,
@@ -356,6 +360,7 @@ class HomePhoneAssetsCell(
                             WSegmentedControllerItem(
                                 collectiblesVC,
                                 identifier = AssetsTabVC.TAB_COLLECTIBLES,
+                                testViewId = UIComponentsR.id.assets_tab_collectibles,
                                 onMenuPressed = if (showCollectionsMenu) {
                                     { v ->
                                         CollectionsMenuHelpers.presentCollectionsMenuOn(

@@ -1,3 +1,4 @@
+import AVFoundation
 import Testing
 import UIKit
 @testable import UIComponents
@@ -76,11 +77,185 @@ struct StoryPlaybackTests {
         #expect(empty.next() == .none)
         #expect(empty.previous() == .none)
     }
+
+    @Test func firstFrameStartsProgressAndLaterBufferingDoesNotResetIt() {
+        var state = StoryPlaybackState(pages: pages([7, 7]))
+        state.setPaused(false, for: .hidden)
+        #expect(state.advance(by: 1.5, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 0)
+        #expect(state.advance(by: 0.5) == .none)
+        #expect(state.elapsed == 0.5)
+        #expect(state.advance(by: 1, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 1.5)
+        #expect(state.next() == .page)
+        #expect(state.advance(by: 1, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 0)
+        #expect(state.previous() == .page)
+        #expect(state.advance(by: 1, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 0)
+    }
+
+    @Test func firstFrameWaitIsBoundedAndPausesWithTheStory() {
+        var state = StoryPlaybackState(pages: pages([7, 7]))
+        state.setPaused(false, for: .hidden)
+        #expect(state.advance(by: 1, isWaitingForMedia: true) == .none)
+        state.setPaused(true, for: .touch)
+        #expect(state.advance(by: 30, isWaitingForMedia: true) == .none)
+        state.setPaused(false, for: .touch)
+        #expect(state.advance(by: 0.5, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 0)
+        #expect(state.advance(by: 1, isWaitingForMedia: true) == .none)
+        #expect(state.elapsed == 0.5)
+        #expect(state.advance(by: 6.5, isWaitingForMedia: true) == .page)
+        #expect(state.index == 1)
+    }
 }
 
 @MainActor @Suite("Story layout", .serialized)
 struct StoriesLayoutTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
+
+    @Test func pagesWithoutActionsKeepNavigationAndRevealTheFinalAction() throws {
+        let controller = StoriesViewController(pages: [
+            .init(id: "intro", title: "Title", body: "Body"),
+            .init(id: "finale", title: "Finale", body: "Body", buttonTitle: "View Markets"),
+        ])
+        controller.loadViewIfNeeded()
+        let action = try #require(find("Stories.Next", in: controller.view) as? UIButton)
+        #expect(action.isHidden)
+        let title = try #require(find("Stories.Title", in: controller.view))
+        #expect(title.accessibilityCustomActions?.count == 2)
+        controller.perform(NSSelectorFromString("accessibilityNext"))
+        #expect(controller.playback.index == 1)
+        #expect(!action.isHidden)
+        #expect(action.accessibilityLabel == "View Markets")
+        controller.perform(NSSelectorFromString("accessibilityPrevious"))
+        #expect(controller.playback.index == 0)
+        #expect(action.isHidden)
+    }
+
+    @Test func finaleActionMaterializesAndSurvivesRapidNavigation() async throws {
+        let controller = StoriesViewController(pages: [
+            .init(id: "funding", title: "Funding", body: "Body"),
+            .init(id: "finale", title: "Finale", body: "Body", buttonTitle: "View Markets"),
+        ])
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        controller.view.layoutIfNeeded()
+        let button = try #require(find("Stories.Next", in: controller.view) as? WInteractiveGlassButton)
+        let glass = try #require(button.subviews.compactMap { $0 as? WGlassView }.first)
+        #expect(!glass.isMaterialized)
+        #expect(!button.isUserInteractionEnabled)
+        try await Task.sleep(for: .milliseconds(30))
+        controller.perform(NSSelectorFromString("accessibilityNext"))
+        #expect(!button.isHidden)
+        #expect(glass.isMaterialized)
+        #expect(button.alpha == 1)
+        try await Task.sleep(for: .milliseconds(80))
+        if TradeMotion.enabled {
+            let opacity = try #require(glass.contentView.layer.presentation()?.opacity)
+            #expect(opacity > 0 && opacity < 1)
+        }
+        controller.perform(NSSelectorFromString("accessibilityPrevious"))
+        #expect(!button.isUserInteractionEnabled)
+        #expect(button.accessibilityElementsHidden)
+        controller.perform(NSSelectorFromString("accessibilityNext"))
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(!button.isHidden)
+        #expect(button.isUserInteractionEnabled)
+        #expect(!button.accessibilityElementsHidden)
+        #expect(glass.isMaterialized)
+        #expect(glass.contentView.alpha == 1)
+        controller.perform(NSSelectorFromString("accessibilityPrevious"))
+        controller.finishActionTransition()
+        #expect(button.isHidden)
+        #expect(!glass.isMaterialized)
+    }
+
+    @Test func reducedMotionUsesTheCompletedArtworkWithoutLoadingVideo() throws {
+        let preview = UIImage(systemName: "circle")!
+        let still = UIImage(systemName: "star")!
+        let media = StoryMediaView(page: .init(id: "intro", title: "Title", body: "Body",
+            image: preview, reducedMotionImage: still, videoURL: URL(string: "https://example.com/story.mp4")!))
+        media.setPlaying(true, reduceMotion: true)
+        let image = try #require(media.subviews.compactMap { $0 as? UIImageView }.first)
+        let video = try #require(media.subviews.compactMap { $0.layer as? AVPlayerLayer }.first)
+        #expect(image.image === still)
+        #expect(video.player == nil)
+        #expect(image.alpha == 1)
+        #expect(!media.isWaitingForFirstFrame)
+        #expect(!media.isPlaybackRequested)
+    }
+
+    @Test func prepareSilentVideoToMixWithBackgroundAudio() throws {
+        let session = AVAudioSession.sharedInstance()
+        let previousCategory = session.category
+        let previousMode = session.mode
+        let previousOptions = session.categoryOptions
+        defer {
+            try? session.setCategory(previousCategory, mode: previousMode, options: previousOptions)
+        }
+        try session.setCategory(.soloAmbient, mode: .default)
+        let media = StoryMediaView(page: .init(id: "intro", title: "Title", body: "Body",
+            videoURL: URL.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")))
+
+        media.preparePlayback()
+
+        let video = try #require(media.subviews.compactMap { $0.layer as? AVPlayerLayer }.first)
+        let player = try #require(video.player)
+        #expect(player.isMuted)
+        #expect(player.rate == 0)
+        #expect(session.category == .ambient || session.categoryOptions.contains(.mixWithOthers))
+        #expect(!session.categoryOptions.contains(.duckOthers))
+        #expect(!session.categoryOptions.contains(.interruptSpokenAudioAndMixWithOthers))
+    }
+
+    @Test func upcomingMediaIsPreparedWithoutPlayingAndReusedOnAdvance() async throws {
+        let controller = StoriesViewController(pages: [
+            .init(id: "intro", title: "Intro", body: "Body"),
+            .init(id: "funding", title: "Funding", body: "Body"),
+            .init(id: "finale", title: "Finale", body: "Body", buttonTitle: "View Markets"),
+        ])
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        controller.view.layoutIfNeeded()
+        controller.viewDidAppear(false)
+        let views = controller.view.subviews.flatMap(\.subviews).compactMap { $0 as? StoryMediaView }
+        if UIAccessibility.isReduceMotionEnabled {
+            #expect(views.count == 1)
+            return
+        }
+        #expect(views.count == 2)
+        let upcoming = try #require(views.first { $0.alpha == 0 })
+        #expect(!upcoming.isPlaybackRequested)
+        controller.perform(NSSelectorFromString("accessibilityNext"))
+        #expect(upcoming.alpha == 1)
+        #expect(upcoming.superview != nil)
+        try await Task.sleep(for: .milliseconds(550))
+        let nextViews = controller.view.subviews.flatMap(\.subviews).compactMap { $0 as? StoryMediaView }
+        #expect(nextViews.contains { $0 === upcoming })
+        #expect(nextViews.count <= 2)
+        #expect(nextViews.filter { $0.isPlaybackRequested }.count <= 1)
+    }
+
+    @Test func failedVideoReleasesTheFirstFrameWaitAndShowsTheCompletedArtwork() async throws {
+        let preview = UIImage(systemName: "circle")!
+        let still = UIImage(systemName: "star")!
+        let media = StoryMediaView(page: .init(id: "intro", title: "Title", body: "Body",
+            image: preview, reducedMotionImage: still,
+            videoURL: URL.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")))
+        media.setPlaying(true, reduceMotion: false)
+        let deadline = ContinuousClock.now + .seconds(5)
+        while media.isWaitingForFirstFrame, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(!media.isWaitingForFirstFrame)
+        #expect(media.subviews.compactMap { $0 as? UIImageView }.first?.image === still)
+    }
 
     @Test func geometryUsesSafeAreasAndLeavesControlsOutsideTheTextScroller() throws {
         let controller = StoriesViewController(pages: [

@@ -17,13 +17,13 @@ import { fetchActivitySlice, fetchEvmTxs, transformEvmTxToUnified } from './acti
 import { normalizeAddress } from './address';
 import { fetchNftByAddress } from './nfts';
 
-// Mock only the network call; keep isNegativeCacheableStatus real so the adapter's classification
-// is exercised end to end.
 jest.mock('../../../config', () => ({
   ...jest.requireActual('../../../config'),
   IS_PERPS_ENABLED: true,
 }));
 
+// Mock only the network call; keep isNegativeCacheableStatus real so the adapter's classification
+// is exercised end to end.
 jest.mock('../../../util/fetch', () => ({
   ...jest.requireActual('../../../util/fetch'),
   fetchJson: jest.fn(),

@@ -2,11 +2,9 @@ import UIKit
 import WalletContext
 
 extension MediaViewer {
-    /// What Telegram's gallery shows around a picture: who it comes from and when on a capsule over it, and its caption
-    /// and the actions on it under it
+    /// What Telegram's gallery shows around a picture: its date on the capsule over it, and its caption and the actions
+    /// on it under it
     public struct Details {
-        /// Telegram's author, the capsule's first line
-        public let author: String?
         public let date: String?
         public let caption: NSAttributedString?
         public let actions: [Action]
@@ -14,13 +12,11 @@ extension MediaViewer {
         public let onLinkTap: ((URL) -> Void)?
 
         public init(
-            author: String?,
             date: String?,
             caption: NSAttributedString?,
             actions: [Action],
             onLinkTap: ((URL) -> Void)? = nil
         ) {
-            self.author = author
             self.date = date
             self.caption = caption
             self.actions = actions
@@ -248,8 +244,8 @@ final class MediaViewerButtonGroup: UIView {
 }
 
 /// Telegram's gallery header (`GalleryControllerNode` with `GalleryTitleView`): the back button in the bar's 44 pt row
-/// under the status bar, the author and the date on a capsule in the middle, and "N of M" on a pill under it while the
-/// pictures page
+/// under the status bar, and a capsule in the middle with "N of M" over the picture's date, or the date alone for a
+/// single picture
 @MainActor
 final class MediaViewerHeaderView: MediaViewerPassthroughView {
     /// The bar's height under the status bar
@@ -257,18 +253,16 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
     static let sideInset: CGFloat = 16
     static let capsuleMinWidth: CGFloat = 150
     static let capsulePadding: CGFloat = 14
-    static let counterHeight: CGFloat = 24
-    /// The gap between the capsule and the counter's pill under it, as in Telegram's title view
-    static let counterSpacing: CGFloat = 9
+    static let titleFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
+    static let subtitleFont = UIFont.systemFont(ofSize: 12)
 
     let backGroup = MediaViewerButtonGroup()
     let titleGlass = WGlassView(cornerRadius: nil)
-    let authorLabel = UILabel()
-    let dateLabel = UILabel()
-    let counterGlass = WGlassView(cornerRadius: nil)
-    let counterLabel = UILabel()
+    /// The capsule's first line: "N of M", or the date of a single picture
+    let titleLabel = MediaViewerAnimatedLabel()
+    /// The date under "N of M"
+    let subtitleLabel = MediaViewerAnimatedLabel()
     private(set) var isShown = true
-    private(set) var isCounterShown = false
     private var hasTitle = false
 
     init(onBack: @escaping () -> Void) {
@@ -285,27 +279,16 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
         )])
         addSubview(backGroup)
 
-        authorLabel.font = .systemFont(ofSize: 17, weight: .semibold)
-        authorLabel.textColor = .white
-        authorLabel.textAlignment = .center
-        dateLabel.font = .systemFont(ofSize: 12)
-        dateLabel.textColor = UIColor.white.withAlphaComponent(0.5)
-        dateLabel.textAlignment = .center
-        titleGlass.contentView.addSubview(authorLabel)
-        titleGlass.contentView.addSubview(dateLabel)
+        titleLabel.font = Self.titleFont
+        titleLabel.textColor = .white
+        subtitleLabel.font = Self.subtitleFont
+        subtitleLabel.textColor = UIColor.white.withAlphaComponent(0.5)
+        titleGlass.contentView.addSubview(titleLabel)
+        titleGlass.contentView.addSubview(subtitleLabel)
         titleGlass.isUserInteractionEnabled = false
         titleGlass.isAccessibilityElement = true
         titleGlass.accessibilityTraits = .header
         addSubview(titleGlass)
-
-        counterLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        counterLabel.textColor = .white
-        counterLabel.textAlignment = .center
-        counterGlass.contentView.addSubview(counterLabel)
-        counterGlass.isUserInteractionEnabled = false
-        counterGlass.isAccessibilityElement = false
-        counterGlass.setMaterialized(false)
-        addSubview(counterGlass)
     }
 
     @available(*, unavailable)
@@ -313,14 +296,15 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(author: String?, date: String?, counter: String?) {
-        authorLabel.text = author
-        dateLabel.text = date
-        hasTitle = author?.isEmpty == false || date?.isEmpty == false
+    /// Shows `counter` over `date`, or `date` alone without a counter, changing only what differs from the page before
+    /// when `animated`
+    func configure(counter: String?, date: String?, direction: MediaViewerAnimatedLabel.Direction, animated: Bool) {
+        let counter = counter?.nilIfEmpty
+        titleLabel.setText(counter ?? date, direction: direction, animated: animated)
+        subtitleLabel.setText(counter == nil ? nil : date, direction: direction, animated: animated)
+        hasTitle = titleLabel.text != nil
         titleGlass.isHidden = !hasTitle
-        titleGlass.accessibilityLabel = [author, date].compactMap { $0?.nilIfEmpty }.joined(separator: ", ")
-        counterLabel.text = counter
-        counterGlass.isHidden = counter == nil
+        titleGlass.accessibilityLabel = [counter, date].compactMap { $0?.nilIfEmpty }.joined(separator: ", ")
         setNeedsLayout()
     }
 
@@ -338,27 +322,19 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
 
         let maxWidth = max(0, bounds.width - safeArea.left - safeArea.right - (size + Self.sideInset + 8) * 2)
         let labelWidth = max(1, maxWidth - Self.capsulePadding * 2)
-        let authorSize = authorLabel.text?.isEmpty == false ? authorLabel.sizeThatFits(CGSize(width: labelWidth, height: .greatestFiniteMagnitude)) : .zero
-        let dateSize = dateLabel.text?.isEmpty == false ? dateLabel.sizeThatFits(CGSize(width: labelWidth, height: .greatestFiniteMagnitude)) : .zero
-        let capsuleWidth = min(maxWidth, max(Self.capsuleMinWidth, max(authorSize.width, dateSize.width)) + Self.capsulePadding * 2)
+        let fittingSize = CGSize(width: labelWidth, height: .greatestFiniteMagnitude)
+        let titleSize = titleLabel.sizeThatFits(fittingSize)
+        let subtitleSize = subtitleLabel.sizeThatFits(fittingSize)
+        let capsuleWidth = min(maxWidth, max(Self.capsuleMinWidth, max(titleSize.width, subtitleSize.width)) + Self.capsulePadding * 2)
         let centerX = safeArea.left + (bounds.width - safeArea.left - safeArea.right) / 2
         titleGlass.frame = CGRect(x: (centerX - capsuleWidth / 2).rounded(.down), y: rowY, width: capsuleWidth, height: size)
         let innerWidth = max(0, capsuleWidth - Self.capsulePadding * 2)
-        let authorHeight = min(authorSize.height, size)
-        let dateHeight = min(dateSize.height, size)
-        let spacing: CGFloat = authorHeight > 0 && dateHeight > 0 ? 2 : 0
-        let top = ((size - authorHeight - dateHeight - spacing) / 2).rounded(.down)
-        authorLabel.frame = CGRect(x: Self.capsulePadding, y: top, width: innerWidth, height: authorHeight)
-        dateLabel.frame = CGRect(x: Self.capsulePadding, y: top + authorHeight + spacing, width: innerWidth, height: dateHeight)
-
-        let counterWidth = (counterLabel.sizeThatFits(CGSize(width: 200, height: 100)).width + 24).rounded(.up)
-        counterGlass.frame = CGRect(
-            x: (centerX - counterWidth / 2).rounded(.down),
-            y: rowY + size + Self.counterSpacing,
-            width: counterWidth,
-            height: Self.counterHeight
-        )
-        counterLabel.frame = counterGlass.bounds
+        let titleHeight = min(titleSize.height, size)
+        let subtitleHeight = min(subtitleSize.height, size)
+        let spacing: CGFloat = titleHeight > 0 && subtitleHeight > 0 ? 2 : 0
+        let top = ((size - titleHeight - subtitleHeight - spacing) / 2).rounded(.down)
+        titleLabel.frame = CGRect(x: Self.capsulePadding, y: top, width: innerWidth, height: titleHeight)
+        subtitleLabel.frame = CGRect(x: Self.capsulePadding, y: top + titleHeight + spacing, width: innerWidth, height: subtitleHeight)
     }
 
     /// Shows or hides the header's glass; call it in an animation block to animate
@@ -366,20 +342,7 @@ final class MediaViewerHeaderView: MediaViewerPassthroughView {
         self.isShown = isShown
         backGroup.glassView.setMaterialized(isShown)
         titleGlass.setMaterialized(isShown)
-        counterGlass.setMaterialized(isShown && isCounterShown)
         accessibilityElementsHidden = !isShown
-    }
-
-    /// Shows the counter while the pictures page, or hides it, over Telegram's 0.2 s
-    func setCounterShown(_ isShown: Bool, animated: Bool) {
-        guard isCounterShown != isShown else { return }
-        isCounterShown = isShown
-        let update = { self.counterGlass.setMaterialized(self.isShown && isShown) }
-        if animated {
-            UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut], animations: update)
-        } else {
-            update()
-        }
     }
 
     /// The header's controls, which take touches while the header shows

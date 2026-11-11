@@ -10,14 +10,54 @@ struct TokenPriceHistoryCacheTests {
     func `empty responses are not restored as cached history`() {
         let slug = "test-empty-price-history-\(UUID())"
         let currency = TokenStore.baseCurrency
-        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: [], baseCurrency: currency))
+        let emptyHistory = ApiPriceHistory(points: [], backfill: nil)
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: emptyHistory, baseCurrency: currency))
         #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == nil)
 
-        let history = [[Date.now.timeIntervalSince1970, 10.0]]
+        let history = ApiPriceHistory(points: [[Date.now.timeIntervalSince1970, 10.0]], backfill: nil)
         #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: history, baseCurrency: currency))
         #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == history)
-        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: [], baseCurrency: currency))
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: emptyHistory, baseCurrency: currency))
         #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func `cached stock history survives serialization`(hasTokenHistory: Bool) throws {
+        let slug = "test-stock-price-history-\(UUID())"
+        let now = Date.now.timeIntervalSince1970
+        let history = ApiPriceHistory(
+            points: hasTokenHistory ? [[now, 400]] : [],
+            backfill: ApiPriceHistoryBackfill(symbol: "TSLA", points: [[now - 60, 399]])
+        )
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .all, history: history, baseCurrency: TokenStore.baseCurrency))
+        let cached = try #require(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .all))
+        #expect(cached == history)
+        let data = try JSONEncoder().encode([slug: [ApiPriceHistoryPeriod.all.rawValue: cached]])
+        let restored = try JSONDecoder().decode([String: [String: ApiPriceHistory]].self, from: data)
+        #expect(restored[slug]?[ApiPriceHistoryPeriod.all.rawValue] == history)
+    }
+
+    @Test
+    func `legacy point-only caches cannot be restored as complete history`() throws {
+        let cache = ["stock": [ApiPriceHistoryPeriod.all.rawValue: [[Date.now.timeIntervalSince1970, 400.0]]]]
+        let data = try JSONEncoder().encode(cache)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode([String: [String: ApiPriceHistory]].self, from: data)
+        }
+    }
+
+    @Test
+    func `stock-only history expires according to the selected period`() {
+        let slug = "test-stock-history-expiry-\(UUID())"
+        let history = ApiPriceHistory(
+            points: [],
+            backfill: ApiPriceHistoryBackfill(symbol: "TSLA", points: [[Date.now.timeIntervalSince1970 - 4 * 3600, 400]])
+        )
+        let currency = TokenStore.baseCurrency
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .day, history: history, baseCurrency: currency))
+        #expect(TokenStore.setPriceHistory(tokenSlug: slug, period: .all, history: history, baseCurrency: currency))
+        #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .day) == nil)
+        #expect(TokenStore.cachedPriceHistory(tokenSlug: slug, period: .all) == history)
     }
 
     @Test
@@ -25,7 +65,7 @@ struct TokenPriceHistoryCacheTests {
         let originalCurrency = TokenStore.baseCurrency
         let currency: MBaseCurrency = originalCurrency == .USD ? .EUR : .USD
         let slug = "test-price-history-currency"
-        let history = [[Date.now.timeIntervalSince1970, 10.0]]
+        let history = ApiPriceHistory(points: [[Date.now.timeIntervalSince1970, 10.0]], backfill: nil)
         let cacheURL = URL.cachesDirectory.appending(components: "air", "price-history-cache.json")
 
         // Represents a chart persisted before this app session.

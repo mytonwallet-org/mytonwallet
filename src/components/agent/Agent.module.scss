@@ -1,10 +1,23 @@
+@use "sass:math";
+
 @use "../../styles/mixins";
+
+@use "agentBubble";
 
 @use "agentHeader";
 
 @use "agentMenu";
 
 @use "agentSurface";
+
+// What a pinned question keeps in sight over it of the answer before: its last line and the space under it, on a
+// computer and on a phone, whose line is taller. A one-line answer is held at its bubble's least height, which leaves
+// more space under its line than the bubble's padding on a computer.
+$lastAnswerLineSpace: math.max(
+  agentBubble.$paddingBlock + agentBubble.$lineHeight,
+  agentBubble.$paddingBlock + agentBubble.$mobileLineHeight,
+  agentBubble.$incomingMinHeight - agentBubble.$paddingBlock
+);
 
 .root {
   @include agentHeader.variables;
@@ -34,7 +47,13 @@
 
   position: relative;
 
-  overflow-y: auto;
+  // Bubbles growing out of their placeholders reach past the sides. A horizontal scrollbar for them would take its
+  // height from the list while they grow and give it back as they settle, moving every message.
+  overflow-x: hidden;
+  // A scrollbar that takes room keeps it whether the messages fill the list or not, as much as the room
+  // `--scrollbar-width` measures, so the column the messages stand in, which the placeholders stand in too, never
+  // narrows as the history comes. The room comes out of the side's padding first.
+  overflow-y: scroll;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -54,6 +73,8 @@
   &.hidden {
     visibility: hidden;
   }
+
+  @include mixins.adapt-padding-to-scrollbar(0.5rem);
 }
 
 // Without a field, the last message ends 16 px above the bottom or the tab bar
@@ -96,10 +117,10 @@
 // The percentage resolves against the content box of `.messages`, so the tail is as tall as the visible
 // area between the header and the composer. `.turn` must not shrink, otherwise an answer taller than
 // the screen would overflow its turn instead of growing it.
-// The extra top space reaches above the gap between the header and the list padding, so the previous
-// turn stays hidden behind the header while the question keeps its position.
+// The extra top space fills the gap between the header and the list padding, and the tail is shorter by the last
+// line of the answer before and the space under it, which stay in sight over the question.
 .liveTail {
-  min-height: calc(100% + 1rem);
+  min-height: calc(100% + 1rem - #{$lastAnswerLineSpace});
   padding-top: 1rem;
 }
 
@@ -118,7 +139,46 @@
   opacity: 0 !important;
 }
 
-// The button stands 12 px above the field, as in the design, and as far above the bottom or the tab bar without one
+// What the history's bubbles grow through out of the placeholders, under the list, which leaves its background to them
+// while they grow: stand-ins of the bubbles' surfaces, whose corners and tails keep their size as the boxes resize
+.historyRevealLayer {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+
+  overflow: hidden;
+}
+
+.historyRevealBubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+// The tail takes the stand-in's fill as it turns, as a bubble's own tail takes the bubble's
+.historyRevealTail {
+  position: absolute;
+  background-color: inherit;
+
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+}
+
+// What a sent question flies through on its way into the list: over the list and the field, under the header
+.motionLayer {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+
+  overflow: hidden;
+}
+
+// The button stands 12 px above the field, however tall the field grows, as in the design and on iOS and Android, and
+// as far above the bottom or the tab bar without one
 .scrollToBottom {
   bottom: calc(var(--agent-input-bar-height, 3.5rem) + 0.75rem);
 }
@@ -148,22 +208,59 @@
   }
 }
 
+// A date line's element holds the line and, while its menu is open on a phone, the tint under it
+.dateLine {
+  align-self: center;
+  margin-top: 0.625rem;
+}
+
+// A day's line in the news feed stays at the top over the day's posts as they scroll under it, once the feed has been
+// scrolled, 6 px under the header as the capsule on iOS stays. There it fades away once the feed has rested for a
+// second, and it comes back as the feed scrolls again. In the list it stands 14 px from the post above it, as far as
+// the post below it starts under it and as the posts stand apart.
+.dateLineDayHeader {
+  margin-top: 0.875rem;
+}
+
+// A sticky inset counts from the list's content edge, which the list's top padding keeps 16 px under the header
+.messagesStickyDates .dateLineDayHeader {
+  position: sticky;
+  z-index: 1;
+  top: -0.625rem;
+}
+
+.messagesStickyDates:not(.messagesScrolling) .dateSeparatorStuck {
+  pointer-events: none;
+  opacity: 0;
+}
+
 // The day in bold, then the time
 .dateSeparator {
   unicode-bidi: plaintext;
-  align-self: center;
 
-  margin-top: 0.625rem;
   padding: 0.25rem 0.5rem;
   border-radius: 6.25rem;
 
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.125rem;
-  color: var(--color-gray-1);
+  // Dates read in the text's own colour on every platform and theme
+  color: var(--color-black);
   white-space: nowrap;
 
   background: var(--color-activity-gray-background);
+}
+
+// A day's capsule in the news feed is a little see-through over a blur of the posts that scroll under it, as on iOS. The
+// capsule fades rather than its line: a line part way through its fade would keep what lies under it from the blur.
+.dateSeparatorDayHeader {
+  backdrop-filter: blur(1.25rem);
+
+  @include mixins.transition(opacity 300ms ease);
+
+  @supports (color: color-mix(in srgb, red 80%, transparent)) {
+    background: color-mix(in srgb, var(--color-activity-gray-background) 80%, transparent);
+  }
 }
 
 .dateSeparatorDay {
@@ -174,8 +271,9 @@
   @include agentMenu.contextMenu;
 }
 
-// A chat or the news feed with nothing to show after its load failed
-.loadFailure {
+// A chat or the news feed with nothing to show after its load: why it failed, or that it has nothing yet
+.loadFailure,
+.emptyText {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

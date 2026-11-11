@@ -108,6 +108,60 @@ struct WAlertControllerTests {
         #expect(!message.isScrollEnabled)
     }
 
+    @Test
+    func entranceFadesTheSharedAncestorOfGlassTextAndActions() throws {
+        let alert = WAlertController(title: "Tip", message: "Content", actions: [WAlertAction(title: "OK")])
+        let context = AlertTransitionContext(alert: alert, presenting: true)
+        let animator = try #require(alert.animationController(forPresented: alert, presenting: context.presenter, source: context.presenter))
+        animator.animateTransition(using: context)
+
+        let dim = try #require(alert.view.subviews.first as? UIControl)
+        let container = try #require(alert.view.subviews.last)
+        #expect(!(container is UIVisualEffectView))
+        #expect(descendants(of: container, as: UITextView.self).count == 1)
+        #expect(descendants(of: container, as: WAlertActionButton.self).count == 1)
+        #expect(!descendants(of: container, as: UIVisualEffectView.self).isEmpty)
+        for effect in descendants(of: container, as: UIVisualEffectView.self) {
+            #expect(effect.alpha == 1)
+        }
+        for view in [dim, container] {
+            let fade = try #require(view.layer.animation(forKey: "opacity") as? CABasicAnimation)
+            #expect(fade.fromValue as? NSNumber == 0)
+            #expect(fade.toValue as? NSNumber == 1)
+            #expect(fade.duration == 0.2)
+            let timing = try #require(fade.timingFunction)
+            var point = [Float](repeating: 0, count: 2)
+            timing.getControlPoint(at: 1, values: &point)
+            #expect(point == [0, 0])
+            timing.getControlPoint(at: 2, values: &point)
+            #expect(point == [1, 1])
+            #expect(view.layer.opacity == 1)
+        }
+    }
+
+    @Test
+    func dismissalFadesFromTheVisibleOpacity() throws {
+        let alert = WAlertController(title: "Tip", message: "Content", actions: [WAlertAction(title: "OK")])
+        let context = AlertTransitionContext(alert: alert, presenting: false)
+        context.containerView.addSubview(alert.view)
+        alert.view.frame = context.containerView.bounds
+        alert.view.layoutIfNeeded()
+        let dim = try #require(alert.view.subviews.first as? UIControl)
+        let container = try #require(alert.view.subviews.last)
+        dim.layer.opacity = 0.4
+        container.layer.opacity = 0.6
+        let animator = try #require(alert.animationController(forDismissed: alert))
+        animator.animateTransition(using: context)
+
+        for (view, opacity) in [(dim as UIView, Float(0.4)), (container, Float(0.6))] {
+            let fade = try #require(view.layer.animation(forKey: "opacity") as? CABasicAnimation)
+            #expect((fade.fromValue as? NSNumber)?.floatValue == opacity)
+            #expect(fade.toValue as? NSNumber == 0)
+            #expect(fade.duration == 0.2)
+            #expect(view.layer.opacity == 0)
+        }
+    }
+
     private func descendants<T: UIView>(of view: UIView, as type: T.Type) -> [T] {
         view.subviews.flatMap { subview in
             ((subview as? T).map { [$0] } ?? []) + descendants(of: subview, as: type)
@@ -119,4 +173,38 @@ struct WAlertControllerTests {
         let action = try #require(button.actions(forTarget: alert, forControlEvent: .touchUpInside)?.first)
         alert.perform(NSSelectorFromString(action), with: button)
     }
+}
+
+@MainActor
+private final class AlertTransitionContext: NSObject, UIViewControllerContextTransitioning {
+    let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+    let presenter = UIViewController()
+    private let alert: WAlertController
+    private let presenting: Bool
+    let isAnimated = true
+    let isInteractive = false
+    let transitionWasCancelled = false
+    let presentationStyle: UIModalPresentationStyle = .custom
+    let targetTransform = CGAffineTransform.identity
+
+    init(alert: WAlertController, presenting: Bool) {
+        self.alert = alert
+        self.presenting = presenting
+    }
+
+    func viewController(forKey key: UITransitionContextViewControllerKey) -> UIViewController? {
+        (key == .to) == presenting ? alert : presenter
+    }
+
+    func view(forKey key: UITransitionContextViewKey) -> UIView? {
+        viewController(forKey: key == .to ? .to : .from)?.view
+    }
+
+    func initialFrame(for vc: UIViewController) -> CGRect { containerView.bounds }
+    func finalFrame(for vc: UIViewController) -> CGRect { containerView.bounds }
+    func updateInteractiveTransition(_ percentComplete: CGFloat) {}
+    func finishInteractiveTransition() {}
+    func cancelInteractiveTransition() {}
+    func pauseInteractiveTransition() {}
+    func completeTransition(_ didComplete: Bool) {}
 }

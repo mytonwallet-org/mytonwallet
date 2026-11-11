@@ -143,8 +143,8 @@ You can always enable seasonal theming again in the appearance settings.: Вы �
 Base Currency: Базовая валюта
 Investor View: Режим инвестора
 Toggle Investor View: Переключить в режим инвестора
-Hide Tiny Transfers: Скрывать мелкие переводы
-Toggle Hide Tiny Transfers: Переключить отображение мелких переводов
+Hide Tiny Transfers and Spam: Скрывать мелкие переводы и спам
+Toggle Hide Tiny Transfers and Spam: Переключить отображение мелких переводов и спама
 Network: Сеть
 Developer Options: Инструменты разработчика
 All Wallet Versions: Все версии кошелька
@@ -1350,13 +1350,12 @@ Show All Wallets: Показать все кошельки
 Ask a Question: Задать вопрос
 Agent: Агент
 Learn more: Подробнее
-Data shared with Agent: Данные, передаваемые Агенту
+Data shared with Agent: Данные, передаваемые агенту
 $agent_consent_allow_button: Разрешить
-$agent_consent_subtitle: Попросите Агента помочь с кошельком, информацией о токенах и поддерживаемыми действиями.
 $agent_consent_feature_answers: Получайте ответы о %app_name%, токенах и активности кошелька.
 $agent_consent_feature_actions: "Подготавливайте поддерживаемые действия: отправку, получение и стейкинг."
 $agent_consent_feature_context: Используйте контекст кошелька, чтобы ответы могли учитывать релевантные активы и адреса.
-$agent_consent_disclosure_text: Нажимая «Разрешить Агенту», вы разрешаете %app_name% отправлять ваши сообщения Агенту и релевантный контекст кошелька в %app_name% Agent (agent.mywallet.io) и Anthropic Claude API, нашему стороннему поставщику ИИ, для обработки ваших запросов. Контекст кошелька может включать адреса кошелька, балансы, токены, активность и детали запрошенных действий. Данные используются только для предоставления ответов Агента и подготовки запрошенных вами действий.
+$agent_consent_disclosure_text: Нажимая «Разрешить», вы разрешаете %app_name% отправлять ваши сообщения агенту и релевантный контекст кошелька в %app_name% Agent (agent.mywallet.io) и Anthropic Claude API, нашему стороннему поставщику ИИ, для обработки ваших запросов. Контекст кошелька может включать адреса кошелька, балансы, токены, активность и детали запрошенных действий. Данные используются только для предоставления ответов агента и подготовки запрошенных вами действий.
 $agent_consent_search_disclosure_text: Для поиска в интернете Serper могут передаваться только поисковые запросы; контекст кошелька и история чата не передаются.
 $settings_token_change_threshold: Порог изменения в %
 $settings_token_change_threshold_description: Скрывает изменения за 24 часа, которые ниже выбранного порога.
@@ -1373,7 +1372,7 @@ Collectibles Section: Раздел NFT
 $settings_wallet_card_description: Настройте, что отображается на карте кошелька и показывать ли кнопки действий.
 Retry: Повторить
 $agent_chat_running: Работает в фоне
-$agent_connection_interrupted: Соединение с Агентом прервано. Попробуйте ещё раз.
+$agent_connection_interrupted: Соединение с агентом прервано. Попробуйте ещё раз.
 $agent_history_unavailable: Не удалось загрузить историю чата. Попробуйте ещё раз.
 $agent_secret_words_removed: "[секретные слова удалены и не отправлены]"
 $agent_activity_analyzing_request: Анализирую запрос…
@@ -1425,8 +1424,8 @@ $agent_hint_receive_title: Получить токены
 $agent_hint_receive_prompt: Помоги мне получить токены.
 $agent_notice_content_over_budget: Результат слишком большой для полного отображения.
 $agent_notice_web_search_no_results: Не удалось найти подходящую информацию по вашему запросу.
-$agent_error_session: Сессия Агента истекла. Откройте Агента заново и повторите попытку.
-$agent_error_limit: Запрос не выполнен из-за ограничения Агента.
+$agent_error_session: Сессия агента истекла. Откройте агента заново и повторите попытку.
+$agent_error_limit: Запрос не выполнен из-за ограничения агента.
 $agent_error_tool: Операцию кошелька выполнить не удалось. Попробуйте ещё раз.
 $agent_error_conversation_updated: Диалог обновился. Повторите запрос.
 $agent_error_generic: Агент не смог выполнить запрос. Попробуйте ещё раз.
@@ -1440,6 +1439,7 @@ $agent_dictation_no_speech: "Не удалось расслышать речь. 
 $agent_dictation_time_left: "Осталось %seconds% с"
 $agent_dictation_time_left_short: "%seconds% с"
 $agent_dictation_limit_reached: "Диктовка остановлена через минуту — это максимальная длина записи."
+$agent_stop_answer: "Остановить ответ"
 $agent_dictation_microphone_denied: "Разрешите доступ к микрофону в настройках, чтобы диктовать."
 $agent_dictation_hold_hint: "Удерживайте, чтобы диктовать. Вверх — запись без рук."
 $agent_dictation_too_short: "Слишком коротко — удерживайте, пока говорите."
@@ -2039,9 +2039,9 @@ $agent_capacity_limit_known: Новые запросы можно будет о�
 $agent_capacity_degraded_title: Агент может отвечать нестабильно
 $agent_capacity_limit_unknown: Можно попробовать ещё раз, но ответ может не загрузиться.
 $agent_retry_request: Повторить запрос
-$agent_rate_limit_title: Слишком много запросов к Агенту
+$agent_rate_limit_title: Слишком много запросов к агенту
 $agent_rate_limit_body: Попробуйте снова через %duration%.
-$agent_user_quota_exhausted_title: Недостаточно квоты Агента
+$agent_user_quota_exhausted_title: Недостаточно квоты агента
 $agent_user_quota_exhausted_body: Для этого запроса недостаточно квоты. Дневной лимит — %limit% ед., сброс через %duration%.
 $agent_time_hours: "%value% ч"
 $agent_time_minutes: "%value% мин"
@@ -2176,6 +2176,8 @@ News: "Новости"
 Crypto Market News: "Новости крипторынка"
 $agent_news_new: "Новые"
 $agent_news_open_source: "Открыть источник"
+$agent_news_source: "Источник: %sources%"
+$agent_news_sources: "Источники: %sources%"
 $agent_news_unavailable: "Новости сейчас недоступны"
 $agent_news_read_more: "Подробнее"
 $agent_news_discuss: "Обсудить"
@@ -2214,7 +2216,6 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "Review": "Проверить"
 "$perps_order_long": "Лонг %asset%"
 "$perps_order_short": "Шорт %asset%"
-"$perps_swap_fee_hint": "Комиссия за обмен одного токена на другой в рамках этой транзакции."
 "$perps_trading_fee_hint": "Комиссия за открытие этой позиции."
 "$perps_position_size_hint": "Размер позиции — общая стоимость позиции с учётом кредитного плеча."
 "$perps_position_size_details_hint": "Общая стоимость вашей позиции с учётом плеча.\n\nНапример, если вы вкладываете $100 с плечом 5x, размер позиции составляет $500."
@@ -2224,14 +2225,13 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "$perps_closing_value_hint": "Сумма, оставшаяся после ликвидации вашей позиции. В зависимости от результата ликвидации эта сумма может быть меньше вложенной или равна нулю."
 "$perps_fees_hint": "Общая сумма комиссий за эту транзакцию. В зависимости от транзакции сюда могут входить торговая комиссия, комиссия за обмен и сетевая комиссия."
 "$perps_liquidation_price_hint": "Расчётная цена, при которой ваша позиция может быть автоматически закрыта из-за недостатка средств для её поддержания."
-"$perps_high_leverage_warning": "Высокое плечо: небольшое изменение цены приведёт к ликвидации."
 "$perps_leverage_disclaimer": "Высокое плечо увеличивает потенциальную прибыль и убытки. Даже небольшое изменение цены против вашей позиции может привести к её автоматическому закрытию."
 
 # Perps order review
 "Open Position": "Открыть позицию"
 "$perps_asset_price": "Цена %asset%"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Подтверждая, я понимаю, что позиция может быть ликвидирована и я могу потерять вложенные средства."
+"$perps_liquidation_acknowledgment": "Подтверждая, я понимаю, что позиция может быть ликвидирована и я могу потерять вложенные средства."
 
 # Perps position receipt
 "Position Opened": "Позиция открыта"
@@ -2302,7 +2302,16 @@ $perps_open_interest_hint: "Общая стоимость контрактов, 
 "PerpsQuoteExpired": "Цены или позиция изменились. Вернитесь и проверьте ордер ещё раз."
 "PerpsReviewChanged": "Ордер изменился. Вернитесь и проверьте его ещё раз."
 "PerpsInsufficientUsdc": "Недостаточно USDC в Arbitrum с учётом комиссии моста."
+"EvmUserOperationMismatch": "Оплата газа не совпадает с этой транзакцией."
+"PerpsInsufficientBalance": "Недостаточно USDC на балансе Hyperliquid с учётом торговых комиссий."
+"PerpsMarketNeedsUnifiedAccount": "Этот рынок нельзя пополнить из кошелька при текущем типе аккаунта Hyperliquid."
+"PerpsRequiresMultichainWallet": "Для фьючерсов нужен мультичейн-кошелёк. Переключитесь на него или создайте новый, чтобы начать торговать."
+"PerpsSwitchesToUnifiedAccount": "Этот ордер также переведёт ваш аккаунт Hyperliquid в режим Unified, и один баланс USDC будет покрывать все рынки."
 "PerpsAmountTooSmall": "Эта сумма ниже минимальной для рынка."
+"$perps_minimum_amount": "Минимальная сумма: %amount% USDC."
+"$perps_minimum_reduction": "Уменьшите сумму более чем на %amount% USDC, чтобы покрыть комиссию моста."
+"$perps_required_balance": "Нужно: %required% USDC с учётом комиссий. Доступно на Hyperliquid: %available% USDC."
+"$perps_available_balance": "Доступно на Hyperliquid: %available% USDC. Уменьшите сумму с учётом торговых комиссий."
 "PerpsUnchanged": "Введите другую сумму, чтобы изменить позицию."
 "PerpsPositionChanged": "Позиция изменилась. Обновите данные и попробуйте ещё раз."
 "PerpsPositionExists": "У вас уже есть позиция на этом рынке. Измените существующую позицию."
@@ -2349,8 +2358,6 @@ Could not save the image. Please try again.: Не удалось сохрани�
 "$perps_funding_usdc_increase": "Чтобы увеличить эту позицию, нужно не менее %minUSDC% USDC в Arbitrum."
 "PerpsFundingGasTitle": "Недостаточно ETH для комиссии"
 "$perps_funding_gas": "Комиссии в Arbitrum оплачиваются в ETH. Получите %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Оплачивайте USDC в Arbitrum"
-"PerpsFundingTokenDescription": "Другие токены пока не поддерживаются. Получите USDC, чтобы продолжить."
 "Not Enough Funds": "Недостаточно средств"
 "Unsupported Token": "Токен не поддерживается"
 "PerpsReviewUpdated": "Цены обновились. Проверьте ордер ещё раз перед подтверждением."
@@ -2369,13 +2376,14 @@ Could not save the image. Please try again.: Не удалось сохрани�
 "PerpsExchangeFee": "Комиссия биржи"
 "PerpsServiceFee": "Комиссия кошелька"
 "PerpsBridgeFee": "Комиссия моста"
+"PerpsFirstWithdrawalFee": "Комиссия за первый вывод"
 "PerpsTotalFees": "Всего комиссий в USDC"
 "PerpsFeeEstimateHint": "Комиссии со знаком ≈ приблизительны и могут измениться при исполнении. Комиссия сети Arbitrum оплачивается отдельно в ETH."
 "PerpsUnallocatedCollateral": "Нераспределённое обеспечение"
 "PerpsUnallocatedCollateralHint": "Из-за округления до допустимого размера сделки часть USDC может остаться вне позиции. Эти средства остаются на вашем фьючерсном счёте и не являются комиссией."
-"PerpsOnboardingTitle": "Впервые торгуете фьючерсами?"
-"PerpsOnboardingDescription": "Узнайте, как это работает, менее чем за 1 минуту."
-"PerpsOnboardingOpen": "Открыть обучение"
+"PerpsOnboardingTitle": "Фьючерсы\nв %app_name%!"
+"PerpsOnboardingDescription": "Торгуйте на росте\nи падении цен."
+"PerpsOnboardingOpen": "Как это работает"
 "PerpsStoryIntroTitle": "Встречайте\nбессрочные фьючерсы"
 "PerpsStoryIntroBody": "Теперь вы можете открывать позиции как на рост, так и на падение цены актива."
 "PerpsStoryLongTitle": "Ждёте роста? Это Long"
@@ -2390,17 +2398,15 @@ Could not save the image. Please try again.: Не удалось сохрани�
 "PerpsStoryFundingBody": "При положительной ставке финансирования держатели Long платят держателям Short. При отрицательной — держатели Short платят держателям Long."
 "PerpsStoryStart": "Начать"
 
-"Funding Payment": "Платёж финансирования"
 "Withdrawal": "Вывод"
 "Transfer": "Перевод"
-"Spot Balance": "Спотовый баланс"
 "From": "Откуда"
 "To": "Куда"
 
 Delete Chat: Удалить чат
 Unread: Непрочитано
-$agent_connection_lost: Соединение с Агентом прервано.
-$agent_daily_limit_reached: Дневной лимит Агента исчерпан
+$agent_connection_lost: Соединение с агентом прервано.
+$agent_daily_limit_reached: Дневной лимит агента исчерпан
 $media_viewer_date_at_time: "%date% в %time%"
 Picture: Изображение
 
@@ -2415,3 +2421,75 @@ $enclave_data_missing_message: |
   Если у вас есть секретные слова кошельков, можно выйти из всех кошельков и импортировать их заново.
 
 Install the TON App on your Ledger and try again.: Установите приложение TON на Ledger и попробуйте снова.
+Liked: Понравилось
+Disliked: Не понравилось
+$agent_feedback_liked_toast: "Агент будет чаще отвечать так."
+$agent_feedback_disliked_toast: "Мы изучим этот ответ, чтобы улучшить агента."
+$agent_voice_pause: "Приостановить запись"
+$agent_voice_resume: "Продолжить запись"
+$agent_message_copied: Сообщение скопировано.
+$agent_copied: "Скопировано."
+$agent_news_empty: "Новостей пока нет"
+$agent_chats_unavailable: "Не удалось загрузить чаты"
+
+"PerpsAvailable": "Доступно"
+"PerpsWithdraw": "Вывести"
+"PerpsBalanceWithdrawalTitle": "Вывод в кошелёк"
+"PerpsWithdrawalFromHyperliquid": "С Hyperliquid"
+"PerpsWithdrawalToWallet": "В кошелёк Arbitrum"
+"PerpsBalanceWithdrawalNote": "USDC поступят в кошелёк Arbitrum в течение нескольких минут. 0,03 USDC останутся на Hyperliquid для оплаты газа за вывод."
+"PerpsBalanceWithdrawalUpdated": "Баланс на Hyperliquid изменился. Проверьте вывод ещё раз перед подтверждением."
+"PerpsWithdrawalStatus": "Статус вывода"
+"PerpsWithdrawalCompleted": "Вывод отправлен"
+"PerpsWithdrawalOnItsWay": "USDC уже в пути в ваш кошелёк Arbitrum. Это может занять несколько минут."
+"PerpsWithdrawalProcessing": "Вывод обрабатывается. Перевод через мост может занять несколько минут."
+"PerpsWithdrawalUnknown": "Результат ещё не подтверждён. Проверьте баланс на Hyperliquid и кошелёк перед следующим действием."
+"PerpsAcknowledgeWithdrawalUnknown": "Вывод ещё может завершиться. Сначала проверьте баланс на Hyperliquid и кошелёк. Разрешение новых ордеров его не отменяет."
+"PerpsNothingToWithdraw": "Сейчас на балансе Hyperliquid нечего выводить."
+"PerpsWithdrawalRejected": "Hyperliquid отклонил этот вывод. USDC остаются на балансе Hyperliquid."
+"View your assets and activity": "Ваши активы и история операций"
+"Ask AI and follow the news": "Задавайте вопросы ИИ и следите за новостями"
+$underlying_stock: 'Акция %symbol%'
+$agent_support_requested: "Вы позвали поддержку. Оператор ответит здесь"
+$agent_support_operator_joined: "К чату подключилась поддержка: %name%"
+$agent_support_closed_operator: "Поддержка закрыла обращение. Дальше отвечает агент"
+$agent_support_closed_inactivity: "Обращение закрыто: 48 часов без ответа. Дальше отвечает агент"
+$agent_support_waiting: "Поддержка · ждём оператора"
+$agent_support_with_operator: "Поддержка · %name%"
+$agent_support_label: "Поддержка"
+$agent_support_badge: "Поддержка %app_name%"
+$agent_support_placeholder: "Сообщение для поддержки"
+"PerpsStoryFinaleTitle": "Готовы попробовать фьючерсы?"
+"PerpsStoryFinaleBody": "Выбирайте рынок, открывайте позиции и следите за ними прямо в %app_name%!"
+"PerpsStoryViewMarkets": "Посмотреть рынки"
+Unlink Wallet: Отвязать кошелёк
+Confirm Unlinking: Подтвердить отвязку
+Domain Unlinked: Домен отвязан
+Drag here to add to the toolbar: Перетащите сюда, чтобы добавить на панель
+$send_only_chain_and_token: Отправляйте на этот адрес только %symbol%, %tokenSymbol% или другие активы сети %chain%. Отправка других токенов приведёт к их потере.
+$agent_digest_unavailable: "Эта сводка больше недоступна"
+$agent_digest_title: "Главное за сутки"
+$agent_digest_meta:
+  oneValue: "%count% новость · %time%"
+  fewValue: "%count% новости · %time%"
+  manyValue: "%count% новостей · %time%"
+  otherValue: "%count% новостей · %time%"
+$agent_digest_more:
+  oneValue: "и ещё %count% новость — они выше в ленте"
+  fewValue: "и ещё %count% новости — они выше в ленте"
+  manyValue: "и ещё %count% новостей — они выше в ленте"
+  otherValue: "и ещё %count% новостей — они выше в ленте"
+$agent_digest_settings_title: "Сводка и уведомления"
+$agent_digest_settings_text: "Раз в сутки в ленте появляется сводка — главные новости за день."
+$agent_digest_time: "Время сводки"
+$agent_digest_time_zone: "По часовому поясу телефона."
+$agent_digest_notifications_off: "Выключены"
+$agent_digest_notifications_off_hint: "Сводка будет только в ленте"
+$agent_digest_notifications_daily: "Сводка раз в день"
+$agent_digest_notifications_daily_hint: "В %time%, главные новости одним уведомлением"
+$agent_digest_notifications_every: "Каждая новость"
+$agent_digest_notifications_every_hint: "Отдельное уведомление о каждой новости"
+$agent_digest_post_header: "MyPulse · сводка · %time%"
+$agent_digest_sheet_title: "Ежедневная сводка"
+$agent_digest_device_time_zone: "По часовому поясу этого устройства."
+$agent_dictation_microphone_denied_device: "Разрешите доступ к микрофону в настройках устройства, чтобы диктовать."

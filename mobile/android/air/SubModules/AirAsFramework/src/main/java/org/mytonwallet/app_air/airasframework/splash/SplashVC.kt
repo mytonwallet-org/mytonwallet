@@ -1,10 +1,13 @@
 package org.mytonwallet.app_air.airasframework.splash
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.net.Uri
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -18,6 +21,7 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNavigation
 import org.mytonwallet.app_air.uiagent.viewControllers.threadList.AgentThreadListVC
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
@@ -546,7 +550,7 @@ class SplashVC(context: Context) :
                 attributed.url.toUri()
             )
         }
-        attributed.captureIfAdmitted(parsedDeeplink, source)
+        attributed.captureIfAdmitted(context.applicationContext, parsedDeeplink, source)
         if (attributed.isGet) return true
         nextDeeplink = parsedDeeplink?.let { PendingDeeplink(it, source) }
         val isAValidDeeplink = parsedDeeplink != null
@@ -630,6 +634,20 @@ class SplashVC(context: Context) :
         )
     }
 
+    override fun requestNotificationPermission(onResult: (Boolean) -> Unit) {
+        val window = window ?: return onResult(false)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            onResult(false)
+            return
+        }
+        window.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS)) {
+                _,
+                results
+            ->
+            onResult(results.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+        }
+    }
+
     override fun walletIsReady() {
         _isWalletReady = true
         val window = window
@@ -708,11 +726,19 @@ class SplashVC(context: Context) :
     private fun handle(deeplink: Deeplink, source: DeeplinkOpenSource) {
         if (deeplink is Deeplink.E2EUnlock) {
             nextDeeplink = null
-            if (appIsUnlocked) return
+            val next = deeplink.next
+                ?.let { DeeplinkParser.parse(it.toUri()) }
+                ?.takeIf { it !is Deeplink.E2EUnlock }
+            if (appIsUnlocked) {
+                next?.let { handle(it, source) }
+                return
+            }
             val lockScreen = window?.topViewController as? PasscodeConfirmVC
             if (lockScreen == null) {
                 nextDeeplink = PendingDeeplink(deeplink, source)
             } else {
+                // Queued first, so the unlock opens it
+                nextDeeplink = next?.let { PendingDeeplink(it, source) }
                 lockScreen.enterPasscodeForTests(deeplink.passcode)
             }
             return
@@ -1289,8 +1315,27 @@ class SplashVC(context: Context) :
             }
 
             is Deeplink.Agent -> {
-                if (tabsVC?.switchToAgent() != true) {
-                    window.navigationControllers.lastOrNull()?.push(AgentThreadListVC(context))
+                val hasSwitchedToAgent = tabsVC?.switchToAgent() == true
+                val navigation =
+                    (if (hasSwitchedToAgent) tabsVC?.activeNavigationController else null)
+                        ?: window.navigationControllers.lastOrNull()
+                if (!hasSwitchedToAgent) navigation?.push(AgentThreadListVC(context))
+                val newsEventId = deeplink.newsEventId
+                val digestId = deeplink.digestId
+                if (navigation != null) {
+                    when {
+                        newsEventId != null -> AgentNavigation.openNewsChat(
+                            context,
+                            navigation,
+                            newsEventId
+                        )
+
+                        digestId != null -> AgentNavigation.openNewsFeed(
+                            context,
+                            navigation,
+                            digestId
+                        )
+                    }
                 }
             }
 
@@ -1749,7 +1794,7 @@ class SplashVC(context: Context) :
 
     private fun mapOfframpTokenSlug(baseCurrencyCode: String?): String? {
         val normalizedCode = baseCurrencyCode?.lowercase() ?: return null
-        if (normalizedCode == "ton" || normalizedCode == "toncoin") {
+        if (normalizedCode == "gram" || normalizedCode == "ton" || normalizedCode == "toncoin") {
             return TONCOIN_SLUG
         }
         return TokenStore.getToken(normalizedCode)?.slug

@@ -83,8 +83,8 @@ class LinedCenteredTitleView(context: Context) :
         updateTheme()
     }
 
-    fun configureText(font: WFont, color: WColor) {
-        titleLabel.setStyle(17f, font)
+    fun configureText(font: WFont, color: WColor, size: Float = 17f) {
+        titleLabel.setStyle(size, font)
         titleLabel.setTextColor(color)
     }
 }

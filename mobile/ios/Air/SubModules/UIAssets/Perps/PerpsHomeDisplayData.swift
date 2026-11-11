@@ -1,25 +1,28 @@
+import UIComponents
 import WalletCore
 
-/// Account-scoped, render-ready snapshots. The adapter owns prices, totals, ordering and pagination.
+/// Account-scoped, render-ready snapshots built by `PerpsHomeAdapter`.
 public struct PerpsPositionsDisplayData {
     public enum Status: Equatable { case loading, ready, unavailable(String) }
     public let accountID: String
     public var totalValue: BaseCurrencyAmount
-    public var profitLoss: PerpsHomeValue
+    public var profitLoss: PerpsValue
     public var positions: [PerpsPositionRowDisplayData]
-    public var totalCount: Int
+    public var hasOpenPositions: Bool { !positions.isEmpty || hasUnresolvedPositions }
     public var status: Status
     public var isStale: Bool
+    private let hasUnresolvedPositions: Bool
 
-    public init(accountID: String, totalValue: BaseCurrencyAmount, profitLoss: PerpsHomeValue,
-                positions: [PerpsPositionRowDisplayData], totalCount: Int? = nil, status: Status = .ready, isStale: Bool = false) {
+    public init(accountID: String, totalValue: BaseCurrencyAmount, profitLoss: PerpsValue,
+                positions: [PerpsPositionRowDisplayData], status: Status = .ready, isStale: Bool = false,
+                hasUnresolvedPositions: Bool = false) {
         self.accountID = accountID
         self.totalValue = totalValue
         self.profitLoss = profitLoss
         self.positions = positions
-        self.totalCount = totalCount ?? positions.count
         self.status = status
         self.isStale = isStale
+        self.hasUnresolvedPositions = hasUnresolvedPositions
     }
 
     public func shouldAnimatePositionsChange(from previous: Self?) -> Bool {
@@ -30,85 +33,86 @@ public struct PerpsPositionsDisplayData {
     }
 }
 
-public struct PerpsHomeValue {
-    public enum Tone { case neutral, positive, negative }
-    public var text: String
-    public var tone: Tone
-    public init(_ text: String, tone: Tone = .neutral) { self.text = text; self.tone = tone }
-}
-
 public struct PerpsPositionRowDisplayData: Identifiable {
     public let id: String
     public var token: ApiToken
     public var directionAndLeverage: String
     public var value: String
-    public var profitLoss: PerpsHomeValue
+    public var profitLoss: PerpsValue
     public var isAtRisk: Bool
-    public var canSelect: Bool
-    public var isStale: Bool
 
     public init(id: String, token: ApiToken, directionAndLeverage: String, value: String,
-                profitLoss: PerpsHomeValue, isAtRisk: Bool = false, canSelect: Bool = true, isStale: Bool = false) {
+                profitLoss: PerpsValue, isAtRisk: Bool = false) {
         self.id = id
         self.token = token
         self.directionAndLeverage = directionAndLeverage
         self.value = value
         self.profitLoss = profitLoss
         self.isAtRisk = isAtRisk
-        self.canSelect = canSelect
-        self.isStale = isStale
     }
 }
 
-public struct PerpsHomeActivity: Identifiable {
-    public enum Kind { case opened, increased, reduced, closed, liquidated, received, sent, transfer }
-    public let id: String
-    public var kind: Kind
-    public var title: String
-    public var badge: String
-    public var date: String
-    public var amount: PerpsHomeValue
-    public var previousAmount: String?
-    public var amountDetail: String?
-    public var canSelect: Bool
-    public var isStale: Bool
+public struct PerpsOperationStatusDisplayData {
+    public let title: String
+    public let message: String
+    public let onSelect: @MainActor () -> Void
+    public let onDismiss: @MainActor () -> Void
 
-    public init(id: String, kind: Kind, title: String, badge: String, date: String,
-                amount: PerpsHomeValue, previousAmount: String? = nil, canSelect: Bool = true, amountDetail: String? = nil,
-                isStale: Bool = false) {
-        self.id = id
-        self.kind = kind
-        self.title = title
-        self.badge = badge
-        self.date = date
-        self.amount = amount
-        self.previousAmount = previousAmount
-        self.amountDetail = amountDetail
-        self.canSelect = canSelect
+    public init(title: String, message: String, onSelect: @escaping @MainActor () -> Void, onDismiss: @escaping @MainActor () -> Void) {
+        self.title = title; self.message = message; self.onSelect = onSelect; self.onDismiss = onDismiss
+    }
+}
+
+/// The Hyperliquid balance a withdrawal can send back to the wallet.
+public struct PerpsBalanceWithdrawalRowDisplayData {
+    public var token: ApiToken
+    public var balance: String
+    /// A view account sees its balance and cannot withdraw it.
+    public var canWithdraw: Bool
+    public var isStale: Bool
+    public var isPreparing: Bool
+
+    public init(token: ApiToken, balance: String, canWithdraw: Bool = true, isStale: Bool = false, isPreparing: Bool = false) {
+        self.token = token
+        self.balance = balance
+        self.canWithdraw = canWithdraw
         self.isStale = isStale
+        self.isPreparing = isPreparing
     }
 }
 
 public struct PerpsHomeDisplayData {
     public var positions: PerpsPositionsDisplayData
+    /// Set when the account cannot use Futures. It replaces the balance summary, the positions and the balance row.
+    public var accountNotice: String?
+    public var balanceWithdrawal: PerpsBalanceWithdrawalRowDisplayData?
+    public var operationStatus: PerpsOperationStatusDisplayData?
     public var marketSections: [MarketSectionDisplayData]
-    public var activities: [PerpsHomeActivity]
+    public var isMarketStale: Bool
+    public var activities: [PerpsTradeActivity]
+    public var isActivityStale: Bool
     public var showsOnboarding: Bool
 
-    public init(positions: PerpsPositionsDisplayData, marketSections: [MarketSectionDisplayData] = [],
-                activities: [PerpsHomeActivity] = [], showsOnboarding: Bool = false) {
+    public init(positions: PerpsPositionsDisplayData, accountNotice: String? = nil, balanceWithdrawal: PerpsBalanceWithdrawalRowDisplayData? = nil,
+                operationStatus: PerpsOperationStatusDisplayData? = nil,
+                marketSections: [MarketSectionDisplayData] = [], isMarketStale: Bool = false,
+                activities: [PerpsTradeActivity] = [], isActivityStale: Bool = false, showsOnboarding: Bool = false) {
         self.positions = positions
+        self.accountNotice = accountNotice
+        self.balanceWithdrawal = balanceWithdrawal
+        self.operationStatus = operationStatus
         self.marketSections = marketSections
+        self.isMarketStale = isMarketStale
         self.activities = activities
+        self.isActivityStale = isActivityStale
         self.showsOnboarding = showsOnboarding
     }
 }
 
-public enum HomeExploreDestination: String, CaseIterable { case market, agent, futures, apps }
-
 public enum PerpsHomeAction: Equatable {
     case position(String)
     case allPositions
+    case withdrawBalance
     case refresh
     case marketToken(sectionID: String, tokenID: String)
     case marketSection(String)

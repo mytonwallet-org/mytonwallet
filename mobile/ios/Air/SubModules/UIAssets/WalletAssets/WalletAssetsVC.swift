@@ -67,6 +67,7 @@ import WalletContext
             contextMenuProvider: tabContextMenuProviders.provider(for: tab),
             hidesMenuIcon: true,
             isDeletable: tab.isDeletableSegment,
+            accessibilityIdentifier: tab.segmentedControlAccessibilityIdentifier,
             viewController: viewController
         )
     }

@@ -108,7 +108,7 @@
 		59F100042FB0000100CAFE01 /* JS in Resources */ = {isa = PBXBuildFile; fileRef = 59F100102FB0000100CAFE01 /* JS */; };
 		59F100052FB0000100CAFE01 /* JS in Resources */ = {isa = PBXBuildFile; fileRef = 59F100112FB0000100CAFE01 /* JS */; };
 		5A31C303501E34B6ECF0848B /* AirAsFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 753F88850EDD2EDED1236C11 /* AirAsFramework */; };
-		64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 585CF17A2E6E1CE100A5804F /* AppIcon.icon */; };
+		64B5317D60F6C186CD8F8DFA /* PreviewAppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 9B733B273BA94472BA091DA3 /* PreviewAppIcon.icon */; };
 		65C5B0BAE3D9A00A06DDBF32 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E2E5572E15210500B90FFD /* SceneDelegate.swift */; };
 		67EFEAD7CE812E8CF3664678 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = F9BE5EF7B8C92B9D9B26DF89 /* FirebaseMessaging */; };
 		59F100202FB0000100C0FF01 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 59F100102FB0000100C0FF01 /* FirebaseCore */; };
@@ -396,6 +396,7 @@
 		0D4AE6D87BFC4883C67A2CE8 /* MyTonWalletNotificationServiceExtension_Preview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MyTonWalletNotificationServiceExtension_Preview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		73C3935DEC3982FF8EA9F6D9 /* MyTonWalletNotificationServiceExtension_Preview.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWalletNotificationServiceExtension_Preview.entitlements; sourceTree = "<group>"; };
 		FE6EB98E31626F33B669A2B7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "App/Resources/MyTonWalletPreview/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
+		9B733B273BA94472BA091DA3 /* PreviewAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = PreviewAppIcon.icon; path = MyTonWalletPreview/PreviewAppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -575,6 +576,7 @@
 			children = (
 				59D100082F90000100FACE01 /* MyTonWallet */,
 				59D100092F90000100FACE01 /* GramWallet */,
+				9B733B273BA94472BA091DA3 /* PreviewAppIcon.icon */,
 				59A4C2E62F4D1001009A1B2C /* Localizable.xcstrings */,
 			);
 			path = Resources;
@@ -1173,7 +1175,7 @@
 			files = (
 				59F100042FB0000100CAFE01 /* JS in Resources */,
 				59D100042F90000100FACE01 /* Assets.xcassets in Resources */,
-				64B5317D60F6C186CD8F8DFA /* AppIcon.icon in Resources */,
+				64B5317D60F6C186CD8F8DFA /* PreviewAppIcon.icon in Resources */,
 				A8F86EF3D77B48377D3E0039 /* GoogleService-Info.plist in Resources */,
 				71335BE0CB67B3D704148F53 /* Localizable.xcstrings in Resources */,
 			);
@@ -1588,8 +1590,8 @@
 		194F61494DCC08445F401170 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -2253,8 +2255,8 @@
 		668B2FFA2D78180C90FDD761 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/MyTonWallet_Preview.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;

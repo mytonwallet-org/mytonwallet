@@ -171,6 +171,8 @@ function Nft({
       isLottie ? (
         <div className={styles.imageWrapper}>
           <AnimatedIconWithPreview
+            // A remount per animation keeps the new preview up if TLottie rejects the animation
+            key={nft.metadata.lottie}
             shouldStretch
             play={shouldPlay}
             noLoop={noLoop}

@@ -83,6 +83,8 @@ enum AgentV2Copy {
         case .toolUnsupported, .toolScopeMismatch, .toolResultAlreadySubmitted, .toolRejected,
              .walletContextChanged, .toolTimeout, .toolFailed, .toolResultTooLarge, .actionUnsupported:
             lang("$agent_error_tool")
+        case .digestUnavailable:
+            lang("$agent_digest_unavailable")
         case .marketDataUnavailable:
             lang("$agent_error_generic")
         case .newsUnavailable:

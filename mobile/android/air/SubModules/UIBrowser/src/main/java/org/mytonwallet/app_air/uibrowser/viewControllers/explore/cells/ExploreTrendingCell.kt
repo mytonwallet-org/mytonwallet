@@ -1,8 +1,10 @@
 package org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Rect
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -13,12 +15,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.SpringSnapHelper
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -109,11 +113,25 @@ class ExploreTrendingCell(
     private val autoScrollRunnable = object : Runnable {
         override fun run() {
             if (!isAutoScrollEnabled || itemCount <= 1) return
-            currentIndex = (currentIndex + 1) % itemCount
-            springSnap.scrollTo(currentIndex)
+            if (canAdvance) {
+                currentIndex = (currentIndex + 1) % itemCount
+                springSnap.scrollTo(currentIndex)
+            }
             handler.postDelayed(this, AUTO_SCROLL_INTERVAL)
         }
     }
+
+    private val visibleRect = Rect()
+
+    // The carousel holds still under a popup such as the tab menu, and off screen, which includes
+    // the Apps page while another tab is selected, since the tab pager keeps every page laid out.
+    // Debug builds also hold it while system animations are off, so E2E runs see a still page.
+    private val canAdvance: Boolean
+        get() = !PopupHelpers.isPopupShown && isShown && getGlobalVisibleRect(visibleRect) &&
+            (!DEBUG_MODE || areSystemAnimatorsEnabled)
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
 
     private val containerView = WView(context).apply {
         addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))

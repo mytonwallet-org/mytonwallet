@@ -256,6 +256,17 @@ export interface ApiDomainData {
 
 export type ApiHistoryList = Array<[number, number]>;
 
+/** Daily USD closes of the underlying stock, all earlier than the first point of the token's own history */
+export interface ApiPriceHistoryBackfill {
+  symbol: string;
+  points: ApiHistoryList;
+}
+
+export interface ApiPriceHistory {
+  points: ApiHistoryList;
+  backfill?: ApiPriceHistoryBackfill;
+}
+
 export type ApiStakingType = ApiStakingState['type'];
 export type ApiBackendStakingType = 'nominators' | 'liquid';
 

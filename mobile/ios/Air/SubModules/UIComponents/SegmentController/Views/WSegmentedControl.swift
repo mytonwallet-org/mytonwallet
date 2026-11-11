@@ -4,6 +4,7 @@
 //  Created by nikstar on 15.11.2025.
 //
 
+import ContextMenuKit
 import Perception
 import SwiftUI
 import UIKit
@@ -12,6 +13,33 @@ import WalletContext
 public final class WSegmentedControl: UIView, UIScrollViewDelegate {
 
     public let model: SegmentedControlModel
+    public var longPressContextMenuProvider: SegmentedControlContextMenuProvider? {
+        didSet {
+            updateLongPressContextMenuInteraction()
+            updateInteractions()
+        }
+    }
+    public var longPressContextMenuAccessibilityLabel: String? {
+        didSet { updateInteractions() }
+    }
+    /// Lets a colored header keep light labels while its glass shares the menu's appearance.
+    public var glassUserInterfaceStyle: UIUserInterfaceStyle = .unspecified {
+        didSet { updateGlassAppearance() }
+    }
+    // UIView's getter returns the inherited effective mode, not the value assigned to it.
+    // Keep the requested mode so the glass can retain it if UIKit extracts the source.
+    private var requestedTintAdjustmentMode: UIView.TintAdjustmentMode = .automatic
+
+    public override var tintAdjustmentMode: UIView.TintAdjustmentMode {
+        get { super.tintAdjustmentMode }
+        set {
+            requestedTintAdjustmentMode = newValue
+            super.tintAdjustmentMode = newValue
+            updateGlassTintAdjustment()
+        }
+    }
+
+    private var longPressContextMenuInteraction: ContextMenuInteraction?
     private let scrollContentMargin: CGFloat
     private let isGlassInteractive: Bool
 
@@ -20,7 +48,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    private let lensView = WSegmentedControlLensView()
+    private let lensView: WSegmentedControlLensView
     private let selectedScrollView = UIView()
     private let secondaryContainer = UIView()
     private let primaryContainer = UIView()
@@ -66,6 +94,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         self.model = model
         self.scrollContentMargin = scrollContentMargin
         self.isGlassInteractive = isGlassInteractive
+        self.lensView = WSegmentedControlLensView(shouldDarkenSelection: model.style == .tokenPicker)
         super.init(frame: .zero)
         setupViews()
         rebuildItems()
@@ -79,6 +108,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil { endLensLift(animated: false) }
+        updateGlassAppearance()
         applyColors()
         // The appearance may have changed while the tabs were off screen, behind another screen
         if window != nil { lensView.refreshAppearance() }
@@ -109,6 +139,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        updateGlassAppearance()
         applyColors()
         updateLens(animated: false)
         lensView.refreshAppearance()
@@ -149,6 +180,15 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard !isHidden, alpha > 0.01, isUserInteractionEnabled, self.point(inside: point, with: event) else { return nil }
         if isReorderingApplied { return super.hitTest(point, with: event) }
+        if model.style == .portfolioRange {
+            // Range touch targets include the padding outside the clipped `scrollView`
+            for views in itemViews {
+                if let target = views.interaction.hitTest(convert(point, to: views.interaction), with: event) {
+                    return target
+                }
+            }
+            return nil
+        }
         return scrollView.hitTest(convert(point, to: scrollView), with: event)
     }
 
@@ -285,6 +325,12 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         selectionScroll = nil
     }
 
+    public func centerSelectedItem(animated: Bool) {
+        autoScrollWorkItem?.cancel()
+        selectionScroll = nil
+        autoScrollToSelected(animated: animated && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled)
+    }
+
     internal func applyPendingModelChangesWithoutAnimation() {
         UIView.performWithoutAnimation {
             syncFromModel()
@@ -320,6 +366,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         renderedItems = model.items
 
         let font = model.font
+        let selectedFont = model.style == .portfolioRange ? WTypography.uiFont(.supportingStrong) : font
         let attrs: [NSAttributedString.Key: Any] = [.font: font]
 
         for item in renderedItems {
@@ -337,7 +384,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             let primaryView = UIView()
             primaryView.isUserInteractionEnabled = false
             primaryContainer.addSubview(primaryView)
-            let primaryLabel = makeLabel(title: item.title, color: model.primaryColor, font: font)
+            let primaryLabel = makeLabel(title: item.title, color: model.primaryColor, font: selectedFont)
             primaryLabel.isAccessibilityElement = false
             primaryView.addSubview(primaryLabel)
 
@@ -407,6 +454,8 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
                 title: item.title,
                 accessibilityIdentifier: item.accessibilityIdentifier,
                 contextMenuProvider: item.contextMenuProvider,
+                hasControlContextMenu: longPressContextMenuProvider != nil,
+                controlContextMenuAccessibilityLabel: longPressContextMenuAccessibilityLabel,
                 segmentedControl: self,
                 allowsSimultaneousGlassInteraction: isGlassInteractive,
                 onSelect: { [weak self] in
@@ -415,6 +464,40 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
                 }
             )
         }
+    }
+
+    private func updateLongPressContextMenuInteraction() {
+        longPressContextMenuInteraction?.detach()
+        longPressContextMenuInteraction = nil
+        guard let provider = longPressContextMenuProvider else { return }
+
+        let interaction = ContextMenuInteraction(
+            triggers: .longPress,
+            presentationMode: .zoomPopover,
+            longPressDuration: 0.25,
+            sourcePortal: provider.sourcePortal,
+            activationViewProvider: { [weak self] sourceView in
+                guard let self, provider.sourcePortal == nil,
+                      let background = self.backgroundView as? WCapsuleGlassBackgroundView,
+                      let glassView = background.interactiveGlassSourceView,
+                      self.lensView.isDescendant(of: glassView) else {
+                    return sourceView
+                }
+                return glassView
+            },
+            configurationProvider: { [weak self] _ in
+                guard let self, !self.model.isReordering else { return nil }
+                return provider.makeConfiguration()
+            }
+        )
+        interaction.attach(to: self)
+        longPressContextMenuInteraction = interaction
+    }
+
+    func presentLongPressContextMenu() -> Bool {
+        guard longPressContextMenuProvider != nil, !model.isReordering else { return false }
+        longPressContextMenuInteraction?.present()
+        return true
     }
 
     public override func layoutSubviews() {
@@ -443,14 +526,22 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         let shouldSpreadTabs = model.style == .compactRootHeader && measuredWidth < availableWidth && !renderedItems.isEmpty
         let extraWidth = shouldSpreadTabs ? (availableWidth - measuredWidth) / CGFloat(renderedItems.count) : 0
         let attributes: [NSAttributedString.Key: Any] = [.font: model.font]
-        for item in renderedItems {
-            let width = (item.title as NSString).size(withAttributes: attributes).width + 2 * c.innerPadding + extraWidth
+        let itemWidths = renderedItems.map { ($0.title as NSString).size(withAttributes: attributes).width + 2 * c.innerPadding }
+        let totalSpacing = CGFloat(max(0, renderedItems.count - 1)) * c.spacing
+        let equalWidth = max(0, availableWidth - totalSpacing) / CGFloat(max(1, renderedItems.count))
+        let shouldSizeEqually = !renderedItems.isEmpty && (model.style == .portfolioRange
+            || model.style == .tokenPicker && itemWidths.allSatisfy { $0 <= equalWidth })
+        let shouldSizeProportionally = model.style == .tokenPicker && !shouldSizeEqually && measuredWidth > 0
+        let widthScale = shouldSizeProportionally ? availableWidth / measuredWidth : 1
+        for (item, itemWidth) in zip(renderedItems, itemWidths) {
+            let width = shouldSizeEqually ? equalWidth : itemWidth * widthScale + extraWidth
             model.setSize(itemId: item.id, size: CGSize(width: width, height: availableHeight))
         }
-        let inner = shouldSpreadTabs ? availableWidth : naturalWidth
+        let inner = shouldSpreadTabs || shouldSizeEqually || shouldSizeProportionally ? availableWidth : naturalWidth
 
         backgroundContainer.frame = bounds
         backgroundView?.frame = backgroundContainer.bounds
+        backgroundView?.layer.cornerRadius = bounds.height / 2
         (backgroundView as? WCapsuleGlassBackgroundView)?.updateCornerRadius(bounds.height / 2)
 
         lensView.frame = CGRect(
@@ -494,7 +585,11 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             autoScrollWorkItem?.cancel()
             autoScrollToSelected(animated: false)
         }
-        updateLens(animated: false)
+        // Layout can run before the queued model observer processes a tapped selection
+        let shouldAnimateSelection = hasAppliedSelection && !widthChanged && !layoutDirectionChanged
+            && !shouldSuppressTransientAnimations && shouldAnimateCurrentSelection()
+            && model.selectedItem?.id != lastSelectedItemID
+        updateLens(animated: shouldAnimateSelection)
     }
 
     private func layoutItemSlots() {
@@ -512,7 +607,9 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             let interactionFrame = resolvedFrame(for: layout.interactionFrame)
             views.primaryView.frame = interactionFrame
             views.primaryLabel.frame = slot.offsetBy(dx: -interactionFrame.minX, dy: -interactionFrame.minY)
-            views.interaction.frame = interactionFrame
+            views.interaction.frame = model.style == .portfolioRange
+                ? interactionFrame.insetBy(dx: -c.backgroundPadding, dy: -c.backgroundPadding)
+                : interactionFrame
 
             if let arrow = views.arrow {
                 let arrowSize = c.accessoryWidth
@@ -742,12 +839,19 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             )
             backgroundContainer.addSubview(view)
             backgroundView = view
-        case .header, .rootHeader, .compactRootHeader:
-            let view = WCapsuleGlassBackgroundView(
-                style: .header,
-                cornerRadius: cornerRadius,
-                isInteractive: isGlassInteractive
-            )
+        case .header, .rootHeader, .compactRootHeader, .tokenPicker, .portfolioRange:
+            let view: UIView
+            if #unavailable(iOS 26), model.style == .portfolioRange {
+                view = UIView()
+                view.backgroundColor = .air.headerBackground
+                view.clipsToBounds = true
+            } else {
+                view = WCapsuleGlassBackgroundView(
+                    style: .header,
+                    cornerRadius: cornerRadius,
+                    isInteractive: isGlassInteractive
+                )
+            }
             backgroundContainer.addSubview(view)
             backgroundView = view
         }
@@ -756,7 +860,24 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
            backgroundView.hostContentIfSupported(lensView) {
             backgroundContainer.isUserInteractionEnabled = true
         }
+        updateGlassAppearance()
         setNeedsLayout()
+    }
+
+    private func updateGlassTintAdjustment() {
+        // Assign even when the effective mode matches: an inherited .normal must not
+        // be mistaken for an explicit .normal when the source changes its parent.
+        (backgroundView as? WCapsuleGlassBackgroundView)?.interactiveGlassSourceView?.tintAdjustmentMode = requestedTintAdjustmentMode
+    }
+
+    private func updateGlassAppearance() {
+        updateGlassTintAdjustment()
+        backgroundView?.overrideUserInterfaceStyle = glassUserInterfaceStyle
+        (backgroundView as? WCapsuleGlassBackgroundView)?.interactiveGlassSourceView?.overrideUserInterfaceStyle = glassUserInterfaceStyle
+        // The lens is hosted inside the glass for native morphing, but its labels and
+        // selection must keep the control's appearance rather than the surface override.
+        lensView.overrideUserInterfaceStyle = glassUserInterfaceStyle == .unspecified
+            ? .unspecified : traitCollection.userInterfaceStyle
     }
 
     public override var intrinsicContentSize: CGSize {
@@ -870,6 +991,15 @@ public final class WCapsuleGlassBackgroundView: UIView {
     private var glassView: UIView?
     private var overlayView: UIView?
 
+    fileprivate var interactiveGlassSourceView: UIView? {
+        guard #available(iOS 26, *), isInteractive,
+              let glassView = glassView as? UIVisualEffectView,
+              glassView.effect is UIGlassEffect else {
+            return nil
+        }
+        return glassView
+    }
+
     public init(style: Style, cornerRadius: CGFloat, isInteractive: Bool = false) {
         self.style = style
         self.cornerRadius = cornerRadius
@@ -904,7 +1034,7 @@ public final class WCapsuleGlassBackgroundView: UIView {
         switch style {
         case .colorHeader:
             if #available(iOS 27, *) {
-                let effect = UIGlassEffect()
+                let effect = UIGlassEffect(style: .regular)
                 effect.isInteractive = isInteractive
                 let view = UIVisualEffectView(effect: effect)
                 addSubview(view)

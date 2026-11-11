@@ -32,6 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client;
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistories;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole;
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentNewsChatRequest;
@@ -126,11 +127,15 @@ public class AgentNewsFeedViewportTest {
         Context.class,
         Class.forName("org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary"),
         Class.forName("org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentPromptChatRequest"),
-        AgentNewsChatRequest.class, Function1.class, Function1.class
-      ).newInstance(context, null, null, request, null, null));
+        AgentNewsChatRequest.class, boolean.class, Function1.class, Function1.class, String.class
+      ).newInstance(context, null, null, request, false, null, null, null));
       try {
         assertNull(field(controller, "preparedVM"));
         invoke(controller, "rebuildTimeline");
+        List<?> initialItems = (List<?>) field(controller, "timelineItems");
+        assertEquals("Message", initialItems.get(initialItems.size() - 1).getClass().getSimpleName());
+        List<?> timers = (List<?>) field(invoke(controller, "getNewsFollowupWait"), "timers");
+        ((Runnable) timers.get(0)).run();
         ViewGroup recycler = (ViewGroup) field(controller, "chatRecyclerView");
         layoutViewport(recycler);
 
@@ -183,8 +188,7 @@ public class AgentNewsFeedViewportTest {
         assertTrue("Replacing loading suggestions must not reset the news viewport", updatedInPlace);
         checkReadFailureKeepsNewsPreviewVisible(controller, (AgentMessage) hydratedPost);
       } finally {
-        Runnable timeout = (Runnable) field(controller, "newsFollowupsTimeout");
-        if (timeout != null) ((View) invoke(controller, "getView")).removeCallbacks(timeout);
+        invoke(invoke(controller, "getNewsFollowupWait"), "cancel");
       }
     });
   }
@@ -199,8 +203,10 @@ public class AgentNewsFeedViewportTest {
     CoroutineScope scope = CoroutineScopeKt.MainScope();
     CoroutineScopeKt.cancel(scope, null);
     AgentVM model = new AgentVM(null, new LiveAgentV2Client(), new AgentV2ThreadSummary(
-      "preview-thread", 1, null, null, null, null, 0, null, null, null, null, null
-    ), Collections.singletonList(failure), null, scope, null, () -> 0L);
+      "preview-thread", 1, null, null, null, null, 0, null, null, null, null, null, null
+    ), Collections.singletonList(failure), null, false,
+      new AgentCachedHistories(scope, () -> null, (threadId, continuation) -> null),
+      scope, null, () -> 0L, () -> 0L);
     try {
       setField(model, "state", AgentVM.State.ERROR);
       setField(controller, "preparedVM", model);
@@ -407,8 +413,8 @@ public class AgentNewsFeedViewportTest {
   private static Object controller(Context context) {
     return reflect(() -> Class.forName(
       "org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedVC"
-    ).getConstructor(Context.class, Integer.class, Function1.class, List.class).newInstance(
-      context, null, (Function1<String, Object>) threadId -> null, Collections.emptyList()
+    ).getConstructor(Context.class, Integer.class, Function1.class, List.class, String.class).newInstance(
+      context, null, (Function1<String, Object>) threadId -> null, Collections.emptyList(), null
     ));
   }
 

@@ -29,23 +29,30 @@ import org.mytonwallet.app_air.uiagent.agentV2.AgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2HostContextProvider
 import org.mytonwallet.app_air.uiagent.agentV2.AgentV2OperationException
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsDigestSchedule
+import org.mytonwallet.app_air.uiagent.viewControllers.news.AgentNewsFeedClient
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
 import org.mytonwallet.app_air.walletcontext.globalStorage.IGlobalStorageProvider
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2CachedMessages
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationError
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsDigestHeadline
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2PersistedMessage
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2StarterHint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestCard
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
@@ -77,6 +84,81 @@ class AgentNewChatLoaderTest {
         assertEquals(emptyThread, loader.load(shouldAcceptConsent = true)?.thread)
         assertEquals(emptyThread, loader.load()?.thread)
         assertEquals(listOf("consent", "create", "create"), calls)
+    }
+
+    @Test
+    fun newsDiscussionCreatesItsThreadBeforeConsent() = runBlocking {
+        val news = AgentV2ThreadNewsRequest(42, "en")
+        val requests = mutableListOf<AgentV2ThreadNewsRequest?>()
+        val loader = AgentNewChatLoader(
+            consent = { error("A news discussion opens without asking for consent") },
+            acceptConsent = { error("Opening a news discussion never records consent") },
+            createThread = {
+                requests += it
+                AgentV2ThreadSummary("news", 1)
+            },
+            news = news
+        )
+
+        assertEquals("news", loader.load()?.thread?.id)
+        assertEquals(listOf<AgentV2ThreadNewsRequest?>(news), requests)
+    }
+
+    @Test
+    fun digestOpeningCreatesAndLoadsItsPostBeforeConsentAndStaysUnstarted() = runBlocking {
+        val digestId = "ru:2026-11-08T18:00:00.000Z"
+        val thread = AgentV2ThreadSummary(
+            "digest",
+            1,
+            messageCount = 1,
+            digest = AgentV2ThreadDigestCard(
+                digestId,
+                "2026-11-08T18:00:00.000Z",
+                1,
+                listOf(AgentV2NewsDigestHeadline(42, "Headline"))
+            )
+        )
+        val client = FakeNewsClient(thread).apply { hasConsent = false }
+        val opening = AgentChatOpening(digestId = digestId, client = client)
+        assertEquals(thread, opening.create())
+        assertEquals(listOf(AgentV2ThreadDigestRequest(digestId)), client.digestRequests)
+        assertFalse(opening.isConsentRequired)
+        assertEquals(0, client.acceptedConsentCount)
+        val modelScope = CoroutineScope(coroutineContext + SupervisorJob())
+        val model = modelScope.newModel(client, thread)
+        try {
+            awaitReady(model)
+            assertEquals(1, client.messageRequests)
+            assertFalse(model.isThreadStarted)
+            assertTrue(model.visibleHints.isEmpty())
+        } finally {
+            model.onDestroy()
+            modelScope.coroutineContext[Job]!!.cancelAndJoin()
+        }
+    }
+
+    @Test
+    fun newsPushOpeningUsesFeedLocaleForCurrentLanguage() = runBlocking {
+        val client = FakeNewsClient(newsThread()).apply { hasConsent = false }
+        val languages = mutableListOf<String>()
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42),
+            client = client,
+            feedClient = object : AgentNewsFeedClient {
+                override suspend fun getNewsFeed(
+                    lang: String,
+                    cursor: String?,
+                    schedule: AgentNewsDigestSchedule
+                ): AgentV2NewsFeedPage {
+                    languages += lang
+                    assertNull(cursor)
+                    return AgentV2NewsFeedPage("ru", emptyList())
+                }
+            }
+        )
+        assertEquals("news-thread", opening.create()?.id)
+        assertEquals(listOf(LocaleController.activeLanguage.langCode), languages)
+        assertEquals(listOf(AgentV2ThreadNewsRequest(42, "ru")), client.newsRequests)
     }
 
     @Test
@@ -146,7 +228,7 @@ class AgentNewChatLoaderTest {
             model.onBridgeUpdate(
                 ApiUpdate.ApiUpdateAgentV2(
                     AgentV2Update.RunStarted(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run",
                         thread.id,
                         thread.revision,
@@ -157,7 +239,7 @@ class AgentNewChatLoaderTest {
             model.onBridgeUpdate(
                 ApiUpdate.ApiUpdateAgentV2(
                     AgentV2Update.MessageStarted(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run",
                         thread.id,
                         "answer-sdk",
@@ -168,7 +250,7 @@ class AgentNewChatLoaderTest {
             model.onBridgeUpdate(
                 ApiUpdate.ApiUpdateAgentV2(
                     AgentV2Update.TextDelta(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run",
                         thread.id,
                         "answer-sdk",
@@ -228,7 +310,7 @@ class AgentNewChatLoaderTest {
             model.onBridgeUpdate(
                 ApiUpdate.ApiUpdateAgentV2(
                     AgentV2Update.RunFailed(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run",
                         thread.id,
                         "thread_revision_conflict",
@@ -315,28 +397,28 @@ class AgentNewChatLoaderTest {
             fun answer(index: Int) {
                 val updates = listOf(
                     AgentV2Update.RunStarted(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run-$index",
                         firstThread.id,
                         firstThread.revision,
                         "user-sdk-$index"
                     ),
                     AgentV2Update.MessageStarted(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run-$index",
                         firstThread.id,
                         "answer-sdk-$index",
                         "markdown"
                     ),
                     AgentV2Update.TextDelta(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run-$index",
                         firstThread.id,
                         "answer-sdk-$index",
                         "Answer $index"
                     ),
                     AgentV2Update.MessageCompleted(
-                        "run",
+                        client.startedRunIds.last(),
                         "server-run-$index",
                         firstThread.id,
                         "answer-sdk-$index",
@@ -752,15 +834,33 @@ class AgentNewChatLoaderTest {
             )
             listOf(
                 AgentV2Update.RunStarted(
-                    "run",
+                    client.startedRunIds.last(),
                     "server-run",
                     thread.id,
                     thread.revision,
                     "question"
                 ),
-                AgentV2Update.MessageStarted("run", "server-run", thread.id, "answer", "markdown"),
-                AgentV2Update.TextDelta("run", "server-run", thread.id, "answer", "News analysis"),
-                AgentV2Update.MessageCompleted("run", "server-run", thread.id, "answer", "complete")
+                AgentV2Update.MessageStarted(
+                    client.startedRunIds.last(),
+                    "server-run",
+                    thread.id,
+                    "answer",
+                    "markdown"
+                ),
+                AgentV2Update.TextDelta(
+                    client.startedRunIds.last(),
+                    "server-run",
+                    thread.id,
+                    "answer",
+                    "News analysis"
+                ),
+                AgentV2Update.MessageCompleted(
+                    client.startedRunIds.last(),
+                    "server-run",
+                    thread.id,
+                    "answer",
+                    "complete"
+                )
             ).forEach { model.onBridgeUpdate(ApiUpdate.ApiUpdateAgentV2(it)) }
             runFinished.complete(Unit)
             awaitReady(model)
@@ -770,6 +870,61 @@ class AgentNewChatLoaderTest {
             assertTrue(client.hintRequests.isEmpty())
         } finally {
             runFinished.complete(Unit)
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun newsReadsItsPostBeforeConsentAndSendsASuggestionOnlyOnceAllowed() = runBlocking {
+        val runStarted = CompletableDeferred<Unit>()
+        val thread = newsThread().copy(messageCount = 1)
+        val followup = AgentV2FollowUp("news-followup", "suggested_prompt", "Why does this matter?")
+        val savedPost = AgentV2PersistedMessage(
+            "post",
+            thread.id,
+            "assistant",
+            "complete",
+            content = AgentV2MessageContent.Markdown("**Server headline**\n\nNews body"),
+            createdAt = "2026-10-20T00:00:00Z",
+            followups = listOf(followup),
+            newsPost = true
+        )
+        val client = FakeNewsClient(thread, listOf(savedPost)).apply {
+            hasConsent = false
+            onStartRun = { runStarted.complete(Unit) }
+        }
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "Feed headline"),
+            client = client
+        )
+
+        val createdThread = checkNotNull(opening.create())
+        assertFalse(opening.isConsentRequired)
+        assertEquals(listOf(AgentV2ThreadNewsRequest(42, "en")), client.newsRequests)
+        val model = newModel(client, createdThread, opening)
+        try {
+            awaitReady(model)
+            assertEquals(false, model.hasConsent)
+            assertFalse(model.isThreadStarted)
+            val post = model.messages.single()
+            assertTrue(post.newsPost)
+            assertEquals(listOf(followup), model.visibleFollowups(post.id))
+            assertEquals(0, client.acceptedConsentCount)
+            assertTrue(client.sent.isEmpty())
+
+            // The consent sheet stores the consent, then hands it to the chat
+            client.acceptConsent()
+            model.acceptConsent()
+            assertEquals(true, model.hasConsent)
+            assertEquals(AgentVM.State.READY, model.state)
+            assertFalse(model.isThreadStarted)
+            assertTrue(model.sendFollowup(post.id, followup.id))
+            // The question counts at once, before the list learns of it
+            assertTrue(model.isThreadStarted)
+            withTimeout(1_000) { runStarted.await() }
+            assertEquals(listOf(followup.text to null), client.sent)
+            assertEquals(1, client.acceptedConsentCount)
+        } finally {
             model.onDestroy()
         }
     }
@@ -1199,6 +1354,102 @@ class AgentNewChatLoaderTest {
         }
     }
 
+    @Test
+    fun newsDiscussionOffersAProblemReportBeforeItsThreadAndSendsAHeldReportOnce() = runBlocking {
+        val created = CompletableDeferred<Unit>()
+        val client = FakeNewsClient(newsThread()).apply {
+            onCreate = { created.await() }
+            isProblemReportAvailable = true
+        }
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "News"),
+            client = client
+        )
+        val creation = async { opening.create() }
+        opening.readConsent()
+        withTimeout(1_000) {
+            while (!opening.isCreating) yield()
+        }
+        // The thread is still being created, and the server hasn't been asked whether it takes reports
+        assertTrue(opening.canReportProblem)
+        val results = mutableListOf<Boolean>()
+        opening.reportProblem("Wrong summary") { results += it }
+        yield()
+        assertTrue(results.isEmpty())
+
+        created.complete(Unit)
+        val thread = checkNotNull(creation.await())
+        val model = newModel(client, thread, opening)
+        try {
+            opening.releaseHeldReports { comment, onResult ->
+                model.reportProblem(null, comment, onResult)
+            }
+            opening.releaseHeldReports { _, _ -> fail("A held report is handed over once") }
+            withTimeout(1_000) {
+                while (results.isEmpty()) yield()
+            }
+            assertEquals(listOf(true), results)
+            assertEquals(listOf(thread.id to "Wrong summary"), client.reports)
+        } finally {
+            model.onDestroy()
+        }
+    }
+
+    @Test
+    fun failedNewsDiscussionFailsItsHeldProblemReport() = runBlocking {
+        val created = CompletableDeferred<Unit>()
+        val client = FakeNewsClient(newsThread()).apply {
+            onCreate = {
+                created.await()
+                error("offline")
+            }
+        }
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "News"),
+            client = client
+        )
+        val creation = async { opening.create() }
+        opening.readConsent()
+        withTimeout(1_000) {
+            while (!opening.isCreating) yield()
+        }
+        val results = mutableListOf<Boolean>()
+        opening.reportProblem("Wrong summary") { results += it }
+
+        created.complete(Unit)
+        assertNull(creation.await())
+        assertEquals(listOf(false), results)
+        assertFalse(opening.canReportProblem)
+        assertTrue(client.reports.isEmpty())
+    }
+
+    @Test
+    fun chatOpeningOffersAProblemReportFromItsFirstFrameWithTheConsentTheAppKnows() = runBlocking {
+        val client = FakeNewsClient(newsThread()).apply {
+            isConsentKnownGiven = true
+            hasConsent = false
+        }
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "News"),
+            client = client
+        )
+        assertTrue(opening.canReportProblem)
+        // The opening's own read decides
+        opening.readConsent()
+        assertFalse(opening.canReportProblem)
+    }
+
+    @Test
+    fun newsDiscussionOffersNoProblemReportBeforeConsent() = runBlocking {
+        val client = FakeNewsClient(newsThread()).apply { hasConsent = false }
+        val opening = AgentChatOpening(
+            news = AgentNewsChatRequest(42, "en", "News"),
+            client = client
+        )
+        opening.readConsent()
+        assertFalse(opening.canReportProblem)
+    }
+
     private fun CoroutineScope.newModel(
         client: AgentV2Client,
         thread: AgentV2ThreadSummary,
@@ -1212,6 +1463,7 @@ class AgentNewChatLoaderTest {
             initialOpeningEntryPoint = opening?.entryPoint?.takeIf {
                 opening.messages.isNotEmpty()
             },
+            cachedHistories = AgentCachedHistories(this) { null },
             scope = modelScope,
             contextProvider = AgentV2HostContextProvider(client, modelScope) {
                 AgentHostContextSnapshot(null, JSONObject())
@@ -1247,6 +1499,7 @@ class AgentNewChatLoaderTest {
         private val history: List<AgentV2PersistedMessage> = emptyList()
     ) : AgentV2Client by LiveAgentV2Client() {
         val newsRequests = mutableListOf<AgentV2ThreadNewsRequest?>()
+        val digestRequests = mutableListOf<AgentV2ThreadDigestRequest?>()
         val hintRequests = mutableListOf<String?>()
         val sent = mutableListOf<Pair<String, AgentV2EntryPoint?>>()
         val sentFollowups = mutableListOf<AgentV2FollowUpReference?>()
@@ -1259,11 +1512,15 @@ class AgentNewChatLoaderTest {
         var onUpdateHostContext: suspend () -> Unit = {}
         var onClear: suspend () -> Unit = {}
         var onStartRun: suspend () -> Unit = {}
+        val startedRunIds = mutableListOf<String>()
         var hasConsent = true
         var acceptedConsentCount = 0
             private set
         var messageRequests = 0
             private set
+        var isProblemReportAvailable = false
+        val reports = mutableListOf<Pair<String, String?>>()
+        override var isConsentKnownGiven = false
 
         override suspend fun consent(): Boolean {
             onConsent()
@@ -1274,7 +1531,10 @@ class AgentNewChatLoaderTest {
             hasConsent = true
         }
         override suspend fun updateHostContext(context: JSONObject?) = onUpdateHostContext()
-        override suspend fun problemReportAvailability() = false
+        override suspend fun problemReportAvailability() = isProblemReportAvailable
+        override suspend fun reportProblem(threadId: String, messageId: String?, comment: String?) {
+            reports += threadId to comment
+        }
 
         override suspend fun hints(langCode: String?): AgentV2HintsResponse {
             hintRequests += langCode
@@ -1282,9 +1542,11 @@ class AgentNewChatLoaderTest {
         }
 
         override suspend fun createThread(
-            news: AgentV2ThreadNewsRequest?
+            news: AgentV2ThreadNewsRequest?,
+            digest: AgentV2ThreadDigestRequest?
         ): AgentV2ThreadCreateResponse {
             newsRequests += news
+            digestRequests += digest
             onCreate()
             return AgentV2ThreadCreateResponse(thread, created = false)
         }
@@ -1307,6 +1569,8 @@ class AgentNewChatLoaderTest {
             return AgentV2ThreadHydration(thread, history)
         }
 
+        override suspend fun getCachedMessages(threadId: String): AgentV2CachedMessages? = null
+
         override suspend fun clearThread(threadId: String, revision: Int): AgentV2ThreadResponse {
             assertEquals(thread.id, threadId)
             onClear()
@@ -1316,6 +1580,7 @@ class AgentNewChatLoaderTest {
         }
 
         override suspend fun startRun(
+            clientRunId: String,
             threadId: String?,
             revision: Int,
             text: String,
@@ -1328,8 +1593,9 @@ class AgentNewChatLoaderTest {
             sent += text to entryPoint
             sentFollowups += followupOf
             sentRevisions += revision
+            startedRunIds += clientRunId
             onStartRun()
-            return AgentV2RunResult("run", state = "completed")
+            return AgentV2RunResult(clientRunId, state = "completed")
         }
     }
 

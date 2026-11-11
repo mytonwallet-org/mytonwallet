@@ -71,10 +71,7 @@ final class TokenTradeModel {
             return OnRampCurrencyPolicy.supportedCurrencies(for: token.chain)
         }
         guard token.chain.isOfframpSupported, !ConfigStore.shared.shouldRestrictSell else { return [] }
-        let allowed = ConfigStore.shared.config?.allowedOnOffRampCurrencies
-        return Moonpay.Offramp.supportedCurrencies.filter { currency in
-            allowed?.contains { $0.uppercased() == currency.rawValue } ?? true
-        }
+        return Moonpay.Offramp.supportedCurrencies
     }
 
     var maximumTokenAmount: TokenAmount? {

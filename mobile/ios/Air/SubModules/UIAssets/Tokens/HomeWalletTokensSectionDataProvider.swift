@@ -145,6 +145,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     // stable when UIKit reconfigures it, including after moves or an account switch.
     private lazy var tokenRegistrations = (0..<(3 * HomeWalletVisibleTokensLimit.top30.rawValue)).map { _ in
         UICollectionView.CellRegistration<WalletTokenCell, String> { [weak self] cell, _, identifier in
+            cell.accessibilityIdentifier = "home_token_row"
             guard let self, let accountId = ItemIdentifier.tokenAccountId(identifier),
                   let item = tokenItem(for: identifier, accountId: accountId) else {
                 cell.setContextMenuInteraction(nil)

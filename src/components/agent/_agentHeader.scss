@@ -7,7 +7,7 @@
   --header-padding-bottom: 0rem;
 
   @include mixins.respond-below(xs) {
-    // Fix for Opera, dead zone of 37 pixels in extension window on Windows
+    // Opera's extension window on Windows has a dead zone of 37 pixels at the top
     :global(html.is-windows.is-opera.is-extension) & {
       --header-padding-top: 2.3125rem;
     }

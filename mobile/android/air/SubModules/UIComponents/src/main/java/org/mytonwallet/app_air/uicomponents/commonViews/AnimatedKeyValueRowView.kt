@@ -67,6 +67,14 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
             rebuild()
         }
 
+    var isValueError: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            updateTheme()
+            invalidate()
+        }
+
     fun setTitleAndValue(title: String?, value: String?, animated: Boolean = true) {
         _title = title
         _value = value
@@ -230,7 +238,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
     override fun updateTheme() {
         rippleDrawable.setColor(ColorStateList.valueOf(WColor.backgroundRippleColor))
         titleTextPaint.color = WColor.SecondaryText.color
-        valueTextPaint.color = WColor.PrimaryText.color
+        valueTextPaint.color = if (isValueError) WColor.Red.color else WColor.PrimaryText.color
         titleDrawable?.setTint(WColor.SecondaryText.color)
         valueDrawable?.setTint(WColor.SecondaryText.color)
     }

@@ -17,7 +17,10 @@ import type { TextRevealPresentations } from './textRevealPresentation';
 
 import { AgentClientTrace, type ClientTimingEvent } from '../../../api/agentV2/developmentTelemetry';
 import * as developmentTiming from './agentDevelopmentTiming';
-import { createAgentV2HydrationController } from './agentV2HydrationController';
+import {
+  type AgentV2HydrationControllerDependencies,
+  createAgentV2HydrationController,
+} from './agentV2HydrationController';
 import {
   INITIAL_AGENT_V2_MESSAGES_STATE,
   reduceAgentV2MessagesState,
@@ -60,11 +63,11 @@ describe('Agent V2 controllers', () => {
     const stream = createStreamHarness(state);
 
     stream.publish({ ...messageStarted(), responseLanguage: 'ru' as const });
-    const persisted = stream.controller.mapPersistedMessageEntry({
+    const [persisted] = stream.controller.mapPersistedMessageEntries([{
       ...persistedMessage('English response'),
       id: '77777777-7777-4777-8777-777777777777',
       responseLanguage: 'en',
-    });
+    }]);
 
     expect(state.getState().messages[0].responseLanguage).toBe('ru');
     expect(persisted.message.responseLanguage).toBe('en');
@@ -79,13 +82,29 @@ describe('Agent V2 controllers', () => {
     stream.publish({ kind: 'answerLinkAdded', ...routing(), messageId: ASSISTANT_MESSAGE_ID, link });
     stream.publish({ kind: 'answerLinkAdded', ...routing(), messageId: ASSISTANT_MESSAGE_ID,
       link: { ...link, textOffset: 5 } });
-    const persisted = stream.controller.mapPersistedMessageEntry({
+    const [persisted] = stream.controller.mapPersistedMessageEntries([{
       ...persistedMessage('Help'),
       content: { kind: 'markdown', text: 'Help', links: [link] },
-    });
+    }]);
 
     expect(state.getState().messages[0].links).toEqual([link, { ...link, textOffset: 5 }]);
     expect(persisted.message.links).toEqual([link]);
+  });
+
+  it('shows a stopped answer from the history without its suggestions, and not at all when it showed nothing', () => {
+    const state = createStateHarness();
+    const stream = createStreamHarness(state);
+    const followup = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', kind: 'suggested_prompt' as const, text: 'More?' };
+
+    const entries = stream.controller.mapPersistedMessageEntries([
+      { ...persistedMessage('Partial'), status: 'cancelled', followups: [followup] },
+      { ...persistedMessage(' '), id: '77777777-7777-4777-8777-777777777777', status: 'cancelled' },
+      { ...persistedMessage('Complete'), id: '88888888-8888-4888-8888-888888888888', followups: [followup] },
+    ]);
+
+    expect(entries.map(({ message }) => message.text)).toEqual(['Partial', 'Complete']);
+    expect(entries[0].message.followups).toBeUndefined();
+    expect(entries[1].message.followups).toEqual([followup]);
   });
 
   it('owns stream IDs, RAF batching and terminal disposal', () => {
@@ -161,6 +180,7 @@ describe('Agent V2 controllers', () => {
       getMessages,
       getState: state.getState,
       isConsentAccepted: () => true,
+      isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
       mapHints: () => [],
@@ -202,6 +222,81 @@ describe('Agent V2 controllers', () => {
     expect(reportIncompatibleMessages).toHaveBeenCalledTimes(1);
   });
 
+  it('reads back latest pages until they reach a shown message, without duplicates', async () => {
+    const state = createStateHarness(supportChatState());
+    const getMessages = jest.fn()
+      .mockResolvedValueOnce(historyPage(['m5', 'm6'], 'cursor-b', 3))
+      .mockResolvedValueOnce(historyPage(['m3', 'm4'], 'cursor-c'))
+      .mockResolvedValueOnce(historyPage(['m1', 'm2'], 'cursor-d'));
+    const controller = createHydrationHarness(state, getMessages);
+
+    await controller.refreshLatestMessages();
+
+    expect(getMessages.mock.calls).toEqual([[THREAD_ID, undefined], [THREAD_ID, 'cursor-b'], [THREAD_ID, 'cursor-c']]);
+    expect(state.getState().messages.map(({ text }) => text)).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6']);
+    expect(state.getState().thread?.revision).toBe(3);
+    expect(state.getState().nextCursor).toBe('older-cursor');
+  });
+
+  it('stops reading back latest pages at the page limit and keeps what is shown', async () => {
+    const state = createStateHarness(supportChatState());
+    const getMessages = jest.fn((_: string, cursor?: string) => {
+      const page = cursor ? Number(cursor) : 0;
+      return Promise.resolve(historyPage([`new-${page}`], String(page + 1)));
+    });
+    const controller = createHydrationHarness(state, getMessages);
+
+    await controller.refreshLatestMessages();
+
+    expect(getMessages).toHaveBeenCalledTimes(10);
+    expect(state.getState().messages.map(({ text }) => text)).toEqual([
+      'm1', 'm2', ...Array.from({ length: 10 }, (_, i) => `new-${9 - i}`),
+    ]);
+  });
+
+  it('reads the latest page once an older page reports support closure, after loading finishes', async () => {
+    const state = createStateHarness({ ...supportChatState(), nextCursor: 'older-cursor' });
+    const getMessages = jest.fn()
+      .mockResolvedValueOnce(historyPage(['m0'], undefined, 1, { state: 'closed' }))
+      .mockResolvedValue(historyPage(['m1', 'm2', 'closing-event'], undefined, 2, { state: 'closed' }));
+    const controller = createHydrationHarness(state, getMessages);
+    state.dispatch({ kind: 'consentLoadingStarted' });
+
+    await controller.loadOlderMessages();
+    expect(getMessages).toHaveBeenCalledTimes(1);
+
+    state.dispatch({ kind: 'hydrationFailed' });
+    await flushPromises();
+    state.dispatch({ kind: 'hydrationFailed' });
+    await flushPromises();
+
+    expect(getMessages).toHaveBeenCalledTimes(2);
+    expect(getMessages).toHaveBeenLastCalledWith(THREAD_ID, undefined);
+    expect(state.getState().messages.map(({ text }) => text)).toEqual(['m0', 'm1', 'm2', 'closing-event']);
+    expect(state.getState().thread?.support).toEqual({ state: 'closed' });
+  });
+
+  it('reads the latest page after an in-flight refresh returns older than a closure from an older page', async () => {
+    const state = createStateHarness(supportChatState());
+    const poll = createDeferred<AgentV2MutationResult<AgentV2ThreadHydration> | undefined>();
+    const getMessages = jest.fn()
+      .mockReturnValueOnce(poll.promise)
+      .mockResolvedValueOnce(historyPage(['m0'], undefined, 2, { state: 'closed' }))
+      .mockResolvedValue(historyPage(['m1', 'm2', 'closing-event'], undefined, 2, { state: 'closed' }));
+    const controller = createHydrationHarness(state, getMessages);
+
+    const polling = controller.refreshLatestMessages();
+    await controller.loadOlderMessages();
+    expect(getMessages).toHaveBeenCalledTimes(2);
+    poll.resolve(historyPage(['m1', 'm2', 'stale'], undefined, 1));
+    await polling;
+    await flushPromises();
+
+    expect(getMessages).toHaveBeenCalledTimes(3);
+    expect(getMessages).toHaveBeenLastCalledWith(THREAD_ID, undefined);
+    expect(state.getState().messages.map(({ text }) => text)).toEqual(['m0', 'm1', 'm2', 'closing-event']);
+  });
+
   it('reports incompatible messages without failing authoritative hydration', async () => {
     const state = createStateHarness({
       ...INITIAL_AGENT_V2_MESSAGES_STATE,
@@ -220,6 +315,7 @@ describe('Agent V2 controllers', () => {
       getMessages: () => Promise.resolve(hydration),
       getState: state.getState,
       isConsentAccepted: () => true,
+      isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
       mapHints: () => [],
@@ -256,6 +352,7 @@ describe('Agent V2 controllers', () => {
       getMessages: () => Promise.resolve({ ok: false, error: { code: 'thread_not_found', retryable: false } }),
       getState: state.getState,
       isConsentAccepted: () => true,
+      isChatVisible: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
       mapHints: () => [],
@@ -278,7 +375,7 @@ describe('Agent V2 controllers', () => {
     });
     const stream = createStreamHarness(state);
     const runResult = createDeferred<AgentV2RunResult | undefined>();
-    const hydrate = jest.fn(() => Promise.resolve());
+    const hydrate = jest.fn(() => Promise.resolve(true));
     const controller = createAgentV2RunController({
       buildConnectionError: () => 'Connection interrupted',
       clearThread: () => Promise.resolve(undefined),
@@ -290,6 +387,7 @@ describe('Agent V2 controllers', () => {
       retryRun: () => Promise.resolve(undefined),
       resetHistory: jest.fn(),
       startRun: () => runResult.promise,
+      stopRun: () => Promise.resolve(),
       stream: stream.controller,
       hideSecretPhrases: (text) => text,
     });
@@ -330,7 +428,7 @@ describe('Agent V2 controllers', () => {
     const runResult = createDeferred<AgentV2RunResult | undefined>();
     const clearResult = createDeferred<AgentV2MutationResult<AgentThreadClearResponseV2> | undefined>();
     const clearThread = jest.fn(() => clearResult.promise);
-    const hydrate = jest.fn(() => Promise.resolve());
+    const hydrate = jest.fn(() => Promise.resolve(true));
     const controller = createAgentV2RunController({
       buildConnectionError: () => 'Connection interrupted',
       clearThread,
@@ -342,6 +440,7 @@ describe('Agent V2 controllers', () => {
       retryRun: () => Promise.resolve(undefined),
       resetHistory: jest.fn(),
       startRun: () => runResult.promise,
+      stopRun: () => Promise.resolve(),
       stream: stream.controller,
       hideSecretPhrases: (text) => text,
     });
@@ -418,11 +517,12 @@ describe('Agent V2 controllers', () => {
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
       getState: state.getState,
-      hydrate: () => Promise.resolve(),
+      hydrate: () => Promise.resolve(true),
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
       resetHistory: jest.fn(),
       startRun,
+      stopRun: () => Promise.resolve(),
       stream: stream.controller,
       hideSecretPhrases: (text) => text.replace('creek aisle average', '[removed]'),
     });
@@ -434,14 +534,14 @@ describe('Agent V2 controllers', () => {
     );
     expect(startRun).toHaveBeenLastCalledWith(expect.objectContaining({
       input: { kind: 'append', text: 'My words: [removed]. Is my wallet safe?' },
-    }));
+    }), expect.any(Function));
     await flushPromises();
 
     controller.sendMessage('Edited: creek aisle average', editedMessageId);
 
     expect(startRun).toHaveBeenLastCalledWith(expect.objectContaining({
       input: { kind: 'edit', targetUserMessageId: INPUT_MESSAGE_ID, text: 'Edited: [removed]' },
-    }));
+    }), expect.any(Function));
   });
 
   it('ignores a run result that settles after disposal', async () => {
@@ -457,11 +557,12 @@ describe('Agent V2 controllers', () => {
       dispatch: state.dispatch,
       getErrorText: () => 'Run failed',
       getState: state.getState,
-      hydrate: () => Promise.resolve(),
+      hydrate: () => Promise.resolve(true),
       now: () => 100,
       retryRun: () => Promise.resolve(undefined),
       resetHistory: jest.fn(),
       startRun: () => runResult.promise,
+      stopRun: () => Promise.resolve(),
       stream: stream.controller,
       hideSecretPhrases: (text) => text,
     });
@@ -480,6 +581,68 @@ describe('Agent V2 controllers', () => {
     expect(state.actions).toHaveLength(actionCount);
   });
 });
+
+function supportChatState(): AgentV2MessagesState {
+  return {
+    ...INITIAL_AGENT_V2_MESSAGES_STATE,
+    isConsentAccepted: true,
+    hasHydratedHistory: true,
+    thread: { ...threadSummary(1), support: { state: 'operator' } },
+    messages: [
+      { id: 101, text: 'm1', isOutgoing: true, timestamp: 1 },
+      { id: 102, text: 'm2', isOutgoing: false, timestamp: 2 },
+    ],
+    sourceIdByMessageId: { 101: 'm1', 102: 'm2' },
+    nextCursor: 'older-cursor',
+  };
+}
+
+function historyPage(
+  ids: string[],
+  nextCursor?: string,
+  revision = 1,
+  support: AgentThreadSummaryV2['support'] = { state: 'operator' },
+): Extract<AgentV2MutationResult<AgentV2ThreadHydration>, { ok: true }> {
+  return {
+    ok: true,
+    value: {
+      thread: { ...threadSummary(revision), support },
+      messages: ids.map((id) => ({ ...persistedMessage(id), id })),
+      nextCursor,
+    },
+  };
+}
+
+function createHydrationHarness(
+  state: ReturnType<typeof createStateHarness>,
+  getMessages: AgentV2HydrationControllerDependencies['getMessages'],
+) {
+  const stream = createStreamHarness(state);
+  // Like the chat hook, every state change gives a deferred latest refresh its chance to run
+  const dispatch = state.dispatch;
+  state.dispatch = (action) => {
+    dispatch(action);
+    controller.resumeLatestRefresh();
+  };
+  const controller = createAgentV2HydrationController({
+    buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
+    dispatch: (action) => state.dispatch(action),
+    resolveThreadId: () => Promise.resolve({ ok: true, value: THREAD_ID }),
+    getHints: () => Promise.resolve(undefined),
+    getLangCode: () => 'en',
+    getMessages,
+    getState: state.getState,
+    isConsentAccepted: () => true,
+    isChatVisible: () => true,
+    loadAvailability: () => Promise.resolve(undefined),
+    loadUserQuota: () => Promise.resolve(undefined),
+    mapHints: () => [],
+    now: () => 100,
+    releaseStaleThreadClearOperation: jest.fn(),
+    stream: stream.controller,
+  });
+  return controller;
+}
 
 function createStateHarness(initial: AgentV2MessagesState = INITIAL_AGENT_V2_MESSAGES_STATE) {
   let state = initial;

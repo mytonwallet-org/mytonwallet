@@ -32,6 +32,7 @@ public class DefaultZoomableController
     public static final int LIMIT_TRANSLATION_Y = 2;
     public static final int LIMIT_SCALE = 4;
     public static final int LIMIT_ALL = LIMIT_TRANSLATION_X | LIMIT_TRANSLATION_Y | LIMIT_SCALE;
+    private static final float OVERZOOM_POWER = 1f / 3;
     private static final float EPS = 1e-3f;
     private static final Class<?> TAG = DefaultZoomableController.class;
     private static final RectF IDENTITY_RECT = new RectF(0, 0, 1, 1);
@@ -57,6 +58,11 @@ public class DefaultZoomableController
     private float mMinScaleFactor = 1.0f;
     private float mMaxScaleFactor = 2.0f;
     private boolean mWasTransformCorrected;
+    private boolean mIsOverzoomEnabled = false;
+    // The scale a pinch asks for, past the limits included, and that and the shown scale as its gesture (re)started
+    private float mRawScale = 1.0f;
+    private float mGestureStartRawScale = 1.0f;
+    private float mGestureStartScale = 1.0f;
 
     public DefaultZoomableController(TransformGestureDetector gestureDetector) {
         mGestureDetector = gestureDetector;
@@ -89,6 +95,7 @@ public class DefaultZoomableController
         mGestureDetector.reset();
         mPreviousTransform.reset();
         mActiveTransform.reset();
+        mRawScale = 1.0f;
         onTransformChanged();
     }
 
@@ -183,6 +190,18 @@ public class DefaultZoomableController
      */
     public void setMaxScaleFactor(float maxScaleFactor) {
         mMaxScaleFactor = maxScaleFactor;
+    }
+
+    /**
+     * Lets a pinch scale past the limits, slowed as an overscroll is, until the pinch ends: Telegram's photo viewer.
+     * Telegram slows a drag past an edge to a third, so the scale past a limit grows as the cube root of the pinch's.
+     */
+    public void setOverzoomEnabled(boolean enabled) {
+        mIsOverzoomEnabled = enabled;
+    }
+
+    public boolean isOverzoomEnabled() {
+        return mIsOverzoomEnabled;
     }
 
     /**
@@ -300,6 +319,7 @@ public class DefaultZoomableController
     public void setTransform(Matrix newTransform) {
         FLog.v(TAG, "setTransform");
         mActiveTransform.set(newTransform);
+        mRawScale = getMatrixScaleFactor(mActiveTransform);
         onTransformChanged();
     }
 
@@ -439,6 +459,8 @@ public class DefaultZoomableController
     public void onGestureBegin(TransformGestureDetector detector) {
         FLog.v(TAG, "onGestureBegin");
         mPreviousTransform.set(mActiveTransform);
+        mGestureStartScale = getMatrixScaleFactor(mActiveTransform);
+        mGestureStartRawScale = mRawScale;
         onTransformBegin();
         // We only received a touch down event so far, and so we don't know yet in which direction a
         // future move event will follow. Therefore, if we can't scroll in all directions, we have to
@@ -484,10 +506,15 @@ public class DefaultZoomableController
         }
         if (mIsScaleEnabled) {
             float scale = detector.getScale();
+            if (mIsOverzoomEnabled) {
+                mRawScale = mGestureStartRawScale * scale;
+                scale = overzoomScale(mRawScale) / mGestureStartScale;
+            }
             outTransform.postScale(scale, scale, detector.getPivotX(), detector.getPivotY());
         }
+        @LimitFlag int scaleLimit = mIsOverzoomEnabled ? limitTypes & ~LIMIT_SCALE : limitTypes;
         transformCorrected |=
-            limitScale(outTransform, detector.getPivotX(), detector.getPivotY(), limitTypes);
+            limitScale(outTransform, detector.getPivotX(), detector.getPivotY(), scaleLimit);
         if (mIsTranslationEnabled) {
             outTransform.postTranslate(detector.getTranslationX(), detector.getTranslationY());
         }
@@ -512,6 +539,33 @@ public class DefaultZoomableController
         if (mListener != null && isEnabled()) {
             mListener.onTransformEnd(mActiveTransform);
         }
+    }
+
+    /**
+     * The scale shown for the scale a pinch asks for: the same within the limits, and past them slowed to grow as
+     * the cube root of the pinch's.
+     */
+    private float overzoomScale(float rawScale) {
+        if (rawScale > mMaxScaleFactor) {
+            return mMaxScaleFactor * (float) Math.pow(rawScale / mMaxScaleFactor, OVERZOOM_POWER);
+        }
+        if (rawScale < mMinScaleFactor) {
+            return mMinScaleFactor * (float) Math.pow(rawScale / mMinScaleFactor, OVERZOOM_POWER);
+        }
+        return rawScale;
+    }
+
+    /**
+     * Calculates the transform within the scale limits nearest to the current one, scaled about the given pivot,
+     * with no empty space on the sides where the image can fill them.
+     *
+     * @return whether the current transform is outside the limits
+     */
+    protected boolean calculateLimitedTransform(Matrix outTransform, float pivotX, float pivotY) {
+        outTransform.set(mActiveTransform);
+        boolean transformCorrected = limitScale(outTransform, pivotX, pivotY, LIMIT_ALL);
+        transformCorrected |= limitTranslation(outTransform, LIMIT_ALL);
+        return transformCorrected;
     }
 
     /**

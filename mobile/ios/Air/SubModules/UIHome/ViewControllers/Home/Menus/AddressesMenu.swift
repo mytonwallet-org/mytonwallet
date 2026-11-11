@@ -30,6 +30,7 @@ struct AddressesMenuContentRow {
                 ContextMenuAction(
                     title: lang("Share Wallet Link"),
                     icon: .airBundle("MenuShare28"),
+                    accessibilityIdentifier: "address_share",
                     handler: {
                         let shareLink = accountContext.shareLink
                         UIPasteboard.general.url = shareLink
@@ -232,6 +233,8 @@ private final class AddressMenuRowView: UIView {
         )
         actionButton.tintColor = .tintColor
         actionButton.accessibilityLabel = actionTitle
+        actionButton.accessibilityIdentifier = "address_qr"
+        accessibilityIdentifier = "address_row"
         actionButton.addAction(UIAction { [weak self] _ in
             self?.performAddressAction()
         }, for: .touchUpInside)

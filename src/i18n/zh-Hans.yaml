@@ -137,8 +137,8 @@ You can always enable seasonal theming again in the appearance settings.: 您随
 Base Currency: 基本货币
 Investor View: 投资者见解
 Toggle Investor View: 切换投资者见解
-Hide Tiny Transfers: 隐藏小额转账
-Toggle Hide Tiny Transfers: 切换隐藏小额转账
+Hide Tiny Transfers and Spam: 隐藏小额转账和垃圾信息
+Toggle Hide Tiny Transfers and Spam: 切换隐藏小额转账和垃圾信息
 Network: 网络
 Developer Options: 开发者选项
 All Wallet Versions: 所有钱包版本
@@ -1314,7 +1314,6 @@ Agent: 助手
 Learn more: 了解更多
 Data shared with Agent: 与助手共享的数据
 $agent_consent_allow_button: 允许助手
-$agent_consent_subtitle: 向助手询问钱包帮助、代币信息和支持的操作。
 $agent_consent_feature_answers: 获取有关 %app_name%、代币和钱包活动的答案。
 $agent_consent_feature_actions: 准备支持的操作，例如发送、接收和质押。
 $agent_consent_feature_context: 使用钱包上下文，让答案可以引用相关资产和地址。
@@ -1402,6 +1401,7 @@ $agent_dictation_no_speech: "未听到语音，请靠近麦克风再试一次。
 $agent_dictation_time_left: "还剩 %seconds% 秒"
 $agent_dictation_time_left_short: "%seconds% 秒"
 $agent_dictation_limit_reached: "口述已在一分钟后停止，这是录音的最长时长。"
+$agent_stop_answer: "停止回答"
 $agent_dictation_microphone_denied: "请允许访问麦克风以使用语音输入。"
 $agent_dictation_hold_hint: "按住进行语音输入。向上滑动即可松手录音。"
 $agent_dictation_too_short: "太短了。说话时请按住。"
@@ -2128,6 +2128,8 @@ News: "新闻"
 Crypto Market News: "加密市场新闻"
 $agent_news_new: "新消息"
 $agent_news_open_source: "打开来源"
+$agent_news_source: "来源：%sources%"
+$agent_news_sources: "来源：%sources%"
 $agent_news_unavailable: "新闻暂时不可用"
 $agent_news_read_more: "了解更多"
 $agent_news_discuss: "讨论"
@@ -2163,7 +2165,6 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "Review": "确认详情"
 "$perps_order_long": "%asset% 做多"
 "$perps_order_short": "%asset% 做空"
-"$perps_swap_fee_hint": "在此交易中将一种代币兑换为另一种代币的费用。"
 "$perps_trading_fee_hint": "开立此仓位的费用。"
 "$perps_position_size_hint": "仓位规模 — 杠杆仓位的总价值。"
 "$perps_position_size_details_hint": "考虑杠杆后的仓位总价值。\n\n例如，如果您以 5x 杠杆投入 $100，仓位规模为 $500。"
@@ -2173,7 +2174,6 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "$perps_closing_value_hint": "仓位被强制平仓后剩余的金额。根据强制平仓的结果，此金额可能低于您的投入金额或为零。"
 "$perps_fees_hint": "此交易收取的总费用。根据交易类型，可能包括交易费、兑换费和网络费。"
 "$perps_liquidation_price_hint": "由于资金不足以维持仓位，您的仓位可能被自动平仓的估计价格。"
-"$perps_high_leverage_warning": "高杠杆：价格轻微波动即可触发强平。"
 "$perps_leverage_disclaimer": "更高的杠杆会放大潜在收益和亏损。即使价格出现轻微的不利变动，也可能导致您的仓位被自动平仓。"
 
 # Perps order review
@@ -2251,7 +2251,16 @@ $perps_open_interest_hint: "此期货市场当前未平仓合约的总价值。�
 "PerpsQuoteExpired": "价格或仓位已变化。请返回并重新确认订单。"
 "PerpsReviewChanged": "订单已变化。请返回并重新确认。"
 "PerpsInsufficientUsdc": "Arbitrum上的USDC不足以支付所需金额及跨链桥费用。"
+"EvmUserOperationMismatch": "燃料费支付与此交易不符。"
+"PerpsInsufficientBalance": "Hyperliquid余额中的USDC不足以支付所需金额及交易手续费。"
+"PerpsMarketNeedsUnifiedAccount": "使用您当前的 Hyperliquid 账户类型，无法从钱包为此市场注资。"
+"PerpsRequiresMultichainWallet": "期货需要多链钱包。请切换到多链钱包或新建一个以开始交易。"
+"PerpsSwitchesToUnifiedAccount": "此订单还会将您的 Hyperliquid 账户切换为 Unified，一个 USDC 余额即可用于所有市场。"
 "PerpsAmountTooSmall": "此金额低于市场最低要求。"
+"$perps_minimum_amount": "最低金额：%amount% USDC。"
+"$perps_minimum_reduction": "减少的金额须超过 %amount% USDC，以支付跨链桥费用。"
+"$perps_required_balance": "所需金额：%required% USDC（含手续费）。Hyperliquid 可用余额：%available% USDC。"
+"$perps_available_balance": "Hyperliquid 可用余额：%available% USDC。请减少金额，为交易手续费预留资金。"
 "PerpsUnchanged": "请输入不同的金额以调整仓位。"
 "PerpsPositionChanged": "此仓位已变化。请刷新后重试。"
 "PerpsPositionExists": "您在此市场已有仓位。请调整现有仓位。"
@@ -2298,8 +2307,6 @@ Could not save the image. Please try again.: 无法存储图片。请重试。
 "$perps_funding_usdc_increase": "您需要在 Arbitrum 上拥有至少 %minUSDC% USDC 才能增加此仓位。"
 "PerpsFundingGasTitle": "用于支付费用的 ETH 不足"
 "$perps_funding_gas": "Arbitrum 上的费用以 ETH 支付。请接收 %feeETH% ETH（~%feeFiat%）。"
-"PerpsFundingTokenTitle": "使用 Arbitrum 上的 USDC 支付"
-"PerpsFundingTokenDescription": "暂不支持其他代币。请接收 USDC 以继续。"
 "Not Enough Funds": "余额不足"
 "Unsupported Token": "不支持的代币"
 "PerpsReviewUpdated": "价格已更新。确认前请重新检查订单。"
@@ -2318,13 +2325,14 @@ Could not save the image. Please try again.: 无法存储图片。请重试。
 "PerpsExchangeFee": "交易所手续费"
 "PerpsServiceFee": "钱包手续费"
 "PerpsBridgeFee": "跨链桥费用"
+"PerpsFirstWithdrawalFee": "首次提现费"
 "PerpsTotalFees": "USDC费用合计"
 "PerpsFeeEstimateHint": "标有≈的费用为预估值，执行时可能变化。Arbitrum网络费用需另行以ETH支付。"
 "PerpsUnallocatedCollateral": "未分配保证金"
 "PerpsUnallocatedCollateralHint": "按市场交易数量精度取整后，部分USDC可能留在仓位之外。这些资金仍在您的期货账户中，并非手续费。"
-"PerpsOnboardingTitle": "刚接触期货？"
-"PerpsOnboardingDescription": "不到 1 分钟，了解如何使用。"
-"PerpsOnboardingOpen": "打开入门指南"
+"PerpsOnboardingTitle": "期货交易\n尽在 %app_name%！"
+"PerpsOnboardingDescription": "轻点几下即可做多或做空。"
+"PerpsOnboardingOpen": "了解运作方式"
 "PerpsStoryIntroTitle": "认识永续合约"
 "PerpsStoryIntroBody": "无论预期资产价格上涨还是下跌，都可以开仓。"
 "PerpsStoryLongTitle": "预期上涨？做多"
@@ -2339,10 +2347,8 @@ Could not save the image. Please try again.: 无法存储图片。请重试。
 "PerpsStoryFundingBody": "资金费率为正时，多头向空头支付；资金费率为负时，空头向多头支付。"
 "PerpsStoryStart": "开始"
 
-"Funding Payment": "资金费用支付"
 "Withdrawal": "提现"
 "Transfer": "转账"
-"Spot Balance": "现货余额"
 "From": "从"
 "To": "到"
 
@@ -2364,3 +2370,69 @@ $enclave_data_missing_message: |
   如果您有钱包的密语，可以退出所有钱包并重新导入。
 
 Install the TON App on your Ledger and try again.: 请在您的 Ledger 上安装 TON 应用程序后重试。
+Liked: 已赞
+Disliked: 已踩
+$agent_feedback_liked_toast: "助手会更多地这样回答。"
+$agent_feedback_disliked_toast: "我们会查看此反馈，以帮助改进助手。"
+$agent_voice_pause: "暂停录音"
+$agent_voice_resume: "继续录音"
+$agent_message_copied: 消息已复制。
+$agent_copied: "已复制。"
+$agent_news_empty: "暂无新闻"
+$agent_chats_unavailable: "无法加载聊天"
+
+"PerpsAvailable": "可用"
+"PerpsWithdraw": "提现"
+"PerpsBalanceWithdrawalTitle": "提现到钱包"
+"PerpsWithdrawalFromHyperliquid": "来自Hyperliquid"
+"PerpsWithdrawalToWallet": "转入Arbitrum钱包"
+"PerpsBalanceWithdrawalNote": "USDC将在几分钟内到达您的Arbitrum钱包。0.03 USDC将保留在Hyperliquid，用于支付提现的Gas费。"
+"PerpsBalanceWithdrawalUpdated": "您的Hyperliquid余额已变化。确认前请重新检查提现。"
+"PerpsWithdrawalStatus": "提现状态"
+"PerpsWithdrawalCompleted": "提现已发送"
+"PerpsWithdrawalOnItsWay": "您的USDC正在转入Arbitrum钱包，可能需要几分钟。"
+"PerpsWithdrawalProcessing": "正在处理提现。跨链转账可能需要几分钟。"
+"PerpsWithdrawalUnknown": "结果尚未确认。请先检查您的Hyperliquid余额和钱包，再进行其他操作。"
+"PerpsAcknowledgeWithdrawalUnknown": "此次提现仍可能完成。请先检查您的Hyperliquid余额和钱包。允许新订单不会取消它。"
+"PerpsNothingToWithdraw": "您的Hyperliquid余额目前没有可提现的金额。"
+"PerpsWithdrawalRejected": "Hyperliquid拒绝了此次提现。您的USDC仍保留在Hyperliquid余额中。"
+"View your assets and activity": "查看资产与活动记录"
+"Ask AI and follow the news": "向 AI 提问并关注新闻"
+$underlying_stock: '%symbol% 股票'
+$agent_support_requested: "您已请求支持。客服人员将在此回复"
+$agent_support_operator_joined: "客服已加入聊天：%name%"
+$agent_support_closed_operator: "客服已关闭请求。接下来由助手回复"
+$agent_support_closed_inactivity: "请求因 48 小时无人回复而关闭。接下来由助手回复"
+$agent_support_waiting: "支持 · 等待客服人员"
+$agent_support_with_operator: "支持 · %name%"
+$agent_support_label: "支持"
+$agent_support_badge: "%app_name% 支持"
+$agent_support_placeholder: "发送消息给客服"
+"PerpsStoryFinaleTitle": "准备好尝试合约交易了吗？"
+"PerpsStoryFinaleBody": "选择市场、开仓并直接在 %app_name% 中跟踪仓位！"
+"PerpsStoryViewMarkets": "查看市场"
+Unlink Wallet: 取消链接钱包
+Confirm Unlinking: 确认取消链接
+Domain Unlinked: 域名已取消链接
+Drag here to add to the toolbar: 拖到此处以添加到工具栏
+$send_only_chain_and_token: 仅向此地址发送 %symbol%、%tokenSymbol% 或其他 %chain% 网络资产。发送其他代币会导致丢失。
+$agent_digest_unavailable: "此摘要已不可用"
+$agent_digest_title: "今日要闻"
+$agent_digest_meta:
+  otherValue: "%count% 条新闻 · %time%"
+$agent_digest_more:
+  otherValue: "还有 %count% 条新闻，在信息流上方"
+$agent_digest_settings_title: "摘要与通知"
+$agent_digest_settings_text: "信息流每天会出现一次摘要，汇总当天要闻。"
+$agent_digest_time: "摘要时间"
+$agent_digest_time_zone: "按手机所在时区。"
+$agent_digest_notifications_off: "关闭"
+$agent_digest_notifications_off_hint: "摘要仅显示在信息流中"
+$agent_digest_notifications_daily: "每日摘要"
+$agent_digest_notifications_daily_hint: "%time% 推送一条通知，汇总要闻"
+$agent_digest_notifications_every: "每条新闻"
+$agent_digest_notifications_every_hint: "每条新闻单独通知"
+$agent_digest_post_header: "MyPulse · 摘要 · %time%"
+$agent_digest_sheet_title: "每日摘要"
+$agent_digest_device_time_zone: "按此设备所在时区。"
+$agent_dictation_microphone_denied_device: "请在设备设置中允许访问麦克风以使用语音输入。"

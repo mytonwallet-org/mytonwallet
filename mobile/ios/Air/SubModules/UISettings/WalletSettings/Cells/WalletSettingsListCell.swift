@@ -28,6 +28,7 @@ final class WalletSettingsListCell: UICollectionViewListCell, ReorderableCell {
     }
 
     func configure(with accountContext: AccountContext, isSelected: Bool?) {
+        accessibilityIdentifier = "wallets_cell_list"
         self.accountContext = accountContext
         cellModel.isSelected = isSelected
         if let hc = hostingController {
@@ -176,6 +177,10 @@ private struct _Content: View {
                 .foregroundStyle(Color(uiColor: .tintColor))
                 .opacity(isSelected ? 1 : 0)
         }
+        .accessibilityElement()
+        .accessibilityLabel(lang("Select"))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("wallets_checkbox")
         .frame(width: Layout.markerSize, height: Layout.markerSize)
         .padding(.trailing, Layout.markerTrailing)
         .padding(.leading, Layout.markerLeading)

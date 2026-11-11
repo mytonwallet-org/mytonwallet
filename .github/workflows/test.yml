@@ -210,6 +210,9 @@ jobs:
         run: npm run i18n:build:default
 
       - name: Check types and lint
+        env:
+          # ESLint outgrows the default heap of about 2 GB. npm replaces `NODE_OPTIONS` with its `node-options` config
+          npm_config_node_options: --no-experimental-strip-types --max-old-space-size=4096
         run: npm run check
 
       - name: Test filename lint and autofix
@@ -223,6 +226,15 @@ jobs:
 
       - name: Test web change detection
         run: npm run test:web-untouched
+
+      - name: Test the PR title check
+        run: npm run test:pr-title
+
+      - name: Test the E2E broadcast guard
+        run: npm run test:broadcast-guard
+
+      - name: Test the E2E testnet proxy
+        run: npm run test:testnet-proxy
 
       - name: Test
         run: npm test

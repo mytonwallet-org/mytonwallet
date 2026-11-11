@@ -91,6 +91,7 @@ import {
 import { callWindow } from '../../../../util/windowProvider/connector';
 import chains from '../../../chains';
 import { isTypedDataDomainOnChain } from '../../../chains/evm/typedDataChainId';
+import { buildTypedDataDomainType, isValidTypedDataDomain } from '../../../chains/evm/typedDataDomain';
 import { getEvmProvider } from '../../../chains/evm/util/client';
 import {
   fetchStoredAccounts,
@@ -1871,15 +1872,20 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
       const { network } = parseAccountId(accountId);
       // Only relay requests, which the adapter builds from the session request, carry a network
       const typedDataNetwork = (message.payload.topic && message.payload.network) || network;
+      const eip712 = message.payload.eip712 && parseWalletConnectTypedData(message.payload.eip712);
+
+      if (message.payload.eip712 && (!eip712 || !isValidTypedDataDomain(eip712.domain))) {
+        return await this.rejectTypedData(message, 'Invalid typed data');
+      }
 
       if (
-        message.payload.eip712
+        eip712
         && (
           (network === 'testnet' && typedDataNetwork === 'mainnet')
-          || !isTypedDataDomainOnChain(message.payload.eip712.domain, typedDataNetwork, message.chain as EVMChain)
+          || !isTypedDataDomainOnChain(eip712.domain, typedDataNetwork, message.chain as EVMChain)
         )
       ) {
-        return await this.rejectTypedDataForAnotherChain(message);
+        return await this.rejectTypedData(message, TYPED_DATA_CHAIN_MISMATCH_MESSAGE);
       }
 
       await this.openExtensionPopup(true);
@@ -1903,20 +1909,20 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       let simplePaloadToSign: UnifiedSignDataPayload;
 
-      if (!message.payload.eip712) {
+      if (!eip712) {
         simplePaloadToSign = {
           type: 'binary',
           bytes: message.payload.data as string,
         };
       }
 
-      const payloadToSign: UnifiedSignDataPayload = message.payload.eip712
+      const payloadToSign: UnifiedSignDataPayload = eip712
         ? {
           type: 'eip712',
-          domain: message.payload.eip712.domain,
-          types: message.payload.eip712.types,
-          primaryType: message.payload.eip712.primaryType,
-          message: message.payload.eip712.message,
+          domain: eip712.domain,
+          types: { ...eip712.types, EIP712Domain: buildTypedDataDomainType(eip712.domain) },
+          primaryType: eip712.primaryType,
+          message: eip712.message,
           network: typedDataNetwork,
         }
         : simplePaloadToSign!;
@@ -2036,18 +2042,19 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     return connected?.accountId ?? getAccountIdByAddress(normalizedAddress, chain);
   }
 
-  private async rejectTypedDataForAnotherChain(
+  private async rejectTypedData(
     message: DappSignDataRequest<typeof this.protocolType>,
+    errorMessage: string,
   ): Promise<DappMethodResult<typeof this.protocolType>> {
-    logDebug('walletConnect:signData:chainMismatch', { chain: message.chain, msgId: message.id });
+    logDebug('walletConnect:signData:invalidTypedData', { chain: message.chain, msgId: message.id });
 
-    const error = { code: -32602, message: TYPED_DATA_CHAIN_MISMATCH_MESSAGE };
+    const error = { code: -32602, message: errorMessage };
 
     if (message.payload.topic && !message.payload.isSessionAuthenticate) {
       this.markSessionRequestFailed(
         message.payload.topic,
         message.id,
-        new ApiBaseError(TYPED_DATA_CHAIN_MISMATCH_MESSAGE, ApiCommonError.Unexpected),
+        new ApiBaseError(errorMessage, ApiCommonError.Unexpected),
       );
 
       try {
@@ -2699,7 +2706,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
         const eip712 = parseWalletConnectTypedData(typedRaw);
 
-        if (!eip712) {
+        if (!eip712 || !isValidTypedDataDomain(eip712.domain)) {
           throw new Error('Invalid typed data');
         }
 
@@ -2710,7 +2717,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         return {
           type: 'eip712',
           domain: eip712.domain,
-          types: eip712.types,
+          types: { ...eip712.types, EIP712Domain: buildTypedDataDomainType(eip712.domain) },
           primaryType: eip712.primaryType,
           message: eip712.message,
           network,

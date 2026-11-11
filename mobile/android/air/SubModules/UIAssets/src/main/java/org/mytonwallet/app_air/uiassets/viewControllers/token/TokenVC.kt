@@ -640,11 +640,15 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 updateSearchExpanded()
             }
             setOnEditorActionListener { _, actionId, event ->
-                val isSubmit = actionId == EditorInfo.IME_ACTION_DONE ||
-                    (
-                        event?.action == KeyEvent.ACTION_DOWN &&
-                            event.keyCode == KeyEvent.KEYCODE_ENTER
-                        )
+                if (event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                    // The release is consumed too, or `TextView` moves focus on it and the blur
+                    // closes the search before a submit waiting for results can open anything
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        exploreSearchTabs?.submitExploreSearch(this)
+                    }
+                    return@setOnEditorActionListener true
+                }
+                val isSubmit = actionId == EditorInfo.IME_ACTION_DONE
                 if (isSubmit) exploreSearchTabs?.submitExploreSearch(this)
                 isSubmit
             }
@@ -1434,7 +1438,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
                     else -> {
                         val cell = cellHolder.cell as TokenChartCell
-                        cell.configure(token, tokenVM.historyData, tokenVM.selectedPeriod)
+                        cell.configure(
+                            token,
+                            tokenVM.historyData,
+                            tokenVM.selectedPeriod,
+                            tokenVM.backfill
+                        )
                     }
                 }
                 return

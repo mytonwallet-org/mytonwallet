@@ -56,8 +56,13 @@ final class PerpsTabVC: WViewController {
         updateContentInsets()
     }
 
+    override func viewLayoutMarginsDidChange() {
+        super.viewLayoutMarginsDidChange()
+        updateContentInsets()
+    }
+
     private func updateContentInsets() {
-        (content as? PerpsHomeVC)?.updateScrollInsets(view.safeAreaInsets)
+        (content as? PerpsHomeVC)?.updateScrollInsets(view.safeAreaInsets, layoutMargins: view.layoutMargins)
     }
 
     private func showAccount(_ id: String) {

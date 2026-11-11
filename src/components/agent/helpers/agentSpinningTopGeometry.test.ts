@@ -1,5 +1,10 @@
 import {
-  buildAgentSpinningTopMesh, computeAgentSpinningTopTransform, FLOATS_PER_VERTEX, LEAN, VIEW_PITCH,
+  buildAgentSpinningTopMesh,
+  computeAgentSpinningTopTransform,
+  FLOATS_PER_VERTEX,
+  getAgentExpansionShift,
+  LEAN,
+  VIEW_PITCH,
 } from './agentSpinningTopGeometry';
 
 describe('Agent spinning top geometry', () => {
@@ -22,8 +27,8 @@ describe('Agent spinning top geometry', () => {
     for (let offset = 0; offset < vertices.length; offset += FLOATS_PER_VERTEX) {
       widest = Math.max(widest, Math.hypot(vertices[offset], vertices[offset + 2]));
     }
-    expect(widest).toBeGreaterThan(0.72);
-    expect(widest).toBeLessThan(0.74);
+    expect(widest).toBeGreaterThan(0.67);
+    expect(widest).toBeLessThan(0.69);
   });
 
   it('leans the axis to the right at rest and keeps the rotation rigid', () => {
@@ -43,5 +48,17 @@ describe('Agent spinning top geometry', () => {
     }
     const dot = matrix[0] * matrix[4] + matrix[1] * matrix[5] + matrix[2] * matrix[6];
     expect(dot).toBeCloseTo(0, 5);
+  });
+
+  it('moves what grows near a side of the window toward the middle, 16 px from the side or as far as it rests', () => {
+    // A 32 px span at the trailing edge of a 402 px window, 10 px from it, growing to 120 px
+    expect(getAgentExpansionShift({ start: 360, end: 392 }, { start: 316, end: 436 }, 402)).toBe(-44);
+    // 20 px from the side, it keeps 16 px from it
+    expect(getAgentExpansionShift({ start: 350, end: 382 }, { start: 306, end: 426 }, 402)).toBe(-40);
+    // At the leading edge
+    expect(getAgentExpansionShift({ start: 4, end: 36 }, { start: -40, end: 80 }, 402)).toBe(44);
+    expect(getAgentExpansionShift({ start: 24, end: 56 }, { start: -20, end: 100 }, 402)).toBe(36);
+    // In the middle, nothing moves
+    expect(getAgentExpansionShift({ start: 185, end: 217 }, { start: 141, end: 261 }, 402)).toBe(0);
   });
 });

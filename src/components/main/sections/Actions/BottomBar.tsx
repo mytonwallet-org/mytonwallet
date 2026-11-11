@@ -1,14 +1,15 @@
 import React, {
-  memo, useState,
+  memo, useMemo, useState,
 } from '../../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../../global';
 
-import type { Theme } from '../../../../global/types';
+import type { NavigationTab, Theme } from '../../../../global/types';
 
 import { selectCurrentAccountSettings } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
 import buildStyle from '../../../../util/buildStyle';
+import { getNavigationTabShift, resolveNavigationTabOrder } from '../../../../util/navigationTabOrder';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../../../hooks/useAppTheme';
@@ -18,6 +19,7 @@ import useFlag from '../../../../hooks/useFlag';
 import { getIsBottomBarHidden, subscribeToBottomBarVisibility } from '../../../../hooks/useHideBottomBar';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import useNavigationTabDrag from '../../../../hooks/useNavigationTabDrag';
 
 import Pill from '../../../common/Pill';
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
@@ -32,12 +34,13 @@ interface StateProps {
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
   accentColorIndex?: number;
+  navigationTabOrder?: NavigationTab[];
 }
 
 type IconKey = 'iconWallet' | 'iconMarket' | 'iconAgent' | 'iconExplore' | 'iconSettings';
 
 interface TabConfig {
-  index: number;
+  tab: NavigationTab;
   label: string;
   iconKey: IconKey;
   onClick: NoneToVoidFunction;
@@ -46,18 +49,12 @@ interface TabConfig {
 const ICON_SIZE_PX = 38;
 const ANIMATED_STICKER_SPEED = 2;
 
-const TAB_WALLET = 0;
-const TAB_MARKET = 1;
-const TAB_AGENT = 2;
-const TAB_EXPLORE = 3;
-const TAB_SETTINGS = 4;
-
-const TAB_COUNT = 5;
-
 function BottomBar({
-  theme, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, accentColorIndex,
+  theme, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, accentColorIndex, navigationTabOrder,
 }: StateProps) {
-  const { switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings } = getActions();
+  const {
+    switchToWallet, switchToAgent, switchToExplore, switchToMarket, switchToSettings, setNavigationTabOrder,
+  } = getActions();
 
   const lang = useLang();
   const [isHidden, setIsHidden] = useState(getIsBottomBarHidden());
@@ -71,18 +68,20 @@ function BottomBar({
     });
   });
 
-  const activeIndex = getActiveIndex({ isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen });
+  const order = useMemo(() => resolveNavigationTabOrder(navigationTabOrder), [navigationTabOrder]);
+  const activeIndex = order.indexOf(getActiveTab({ isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen }));
 
-  const tabs: TabConfig[] = [
-    { index: TAB_WALLET, label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
-    { index: TAB_MARKET, label: 'Market', iconKey: 'iconMarket', onClick: switchToMarket },
-    { index: TAB_AGENT, label: 'Agent', iconKey: 'iconAgent', onClick: switchToAgent },
-    { index: TAB_EXPLORE, label: 'Explore', iconKey: 'iconExplore', onClick: switchToExplore },
-    { index: TAB_SETTINGS, label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
-  ];
+  const tabConfigs: Record<NavigationTab, TabConfig> = {
+    wallet: { tab: 'wallet', label: 'Wallet', iconKey: 'iconWallet', onClick: switchToWallet },
+    market: { tab: 'market', label: 'Market', iconKey: 'iconMarket', onClick: switchToMarket },
+    agent: { tab: 'agent', label: 'Agent', iconKey: 'iconAgent', onClick: switchToAgent },
+    explore: { tab: 'explore', label: 'Explore', iconKey: 'iconExplore', onClick: switchToExplore },
+    settings: { tab: 'settings', label: 'Settings', iconKey: 'iconSettings', onClick: switchToSettings },
+  };
+  const tabs = order.map((tab) => tabConfigs[tab]);
 
   const switchToTabByIndex = useLastCallback((index: number) => {
-    tabs.find((tab) => tab.index === index)?.onClick();
+    tabs[index]?.onClick();
   });
 
   const {
@@ -90,16 +89,61 @@ function BottomBar({
     isDragging,
     squeeze,
     renderedActiveIndex,
+    cancelDrag,
     pointerHandlers,
   } = useDraggablePill({
-    tabCount: TAB_COUNT,
+    tabCount: tabs.length,
     activeIndex,
     onCommit: switchToTabByIndex,
   });
 
+  // A tab held still lifts for reordering; a finger that slides the pill first only switches tabs
+  const {
+    drag, isSettling, consumeDragEndClick, pointerHandlers: reorderPointerHandlers,
+  } = useNavigationTabDrag({
+    rootRef: capsuleRef,
+    tabClassName: styles.button,
+    axis: 'x',
+    order,
+    isLiftBlocked: isDragging,
+    onLift: cancelDrag,
+    onReorder: (newOrder) => setNavigationTabOrder({ order: newOrder }),
+  });
+
+  const handlePointerDown = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    reorderPointerHandlers.onPointerDown(e);
+    pointerHandlers.onPointerDown(e);
+  });
+
+  const handlePointerMove = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    reorderPointerHandlers.onPointerMove(e);
+    pointerHandlers.onPointerMove(e);
+  });
+
+  const handlePointerUp = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    reorderPointerHandlers.onPointerUp(e);
+    pointerHandlers.onPointerUp(e);
+  });
+
+  const handlePointerCancel = useLastCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    reorderPointerHandlers.onPointerCancel(e);
+    pointerHandlers.onPointerCancel(e);
+  });
+
+  const handleTabClick = useLastCallback((tab: NavigationTab) => {
+    if (consumeDragEndClick()) return;
+
+    tabConfigs[tab].onClick();
+  });
+
+  // The pill stays with the active tab while tabs move: under the pointer when it is the dragged one
+  const isActiveTabDragged = drag?.fromIndex === activeIndex;
+  const pillShift = drag ? getNavigationTabShift(activeIndex, drag) * Math.sign(drag.step) : 0;
+
   const rootStyle = buildStyle(
-    `--tab-count: ${TAB_COUNT}`,
+    `--tab-count: ${tabs.length}`,
     `--active-index: ${activeIndex}`,
+    Boolean(pillShift) && `--drag-offset-px: ${pillShift}px`,
   );
 
   return (
@@ -110,22 +154,30 @@ function BottomBar({
       <div
         ref={capsuleRef}
         className={buildClassName(styles.capsule, isDragging && styles.dragging)}
-        {...pointerHandlers}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onContextMenu={reorderPointerHandlers.onContextMenu}
       >
-        <Pill isDragging={isDragging} squeeze={squeeze} />
-        {tabs.map(({ index, label, iconKey, onClick }) => {
+        <Pill isDragging={isDragging || isActiveTabDragged} squeeze={squeeze} />
+        {tabs.map(({ tab, label, iconKey }, index) => {
           const isActive = renderedActiveIndex === index;
           const variant = isActive ? `${iconKey}Solid` as const : iconKey;
 
           return (
             <TabButton
-              key={index}
+              key={tab}
+              tab={tab}
               isActive={isActive}
+              isDragged={drag?.fromIndex === index}
+              shouldAnimateShift={!isSettling}
+              shift={getNavigationTabShift(index, drag)}
               label={lang(label)}
               tgsUrl={stickerPaths[variant]}
               previewUrl={stickerPaths.preview[variant]}
               accentColor={accentColor}
-              onClick={onClick}
+              onClick={handleTabClick}
             />
           );
         })}
@@ -144,30 +196,41 @@ export default memo(withGlobal((global): StateProps => {
     isExploreOpen,
     isMarketOpen,
     accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
+    navigationTabOrder: global.settings.navigationTabOrder,
   };
 })(BottomBar));
 
 const TabButton = memo(({
-  isActive, label, tgsUrl, previewUrl, accentColor, onClick,
+  tab, isActive, isDragged, shouldAnimateShift, shift, label, tgsUrl, previewUrl, accentColor, onClick,
 }: {
+  tab: NavigationTab;
   isActive?: boolean;
+  isDragged?: boolean;
+  shouldAnimateShift?: boolean;
+  shift: number;
   label: string;
   tgsUrl: string;
   previewUrl: string;
   accentColor?: string;
-  onClick: NoneToVoidFunction;
+  onClick: (tab: NavigationTab) => void;
 }) => {
   const [isAnimating, startAnimation, stopAnimation] = useFlag();
 
   const handleClick = useLastCallback(() => {
     startAnimation();
-    onClick();
+    onClick(tab);
   });
 
   return (
     <Button
       isSimple
-      className={buildClassName(styles.button, isActive && styles.active)}
+      className={buildClassName(
+        styles.button,
+        isActive && styles.active,
+        isDragged && styles.dragged,
+        !isDragged && shouldAnimateShift && styles.shifting,
+      )}
+      style={shift ? `transform: translateX(${shift}px)` : undefined}
       onClick={handleClick}
     >
       <AnimatedIconWithPreview
@@ -187,13 +250,13 @@ const TabButton = memo(({
   );
 });
 
-function getActiveIndex({
+function getActiveTab({
   isAgentOpen, isExploreOpen, isMarketOpen, areSettingsOpen,
-}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'isMarketOpen' | 'areSettingsOpen'>) {
-  if (isAgentOpen) return TAB_AGENT;
-  if (isExploreOpen) return TAB_EXPLORE;
-  if (isMarketOpen) return TAB_MARKET;
-  if (areSettingsOpen) return TAB_SETTINGS;
+}: Pick<StateProps, 'isAgentOpen' | 'isExploreOpen' | 'isMarketOpen' | 'areSettingsOpen'>): NavigationTab {
+  if (isAgentOpen) return 'agent';
+  if (isExploreOpen) return 'explore';
+  if (isMarketOpen) return 'market';
+  if (areSettingsOpen) return 'settings';
 
-  return TAB_WALLET;
+  return 'wallet';
 }

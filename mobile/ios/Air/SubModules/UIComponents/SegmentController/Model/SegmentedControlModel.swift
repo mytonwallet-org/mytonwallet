@@ -10,6 +10,8 @@ public enum SegmentedControlStyle {
     case header
     case rootHeader
     case compactRootHeader
+    case tokenPicker
+    case portfolioRange
 }
 
 struct SegmentedControlConstants {
@@ -98,6 +100,25 @@ public final class SegmentedControlModel {
             constants.topInset = 0
             constants.innerPadding = 18
             constants.backgroundPadding = 3
+        case .tokenPicker:
+            font = .systemFont(ofSize: 15, weight: .medium)
+            constants.spacing = 0
+            constants.height = 34
+            constants.topInset = 0
+            constants.innerPadding = 8
+            constants.backgroundPadding = 3
+        case .portfolioRange:
+            font = WTypography.uiFont(.supportingEmphasized)
+            constants.topInset = 0
+            constants.innerPadding = 0
+            if #available(iOS 26, *) {
+                constants.height = 36
+                constants.backgroundPadding = 4
+            } else {
+                constants.height = 34
+                constants.backgroundPadding = 5
+            }
+            constants.spacing = 2 * constants.backgroundPadding
         }
         self.constants = constants
         self.style = style

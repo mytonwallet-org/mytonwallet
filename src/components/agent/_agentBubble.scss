@@ -1,5 +1,17 @@
+@use "sass:list";
+
+@use "sass:math";
+
 // The widest a bubble grows on a wide screen: a message is as wide as a News post
 $maxWidth: 40rem;
+
+// The space over and under a bubble's text, and the text's line, a size larger on a phone
+$paddingBlock: 0.5rem;
+$lineHeight: 1.25rem;
+$mobileLineHeight: 1.375rem;
+
+// An answer's bubble is one phone line high at least, as the activity line it replaces
+$incomingMinHeight: 2.375rem;
 
 // The tails of the chat's bubbles, 8 × 13.333 px, as in the design
 
@@ -8,3 +20,33 @@ $tailWidth: 0.5rem;
 $tailHeight: 0.8333rem;
 $outgoingTailMask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M0 0c0 4.286 2.353 10.238 7.059 11.428 0 0 .941 0 .941.953 0 .952-.941.952-.941.952H0V0z'/%3E%3C/svg%3E");
 $incomingTailMask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='13.333'%3E%3Cpath d='M8 0c0 4.286-2.353 10.238-7.059 11.428 0 0-.941 0-.941.953 0 .952.941.952.941.952H8V0z'/%3E%3C/svg%3E");
+
+// UIKit's spring of `$damping` released from rest, which settles within its duration, as `linear()` stops: the curve
+// iOS's `AgentBubbleBackgroundView.getSpringScale` computes
+
+@function spring-easing($damping, $stopCount: 24) {
+  // The envelope falls to a thousandth by the end
+  $frequency: math.div(6.9, $damping);
+  $dampedFrequency: $frequency * math.sqrt(1 - $damping * $damping);
+  $stops: ();
+
+  @for $index from 0 to $stopCount {
+    $time: math.div($index, $stopCount);
+    $envelope: math.pow(math.$e, -$damping * $frequency * $time);
+    $phase: $dampedFrequency * $time;
+    $swing: math.cos($phase) + math.div($damping * $frequency, $dampedFrequency) * math.sin($phase);
+    $stops: list.append($stops, math.div(math.round((1 - $envelope * $swing) * 1000), 1000), $separator: comma);
+  }
+
+  @return linear(#{list.append($stops, 1, $separator: comma)});
+}
+
+// A tail goes into its corner as the suggestions that take its place come in, at their 300 ms ease-out, and grows back
+// as they go, on a spring of damping 0.75 that settles in 0.4 s, 0.05 s later, as on mobile. Where `linear()` is
+// missing, the spring's swing past its end is drawn by a cubic curve.
+$tailAwayTransition: 300ms ease-out;
+$tailBackTransition: 400ms cubic-bezier(0.3, 1.25, 0.6, 1) 50ms;
+$tailBackEasing: spring-easing(0.75);
+// The tail at its smallest, as Android's drawable has it: 40% of its size, raised into the corner by a third of what it
+// lost of its height
+$tailAwayTransform: translateY(-0.25rem) scale(0.4);

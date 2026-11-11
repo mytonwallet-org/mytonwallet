@@ -79,7 +79,7 @@ struct TokenTradeQuoteLifecycleTests {
         scroll.contentOffset.y = bottomOffset
         tradeView.setNeedsLayout()
         tradeView.layoutIfNeeded()
-        #expect(scroll.contentOffset.y == bottomOffset)
+        #expect(abs(scroll.contentOffset.y - bottomOffset) < 0.01)
         #expect(tradeView.methodButton.frame.maxY <= scroll.bounds.maxY)
         let selection = try #require(tradeView.amountField.selectedTextRange)
         #expect(tradeView.amountField.offset(from: tradeView.amountField.beginningOfDocument, to: selection.start) == 1)

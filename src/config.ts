@@ -83,7 +83,7 @@ export const BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
 export const BOT_USERNAME = process.env.BOT_USERNAME || 'MyTonWalletBot';
 
 export const SWAP_FEE_ADDRESS = process.env.SWAP_FEE_ADDRESS || 'UQDUkQbpTVIgt7v66-JTFR-3-eXRFz_4V66F-Ufn6vOg0GOp';
-export const DIESEL_ADDRESS = process.env.DIESEL_ADDRESS || 'UQC9lQOaEHC6YASiJJ2NrKEOlITMMQmc8j0_iZEHy-4sl3tG';
+export const DIESEL_ADDRESS = process.env.DIESEL_ADDRESS || 'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2';
 // A build signs a fee leg only to an address it ships with, so the wallets a fee rotation moves to
 // are listed here ahead of the backend naming them.
 export const SWAP_FEE_ADDRESSES = [
@@ -91,7 +91,11 @@ export const SWAP_FEE_ADDRESSES = [
   'UQA5N9G17i0-OisuddXGlY-M1VKBN4P59yzx-d_IMo6Aplgu',
   'UQAvj0tp67WeAUcVg1NM0BYttgO4ilHxX0YvqjxfeDJ7-cdo',
 ];
-export const DIESEL_ADDRESSES = [DIESEL_ADDRESS, 'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2'];
+export const DIESEL_ADDRESSES = [
+  DIESEL_ADDRESS,
+  'UQC9lQOaEHC6YASiJJ2NrKEOlITMMQmc8j0_iZEHy-4sl3tG',
+  'UQDQWr4XvZ2woENapkp3H4LThrYVb-ZpGfLdWC-ID2hMWGV2',
+];
 
 export const STRICTERDOM_ENABLED = DEBUG && !IS_PACKAGED_ELECTRON;
 
@@ -277,7 +281,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-384';
+export const LANG_CACHE_NAME = 'mtw-lang-396';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -354,11 +358,6 @@ export const NO_TRON = process.env.NO_TRON === '1';
 export const NO_SOLANA = process.env.NO_SOLANA === '1';
 export const NO_EVM = process.env.NO_EVM === '1';
 export const NO_UTXO = process.env.NO_UTXO === '1';
-export const NO_WALLETCONNECT = process.env.NO_WALLETCONNECT === '1';
-export const NO_SWAP = process.env.NO_SWAP === '1';
-export const NO_STAKING = process.env.NO_STAKING === '1';
-export const NO_PORTFOLIO = process.env.NO_PORTFOLIO === '1';
-export const NO_MFA = process.env.NO_MFA === '1';
 /**
  * Standalone SDK builds, embedded by third-party apps that ship their own UI, so nothing in the UI layer
  * reads this flag.
@@ -1123,7 +1122,7 @@ export const HELP_CENTER_URL = {
   },
   seedScam: {
     en: 'https://help.mywallet.io/intro/scams/leaked-seed-phrases',
-    ru: 'https://help.mywallet.io/ru/baza-znanii/moshennichestvo-i-skamy/slitye-sid-frazy',
+    ru: 'https://help.mywallet.io/ru/intro/scams/leaked-seed-phrases',
   },
   ethenaStaking: {
     en: 'https://help.mywallet.io/intro/staking/what-is-usde-how-does-the-ethena-protocol-work',

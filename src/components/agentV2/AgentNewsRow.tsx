@@ -4,10 +4,11 @@ import type { AgentNewsFeedItemV2 } from '../../api/agentV2/protocol/types';
 
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
+import { formatAgentListTime } from '../agent/helpers/agentDateFormat';
 import { formatAgentNewsUnreadCount } from './agentNewsFeedItems';
-import { formatAgentThreadTime } from './agentThreadListSections';
 
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
 import AgentNewsIcon from './AgentNewsIcon';
 import AgentThreadThumbnail from './AgentThreadThumbnail';
@@ -23,15 +24,18 @@ interface OwnProps {
 /** The permanent News row above the chats */
 function AgentNewsRow({ latestItem, unreadCount, onClick }: OwnProps) {
   const lang = useLang();
+  const title = lang('News');
   const hasUnread = unreadCount > 0;
+  const unreadCountText = hasUnread ? formatAgentNewsUnreadCount(unreadCount) : undefined;
   const preview = latestItem?.headline ?? lang('Crypto Market News');
-  const time = latestItem && formatAgentThreadTime(lang, latestItem.deliveredAt);
+  const time = latestItem && formatAgentListTime(lang, latestItem.deliveredAt);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useLastCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+
     stopEvent(e);
     onClick();
-  };
+  });
 
   return (
     <div className={buildClassName(styles.item, styles.newsItem)}>
@@ -39,7 +43,7 @@ function AgentNewsRow({ latestItem, unreadCount, onClick }: OwnProps) {
         role="button"
         tabIndex={0}
         aria-label={[
-          lang('News'),
+          title,
           preview,
           time,
           hasUnread
@@ -54,7 +58,7 @@ function AgentNewsRow({ latestItem, unreadCount, onClick }: OwnProps) {
         <AgentNewsIcon className={styles.newsAvatar} />
         <div className={styles.itemText} aria-hidden>
           <div className={styles.itemTop}>
-            <span className={styles.itemTitle}>{lang('News')}</span>
+            <span className={styles.itemTitle}>{title}</span>
             {time && <span className={styles.itemTime}>{time}</span>}
           </div>
           <div className={styles.itemBottom}>
@@ -64,7 +68,8 @@ function AgentNewsRow({ latestItem, unreadCount, onClick }: OwnProps) {
                 {preview}
               </span>
             </div>
-            {hasUnread && <span className={styles.unreadCount}>{formatAgentNewsUnreadCount(unreadCount)}</span>}
+            {unreadCountText && <span className={styles.unreadCount}>{unreadCountText}</span>}
+            {hasUnread && !unreadCountText && <span className={styles.unreadDot} />}
           </div>
         </div>
       </div>

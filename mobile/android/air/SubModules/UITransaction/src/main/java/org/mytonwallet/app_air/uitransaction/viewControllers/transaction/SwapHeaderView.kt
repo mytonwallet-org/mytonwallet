@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import androidx.appcompat.widget.AppCompatImageView
+import java.math.RoundingMode
 import kotlin.math.absoluteValue
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -175,7 +176,7 @@ class SwapHeaderView(
                 smartDecimals = true,
                 showPositiveSign = false,
                 forceCurrencyToRight = true,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
             tokenToSendTextView.contentView.text = sendAmount.let {
                 val ssb = SpannableStringBuilder("-$signSpace$it")
@@ -199,7 +200,7 @@ class SwapHeaderView(
                 smartDecimals = true,
                 showPositiveSign = true,
                 forceCurrencyToRight = true,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
             tokenToReceiveTextView.contentView.text = receiveAmount.let {
                 val ssb = SpannableStringBuilder(it)

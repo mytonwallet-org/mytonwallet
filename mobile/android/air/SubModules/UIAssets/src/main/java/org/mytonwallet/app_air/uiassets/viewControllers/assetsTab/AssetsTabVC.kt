@@ -15,6 +15,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.assets.title
 import org.mytonwallet.app_air.uiassets.viewControllers.tokens.TokensVC
 import org.mytonwallet.app_air.uiassets.viewControllers.views.WDomainExpirationBannerView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -314,7 +315,8 @@ class AssetsTabVC(
                 items.add(
                     WSegmentedControllerItem(
                         tokensVC,
-                        identifier = identifierForVC(tokensVC)
+                        identifier = identifierForVC(tokensVC),
+                        testViewId = UIComponentsR.id.assets_tab_tokens
                     )
                 )
             }
@@ -327,6 +329,7 @@ class AssetsTabVC(
                     WSegmentedControllerItem(
                         collectiblesVC,
                         identifier = TAB_COLLECTIBLES,
+                        testViewId = UIComponentsR.id.assets_tab_collectibles,
                         onMenuPressed = if (showCollectionsMenu) {
                             menu@{ v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
@@ -356,7 +359,8 @@ class AssetsTabVC(
                             TAB_COINS -> {
                                 WSegmentedControllerItem(
                                     tokensVC,
-                                    identifierForVC(tokensVC)
+                                    identifierForVC(tokensVC),
+                                    testViewId = UIComponentsR.id.assets_tab_tokens
                                 )
                             }
 
@@ -364,6 +368,7 @@ class AssetsTabVC(
                                 WSegmentedControllerItem(
                                     collectiblesVC,
                                     identifier = TAB_COLLECTIBLES,
+                                    testViewId = UIComponentsR.id.assets_tab_collectibles,
                                     onMenuPressed = if (showCollectionsMenu) {
                                         menu@{ v ->
                                             CollectionsMenuHelpers.presentCollectionsMenuOn(

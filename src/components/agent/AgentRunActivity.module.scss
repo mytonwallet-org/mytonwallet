@@ -1,6 +1,30 @@
+@use "sass:math";
+
 @use "../../styles/mixins";
 
 @use "agentMark";
+
+// The glint, as on iOS: whitish light at 40% in its middle, fading out 16 px either side of it plus a slant of 35% of the
+// text's height, its edges slanted as light on a polished surface. Its middle runs from 32 px before the text to 32 px
+// past it, on a tile wide enough for the slanted band.
+$glintHalfWidth: 1rem;
+$glintTileWidth: 4.5rem;
+// How far the tile starts before the text and ends past it
+$glintOverhang: 2 * $glintHalfWidth + $glintTileWidth * 0.5;
+
+// The band runs at right angles to the line from its start at the text's bottom to its end at the text's top
+
+@function glint-gradient($textHeight) {
+  $span: 2 * $glintHalfWidth + 0.7 * $textHeight;
+  $halfThickness: math.div(math.hypot($span, $textHeight), 2);
+
+  @return linear-gradient(
+    math.atan2($span, $textHeight),
+    transparent calc(50% - #{$halfThickness}),
+    rgb(255 255 255 / 0.4) 50%,
+    transparent calc(50% + #{$halfThickness})
+  );
+}
 
 // The answer's place while the Agent works on it: the Agent mark and the step in the Agent gradient, as in the design
 .root {
@@ -63,6 +87,11 @@
   }
 }
 
+// The placeholder turning into the arriving bubble stays as it is, while its top and its step leave on their own
+.answerPlaceholderMorphing:global(.closing) {
+  opacity: 1;
+}
+
 // The Agent's spinning top
 .icon {
   flex: 0 0 auto;
@@ -85,6 +114,13 @@
 // The first step comes into focus with the indicator
 .stepsFocusing {
   animation: agent-activity-focus 400ms ease-out 180ms backwards;
+}
+
+// A Stop while the Agent thinks drops the step at once, while the top shows the Stop
+.stepsStopped {
+  opacity: 0;
+
+  @include mixins.transition(opacity 150ms ease-out);
 }
 
 .step {
@@ -116,6 +152,30 @@
   background-clip: text;
 
   @include mixins.gradient-shimmer(2s);
+}
+
+// The glint lights the text over its gradient once, in the reading direction, eased at both ends as a smoothstep, after
+// the delay that comes with the step
+.glint {
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html:not(.animation-level-0)) & {
+      background-image: glint-gradient(1.25rem);
+      background-size: $glintTileWidth 100%;
+      animation: agent-activity-glint 750ms cubic-bezier(0.333, 0, 0.667, 1) var(--glint-delay, 0ms) both;
+    }
+
+    :global(html.is-mobile:not(.animation-level-0)) & {
+      background-image: glint-gradient(1.375rem);
+    }
+
+    :global(html[dir="rtl"]:not(.animation-level-0)) & {
+      animation-direction: reverse;
+    }
+  }
 }
 
 :global(html.animation-level-0) .root,
@@ -168,6 +228,16 @@
     transform: translateY(-0.3125rem);
     opacity: 0;
     filter: blur(0.5rem);
+  }
+}
+
+@keyframes agent-activity-glint {
+  from {
+    background-position: (-1 * $glintOverhang) 0;
+  }
+
+  to {
+    background-position: calc(100% + #{$glintOverhang}) 0;
   }
 }
 

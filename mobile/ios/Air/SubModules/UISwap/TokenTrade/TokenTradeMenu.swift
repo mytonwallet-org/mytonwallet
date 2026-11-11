@@ -50,9 +50,7 @@ enum TokenTradeMenu {
                 }),
             ]
         }
-        return ContextMenuConfiguration(rootPage: ContextMenuPage(items: items), backdrop: .none,
-            style: ContextMenuStyle(minWidth: 242, maxWidth: 300, glassTint: .strong,
-                                    listVerticalPadding: 10, separatorHeight: 20))
+        return TradeInfoMenu.configuration(items: items)
     }
 
 }

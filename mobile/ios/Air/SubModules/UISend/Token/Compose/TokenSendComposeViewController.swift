@@ -68,6 +68,7 @@ final class TokenSendComposeViewController:
             )
         }
         addCloseNavigationItemIfNeeded()
+        accountSwitcher.button.accessibilityIdentifier = "send_account_switcher"
     }
 
     private func setupContinueButton() {

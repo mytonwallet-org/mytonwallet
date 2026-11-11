@@ -9,7 +9,9 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentAnswerFeedback
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentDeeplink
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSupportEvent
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
+import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Action
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
@@ -161,16 +163,43 @@ internal fun mapAgentV2Message(
     message: AgentV2PersistedMessage,
     actions: List<AgentV2Action> = message.actions.orEmpty()
 ): AgentMessage? {
+    val supportEvent = if (message.role == "event") {
+        when (val code = message.code) {
+            "support_requested", "operator_joined", "support_closed" -> AgentSupportEvent(
+                code = code,
+                operatorName = message.author?.name,
+                reason = message.reason
+            )
+
+            else -> return null
+        }
+    } else {
+        null
+    }
     val markdown = message.content as? AgentV2MessageContent.Markdown
     val failureText = message.error?.let { agentV2ErrorText(it.code) }
-    val text = when (val content = message.content) {
-        is AgentV2MessageContent.Markdown -> content.text
-        is AgentV2MessageContent.Semantic -> agentV2SemanticText(content.content)
-        null -> if (failureText != null) "" else return null
+    val text = when {
+        message.role == "operator" -> message.text ?: return null
+
+        supportEvent != null -> getSupportEventText(supportEvent)
+
+        else -> when (val content = message.content) {
+            is AgentV2MessageContent.Markdown -> content.text
+            is AgentV2MessageContent.Semantic -> agentV2SemanticText(content.content)
+            null -> if (failureText != null) "" else return null
+        }
+    }
+    // A stopped answer shows what it had written, without suggestions, and nothing when it had written nothing
+    val isStopped = message.status == "cancelled"
+    if (isStopped && text.isEmpty() && markdown?.tables.isNullOrEmpty() &&
+        message.content !is AgentV2MessageContent.Semantic && actions.isEmpty()
+    ) {
+        return null
     }
     val role = when (message.role) {
         "user" -> AgentMessageRole.USER
         "assistant" -> AgentMessageRole.ASSISTANT
+        "operator" -> AgentMessageRole.OPERATOR
         else -> AgentMessageRole.SYSTEM
     }
     return AgentMessage(
@@ -181,15 +210,39 @@ internal fun mapAgentV2Message(
         answerTables = markdown?.tables.orEmpty(),
         tableReferences = markdown?.tableReferences.orEmpty(),
         links = markdown?.links.orEmpty(),
-        followups = message.followups.orEmpty(),
+        followups = if (isStopped) emptyList() else message.followups.orEmpty(),
         date = parseAgentV2Timestamp(message.createdAt) ?: Date(0),
         isStreaming = message.status == "streaming",
         deeplinks = actions.map { action ->
             AgentDeeplink(action.title, actionId = action.id)
         },
-        isComplete = role == AgentMessageRole.ASSISTANT && message.status == "complete",
+        // An operator's reply is rated as an answer is
+        isComplete = (role == AgentMessageRole.ASSISTANT || role == AgentMessageRole.OPERATOR) &&
+            message.status == "complete",
         feedback = AgentAnswerFeedback.fromWireValue(message.feedback),
         newsPost = message.newsPost == true,
-        failureText = failureText
+        failureText = failureText,
+        operator = message.author.takeIf { role == AgentMessageRole.OPERATOR },
+        isPlainText = role == AgentMessageRole.OPERATOR,
+        supportEvent = supportEvent
+    )
+}
+
+private fun getSupportEventText(event: AgentSupportEvent): String = when (event.code) {
+    "support_requested" -> LocaleController.getString("\$agent_support_requested")
+
+    "operator_joined" -> LocaleController.getStringWithKeyValues(
+        "\$agent_support_operator_joined",
+        listOf(
+            "%name%" to (event.operatorName ?: LocaleController.getString("\$agent_support_label"))
+        )
+    )
+
+    else -> LocaleController.getString(
+        if (event.reason == "inactivity") {
+            "\$agent_support_closed_inactivity"
+        } else {
+            "\$agent_support_closed_operator"
+        }
     )
 }

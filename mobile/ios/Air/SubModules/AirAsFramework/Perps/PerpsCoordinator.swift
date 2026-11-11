@@ -1,4 +1,5 @@
 import UIKit
+import Dependencies
 import SwiftUI
 import SwiftNavigation
 import ProtectedAction
@@ -12,23 +13,26 @@ import UIToken
 @MainActor final class PerpsCoordinator {
     let context: AccountContext
     let store: PerpsStore
-    private var observations: [ObserveToken] = []
-    private var orderFundingObservation: ObserveToken?
-    private var polling: Task<Void, Never>?
+    @Dependency(\.accountStore) private var accountStore
+    private weak var assetScreenBeingSwitched: UIViewController?
+    private var visibility: Task<Void, Never>?
     private weak var home: PerpsHomeVC?
-    private var didLoadCapabilities = false
     private var homeSnapshotLoading = PerpsInitialLoadingState()
     private var homeMarketLoading = PerpsInitialLoadingState()
     private var homeHistoryLoading = PerpsInitialLoadingState()
+    private let prefetchStories: @MainActor ([ApiPerpsOnboardingStory]) async -> Bool
+    private var onboardingPrefetch: (id: UUID, onboarding: ApiPerpsOnboarding)?
+    private(set) var isPreparingBalanceWithdrawal = false
 
-    deinit { polling?.cancel() }
+    deinit { visibility?.cancel() }
 
-    init(accountId: String, store: PerpsStore = .shared) {
+    init(accountId: String, store: PerpsStore = .shared,
+         prefetchStories: @escaping @MainActor ([ApiPerpsOnboardingStory]) async -> Bool = { await PerpsStoryMediaCache.shared.prefetch($0) }) {
         context = AccountContext(accountId: accountId)
         self.store = store
-        context.onAccountDeleted = { [weak self, weak store] in
-            store?.removeAccount(accountId)
-            self?.polling?.cancel()
+        self.prefetchStories = prefetchStories
+        context.onAccountDeleted = { [weak self] in
+            self?.setVisible(false)
             self?.home?.navigationController?.dismiss(animated: true)
         }
     }
@@ -43,6 +47,7 @@ import UIToken
             switch action {
             case .refresh: Task { await store.reconcile(accountId: accountId) }
             case .allPositions: showAllPositions()
+            case .withdrawBalance: showBalanceWithdrawal(from: home)
             case .position(let id): showPosition(id, from: home)
             case .marketToken(_, let id): showMarket(id, from: home)
             case .marketSection(let id):
@@ -51,8 +56,7 @@ import UIToken
                 let render: () -> [MarketItemDisplayData] = { [store] in
                     let tokens = PerpsHomeAdapter.home(store: store, accountId: accountId, previewMarkets: false)
                         .marketSections.first { $0.id == id }?.tokens ?? []
-                    let isStale = loading.update(isStale: store.isMarketStale(accountId: accountId),
-                                                 hasData: store.snapshots[accountId] != nil)
+                    let isStale = loading.update(isStale: store.isMarketStale(), hasData: store.market != nil)
                     return tokens.map { token in
                         var token = token
                         token.isStale = isStale
@@ -63,28 +67,21 @@ import UIToken
                     if let home { showMarket(token.id, from: home) }
                 }
                 list.onVisibilityChanged = { [weak self] in self?.setVisible($0) }
-                observations.append(observe { [weak list] in list?.update(tokens: render()) })
+                list.observe { [weak list] in list?.update(tokens: render()) }
                 home.navigationController?.pushViewController(list, animated: true)
             case .activity(let id): showFill(id, from: home)
             }
         }
         home = controller
-        observations.append(observe { [weak controller, weak self] in
+        controller.observe { [weak controller, weak self] in
             guard let self else { return }
             controller?.update(data: homeDisplayData())
-            controller?.updateOperationStatus(store.visibleOperationStatus(accountId: accountId).map { [self] operation in
-                let symbol = self.asset(operation.assetId)?.symbol ?? operation.assetId.components(separatedBy: ":").last ?? ""
-                return .init(title: PerpsFormatting.operationTitle(operation, symbol: symbol),
-                             message: PerpsFormatting.operationMessage(operation), onSelect: { [weak controller, self] in
-                    if let controller { self.showOperation(operation, from: controller) }
-                }, onDismiss: { [store = self.store] in store.dismissOperationStatus(id: operation.id, accountId: accountId) })
-            })
-        })
+        }
         controller.onLoadMoreActivity = { [store, context] in Task { await store.loadMoreHistory(accountId: context.accountId) } }
         controller.onVisibilityChanged = { [self] in setVisible($0) }
-        controller.onOpenOnboarding = { [weak controller] source in
+        controller.onOpenOnboarding = { [weak controller, store] source in
             guard let controller, controller.presentedViewController == nil else { return }
-            let stories = PerpsOnboarding.makeViewController()
+            let stories = PerpsOnboarding.makeViewController(onboarding: store.market?.onboarding)
             stories.presentationSource = source
             controller.present(stories, animated: true)
         }
@@ -100,7 +97,6 @@ import UIToken
         let render: () -> PerpsPositionsDisplayData = { [store, context] in
             var data = PerpsHomeAdapter.positions(store: store, accountId: context.accountId)
             data.isStale = loading.update(isStale: data.isStale, hasData: store.snapshots[context.accountId] != nil)
-            for index in data.positions.indices { data.positions[index].isStale = data.isStale }
             return data
         }
         let list = PerpsPositionsVC(data: render()) { [self, weak home] action in
@@ -110,7 +106,7 @@ import UIToken
             default: break
             }
         }
-        observations.append(observe { [weak list] in list?.update(data: render()) })
+        list.observe { [weak list] in list?.update(data: render()) }
         list.onVisibilityChanged = { [self] in setVisible($0) }
         home.navigationController?.pushViewController(list, animated: true)
     }
@@ -120,37 +116,26 @@ import UIToken
             showPosition(position.id, from: origin)
             return
         }
-        guard let asset = asset(id) else { return }
-        var period: ApiPriceHistoryPeriod = .day
-        var finishedPeriods = Set<ApiPriceHistoryPeriod>()
-        var freshPeriods = Set<ApiPriceHistoryPeriod>()
+        guard let controller = makeMarket(id) else { return }
+        origin.navigationController?.pushViewController(controller, animated: true)
+    }
+
+    private func makeMarket(_ id: String, chart existing: PerpsChartSelection? = nil) -> PerpsMarketVC? {
+        guard let asset = asset(id) else { return nil }
+        let chart = existing ?? PerpsChartSelection(store: store, assetId: id)
         var snapshotLoading = PerpsInitialLoadingState()
-        var generation = UUID()
         weak var screen: PerpsMarketVC?
         let render: () -> PerpsMarketDisplayData = { [store, context] in
-            let history = store.chart(accountId: context.accountId, assetId: id, period: period.rawValue)
-                ?? (finishedPeriods.contains(period) ? [] : nil)
-            var data = PerpsSDKAdapter.market(store.snapshots[context.accountId]?.assets.first { $0.id == id } ?? asset,
-                canTrade: PerpsAvailability.canTrade(context.account, store: store), period: period, history: history,
+            var data = PerpsSDKAdapter.market(store.asset(id: id) ?? asset,
+                canTrade: PerpsAvailability.canTrade(context.account, store: store), period: chart.period, history: chart.history,
                 tradingUnavailableReason: PerpsAvailability.tradingUnavailableReason(context.account, store: store))
-            let isChartStale = store.isChartRestored(accountId: context.accountId, assetId: id, period: period.rawValue)
-            if !isChartStale { freshPeriods.insert(period) }
-            data.isHistoryRestored = isChartStale && !freshPeriods.contains(period)
-            data.isStale = snapshotLoading.update(isStale: store.isMarketStale(accountId: context.accountId),
-                                                  hasData: store.snapshots[context.accountId] != nil)
+            data.applyAccountAvailability(context.account, store: store)
+            data.isHistoryRestored = chart.isRestored()
+            data.isStale = snapshotLoading.update(isStale: store.isMarketStale(), hasData: store.market != nil)
             return data
         }
-        let load: (ApiPriceHistoryPeriod) -> Void = { [store, context] selected in
-            period = selected
-            freshPeriods.remove(selected)
-            let request = UUID(); generation = request
-            screen?.update(data: render())
-            Task {
-                await store.refreshChart(accountId: context.accountId, assetId: id, period: selected.rawValue)
-                finishedPeriods.insert(selected)
-                guard generation == request else { return }
-                screen?.update(data: render())
-            }
+        let load: (ApiPriceHistoryPeriod) -> Void = { selected in
+            chart.select(selected) { screen?.update(data: render()) }
         }
         let controller = PerpsMarketVC(data: render(), onSelectPeriod: load) { [self] side in
             guard let screen else { return }
@@ -158,57 +143,55 @@ import UIToken
         }
         screen = controller
         controller.onVisibilityChanged = { [self] in setVisible($0) }
-        observations.append(observe { [weak controller] in controller?.update(data: render()) })
-        origin.navigationController?.pushViewController(controller, animated: true)
-        load(.day)
+        controller.observe { [weak controller, self] in
+            guard let controller else { return }
+            if let position = store.snapshots[context.accountId]?.positions.first(where: { $0.assetId == id }) {
+                switchAssetScreen(from: controller) { [self] in makePosition(position.id, chart: chart) }
+            } else {
+                controller.update(data: render())
+            }
+        }
+        load(chart.period)
         Task { await store.refreshAsset(accountId: context.accountId, assetId: id) }
+        return controller
     }
 
     func showPosition(_ id: String, from origin: UIViewController) {
-        guard let position = position(id), let asset = asset(position.assetId) else { return }
+        guard let controller = makePosition(id) else { return }
+        origin.navigationController?.pushViewController(controller, animated: true)
+    }
+
+    private func makePosition(_ id: String, chart existing: PerpsChartSelection? = nil) -> PerpsPositionVC? {
+        guard let position = position(id), let asset = asset(position.assetId) else { return nil }
         weak var screen: PerpsPositionVC?
-        var finishedPeriods = Set<ApiPriceHistoryPeriod>()
-        var freshPeriods = Set<ApiPriceHistoryPeriod>()
+        let chart = existing ?? PerpsChartSelection(store: store, assetId: asset.id)
         var snapshotLoading = PerpsInitialLoadingState()
         var historyLoading = PerpsInitialLoadingState()
-        var period: ApiPriceHistoryPeriod = .day
-        var generation = UUID()
         let render: () -> PerpsPositionDisplayData = { [store, context] in
             let current = store.snapshots[context.accountId]?.positions.first { $0.id == id }
-            let chart = store.chart(accountId: context.accountId, assetId: asset.id, period: period.rawValue)
-                ?? (finishedPeriods.contains(period) ? [] : nil)
-            var data = PerpsSDKAdapter.position(current ?? position, asset: store.snapshots[context.accountId]?.assets.first { $0.id == asset.id } ?? asset,
-                fills: store.fills[context.accountId] ?? [], canTrade: PerpsAvailability.canTrade(context.account, store: store) && current != nil,
-                history: chart, tradingUnavailableReason: PerpsAvailability.tradingUnavailableReason(context.account, store: store))
-            data.market.period = period
-            let isChartStale = store.isChartRestored(accountId: context.accountId, assetId: asset.id, period: period.rawValue)
-            if !isChartStale { freshPeriods.insert(period) }
-            data.market.isHistoryRestored = isChartStale && !freshPeriods.contains(period)
+            let fills = store.fills(accountId: context.accountId, assetId: asset.id)
+            var data = PerpsSDKAdapter.position(current ?? position, asset: store.asset(id: asset.id) ?? asset,
+                fills: fills ?? [], canTrade: PerpsAvailability.canTrade(context.account, store: store) && current != nil,
+                history: chart.history, tradingUnavailableReason: PerpsAvailability.tradingUnavailableReason(context.account, store: store))
+            data.market.applyAccountAvailability(context.account, store: store)
+            data.market.period = chart.period
+            data.market.isHistoryRestored = chart.isRestored()
             data.market.isStale = snapshotLoading.update(isStale: store.isSnapshotStale(accountId: context.accountId),
                                                          hasData: store.snapshots[context.accountId] != nil)
             data.isActivityStale = historyLoading.update(isStale: store.isHistoryStale(accountId: context.accountId),
-                                                         hasData: store.fills[context.accountId] != nil)
+                                                         hasData: fills != nil)
             if current == nil { data.equity.optionalAmount = nil }
             return data
         }
-        let load: (ApiPriceHistoryPeriod) -> Void = { [store, context] selected in
-            period = selected
-            freshPeriods.remove(selected)
-            let request = UUID(); generation = request
-            screen?.update(data: render())
-            Task {
-                await store.refreshChart(accountId: context.accountId, assetId: asset.id, period: selected.rawValue)
-                finishedPeriods.insert(selected)
-                guard generation == request else { return }
-                screen?.update(data: render())
-            }
+        let load: (ApiPriceHistoryPeriod) -> Void = { selected in
+            chart.select(selected) { screen?.update(data: render()) }
         }
         let controller = PerpsPositionVC(data: render(), onSelectPeriod: load) { [self] action in
             guard let screen else { return }
             switch action {
             case .edit:
                 guard let current = self.position(id) else { return }
-                showOrder(asset: asset, side: current.side == "long" ? .long : .short, position: current, from: screen)
+                showOrder(asset: asset, side: current.side, position: current, from: screen)
             case .close:
                 guard !presentPendingOperation(from: screen, assetId: asset.id, kind: "close") else { return }
                 guard canTrade(assetId: asset.id, kind: "close"), !screen.isPreparingClose, let current = self.position(id) else { return }
@@ -233,40 +216,88 @@ import UIToken
         }
         screen = controller
         controller.onVisibilityChanged = { [self] in setVisible($0) }
-        observations.append(observe { [weak controller] in controller?.update(data: render()) })
-        origin.navigationController?.pushViewController(controller, animated: true)
-        load(.day)
+        controller.observe { [weak controller, self] in
+            guard let controller else { return }
+            // The store keeps the last complete read, so a position missing from it has closed
+            if let snapshot = store.snapshots[context.accountId], !snapshot.positions.contains(where: { $0.id == id }) {
+                switchAssetScreen(from: controller) { [self] in makeMarket(asset.id, chart: chart) }
+            } else {
+                controller.update(data: render())
+            }
+        }
+        load(chart.period)
         Task { await store.refreshAsset(accountId: context.accountId, assetId: asset.id) }
+        return controller
+    }
+
+    /// Runs after the observation that noticed the change, and after any push or pop already under way.
+    private func switchAssetScreen(from current: UIViewController, to makeNext: @escaping () -> UIViewController?) {
+        guard assetScreenBeingSwitched !== current else { return }
+        assetScreenBeingSwitched = current
+        DispatchQueue.main.async { [self, weak current] in
+            guard let current, let navigation = current.navigationController else { return }
+            // Checked first: a swipe back that gets cancelled returns the screen to the stack
+            if let transition = navigation.transitionCoordinator, navigation.presentedViewController == nil,
+               transition.animate(alongsideTransition: nil, completion: { [self, weak current] _ in
+                   assetScreenBeingSwitched = nil
+                   if let current { switchAssetScreen(from: current, to: makeNext) }
+               }) {
+                return
+            }
+            guard navigation.viewControllers.contains(current), let next = makeNext() else {
+                assetScreenBeingSwitched = nil
+                return
+            }
+            Task { [self] in
+                await navigation.switchAssetScreen(current, to: next)
+                assetScreenBeingSwitched = nil
+            }
+        }
     }
 
     private func showOrder(asset: ApiPerpsAsset, side: PerpsTradeDirection, position: ApiPerpsAccountPosition? = nil,
                            from origin: UIViewController) {
-        if position == nil, let current = store.snapshots[context.accountId]?.positions.first(where: { $0.assetId == asset.id }) {
-            showPosition(current.id, from: origin)
-            return
-        }
+        // The screen is about to become this position's, which has no Long or Short.
+        guard position != nil || store.snapshots[context.accountId]?.positions.contains(where: { $0.assetId == asset.id }) != true else { return }
         let entryKind = position == nil ? "open" : "reduce"
         guard !presentPendingOperation(from: origin, assetId: asset.id, kind: entryKind) else { return }
         guard canTrade(assetId: asset.id, kind: entryKind), let asset = self.asset(asset.id) else { return }
-        let input = PerpsOrderInput(amount: position?.collateral ?? "", leverage: position?.raw.leverage.value ?? min(2, asset.maxLeverage))
-        var data = PerpsSDKAdapter.order(asset: asset, account: context.account, side: side, input: input, position: position)
+        let controller = makeOrder(asset: asset, side: side, position: position)
+        origin.present(WNavigationController(rootViewController: controller), animated: true)
+    }
+
+    func makeOrder(asset: ApiPerpsAsset, side: PerpsTradeDirection, position: ApiPerpsAccountPosition? = nil) -> PerpsOrderVC {
+        let entryKind = position == nil ? "open" : "reduce"
+        let input = PerpsOrderInput(amount: position.map { PerpsSDKAdapter.currentInput($0.collateral).text } ?? "",
+                                    leverage: position?.raw.leverage.value ?? min(2, asset.maxLeverage),
+                                    intent: position == nil ? .amount : .current)
+        let balances = { [context, store] in
+            PerpsSDKAdapter.FundingBalances(
+                wallet: context.balances[PerpsSDKAdapter.usdc.slug].map { bigIntToDoubleString($0, decimals: PerpsSDKAdapter.usdc.decimals) },
+                hyperliquid: store.snapshots[context.accountId]?.spendableUsdcByDex?[asset.dex])
+        }
+        var data = PerpsSDKAdapter.order(asset: asset, account: context.account, side: side, input: input, position: position,
+                                         balances: balances())
         data.status = .loading
         weak var screen: PerpsOrderVC?
         var generation = UUID()
-        let controller = PerpsOrderVC(data: data, loadLeverageEstimates: { [self] input in
-            let draft = ApiPerpsDraft(assetId: asset.id, side: side == .long ? "long" : "short", amount: input.amount.text,
-                                      unit: "currency", leverage: input.leverage, editing: position != nil,
-                                      leverageOnly: position != nil)
-            if position != nil {
-                return [PerpsSDKAdapter.leverageOption(try await store.client.preview(context.accountId, draft))]
-            }
-            return PerpsSDKAdapter.leverageOptions(try await store.client.leverageEstimates(context.accountId, draft))
+        let controller = PerpsOrderVC(data: data, loadLeverageEstimate: { [self] input in
+            let draft = PerpsSDKAdapter.draft(assetId: asset.id, side: side, input: input, isEditing: false)
+            return PerpsSDKAdapter.leverageEstimate(try await store.client.leverageEstimate(context.accountId, draft))
         }, loadEstimate: { [self] input in
-            let draft = ApiPerpsDraft(assetId: asset.id, side: side == .long ? "long" : "short", amount: input.amount.text,
-                                     leverage: input.leverage, editing: position != nil, leverageOnly: input.leverageOnly)
+            let draft = PerpsSDKAdapter.draft(assetId: asset.id, side: side, input: input, isEditing: position != nil)
             let quote = try await store.client.preview(context.accountId, draft)
             return PerpsSDKAdapter.order(asset: self.asset(asset.id) ?? asset, account: context.account, side: side,
-                                         input: input, position: position, quote: quote)
+                                         input: input, position: position, quote: quote, balances: balances())
+        }, onSelectAccount: { [store, accountStore] accountId in
+            guard position == nil, let screen, let navigation = screen.navigationController,
+                  navigation.topViewController === screen else { return }
+            generation = UUID()
+            try await accountStore.activateAccount(accountId: accountId)
+            guard navigation.topViewController === screen else { return }
+            let coordinator = PerpsCoordinator(accountId: accountId, store: store)
+            let next = coordinator.makeOrder(asset: asset, side: side)
+            navigation.setViewControllers([next], animated: false)
         }) { [self] request in
             if request.action == .buyUsdc || request.action == .buyEth {
                 screen?.setEstimateRefreshSuspended(true)
@@ -287,13 +318,14 @@ import UIToken
                     guard generation == requestID else { return }
                 }
                 let input = request.input
-                var draft = ApiPerpsDraft(assetId: asset.id, side: side == .long ? "long" : "short", amount: input.amount.text,
-                    unit: "currency", leverage: input.leverage, editing: position != nil,
-                    leverageOnly: input.leverageOnly)
-                if request.action == .resetAmount { draft.reset = true }
+                let draft = PerpsSDKAdapter.draft(assetId: asset.id, side: side, input: input, isEditing: position != nil)
                 var requirements: ApiPerpsFundingRequirements?
                 do {
-                    let isEmptyOpening = position == nil && !input.hasAmount
+                    if store.snapshots[context.accountId] == nil {
+                        await store.refresh(accountId: context.accountId, includesHistory: false)
+                        guard generation == requestID else { return }
+                    }
+                    let isEmptyOpening = position == nil && !input.hasAmount && input.fraction == nil
                     if request.action == .refreshFunding || isEmptyOpening || data.fundingRequirement != nil {
                         requirements = try await store.client.fundingRequirements(context.accountId, draft)
                         guard generation == requestID, let screen else { return }
@@ -301,9 +333,9 @@ import UIToken
                             throw PerpsExecutionError(message: self.asset(asset.id)?.tradingAvailability?.reason ?? "PerpsUnavailable")
                         }
                         if isEmptyOpening || requirements?.needsUsdc == true || requirements?.needsEth == true
-                            || (request.action == .refreshFunding && input.amount.text == position?.collateral && draft.leverageOnly != true) {
+                            || (request.action == .refreshFunding && position != nil && input.intent == .current) {
                             data = PerpsSDKAdapter.order(asset: asset, account: context.account, side: side,
-                                input: input, position: position, fundingRequirements: requirements)
+                                input: input, position: position, fundingRequirements: requirements, balances: balances())
                             _ = screen.update(data: data, for: request)
                             return
                         }
@@ -314,11 +346,9 @@ import UIToken
                         throw PerpsExecutionError(message: store.pendingOperation(accountId: context.accountId, assetId: asset.id, kind: quote.kind) != nil
                             ? "PerpsOperationPending" : self.asset(asset.id)?.tradingAvailability?.reason ?? "PerpsUnavailable")
                     }
-                    let availableCollateral = data.availableCollateral
                     data = PerpsSDKAdapter.order(asset: asset, account: context.account, side: side, input: input,
-                                                 position: position, quote: quote, fundingRequirements: requirements)
-                    data.availableCollateral = data.availableCollateral ?? availableCollateral
-                    data.canUseFractions = position != nil || data.availableCollateral != nil
+                                                 position: position, quote: quote, fundingRequirements: requirements,
+                                                 balances: balances())
                     _ = screen.update(data: data, for: request)
                     if request.action == .review && quote.kind != "unchanged" { showReview(quote, draft: draft, asset: asset, from: screen) }
                 } catch {
@@ -326,11 +356,8 @@ import UIToken
                         requirements = try? await store.client.fundingRequirements(context.accountId, draft)
                     }
                     guard generation == requestID else { return }
-                    let availableCollateral = data.availableCollateral
                     data = PerpsSDKAdapter.order(asset: asset, account: context.account, side: side,
-                        input: input, position: position, fundingRequirements: requirements)
-                    data.availableCollateral = data.availableCollateral ?? availableCollateral
-                    data.canUseFractions = position != nil || data.availableCollateral != nil
+                        input: input, position: position, fundingRequirements: requirements, balances: balances())
                     if data.fundingRequirement == nil { data.status = .unavailable(PerpsFormatting.error(error)) }
                     _ = screen?.update(data: data, for: request)
                 }
@@ -338,7 +365,7 @@ import UIToken
         }
         screen = controller
         var lastFundingBalances = [context.balances[PerpsSDKAdapter.usdc.slug], context.balances[ARBITRUM_SLUG]]
-        orderFundingObservation = observe { [weak controller, context] in
+        controller.observe { [weak controller, context] in
             guard let controller else { return }
             let balances = [context.balances[PerpsSDKAdapter.usdc.slug], context.balances[ARBITRUM_SLUG]]
             guard balances != lastFundingBalances else { return }
@@ -347,8 +374,7 @@ import UIToken
                   controller.navigationController?.topViewController === controller else { return }
             controller.refreshBlockedFunding()
         }
-        let nav = WNavigationController(rootViewController: controller)
-        origin.present(nav, animated: true)
+        return controller
     }
 
     private func showReview(_ initialQuote: ApiPerpsQuote, draft: ApiPerpsDraft, asset: ApiPerpsAsset, from origin: UIViewController, presented: Bool = false) {
@@ -393,49 +419,23 @@ import UIToken
                 }
                 // Authentication must authorize this exact displayed quote, even if it expires while entering the code.
                 let reviewedQuote = quote
-                var needsReview = false
-                let action = ProtectedAction<PerpsTradeConfirmationHeader, PerpsExecutionResult>(account: context.account,
-                    software: .custom { [self] token in
-                        do {
-                            let result = try await store.execute(quote: reviewedQuote, enclaveToken: token)
-                            let receipt = ActionSubmissionReceipt(payload: PerpsExecutionResult(operation: result))
-                            switch result.state {
-                            // The receipt displays settlement progress; committed does not imply a filled trade.
-                            case "running", "completed", "partial", "unknown": return .resolved(.committed(receipt))
-                            case "failed":
-                                needsReview = ["PerpsQuoteExpired", "PerpsReviewChanged"].contains(result.error ?? "")
-                                return .resolved(.notCommitted(PerpsExecutionError(message: PerpsFormatting.errorMessage(result.error))))
-                            default: return .resolved(.indeterminate(error: PerpsExecutionError(message: lang("PerpsExecutionUnknown")), receipt: receipt))
-                            }
-                        } catch PerpsError.expired {
-                            needsReview = true
-                            return .resolved(.notCommitted(PerpsError.expired))
-                        } catch { return .resolved(.notCommitted(error)) }
-                    }, hardware: nil,
-                    confirmation: .init(title: lang("Confirm"), header: PerpsTradeConfirmationHeader(data: data), requiresFreshAuthentication: true),
-                    completion: .replace { [self] receipt in
-                        guard let operation = receipt.payload?.operation,
-                              let controller = makeOperationReceipt(operation, asset: asset) else { return nil }
-                        return Replacement(viewController: controller, animateAlongside: { [weak controller] in
-                            controller?.animateToCollapsed()
-                        })
+                let outcome = await confirmReviewed(header: PerpsTradeConfirmationHeader(data: data), from: screen) { [self] token in
+                    try await store.execute(quote: reviewedQuote, enclaveToken: token)
+                } replacement: { [self] operation in
+                    guard let controller = makeOperationReceipt(operation, asset: asset) else { return nil }
+                    return Replacement(viewController: controller, animateAlongside: { [weak controller] in
+                        controller?.animateToCollapsed()
                     })
-                let outcome = await ProtectedActionExecutor.execute(action, in: .init(screen))
+                }
                 switch outcome {
-                case .completed:
-                    break // ProtectedAction has already replaced confirmation with the receipt.
-                case .partiallyCommitted(let receipt, _):
-                    if let operation = receipt.payload?.operation { showOperation(operation, from: screen, replacingOrder: true) }
-                case .indeterminate(_, let receipt):
-                    if let operation = receipt?.payload?.operation { showOperation(operation, from: screen, replacingOrder: true) }
-                case .failed(let error):
-                    if needsReview {
-                        await refreshReview(for: request)
-                    } else {
-                        var restored = data
-                        restored.status = .unavailable(error.localizedDescription)
-                        _ = screen.update(data: restored, for: request)
-                    }
+                case .finished:
+                    break
+                case .needsReview:
+                    await refreshReview(for: request)
+                case .failed(let message):
+                    var restored = data
+                    restored.status = .unavailable(message)
+                    _ = screen.update(data: restored, for: request)
                 case .cancelled:
                     if quote.expiresAt <= Int64(Date().timeIntervalSince1970 * 1000) {
                         await refreshReview(for: request)
@@ -453,15 +453,144 @@ import UIToken
         }
     }
 
-    private func showFill(_ id: String, from origin: UIViewController) {
-        if let flow = store.cashFlows[context.accountId]?.first(where: { $0.id == id && $0.kind != .funding }) {
-            let asset = store.snapshots[context.accountId]?.assets.first { $0.id == flow.assetId || $0.name == flow.coin }
-            let controller = PerpsCashFlowDetailsVC(data: PerpsHomeAdapter.cashFlowDetails(flow, asset: asset))
-            origin.present(WNavigationController(rootViewController: controller), animated: true)
-            return
+    /// Authenticates and submits a reviewed operation. A committed result replaces the confirmation with `replacement`.
+    private func confirmReviewed<Header: ConfirmationContent>(
+        header: Header, from screen: UIViewController,
+        submit: @escaping (EnclaveToken) async throws -> ApiPerpsOperation,
+        replacement: @escaping (ApiPerpsOperation) -> Replacement?
+    ) async -> PerpsReviewedOutcome {
+        var needsReview = false
+        let action = ProtectedAction<Header, PerpsExecutionResult>(account: context.account,
+            software: .custom { token in
+                do {
+                    let result = try await submit(token)
+                    let receipt = ActionSubmissionReceipt(payload: PerpsExecutionResult(operation: result))
+                    switch result.state {
+                    // The receipt displays settlement progress; committed does not imply a filled trade.
+                    case "running", "completed", "partial", "unknown": return .resolved(.committed(receipt))
+                    case "failed":
+                        needsReview = ["PerpsQuoteExpired", "PerpsReviewChanged"].contains(result.error ?? "")
+                        return .resolved(.notCommitted(PerpsExecutionError(message: PerpsFormatting.errorMessage(result.error))))
+                    default: return .resolved(.indeterminate(error: PerpsExecutionError(message: lang("PerpsExecutionUnknown")), receipt: receipt))
+                    }
+                } catch PerpsError.expired {
+                    needsReview = true
+                    return .resolved(.notCommitted(PerpsError.expired))
+                } catch { return .resolved(.notCommitted(error)) }
+            }, hardware: nil,
+            confirmation: .init(title: lang("Confirm"), header: header, requiresFreshAuthentication: true),
+            completion: .replace { receipt in receipt.payload.flatMap { replacement($0.operation) } })
+        switch await ProtectedActionExecutor.execute(action, in: .init(screen)) {
+        case .completed:
+            return .finished // ProtectedAction has already replaced confirmation with the receipt.
+        case .partiallyCommitted(let receipt, _):
+            if let operation = receipt.payload?.operation { showOperation(operation, from: screen, replacingOrder: true) }
+            return .finished
+        case .indeterminate(_, let receipt):
+            if let operation = receipt?.payload?.operation { showOperation(operation, from: screen, replacingOrder: true) }
+            return .finished
+        case .failed(let error):
+            return needsReview ? .needsReview : .failed(error.localizedDescription)
+        case .cancelled:
+            return .cancelled
         }
-        guard let fill = store.fills[context.accountId]?.first(where: { $0.id == id }), fill.eventKind != nil,
-              let asset = store.snapshots[context.accountId]?.assets.first(where: { $0.name == fill.coin }) else { return }
+    }
+
+    /// Prepares a fresh quote for everything one withdrawal can send, then opens its review.
+    func showBalanceWithdrawal(from origin: UIViewController) {
+        guard !isPreparingBalanceWithdrawal, !presentPendingOperation(from: origin),
+              PerpsAvailability.canTrade(context.account, store: store) else { return }
+        setPreparingBalanceWithdrawal(true)
+        Task { [self] in
+            defer { setPreparingBalanceWithdrawal(false) }
+            do {
+                let quote = try await store.client.prepareBalanceWithdrawal(context.accountId)
+                guard origin.viewIfLoaded?.window != nil, origin.presentedViewController == nil,
+                      store.pendingOperation(accountId: context.accountId) == nil else { return }
+                showBalanceWithdrawalReview(quote, from: origin)
+            } catch { AppActions.showError(error: PerpsExecutionError(message: PerpsFormatting.error(error))) }
+        }
+    }
+
+    private func setPreparingBalanceWithdrawal(_ isPreparing: Bool) {
+        isPreparingBalanceWithdrawal = isPreparing
+        home?.update(data: homeDisplayData())
+    }
+
+    private func showBalanceWithdrawalReview(_ initialQuote: ApiPerpsBalanceWithdrawalQuote, from origin: UIViewController) {
+        var quote = initialQuote
+        var data = PerpsSDKAdapter.balanceWithdrawalReview(quote)
+        weak var screen: PerpsBalanceWithdrawalReviewVC?
+        func refreshReview(for request: PerpsOrderReviewRequest) async {
+            do {
+                let refreshed = try await store.client.prepareBalanceWithdrawal(context.accountId)
+                var updated = PerpsSDKAdapter.balanceWithdrawalReview(refreshed)
+                updated.notice = lang("PerpsBalanceWithdrawalUpdated")
+                guard screen?.update(data: updated, for: request) == true else { return }
+                quote = refreshed
+                data = updated
+            } catch {
+                var unavailable = data
+                unavailable.status = .unavailable(PerpsFormatting.error(error))
+                _ = screen?.update(data: unavailable, for: request)
+            }
+        }
+        let controller = PerpsBalanceWithdrawalReviewVC(data: data) { [self] request in
+            guard let screen else { return }
+            Task { [self] in
+                guard PerpsAvailability.canTrade(context.account, store: store),
+                      store.pendingOperation(accountId: context.accountId) == nil else {
+                    var unavailable = data
+                    unavailable.status = .unavailable(PerpsAvailability.tradingUnavailableReason(context.account, store: store)
+                        ?? lang("PerpsOperationPending"))
+                    _ = screen.update(data: unavailable, for: request)
+                    return
+                }
+                if quote.expiresAt <= Int64(Date().timeIntervalSince1970 * 1000) {
+                    await refreshReview(for: request)
+                    return
+                }
+                // Authentication must authorize this exact displayed quote, even if it expires while entering the code.
+                let reviewedQuote = quote
+                let outcome = await confirmReviewed(header: PerpsBalanceWithdrawalConfirmationHeader(data: data), from: screen) { [self] token in
+                    try await store.executeBalanceWithdrawal(quote: reviewedQuote, enclaveToken: token)
+                } replacement: { [self] operation in
+                    balanceWithdrawalReplacement(operation)
+                }
+                switch outcome {
+                case .finished:
+                    break
+                case .needsReview:
+                    await refreshReview(for: request)
+                case .failed(let message):
+                    var restored = data
+                    restored.status = .unavailable(message)
+                    _ = screen.update(data: restored, for: request)
+                case .cancelled:
+                    if quote.expiresAt <= Int64(Date().timeIntervalSince1970 * 1000) {
+                        await refreshReview(for: request)
+                    } else {
+                        _ = screen.update(data: data, for: request)
+                    }
+                }
+            }
+        }
+        screen = controller
+        origin.present(WNavigationController(rootViewController: controller), animated: true)
+    }
+
+    func balanceWithdrawalReplacement(_ operation: ApiPerpsOperation) -> Replacement {
+        guard let controller = makeOperationReceipt(operation, data: PerpsSDKAdapter.balanceWithdrawalReceipt) else {
+            return Replacement(viewController: makeOperationStatus(operation))
+        }
+        return Replacement(viewController: controller, animateAlongside: { [weak controller] in
+            controller?.animateToCollapsed()
+        })
+    }
+
+    private func showFill(_ id: String, from origin: UIViewController) {
+        guard let fill = store.fill(accountId: context.accountId, id: id),
+              let asset = store.asset(named: fill.coin) else { return }
         let operation = store.operations.values.first {
             $0.accountId == context.accountId && $0.assetId == asset.id && $0.orderId != nil && $0.orderId == fill.oid
         }
@@ -481,10 +610,13 @@ import UIToken
         let controller = PerpsPositionReceiptVC(data: data, onShare: {
             guard let receipt else { return }
             let data = receipt.data
-            var lines = [data.title + " · " + data.token.name,
-                         PerpsFormatting.date(data.timestamp),
-                         data.positionSizeTitle + ": " + data.positionSize,
-                         lang("Price") + ": " + data.price]
+            var lines = [data.title + " · " + data.token.name, data.timestamp.dateTimeString]
+            if case .balanceWithdrawal(let withdrawal) = data.event {
+                lines += [lang("You Receive") + ": " + withdrawal.receiveAmount,
+                          lang("PerpsWithdrawalToWallet") + ": " + withdrawal.destination]
+            } else {
+                lines += [data.positionSizeTitle + ": " + data.positionSize, lang("Price") + ": " + data.price]
+            }
             switch data.event {
             case .closed(let outcome), .liquidated(let outcome):
                 lines.append(lang("Profit and Loss") + ": " + outcome.profitLoss.text)
@@ -500,8 +632,14 @@ import UIToken
     }
 
     private func makeOperationReceipt(_ initial: ApiPerpsOperation, asset: ApiPerpsAsset) -> PerpsPositionReceiptVC? {
-        let operation = store.operations[initial.id] ?? initial
-        guard let data = PerpsSDKAdapter.receipt(operation: operation, asset: asset, fill: completedFill(operation)) else { return nil }
+        makeOperationReceipt(initial) { [self] operation in
+            PerpsSDKAdapter.receipt(operation: operation, asset: asset, fill: completedFill(operation))
+        }
+    }
+
+    private func makeOperationReceipt(_ initial: ApiPerpsOperation,
+                                      data makeData: @escaping (ApiPerpsOperation) -> PerpsPositionReceiptDisplayData?) -> PerpsPositionReceiptVC? {
+        guard let data = makeData(store.operations[initial.id] ?? initial) else { return nil }
         weak var screen: PerpsPositionReceiptVC?
         let controller = makeReceipt(data: data, onStatus: { [self] in
             guard let screen, let operation = store.operations[initial.id] else { return }
@@ -510,27 +648,21 @@ import UIToken
         screen = controller
         controller.observe { [weak controller, self] in
             guard let operation = store.operations[initial.id], operation.accountId == context.accountId,
-                  let data = PerpsSDKAdapter.receipt(operation: operation, asset: asset, fill: completedFill(operation)) else { return }
+                  let data = makeData(operation) else { return }
             controller?.update(data: data)
         }
-        var polling: Task<Void, Never>?
-        controller.onVisibilityChanged = { [weak controller, self] visible in
-            polling?.cancel()
-            polling = nil
-            guard visible else { return }
-            polling = Task { [weak controller, store, context] in
-                while !Task.isCancelled, controller != nil {
-                    if UIApplication.shared.applicationState == .active { await store.reconcile(accountId: context.accountId) }
-                    do { try await Task.sleep(for: .seconds(5)) } catch { break }
-                }
-            }
+        controller.onVisibilityChanged = { [weak controller, store, context] visible in
+            guard let controller else { return }
+            if visible { store.watch(accountId: context.accountId, every: .seconds(5), by: controller) }
+            else { store.unwatch(by: controller) }
         }
         return controller
     }
 
     private func completedFill(_ operation: ApiPerpsOperation) -> ApiPerpsFill? {
         guard let orderId = operation.orderId, let asset = asset(operation.assetId) else { return nil }
-        return store.fills[context.accountId]?.first { $0.oid == orderId && $0.coin == asset.name && $0.eventKind != nil }
+        return store.fills(accountId: context.accountId, assetId: asset.id)?
+            .first { $0.oid == orderId && $0.coin == asset.name }
     }
 
     private func presentPendingOperation(from origin: UIViewController, assetId: String? = nil, kind: String? = nil) -> Bool {
@@ -539,7 +671,7 @@ import UIToken
         return true
     }
 
-    private func showOperation(_ operation: ApiPerpsOperation, from origin: UIViewController, replacingOrder: Bool = false) {
+    private func makeOperationStatus(_ operation: ApiPerpsOperation) -> PerpsOperationVC {
         weak var screen: UIViewController?
         let controller = PerpsOperationVC(store: store, accountId: context.accountId, operationId: operation.id, onWithdraw: { [self] in
             guard let screen else { return }
@@ -549,6 +681,11 @@ import UIToken
             showFill(fill.id, from: screen)
         })
         screen = controller
+        return controller
+    }
+
+    private func showOperation(_ operation: ApiPerpsOperation, from origin: UIViewController, replacingOrder: Bool = false) {
+        let controller = makeOperationStatus(operation)
         if replacingOrder, let navigation = origin.navigationController, navigation.presentingViewController != nil {
             navigation.setViewControllers([controller], animated: true)
         } else {
@@ -578,73 +715,68 @@ import UIToken
     }
 
     private func setVisible(_ visible: Bool) {
-        polling?.cancel()
-        polling = nil
+        visibility?.cancel()
+        visibility = nil
+        store.unwatch(by: self)
         guard visible else { return }
-        polling = Task { [weak self, store, context] in
-            while !Task.isCancelled {
-                if UIApplication.shared.applicationState == .active {
-                    if !store.hasResolvedCapabilities {
-                        await store.loadCapabilities()
-                        self?.didLoadCapabilities = true
-                    }
-                    guard !Task.isCancelled else { return }
-                    if PerpsAvailability.canRead(context.account, store: store) {
-                        await store.reconcile(accountId: context.accountId)
-                        await self?.refreshHomeCharts()
-                    } else {
-                        guard let self else { return }
-                        var data = homeDisplayData()
-                        data.positions.status = .unavailable(lang(store.hasResolvedCapabilities ? "PerpsUnsupportedAccount" : "PerpsUnavailable"))
-                        home?.update(data: data)
-                        if store.hasResolvedCapabilities { return }
-                    }
-                }
-                try? await Task.sleep(for: .seconds(20))
-            }
+        visibility = Task { [weak self] in
+            guard let self else { return }
+            await store.loadCapabilities()
+            guard !Task.isCancelled, PerpsAvailability.canRead(context.account, store: store) else { return }
+            store.watch(accountId: context.accountId, every: .seconds(20), by: self)
         }
     }
 
-    private func refreshHomeCharts() async {
-        guard home?.viewIfLoaded?.window != nil else { return }
-        let assets = PerpsHomeAdapter.featuredAssets(store.snapshots[context.accountId]).filter { $0.sparkline == nil }
-        guard !assets.isEmpty else { return }
-        for asset in assets {
-            guard !Task.isCancelled else { return }
-            guard !store.isChartFresh(accountId: context.accountId, assetId: asset.id,
-                                      period: ApiPriceHistoryPeriod.day.rawValue, maxAge: 300) else { continue }
-            await store.refreshChart(accountId: context.accountId, assetId: asset.id, period: ApiPriceHistoryPeriod.day.rawValue)
-        }
-        guard !Task.isCancelled else { return }
-        home?.update(data: homeDisplayData())
-    }
-
-    private func homeDisplayData() -> PerpsHomeDisplayData {
-        var charts: [String: [[Double]]] = [:]
-        for asset in PerpsHomeAdapter.featuredAssets(store.snapshots[context.accountId]) {
-            charts[asset.id] = store.chart(accountId: context.accountId, assetId: asset.id, period: ApiPriceHistoryPeriod.day.rawValue)
-        }
-        var data = PerpsHomeAdapter.home(store: store, accountId: context.accountId, charts: charts)
+    func homeDisplayData() -> PerpsHomeDisplayData {
+        let accountId = context.accountId
+        var data = PerpsHomeAdapter.home(store: store, accountId: accountId)
+        data.operationStatus = operationStatus()
         data.showsOnboarding = data.showsOnboarding && !context.settings.dismissedHomeBannerIds.contains(PerpsOnboarding.bannerID)
-        let isSnapshotStale = homeSnapshotLoading.update(isStale: store.isSnapshotStale(accountId: context.accountId),
-                                                         hasData: store.snapshots[context.accountId] != nil)
-        data.positions.isStale = isSnapshotStale
-        for index in data.positions.positions.indices { data.positions.positions[index].isStale = isSnapshotStale }
-        let isMarketStale = homeMarketLoading.update(isStale: store.isMarketStale(accountId: context.accountId),
-                                                     hasData: store.snapshots[context.accountId] != nil)
-        for section in data.marketSections.indices {
-            for item in data.marketSections[section].tokens.indices {
-                data.marketSections[section].tokens[item].isStale = isMarketStale
-            }
-        }
-        let isHistoryStale = homeHistoryLoading.update(isStale: store.isHistoryStale(accountId: context.accountId),
-                                                       hasData: store.fills[context.accountId] != nil)
-        for index in data.activities.indices { data.activities[index].isStale = isHistoryStale }
-        if didLoadCapabilities && !PerpsAvailability.canRead(context.account, store: store) {
-            data.positions.status = .unavailable(lang(store.hasResolvedCapabilities ? "PerpsUnsupportedAccount" : "PerpsUnavailable"))
+        let hasSnapshot = store.snapshots[accountId] != nil
+        data.positions.isStale = homeSnapshotLoading.update(isStale: store.isSnapshotStale(accountId: accountId), hasData: hasSnapshot)
+        data.balanceWithdrawal?.isStale = data.positions.isStale
+        data.balanceWithdrawal?.isPreparing = isPreparingBalanceWithdrawal
+        data.isMarketStale = homeMarketLoading.update(isStale: store.isMarketStale(), hasData: store.market != nil)
+        data.isActivityStale = homeHistoryLoading.update(isStale: store.isHistoryStale(accountId: accountId),
+                                                         hasData: store.fills[accountId] != nil)
+        if PerpsAvailability.requiresMultichainAccount(context.account, store: store) {
+            data.accountNotice = lang("PerpsRequiresMultichainWallet")
+            data.showsOnboarding = false
+        } else if !PerpsAvailability.canRead(context.account, store: store) {
+            data.positions.status = .unavailable(lang(store.isSupported ? "PerpsUnsupportedAccount" : "PerpsUnavailable"))
+            data.balanceWithdrawal = nil
             data.showsOnboarding = false
         }
+        if data.showsOnboarding, let onboarding = store.market?.onboarding {
+            prefetchOnboarding(onboarding)
+        }
         return data
+    }
+
+    @discardableResult
+    func prefetchOnboarding(_ onboarding: ApiPerpsOnboarding) -> Task<Void, Never>? {
+        guard onboardingPrefetch?.onboarding != onboarding else { return nil }
+        let id = UUID()
+        onboardingPrefetch = (id, onboarding)
+        return Task { [weak self, prefetchStories] in
+            let isComplete = await prefetchStories(onboarding.stories)
+            if !isComplete, self?.onboardingPrefetch?.id == id {
+                self?.onboardingPrefetch = nil
+            }
+        }
+    }
+
+    private func operationStatus() -> PerpsOperationStatusDisplayData? {
+        store.visibleOperationStatus(accountId: context.accountId).map { operation in
+            let symbol = asset(operation.assetId)?.symbol ?? operation.assetId.components(separatedBy: ":").last ?? ""
+            return .init(title: PerpsFormatting.operationTitle(operation, symbol: symbol),
+                         message: PerpsFormatting.operationMessage(operation), onSelect: { [weak self] in
+                guard let self, let home else { return }
+                showOperation(operation, from: home)
+            }, onDismiss: { [store, accountId = context.accountId] in
+                store.dismissOperationStatus(id: operation.id, accountId: accountId)
+            })
+        }
     }
 
     private func canTrade(assetId: String, kind: String? = nil) -> Bool {
@@ -652,13 +784,60 @@ import UIToken
             && asset(assetId)?.tradingAvailability?.isAvailable == true
             && store.pendingOperation(accountId: context.accountId, assetId: assetId, kind: kind) == nil
     }
-    private func asset(_ id: String) -> ApiPerpsAsset? { store.snapshots[context.accountId]?.assets.first { $0.id == id } }
+    private func asset(_ id: String) -> ApiPerpsAsset? { store.asset(id: id) }
     private func position(_ id: String) -> ApiPerpsAccountPosition? { store.snapshots[context.accountId]?.positions.first { $0.id == id } }
+}
+
+/// The chart period a market or position screen shows, and what has been read for each of its periods.
+@MainActor private final class PerpsChartSelection {
+    private(set) var period: ApiPriceHistoryPeriod = .day
+    private let store: PerpsStore
+    private let assetId: String
+    private var finishedPeriods = Set<ApiPriceHistoryPeriod>()
+    private var freshPeriods = Set<ApiPriceHistoryPeriod>()
+    private var generation = UUID()
+
+    init(store: PerpsStore, assetId: String) {
+        self.store = store
+        self.assetId = assetId
+    }
+
+    /// The selected period's points: nil until its first read finishes, then empty if that read found none.
+    var history: [[Double]]? {
+        store.chart(assetId: assetId, period: period.rawValue) ?? (finishedPeriods.contains(period) ? [] : nil)
+    }
+
+    /// Whether the selected period still shows a chart that has not been read since the screen selected it.
+    func isRestored() -> Bool {
+        let isChartStale = store.isChartRestored(assetId: assetId, period: period.rawValue)
+        if !isChartStale { freshPeriods.insert(period) }
+        return isChartStale && !freshPeriods.contains(period)
+    }
+
+    /// Selects a period and reads its chart. `onUpdate` runs at once, and after the read unless another period took over.
+    func select(_ selected: ApiPriceHistoryPeriod, onUpdate: @escaping () -> Void) {
+        period = selected
+        freshPeriods.remove(selected)
+        let request = UUID(); generation = request
+        onUpdate()
+        Task {
+            await store.refreshChart(assetId: assetId, period: selected.rawValue)
+            finishedPeriods.insert(selected)
+            guard generation == request else { return }
+            onUpdate()
+        }
+    }
 }
 
 private struct PerpsExecutionResult: MfaProtectedActionResult {
     let operation: ApiPerpsOperation
     var mfaRequestHash: String? { nil }
+}
+private enum PerpsReviewedOutcome {
+    case finished
+    case needsReview
+    case failed(String)
+    case cancelled
 }
 private struct PerpsExecutionError: LocalizedError {
     let message: String

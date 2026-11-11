@@ -1,6 +1,6 @@
 import type { ElementRef } from '../../lib/teact/teact';
 import React, {
-  memo, useEffect, useRef, useState,
+  memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 
 import type {
@@ -13,11 +13,15 @@ import type { AgentRunActivityHandoff, AgentRunActivityType } from '../agent/Age
 import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentation';
 
 import buildClassName from '../../util/buildClassName';
+import { startTypingAnswerMorph } from '../agent/helpers/typingAnswerMorph';
 import { getAgentV2ErrorText, getAgentV2NoticeTexts } from './agentV2Copy';
+import useAgentFeedbackBadge from './useAgentFeedbackBadge';
 
-import { LangProvider, useLangForCode } from '../../hooks/useLang';
+import useLang, { LangProvider, useLangForCode } from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
 import AgentRunActivity from '../agent/AgentRunActivity';
+import AgentFeedbackBadge from './AgentFeedbackBadge';
 import AgentMessageControls from './AgentMessageControls';
 import { AgentFailureCaption } from './AgentStatusNotice';
 import { AgentV2AssistantText } from './AgentV2Conversation';
@@ -33,12 +37,17 @@ interface OwnProps {
   shouldAnimateAppearance?: boolean;
   isLatest?: boolean;
   areFollowupsHeld?: boolean;
+  /** The suggestions keep the look they have when they can be pressed, and a press does nothing */
+  areFollowupsInactive?: boolean;
   /** The answer's menu is open over the chat's tint */
   isMenuOpen?: boolean;
+  /** The cloud of reactions is open over the answer, whose rating reaches its corner once the cloud has gone */
+  isFeedbackCloudOpen?: boolean;
   activity?: AgentRunActivityType;
   activityHandoff?: AgentRunActivityHandoff;
   textRevealPresentation?: TextRevealPresentation;
   onMouseDown: (e: React.MouseEvent) => void;
+  /** Opens the answer's menu, from the bubble or from its reaction's emoji */
   onContextMenu: (e: React.MouseEvent) => void;
   onFollowup?: (messageId: number, followup: AgentPublicFollowUpV2) => void;
   onAction?: (
@@ -65,7 +74,9 @@ function AgentV2IncomingMessage({
   shouldAnimateAppearance = false,
   isLatest = false,
   areFollowupsHeld = false,
+  areFollowupsInactive = false,
   isMenuOpen = false,
+  isFeedbackCloudOpen = false,
   activity,
   activityHandoff,
   textRevealPresentation,
@@ -85,6 +96,8 @@ function AgentV2IncomingMessage({
     actions, actionPresentations, followups, error, failureText, responseLanguage,
   } = message;
   const lang = useLangForCode(responseLanguage);
+  // The reaction is the app's, and is told in its language
+  const appLang = useLang();
   const noticeContent = semanticContent?.kind === 'notice' ? semanticContent : undefined;
   const noticeText = noticeContent ? getAgentV2NoticeTexts(noticeContent, lang).join('\n\n')
     : semanticContent ? lang('$agent_error_invalid_response') : undefined;
@@ -94,15 +107,37 @@ function AgentV2IncomingMessage({
   const shouldRenderIncomingBubble = Boolean(isTyping || incomingText || message.tableReferences?.length);
   const isTextRevealActive = textRevealPresentation?.status === 'active' && Boolean(incomingText);
   const areControlsVisible = hasRichContent && !isTextRevealActive;
-  // Suggestions hang from the bubble, which has no tail over them, as on mobile; action buttons keep it
-  const isTailless = areControlsVisible && isLatest && Boolean(followups?.length) && !hasActionButtons;
+  // Suggestions hang from the bubble, which has no tail over them while they show, as on mobile; action buttons keep it
+  const isTailless = areControlsVisible && isLatest && !areFollowupsHeld && Boolean(followups?.length)
+    && !hasActionButtons;
   // Suggestions that arrive while the chat is open grow into place; an answer from the history has them already
   const hadFollowupsAtMountRef = useRef(Boolean(followups?.length));
   // A failure of the answer tells its code in words; a failure of the chat brings words of its own
   const captionText = noFailureCaption ? undefined : error ? getAgentV2ErrorText(error.code, lang) : failureText;
+  const badge = useAgentFeedbackBadge(id, message.feedback, isFeedbackCloudOpen);
+  const bubbleRef = useRef<HTMLDivElement>();
+  // The run's indicator stands in for the bubble until the answer's first text, and the bubble grows out of it then,
+  // as on iOS
+  const isActivityPlaceholder = isLatest && !captionText && Boolean(activity) && !shouldRenderIncomingBubble;
+  const isPreviousActivityPlaceholderRef = useRef(isActivityPlaceholder);
+
+  useLayoutEffect(() => {
+    const isPreviousActivityPlaceholder = isPreviousActivityPlaceholderRef.current;
+    isPreviousActivityPlaceholderRef.current = isActivityPlaceholder;
+    const row = contentRef.current?.querySelector<HTMLElement>('[data-agent-run-activity]');
+    const bubble = bubbleRef.current;
+    if (!isPreviousActivityPlaceholder || !shouldRenderIncomingBubble || !shouldAnimateTextStreaming) return;
+
+    if (row && bubble) startTypingAnswerMorph(row, bubble);
+  }, [contentRef, isActivityPlaceholder, shouldAnimateTextStreaming, shouldRenderIncomingBubble]);
+
+  // Every component under the answer that takes its language renders again when the context gets another object
+  const langContextValue = useMemo(() => ({ lang }), [lang]);
+
+  const handleRetry = useLastCallback(() => onRetry?.(id));
 
   return (
-    <LangProvider value={{ lang }}>
+    <LangProvider value={langContextValue}>
       <div
         ref={contentRef}
         lang={lang.code}
@@ -119,14 +154,18 @@ function AgentV2IncomingMessage({
       >
         {shouldRenderIncomingBubble && (
           <div
+            ref={bubbleRef}
             className={buildClassName(
               styles.bubble,
               styles.incoming,
+              message.operator && styles.incomingOperator,
               isTailless && styles.tailless,
               shouldAnimateAppearance && styles.appearing,
             )}
           >
-            {!isTyping && (
+            {/* An operator writes plain text, which the agent's Markdown rules would misread */}
+            {message.operator && <span className={styles.operatorText}>{incomingText}</span>}
+            {!isTyping && !message.operator && (
               <AgentV2AssistantText
                 key={getIncomingMessageKey(textRevealPresentation)}
                 messageId={id}
@@ -144,6 +183,17 @@ function AgentV2IncomingMessage({
                 onRevealComplete={onTextRevealComplete}
               />
             )}
+            {badge.feedback && (
+              <AgentFeedbackBadge
+                feedback={badge.feedback}
+                replacedFeedback={badge.replacedFeedback}
+                motion={badge.motion}
+                isAwaitingFlight={badge.isAwaitingFlight}
+                landingKey={badge.landingKey}
+                label={appLang(badge.feedback === 'like' ? 'Liked' : 'Disliked')}
+                onClick={onContextMenu}
+              />
+            )}
           </div>
         )}
         {/* The failure takes the activity's place at once rather than after it fades */}
@@ -153,11 +203,14 @@ function AgentV2IncomingMessage({
         {areControlsVisible && (
           <AgentMessageControls
             followups={followups}
-            isDisabled={isDisabled}
+            isDisabled={isDisabled && !areFollowupsInactive}
+            isInactive={areFollowupsInactive}
             shouldShowFollowups={isLatest && !areFollowupsHeld}
             shouldAnimateGrowth={shouldAnimateTextStreaming && !hadFollowupsAtMountRef.current}
             onGrowthFrame={onTextRevealProgress}
-            onFollowup={(followup) => onFollowup?.(id, followup)}
+            onFollowup={(followup) => {
+              if (!areFollowupsInactive) onFollowup?.(id, followup);
+            }}
           >
             {actions?.map((action) => {
               const presentation = actionPresentations?.[action.id];
@@ -167,14 +220,14 @@ function AgentV2IncomingMessage({
                   || (presentation?.kind === 'send' && presentation.status === 'active'));
 
               return (
-                <AgentV2ActionButton
+                <MemoizedAgentV2ActionButton
                   key={action.id}
-                  actionKind={action.kind}
-                  label={action.title}
+                  messageId={id}
+                  action={action}
                   expiresAt={presentation?.kind === 'send' ? presentation.expiresAt : undefined}
                   isActive={isActionActive}
                   isDisabled={isDisabled || !onAction}
-                  onClick={() => onAction?.(id, action)}
+                  onAction={onAction}
                 />
               );
             })}
@@ -185,7 +238,7 @@ function AgentV2IncomingMessage({
             <AgentFailureCaption
               text={captionText}
               isRetryDisabled={isDisabled}
-              onRetry={onRetry ? () => onRetry(id) : undefined}
+              onRetry={onRetry ? handleRetry : undefined}
             />
           </div>
         )}
@@ -195,21 +248,21 @@ function AgentV2IncomingMessage({
 }
 
 interface AgentV2ActionButtonProps {
-  actionKind: AgentV2LiveAction['kind'];
+  messageId: number;
+  action: AgentV2LiveAction | AgentPersistedActionV2;
   expiresAt?: string;
   isActive: boolean;
   isDisabled: boolean;
-  label: string;
-  onClick: NoneToVoidFunction;
+  onAction: OwnProps['onAction'];
 }
 
 function AgentV2ActionButton({
-  actionKind,
+  messageId,
+  action,
   expiresAt,
   isActive,
   isDisabled,
-  label,
-  onClick,
+  onAction,
 }: AgentV2ActionButtonProps) {
   const [isExpired, setIsExpired] = useState(() => isActionExpired(expiresAt));
 
@@ -227,24 +280,28 @@ function AgentV2ActionButton({
   // An unavailable action still takes a tap, which tells the user why it does not open
   const isUnavailable = !isActive || isExpired;
 
+  const handleClick = useLastCallback(() => onAction?.(messageId, action));
+
   return (
     <button
       type="button"
-      data-agent-action-kind={actionKind}
+      data-agent-action-kind={action.kind}
       className={buildClassName(
         styles.actionButton,
         v2styles.button,
         // A transfer to confirm stands out from the buttons that only open a screen
-        actionKind === 'send' && v2styles.confirmButton,
+        action.kind === 'send' && v2styles.confirmButton,
       )}
       disabled={isDisabled}
       aria-disabled={isUnavailable || undefined}
-      onClick={onClick}
+      onClick={handleClick}
     >
-      {label}
+      {action.title}
     </button>
   );
 }
+
+const MemoizedAgentV2ActionButton = memo(AgentV2ActionButton);
 
 function isActionExpired(expiresAt?: string) {
   return Boolean(expiresAt && Date.parse(expiresAt) <= Date.now());

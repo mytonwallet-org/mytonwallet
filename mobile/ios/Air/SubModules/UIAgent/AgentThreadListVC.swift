@@ -8,6 +8,10 @@ import WalletCore
 private enum AgentThreadListLayout {
     static let refreshInterval: TimeInterval = 30
     static let rowMoveDuration: TimeInterval = 0.45
+    /// A deleted chat's place holds while most of its dust drifts off, as the web holds a removed message's, so the
+    /// rows that stay don't run into it
+    static let dissolvedGapCloseDelay: TimeInterval = 0.6
+    static let reducedMotionCrossfadeDuration: TimeInterval = 0.25
     static let sectionSpacing: CGFloat = 6
     /// The suggestions sit 26 pt above the question field, as on an empty chat
     static let suggestionsToField: CGFloat = 26
@@ -19,19 +23,25 @@ private enum AgentThreadListLayout {
 public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObserver {
     /// The question field. The root hosts it over its toolbar; without a host the list lays it out itself.
     public let bottomBar = AgentListBottomBar()
-    public var isConsentRequired: Bool { hasLoadedConsent && !hasConsent }
-    public var onConsentChanged: (() -> Void)?
 
     private let model: AgentThreadListModel
     private let loadConsent: () async throws -> Bool
     private let acceptConsent: () async throws -> Void
-    private let makeThreadChat: (ApiAgentV2ThreadSummary) -> UIViewController
+    /// The consent as the app last read or gave it, as a chat's consent sheet gave it while the list was away
+    private let isConsentKnownGiven: () -> Bool
+    /// Makes the chat of a row; the flag tells that the row is the SDK's copy of the list
+    private let makeThreadChat: (ApiAgentV2ThreadSummary, Bool) -> UIViewController
     private let makeNewChat: (String?) -> UIViewController
     private let makeNewsFeed: (AgentNewsFeedModel) -> UIViewController
     private let loadSuggestions: () async throws -> [AgentHint]
-    private let consentView = AgentConsentView()
+    private let getCurrentDate: () -> Date
     /// Telegram's placeholder rows while the chats load, behind the list so it fades with it
     private let skeletonView = AgentThreadListSkeletonView()
+    /// The failure with Retry in place of the suggestions, under the News row, when the chats failed to load and the
+    /// list has none to show
+    private let loadErrorView = AgentLoadErrorView()
+    /// The list's column between the header and the bottom edge, which the failure stands in the middle of
+    private let contentLayoutGuide = UILayoutGuide()
     private let paginationIndicator = UIActivityIndicatorView(style: .medium)
     private let suggestionsView = AgentHintsSectionView()
     private var collectionView: UICollectionView!
@@ -59,9 +69,13 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private var suggestions: [AgentHint] = []
     private var hasConsent = false
     private var hasLoadedConsent = false
+    /// How many times the list has gone from the screen, so a recording asked for before it went doesn't start after
+    private var disappearanceCount = 0
     private var needsRefresh = false
     private var isShowingSuggestions = false
     private var isComposing = false
+    /// The suggestion whose question grows into a new chat's bubble, out of sight in the list until the list shows again
+    private weak var sentSuggestionButton: AgentSuggestionButton?
     /// A question sent while composing continues in a chat that takes the list's place; the list keeps its compose
     /// state under it, though the field gives up the keyboard first
     private var shouldKeepSuggestionsForComposedChat = false
@@ -72,6 +86,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     /// Chats the user deleted: the change that removes one moves the rows on the same spring, as Telegram's list
     /// closes up a removed chat's place
     private var deletingThreadIds: Set<String> = []
+    /// A deleted chat's row turns to dust here, over the list, as Telegram's deleted messages do
+    private var rowDissolveView: AgentMessageDissolveView?
     /// A tap beside the new chat's suggestions ends composing and closes the keyboard
     private lazy var composeDismissTap: UITapGestureRecognizer = {
         let tap = UITapGestureRecognizer(target: self, action: #selector(endComposing))
@@ -85,7 +101,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         self.init(
             model: AgentThreadListModel(readState: AgentNewsReadState(userDefaults: userDefaults)),
             loadConsent: { try await client.consent() },
-            acceptConsent: { try await client.acceptConsent() }
+            acceptConsent: { try await client.acceptConsent() },
+            isConsentKnownGiven: { client.isConsentKnownGiven }
         )
     }
 
@@ -93,8 +110,9 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         model: AgentThreadListModel,
         loadConsent: @escaping () async throws -> Bool,
         acceptConsent: @escaping () async throws -> Void,
-        makeThreadChat: @escaping (ApiAgentV2ThreadSummary) -> UIViewController = {
-            AgentEntryPoint.makeRootViewController(thread: $0)
+        isConsentKnownGiven: @escaping () -> Bool = { false },
+        makeThreadChat: @escaping (ApiAgentV2ThreadSummary, Bool) -> UIViewController = {
+            AgentEntryPoint.makeRootViewController(thread: $0, isSummaryCached: $1)
         },
         makeNewChat: @escaping (String?) -> UIViewController = {
             AgentEntryPoint.makeNewChatViewController(query: $0)
@@ -106,15 +124,18 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             try await AgentSearchProvider.shared.loadSuggestions(langCode: "").map {
                 AgentHint(id: $0.id, title: $0.title, subtitle: $0.prompt, prompt: $0.prompt, catalogVersion: $0.catalogVersion)
             }
-        }
+        },
+        getCurrentDate: @escaping () -> Date = { .now }
     ) {
         self.model = model
         self.loadConsent = loadConsent
         self.acceptConsent = acceptConsent
+        self.isConsentKnownGiven = isConsentKnownGiven
         self.makeThreadChat = makeThreadChat
         self.makeNewChat = makeNewChat
         self.makeNewsFeed = makeNewsFeed
         self.loadSuggestions = loadSuggestions
+        self.getCurrentDate = getCurrentDate
         super.init(nibName: nil, bundle: nil)
         title = lang("Agent")
     }
@@ -150,7 +171,17 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             name: AgentThreadReadState.didChangeNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSignificantTimeChange),
+            name: UIApplication.significantTimeChangeNotification,
+            object: nil
+        )
         checkConsent()
+    }
+
+    @objc private func handleSignificantTimeChange() {
+        updateList()
     }
 
     /// A chat got or lost its unread dot; the visible rows show it at once
@@ -159,15 +190,19 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         for case let cell as AgentThreadCell in collectionView.visibleCells {
             guard let indexPath = collectionView.indexPath(for: cell),
                   let id = dataSource.itemIdentifier(for: indexPath),
-                  let item = itemsById[id] else { continue }
-            cell.configure(with: item, activity: model.getActivityText(threadId: id), isUnread: model.isUnread(item.thread))
+                  let item = itemsById[id], !isLeaving(id) else { continue }
+            cell.configure(
+                with: item, activity: model.getActivityText(threadId: id),
+                isUnread: model.isUnread(item.thread), now: getCurrentDate()
+            )
         }
     }
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        consentView.isActive = true
         suggestionsView.isActive = true
+        sentSuggestionButton?.alpha = 1
+        sentSuggestionButton = nil
         // Back from a chat the question started, the list shows its threads again unless its field is editing
         shouldKeepSuggestionsForComposedChat = false
         if isComposing, !bottomBar.isEditing {
@@ -176,6 +211,11 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         if hasConsent {
             updateList()
             refresh()
+        } else if isConsentKnownGiven() {
+            // Given in a chat while the list was away: the list shows its chats from its first frame back
+            consentTask?.cancel()
+            consentTask = nil
+            showList()
         } else if consentTask == nil {
             checkConsent()
         }
@@ -213,7 +253,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     public override func viewWillDisappear(_ animated: Bool) {
         keepSuggestionsInPlaceForNavigation()
         super.viewWillDisappear(animated)
-        consentView.isActive = false
+        disappearanceCount += 1
         suggestionsView.isActive = false
         bottomBar.composerView.dictationController?.cancel()
     }
@@ -225,10 +265,6 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     }
 
     public override func scrollToTop(animated: Bool) {
-        if !hasConsent {
-            consentView.scrollToTop(animated: animated)
-            return
-        }
         collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
     }
 
@@ -236,6 +272,16 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         switch event {
         case .agentV2(let update):
             model.handleAgentUpdate(update)
+            // The list stays current while it is away, so a chat started or written in shows in it from the first
+            // frame it is back, before a load brings the chat's preview from the server
+            if case .threadChanged(_, let thread) = update {
+                if !hasConsent, isConsentKnownGiven() {
+                    consentTask?.cancel()
+                    consentTask = nil
+                    showList()
+                }
+                model.applyThreadChange(thread)
+            }
             switch update {
             case .threadChanged, .messageCompleted:
                 // A completed answer keeps its row's status until a load brings the answer's preview
@@ -246,7 +292,12 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         case .agentThreadDeleted(let threadId):
             model.removeThread(id: threadId)
         case .accountsReset:
-            model.removeAllActivities()
+            model.handleAccountsReset()
+            // The reset deletes the consent with the wallets, so the list reads it again
+            hasConsent = false
+            consentTask?.cancel()
+            consentTask = nil
+            checkConsent()
         case .applicationWillEnterForeground:
             // A consent lookup that failed is tried again, as when the screen comes back
             if !hasLoadedConsent, consentTask == nil, view.window != nil {
@@ -306,7 +357,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         configuration.showsSeparators = false
         let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             var sectionConfiguration = configuration
-            if let self, self.sections.indices.contains(sectionIndex), self.sections[sectionIndex].id == .news {
+            if let self, self.sections.indices.contains(sectionIndex),
+               [.news, .pageFailure].contains(self.sections[sectionIndex].id) {
                 sectionConfiguration.headerMode = .none
             }
             let section = NSCollectionLayoutSection.list(using: sectionConfiguration, layoutEnvironment: environment)
@@ -350,6 +402,9 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
 
         view.addSubview(collectionView)
         view.addSubview(skeletonView)
+        view.addLayoutGuide(contentLayoutGuide)
+        loadErrorView.onRetry = { [weak self] in self?.refresh() }
+        loadErrorView.install(in: view, column: contentLayoutGuide, centerY: contentLayoutGuide.centerYAnchor)
         configureNavigationItemWithTransparentBackground()
         let navigationBarBackground = UIView()
         navigationBarBackground.translatesAutoresizingMaskIntoConstraints = false
@@ -389,6 +444,11 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             contentWidth,
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            contentLayoutGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            contentLayoutGuide.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            contentLayoutGuide.leadingAnchor.constraint(equalTo: collectionView.leadingAnchor),
+            contentLayoutGuide.trailingAnchor.constraint(equalTo: collectionView.trailingAnchor),
+
             navigationBarBackground.topAnchor.constraint(equalTo: view.topAnchor),
             navigationBarBackground.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             navigationBarBackground.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -408,9 +468,12 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         let dictationController = AgentDictationController()
         bottomBar.composerView.dictationController = dictationController
         dictationController.onTranscript = { [weak self] text in
-            self?.bottomBar.composerView.setDraftText(text, focus: false)
+            self?.bottomBar.composerView.revealDictatedText(text)
         }
-        bottomBar.onSend = { [weak self] text in self?.sendQuestion(text) }
+        bottomBar.onSend = { [weak self] text in self?.sendQuestion(text, from: .field) }
+        bottomBar.composerView.shouldStartDictation = { [weak self] in
+            self?.checkDictationConsent() ?? true
+        }
         bottomBar.onEditingChange = { [weak self] isEditing in
             guard let self else { return }
             if isEditing {
@@ -432,7 +495,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private func installBottomBarLocally() {
         guard bottomBar.superview !== view else { return }
         bottomBar.removeFromSuperview()
-        bottomBar.isHidden = isConsentRequired
+        // The list's bar always shows here, whatever a host that held it did with it
+        bottomBar.isHidden = false
         bottomBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bottomBar)
         let bottom = bottomBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
@@ -450,15 +514,18 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     private func configureDataSource() {
         let newsRegistration = UICollectionView.CellRegistration<AgentNewsCell, String> { [weak self] cell, indexPath, _ in
             guard let self else { return }
-            cell.configure(latestNews: self.model.latestNews, unreadCount: self.model.newsUnreadCount)
+            cell.configure(latestNews: self.model.latestNews, unreadCount: self.model.newsUnreadCount, now: self.getCurrentDate())
             self.configureSeparator(of: cell, at: indexPath)
         }
         let cellRegistration = UICollectionView.CellRegistration<AgentThreadCell, String> { [weak self] cell, indexPath, id in
             guard let self, let item = self.itemsById[id] else { return }
+            // A cell whose deleted chat turned to dust shows again with the chat it takes next
+            cell.contentView.isHidden = false
             cell.configure(
                 with: item,
                 activity: self.model.getActivityText(threadId: id),
-                isUnread: self.model.isUnread(item.thread)
+                isUnread: self.model.isUnread(item.thread),
+                now: self.getCurrentDate()
             )
             self.configureSeparator(of: cell, at: indexPath)
             cell.contextMenuConfigurationProvider = { [weak self] in
@@ -476,22 +543,45 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         ) { [weak self] header, _, indexPath in
             guard let self, self.sections.indices.contains(indexPath.section) else { return }
             header.configure(title: self.sections[indexPath.section].title)
+            // A header whose title turned to dust shows again with the section it takes next
+            header.isTitleHidden = false
             if Self.shouldUseScrollEdgeEffect {
                 header.backgroundColor = .clear
             } else {
                 header.backgroundColor = self.getBackgroundColor(for: self.tabTransitionProgress)
             }
         }
+        // A chat's failure line, as the feed ends with one when it fails to refresh
+        let failureRegistration = UICollectionView.CellRegistration<AgentSystemMessageCell, String> { [weak self] cell, _, _ in
+            guard let self else { return }
+            cell.configure(with: self.makePageFailureLine()) { [weak self] _ in self?.loadMore() }
+            cell.accessibilityIdentifier = "AgentThreadListPageFailure"
+        }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, id in
-            if id == AgentThreadListSection.newsItemId {
+            switch id {
+            case AgentThreadListSection.newsItemId:
                 return collectionView.dequeueConfiguredReusableCell(using: newsRegistration, for: indexPath, item: id)
-            } else {
+            case AgentThreadListSection.pageFailureItemId:
+                return collectionView.dequeueConfiguredReusableCell(using: failureRegistration, for: indexPath, item: id)
+            default:
                 return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: id)
             }
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
             collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
         }
+    }
+
+    /// The failure with Retry as a link after the text, which waits while the list loads
+    private func makePageFailureLine() -> AgentMessage {
+        AgentMessage(
+            role: .assistant,
+            text: lang("$agent_chats_unavailable"),
+            isStreaming: false,
+            controls: [AgentMessageControl(id: "retry-load", title: lang("Retry"), isEnabled: !model.isLoading)],
+            renderingPolicy: .agentV2Safe,
+            systemStyle: .failure
+        )
     }
 
     /// Liquid Glass puts the header and the pinned day headers on the system's translucent, blurring top edge effect
@@ -517,9 +607,15 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         for case let cell as AgentThreadCell in collectionView.visibleCells {
             guard let indexPath = collectionView.indexPath(for: cell),
                   let id = dataSource.itemIdentifier(for: indexPath),
-                  threadIds.contains(id) else { continue }
+                  threadIds.contains(id), !isLeaving(id) else { continue }
             cell.setActivity(model.getActivityText(threadId: id), animated: view.window != nil)
         }
+    }
+
+    /// The row of a chat being deleted, or gone from the list, keeps its status and unread dot, which its deletion
+    /// clears just before the row leaves, so it turns to dust as it stood
+    private func isLeaving(_ threadId: String) -> Bool {
+        deletingThreadIds.contains(threadId) || !model.items.contains { $0.thread.id == threadId }
     }
 
     /// As in Telegram's chat list, a line separates the rows of a section, and none follows its last row. The line
@@ -543,6 +639,9 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
 
     // MARK: - Consent
 
+    /// The list shows without consent with News, which the SDK serves before consent, and the suggestions in place of
+    /// chats, as it takes no list or chat calls until the user allows the Agent; the first question, hint or recording
+    /// asks for it in a sheet
     private func checkConsent() {
         consentTask = Task { [weak self] in
             guard let self else { return }
@@ -550,66 +649,59 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             guard !Task.isCancelled else { return }
             consentTask = nil
             guard let isAllowed else { return }
-            hasLoadedConsent = true
             if isAllowed {
                 showList()
             } else {
-                showConsent()
+                showListWithoutConsent()
             }
         }
     }
 
-    private func showConsent() {
-        // A field focused while the lookup ran would keep its keyboard over the consent's button
-        bottomBar.resignEditing()
-        bottomBar.isHidden = true
-        onConsentChanged?()
-        skeletonView.setVisible(false, animated: false)
-        consentView.translatesAutoresizingMaskIntoConstraints = false
-        consentView.onContinue = { [weak self] in self?.continueWithConsent() }
-        consentView.onLearnMore = {
-            guard let url = URL(string: APP_PRIVACY_POLICY_URL) else { return }
-            AppActions.openInBrowser(url, title: lang("Privacy Policy"), injectDappConnect: false)
-        }
-        guard consentView.superview == nil else { return }
-        view.addSubview(consentView)
-        NSLayoutConstraint.activate([
-            consentView.topAnchor.constraint(equalTo: view.topAnchor),
-            consentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            consentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            consentView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
+    private func showListWithoutConsent() {
+        hasLoadedConsent = true
+        collectionView.isHidden = false
+        updateList()
+        refresh()
+        loadSuggestionsIfNeeded()
+        if view.window != nil { startRefreshTimer() }
     }
 
-    private func continueWithConsent() {
-        // The button is disabled while an acceptance runs, so a pending task here is a lookup the acceptance replaces
-        consentTask?.cancel()
-        consentView.isUserInteractionEnabled = false
-        consentTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await acceptConsent()
-                guard !Task.isCancelled else { return }
-                consentTask = nil
-                showList()
-            } catch {
-                consentTask = nil
-                consentView.isUserInteractionEnabled = true
-                guard !Task.isCancelled, let error = AgentV2Copy.displayError(error) else { return }
-                AppActions.showError(error: error)
-            }
-        }
+    /// Runs `action` once the Agent has consent, asking in the consent sheet first when it doesn't
+    private func performWithConsent(
+        onCancel: @escaping @MainActor () -> Void = {},
+        action: @escaping @MainActor () -> Void
+    ) {
+        AgentConsentPrompt.run(
+            from: self,
+            isGiven: hasConsent,
+            load: loadConsent,
+            accept: acceptConsent,
+            onGiven: { [weak self] in
+                guard let self, !self.hasConsent else { return }
+                self.showList()
+            },
+            onCancel: onCancel,
+            action: action
+        )
+    }
+
+    /// A recording goes to the Agent's transcription, so it starts once the Agent has consent: after the sheet, it
+    /// starts hands-free, as the finger that held the microphone has let go. A list that went from the screen while
+    /// the consent was read doesn't record, back or not.
+    private func checkDictationConsent() -> Bool {
+        guard !hasConsent else { return true }
+        let disappearanceCount = disappearanceCount
+        performWithConsent(action: { [weak self] in
+            guard let self, self.disappearanceCount == disappearanceCount else { return }
+            self.bottomBar.composerView.startDictationHandsFree()
+        })
+        return false
     }
 
     private func showList() {
         hasConsent = true
-        consentView.removeFromSuperview()
+        hasLoadedConsent = true
         collectionView.isHidden = false
-        // The root owns visibility while hosting the bar, including when this page was only preloaded.
-        if !isBottomBarHostedExternally {
-            bottomBar.isHidden = false
-        }
-        onConsentChanged?()
         updateList()
         refresh()
         loadSuggestionsIfNeeded()
@@ -620,7 +712,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
 
     private func startRefreshTimer() {
         refreshTimer?.invalidate()
-        guard hasConsent else { return }
+        guard hasLoadedConsent else { return }
         // The list stays current while it is on screen, without pull to refresh
         let timer = Timer(timeInterval: AgentThreadListLayout.refreshInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -632,8 +724,9 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         refreshTimer = timer
     }
 
+    /// Loads the chats and News, or News alone before consent
     private func refresh() {
-        guard hasConsent else { return }
+        guard hasLoadedConsent else { return }
         if refreshTask != nil {
             needsRefresh = true
             return
@@ -643,16 +736,28 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             repeat {
                 needsRefresh = false
                 async let newsRefresh: Void = model.refreshNews()
-                await model.refresh()
+                if hasConsent {
+                    await model.refresh()
+                }
                 await newsRefresh
             } while needsRefresh && !Task.isCancelled
             refreshTask = nil
         }
     }
 
+    /// A list on screen, as News with the suggestions before consent, stays as it is while its chats load, rather than
+    /// giving way to the skeleton, which only a list with nothing to show yet has
+    private var isKeepingShownList: Bool {
+        hasConsent && !model.hasLoaded && dataSource.snapshot().numberOfItems > 0
+    }
+
     private func updateList() {
         guard isViewLoaded else { return }
-        sections = model.hasLoaded ? model.sections() : []
+        let isKeepingShownList = isKeepingShownList
+        // Before consent the list has News alone
+        sections = model.hasLoaded || hasLoadedConsent && !hasConsent || isKeepingShownList
+            ? model.sections(relativeTo: getCurrentDate())
+            : []
         itemsById = Dictionary(model.items.map { ($0.thread.id, $0) }, uniquingKeysWith: { _, item in item })
         let oldSnapshot = dataSource.snapshot()
         let existingIds = Set(oldSnapshot.itemIdentifiers)
@@ -663,13 +768,22 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
         snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { existingIds.contains($0) })
         let removedIds = existingIds.subtracting(snapshot.itemIdentifiers)
-        let shouldRemoveDeletedRows = !deletingThreadIds.isDisjoint(with: removedIds)
+        let deletedIds = deletingThreadIds.intersection(removedIds)
+        let shouldRemoveDeletedRows = !deletedIds.isEmpty
         deletingThreadIds.subtract(removedIds)
         let isAnimated = view.window != nil
-        let isShowingSkeleton = hasConsent && !model.hasLoaded
+        if isAnimated {
+            dissolveRows(of: deletedIds)
+            dissolveTitlesOfSections(emptiedBy: deletedIds, from: oldSnapshot, to: snapshot)
+        }
+        let isShowingSkeleton = hasConsent && !model.hasLoaded && !isKeepingShownList
         let listAlpha: CGFloat = bottomBar.isEditing || shouldKeepSuggestionsForComposedChat ? 0 : 1
         let shouldRevealFromSkeleton = isAnimated && hasConsent && !isShowingSkeleton && skeletonView.isShowing
             && !UIAccessibility.isReduceMotionEnabled
+        // A chat coming in, leaving or moving while the top of the list is on screen moves the rows as Telegram's list
+        // does, a new day's header with them; scrolled down, the rows on screen stay where they are
+        let isChangingRowsAtTop = isAnimated && !shouldRevealFromSkeleton && collectionView.alpha > 0.01
+            && isListAtTop && Self.hasRowChanges(from: oldSnapshot, to: snapshot)
         if shouldRevealFromSkeleton {
             shouldMoveRowsOnSpring = false
             dataSource.apply(snapshot, animatingDifferences: false)
@@ -678,7 +792,24 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
                            options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]) {
                 self.collectionView.alpha = listAlpha
             }
-        } else if isAnimated, shouldMoveRowsOnSpring || shouldRemoveDeletedRows, !UIAccessibility.isReduceMotionEnabled {
+        } else if isChangingRowsAtTop, UIAccessibility.isReduceMotionEnabled {
+            // With Reduce Motion the list cross-fades into its new rows
+            shouldMoveRowsOnSpring = false
+            UIView.transition(
+                with: collectionView,
+                duration: AgentThreadListLayout.reducedMotionCrossfadeDuration,
+                options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState]
+            ) {
+                self.dataSource.apply(snapshot, animatingDifferences: false)
+            }
+        } else if isAnimated, shouldRemoveDeletedRows, rowDissolveView != nil, !UIAccessibility.isReduceMotionEnabled {
+            // A deleted chat's place holds while most of its dust drifts off, so the rows that stay don't run into it
+            shouldMoveRowsOnSpring = false
+            let positionsBefore = getShownPositions()
+            dataSource.apply(snapshot, animatingDifferences: false)
+            closeDissolvedGap(from: positionsBefore)
+        } else if isAnimated, shouldMoveRowsOnSpring || shouldRemoveDeletedRows || isChangingRowsAtTop,
+                  !UIAccessibility.isReduceMotionEnabled {
             // Telegram moves a pinned or unpinned chat to its place on its list's spring, the other rows making way,
             // and closes up a deleted chat's place on it
             shouldMoveRowsOnSpring = false
@@ -695,6 +826,8 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             shouldMoveRowsOnSpring = false
             applyKeepingRowsOnScreen(snapshot, from: oldSnapshot)
         }
+        updateVisibleSectionHeaders()
+        loadErrorView.show(hasConsent && model.hasLoadFailed && model.items.isEmpty ? lang("$agent_chats_unavailable") : nil)
         setSuggestionsVisible(bottomBar.isEditing || shouldKeepSuggestionsForComposedChat, animated: isAnimated)
         if isShowingSkeleton {
             collectionView.layer.removeAllAnimations()
@@ -702,7 +835,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             skeletonView.setVisible(listAlpha > 0, animated: false)
             collectionView.layoutIfNeeded()
             layoutSkeleton()
-        } else if hasConsent {
+        } else if hasLoadedConsent {
             if !shouldRevealFromSkeleton { collectionView.alpha = listAlpha }
             skeletonView.setVisible(false, animated: view.window != nil)
         }
@@ -713,14 +846,22 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
     }
 
+    private func updateVisibleSectionHeaders() {
+        // Reconfiguring items keeps their supplementary views, whose day titles depend on the current date
+        let kind = UICollectionView.elementKindSectionHeader
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: kind) {
+            guard sections.indices.contains(indexPath.section),
+                  let header = collectionView.supplementaryView(forElementKind: kind, at: indexPath) as? AgentThreadSectionHeaderView else { continue }
+            header.configure(title: sections[indexPath.section].title)
+        }
+    }
+
     /// Applies a change that came with the chats themselves, such as a chat moving up with a new message, at once, as
     /// Telegram's list does. At the top of the list the rows make way for a chat coming in above them; scrolled down,
     /// the rows on screen stay where they are, those under a chat that left closing up its place, and a drag or a
     /// fling goes on as it was.
     private func applyKeepingRowsOnScreen(_ snapshot: ListSnapshot, from oldSnapshot: ListSnapshot) {
-        let shouldMoveRows = snapshot.sectionIdentifiers != oldSnapshot.sectionIdentifiers
-            || Self.groupRowsBySection(of: snapshot) != Self.groupRowsBySection(of: oldSnapshot)
-        guard shouldMoveRows, view.window != nil else {
+        guard Self.hasRowChanges(from: oldSnapshot, to: snapshot), view.window != nil else {
             dataSource.apply(snapshot, animatingDifferences: false)
             return
         }
@@ -768,6 +909,17 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         return (anchor.id, anchor.frame.minY - closedUp - collectionView.contentOffset.y)
     }
 
+    /// The list shows its top, where rows coming in above push the others down
+    private var isListAtTop: Bool {
+        collectionView.contentOffset.y + collectionView.adjustedContentInset.top <= 0.5
+    }
+
+    /// Rows or sections come, go or move, rather than only change what they show
+    private static func hasRowChanges(from oldSnapshot: ListSnapshot, to snapshot: ListSnapshot) -> Bool {
+        snapshot.sectionIdentifiers != oldSnapshot.sectionIdentifiers
+            || groupRowsBySection(of: snapshot) != groupRowsBySection(of: oldSnapshot)
+    }
+
     private static func groupRowsBySection(of snapshot: ListSnapshot) -> [[String]] {
         snapshot.sectionIdentifiers.map { snapshot.itemIdentifiers(inSection: $0) }
     }
@@ -805,11 +957,39 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
     /// into the chat's. Returns false when the host can't, and the list pushes the chat.
     public var presentComposedChat: ((UIViewController) -> Bool)?
 
-    private func sendQuestion(_ query: String) {
-        guard !query.isEmpty, let navigationController else { return }
+    /// Where a question the list sends was asked
+    private enum QuestionOrigin {
+        case field
+        case suggestion(AgentHint)
+
+        var isField: Bool {
+            if case .field = self { return true }
+            return false
+        }
+    }
+
+    /// Asks for consent first when the Agent doesn't have it: closing the sheet keeps the question in the field and
+    /// sends nothing. The sheet takes the keyboard, so all of it shows; closed, a question typed in the field gets the
+    /// keyboard back.
+    private func sendQuestion(_ query: String, from origin: QuestionOrigin) {
+        guard !query.isEmpty, navigationController != nil else { return }
+        let wasEditing = origin.isField && bottomBar.isEditing
+        performWithConsent(onCancel: { [weak self] in
+            if wasEditing { self?.bottomBar.focus() }
+        }, action: { [weak self] in
+            self?.startChat(query: query, from: origin)
+        })
+    }
+
+    private func startChat(query: String, from origin: QuestionOrigin) {
+        guard let navigationController else { return }
         let isComposing = self.isComposing
+        // The question grows into the new chat's first bubble as the chat comes in, out of the field's text or the
+        // suggestion tapped, which leaves the list meanwhile
+        let sentSource = makeSentSource(from: origin)
         bottomBar.clearDraft()
         let chat = makeNewChat(query)
+        (chat as? AgentVC)?.openingSentSource = sentSource
         shouldKeepSuggestionsForComposedChat = isComposing && presentComposedChat != nil
         if shouldKeepSuggestionsForComposedChat {
             // The suggestions fade as they go down with the field, while the chat takes the list's place; the list's
@@ -827,14 +1007,36 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         navigationController.pushViewController(chat, animated: true)
     }
 
+    /// What a question sent from `origin` grows out of, in the window: the field's text, or the suggestion's pill,
+    /// which goes out of sight in the list
+    private func makeSentSource(from origin: QuestionOrigin) -> AgentSentMessageSource? {
+        guard let window = view.window else { return nil }
+        switch origin {
+        case .field:
+            // A question of more than ten lines shows without the flight, as in a chat
+            guard AgentSentMessageMorph.canFly(bottomBar.composerView.draftText, chatWidth: window.bounds.width) else {
+                return nil
+            }
+            return bottomBar.composerView.makeSentTextPictureSource(in: window)
+        case .suggestion(let hint):
+            guard let button = suggestionsView.getButton(for: hint),
+                  let source = AgentSentMessageSource.makeSuggestion(of: button, in: window) else { return nil }
+            sentSuggestionButton?.alpha = 1
+            sentSuggestionButton = button
+            button.alpha = 0
+            return source
+        }
+    }
+
     /// The chat takes the list's place in a crossfade of the whole screen, which would cut the suggestions' own fade
-    /// short: a picture of them fades over it instead, in the window, going down with the field
+    /// short: a picture of them fades over it instead, in the window, going down with the field. A suggestion whose
+    /// question grows into the chat is out of the picture, which is taken as the suggestions show after it went.
     private func fadeSuggestionsAway() {
         let suggestions = suggestionsView
         let duration: CFTimeInterval = 0.25
         guard let window = view.window, !suggestions.isHidden, suggestions.alpha > 0.01,
               !UIAccessibility.isReduceMotionEnabled,
-              let picture = suggestions.snapshotView(afterScreenUpdates: false) else {
+              let picture = suggestions.snapshotView(afterScreenUpdates: sentSuggestionButton != nil) else {
             UIView.animate(withDuration: duration, delay: 0, options: [.beginFromCurrentState, .curveEaseOut, .allowUserInteraction]) {
                 suggestions.alpha = 0
             }
@@ -876,7 +1078,7 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
             guard !Task.isCancelled, !loaded.isEmpty else { return }
             suggestions = Array(loaded.prefix(5))
             suggestionsView.configure(with: suggestions) { [weak self] hint in
-                self?.sendQuestion(hint.prompt)
+                self?.sendQuestion(hint.prompt, from: .suggestion(hint))
             }
             suggestionsHeightConstraint.constant = AgentHintsSectionView.calculateContentHeight(for: suggestions.count)
         }
@@ -920,11 +1122,17 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         }
     }
 
-    /// An empty list keeps its News row above the suggestions; composing gives the suggestions the whole screen
+    /// An empty list keeps its News row above the suggestions, or above its failure when the chats failed to load;
+    /// composing gives the suggestions the whole screen
     private func setSuggestionsVisible(_ isEditing: Bool, animated: Bool) {
-        let shouldHideList = isEditing && hasConsent
-        let isLoadingList = hasConsent && !model.hasLoaded
-        let isVisible = hasConsent && (isEditing || model.hasLoaded && model.items.isEmpty)
+        let shouldHideList = isEditing
+        let isKeepingShownList = isKeepingShownList
+        let isLoadingList = hasConsent && !model.hasLoaded && !isKeepingShownList
+        // Without consent the list has News alone, and the suggestions show as they do in an empty list; a list kept
+        // on screen while its chats load keeps them as they are
+        let isEmpty = !hasConsent || model.hasLoaded && model.items.isEmpty && !model.hasLoadFailed
+            || isKeepingShownList && isShowingSuggestions && !isComposing
+        let isVisible = hasLoadedConsent && (isEditing || isEmpty)
         if isLoadingList { skeletonView.setVisible(!shouldHideList, animated: animated) }
         if isVisible { attachSuggestionsToField() }
         guard isShowingSuggestions != isVisible || isComposing != shouldHideList else { return }
@@ -938,8 +1146,10 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         suggestionsView.isHidden = false
         suggestionsView.isUserInteractionEnabled = isVisible
         collectionView.accessibilityElementsHidden = shouldHideList
+        loadErrorView.accessibilityElementsHidden = shouldHideList
         let updates = {
             self.collectionView.alpha = shouldHideList || isLoadingList ? 0 : 1
+            self.loadErrorView.alpha = shouldHideList ? 0 : 1
             self.suggestionsView.alpha = isVisible ? 1 : 0
             self.suggestionsView.transform = isVisible ? .identity : CGAffineTransform(translationX: 0, y: 24)
         }
@@ -1022,6 +1232,147 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         present(alert, animated: true)
     }
 
+    /// Hands the rows of the deleted chats `threadIds` on screen to the dissolve view, which turns them to dust where they
+    /// stand, or fades them out with Reduce Motion, and hides their cells as the rows that stay close the gap
+    private func dissolveRows(of threadIds: Set<String>) {
+        for threadId in threadIds {
+            guard let indexPath = dataSource.indexPath(for: threadId),
+                  let cell = collectionView.cellForItem(at: indexPath) else { continue }
+            let visibleFrame = cell.frame.intersection(collectionView.bounds)
+            guard !visibleFrame.isNull, visibleFrame.width >= 1, visibleFrame.height >= 1 else { continue }
+            let image = makeRowImage(of: cell, in: visibleFrame.offsetBy(dx: -cell.frame.minX, dy: -cell.frame.minY))
+            let dissolveView = rowDissolveView ?? makeRowDissolveView()
+            dissolveView.dissolve(image, at: collectionView.convert(visibleFrame, to: dissolveView))
+            cell.contentView.isHidden = true
+        }
+    }
+
+    /// The row as it shows, drawn from its layers, as the dust takes 8-bit sRGB. The layers leave out the Metal top of
+    /// a chat's status, which is drawn from the screen over them.
+    private func makeRowImage(of cell: UICollectionViewCell, in rect: CGRect) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.preferred()
+        format.scale = max(1, cell.traitCollection.displayScale)
+        format.opaque = false
+        format.preferredRange = .standard
+        let top = (cell as? AgentThreadCell)?.activityIndicatorView
+        return UIGraphicsImageRenderer(bounds: rect, format: format).image { context in
+            cell.layer.render(in: context.cgContext)
+            guard let top, top.isAnimating, top.window != nil, getShownAlpha(of: top, in: cell) > 0.01 else { return }
+            top.drawHierarchy(in: top.convert(top.bounds, to: cell), afterScreenUpdates: false)
+        }
+    }
+
+    private func getShownAlpha(of view: UIView, in ancestor: UIView) -> CGFloat {
+        var alpha: CGFloat = 1
+        var current: UIView? = view
+        while let shown = current, shown !== ancestor {
+            if shown.isHidden { return 0 }
+            alpha *= shown.alpha
+            current = shown.superview
+        }
+        return alpha
+    }
+
+    /// A section whose chats on screen were all deleted goes with them, its title, a day or Pinned, turning to dust
+    /// with its last rows rather than fading out as the rows that stay close the gap
+    private func dissolveTitlesOfSections(
+        emptiedBy threadIds: Set<String>,
+        from oldSnapshot: ListSnapshot,
+        to snapshot: ListSnapshot
+    ) {
+        guard !threadIds.isEmpty else { return }
+        let keptSections = Set(snapshot.sectionIdentifiers)
+        let kind = UICollectionView.elementKindSectionHeader
+        for (index, sectionId) in oldSnapshot.sectionIdentifiers.enumerated() where !keptSections.contains(sectionId) {
+            let items = oldSnapshot.itemIdentifiers(inSection: sectionId)
+            guard !items.isEmpty, items.allSatisfy(threadIds.contains),
+                  let header = collectionView.supplementaryView(
+                      forElementKind: kind, at: IndexPath(item: 0, section: index)
+                  ) as? AgentThreadSectionHeaderView else { continue }
+            let title = header.titleView
+            let visibleFrame = title.convert(title.bounds, to: collectionView).intersection(collectionView.bounds)
+            guard !title.isHidden, !visibleFrame.isNull, visibleFrame.width >= 1, visibleFrame.height >= 1 else { continue }
+            let image = title.makeLayerImage(
+                of: collectionView.convert(visibleFrame, to: title),
+                scale: max(1, title.traitCollection.displayScale),
+                range: .standard
+            )
+            let dissolveView = rowDissolveView ?? makeRowDissolveView()
+            dissolveView.dissolve(image, at: collectionView.convert(visibleFrame, to: dissolveView))
+            header.isTitleHidden = true
+        }
+    }
+
+    private enum ShownElement: Hashable {
+        case row(String)
+        case header(AgentThreadListSection.ID)
+    }
+
+    /// Where the rows and day headers on screen stand, from the top of the list's bounds
+    private func getShownPositions() -> [ShownElement: CGFloat] {
+        var positions: [ShownElement: CGFloat] = [:]
+        for (element, view) in getShownElements() {
+            positions[element] = view.frame.minY - collectionView.contentOffset.y
+        }
+        return positions
+    }
+
+    private func getShownElements() -> [(ShownElement, UIView)] {
+        let snapshot = dataSource.snapshot()
+        var elements: [(ShownElement, UIView)] = []
+        for indexPath in collectionView.indexPathsForVisibleItems {
+            guard let id = dataSource.itemIdentifier(for: indexPath),
+                  let cell = collectionView.cellForItem(at: indexPath) else { continue }
+            elements.append((.row(id), cell))
+        }
+        let kind = UICollectionView.elementKindSectionHeader
+        for indexPath in collectionView.indexPathsForVisibleSupplementaryElements(ofKind: kind) {
+            guard snapshot.sectionIdentifiers.indices.contains(indexPath.section),
+                  let header = collectionView.supplementaryView(forElementKind: kind, at: indexPath) else { continue }
+            elements.append((.header(snapshot.sectionIdentifiers[indexPath.section]), header))
+        }
+        return elements
+    }
+
+    /// Moves the rows and headers that stay from where they stood, `positionsBefore`, to where they are now, once the
+    /// dust has had its time, on the list's curve. A row that has just come into view moves with the one above it.
+    private func closeDissolvedGap(from positionsBefore: [ShownElement: CGFloat]) {
+        collectionView.layoutIfNeeded()
+        let offset = collectionView.contentOffset.y
+        let now = CACurrentMediaTime()
+        // Each deletion has its own key, so a gap closing on one that is still closing adds to it
+        let key = "agentDissolvedGap." + UUID().uuidString
+        var shift: CGFloat = 0
+        for (element, view) in getShownElements().sorted(by: { $0.1.frame.minY < $1.1.frame.minY }) {
+            if let before = positionsBefore[element] {
+                shift = before - (view.frame.minY - offset)
+            }
+            guard abs(shift) > 0.5 else { continue }
+            let animation = CABasicAnimation(keyPath: "position")
+            animation.isAdditive = true
+            animation.fromValue = NSValue(cgPoint: CGPoint(x: 0, y: shift))
+            animation.toValue = NSValue(cgPoint: .zero)
+            animation.beginTime = view.layer.convertTime(now, from: nil) + AgentThreadListLayout.dissolvedGapCloseDelay
+            animation.fillMode = .backwards
+            animation.duration = AgentThreadListLayout.rowMoveDuration
+            animation.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+            view.layer.add(animation, forKey: key)
+        }
+    }
+
+    private func makeRowDissolveView() -> AgentMessageDissolveView {
+        let dissolveView = AgentMessageDissolveView(frame: collectionView.frame)
+        dissolveView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        dissolveView.onEmpty = { [weak self, weak dissolveView] in
+            guard let self, let dissolveView, rowDissolveView === dissolveView else { return }
+            dissolveView.removeFromSuperview()
+            rowDissolveView = nil
+        }
+        view.insertSubview(dissolveView, aboveSubview: collectionView)
+        rowDissolveView = dissolveView
+        return dissolveView
+    }
+
     private func showDeleteConfirmation(threadId: String) {
         guard let thread = itemsById[threadId]?.thread, presentedViewController == nil else { return }
         let alert = UIAlertController(
@@ -1032,7 +1383,12 @@ public final class AgentThreadListVC: WViewController, WalletCoreData.EventsObse
         alert.addAction(UIAlertAction(title: lang("Cancel"), style: .cancel))
         alert.addAction(UIAlertAction(title: lang("Delete"), style: .destructive) { [weak self, model] _ in
             self?.deletingThreadIds.insert(thread.id)
-            Task { await model.delete(thread) }
+            Task { [weak self] in
+                await model.delete(thread)
+                // A chat whose deletion failed stays, and its row shows its status and unread dot again
+                guard let self, self.deletingThreadIds.remove(thread.id) != nil else { return }
+                self.handleThreadReadStateChange()
+            }
         })
         present(alert, animated: true)
     }
@@ -1093,6 +1449,10 @@ extension AgentThreadListVC: UICollectionViewDelegate {
         return firstRow.frame.minY - AgentThreadSectionHeaderView.height
     }
 
+    public func makeNewsFeedViewController(requestedDigestId: String) -> UIViewController {
+        makeNewsFeed(model.makeNewsFeedModel(requestedDigestId: requestedDigestId))
+    }
+
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
@@ -1105,7 +1465,7 @@ extension AgentThreadListVC: UICollectionViewDelegate {
         if id == AgentThreadListSection.newsItemId {
             chat = makeNewsFeed(model.makeNewsFeedModel())
         } else if let thread = itemsById[id]?.thread {
-            chat = makeThreadChat(thread)
+            chat = makeThreadChat(thread, model.isShowingCachedThreads)
         } else {
             return
         }
@@ -1121,10 +1481,16 @@ extension AgentThreadListVC: UICollectionViewDelegate {
         if !accepted { row?.isHighlightHeld = false }
     }
 
+    /// The next page loads as the last rows come on screen; one that failed loads again from its failure line's Retry
     public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        guard model.nextCursor != nil, !model.isLoading, loadMoreTask == nil,
+        guard model.nextCursor != nil, !model.isLoading, !model.hasPageLoadFailed,
               let id = dataSource.itemIdentifier(for: indexPath),
               model.items.suffix(5).contains(where: { $0.thread.id == id }) else { return }
+        loadMore()
+    }
+
+    private func loadMore() {
+        guard loadMoreTask == nil else { return }
         loadMoreTask = Task { [weak self] in
             guard let self else { return }
             await model.loadMore()
@@ -1174,6 +1540,15 @@ final class AgentThreadSectionHeaderView: UICollectionReusableView {
     }
 
     static let zPosition: CGFloat = 2
+
+    /// The title, drawn into the dust it turns to as its section's last chat is deleted
+    var titleView: UIView { label }
+
+    /// Hidden while the title turns to dust, until the header shows a section again
+    var isTitleHidden: Bool {
+        get { label.isHidden }
+        set { label.isHidden = newValue }
+    }
 
     func configure(title: String) {
         label.attributedText = NSAttributedString(string: title, attributes: [

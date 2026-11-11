@@ -4,8 +4,8 @@ import type { ApiPerpsCctpDeposit } from '../types';
 
 import { ARBITRUM_USDC_MAINNET } from '../../config';
 import { Big } from '../../lib/big.js';
-import { HYPERLIQUID_BRIDGE_CHAIN_ID } from '../chains/evm/hyperliquidPayloadValidation';
 import {
+  HYPERLIQUID_BRIDGE_CHAIN_ID,
   PERPS_CCTP_EXTENSION_ADDRESS,
   PERPS_CCTP_FORWARD_FEE_USDC,
   PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS,

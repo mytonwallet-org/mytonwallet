@@ -1,9 +1,16 @@
-import type { AgentNewsFeedItemV2, AgentThreadNewsCardV2 } from '../../api/agentV2/protocol/types';
+import type {
+  AgentNewsFeedDigestV2, AgentNewsFeedItemV2, AgentThreadNewsCardV2,
+} from '../../api/agentV2/protocol/types';
 
-import { formatTime, getDayStartAt } from '../../util/dateFormat';
+import { getDayStartAt } from '../../util/dateFormat';
 import { formatNumber } from '../../util/formatNumber';
 import { toNativeDigits } from '../../util/nativeDigits';
+import { formatAgentDayWithTime, formatAgentTime } from '../agent/helpers/agentDateFormat';
 import { stripAgentNewsMarkdown } from '../agent/helpers/agentNews';
+
+export type AgentNewsFeedEntry =
+  | (AgentNewsFeedItemV2 & { kind: 'news' })
+  | (AgentNewsFeedDigestV2 & { kind: 'digest' });
 
 type AgentNewsFeedRow =
   | { kind: 'day'; key: string; timestamp: number }
@@ -12,28 +19,33 @@ type AgentNewsFeedRow =
 
 // As much of the body as the server keeps in a thread's news card
 const NEWS_EXCERPT_MAX_LENGTH = 200;
-const TRAILING_DOT_PATTERN = /\.$/;
-const POST_TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-};
 
 /**
- * The time a news post shows: the time today, the day and the time this year, and the year too before that, as on
- * mobile. An abbreviated month loses its trailing dot ("20 июл, 15:38").
+ * The time a news post shows in its discussion: the time today, the day and the time this year, and the year too
+ * before that, as on mobile. An abbreviated month loses its trailing dot ("20 июл, 15:38").
  */
 export function formatAgentNewsPostTime(langCode: string, timestamp: string, now = Date.now()) {
-  const date = new Date(timestamp);
-  if (getDayStartAt(date) === getDayStartAt(now)) return formatTime(timestamp);
+  return getDayStartAt(new Date(timestamp)) === getDayStartAt(now)
+    ? formatAgentTime(langCode, timestamp)
+    : formatAgentDayWithTime(langCode, timestamp, now);
+}
 
-  return new Intl.DateTimeFormat(langCode, {
-    year: date.getFullYear() === new Date(now).getFullYear() ? undefined : 'numeric',
-    ...POST_TIME_FORMAT_OPTIONS,
-  }).formatToParts(date).map(({ type, value }) => (type === 'month' ? value.replace(TRAILING_DOT_PATTERN, '') : value))
-    .join('');
+export function mergeAgentNewsFeedEntries(
+  items: AgentNewsFeedItemV2[],
+  digests: AgentNewsFeedDigestV2[] = [],
+  current: AgentNewsFeedEntry[] = [],
+): AgentNewsFeedEntry[] {
+  const news = mergeAgentNewsItems([
+    ...current.flatMap((entry) => (entry.kind === 'news' ? [entry] : [])), ...items,
+  ]).map((item) => ({ ...item, kind: 'news' as const }));
+  const byId = new Map<string, AgentNewsFeedDigestV2>();
+  [...current.flatMap((entry) => (entry.kind === 'digest' ? [entry] : [])), ...digests].forEach((digest) => {
+    const previous = byId.get(digest.id);
+    if (previous && Date.parse(previous.deliveredAt) > Date.parse(digest.deliveredAt)) return;
+    byId.set(digest.id, digest);
+  });
+  return [...news, ...[...byId.values()].map((digest) => ({ ...digest, kind: 'digest' as const }))]
+    .sort((first, second) => Date.parse(first.deliveredAt) - Date.parse(second.deliveredAt));
 }
 
 /** One item per news, the latest delivery winning, oldest first as the feed shows them */
@@ -57,14 +69,12 @@ export function getAgentNewsUnreadItems(items: AgentNewsFeedItemV2[], readThroug
   return items.filter(({ deliveredAt }) => Date.parse(deliveredAt) > readThroughAt);
 }
 
-// As many news as a feed page holds: the row counts only the loaded page, so a count this high may have more behind it
-const NEWS_UNREAD_COUNT_MAX = 30;
+// The News row counts unread news up to this many, and marks more with a dot alone
+const NEWS_UNREAD_COUNT_MAX = 10;
 
-/** The News row's count of unread news, which reads as "30+" from a feed page's worth */
+/** The News row's count of unread news, or none for more than ten, which it marks with a dot */
 export function formatAgentNewsUnreadCount(count: number) {
-  return count >= NEWS_UNREAD_COUNT_MAX
-    ? `${toNativeDigits(String(NEWS_UNREAD_COUNT_MAX))}+`
-    : toNativeDigits(formatNumber(count));
+  return count > NEWS_UNREAD_COUNT_MAX ? undefined : toNativeDigits(formatNumber(count));
 }
 
 /** A header before each day's news and the "New" divider before the first news delivered after the read mark */

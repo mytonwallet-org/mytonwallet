@@ -1,0 +1,99 @@
+@use "../../styles/mixins";
+
+// The sheet's text, the hour's row and Done stand 16 px from its sides, Done clear of the screen's bottom edge
+.content {
+  padding: 0 1rem calc(1rem + var(--safe-area-bottom));
+}
+
+.text {
+  margin: 0 0 1rem;
+  padding: 0 0.5rem;
+
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--color-black);
+}
+
+// A settings row with its menu: the name, and at its end the hour and the menu's caret
+.timeRow {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--border-radius-default);
+
+  font: inherit;
+  text-align: start;
+
+  background-color: var(--color-background-first);
+  outline: none;
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  @media (pointer: coarse) {
+    &:active {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+
+  @include mixins.active-transition-optimization();
+}
+
+.timeLabel {
+  flex: 1;
+
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+}
+
+.timeValue {
+  unicode-bidi: isolate;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-3);
+  white-space: nowrap;
+}
+
+.timeArrow {
+  margin-inline-start: -0.25rem;
+  font-size: 1rem;
+  color: var(--color-gray-3);
+}
+
+// As a settings block's description
+.timeZone {
+  margin: 0.5rem 0 1.5rem;
+  padding: 0 0.5rem;
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  color: var(--color-gray-2);
+}
+
+// The hours hang from the row's end exactly, and the menu is wide enough for a finger
+.hourMenu {
+  --offset-x-value: 0;
+  --offset-y-value: 0;
+
+  min-width: 8rem !important;
+}

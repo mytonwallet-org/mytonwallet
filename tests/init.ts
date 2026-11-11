@@ -5,7 +5,7 @@ import { webcrypto as crypto } from 'node:crypto';
 import { CompressionStream, DecompressionStream, ReadableStream } from 'node:stream/web';
 import { TextDecoder, TextEncoder } from 'node:util';
 
-jest.mock('../src/lib/rlottie/RLottie');
+jest.mock('../src/lib/tlottie/TLottie');
 
 Object.assign(global, {
   Buffer,

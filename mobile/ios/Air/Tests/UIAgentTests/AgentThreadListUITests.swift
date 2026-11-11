@@ -1,5 +1,4 @@
 import ContextMenuKit
-import MetalKit
 import XCTest
 import UIKit
 @testable import UIAgent
@@ -217,6 +216,49 @@ final class AgentThreadListUITests: XCTestCase {
         }
     }
 
+    /// A row of the SDK's copy of the list opens its chat as one whose summary is cached, and the same row of the
+    /// loaded list as an ordinary chat
+    func testCachedRowsOpenTheirChatsWithACachedSummary() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.cachedItems = client.response.threads
+        client.heldResponseCount = 1
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        var openedSummaryKinds: [Bool] = []
+        let controller = AgentThreadListVC(
+            model: model,
+            loadConsent: { true },
+            acceptConsent: {},
+            makeThreadChat: { _, isSummaryCached in
+                openedSummaryKinds.append(isSummaryCached)
+                return UIViewController()
+            },
+            makeNewChat: { _ in UIViewController() },
+            makeNewsFeed: { _ in UIViewController() },
+            loadSuggestions: { [] }
+        )
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+
+        try await waitUntil { model.isShowingCachedThreads }
+        window.layoutIfNeeded()
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        try await waitUntil { collection.numberOfSections == 2 && collection.numberOfItems(inSection: 1) == 1 }
+        controller.collectionView(collection, didSelectItemAt: IndexPath(item: 0, section: 1))
+        try await waitUntil { navigation.transitionCoordinator == nil }
+        navigation.popViewController(animated: false)
+        try await waitUntil { navigation.topViewController === controller }
+
+        client.pendingResponse?.resume(returning: client.response)
+        client.pendingResponse = nil
+        try await waitUntil { !model.isShowingCachedThreads && !model.isLoading }
+        controller.collectionView(collection, didSelectItemAt: IndexPath(item: 0, section: 1))
+        XCTAssertEqual(openedSummaryKinds, [true, false])
+    }
+
     func testListSelectionAndNewQuestionShareNavigation() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let client = try ThreadListUIClient()
@@ -230,7 +272,7 @@ final class AgentThreadListUITests: XCTestCase {
             model: model,
             loadConsent: { true },
             acceptConsent: {},
-            makeThreadChat: { thread in
+            makeThreadChat: { thread, _ in
                 selectedThreadId = thread.id
                 return threadChat
             },
@@ -322,15 +364,210 @@ final class AgentThreadListUITests: XCTestCase {
             loadSuggestions: { [] }
         )
         controller.loadViewIfNeeded()
-        try await waitUntil { consentLoads == 1 && self.descendants(controller.view).contains { $0 is AgentConsentView } }
-        XCTAssertTrue(client.queries.isEmpty)
+        try await waitUntil { consentLoads == 1 }
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(client.queries.isEmpty, "Without consent the list asks the Agent for nothing")
+        XCTAssertFalse(descendants(controller.view).contains { $0 is AgentConsentView }, "Nor does it ask for consent")
 
         hasConsent = true
         controller.viewWillAppear(false)
         try await waitUntil { model.items.count == 1 }
 
         XCTAssertEqual(consentLoads, 2)
+    }
+
+    /// A reset of the accounts deletes the consent: the app forgets that it knew it, and a list on screen through the
+    /// reset reads it again, as a new list does
+    func testAccountsResetForgetsTheKnownConsent() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let agentClient = FakeAgentV2Client()
+        agentClient.isConsentKnownGiven = true
+        var hasConsent = true
+        var consentLoads = 0
+        func makeList(client: ThreadListUIClient) -> AgentThreadListVC {
+            AgentThreadListVC(
+                model: AgentThreadListModel(client: client, newsClient: ThreadListNewsClient()),
+                loadConsent: {
+                    consentLoads += 1
+                    return hasConsent
+                },
+                acceptConsent: {},
+                isConsentKnownGiven: { agentClient.isConsentKnownGiven },
+                loadSuggestions: { [] }
+            )
+        }
+        let shownList = makeList(client: try ThreadListUIClient())
+        shownList.loadViewIfNeeded()
+        try await waitUntil { consentLoads == 1 }
+
+        hasConsent = false
+        AgentPreloader(client: agentClient).walletCore(event: .accountsReset)
+        XCTAssertFalse(agentClient.isConsentKnownGiven)
+        shownList.walletCore(event: .accountsReset)
+        try await waitUntil { consentLoads == 2 }
+
+        let newListClient = try ThreadListUIClient()
+        let newList = makeList(client: newListClient)
+        newList.loadViewIfNeeded()
+        newList.viewWillAppear(false)
+        try await waitUntil { consentLoads == 3 }
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(newListClient.queries.isEmpty, "Without consent the new list asks the Agent for nothing")
+    }
+
+    /// A list on screen keeps its rows while its chats load: News with the suggestions before consent stays, without
+    /// the skeleton, as consent given in another chat brings the chats, which then come in as any update's do, and a
+    /// later reload keeps the list too. Only a list with nothing to show yet loads under the skeleton.
+    func testListOnScreenKeepsItsRowsWithoutTheSkeletonWhileItsChatsLoad() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        let news = ApiAgentV2NewsFeedItem(
+            eventId: 731, deliveredAt: "2026-10-30T12:00:00Z", headline: "Markets calm", body: "Little moved today"
+        )
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient(items: [news]))
+        var hasConsent = false
+        let controller = AgentThreadListVC(
+            model: model, loadConsent: { hasConsent }, acceptConsent: {}, loadSuggestions: { [] }
+        )
+        let window = makeKeyWindow(showing: ThreadListTestNavigationController(rootViewController: controller))
+        defer {
+            client.pendingResponse?.resume(returning: client.response)
+            client.pendingResponse = nil
+            window.isHidden = true
+        }
+        try await waitUntil { self.descendants(controller.view).contains { $0 is AgentNewsCell && !$0.isHidden } }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        let skeleton = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentThreadListSkeletonView }.first)
+
+        hasConsent = true
+        client.shouldHoldFirstResponse = true
+        controller.viewWillAppear(false)
+        try await waitUntil { client.pendingResponse != nil }
+        controller.view.layoutIfNeeded()
+        XCTAssertFalse(model.hasLoaded)
+        XCTAssertFalse(skeleton.isShowing, "No skeleton over the list on screen")
+        XCTAssertEqual(collection.alpha, 1)
+        XCTAssertTrue(descendants(collection).contains { $0 is AgentNewsCell && !$0.isHidden }, "News stays")
+
+        client.pendingResponse?.resume(returning: client.response)
+        client.pendingResponse = nil
+        try await waitUntil { model.items.count == 1 }
+        try await waitUntil { self.descendants(collection).contains { $0 is AgentThreadRowCell && !$0.isHidden } }
+        XCTAssertFalse(skeleton.isShowing)
+        XCTAssertEqual(collection.alpha, 1)
+
+        controller.viewWillAppear(false)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(skeleton.isShowing, "A reload keeps the list")
+        XCTAssertEqual(collection.alpha, 1)
+    }
+
+    /// Before consent the list shows News, which the SDK serves without consent, and loads its latest post, while it
+    /// asks for no chats
+    func testNewsShowsBeforeConsent() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        let newsClient = ThreadListNewsClient(items: [ApiAgentV2NewsFeedItem(
+            eventId: 1, deliveredAt: "2026-11-05T01:00:00Z", headline: "Markets calm", body: "Little moved today"
+        )])
+        let model = AgentThreadListModel(client: client, newsClient: newsClient)
+        let controller = AgentThreadListVC(model: model, loadConsent: { false }, acceptConsent: {}, loadSuggestions: { [] })
+        let window = makeKeyWindow(showing: ThreadListTestNavigationController(rootViewController: controller))
+        defer { window.isHidden = true }
+        try await waitUntil { !newsClient.requests.isEmpty && model.latestNews != nil }
+        window.layoutIfNeeded()
+        try await waitUntil { self.descendants(controller.view).contains { $0 is AgentNewsCell && !$0.isHidden } }
+        XCTAssertTrue(client.queries.isEmpty, "No chats are asked for before consent")
         XCTAssertFalse(descendants(controller.view).contains { $0 is AgentConsentView })
+    }
+
+    /// Without consent the list shows its suggestions and field and asks nothing until the first question: Send, a
+    /// suggestion and the microphone each open the consent sheet. Closing it sends nothing and keeps the typed question;
+    /// Allow records consent and sends the question once, and later questions don't ask.
+    func testFirstQuestionAsksForConsentInASheet() async throws {
+        let presentation = AgentTestConsentSheetPresentation.install(in: self)
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let hint = AgentHint(id: "hint:0", title: "Suggestion", subtitle: "Learn", prompt: "Tell me the news")
+        var hasConsent = false
+        var accepts = 0
+        var questions: [String?] = []
+        let controller = AgentThreadListVC(
+            model: model,
+            loadConsent: { hasConsent },
+            acceptConsent: {
+                accepts += 1
+                hasConsent = true
+            },
+            makeNewChat: { question in
+                questions.append(question)
+                return UIViewController()
+            },
+            loadSuggestions: { [hint] }
+        )
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = makeKeyWindow(showing: navigation)
+        defer { window.isHidden = true }
+        let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        try await waitUntil { self.descendants(suggestions).contains { $0 is AgentSuggestionButton } }
+        XCTAssertTrue(presentation.presentedSheets.isEmpty, "No sheet before an action")
+        XCTAssertTrue(client.queries.isEmpty, "Nor any call that needs consent")
+
+        func closeSheet() async throws {
+            let sheet = try await waitForConsentSheet(over: controller, in: self)
+            XCTAssertTrue(sheet.accessibilityPerformEscape())
+            try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+        }
+
+        // Send, closed: the sheet takes the keyboard, and closed, the field gets it back with the question
+        let bar = controller.bottomBar
+        bar.composerView.setDraftText("Explain my portfolio", focus: true)
+        XCTAssertTrue(bar.isEditing)
+        bar.composerView.onSend?()
+        let sendSheet = try await waitForConsentSheet(over: controller, in: self)
+        XCTAssertFalse(bar.isEditing, "The keyboard leaves all of the sheet in sight")
+        XCTAssertTrue(sendSheet.accessibilityPerformEscape())
+        try await waitUntil { presentation.presentedViewController(of: controller) == nil }
+        XCTAssertTrue(questions.isEmpty)
+        XCTAssertEqual(bar.draftText, "Explain my portfolio", "The question stays in the field")
+        XCTAssertTrue(bar.isEditing, "With the keyboard back")
+        bar.resignEditing()
+
+        // A suggestion, closed
+        let button = try XCTUnwrap(descendants(suggestions).compactMap { $0 as? AgentSuggestionButton }.first)
+        button.sendActions(for: .touchUpInside)
+        try await closeSheet()
+        XCTAssertTrue(questions.isEmpty)
+
+        // The microphone, closed: nothing records
+        bar.composerView.clearDraft()
+        let microphone = try XCTUnwrap(descendants(bar).compactMap { $0 as? AgentDictationButton }.first)
+        XCTAssertTrue(microphone.accessibilityActivate())
+        try await closeSheet()
+        XCTAssertEqual(bar.composerView.dictationController?.state.phase, .idle)
+        XCTAssertEqual(accepts, 0)
+
+        // Send, allowed: sent once
+        bar.composerView.setDraftText("Explain my portfolio", focus: false)
+        bar.composerView.onSend?()
+        let sheet = try await waitForConsentSheet(over: controller, in: self)
+        sheet.consentView.onContinue?()
+        sheet.consentView.onContinue?()
+        try await waitUntil { questions.count == 1 }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(questions, ["Explain my portfolio"], "Sent once")
+        XCTAssertEqual(accepts, 1)
+        XCTAssertEqual(presentation.presentedSheets.count, 4, "Send, the suggestion, the microphone and Send again asked")
+
+        // Later questions don't ask
+        try await waitUntil { navigation.transitionCoordinator == nil }
+        navigation.popToRootViewController(animated: false)
+        bar.composerView.setDraftText("Another question", focus: false)
+        bar.composerView.onSend?()
+        XCTAssertEqual(questions, ["Explain my portfolio", "Another question"])
+        XCTAssertEqual(presentation.presentedSheets.count, 4, "Later questions don't ask")
+        XCTAssertEqual(accepts, 1)
     }
 
     func testNewsCellShowsFallbackAndUnreadCounterWithoutThreadActions() throws {
@@ -391,16 +628,28 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertTrue(cell.accessibilityLabel?.contains(L10n.agentNewsUnreadCount(count: 2)) == true)
         XCTAssertNil(cell.accessibilityCustomActions)
 
-        // A count reads "30+" from a feed page's worth, 5 pt clear of each end of the capsule
-        for (count, text) in [(9, "9"), (29, "29"), (30, "30+"), (1_234, "30+")] {
+        // The counter shows up to 10 unread news, 5 pt clear of each end of the capsule
+        for (count, text) in [(1, "1"), (9, "9"), (10, "10")] {
             cell.configure(latestNews: item, unreadCount: count, now: now)
             cell.layoutIfNeeded()
+            XCTAssertEqual(cell.unreadMark, .count(text))
             XCTAssertEqual(countLabel.text, text)
             let textWidth = ceil((text as NSString).size(withAttributes: [.font: AgentThreadRowMetrics.unreadCounterFont]).width)
             XCTAssertEqual(badge.frame.width, max(20, textWidth + 10), accuracy: 0.5, text)
             XCTAssertEqual(badge.frame.height, 20)
             XCTAssertEqual(badge.frame.maxX, badgeMaxX, accuracy: 0.5)
             XCTAssertEqual(cell.previewLabel.frame.maxX, badge.frame.minX - AgentThreadRowMetrics.unreadDotSpacing, accuracy: 0.5)
+        }
+        // More show the unread dot of a chat, in the dot's place, and VoiceOver still reads the count
+        for count in [11, 30, 1_234] {
+            cell.configure(latestNews: item, unreadCount: count, now: now)
+            cell.layoutIfNeeded()
+            XCTAssertEqual(cell.unreadMark, .dot, "\(count)")
+            XCTAssertTrue(countLabel.isHidden)
+            XCTAssertEqual(badge.frame.size, CGSize(width: AgentThreadRowMetrics.unreadDotSize, height: AgentThreadRowMetrics.unreadDotSize))
+            XCTAssertEqual(badge.frame.maxX, badgeMaxX, accuracy: 0.5)
+            XCTAssertEqual(badge.frame.midY, dotCenterY, accuracy: 0.5)
+            XCTAssertTrue(cell.accessibilityLabel?.contains(L10n.agentNewsUnreadCount(count: count)) == true)
         }
 
         cell.configure(latestNews: nil, unreadCount: 0)
@@ -621,8 +870,8 @@ final class AgentThreadListUITests: XCTestCase {
         controller.loadViewIfNeeded()
         XCTAssertTrue(controller.bottomBar.superview === controller.view)
         XCTAssertFalse(controller.bottomBar.isHidden)
-        try await waitUntil { controller.isConsentRequired }
-        XCTAssertTrue(controller.bottomBar.isHidden)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertFalse(controller.bottomBar.isHidden, "Without consent the field stays, to ask at the first question")
 
         controller.setBottomBarHostedExternally(true)
         XCTAssertNil(controller.bottomBar.superview)
@@ -645,7 +894,6 @@ final class AgentThreadListUITests: XCTestCase {
         )
         controller.loadViewIfNeeded()
         try await waitUntil { didCheck }
-        XCTAssertFalse(controller.isConsentRequired)
         XCTAssertFalse(controller.bottomBar.isHidden)
         XCTAssertFalse(descendants(controller.view).contains { $0 is AgentConsentView })
         XCTAssertFalse(model.hasLoaded)
@@ -688,6 +936,69 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertTrue(bar.isHidden, "Late consent must not override the root toolbar's visibility")
     }
 
+    /// A list that goes from the screen while the microphone's consent read is under way doesn't record when the read
+    /// finds the consent, whether it is back by then or not, and it still shows its chats; shown, it records at once
+    func testRecordingDoesNotStartInAListLeftWhileItsConsentIsRead() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        for isBack in [false, true] {
+            let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
+            var consentReads = 0
+            var consentResponse: CheckedContinuation<Bool, Never>?
+            let controller = AgentThreadListVC(
+                model: model,
+                loadConsent: {
+                    consentReads += 1
+                    guard consentReads > 1 else { return false }
+                    return await withCheckedContinuation { consentResponse = $0 }
+                },
+                acceptConsent: {},
+                loadSuggestions: { [] }
+            )
+            let navigation = ThreadListTestNavigationController(rootViewController: controller)
+            let window = makeKeyWindow(showing: navigation)
+            defer { window.isHidden = true }
+            var recordingStarts = 0
+            let composer = controller.bottomBar.composerView
+            composer.dictationController = AgentDictationController(
+                scheduler: AgentDictationTestScheduler(),
+                requestPermission: { true },
+                makeRecorder: {
+                    recordingStarts += 1
+                    return AgentDictationTestRecorder()
+                },
+                transcribe: { _ in .init(outcome: .noSpeech) },
+                haptic: {},
+                gestureFeedback: {},
+                observeLifecycle: false
+            )
+            try await waitUntil { consentReads == 1 }
+            for _ in 0..<20 { await Task.yield() }
+
+            XCTAssertEqual(composer.shouldStartDictation?(), false)
+            try await waitUntil { consentResponse != nil }
+            navigation.pushViewController(UIViewController(), animated: false)
+            try await waitUntil {
+                window.layoutIfNeeded()
+                return controller.view.window == nil
+            }
+            if isBack {
+                navigation.popViewController(animated: false)
+                try await waitUntil {
+                    window.layoutIfNeeded()
+                    return controller.view.window != nil
+                }
+            }
+            consentResponse?.resume(returning: true)
+            consentResponse = nil
+            try await waitUntil { !model.items.isEmpty }
+            for _ in 0..<20 { await Task.yield() }
+            try await Task.sleep(for: .milliseconds(50))
+            XCTAssertEqual(recordingStarts, 0, "isBack: \(isBack)")
+            XCTAssertEqual(composer.dictationController?.state.phase, .idle, "isBack: \(isBack)")
+            XCTAssertEqual(composer.shouldStartDictation?(), true, "isBack: \(isBack): with consent, it records at once")
+        }
+    }
+
     func testLoadingListPreservesExternallyHostedBarVisibility() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
@@ -715,136 +1026,6 @@ final class AgentThreadListUITests: XCTestCase {
         controller.setBottomBarHostedExternally(false)
         XCTAssertTrue(controller.bottomBar.superview === controller.view)
         XCTAssertFalse(controller.bottomBar.isHidden)
-    }
-
-    func testHeldConsentTopCapturesAndRefractsItsActualTitle() async throws {
-        _ = WalletResourcesBundle.bundle.load()
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            throw XCTSkip("The consent Metal backdrop requires an application host with a window scene")
-        }
-        let model = AgentThreadListModel(client: try ThreadListUIClient(), newsClient: ThreadListNewsClient())
-        let controller = AgentThreadListVC(model: model, loadConsent: { false }, acceptConsent: {}, loadSuggestions: { [] })
-        let window = UIWindow(windowScene: scene)
-        window.frame = scene.coordinateSpace.bounds
-        window.overrideUserInterfaceStyle = .light
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        defer { window.isHidden = true }
-        try await waitUntil { self.descendants(controller.view).contains { $0 is AgentConsentView } }
-        window.layoutIfNeeded()
-        let consent = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentConsentView }.first)
-        defer { consent.isActive = false }
-        let top = try XCTUnwrap(descendants(consent).compactMap { $0 as? AgentSpinningTopView }.first)
-        let title = try XCTUnwrap(descendants(consent).compactMap { $0 as? UILabel }.first { $0.text == lang("Agent") })
-        let metal = try XCTUnwrap(top.subviews.compactMap { $0 as? MTKView }.first)
-        let queue = try XCTUnwrap(Mirror(reflecting: metal).children.first { $0.label == "queue" }?.value as? MTLCommandQueue)
-        metal.framebufferOnly = false
-        let titleFrame = title.convert(title.bounds, to: window)
-        let restingFrame = top.convert(top.bounds, to: window)
-        XCTAssertEqual(restingFrame.midX, titleFrame.midX, accuracy: 0.5)
-        try await Task.sleep(for: .milliseconds(500))
-        attachConsentWindow(window, name: "Consent resting")
-
-        let center = CGPoint(x: top.bounds.midX, y: top.bounds.midY)
-        top.perform(NSSelectorFromString("handlePress:"), with: ConsentTopTestPress(state: .began, point: center))
-        try await Task.sleep(for: .milliseconds(650))
-        XCTAssertTrue(metal.superview === window)
-        attachConsentWindow(window, name: "Consent held")
-        let neutral = try consentMetalFrame(metal, queue: queue)
-        attachConsentTexture(neutral.bytes, width: neutral.width, height: neutral.height, name: "Neutral held consent Metal frame")
-        var left = neutral.width
-        var right = -1
-        for offset in stride(from: 3, to: neutral.bytes.count, by: 4) where neutral.bytes[offset] > 200 {
-            let x = (offset / 4) % neutral.width
-            left = min(left, x)
-            right = max(right, x)
-        }
-        XCTAssertGreaterThan(right, left, "The held top must have a visible silhouette")
-        let neutralCanvas = metal.convert(metal.bounds, to: window)
-        let opticalCenterX = neutralCanvas.minX + CGFloat(left + right + 1) / 2 / CGFloat(neutral.width) * neutralCanvas.width
-        XCTAssertEqual(opticalCenterX, titleFrame.midX, accuracy: 8, "Neutral hold stays centred while allowing natural precession")
-        // Tilt the real top far enough for the title to enter the lens, rather than only touch its frosted rim.
-        top.perform(NSSelectorFromString("handlePress:"), with: ConsentTopTestPress(
-            state: .changed, point: CGPoint(x: center.x, y: center.y + 220)
-        ))
-        try await Task.sleep(for: .milliseconds(650))
-        attachConsentWindow(window, name: "Consent held and tilted over Agent")
-        metal.isPaused = true
-
-        let backdrop = try XCTUnwrap(Mirror(reflecting: metal).children.first { $0.label == "backdrop" }?.value as? MTLTexture)
-        // The owner rectangle stays in the original view's coordinates while the Metal canvas resizes on hold.
-        let ownerRect = try XCTUnwrap(Mirror(reflecting: top).children.first { $0.label == "backdropRect" }?.value as? CGRect)
-        let backdropFrame = top.convert(ownerRect, to: window)
-        XCTAssertTrue(backdropFrame.contains(titleFrame), "The captured area must contain the real consent title")
-        XCTAssertEqual(top.convert(top.bounds, to: window), restingFrame)
-        XCTAssertEqual(title.convert(title.bounds, to: window), titleFrame)
-
-        var actual = consentTextureBytes(backdrop)
-        attachConsentTexture(actual, width: backdrop.width, height: backdrop.height, name: "Actual consent backdrop texture")
-        let titlePixels = CGRect(
-            x: (titleFrame.minX - backdropFrame.minX) / backdropFrame.width * CGFloat(backdrop.width),
-            y: (titleFrame.minY - backdropFrame.minY) / backdropFrame.height * CGFloat(backdrop.height),
-            width: titleFrame.width / backdropFrame.width * CGFloat(backdrop.width),
-            height: titleFrame.height / backdropFrame.height * CGFloat(backdrop.height)
-        ).integral
-        var titlePixelCount = 0
-        var withoutTitle = actual
-        for y in max(0, Int(titlePixels.minY))..<min(backdrop.height, Int(titlePixels.maxY)) {
-            for x in max(0, Int(titlePixels.minX))..<min(backdrop.width, Int(titlePixels.maxX)) {
-                let offset = (y * backdrop.width + x) * 4
-                if actual[offset + 3] > 200, (0..<3).allSatisfy({ actual[offset + $0] < 150 }) { titlePixelCount += 1 }
-                for channel in 0..<4 { withoutTitle[offset + channel] = 255 }
-            }
-        }
-        XCTAssertGreaterThan(titlePixelCount, 100, "The real Agent UILabel must be present in the captured texture")
-
-        // Compare two actual component frames, changing only the title pixels in its captured background. The
-        // clear-title frame separates transmitted lettering from the top's own coloured coating and highlights.
-        let shown = try consentMetalFrame(metal, queue: queue)
-        backdrop.replace(region: MTLRegionMake2D(0, 0, backdrop.width, backdrop.height), mipmapLevel: 0,
-                         withBytes: &withoutTitle, bytesPerRow: backdrop.width * 4)
-        defer {
-            backdrop.replace(region: MTLRegionMake2D(0, 0, backdrop.width, backdrop.height), mipmapLevel: 0,
-                             withBytes: &actual, bytesPerRow: backdrop.width * 4)
-        }
-        let blank = try consentMetalFrame(metal, queue: queue)
-        attachConsentTexture(shown.bytes, width: shown.width, height: shown.height, name: "Actual held consent Metal frame")
-        attachConsentTexture(blank.bytes, width: blank.width, height: blank.height, name: "Held consent without captured title")
-        let canvasFrame = metal.convert(metal.bounds, to: window)
-        var transmittedPixels = 0
-        var displacedPixels = 0
-        for y in 0..<shown.height {
-            for x in 0..<shown.width {
-                let offset = (y * shown.width + x) * 4
-                guard shown.bytes[offset + 3] > 250, blank.bytes[offset + 3] > 250 else { continue }
-                let point = CGPoint(
-                    x: canvasFrame.minX + (CGFloat(x) + 0.5) / CGFloat(shown.width) * canvasFrame.width,
-                    y: canvasFrame.minY + (CGFloat(y) + 0.5) / CGFloat(shown.height) * canvasFrame.height
-                )
-                guard titleFrame.insetBy(dx: -20, dy: -20).contains(point),
-                      (0..<3).contains(where: { Int(blank.bytes[offset + $0]) - Int(shown.bytes[offset + $0]) > 35 }) else { continue }
-                transmittedPixels += 1
-                let bx = Int((point.x - backdropFrame.minX) / backdropFrame.width * CGFloat(backdrop.width))
-                let by = Int((point.y - backdropFrame.minY) / backdropFrame.height * CGFloat(backdrop.height))
-                guard (0..<backdrop.width).contains(bx), (0..<backdrop.height).contains(by) else { continue }
-                let source = (by * backdrop.width + bx) * 4
-                if (0..<3).allSatisfy({ actual[source + $0] > 235 }) { displacedPixels += 1 }
-            }
-        }
-        let details = XCTAttachment(string: """
-        Resting top: \(restingFrame); title: \(titleFrame)
-        Neutral held silhouette center: \(opticalCenterX)
-        Owner backdrop: \(ownerRect); window backdrop: \(backdropFrame)
-        Canvas: \(canvasFrame); texture: \(backdrop.width)x\(backdrop.height)
-        Dark title pixels in capture: \(titlePixelCount)
-        Title pixels transmitted through actual top: \(transmittedPixels)
-        Transmitted pixels outside the original lettering: \(displacedPixels)
-        """)
-        details.name = "Consent capture and refraction geometry"
-        details.lifetime = .keepAlways
-        add(details)
-        XCTAssertGreaterThan(transmittedPixels, 80, "The captured title must affect the held top's rendered pixels")
-        XCTAssertGreaterThan(displacedPixels, 25, "The held top must bend or frost the title beyond its original lettering")
     }
 
     func testListBottomBarComesOutOfTheToolbarSearchFieldAndWidensForAChat() {
@@ -1090,6 +1271,99 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertTrue(suggestions.isUserInteractionEnabled)
     }
 
+    /// Chats that failed to load leave the News row and, in place of the suggestions that would say there are none,
+    /// the failure with Retry in the middle of the list, which loads them
+    func testFailedLoadWithoutChatsShowsTheFailureUnderNewsAndRetryLoadsTheChats() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.listError = ThreadListUITestError.unavailable
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let hint = AgentHint(id: "starter", title: "Explain TON", subtitle: "", prompt: "Explain TON")
+        let controller = AgentThreadListVC(model: model, loadConsent: { true }, acceptConsent: {}, loadSuggestions: { [hint] })
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        let failure = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentLoadErrorView }.first)
+        try await waitUntil {
+            model.hasLoadFailed && !model.isLoading && collection.numberOfSections == 1
+        }
+        window.layoutIfNeeded()
+        collection.layoutIfNeeded()
+
+        let news = try XCTUnwrap(collection.cellForItem(at: IndexPath(item: 0, section: 0)) as? AgentNewsCell)
+        XCTAssertFalse(failure.isHidden)
+        XCTAssertEqual(failure.alpha, 1)
+        XCTAssertEqual(failure.label.text, lang("$agent_chats_unavailable"))
+        XCTAssertFalse(failure.retryButton.isHidden)
+        XCTAssertGreaterThan(failure.frame.minY, news.convert(news.bounds, to: controller.view).maxY)
+        XCTAssertEqual(failure.frame.midX, collection.frame.midX, accuracy: 1)
+        let suggestions = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentHintsSectionView }.first)
+        XCTAssertTrue(suggestions.isHidden)
+        let skeleton = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? AgentThreadListSkeletonView }.first)
+        XCTAssertFalse(skeleton.isShowing)
+
+        client.listError = nil
+        let retry = failure.retryButton
+        let action = try XCTUnwrap(retry.actions(forTarget: failure, forControlEvent: .touchUpInside)?.first)
+        failure.perform(NSSelectorFromString(action), with: retry)
+        try await waitUntil {
+            !model.hasLoadFailed && !model.isLoading && collection.numberOfSections == 2
+        }
+        XCTAssertTrue(failure.isHidden)
+        XCTAssertEqual(model.items.map { $0.thread.id }, ["portfolio-thread"])
+    }
+
+    /// A page that failed to load leaves the chats in place and ends the list with a chat's failure line, which waits
+    /// for its Retry rather than asking again as the rows come on screen
+    func testFailedPageEndsTheListWithAFailureLineWhoseRetryLoadsIt() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.response = try makeThreadListResponse(count: 1, nextCursor: "older")
+        client.pageError = ThreadListUITestError.unavailable
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let controller = AgentThreadListVC(model: model, loadConsent: { true }, acceptConsent: {}, loadSuggestions: { [] })
+        let navigation = ThreadListTestNavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let collection = try XCTUnwrap(descendants(controller.view).compactMap { $0 as? UICollectionView }.first)
+        let lastRow = IndexPath(item: 0, section: 1)
+        let lineIndexPath = IndexPath(item: 0, section: 2)
+        try await waitUntil {
+            collection.layoutIfNeeded()
+            return model.hasPageLoadFailed && !model.isLoading && collection.numberOfSections == 3
+                && collection.cellForItem(at: lineIndexPath) != nil
+        }
+
+        let line = try XCTUnwrap(collection.cellForItem(at: lineIndexPath) as? AgentSystemMessageCell)
+        XCTAssertEqual(line.accessibilityIdentifier, "AgentThreadListPageFailure")
+        let caption = try XCTUnwrap(descendants(line).compactMap { $0 as? UITextView }.first { !$0.isHidden })
+        XCTAssertTrue(caption.text.hasPrefix(lang("$agent_chats_unavailable")), caption.text)
+        XCTAssertTrue(caption.text.hasSuffix(lang("Retry")), caption.text)
+        XCTAssertEqual(model.items.map { $0.thread.id }, ["thread-0"])
+        XCTAssertEqual(client.cursors, [nil, "older"])
+        XCTAssertTrue(descendants(controller.view).compactMap { $0 as? AgentLoadErrorView }.allSatisfy(\.isHidden))
+
+        let row = try XCTUnwrap(collection.cellForItem(at: lastRow))
+        controller.collectionView(collection, willDisplay: row, forItemAt: lastRow)
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertEqual(client.cursors, [nil, "older"])
+
+        client.pageError = nil
+        client.olderResponse = try makeThreadListResponse(count: 1, firstIndex: 1)
+        let retryURL = try XCTUnwrap(URL(string: "agent-control:retry-load"))
+        _ = line.textView(caption, shouldInteractWith: retryURL, in: NSRange(location: 0, length: 1))
+        try await waitUntil {
+            !model.hasPageLoadFailed && !model.isLoading && collection.numberOfSections == 2
+        }
+        XCTAssertEqual(model.items.map { $0.thread.id }, ["thread-0", "thread-1"])
+        XCTAssertEqual(client.cursors, [nil, "older", "older"])
+    }
+
     func testRefreshingChatsAndNewsKeepsTheListHiddenWhileComposing() async throws {
         _ = WalletResourcesBundle.bundle.load()
         let client = try ThreadListUIClient()
@@ -1267,9 +1541,263 @@ final class AgentThreadListUITests: XCTestCase {
         XCTAssertEqual(first.titleLabel.text, "Chat 5")
     }
 
+    /// A chat started while the list is away, under the chat, is in the list from the first frame it is back: the SDK's
+    /// report of its first message puts its row in the list at once, and a load that doesn't have it yet keeps it
+    func testChatStartedWhileTheListIsAwayIsInItFromItsFirstFrameBack() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let (controller, navigation, window, collection) = try await showLoadedList(of: model)
+        defer { window.isHidden = true }
+        navigation.pushViewController(UIViewController(), animated: false)
+        try await waitUntil {
+            window.layoutIfNeeded()
+            return controller.view.window == nil
+        }
+        let queryCount = client.queries.count
+
+        let started = try makeThread(id: "new-thread", title: "New question", lastActivityAt: "2026-10-19T11:00:00Z")
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: started.id, thread: started)))
+        XCTAssertEqual(model.items.first { $0.thread.id == started.id }?.thread, started, "In the list's model at once")
+        XCTAssertEqual(collection.numberOfSections, 3, "News, Pinned and the new chat's day")
+        try await waitUntil { client.queries.count > queryCount && !model.isLoading }
+        XCTAssertTrue(model.items.contains { $0.thread.id == started.id }, "A load the server answers without it keeps it")
+
+        navigation.popViewController(animated: false)
+        window.layoutIfNeeded()
+        collection.layoutIfNeeded()
+        let titles = collection.visibleCells.compactMap { ($0 as? AgentThreadCell)?.titleLabel.text }
+        XCTAssertTrue(titles.contains("New question"), "Its row shows from the first frame back")
+    }
+
+    /// On screen at the top of the list, a chat coming in moves the rows below it on the list's spring as it fades in,
+    /// or the list cross-fades with Reduce Motion; a change to what a row shows reconfigures it in place
+    func testChatComingInOnScreenMovesTheRowsAndAChangeReconfiguresTheRowInPlace() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.response = try makeThreadListResponse(count: 3)
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let (controller, _, window, collection) = try await showLoadedList(of: model, rowCount: 3)
+        defer { window.isHidden = true }
+        collection.layoutIfNeeded()
+        func findCell(titled title: String) -> AgentThreadCell? {
+            collection.visibleCells.compactMap { $0 as? AgentThreadCell }.first { $0.titleLabel.text == title }
+        }
+        let firstRow = try XCTUnwrap(findCell(titled: "Chat 0"))
+        let firstRowY = firstRow.frame.minY
+
+        let started = try makeThread(id: "new-thread", title: "New question", lastActivityAt: "2026-10-19T10:59:00Z")
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: started.id, thread: started)))
+        collection.layoutIfNeeded()
+        let newRow = try XCTUnwrap(findCell(titled: "New question"), "The new chat comes in at the top")
+        XCTAssertLessThan(newRow.frame.minY, firstRow.frame.minY)
+        XCTAssertGreaterThan(firstRow.frame.minY, firstRowY, "The rows below make way")
+        if UIAccessibility.isReduceMotionEnabled {
+            XCTAssertFalse(collection.layer.animationKeys()?.isEmpty ?? true, "The list cross-fades")
+        } else {
+            XCTAssertTrue(firstRow.layer.animationKeys()?.contains { $0.hasPrefix("position") } == true,
+                          "A row below moves on the spring")
+            XCTAssertFalse(newRow.layer.animationKeys()?.isEmpty ?? true, "The new row comes in animated")
+        }
+        try await Task.sleep(for: .milliseconds(600))
+
+        // A new title for a row on screen changes the row where it is
+        let renamedRow = try XCTUnwrap(findCell(titled: "Chat 1"))
+        let thread = try XCTUnwrap(model.items.first { $0.thread.id == "thread-1" }?.thread)
+        let renamed = try makeThread(id: thread.id, title: "Renamed", lastActivityAt: thread.lastActivityAt, revision: thread.revision + 1)
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: renamed.id, thread: renamed)))
+        collection.layoutIfNeeded()
+        XCTAssertTrue(findCell(titled: "Renamed") === renamedRow, "The same row, reconfigured")
+        XCTAssertNil(renamedRow.layer.animationKeys()?.first { $0.hasPrefix("position") || $0.hasPrefix("opacity") },
+                     "Not inserted again")
+    }
+
+    /// As the SDK's list does, the list has a chat while the user has written in it and it has messages: a chat cleared
+    /// of its messages leaves the list at once, and loads the server answers from before the clearing don't bring it
+    /// back, until it is written in again. A news discussion left with its post alone leaves it too, and a change that
+    /// keeps a chat in the list updates its row in place.
+    func testClearedChatOrUntouchedDiscussionLeavesTheListAndALoadDoesNotBringItBack() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.response = try makeThreadListResponse(count: 3)
+        let model = AgentThreadListModel(client: client, newsClient: ThreadListNewsClient())
+        let (controller, _, window, collection) = try await showLoadedList(of: model, rowCount: 3)
+        defer { window.isHidden = true }
+        func isListed(_ id: String) -> Bool { model.items.contains { $0.thread.id == id } }
+        let listed = try XCTUnwrap(model.items.first { $0.thread.id == "thread-1" }?.thread)
+
+        let cleared = try makeThread(
+            id: listed.id, title: "Chat 1", lastActivityAt: listed.lastActivityAt, revision: listed.revision + 1, messageCount: 0
+        )
+        let queryCount = client.queries.count
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: cleared.id, thread: cleared)))
+        XCTAssertFalse(isListed(listed.id), "A cleared chat leaves the list")
+        collection.layoutIfNeeded()
+        XCTAssertEqual(collection.numberOfItems(inSection: 1), 2)
+        // The server still has it as it was before the clearing
+        try await waitUntil { client.queries.count > queryCount && !model.isLoading }
+        XCTAssertFalse(isListed(listed.id), "The load the change started doesn't bring it back")
+        await model.refresh()
+        XCTAssertFalse(isListed(listed.id), "Nor does a later one")
+        let stale = try makeThread(id: listed.id, title: "Chat 1", lastActivityAt: listed.lastActivityAt, revision: listed.revision)
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: stale.id, thread: stale)))
+        XCTAssertFalse(isListed(listed.id), "Nor a report from before the clearing")
+
+        let rewritten = try makeThread(
+            id: listed.id, title: "Chat 1", lastActivityAt: "2026-10-19T10:58:00Z", revision: listed.revision + 2, messageCount: 1
+        )
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: rewritten.id, thread: rewritten)))
+        XCTAssertTrue(isListed(listed.id), "Written in again, it comes back")
+        await model.refresh()
+        XCTAssertTrue(isListed(listed.id), "And stays through a load the server answers from before")
+
+        // A news discussion with the user's message gone, its post alone left
+        let discussion = try makeThread(
+            id: "discussion", title: "News of the day", lastActivityAt: "2026-10-19T10:57:00Z", messageCount: 3,
+            isNewsDiscussion: true
+        )
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: discussion.id, thread: discussion)))
+        XCTAssertTrue(isListed(discussion.id), "Written in, a discussion is in the list")
+        let untouched = try makeThread(
+            id: discussion.id, title: "News of the day", lastActivityAt: discussion.lastActivityAt, revision: 2, messageCount: 1,
+            isNewsDiscussion: true
+        )
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: untouched.id, thread: untouched)))
+        XCTAssertFalse(isListed(discussion.id), "With its post alone it leaves the list")
+        await model.refresh()
+        XCTAssertFalse(isListed(discussion.id))
+
+        // A chat that keeps its messages changes in place
+        try await Task.sleep(for: .milliseconds(600))
+        collection.layoutIfNeeded()
+        let row = try XCTUnwrap(collection.visibleCells.compactMap { $0 as? AgentThreadCell }.first { $0.titleLabel.text == "Chat 0" })
+        let chat = try XCTUnwrap(model.items.first { $0.thread.id == "thread-0" }?.thread)
+        let renamed = try makeThread(
+            id: chat.id, title: "Renamed", lastActivityAt: chat.lastActivityAt, revision: chat.revision + 1, messageCount: 2
+        )
+        controller.walletCore(event: .agentV2(.threadChanged(threadId: renamed.id, thread: renamed)))
+        collection.layoutIfNeeded()
+        XCTAssertEqual(model.items.first { $0.thread.id == chat.id }?.thread, renamed)
+        XCTAssertTrue(collection.visibleCells.compactMap { $0 as? AgentThreadCell }.first { $0.titleLabel.text == "Renamed" } === row)
+    }
+
+    private func makeThread(
+        id: String,
+        title: String,
+        lastActivityAt: String,
+        revision: Int = 1,
+        messageCount: Int = 1,
+        isNewsDiscussion: Bool = false
+    ) throws -> ApiAgentV2ThreadSummary {
+        var thread: [String: Any] = [
+            "id": id,
+            "revision": revision,
+            "createdAt": "2026-10-19T09:00:00Z",
+            "updatedAt": lastActivityAt,
+            "lastActivityAt": lastActivityAt,
+            "messageCount": messageCount,
+            "title": title,
+            "isPinned": false,
+        ]
+        if isNewsDiscussion {
+            thread["news"] = ["eventId": 7, "headline": "News of the day", "publishedAt": "2026-10-19T09:00:00Z"]
+        }
+        return try JSONDecoder().decode(ApiAgentV2ThreadSummary.self, from: JSONSerialization.data(withJSONObject: thread))
+    }
+
+    func testDayChangeUpdatesRetainedHeadersWithoutFetchingOrMovingRows() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        client.response = try makeThreadListResponse(count: 30)
+        let newsClient = ThreadListNewsClient()
+        let model = AgentThreadListModel(client: client, newsClient: newsClient)
+        let calendar = LocalizationSupport.shared.calendar
+        let day = calendar.startOfDay(for: AgentV2DateParser.date(client.thread.lastActivityAt))
+        let nextDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: day))
+        var now = nextDay.addingTimeInterval(-1)
+        let (_, _, window, collection) = try await showLoadedList(of: model, rowCount: 30, getCurrentDate: { now })
+        defer { window.isHidden = true }
+        collection.contentOffset.y = -collection.adjustedContentInset.top + 600
+        collection.layoutIfNeeded()
+        let indexPath = IndexPath(item: 0, section: 1)
+        let header = try XCTUnwrap(collection.supplementaryView(
+            forElementKind: UICollectionView.elementKindSectionHeader, at: indexPath
+        ))
+        let label = try XCTUnwrap(descendants(header).compactMap { $0 as? UILabel }.first)
+        XCTAssertEqual(label.text, lang("Today"))
+        let offset = collection.contentOffset
+        let cells = collection.visibleCells
+        let threadRequestCount = client.queries.count
+        let newsRequestCount = newsClient.requests.count
+
+        now = nextDay
+        NotificationCenter.default.post(name: UIApplication.significantTimeChangeNotification, object: UIApplication.shared)
+        collection.layoutIfNeeded()
+        XCTAssertEqual(label.text, lang("Yesterday"))
+        XCTAssertTrue(header === collection.supplementaryView(
+            forElementKind: UICollectionView.elementKindSectionHeader, at: indexPath
+        ))
+        XCTAssertEqual(collection.contentOffset, offset)
+        XCTAssertEqual(Set(collection.visibleCells.map(ObjectIdentifier.init)), Set(cells.map(ObjectIdentifier.init)))
+
+        // Let any refresh task scheduled by the notification reach its client before checking the request counts
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(client.queries.count, threadRequestCount)
+        XCTAssertEqual(newsClient.requests.count, newsRequestCount)
+
+        // Ordinary model updates also retain the same day's header across midnight
+        now = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: nextDay))
+        await model.refresh()
+        collection.layoutIfNeeded()
+        XCTAssertEqual(label.text, AgentThreadDateFormatting.headerText(for: day, relativeTo: now))
+        XCTAssertEqual(collection.contentOffset, offset)
+    }
+
+    func testDayChangeUpdatesPinnedAndNewsTimestampsWithoutFetching() async throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let client = try ThreadListUIClient()
+        let newsClient = ThreadListNewsClient(items: [ApiAgentV2NewsFeedItem(
+            eventId: 1, deliveredAt: client.thread.lastActivityAt, headline: "News", body: "Market news"
+        )])
+        let model = AgentThreadListModel(client: client, newsClient: newsClient)
+        let calendar = LocalizationSupport.shared.calendar
+        let timestamp = AgentV2DateParser.date(client.thread.lastActivityAt)
+        var now = timestamp
+        let (_, _, window, collection) = try await showLoadedList(of: model, getCurrentDate: { now })
+        defer { window.isHidden = true }
+        try await waitUntil { model.latestNews != nil }
+        collection.layoutIfNeeded()
+        let newsCell = try XCTUnwrap(collection.cellForItem(at: IndexPath(item: 0, section: 0)) as? AgentNewsCell)
+        let threadCell = try XCTUnwrap(collection.cellForItem(at: IndexPath(item: 0, section: 1)) as? AgentThreadCell)
+        let time = AgentThreadDateFormatting.formatRowTimestamp(for: timestamp, shouldShowDateWhenNotToday: true, relativeTo: now)
+        XCTAssertEqual(threadCell.timeLabel.text, time)
+        XCTAssertEqual(newsCell.timeLabel.text, time)
+        let threadRequestCount = client.queries.count
+        let newsRequestCount = newsClient.requests.count
+
+        now = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: timestamp))
+        NotificationCenter.default.post(name: UIApplication.significantTimeChangeNotification, object: UIApplication.shared)
+        collection.layoutIfNeeded()
+        // Yesterday's rows name its weekday
+        let weekday = AgentThreadDateFormatting.formatRowTimestamp(for: timestamp, shouldShowDateWhenNotToday: true, relativeTo: now)
+        XCTAssertNotEqual(weekday, time)
+        XCTAssertEqual(threadCell.timeLabel.text, weekday)
+        XCTAssertEqual(newsCell.timeLabel.text, weekday)
+        XCTAssertTrue(threadCell.accessibilityLabel?.contains(weekday) == true)
+        XCTAssertTrue(newsCell.accessibilityLabel?.contains(weekday) == true)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(client.queries.count, threadRequestCount)
+        XCTAssertEqual(newsClient.requests.count, newsRequestCount)
+    }
+
     /// `count` chats, the first the latest, or `latest` latest of all
-    private func makeThreadListResponse(count: Int, latest: Int? = nil) throws -> ApiAgentV2ThreadListResponse {
-        let threads = (0..<count).map { index -> [String: Any] in
+    private func makeThreadListResponse(
+        count: Int,
+        latest: Int? = nil,
+        firstIndex: Int = 0,
+        nextCursor: String? = nil
+    ) throws -> ApiAgentV2ThreadListResponse {
+        let threads = (firstIndex..<firstIndex + count).map { index -> [String: Any] in
             let minute = index == latest ? 59 : 50 - index
             let date = String(format: "2026-10-19T10:%02d:00Z", max(0, minute))
             return [
@@ -1286,7 +1814,9 @@ final class AgentThreadListUITests: XCTestCase {
                 "preview": "Message \(index)",
             ]
         }
-        let data = try JSONSerialization.data(withJSONObject: ["protocolVersion": 2, "threads": threads])
+        var json: [String: Any] = ["protocolVersion": 2, "threads": threads]
+        json["nextCursor"] = nextCursor
+        let data = try JSONSerialization.data(withJSONObject: json)
         return try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: data)
     }
 
@@ -1317,9 +1847,12 @@ final class AgentThreadListUITests: XCTestCase {
     /// Shows the list of `model` on the test phone's screen and waits until its `rowCount` chats are on it
     private func showLoadedList(
         of model: AgentThreadListModel,
-        rowCount: Int = 1
+        rowCount: Int = 1,
+        getCurrentDate: @escaping () -> Date = { .now }
     ) async throws -> (AgentThreadListVC, ThreadListTestNavigationController, UIWindow, UICollectionView) {
-        let controller = AgentThreadListVC(model: model, loadConsent: { true }, acceptConsent: {}, loadSuggestions: { [] })
+        let controller = AgentThreadListVC(
+            model: model, loadConsent: { true }, acceptConsent: {}, loadSuggestions: { [] }, getCurrentDate: getCurrentDate
+        )
         let navigation = ThreadListTestNavigationController(rootViewController: controller)
         let window: UIWindow
         if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
@@ -1349,68 +1882,21 @@ final class AgentThreadListUITests: XCTestCase {
         }
     }
 
-    private func waitUntil(_ predicate: @escaping () -> Bool) async throws {
+    private func waitUntil(
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ predicate: @escaping () -> Bool
+    ) async throws {
         for _ in 0..<100 {
             if predicate() { return }
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTFail("Thread list did not settle within 2 seconds")
+        XCTFail("Thread list did not settle within 2 seconds", file: file, line: line)
         throw ThreadListUITestError.timedOut
     }
 
     private func descendants(_ view: UIView) -> [UIView] {
         view.subviews.flatMap { [$0] + descendants($0) }
-    }
-
-    private func attachConsentWindow(_ window: UIWindow, name: String) {
-        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
-        }
-        let attachment = XCTAttachment(image: image)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    private func consentTextureBytes(_ texture: MTLTexture) -> [UInt8] {
-        var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
-        texture.getBytes(&bytes, bytesPerRow: texture.width * 4,
-                         from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0)
-        return bytes
-    }
-
-    private func consentMetalFrame(_ metal: MTKView, queue: MTLCommandQueue) throws -> (bytes: [UInt8], width: Int, height: Int) {
-        let drawable = try XCTUnwrap(metal.currentDrawable)
-        metal.draw()
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: drawable.texture.width, height: drawable.texture.height, mipmapped: false
-        )
-        descriptor.storageMode = .shared
-        descriptor.usage = .shaderRead
-        let copy = try XCTUnwrap(metal.device?.makeTexture(descriptor: descriptor))
-        let command = try XCTUnwrap(queue.makeCommandBuffer())
-        let blit = try XCTUnwrap(command.makeBlitCommandEncoder())
-        blit.copy(from: drawable.texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
-                  sourceSize: MTLSize(width: copy.width, height: copy.height, depth: 1),
-                  to: copy, destinationSlice: 0, destinationLevel: 0, destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0))
-        blit.endEncoding()
-        command.commit()
-        command.waitUntilCompleted()
-        XCTAssertEqual(command.status, .completed)
-        return (consentTextureBytes(copy), copy.width, copy.height)
-    }
-
-    private func attachConsentTexture(_ bytes: [UInt8], width: Int, height: Int, name: String) {
-        let image = CGImage(
-            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue).union(.byteOrder32Little),
-            provider: CGDataProvider(data: Data(bytes) as CFData)!, decode: nil, shouldInterpolate: false, intent: .defaultIntent
-        )!
-        let attachment = XCTAttachment(image: UIImage(cgImage: image))
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     private func effectiveOpacity(of view: UIView) -> CGFloat {
@@ -1430,24 +1916,6 @@ final class AgentThreadListUITests: XCTestCase {
     }
 }
 
-private final class ConsentTopTestPress: UILongPressGestureRecognizer {
-    private let reportedState: UIGestureRecognizer.State
-    private let point: CGPoint
-
-    init(state: UIGestureRecognizer.State, point: CGPoint) {
-        reportedState = state
-        self.point = point
-        super.init(target: nil, action: nil)
-    }
-
-    override var state: UIGestureRecognizer.State {
-        get { reportedState }
-        set { }
-    }
-
-    override func location(in view: UIView?) -> CGPoint { point }
-}
-
 @MainActor
 private final class ThreadListTestNavigationController: UINavigationController {
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
@@ -1457,6 +1925,7 @@ private final class ThreadListTestNavigationController: UINavigationController {
 
 private enum ThreadListUITestError: Error {
     case timedOut
+    case unavailable
 }
 
 @MainActor
@@ -1468,6 +1937,13 @@ private final class ThreadListUIClient: AgentThreadListClient {
     /// How many of the next responses wait in `pendingResponse` until resumed
     var heldResponseCount = 0
     var pendingResponse: CheckedContinuation<ApiAgentV2ThreadListResponse, Never>?
+    /// Fails the first page
+    var listError: Error?
+    /// Fails further pages
+    var pageError: Error?
+    /// The page after the first
+    var olderResponse: ApiAgentV2ThreadListResponse?
+    var cursors: [String?] = []
 
     init() throws {
         response = try JSONDecoder().decode(ApiAgentV2ThreadListResponse.self, from: Data("""
@@ -1491,8 +1967,18 @@ private final class ThreadListUIClient: AgentThreadListClient {
         """.utf8))
     }
 
+    /// The SDK's copy of the first page
+    var cachedItems: [ApiAgentV2ThreadListItem]?
+    func cachedThreads() async -> [ApiAgentV2ThreadListItem]? { cachedItems }
+
     func listThreads(cursor: String?, limit: Int?, query: String?) async throws -> ApiAgentV2ThreadListResponse {
         queries.append(query)
+        cursors.append(cursor)
+        if cursor == nil, let listError { throw listError }
+        if cursor != nil {
+            if let pageError { throw pageError }
+            if let olderResponse { return olderResponse }
+        }
         if shouldHoldFirstResponse, queries.count == 1 {
             return await withCheckedContinuation { pendingResponse = $0 }
         }

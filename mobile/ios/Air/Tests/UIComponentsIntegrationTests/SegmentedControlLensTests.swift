@@ -5,6 +5,50 @@ import WalletResources
 
 @MainActor
 final class SegmentedControlLensTests: XCTestCase {
+    func testNativeRestingBackgroundRestoresBackdropAndTracksThemeWithItsSnapshot() async throws {
+        guard #available(iOS 26, *) else { throw XCTSkip("Native lens requires iOS 26") }
+        let lens = WSegmentedControlLensView()
+        let (window, controller) = host(lens)
+        defer { window.isHidden = true }
+        window.overrideUserInterfaceStyle = .light
+        lens.frame = CGRect(x: 20, y: 100, width: 300, height: 34)
+        lens.update(selectionFrame: CGRect(x: 0, y: 0, width: 100, height: 34), isLifted: false, color: .gray, animated: false)
+        let background = try XCTUnwrap(lens.selectedContentView.subviews.compactMap { $0 as? UIVisualEffectView }.first)
+        let snapshot = try XCTUnwrap(WSegmentedControlLensView.makeRestingBackgroundCopy() as? UIVisualEffectView)
+        snapshot.frame = CGRect(x: 20, y: 160, width: 100, height: 34)
+        controller.view.addSubview(snapshot)
+        window.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(50))
+        lens.refreshAppearance()
+
+        func matrix(in view: UIVisualEffectView) throws -> NSValue {
+            let backdrop = try XCTUnwrap(view.layer.sublayers?.first)
+            XCTAssertEqual(backdrop.filters?.count, 1)
+            let filter = try XCTUnwrap(backdrop.filters?.first as? NSObject)
+            return try XCTUnwrap(filter.value(forKey: PrivateAPI.inputColorMatrix.string) as? NSValue)
+        }
+        let lightMatrix = try matrix(in: background)
+        let backdrop = try XCTUnwrap(background.layer.sublayers?.first)
+        // The actual UIKit backdrop loses its custom filter when its effect is rebuilt
+        for removedFilters: [Any]? in [[], nil] {
+            backdrop.filters = removedFilters
+            background.setNeedsLayout()
+            background.layoutIfNeeded()
+            XCTAssertEqual(try matrix(in: background), lightMatrix)
+        }
+
+        var previousMatrix = lightMatrix
+        for style in [UIUserInterfaceStyle.dark, .light, .dark] {
+            window.overrideUserInterfaceStyle = style
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(50))
+            let liveMatrix = try matrix(in: background)
+            XCTAssertNotEqual(liveMatrix, previousMatrix)
+            XCTAssertEqual(liveMatrix, try matrix(in: snapshot))
+            previousMatrix = liveMatrix
+        }
+    }
+
     func testPagingWidthsRemainLiveWhileNativeLensLiftsAndLowers() async throws {
         guard #available(iOS 26, *) else { throw XCTSkip("Native lens requires iOS 26") }
         let lens = WSegmentedControlLensView()
@@ -182,9 +226,111 @@ final class SegmentedControlLensTests: XCTestCase {
         XCTAssertEqual(model.selection?.effectiveSelectedItemID, "2")
     }
 
-    private func makeControl(titles: [String] = ["Wallet", "Market", "Explore"]) -> (WSegmentedControl, SegmentedControlModel) {
+    func testPortfolioRangesKeepEqualSlotsAndMoveTheLensAcrossResizingAndRestoredSelections() throws {
+        let titles = ["All", "Y", "3M", "M", "W", "D"]
+        let (control, model) = makeControl(titles: titles, style: .portfolioRange)
+        let (window, _) = host(control)
+        defer { window.isHidden = true }
+        let lens = try XCTUnwrap(descendants(control).compactMap { $0 as? WSegmentedControlLensView }.first)
+        if #available(iOS 26, *) {
+            XCTAssertTrue(lens.usesNativeLens)
+        }
+        XCTAssertEqual(control.intrinsicContentSize.height, 44)
+
+        for direction in [UISemanticContentAttribute.forceLeftToRight, .forceRightToLeft] {
+            control.semanticContentAttribute = direction
+            for width: CGFloat in [278, 360, 400] {
+                control.frame = CGRect(x: 0, y: 100, width: width, height: 44)
+                control.setNeedsLayout()
+                control.layoutIfNeeded()
+                for index in titles.indices {
+                    let visualIndex = direction == .forceRightToLeft ? titles.count - 1 - index : index
+                    let centerX = (CGFloat(visualIndex) + 0.5) * width / CGFloat(titles.count)
+                    let target = try XCTUnwrap(control.hitTest(CGPoint(x: centerX, y: 22), with: nil))
+                    XCTAssertEqual(target.accessibilityLabel, titles[index])
+                    XCTAssertTrue(target.accessibilityActivate())
+                    control.applyPendingModelChangesWithoutAnimation()
+                    XCTAssertEqual(model.selectedItem?.id, String(index))
+                    XCTAssertTrue(target.accessibilityTraits.contains(.selected))
+                    let selection = try XCTUnwrap(lens.selectionFrame)
+                    XCTAssertEqual(lens.convert(selection, to: control).midX, centerX, accuracy: 0.5)
+                    XCTAssertEqual(selection.width, width / CGFloat(titles.count) - 2 * model.constants.backgroundPadding, accuracy: 0.01)
+                }
+
+                model.selection = .init(item1: "2")
+                control.applyPendingModelChangesWithoutAnimation()
+                let restoredTarget = try XCTUnwrap((control.accessibilityElements as? [UIView])?[2])
+                XCTAssertTrue(restoredTarget.accessibilityTraits.contains(.selected))
+                XCTAssertEqual(model.selectionFrame, model.itemLayouts()?[2].labelFrame)
+            }
+        }
+    }
+
+    func testPortfolioRangeHitTargetsCoverGapsAndOuterPadding() throws {
+        let titles = ["All", "Y", "3M", "M", "W", "D"]
+        let (control, model) = makeControl(titles: titles, style: .portfolioRange)
+        let (window, _) = host(control)
+        defer { window.isHidden = true }
+
+        for direction in [UISemanticContentAttribute.forceLeftToRight, .forceRightToLeft] {
+            control.semanticContentAttribute = direction
+            for width: CGFloat in [278, 360, 400] {
+                control.frame = CGRect(x: 0, y: 100, width: width, height: 44)
+                control.setNeedsLayout()
+                control.layoutIfNeeded()
+                let slotWidth = width / CGFloat(titles.count)
+                for index in titles.indices {
+                    let visualIndex = direction == .forceRightToLeft ? titles.count - 1 - index : index
+                    let slotLeft = CGFloat(visualIndex) * slotWidth
+                    for offset in [slotWidth / 2, 0.5, slotWidth - 0.5] {
+                        for y: CGFloat in [22, 0.5, 43.5] {
+                            let point = CGPoint(x: slotLeft + offset, y: y)
+                            let target = try XCTUnwrap(control.hitTest(point, with: nil) as? SegmentedControlInteractionView, "Missed tap at \(point)")
+                            XCTAssertEqual(target.accessibilityLabel, titles[index])
+                            XCTAssertTrue(target.accessibilityActivate())
+                            control.applyPendingModelChangesWithoutAnimation()
+                            XCTAssertEqual(model.selectedItem?.id, String(index))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testPortfolioTapAnimatesThroughIntermediateSelectionPositions() async throws {
+        guard #available(iOS 26, *) else { throw XCTSkip("Native lens requires iOS 26") }
+        let (control, model) = makeControl(titles: ["All", "Y", "3M", "M", "W", "D"], style: .portfolioRange)
+        let (window, _) = host(control)
+        defer { window.isHidden = true }
+        control.frame = CGRect(x: 20, y: 100, width: 360, height: 44)
+        control.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(50))
+        let native = try XCTUnwrap(descendants(control).first { String(describing: type(of: $0)) == PrivateAPI.liquidLensView.string })
+        let initialCenter = native.center.x
+        let target = try XCTUnwrap((control.accessibilityElements as? [UIView])?.last)
+        XCTAssertTrue(target.accessibilityActivate())
+        XCTAssertEqual(model.selectedItem?.id, "5")
+        let finalCenter = try XCTUnwrap(model.selectionFrame).midX
+
+        var displayedCenters: [CGFloat] = []
+        for _ in 0..<20 {
+            try await Task.sleep(for: .milliseconds(16))
+            displayedCenters.append(try XCTUnwrap(native.layer.presentation()).position.x)
+        }
+        XCTAssertTrue(
+            displayedCenters.contains { $0 > initialCenter + 1 && $0 < finalCenter - 1 },
+            "Expected movement between \(initialCenter) and \(finalCenter), got \(displayedCenters)"
+        )
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(try XCTUnwrap(native.layer.presentation()).position.x, finalCenter, accuracy: 0.5)
+    }
+
+    private func makeControl(
+        titles: [String] = ["Wallet", "Market", "Explore"],
+        style: SegmentedControlStyle = .compactRootHeader
+    ) -> (WSegmentedControl, SegmentedControlModel) {
         _ = WalletResourcesBundle.bundle.load()
-        let model = SegmentedControlModel(items: items(titles), selection: .init(item1: "0"), style: .compactRootHeader)
+        let model = SegmentedControlModel(items: items(titles), selection: .init(item1: "0"), style: style)
         model.onSelect = { [weak model] in model?.selection = .init(item1: $0.id) }
         return (WSegmentedControl(model: model, isGlassInteractive: true), model)
     }

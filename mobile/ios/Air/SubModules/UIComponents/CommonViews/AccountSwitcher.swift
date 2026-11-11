@@ -52,6 +52,7 @@ public enum AccountSwitcherAccountSupport: Equatable, Sendable {
     case swap
     case earn
     case walletConnectPay
+    case perps
 
     @MainActor
     func isSupported(by account: MAccount) -> Bool {
@@ -66,6 +67,8 @@ public enum AccountSwitcherAccountSupport: Equatable, Sendable {
             account.supportsEarn
         case .walletConnectPay:
             account.supportsWalletConnectPay
+        case .perps:
+            account.network == .mainnet && account.byChain["arbitrum"] != nil && !account.isView && !account.isHardware
         }
     }
 }
@@ -167,6 +170,7 @@ public final class AccountSwitcher {
             )
             .padding(.horizontal, menuHorizontalPadding)
             .padding(.vertical, menuVerticalPadding)
+            .accessibilityIdentifier("account_switcher_row")
         }
     }
 }

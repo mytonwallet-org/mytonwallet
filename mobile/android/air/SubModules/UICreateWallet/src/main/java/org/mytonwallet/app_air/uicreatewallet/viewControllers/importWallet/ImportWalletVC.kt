@@ -56,6 +56,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -631,7 +632,6 @@ class ImportWalletVC(
             notifySDK = true
         ) { res, err ->
             if (res == null || err != null) {
-                // Should not happen!
                 Logger.e(
                     Logger.LogTag.ACCOUNT,
                     LogMessage.Builder()
@@ -640,9 +640,12 @@ class ImportWalletVC(
                             LogMessage.MessagePartPrivacy.PUBLIC
                         ).build()
                 )
-                continueButton.isLoading = false
-                view.unlockView()
-                showError(MBridgeError.Type.UNKNOWN)
+                // The accounts are stored, so a retry would import them again; recover like after a bridge
+                // crash, which recreates the bridge and the screens itself and activates the stored active account
+                WGlobalStorage.setActiveAccountId(accountId, persistInstantly = true)
+                if (err?.type != MBridgeError.Type.BRIDGE_INTERRUPTED) {
+                    WalletContextManager.delegate?.get()?.restartApp()
+                }
                 return@activateAccount
             } else {
                 if (WGlobalStorage.accountIds().size <= importedAccountsCount) {

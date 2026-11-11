@@ -70,6 +70,40 @@ final class AgentDateHeaderTests: XCTestCase {
         XCTAssertEqual(offset, userMessageFrame.minY - topInset - 16)
     }
 
+    /// A question sent under an answer stops with the answer's last line in sight above it, whole with the bubble's
+    /// padding under it, where the question's tail alone would bring that line under the header
+    func testQuestionUnderAnAnswerKeepsTheAnswersLastLineInSight() {
+        let topInset: CGFloat = 123
+        let answerFrame = CGRect(x: 0, y: 200, width: 402, height: 400)
+        let userMessageFrame = CGRect(x: 0, y: answerFrame.maxY + AgentVCLayout.rowSpacing, width: 402, height: 120)
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: userMessageFrame,
+            dateHeaderFrame: nil,
+            previousAnswerFrame: answerFrame,
+            adjustedContentInsetTop: topInset
+        )
+
+        let lineTop = answerFrame.maxY - AgentMessageCellMetrics.bodyVerticalPadding - AgentMessageTextRenderer.answerLineHeight
+        XCTAssertEqual(lineTop - offset, topInset, accuracy: 0.01, "The line's top stands at the header's edge")
+        XCTAssertLessThan(offset, userMessageFrame.maxY - topInset - 100, "The chat stops lower than the question's tail alone")
+        XCTAssertGreaterThanOrEqual(AgentMessageTextRenderer.answerLineHeight, AgentMessageTextRenderer.baseFont.lineHeight)
+    }
+
+    /// A short question under an answer, whose tail already leaves the answer's last line in sight, stops as before
+    func testShortQuestionUnderAnAnswerKeepsTailOffset() {
+        let topInset: CGFloat = 123
+        let answerFrame = CGRect(x: 0, y: 200, width: 402, height: 400)
+        let userMessageFrame = CGRect(x: 0, y: answerFrame.maxY + AgentVCLayout.rowSpacing, width: 402, height: 40)
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: userMessageFrame,
+            dateHeaderFrame: nil,
+            previousAnswerFrame: answerFrame,
+            adjustedContentInsetTop: topInset
+        )
+
+        XCTAssertEqual(offset, userMessageFrame.maxY - topInset - 100)
+    }
+
     private func today(hour: Int, minute: Int) -> Date {
         Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date())!
     }

@@ -83,7 +83,7 @@ enum AgentLayerAnimationSampler {
     }
 
     /// The cubic Bézier of `timingFunction` at time `fraction`
-    private static func getEasedFraction(_ timingFunction: CAMediaTimingFunction, at fraction: CGFloat) -> CGFloat {
+    static func getEasedFraction(_ timingFunction: CAMediaTimingFunction, at fraction: CGFloat) -> CGFloat {
         var first: [Float] = [0, 0]
         var second: [Float] = [0, 0]
         timingFunction.getControlPoint(at: 1, values: &first)

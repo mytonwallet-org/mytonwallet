@@ -1,4 +1,3 @@
-import Combine
 import UIKit
 import SwiftNavigation
 import UIComponents
@@ -6,91 +5,45 @@ import WalletCore
 import WalletContext
 
 /// A retained UIKit tree. Model observation updates content; layout and animation never read the model.
-final class TokenTradeView: UIView {
+final class TokenTradeView: NativeTradeEntryView {
     private let model: TokenTradeModel
     var hasTopNavigationBar = true {
         didSet { if hasTopNavigationBar != oldValue { setNeedsLayout() } }
     }
-    let amountField = TokenTradeTextField()
-    let scrollView = UIScrollView()
-    let methodButton: TokenTradeMethodButton
-    private let amountCard = UIView()
-    private let controlsBackground = UIView()
-    private let editor: TokenTradeEditor
-    private let conversion = TokenTradeConversionButton(frame: .zero)
+    var methodButton: TokenTradeMethodButton { method }
     private let fee = TokenTradeFeeButton(frame: .zero)
     private let impact = TokenTradeNoticeView(frame: .zero)
     private let hint = TokenTradeNoticeView(frame: .zero)
     private lazy var feePresence = TokenTradePresenceView(fee)
     private lazy var impactPresence = TokenTradePresenceView(impact)
     private lazy var hintPresence = TokenTradePresenceView(hint)
-    private let inputControls: TokenTradeInputControls
-    private let keypad: TokenTradeKeypad
     private var hasFee = false
     private var hasImpact = false
     private var hasHint = false
     private var rendered = false
-    private var environmentSubscription: AnyCancellable?
     private var cardMaximumRequest: TokenTradeModel.CardMaximumRequest?
     private var cardMaximumTask: Task<Void, Never>?
 
     init(model: TokenTradeModel, selectMethod: @escaping () -> Void, continueAction: @escaping () -> Void) {
         self.model = model
-        methodButton = TokenTradeMethodButton(isBuying: model.isBuying)
-        inputControls = TokenTradeInputControls(model: model, continueAction: continueAction)
-        let editor = TokenTradeEditor()
-        self.editor = editor
-        keypad = TokenTradeKeypad(editor: editor)
-        super.init(frame: .zero)
-        backgroundColor = .air.headerBackground
-        scrollView.contentInsetAdjustmentBehavior = .never
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.delaysContentTouches = false
-        scrollView.keyboardDismissMode = .none
-        addSubview(scrollView)
-        addSubview(controlsBackground)
-        scrollView.addSubview(amountCard)
-        scrollView.addSubview(methodButton)
-        [conversion, amountField, feePresence, impactPresence, hintPresence].forEach { amountCard.addSubview($0) }
-        controlsBackground.addSubview(inputControls)
-        controlsBackground.addSubview(keypad)
-        amountCard.backgroundColor = .air.pickerBackground
-        amountCard.layer.cornerRadius = 32
-        amountCard.layer.cornerCurve = .continuous
-        controlsBackground.backgroundColor = .air.pickerBackground
-        controlsBackground.layer.cornerRadius = 32
-        controlsBackground.layer.cornerCurve = .continuous
-        controlsBackground.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        editor.field = amountField
-        amountField.caretColor = AirTintColor
+        super.init(method: TokenTradeMethodButton(isBuying: model.isBuying),
+                   controls: TokenTradeInputControls(model: model, continueAction: continueAction),
+                   keypadAccessibilityPrefix: "tokenTrade")
+        [feePresence, impactPresence, hintPresence].forEach { amountCard.addSubview($0) }
         amountField.onChange = { [weak model] in model?.userEditedInput($0) }
         conversion.addAction(UIAction { [weak model] _ in model?.toggleUnit() }, for: .touchUpInside)
-        methodButton.addAction(UIAction { _ in selectMethod() }, for: .touchUpInside)
+        method.addAction(UIAction { _ in selectMethod() }, for: .touchUpInside)
         fee.onSizeChange = { [weak self] in self?.updateLayout(animated: true) }
         impact.accessibilityIdentifier = "tokenTrade.impactWarning"
         hint.accessibilityIdentifier = "tokenTrade.hint"
         observe { [weak self] in self?.refreshContent() }
         observe { [weak self] in self?.refreshCardMaximum() }
-        let environment = CardBackgroundAnimationEnvironment.shared
-        environmentSubscription = Publishers.CombineLatest4(environment.$applicationActive, environment.$animationsEnabled,
-            environment.$lowPowerMode, environment.$reduceMotion).sink { [weak self] _ in
-                // Read policy after @Published completes its write.
-                guard let self else { return }
-                DispatchQueue.main.async { [weak self] in self?.refreshMotionPolicy() }
-            }
     }
 
+    @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    deinit { cardMaximumTask?.cancel() }
 
-    func install(in parent: UIView) {
-        translatesAutoresizingMaskIntoConstraints = false
-        parent.addSubview(self)
-        NSLayoutConstraint.activate([
-            leadingAnchor.constraint(equalTo: parent.leadingAnchor), trailingAnchor.constraint(equalTo: parent.trailingAnchor),
-            topAnchor.constraint(equalTo: parent.topAnchor), bottomAnchor.constraint(equalTo: parent.bottomAnchor)
-        ])
-    }
+    deinit { cardMaximumTask?.cancel() }
 
     private func refreshContent() {
         let animated = rendered && window != nil && TokenTradeMotion.enabled
@@ -108,8 +61,8 @@ final class TokenTradeView: UIView {
             : model.displayedTokenAmount.formatted(.defaultAdaptive)
         conversion.update(text: conversionText, isTokenAmount: isTokenAmount, isStale: model.isConversionAmountStale,
                           isEnabled: model.price > 0, animated: animated)
-        methodButton.update(token: model.paymentToken, currency: model.cardCurrency, amountText: model.methodAmountText,
-                            symbolText: model.methodSymbol, isStale: model.isMethodAmountStale, animated: animated)
+        method.update(token: model.paymentToken, currency: model.cardCurrency, amountText: model.methodAmountText,
+                      symbolText: model.methodSymbol, isStale: model.isMethodAmountStale, animated: animated)
         let sellingToken = model.swap.input.sellingToken
         let nativeToken = sellingToken.flatMap { TokenStore.getToken(slug: $0.nativeTokenSlug) }
         let displayedFee = model.fee
@@ -146,17 +99,8 @@ final class TokenTradeView: UIView {
         }
     }
 
-    private func refreshMotionPolicy() {
-        let active = window != nil && CardBackgroundAnimationEnvironment.shared.applicationActive
-        amountField.configureAnimation(active: active, animated: active && TokenTradeMotion.enabled)
-        // Refresh only the two pending-quote masks; their animation state is independent of layout.
-        conversion.refreshMotionPolicy()
-        methodButton.refreshMotionPolicy()
-    }
-
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        refreshMotionPolicy()
         if window == nil {
             cardMaximumTask?.cancel()
             cardMaximumTask = nil
@@ -180,23 +124,7 @@ final class TokenTradeView: UIView {
         let layout = TokenTradeLayout(size: bounds.size, bottomSafeArea: safeAreaInsets.bottom,
                                      navigationBarSpace: hasTopNavigationBar ? 64 : 0,
                                      feeHeight: feeHeight, impactHeight: impactHeight, hintHeight: hintHeight)
-        TokenTradeMotion.place(scrollView, in: layout.scroll)
-        TokenTradeMotion.place(amountCard, in: layout.card)
-        TokenTradeMotion.place(methodButton, in: layout.method)
-        scrollView.contentSize = CGSize(width: bounds.width, height: layout.contentHeight)
-        scrollView.alwaysBounceVertical = layout.contentHeight > layout.scroll.height
-        TokenTradeMotion.place(controlsBackground, in: layout.controls)
-        TokenTradeMotion.place(inputControls, in: CGRect(x: 24, y: 24, width: max(0, bounds.width - 48), height: 52))
-        TokenTradeMotion.place(keypad, in: CGRect(x: 0, y: 88, width: bounds.width, height: layout.keypadHeight))
-        amountField.maximumHeight = layout.maximumAmountHeight
-        let amountWidth = max(1, bounds.width - 28)
-        let fieldHeight = amountField.fittingHeight(forWidth: amountWidth)
-        let top = layout.amountTop + max(0, (layout.maximumAmountHeight - fieldHeight) / 2)
-        let conversionWidth = min(max(0, bounds.width - 48), conversion.intrinsicContentSize.width)
-        let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
-        TokenTradeMotion.place(conversion, in: CGRect(x: rtl ? bounds.width - 24 - conversionWidth : 24,
-                                                       y: top, width: conversionWidth, height: 26))
-        TokenTradeMotion.place(amountField, in: CGRect(x: rtl ? 4 : 24, y: top + 26, width: amountWidth, height: fieldHeight))
+        layoutEntry(layout)
         var y = layout.footerTop
         if hasFee {
             TokenTradeMotion.place(feePresence, in: CGRect(x: 24, y: y, width: max(0, bounds.width - 48), height: feeHeight))

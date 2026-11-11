@@ -15,7 +15,6 @@ test.describe('Agent V2 deterministic conversation', () => {
       await route.continue();
     });
     await agentV2.open();
-    await page.getByRole('button', { name: 'Allow Agent', exact: true }).click();
     const list = page.getByRole('region', { name: 'Chats', exact: true });
     const skeleton = list.getByRole('status', { name: 'Loading...', exact: true });
     await expect(skeleton).toBeVisible();
@@ -60,7 +59,7 @@ test.describe('Agent V2 deterministic conversation', () => {
       await route.fulfill({ json: history });
     });
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
     await page.getByRole('button', { name: /^News,/u }).click();
     await page.getByRole('button', { name: 'Discuss, Deterministic MyPulse headline', exact: true }).click();
     await expect(page.locator('[data-agent-news-post-event-id="5"]')).toBeVisible();
@@ -91,7 +90,7 @@ test.describe('Agent V2 deterministic conversation', () => {
     await agentV2.reset('news-post');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
     await page.getByRole('button', { name: /^News,/u }).click();
 
     let releaseCreation: () => void;
@@ -109,9 +108,9 @@ test.describe('Agent V2 deterministic conversation', () => {
     await expect(post).toContainText(`The full MyPulse news body. ${'Market context. '.repeat(20)}`.trim());
     await expect(getAgentV2Conversation(page).getByRole('status')).toHaveCount(0);
     expect((await agentV2.getState()).runBodies).toHaveLength(0);
-    await page.getByRole('button', { name: 'Open Menu', exact: true }).click();
-    await expect(page.getByText('Delete Chat', { exact: true }).last()).toBeVisible();
-    await page.keyboard.press('Escape');
+    // A discussion the user hasn't written in has nothing to delete, and its menu, without items, no button
+    const menuButton = page.getByRole('button', { name: 'Open Menu', exact: true });
+    await expect(menuButton).toHaveCount(0);
     const previewElement = await post.elementHandle();
     const messagesLoaded = page.waitForResponse((response) => (
       response.request().method() === 'GET' && /\/api\/v2\/threads\/[^/]+\/messages\?/u.test(response.url())
@@ -130,6 +129,9 @@ test.describe('Agent V2 deterministic conversation', () => {
     await expect(page.getByText(`Deterministic response: ${prompt}`, { exact: true })).toBeVisible();
     await expect(post).toHaveCount(1);
     expect(await post.evaluate((element, preview) => element === preview, previewElement)).toBe(true);
+    await menuButton.click();
+    await expect(page.getByText('Delete Chat', { exact: true }).last()).toBeVisible();
+    await page.keyboard.press('Escape');
 
     const state = await agentV2.getState();
     expect(state.messages.filter(({ newsPost }) => newsPost)).toHaveLength(1);
@@ -185,7 +187,7 @@ test.describe('Agent V2 deterministic conversation', () => {
       } });
     });
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
     await expect(page.getByRole('button', { name: /Existing MyPulse discussion/u })).toBeVisible();
     await page.getByRole('button', { name: /^News,/u }).click();
     const historyRequested = page.waitForRequest((request) => request.url().includes(`/threads/${threadId}/messages?`));
@@ -196,13 +198,14 @@ test.describe('Agent V2 deterministic conversation', () => {
     await expect(post).toHaveCount(0);
     await expect(page.getByText('Earlier answer', { exact: true })).toHaveCount(0);
     await expect(page.locator('[data-agent-skeleton-role="user"]').first()).toBeVisible();
+    // The post grows out of a placeholder through a stand-in of its bubble
     const hasMorph = page.evaluate(async () => {
       for (let frame = 0; frame < 70; frame++) {
-        const bubbles = document.querySelectorAll('[data-agent-v2-message-role]');
-        if (Array.from(bubbles).some((message) => message.getAnimations({ subtree: true }).some((animation) => (
-          animation.effect instanceof KeyframeEffect
-          && animation.effect.getKeyframes().some((keyframe) => String(keyframe.transform).includes('scale('))
-        )))) return true;
+        const postBubble = document.querySelector<HTMLElement>(
+          '[data-agent-news-post-event-id="5"] [class*="__bubble__"]',
+        );
+        const index = postBubble?.dataset.agentHistoryRevealIndex;
+        if (index !== undefined && document.querySelector(`[data-agent-history-stand-in="${index}"]`)) return true;
         await new Promise(requestAnimationFrame);
       }
       return false;
@@ -225,7 +228,7 @@ test.describe('Agent V2 deterministic conversation', () => {
       window.history.replaceState(undefined, '', url);
     });
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     const prompt = 'Explain this wallet using the default agent';
     await agentV2.send(prompt);
@@ -244,8 +247,7 @@ test.describe('Agent V2 deterministic conversation', () => {
     await agentV2.seedWallet();
     await agentV2.open();
 
-    await expect(page.getByRole('heading', { name: 'Data shared with Agent' })).toBeVisible();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
 
     const prompt = 'Explain this deterministic wallet';
     // The answer streams for about half a second, partly while the chat fades in over the list, so every status it
@@ -308,11 +310,41 @@ test.describe('Agent V2 deterministic conversation', () => {
     await secondPage.close();
   });
 
+  test('opens a chat seen just before with its messages at once, without the placeholder', async ({
+    agentV2, page,
+  }) => {
+    await agentV2.reset();
+    await agentV2.seedWallet();
+    await agentV2.open();
+    await agentV2.waitForList();
+    await agentV2.send('Remember this chat');
+    const answer = getAgentV2Conversation(page)
+      .getByText('Deterministic response: Remember this chat', { exact: true });
+    await expect(answer).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('status')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Chats', exact: true })).toBeVisible();
+    // The chat has left the page, and kept its history as it went
+    await expect(page.locator('[data-agent-v2-message-role]')).toHaveCount(0);
+    // Whether the history placeholder shows at any point while the chat opens again
+    await page.evaluate(() => {
+      const observer = new MutationObserver(() => {
+        if (document.querySelector('[data-agent-skeleton]')) document.body.dataset.hasSeenSkeleton = 'true';
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+    await agentV2.openThread();
+
+    await expect(answer).toBeVisible();
+    expect(await page.evaluate(() => document.body.dataset.hasSeenSkeleton)).toBeUndefined();
+  });
+
   test('loads an older page when the conversation reaches its backward boundary', async ({ agentV2, page }) => {
     await agentV2.reset('pagination');
     await agentV2.seedWallet();
     await agentV2.open();
-    await agentV2.acceptConsent();
+    await agentV2.waitForList();
     await agentV2.openThread();
 
     await expect(page.getByText('Latest seeded answer', { exact: true })).toBeVisible();

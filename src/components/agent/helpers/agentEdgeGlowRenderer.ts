@@ -1,9 +1,68 @@
-// The iOS edge glow (`AgentEdgeGlow.metal`) as a WebGL fragment shader, drawn over four strips along the edges
+import { getAgentGlowColors } from './agentGlowPalette';
 
-/** How far in from the rounded edge the glow reaches, in CSS pixels */
-const GLOW_DEPTH = 30;
+// The iOS edge glow (`AgentEdgeGlow.metal`) as a WebGL fragment shader, drawn over four strips along the edges, the
+// bottom one tall enough for the lights that drift behind the composer
+
+/** The motion repeats every this many seconds: every stretch and light goes round a whole number of times in it */
+const MOTION_PERIOD = 24;
+/** How far in from the rounded edge the edge's light reaches, in CSS pixels */
+const GLOW_DEPTH = 32;
+/** How far up from the bottom the drifting lights reach, in CSS pixels */
+const LIGHTS_HEIGHT = 150;
 /** Pixels per CSS pixel are capped, as on iOS */
 const MAX_PIXEL_RATIO = 2;
+const COS_45_DEGREES = 0.7071;
+
+/**
+ * Where a point lies relative to a rounded rectangle centred at the origin: its signed distance from the edge, and
+ * where along the edge the point of it nearest lies, clockwise from the middle of the top edge, with the edge's length
+ * in `total`. The edge glow and the field's rim share them, as their iOS shaders do.
+ */
+export const ROUNDED_RECT_GLSL = `
+const float HALF_PI = 1.5707963;
+const float PI = 3.1415927;
+
+float getRoundedRectDistance(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p) - halfSize + radius;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+float getBorderAlong(vec2 local, vec2 halfSize, float radius, out float total) {
+  vec2 inner = max(halfSize - radius, 0.0);
+  float arc = HALF_PI * radius;
+  total = 4.0 * (inner.x + inner.y + arc);
+  vec2 q = clamp(local, -inner, inner);
+  vec2 d = local - q;
+  vec2 border;
+  if (length(d) > 1e-3) {
+    border = q + normalize(d) * radius;
+  } else if (inner.y - abs(local.y) < inner.x - abs(local.x)) {
+    border = vec2(local.x, sign(local.y) * halfSize.y);
+  } else {
+    border = vec2(sign(local.x) * halfSize.x, local.y);
+  }
+  // Strictly within the straight part, so that with square corners a point of a side stays on the side
+  if (abs(border.x) < inner.x) {
+    // The top edge, its left half at the end of the loop, or the bottom edge
+    if (border.y < 0.0) return border.x >= 0.0 ? border.x : total + border.x;
+    return 3.0 * inner.x + 2.0 * arc + 2.0 * inner.y - (border.x + inner.x);
+  }
+  if (abs(border.y) <= inner.y) {
+    // The right edge, or the left one
+    if (border.x > 0.0) return inner.x + arc + (border.y + inner.y);
+    return 3.0 * inner.x + 3.0 * arc + 2.0 * inner.y + (inner.y - border.y);
+  }
+  // A corner: the angle clockwise from up around its centre
+  vec2 centre = sign(border) * inner;
+  vec2 v = border - centre;
+  float angle = atan(v.x, -v.y);
+  if (angle < 0.0) angle += 2.0 * PI;
+  if (angle <= HALF_PI) return inner.x + radius * angle;
+  if (angle <= PI) return inner.x + arc + 2.0 * inner.y + radius * (angle - HALF_PI);
+  if (angle <= 1.5 * PI) return 3.0 * inner.x + 2.0 * arc + 2.0 * inner.y + radius * (angle - PI);
+  return 3.0 * inner.x + 3.0 * arc + 4.0 * inner.y + radius * (angle - 1.5 * PI);
+}
+`;
 
 const VERTEX_SHADER = `
 attribute vec2 a_position;
@@ -22,96 +81,121 @@ uniform vec2 u_size;
 uniform float u_pixelRatio;
 uniform float u_radius;
 uniform float u_time;
-uniform float u_isDark;
+uniform vec3 u_blue;
+uniform vec3 u_purple;
 
-float getRoundedRectDistance(vec2 p, vec2 halfSize, float radius) {
-  vec2 q = abs(p) - halfSize + radius;
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+const float PERIOD = ${MOTION_PERIOD.toFixed(1)};
+const float DEPTH = ${GLOW_DEPTH.toFixed(1)};
+const float LIGHTS_HEIGHT = ${LIGHTS_HEIGHT.toFixed(1)};
+
+${ROUNDED_RECT_GLSL}
+
+// A bright stretch of the edge that goes round loops times a period, from start of the way round, sigma pixels long on
+// either side
+float getStretch(float along, float total, float start, float loops, float sigma) {
+  float centre = fract(start + loops * u_time / PERIOD) * total;
+  float d = abs(fract((along - centre) / total + 0.5) - 0.5) * total;
+  return exp(-d * d / (2.0 * sigma * sigma));
 }
 
-// One colour blob along the perimeter: cos² over a little less than half of the loop
-float getBlob(float p, float centre) {
-  float dp = abs(fract(p - centre + 0.5) - 0.5);
-  const float halfWidth = 0.2375;
-  if (dp >= halfWidth) return 0.0;
-  float c = cos(1.5707963 * dp / halfWidth);
-  return c * c;
+// A soft light spreading over sigma pixels
+float getLight(vec2 xy, vec2 centre, float sigma) {
+  vec2 d = xy - centre;
+  return exp(-dot(d, d) / (2.0 * sigma * sigma));
 }
 
+// A slow sway that repeats cycles times a period
+float getSway(float cycles, float phase) {
+  return sin(2.0 * PI * cycles * u_time / PERIOD + phase);
+}
+
+// iOS's agentEdgeGlowFragment: a thin, almost white core line along the rounded edge, a short bright bloom and a
+// longer softer haze inward, and blue and purple stretches running along it at their own speeds, whitening at their
+// brightest. The edge is brighter toward the bottom and toward both sides alike, and faint lights drift behind the
+// composer.
 void main() {
-  vec2 point = vec2(gl_FragCoord.x, u_size.y * u_pixelRatio - gl_FragCoord.y) / u_pixelRatio;
-  vec2 halfSize = u_size * 0.5;
-  vec2 local = point - halfSize;
-  float distance = getRoundedRectDistance(local, halfSize, u_radius);
-  float inset = -distance;
-  if (inset > 30.0) {
+  vec2 xy = vec2(gl_FragCoord.x, u_size.y * u_pixelRatio - gl_FragCoord.y) / u_pixelRatio;
+  vec2 size = u_size;
+  vec2 halfSize = size * 0.5;
+  vec2 local = xy - halfSize;
+  float edgeDistance = getRoundedRectDistance(local, halfSize, u_radius);
+  float inset = max(-edgeDistance, 0.0);
+  float fromBottom = size.y - xy.y;
+  if (inset >= DEPTH && fromBottom >= LIGHTS_HEIGHT) {
     gl_FragColor = vec4(0.0);
     return;
   }
+
+  vec3 color = vec3(0.0);
+  float alpha = 0.0;
+  if (inset < DEPTH) {
+    float total;
+    float along = getBorderAlong(local, halfSize, u_radius, total);
+    // Each stretch at its own speed, some going the other way
+    float blue = getStretch(along, total, 0.0, 7.0, 72.0)
+      + 0.8 * getStretch(along, total, 0.55, -4.0, 88.0)
+      + 0.7 * getStretch(along, total, 0.2, 9.0, 52.0);
+    float purple = 0.9 * getStretch(along, total, 0.3, 5.0, 64.0)
+      + 0.8 * getStretch(along, total, 0.8, -3.0, 80.0);
+    float stretches = blue + purple;
+
+    float down = clamp(xy.y / size.y, 0.0, 1.0);
+    float fromSide = min(xy.x, size.x - xy.x);
+    float nearSide = exp(-max(fromSide, 0.0) / 120.0);
+    float base = 0.3 + 0.45 * down * down + 0.175 * nearSide;
+    float intensity = base * (0.25 + 1.5 * stretches);
+
+    // Between the stretches the edge keeps a little of both colours
+    vec3 stretchColor = (u_blue * blue + u_purple * purple + 0.06 * (u_blue + u_purple)) / (stretches + 0.12);
+    float core = exp(-inset * inset / (2.0 * 0.9 * 0.9));
+    float bloom = exp(-inset / 4.5);
+    float haze = 0.4 * exp(-inset / 13.0);
+    float fade = 1.0 - smoothstep(0.6 * DEPTH, DEPTH, inset);
+    float glow = (bloom + haze) * intensity;
+    float coreAlpha = clamp(core * intensity, 0.0, 1.0);
+    float glowAlpha = clamp(glow * fade, 0.0, 0.9);
+    // The core whitens the brighter it is, and so does the bloom at its brightest
+    vec3 coreColor = mix(stretchColor, vec3(1.0), clamp(0.5 + 0.4 * intensity, 0.0, 0.92));
+    vec3 glowColor = mix(stretchColor, vec3(1.0), clamp((glow - 0.9) * 0.5, 0.0, 0.5));
+    color = coreColor * coreAlpha + glowColor * glowAlpha * (1.0 - coreAlpha);
+    alpha = coreAlpha + glowAlpha * (1.0 - coreAlpha);
+  }
+  if (fromBottom < LIGHTS_HEIGHT) {
+    // Large faint lights a little inside the edge, swaying under its light, each a few times a period. The two side
+    // ones mirror each other in place, size and strength.
+    vec2 first = vec2(
+      size.x * (0.28 + 0.19 * getSway(2.0, 0.0)),
+      size.y - LIGHTS_HEIGHT * (0.45 + 0.08 * getSway(4.0, 1.0))
+    );
+    vec2 second = vec2(
+      size.x * (0.72 + 0.19 * getSway(2.0, 2.0)),
+      size.y - LIGHTS_HEIGHT * (0.38 + 0.08 * getSway(6.0, 2.5))
+    );
+    vec2 third = vec2(
+      size.x * (0.5 + 0.32 * getSway(4.0, 4.0)),
+      size.y - LIGHTS_HEIGHT * (0.58 + 0.06 * getSway(2.0, 3.0))
+    );
+    float firstLight = getLight(xy, first, 0.52 * LIGHTS_HEIGHT);
+    float secondLight = getLight(xy, second, 0.52 * LIGHTS_HEIGHT);
+    float thirdLight = getLight(xy, third, 0.62 * LIGHTS_HEIGHT);
+    float blueLight = 0.21 * firstLight + 0.15 * thirdLight;
+    float purpleLight = 0.21 * secondLight;
+    float lightsFade = 1.0 - smoothstep(0.5 * LIGHTS_HEIGHT, LIGHTS_HEIGHT, fromBottom);
+    float lightsAlpha = 0.5 * clamp((blueLight + purpleLight) * lightsFade, 0.0, 0.35);
+    vec3 lightsColor = (u_blue * blueLight + u_purple * purpleLight) / max(blueLight + purpleLight, 1e-4);
+    color += lightsColor * lightsAlpha * (1.0 - alpha);
+    alpha += lightsAlpha * (1.0 - alpha);
+  }
   // Nothing shows past the rounded edge, which is smoothed over a pixel
-  float edge = clamp(0.5 - distance * u_pixelRatio, 0.0, 1.0);
-  inset = max(inset, 0.0);
-
-  // Radial projection onto the unit square: every side takes the same share of the loop, clockwise from the middle
-  // of the top edge (0) through the right (0.25), the bottom (0.5) and the left (0.75)
-  vec2 uv = local / u_size;
-  vec2 s = uv / max(max(abs(uv.x), abs(uv.y)), 1e-5) * 0.5;
-  bool isVerticalSide = abs(s.x) >= abs(s.y);
-  float p;
-  if (!isVerticalSide && s.y < 0.0) {
-    p = s.x * 0.25;
-    if (p < 0.0) p += 1.0;
-  } else if (isVerticalSide && s.x > 0.0) {
-    p = 0.125 + (s.y + 0.5) * 0.25;
-  } else if (!isVerticalSide) {
-    p = 0.375 + (0.5 - s.x) * 0.25;
-  } else {
-    p = 0.625 + (0.5 - s.y) * 0.25;
-  }
-
-  // A full loop takes 2.667 s; the purple blob runs half a loop behind the blue one
-  float blueCentre = fract(u_time / 2.667 + 0.125);
-  float blue = getBlob(p, blueCentre);
-  float purple = getBlob(p, blueCentre + 0.5);
-  float weight = min(1.0, blue + purple);
-
-  // Gaussian falloff inward (sigma 8 px). The long sides are dimmer except near the corners, and within about one
-  // corner radius of a corner the glow is a quarter brighter than its colour, as a blurred stroke is there
-  const float sigma = 8.0;
-  float falloff = exp(-(inset * inset) / (2.0 * sigma * sigma));
-  bool isLongSide = isVerticalSide == (u_size.y >= u_size.x);
-  float alongEdge = max(halfSize.x - abs(local.x), halfSize.y - abs(local.y));
-  float cornerZone = max(u_radius, 24.0);
-  float corner = 1.0 - smoothstep(0.25 * cornerZone, cornerZone, alongEdge);
-  float sideGain = isLongSide ? 0.8 + 0.2 * (1.0 - smoothstep(20.0, 90.0, alongEdge)) : 1.0;
-  float intensity = falloff * sideGain * (1.0 + 0.25 * corner);
-
-  vec4 color;
-  if (u_isDark > 0.5) {
-    vec3 blueColor = vec3(5.0, 109.0, 205.0) / 255.0;
-    vec3 purpleColor = vec3(144.0, 70.0, 203.0) / 255.0;
-    vec3 blobColor = (blueColor * blue + purpleColor * purple) / max(blue + purple, 1e-4);
-    // Between the blobs the content shows through; above full intensity the colour itself brightens
-    float strength = intensity * weight;
-    color = vec4(blobColor * strength, min(strength, 1.0));
-  } else {
-    vec3 blueColor = vec3(50.0, 158.0, 255.0) / 255.0;
-    vec3 purpleColor = vec3(190.0, 118.0, 253.0) / 255.0;
-    vec3 haze = vec3(244.0, 245.0, 252.0) / 255.0;
-    vec3 blobColor = (blueColor * blue + purpleColor * purple) / max(blue + purple, 1e-4);
-    // Between the blobs a white haze runs along the edge; above full intensity the colour deepens away from it
-    float coverage = 0.95 * intensity;
-    vec3 band = clamp(mix(haze, blobColor, weight * max(coverage, 1.0)), 0.0, 1.0);
-    float alpha = min(coverage, 1.0);
-    color = vec4(band * alpha, alpha);
-  }
-  gl_FragColor = color * edge;
+  float edge = clamp(0.5 - edgeDistance * u_pixelRatio, 0.0, 1.0);
+  gl_FragColor = vec4(color, alpha) * edge;
 }
 `;
 
-export interface AgentEdgeGlowRenderer {
+interface AgentEdgeGlowRenderer {
   /** Fits the drawing to the glow's box, in CSS pixels, with the radius of its rounded corners */
   resize: (width: number, height: number, cornerRadius: number) => void;
+  /** Draws the glow `time` seconds into its motion, in the Agent's colours for the theme */
   render: (time: number, isDark: boolean) => void;
   destroy: NoneToVoidFunction;
 }
@@ -123,7 +207,7 @@ export function createAgentEdgeGlowRenderer(canvas: HTMLCanvasElement): AgentEdg
   });
   if (!gl) return undefined;
 
-  const program = createProgram(gl);
+  const program = createGlowProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
   if (!program) {
     gl.getExtension('WEBGL_lose_context')?.loseContext();
     return undefined;
@@ -135,7 +219,8 @@ export function createAgentEdgeGlowRenderer(canvas: HTMLCanvasElement): AgentEdg
   const pixelRatioLocation = gl.getUniformLocation(program, 'u_pixelRatio');
   const radiusLocation = gl.getUniformLocation(program, 'u_radius');
   const timeLocation = gl.getUniformLocation(program, 'u_time');
-  const isDarkLocation = gl.getUniformLocation(program, 'u_isDark');
+  const blueLocation = gl.getUniformLocation(program, 'u_blue');
+  const purpleLocation = gl.getUniformLocation(program, 'u_purple');
 
   let width = 0;
   let height = 0;
@@ -168,11 +253,14 @@ export function createAgentEdgeGlowRenderer(canvas: HTMLCanvasElement): AgentEdg
     render(time, isDark) {
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (!vertexCount) return;
+      const { blue, violet } = getAgentGlowColors(isDark);
       gl.uniform2f(sizeLocation, width, height);
       gl.uniform1f(pixelRatioLocation, pixelRatio);
       gl.uniform1f(radiusLocation, radius);
-      gl.uniform1f(timeLocation, time);
-      gl.uniform1f(isDarkLocation, isDark ? 1 : 0);
+      // The time wraps with the motion, which keeps it precise however long the glow runs
+      gl.uniform1f(timeLocation, time % MOTION_PERIOD);
+      gl.uniform3f(blueLocation, blue[0] / 255, blue[1] / 255, blue[2] / 255);
+      gl.uniform3f(purpleLocation, violet[0] / 255, violet[1] / 255, violet[2] / 255);
       gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     },
 
@@ -187,18 +275,18 @@ export function createAgentEdgeGlowRenderer(canvas: HTMLCanvasElement): AgentEdg
 }
 
 // The four strips the glow lies in: deep enough that they cover the band where it curves in along a rounded corner,
-// whose inner edge is a quarter circle reaching furthest on the diagonal
+// whose inner edge is a quarter circle reaching furthest on the diagonal, and the bottom one as tall as the lights
+// reach
 function buildStripVertices(width: number, height: number, radius: number) {
   const innerRadius = Math.max(0, radius - GLOW_DEPTH);
-  const depth = Math.ceil(Math.max(GLOW_DEPTH, radius - innerRadius * 0.7071)) + 2;
-  const stripDepthX = Math.min(depth, width);
-  const stripDepthY = Math.min(depth, height);
-  const sideHeight = Math.max(0, height - 2 * depth);
+  const depth = Math.ceil(Math.max(GLOW_DEPTH, radius - innerRadius * COS_45_DEGREES)) + 2;
+  const bottomDepth = Math.min(Math.max(depth, LIGHTS_HEIGHT), height / 2);
+  const sideHeight = Math.max(0, height - depth - bottomDepth);
   const rects = [
-    [0, 0, width, stripDepthY],
-    [width - stripDepthX, depth, stripDepthX, sideHeight],
-    [0, height - stripDepthY, width, stripDepthY],
-    [0, depth, stripDepthX, sideHeight],
+    [0, 0, width, Math.min(depth, height)],
+    [Math.max(0, width - depth), depth, Math.min(depth, width), sideHeight],
+    [0, Math.max(0, height - bottomDepth), width, Math.min(bottomDepth, height)],
+    [0, depth, Math.min(depth, width), sideHeight],
   ].filter(([, , rectWidth, rectHeight]) => rectWidth > 0 && rectHeight > 0);
 
   return new Float32Array(rects.flatMap(([x, y, rectWidth, rectHeight]) => [
@@ -207,9 +295,9 @@ function buildStripVertices(width: number, height: number, radius: number) {
   ]));
 }
 
-function createProgram(gl: WebGLRenderingContext) {
-  const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+export function createGlowProgram(gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) {
+  const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
   if (!vertexShader || !fragmentShader) return undefined;
 
   const program = gl.createProgram();

@@ -32,9 +32,11 @@ public protocol IKeychainStorageProvider: Sendable {
 }
 
 public let KeychainStorageProvider: IKeychainStorageProvider = {
+    #if DEBUG
     if E2EFileKeychain.isEnabled {
         return FileBackedKeychainStorageProvider()
     }
+    #endif
     return CapacitorKeychainStorageProvider()
 }()
 

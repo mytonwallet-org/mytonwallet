@@ -56,6 +56,9 @@ public class BuyWithCardVC: WViewController {
         
         webView.isOpaque = false
         webView.translatesAutoresizingMaskIntoConstraints = false
+        if #available(iOS 26, *) {
+            webView.scrollView.topEdgeEffect.style = .hard
+        }
         
         view.addSubview(webView)
         NSLayoutConstraint.activate([

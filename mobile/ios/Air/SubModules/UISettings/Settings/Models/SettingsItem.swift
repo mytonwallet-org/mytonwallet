@@ -48,7 +48,8 @@ extension SettingsItem.Identifier {
     /// Stable identifier for UI automation; `nil` for rows without one, such as accounts
     var accessibilityIdentifier: String? {
         switch self {
-        case .editWalletName, .account: nil
+        case .editWalletName: "settings_item_edit_wallet_name"
+        case .account: nil
         case .walletSettings: "settings_item_show_all_wallets"
         case .addAccount: "settings_item_add_account"
         case .notifications: "settings_item_notification_settings"

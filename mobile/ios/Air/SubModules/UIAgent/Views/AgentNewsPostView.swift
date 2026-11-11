@@ -5,40 +5,55 @@ import WalletContext
 import WalletCore
 
 /// A news post as the Agent shows it, in the News feed and at the top of the news' discussion alike: the Agent's
-/// tailed bubble with the picture, the headline, the body and the source and time in its trailing corner. The
-/// discussion heads it with "News"; the feed ends it with its Discuss strip, and the discussion hangs its follow-ups
-/// under it.
+/// tailed bubble with the picture, the headline, the body, the line of its sources and the time in its trailing
+/// corner. The discussion heads it with "News"; the feed ends it with its Discuss strip, and the discussion hangs its
+/// follow-ups under it.
 final class AgentNewsPostView: UIView {
     struct Content: Equatable {
-        let eventId: Int
+        let accessibilityIdentifier: String
+        /// The line above the post in its discussion
+        let header: String
         let headline: String
         let body: String?
         let imageURL: URL?
-        let sourceName: String?
         let sourceURL: String?
+        let sourceLine: AgentNewsSourceLine?
         let time: String
 
         /// The post at the top of a news discussion, dated unless it is today's
         init(news: ApiAgentV2ThreadNewsCard) {
-            eventId = news.eventId
+            accessibilityIdentifier = "AgentNewsPost-\(news.eventId)"
+            header = lang("News")
             headline = news.headline
             body = news.body?.nilIfEmpty ?? news.excerpt?.nilIfEmpty
             imageURL = news.imageUrl.flatMap(URL.init(string:))
-            // News stored before the post had its sources name the source alone
-            sourceName = news.sources?.first.map { Self.sourceName(for: $0) } ?? news.source?.nilIfEmpty
             sourceURL = news.sources?.first?.url
+            sourceLine = AgentNewsSourceLine(sources: news.sources ?? [], legacySource: news.source)
             time = AgentNewsMetaView.formatDiscussionTime(for: news.publishedAt)
         }
 
         /// A news item of the feed, where the day line above it gives its date
         init(item: ApiAgentV2NewsFeedItem, time: String) {
-            eventId = item.eventId
+            accessibilityIdentifier = "AgentNewsPost-\(item.eventId)"
+            header = lang("News")
             headline = item.headline
             body = item.body.nilIfEmpty
             imageURL = item.imageUrl.flatMap(URL.init(string:))
-            sourceName = Self.sourceName(for: item.sources.first)
             sourceURL = item.sources.first?.url
+            sourceLine = AgentNewsSourceLine(sources: item.sources)
             self.time = time
+        }
+
+        /// The post at the top of a digest discussion: the digest's time in its header and its headlines in a line
+        init(digest: ApiAgentV2ThreadDigestCard) {
+            accessibilityIdentifier = "AgentDigestPost-\(digest.id)"
+            header = L10n.agentDigestPostHeader(time: AgentNewsFeedCardCell.timeText(for: digest.windowEnd))
+            headline = lang("$agent_digest_title")
+            body = digest.top.map(\.headline).joined(separator: " · ").nilIfEmpty
+            imageURL = nil
+            sourceURL = nil
+            sourceLine = nil
+            time = AgentNewsMetaView.formatDiscussionTime(for: digest.windowEnd)
         }
 
         var canOpenSource: Bool {
@@ -48,14 +63,6 @@ final class AgentNewsPostView: UIView {
         var copyText: String {
             AgentTextLinks.newsCopyText(headline: headline, body: body, sourceURL: sourceURL)
         }
-
-        /// The first source's name, or its site without "www."
-        private static func sourceName(for source: ApiAgentV2NewsFeedItem.Source?) -> String? {
-            guard let source else { return nil }
-            if let name = source.name?.nilIfEmpty { return name }
-            guard let host = URL(string: source.url)?.host else { return nil }
-            return (host.hasPrefix("www.") ? String(host.dropFirst(4)) : host).nilIfEmpty
-        }
     }
 
     private enum Metrics {
@@ -63,6 +70,7 @@ final class AgentNewsPostView: UIView {
         static let textInsets = NSDirectionalEdgeInsets(top: 14, leading: 16, bottom: AgentNewsMetaView.bottomInset, trailing: 16)
         static let headerInsets = NSDirectionalEdgeInsets(top: 10, leading: 16, bottom: 8, trailing: 16)
         static let footerSpacing: CGFloat = 8
+        static let sourceLineSpacing: CGFloat = 4
         static let imageAspectRatio: CGFloat = 9 / 16
     }
 
@@ -73,7 +81,8 @@ final class AgentNewsPostView: UIView {
 
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)?
     var onPreferredHeightChanged: (() -> Void)?
-    var openSourceAction: (() -> Void)?
+    /// Opens a source's link, the first source's for the post's Open Source
+    var openSourceAction: ((String) -> Void)?
     /// A tap on the loaded picture, with the view that shows it
     var onPictureTap: ((UIImageView) -> Void)?
 
@@ -88,12 +97,18 @@ final class AgentNewsPostView: UIView {
     /// The header, the picture and the text: what VoiceOver reads as the post
     private let contentStack = UIStackView()
     private let headerContainer = UIStackView()
+    private let headerLabel = UILabel()
     /// Holds the picture a point inside the bubble's sides, so a picture as dark or as light as the bubble never merges
     /// with it
     private let imageContainer = UIView()
     private let textStack = UIStackView()
     private let headlineLabel = UILabel()
     private let bodyLabel = UILabel()
+    /// The body when it holds a table or code, which stand apart from the text as they do in an answer
+    private let bodyRichView = AgentRichMessageView()
+    private let sourceLineLabel = AgentNewsSourceLineLabel()
+    private var bodyBlocks: [AgentMessageBlock]?
+    private var bodyRichWidth: CGFloat = 0
     private weak var footerView: UIView?
     private var imageURL: URL?
     private lazy var imageTopConstraint = imageView.topAnchor.constraint(equalTo: imageContainer.topAnchor)
@@ -113,7 +128,8 @@ final class AgentNewsPostView: UIView {
         self?.contextMenuConfigurationProvider?()
     }
     private lazy var openSourceAccessibilityAction = UIAccessibilityCustomAction(name: lang("$agent_news_open_source")) { [weak self] _ in
-        self?.openSourceAction?()
+        guard let self, let url = self.content?.sourceURL else { return false }
+        self.openSourceAction?(url)
         return true
     }
     private lazy var moreActionsAccessibilityAction = UIAccessibilityCustomAction(name: lang("More actions")) { [weak self] _ in
@@ -137,25 +153,23 @@ final class AgentNewsPostView: UIView {
     func configure(with content: Content, isHeaderVisible: Bool) {
         self.content = content
         setHeaderVisible(isHeaderVisible)
+        headerLabel.text = content.header
         headlineLabel.text = content.headline
         renderBody()
-        bodyLabel.isHidden = content.body == nil
         // The headline stands as far from the body as paragraphs a blank line apart do
         textStack.setCustomSpacing(
             content.body == nil ? Metrics.footerSpacing : AgentMessageTextRenderer.blankLineGap,
             after: headlineLabel
         )
-        metaView.configure(source: content.sourceName, time: content.time)
-        metaView.onSourceTap = content.canOpenSource ? { [weak self] in self?.openSourceAction?() } : nil
+        sourceLineLabel.configure(with: content.sourceLine)
+        metaView.configure(time: content.time)
 
-        contentStack.accessibilityLabel = [
-            isHeaderVisible ? lang("News") : nil, content.headline, bodyLabel.attributedText?.string, content.sourceName, content.time,
-        ].compactMap { $0?.nilIfEmpty }.joined(separator: ", ")
-        contentStack.accessibilityIdentifier = "AgentNewsPost-\(content.eventId)"
+        updateAccessibilityLabel()
+        contentStack.accessibilityIdentifier = content.accessibilityIdentifier
         contentStack.accessibilityCustomActions = [
             content.canOpenSource ? openSourceAccessibilityAction : nil,
             moreActionsAccessibilityAction,
-        ].compactMap { $0 }
+        ].compactMap { $0 } + makeSourceAccessibilityActions(for: content.sourceLine)
 
         let url = content.imageURL
         guard imageURL != url else { return }
@@ -172,6 +186,8 @@ final class AgentNewsPostView: UIView {
         content = nil
         headlineLabel.text = nil
         bodyLabel.attributedText = nil
+        clearRichBody()
+        sourceLineLabel.configure(with: nil)
         metaView.reset()
         imageURL = nil
         imageView.alpha = 1
@@ -213,8 +229,11 @@ final class AgentNewsPostView: UIView {
     func updateTextMaxWidth(forBubbleWidth width: CGFloat) {
         let textWidth = Self.getTextWidth(inBubbleWidth: width)
         guard textWidth > 0 else { return }
-        for label in [headlineLabel, bodyLabel] where abs(label.preferredMaxLayoutWidth - textWidth) > 0.25 {
+        for label in [headlineLabel, bodyLabel, sourceLineLabel] where abs(label.preferredMaxLayoutWidth - textWidth) > 0.25 {
             label.preferredMaxLayoutWidth = textWidth
+        }
+        if let bodyBlocks, abs(bodyRichWidth - textWidth) > 0.25 {
+            configureRichBody(bodyBlocks, width: textWidth)
         }
     }
 
@@ -248,6 +267,29 @@ final class AgentNewsPostView: UIView {
         imageZoom.cornerRadius = cornerRadius
     }
 
+    /// The post as VoiceOver reads it, once its body is drawn: a body with blocks waits for the bubble's width
+    private func updateAccessibilityLabel() {
+        guard let content else { return }
+        contentStack.accessibilityLabel = [
+            isHeaderVisible ? content.header : nil,
+            content.headline,
+            bodyBlocks == nil ? bodyLabel.attributedText?.string : bodyRichView.displayText,
+            content.sourceLine?.text,
+            content.time,
+        ].compactMap { $0?.nilIfEmpty }.joined(separator: ", ")
+    }
+
+    /// An action named after each source the line links, opening it as a tap on its name does
+    private func makeSourceAccessibilityActions(for line: AgentNewsSourceLine?) -> [UIAccessibilityCustomAction] {
+        guard let line else { return [] }
+        return line.links.map { link in
+            UIAccessibilityCustomAction(name: (line.text as NSString).substring(with: link.range)) { [weak self] _ in
+                self?.openSourceAction?(link.url)
+                return true
+            }
+        }
+    }
+
     private func setImageHidden(_ isHidden: Bool) {
         imageView.isHidden = isHidden
         imageContainer.isHidden = isHidden
@@ -257,8 +299,21 @@ final class AgentNewsPostView: UIView {
     private func renderBody() {
         guard let body = content?.body else {
             bodyLabel.attributedText = nil
+            bodyLabel.isHidden = true
+            clearRichBody()
             return
         }
+        let blocks = AgentMessageBlockParser.separatingCode(AgentMessageBlockParser.parse(body))
+        if blocks.contains(where: \.standsApart) {
+            bodyLabel.attributedText = nil
+            bodyLabel.isHidden = true
+            bodyBlocks = blocks
+            bodyRichView.isHidden = false
+            configureRichBody(blocks, width: headlineLabel.preferredMaxLayoutWidth)
+            return
+        }
+        clearRichBody()
+        bodyLabel.isHidden = false
         let key = Self.getBodyKey(for: body, traitCollection: traitCollection)
         bodyLabel.attributedText = AgentTextLayoutCache.shared.getAttributedText(for: key) {
             AgentMessageTextRenderer.makeAttributedText(
@@ -270,6 +325,37 @@ final class AgentNewsPostView: UIView {
                 baseFont: key.font
             )
         }
+    }
+
+    private func configureRichBody(_ blocks: [AgentMessageBlock], width: CGFloat) {
+        // Before the bubble's width is known the blocks wait for `updateTextMaxWidth`
+        guard width > 0 else { return }
+        bodyRichWidth = width
+        bodyRichView.configure(
+            blocks: blocks,
+            textColor: .label,
+            maximumContentWidth: width,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            baseFont: WTypography.uiFont(.body, scaling: .dynamic, compatibleWith: traitCollection),
+            onURLTap: nil
+        )
+        updateAccessibilityLabel()
+    }
+
+    private func clearRichBody() {
+        guard bodyBlocks != nil else { return }
+        bodyBlocks = nil
+        bodyRichWidth = 0
+        bodyRichView.isHidden = true
+        bodyRichView.configure(
+            blocks: [],
+            textColor: .label,
+            maximumContentWidth: 1,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            onURLTap: nil
+        )
     }
 
     /// What the parsed `body` is kept under for posts shown with `traitCollection`
@@ -305,10 +391,9 @@ final class AgentNewsPostView: UIView {
         contextMenuInteraction.attach(to: bubbleView)
 
         let iconView = AgentNewsIconView(size: 20)
-        let headerLabel = UILabel()
-        headerLabel.text = lang("News")
         headerLabel.applyTextStyle(.subheadlineStrong, scaling: .dynamic)
         headerLabel.textColor = .tintColor
+        headerLabel.numberOfLines = 0
         let headerRow = UIStackView(arrangedSubviews: [iconView, headerLabel])
         headerRow.axis = .horizontal
         headerRow.alignment = .center
@@ -350,18 +435,29 @@ final class AgentNewsPostView: UIView {
         headlineLabel.textColor = .label
         headlineLabel.numberOfLines = 0
         bodyLabel.numberOfLines = 0
-        // As Telegram's message status, the source and the time sit in the bubble's bottom trailing corner
-        let footerSpacer = UIView()
-        footerSpacer.setContentHuggingPriority(.fittingSizeLevel, for: .horizontal)
-        let footerRow = UIStackView(arrangedSubviews: [footerSpacer, metaView])
-        footerRow.axis = .horizontal
-        footerRow.alignment = .firstBaseline
-        // A baseline row holds its height only weakly, so it is kept as short as its text, or a post measured against a
-        // taller height would stretch it
+        // As Telegram's message status, the time sits in the bubble's bottom trailing corner, nearer the bubble's edge
+        // than the text does
+        let footerRow = UIView()
+        metaView.translatesAutoresizingMaskIntoConstraints = false
+        footerRow.addSubview(metaView)
+        NSLayoutConstraint.activate([
+            metaView.topAnchor.constraint(equalTo: footerRow.topAnchor),
+            metaView.bottomAnchor.constraint(equalTo: footerRow.bottomAnchor),
+            metaView.leadingAnchor.constraint(greaterThanOrEqualTo: footerRow.leadingAnchor),
+            metaView.trailingAnchor.constraint(
+                equalTo: footerRow.trailingAnchor,
+                constant: Metrics.textInsets.trailing - AgentNewsMetaView.trailingInset
+            ),
+        ])
+        // The row holds its height only weakly, so it is kept as short as its text, or a post measured against a taller
+        // height would stretch it
         footerRow.heightAnchor.constraint(equalToConstant: 0).withPriority(.defaultLow).isActive = true
-        for view in [headlineLabel, bodyLabel, footerRow] { textStack.addArrangedSubview(view) }
+        bodyRichView.isHidden = true
+        sourceLineLabel.onLinkTap = { [weak self] url in self?.openSourceAction?(url) }
+        for view in [headlineLabel, bodyLabel, bodyRichView, sourceLineLabel, footerRow] { textStack.addArrangedSubview(view) }
         textStack.axis = .vertical
         textStack.spacing = Metrics.footerSpacing
+        textStack.setCustomSpacing(Metrics.sourceLineSpacing, after: sourceLineLabel)
         textStack.isLayoutMarginsRelativeArrangement = true
         textStack.insetsLayoutMarginsFromSafeArea = false
         textStack.directionalLayoutMargins = Metrics.textInsets

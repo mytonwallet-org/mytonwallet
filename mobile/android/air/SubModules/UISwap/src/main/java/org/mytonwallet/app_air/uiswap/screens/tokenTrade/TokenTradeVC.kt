@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
@@ -30,7 +31,9 @@ import org.mytonwallet.app_air.uicomponents.viewControllers.selector.TokenSelect
 import org.mytonwallet.app_air.uicomponents.viewControllers.selector.cells.TokenSelectorCell
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiinappbrowser.CustomTabsBrowser
+import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -39,6 +42,7 @@ import org.mytonwallet.app_air.uiswap.BuyWithCardLauncher
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.cex.receiveAddressInput.SwapReceiveAddressInputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapViewModel
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.tokenTrade.views.TokenTradeView
 import org.mytonwallet.app_air.uiswap.views.SwapConfirmView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -47,11 +51,14 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.boldSubstring
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -68,6 +75,9 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
 
     override val shouldDisplayBottomBar = false
 
+    /** Set before presenting to keep the trade on [displayedAccount]. */
+    var isAccountSwitchable = true
+
     private val swapViewModel by lazy { ViewModelProvider(this)[SwapViewModel::class.java] }
 
     private val model = TokenTradeModel(swapViewModel, direction, token)
@@ -76,7 +86,8 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
         context,
         model,
         onSelectMethod = ::openMethodSelector,
-        onContinue = ::continueTrade
+        onContinue = ::continueTrade,
+        onHintAction = ::performHintAction
     )
 
     private val accountSelectorView by lazy {
@@ -84,13 +95,15 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
             context,
             accountsProvider = { WalletCore.getAllAccounts().filter { it.supportsSwap } },
             onAccountSelected = ::switchAccount
-        )
+        ).apply {
+            isSwitchable = isAccountSwitchable
+        }
     }
 
     private val settingsButton by lazy {
         WImageButton(context).apply {
             updateColors(WColor.PrimaryLightText, WColor.BackgroundRipple)
-            setOnClickListener { presentSettingsMenu() }
+            setOnMenuClickListener { presentSettingsMenu() }
         }
     }
 
@@ -144,6 +157,10 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
         }
         collectFlow(swapViewModel.uiStatusFlow) {
             model.update(status = it)
+            render()
+        }
+        collectFlow(swapViewModel.hintFlow) {
+            model.update(hint = it)
             render()
         }
         collectFlow(swapViewModel.eventsFlow, ::onEvent)
@@ -228,6 +245,46 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
         } else {
             swapViewModel.openTokenToReceiveSelector(showUnsupportedAssets = true)
         }
+    }
+
+    private fun performHintAction(hint: SwapHint) {
+        when (hint) {
+            is SwapHint.Receive -> presentReceive(hint.chain)
+
+            is SwapHint.BelowMinimum -> presentReceive(hint.chain)
+
+            is SwapHint.Intermediate -> if (model.isBuying) {
+                navigationController?.push(
+                    TokenTradeVC(context, hint.token, TokenTradeDirection.BUY)
+                )
+            } else {
+                model.selectToken(hint.token)
+                render()
+            }
+
+            is SwapHint.External -> {
+                val w = window ?: return
+                val nav = WNavigationController(w)
+                nav.setRoot(
+                    InAppBrowserVC(
+                        context,
+                        InAppBrowserConfig(url = hint.url, injectDappConnect = true)
+                    )
+                )
+                w.present(nav)
+            }
+        }
+    }
+
+    private fun presentReceive(chain: MBlockchain) {
+        val w = window ?: return
+        val receiveVC = WalletContextManager.delegate?.get()
+            ?.getReceiveVC(chain.name, swapViewModel.tokenToReceive?.slug)
+            as? WViewController ?: return
+        val nav =
+            WNavigationController(w, WNavigationController.PresentationConfig.PreferredFullScreen)
+        nav.setRoot(receiveVC)
+        w.present(nav)
     }
 
     private fun presentSelector(assets: List<MApiSwapAsset>, supportedAssetSlugs: Set<String>?) {

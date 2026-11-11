@@ -4,14 +4,27 @@ import WalletCore
 
 @MainActor
 protocol AgentNewsFeedClient: AnyObject {
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage
 }
 
 @MainActor
 final class LiveAgentNewsFeedClient: AgentNewsFeedClient {
-    func getNewsFeed(lang: String, cursor: String?) async throws -> ApiAgentV2NewsFeedPage {
-        try await Api.getAgentV2NewsFeed(lang: lang, cursor: cursor)
+    func getNewsFeed(lang: String, cursor: String?, digestHour: Int, timeZone: String) async throws -> ApiAgentV2NewsFeedPage {
+        try await Api.getAgentV2NewsFeed(lang: lang, cursor: cursor, digestHour: digestHour, timeZone: timeZone)
     }
+}
+
+/// The digest hour and time zone a page of the feed was requested with, which the page's digests follow
+struct AgentNewsDigestSchedule: Equatable {
+    let hour: Int
+    let timeZone: String
+}
+
+/// A first page of the feed loaded elsewhere, with what it was requested with
+struct AgentNewsCachedPage {
+    let page: ApiAgentV2NewsFeedPage
+    let language: String
+    let schedule: AgentNewsDigestSchedule
 }
 
 @MainActor
@@ -50,11 +63,46 @@ final class AgentNewsReadState {
 
 @MainActor
 final class AgentNewsFeedModel {
+    enum Entry: Equatable {
+        case news(ApiAgentV2NewsFeedItem)
+        case digest(ApiAgentV2NewsFeedDigest)
+
+        var deliveredAt: String {
+            switch self {
+            case .news(let item): item.deliveredAt
+            case .digest(let digest): digest.deliveredAt
+            }
+        }
+    }
+
+    var entries: [Entry] {
+        (items.map(Entry.news) + digests.map(Entry.digest)).sorted {
+            AgentV2DateParser.date($0.deliveredAt) < AgentV2DateParser.date($1.deliveredAt)
+        }
+    }
+
+    private(set) var digests: [ApiAgentV2NewsFeedDigest] = []
+    let requestedDigestId: String?
+
+    /// Older pages may still bring the digest the feed was opened for: it hasn't come, older pages remain, and the
+    /// loaded entries reach back no further than its window's end, which its ID carries after the locale
+    var canLoadRequestedDigest: Bool {
+        guard let requestedDigestId, nextCursor != nil,
+              !digests.contains(where: { $0.id == requestedDigestId }) else { return false }
+        let windowEnd = AgentV2DateParser.date(String(requestedDigestId.drop { $0 != ":" }.dropFirst()))
+        // An ID without a readable time can't be placed among the pages, so the digest counts as not found
+        guard windowEnd != .distantPast else { return false }
+        guard let oldest = entries.first else { return true }
+        return AgentV2DateParser.date(oldest.deliveredAt) >= windowEnd
+    }
+
     private(set) var items: [ApiAgentV2NewsFeedItem] = []
     private(set) var nextCursor: String?
     private(set) var isLoading = false
     private(set) var isLoadingMore = false
     private(set) var error: Error?
+    /// A first page has come: until then a feed without news is still loading them
+    private(set) var hasLoaded = false
     private(set) var unreadEventId: Int?
     private(set) var locale: String?
     let findThread: (String) -> ApiAgentV2ThreadSummary?
@@ -64,6 +112,11 @@ final class AgentNewsFeedModel {
     private let client: AgentNewsFeedClient
     private let readState: AgentNewsReadState
     private let language: () -> String
+    /// The device's digest hour, whose changes reload the digests
+    let digestSettings: AgentNewsNotificationSettings
+    private let timeZone: () -> String
+    /// The schedule the loaded digests were requested with
+    private var digestSchedule: AgentNewsDigestSchedule?
     private var generation = 0
     private var hasOpened = false
     private var feedLanguage: String?
@@ -77,15 +130,31 @@ final class AgentNewsFeedModel {
         readState: AgentNewsReadState,
         language: @escaping () -> String = { LocalizationSupport.shared.langCode },
         findThread: @escaping (String) -> ApiAgentV2ThreadSummary? = { _ in nil },
-        cachedPage: (page: ApiAgentV2NewsFeedPage, language: String)? = nil
+        cachedPage: AgentNewsCachedPage? = nil,
+        requestedDigestId: String? = nil,
+        digestSettings: AgentNewsNotificationSettings = .shared,
+        timeZone: @escaping () -> String = { TimeZone.current.identifier }
     ) {
         self.client = client ?? LiveAgentNewsFeedClient()
         self.readState = readState
         self.language = language
         self.findThread = findThread
-        if let cachedPage, !cachedPage.page.items.isEmpty {
-            applyFirstPage(cachedPage.page, requestLanguage: cachedPage.language)
+        self.requestedDigestId = requestedDigestId
+        self.digestSettings = digestSettings
+        self.timeZone = timeZone
+        if let cachedPage, !cachedPage.page.items.isEmpty || cachedPage.page.digests?.isEmpty == false {
+            // A page of another digest schedule shows its news alone, without its digests and the pages after it
+            let schedule = currentDigestSchedule
+            let page = cachedPage.schedule == schedule
+                ? cachedPage.page
+                : ApiAgentV2NewsFeedPage(locale: cachedPage.page.locale, items: cachedPage.page.items)
+            digestSchedule = schedule
+            applyFirstPage(page, requestLanguage: cachedPage.language)
         }
+    }
+
+    var currentDigestSchedule: AgentNewsDigestSchedule {
+        AgentNewsDigestSchedule(hour: digestSettings.digestHour, timeZone: timeZone())
     }
 
     func refresh() async {
@@ -94,6 +163,8 @@ final class AgentNewsFeedModel {
         isLoading = true
         isLoadingMore = false
         error = nil
+        let schedule = currentDigestSchedule
+        resetDigestsIfNeeded(for: schedule)
         onChange?()
         defer {
             if requestGeneration == generation {
@@ -103,7 +174,9 @@ final class AgentNewsFeedModel {
         }
         do {
             let requestLanguage = language()
-            let page = try await client.getNewsFeed(lang: requestLanguage, cursor: nil)
+            let page = try await client.getNewsFeed(
+                lang: requestLanguage, cursor: nil, digestHour: schedule.hour, timeZone: schedule.timeZone
+            )
             guard requestGeneration == generation, !Task.isCancelled else { return }
             applyFirstPage(page, requestLanguage: requestLanguage)
         } catch {
@@ -114,7 +187,9 @@ final class AgentNewsFeedModel {
     }
 
     func loadMore() async {
-        guard !isLoading, !isLoadingMore, nextCursor != nil else { return }
+        // Pages of another digest schedule wait for the refresh that its change starts
+        guard !isLoading, !isLoadingMore, nextCursor != nil, let schedule = digestSchedule,
+              schedule == currentDigestSchedule else { return }
         let requestGeneration = generation
         isLoadingMore = true
         onChange?()
@@ -131,11 +206,13 @@ final class AgentNewsFeedModel {
                     nextCursor = nil
                     break
                 }
-                let page = try await client.getNewsFeed(lang: feedLanguage ?? language(), cursor: cursor)
+                let page = try await client.getNewsFeed(
+                    lang: feedLanguage ?? language(), cursor: cursor, digestHour: schedule.hour, timeZone: schedule.timeZone
+                )
                 guard requestGeneration == generation, !Task.isCancelled else { return }
                 guard page.locale == locale else { break }
                 requestedCursors.insert(cursor)
-                mergePageItems(page.items)
+                mergePage(page)
                 updateUnreadBoundary()
                 readState.markRead(items: items)
                 nextCursor = page.nextCursor.flatMap { requestedCursors.contains($0) ? nil : $0 }
@@ -167,15 +244,27 @@ final class AgentNewsFeedModel {
         onChange?()
     }
 
+    /// Digests of another hour or time zone go, with the pages they came on, and the news stay until the refresh brings
+    /// the new schedule's
+    private func resetDigestsIfNeeded(for schedule: AgentNewsDigestSchedule) {
+        defer { digestSchedule = schedule }
+        guard let digestSchedule, digestSchedule != schedule else { return }
+        digests = []
+        nextCursor = nil
+        requestedCursors = []
+    }
+
     private func applyFirstPage(_ page: ApiAgentV2NewsFeedPage, requestLanguage: String) {
         if locale != nil, locale != page.locale {
             items = []
+            digests = []
             localDiscussions = [:]
             hasOpened = false
         }
         locale = page.locale
         feedLanguage = requestLanguage
-        mergePageItems(page.items)
+        hasLoaded = true
+        mergePage(page)
         if !hasOpened {
             readState.initializeIfNeeded(items: page.items)
             unreadCutoff = readState.readThrough.map(AgentV2DateParser.date)
@@ -187,7 +276,11 @@ final class AgentNewsFeedModel {
         requestedCursors = []
     }
 
-    private func mergePageItems(_ pageItems: [ApiAgentV2NewsFeedItem]) {
+    private func mergePage(_ page: ApiAgentV2NewsFeedPage) {
+        var digestsById = Dictionary(uniqueKeysWithValues: digests.map { ($0.id, $0) })
+        for digest in page.digests ?? [] { digestsById[digest.id] = digest }
+        digests = digestsById.values.sorted { $0.id < $1.id }
+        let pageItems = page.items
         for item in pageItems {
             guard let discussion = localDiscussions[item.eventId], item.discussion?.threadId == discussion.threadId,
                   let icon = item.discussion?.icon?.nilIfEmpty else { continue }

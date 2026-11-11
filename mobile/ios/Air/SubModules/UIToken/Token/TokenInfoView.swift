@@ -8,6 +8,7 @@ import WalletCore
 enum TokenInfoState: Equatable {
     case loading
     case details(ApiTokenDetails)
+    case summary(AssetInfoSummary)
     case fallback(String)
     case error
 
@@ -29,14 +30,35 @@ enum TokenInfoState: Equatable {
             nil
         case .details(let details):
             details.displayDescriptionText ?? lang("$token_info_no_description")
+        case .summary(let summary):
+            summary.description ?? lang("$token_info_no_description")
         case .fallback(let description):
             description
         }
     }
 
     var canExpand: Bool {
-        guard case .details(let details) = self else { return false }
-        return details.hasPublicInformation
+        switch self {
+        case .details(let details): details.hasPublicInformation
+        case .summary: true
+        case .loading, .fallback, .error: false
+        }
+    }
+
+    /// The asset has its own description, which the market layout can show in full.
+    var hasDescription: Bool {
+        switch self {
+        case .details(let details): details.displayDescriptionText != nil
+        case .summary(let summary): summary.description != nil
+        case .loading, .fallback, .error: false
+        }
+    }
+
+    var hasContent: Bool {
+        switch self {
+        case .details, .summary: true
+        case .loading, .fallback, .error: false
+        }
     }
 
     var isLoading: Bool {
@@ -113,6 +135,12 @@ final class TokenInfoModel: ObservableObject {
         let hasBalance = hasBalance ?? self.hasBalance
         let ownershipChanged = self.hasBalance != hasBalance
         guard self.state != state || ownershipChanged else { return }
+        // New values for the same rows keep the layout, so they replace the content in place.
+        if !ownershipChanged, case .summary(let current) = self.state, case .summary(let next) = state,
+           current.description == next.description, current.fields.map(\.id) == next.fields.map(\.id) {
+            self.state = state
+            return
+        }
         presentationTask?.cancel()
         presentationTask = nil
 
@@ -200,7 +228,7 @@ final class TokenInfoModel: ObservableObject {
     }
 
     func toggleDescription() {
-        guard !hasBalance, state.details?.displayDescriptionText != nil else { return }
+        guard !hasBalance, state.hasDescription else { return }
         presentationTask?.cancel()
         withTransaction(Transaction(animation: nil)) {
             presentationOverlay = .content(currentPresentationSnapshot)
@@ -320,8 +348,8 @@ struct TokenInfoView: View {
         showsSkeleton: Bool,
         isInteractive: Bool
     ) -> some View {
-        if !hasBalance, let details = state.details {
-            marketContent(details, showsOriginalDescription: showsOriginalDescription, showsFullDescription: showsFullDescription)
+        if !hasBalance, state.hasContent {
+            marketContent(state, showsOriginalDescription: showsOriginalDescription, showsFullDescription: showsFullDescription)
                 .allowsHitTesting(isInteractive)
                 .accessibilityHidden(!isInteractive)
         } else {
@@ -334,8 +362,8 @@ struct TokenInfoView: View {
                     isInteractive: isInteractive
                 )
 
-                if let details = state.details {
-                    detailsContent(details, showsOriginalDescription: showsOriginalDescription)
+                if state.hasContent {
+                    detailsContent(state, showsOriginalDescription: showsOriginalDescription)
                         .opacity(expansionProgress)
                         .allowsHitTesting(isInteractive && model.isExpanded)
                         .accessibilityHidden(!isInteractive || !model.isExpanded)
@@ -347,7 +375,7 @@ struct TokenInfoView: View {
     }
 
     private func marketContent(
-        _ details: ApiTokenDetails,
+        _ state: TokenInfoState,
         showsOriginalDescription: Bool,
         showsFullDescription: Bool
     ) -> some View {
@@ -358,11 +386,11 @@ struct TokenInfoView: View {
                     .tracking(-0.154)
                     .foregroundStyle(Color.air.secondaryLabel)
                     .frame(height: 18, alignment: .leading)
-                if let text = displayedDescription(details, showsOriginalDescription: showsOriginalDescription) {
+                if let text = displayedDescription(state, showsOriginalDescription: showsOriginalDescription) {
                     AssetInfoDescriptionView(
                         text: text,
-                        color: details.displayDescriptionText == nil ? Color.air.secondaryLabel : Color.air.primaryLabel,
-                        canToggle: details.displayDescriptionText != nil,
+                        color: state.hasDescription ? Color.air.primaryLabel : Color.air.secondaryLabel,
+                        canToggle: state.hasDescription,
                         showsFullDescription: showsFullDescription
                     ) {
                         model.requestToggle()
@@ -373,21 +401,39 @@ struct TokenInfoView: View {
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            detailsContent(details, showsOriginalDescription: showsOriginalDescription)
+            detailsContent(state, showsOriginalDescription: showsOriginalDescription)
         }
     }
 
     @ViewBuilder
     private func detailsContent(
+        _ state: TokenInfoState,
+        showsOriginalDescription: Bool
+    ) -> some View {
+        switch state {
+        case .details(let details):
+            tokenDetailsContent(details, showsOriginalDescription: showsOriginalDescription)
+        case .summary(let summary):
+            if !summary.fields.isEmpty {
+                VStack(spacing: 0) {
+                    divider
+                    fieldRows(summary.fields, isStale: summary.isStale)
+                }
+            }
+        case .loading, .fallback, .error:
+            EmptyView()
+        }
+    }
+
+    private func tokenDetailsContent(
         _ details: ApiTokenDetails,
         showsOriginalDescription: Bool
     ) -> some View {
         let linkKinds: [ApiTokenDetails.Link.Kind] = [.x, .telegram, .website]
         let tokenLinks = linkKinds.flatMap { kind in details.links?.filter { $0.kind == kind } ?? [] }
-        let supply = supplyDetails(details)
-        let hasMetrics = details.marketCap != nil || supply != nil || details.createdAt != nil || details.volume24h != nil
+        let fields = tokenFields(details)
 
-        VStack(spacing: 0) {
+        return VStack(spacing: 0) {
             if isUsingLocalizedDescription(details, showsOriginalDescription: showsOriginalDescription) {
                 translationAttribution
                     .padding(.horizontal, 16)
@@ -399,42 +445,44 @@ struct TokenInfoView: View {
                 links(tokenLinks)
             }
 
-            if hasMetrics {
+            if !fields.isEmpty || details.volume24h != nil {
                 divider
             }
 
-            if let marketCap = details.marketCap {
-                detailRow(
-                    title: lang("Market Cap"),
-                    info: lang("$token_info_market_cap_hint"),
-                    value: compactCurrency(marketCap, currency: details.volume24h?.currency ?? .USD)
-                )
-            }
-
-            if let supply {
-                if details.marketCap != nil {
-                    divider
-                }
-                detailRow(title: supply.title, info: supply.info, value: supply.value)
-            }
-
-            if let createdAt = details.createdAt {
-                if details.marketCap != nil || supply != nil {
-                    divider
-                }
-                detailRow(
-                    title: lang("Created"),
-                    value: createdAt.formatted(.localizedDateTime.month(.abbreviated).day().year())
-                )
-            }
+            fieldRows(fields)
 
             if let volume24h = details.volume24h {
-                if details.marketCap != nil || supply != nil || details.createdAt != nil {
+                if !fields.isEmpty {
                     divider
                 }
                 volume(volume24h)
             }
         }
+    }
+
+    private func fieldRows(_ fields: [AssetInfoField], isStale: Bool = false) -> some View {
+        ForEach(Array(fields.enumerated()), id: \.element.id) { index, field in
+            if index > 0 {
+                divider
+            }
+            AssetInfoMetricRow(title: field.title, info: field.info, value: field.value, isStale: isStale)
+        }
+    }
+
+    private func tokenFields(_ details: ApiTokenDetails) -> [AssetInfoField] {
+        var fields: [AssetInfoField] = []
+        if let marketCap = details.marketCap {
+            fields.append(.init(id: "marketCap", title: lang("Market Cap"), info: lang("$token_info_market_cap_hint"),
+                                value: formatCompactCurrency(marketCap, currency: details.volume24h?.currency ?? .USD)))
+        }
+        if let supply = supplyDetails(details) {
+            fields.append(.init(id: "supply", title: supply.title, info: supply.info, value: supply.value))
+        }
+        if let createdAt = details.createdAt {
+            fields.append(.init(id: "created", title: lang("Created"),
+                                value: createdAt.formatted(.localizedDateTime.month(.abbreviated).day().year())))
+        }
+        return fields
     }
 
     private func header(
@@ -536,6 +584,12 @@ struct TokenInfoView: View {
                     expansionProgress: expansionProgress
                 )
             }
+        case .summary(let summary):
+            descriptionStack(
+                summary.description ?? lang("$token_info_no_description"),
+                color: summary.description == nil ? Color.air.secondaryLabel : Color.air.primaryLabel,
+                expansionProgress: expansionProgress
+            )
         case .fallback(let text):
             description(text, lineLimit: 1, color: Color.air.secondaryLabel)
         case .error:
@@ -562,6 +616,20 @@ struct TokenInfoView: View {
             .foregroundStyle(Color(uiColor: .tintColor))
         }
         .textStyle(.footnote)
+    }
+
+    private func displayedDescription(
+        _ state: TokenInfoState,
+        showsOriginalDescription: Bool
+    ) -> String? {
+        switch state {
+        case .details(let details):
+            displayedDescription(details, showsOriginalDescription: showsOriginalDescription)
+        case .summary(let summary):
+            summary.description ?? lang("$token_info_no_description")
+        case .loading, .fallback, .error:
+            nil
+        }
     }
 
     private func displayedDescription(
@@ -632,12 +700,12 @@ struct TokenInfoView: View {
             return (
                 lang("Circulating / Total Supply"),
                 info,
-                "\(compactNumber(circulating)) / \(compactNumber(total))"
+                "\(formatCompactNumber(circulating)) / \(formatCompactNumber(total))"
             )
         case let (.some(circulating), .none):
-            return (lang("Circulating Supply"), nil, compactNumber(circulating))
+            return (lang("Circulating Supply"), nil, formatCompactNumber(circulating))
         case let (.none, .some(total)):
-            return (lang("Total Supply"), nil, compactNumber(total))
+            return (lang("Total Supply"), nil, formatCompactNumber(total))
         case (.none, .none):
             return nil
         }
@@ -676,10 +744,6 @@ struct TokenInfoView: View {
         }
     }
 
-    private func detailRow(title: String, info: String? = nil, value: String) -> some View {
-        AssetInfoMetricRow(title: title, info: info, value: value)
-    }
-
     private func volume(_ volume: ApiTokenDetails.Volume) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -695,7 +759,7 @@ struct TokenInfoView: View {
                 Spacer(minLength: 4)
 
                 HStack(spacing: 6) {
-                    Text(verbatim: compactCurrency(volume.total, currency: volume.currency))
+                    Text(verbatim: formatCompactCurrency(volume.total, currency: volume.currency))
                         .textStyle(.body, content: .technical)
                         .foregroundStyle(Color.air.primaryLabel)
                     if let change = volume.change {
@@ -720,8 +784,8 @@ struct TokenInfoView: View {
         AssetInfoSplitBar(
             positiveValue: volume.buy,
             negativeValue: volume.sell,
-            positiveLabel: compactCurrency(volume.buy, currency: volume.currency),
-            negativeLabel: compactCurrency(volume.sell, currency: volume.currency)
+            positiveLabel: formatCompactCurrency(volume.buy, currency: volume.currency),
+            negativeLabel: formatCompactCurrency(volume.sell, currency: volume.currency)
         )
     }
 
@@ -740,12 +804,8 @@ struct TokenInfoView: View {
             }
     }
 
-    private func compactCurrency(_ value: Double, currency: MBaseCurrency) -> String {
-        AssetInfoFormatting.compactCurrency(value, currency: currency)
-    }
-
-    private func compactNumber(_ value: Double) -> String {
-        AssetInfoFormatting.compactNumber(value)
+    private func formatCompactCurrency(_ value: Double, currency: MBaseCurrency) -> String {
+        formatCompactNumber(value, currency: currency.sign)
     }
 }
 

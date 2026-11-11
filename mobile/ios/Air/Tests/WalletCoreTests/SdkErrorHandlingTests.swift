@@ -47,6 +47,28 @@ struct SdkErrorHandlingTests {
     }
 
     @Test
+    func `EVM gas errors show their messages`() {
+        let messages: [(String, ApiAnyDisplayError, String)] = [
+            ("EvmBundlerNotConfigured", .evmBundlerNotConfigured, lang("Unexpected error. Please let the support know.")),
+            ("EvmUserOperationFailed", .evmUserOperationFailed, lang("Transfer was unsuccessful. Try again later.")),
+            ("EvmUserOperationMismatch", .evmUserOperationMismatch, lang("EvmUserOperationMismatch")),
+        ]
+
+        for (code, displayError, message) in messages {
+            let error = SdkError.apiReturnedError(error: code, data: nil)
+
+            guard case .apiReturnedError(_, let parsedError, _) = error else {
+                Issue.record("Expected apiReturnedError")
+                return
+            }
+
+            #expect(parsedError == displayError)
+            #expect(displayError.rawValue == code)
+            #expect(error.errorDescription == message)
+        }
+    }
+
+    @Test
     func `returned SDK error captures known display error`() {
         let error = SdkError.apiReturnedError(error: "InvalidMnemonic", data: nil)
 

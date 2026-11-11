@@ -519,6 +519,31 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
         rootContainerRouter.showAgent(query: query, entryPoint: entryPoint)
     }
+
+    static func showAgentNewsChat(eventId: Int) {
+        if AppTabManager.shared.contains(.agent) { showAgentTab() }
+        Task {
+            do {
+                let controller = try await AgentEntryPoint.makeNewsChatViewController(eventId: eventId)
+                rootContainerRouter.showAgentNewsChat(controller)
+            } catch {
+                if !(error is CancellationError) { showError(error: error) }
+            }
+        }
+    }
+
+    static func showAgentDigestChat(digestId: String) {
+        showAgentTab()
+        pushIfNeeded(AgentEntryPoint.makeDigestChatViewController(digestId: digestId), push: true)
+    }
+
+    static func showAgentNewsFeed(digestId: String) {
+        rootContainerRouter.showAgentNewsFeed(digestId: digestId)
+    }
+
+    static func showAgentTab() {
+        rootContainerRouter.showTab(.agent, popToRoot: true)
+    }
     
     static func showEarn(accountContext: AccountContext, tokenSlug: String?, prefilledAmount: StakePrefilledAmount?) {
         let config = StakingConfig.config(forTokenSlug: tokenSlug ?? TONCOIN_SLUG)
@@ -647,6 +672,11 @@ private class AppActionsImpl: AppActionsProtocol {
 
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) {
         let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
+        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    static func showUnlinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) {
+        let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress, nft: nft, isUnlinking: true)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
 

@@ -1,9 +1,68 @@
+import type { Wallet } from 'ethers';
+import { hashAuthorization, Signature } from 'ethers';
+
 import type { ApiNetwork, EVMChain } from '../../../types';
+import type { PimlicoEip7702Auth } from './pimlico';
 import type { EvmMetaTransaction } from './types';
 
 import { normalizeAddress } from '../address';
 import { getEvmDelegationAddress } from '../approvals';
 import { ALCHEMY_7702_DELEGATEE_ADDRESSES } from './constants';
+
+function toHex(value: bigint) {
+  return `0x${value.toString(16)}`;
+}
+
+function toPimlicoEip7702Auth(
+  delegate: string,
+  chainId: bigint,
+  authorizationNonce: bigint,
+  signature: string,
+): PimlicoEip7702Auth {
+  const { r, s, yParity } = Signature.from(signature);
+
+  return {
+    address: delegate,
+    chainId: toHex(chainId),
+    nonce: toHex(authorizationNonce),
+    r,
+    s,
+    yParity: toHex(BigInt(yParity)),
+  };
+}
+
+/** ECDSA signature over EIP-7702 `hashAuthorization` (Alchemy authorization items, etc.). */
+export function signEip7702AuthorizationSignature(
+  wallet: Wallet,
+  chainId: bigint,
+  authorizationNonce: bigint,
+  delegate: string,
+): string {
+  const digest = hashAuthorization({
+    address: delegate,
+    nonce: authorizationNonce,
+    chainId,
+  });
+
+  return Signature.from(wallet.signingKey.sign(digest)).serialized;
+}
+
+/** Signed authorization in Pimlico bundler `eip7702Auth` shape. */
+export function signEip7702Authorization(
+  wallet: Wallet,
+  chainId: bigint,
+  authorizationNonce: bigint,
+  delegate: string,
+): PimlicoEip7702Auth {
+  const signature = signEip7702AuthorizationSignature(
+    wallet,
+    chainId,
+    authorizationNonce,
+    delegate,
+  );
+
+  return toPimlicoEip7702Auth(delegate, chainId, authorizationNonce, signature);
+}
 
 // Reset foreign delegation before submitting batch user operation if user has one.
 export function withForeignDelegationResetCall(

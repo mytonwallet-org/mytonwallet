@@ -1,7 +1,10 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 
+import android.animation.Animator
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -9,21 +12,24 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.LinearLayout
 import androidx.core.view.OneShotPreDrawListener
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.updateLayoutParams
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMessagesSkeletonView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBlurTransition
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentSpinningTopView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor")
@@ -48,7 +54,26 @@ class AgentHintsCell(context: Context) :
         // With the answer's own 6 dp, the first suggestion hangs 12 dp under it
         private const val FOLLOWUPS_TOP = 6
         private const val FOLLOWUPS_BOTTOM = 6
+
+        // The suggestions under an answer come in one after another, each out of a blur as it rises
+        // 8 dp into place
+        internal const val FOLLOWUP_REVEAL_MS = 300L
         private const val FOLLOWUP_REVEAL_STAGGER_MS = 150L
+        private const val FOLLOWUP_REVEAL_OFFSET = 8f
+
+        // Core Animation's ease-out, on which iOS brings the suggestions in
+        private val FOLLOWUP_REVEAL_CURVE = PathInterpolator(0f, 0f, 0.58f, 1f)
+
+        // The row opens on iOS's list scroll spring, critically damped, on which a list resting on its end there
+        // scrolls the suggestions into view
+        private const val FOLLOWUP_OPENING_STIFFNESS = 555.027f
+
+        // In dp, iOS's placeholder pills
+        private val PLACEHOLDER_WIDTHS = intArrayOf(230, 270, 200)
+        private const val PLACEHOLDER_HEIGHT = 40
+
+        // As on iOS, a suggestion's title comes in 140 ms after its placeholder starts to resize to it
+        private const val CONTENT_REVEAL_DELAY_MS = 140L
     }
 
     // Cards appear/disappear in step with the height animation opening/closing their slot.
@@ -58,7 +83,16 @@ class AgentHintsCell(context: Context) :
     private val revealStagger: Long
         get() = if (areFollowupsRendered) FOLLOWUP_REVEAL_STAGGER_MS else cardStagger
 
-    var onHintTap: ((AgentHint) -> Unit)? = null
+    // Debug builds show the cards at once while system animations are off, to keep E2E runs fast
+    private val canReveal: Boolean
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            (!DEBUG_MODE || areSystemAnimatorsEnabled)
+
+    private val areSystemAnimatorsEnabled: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
+    /** Called with the hint tapped and its card */
+    var onHintTap: ((AgentHint, WAgentHintView) -> Unit)? = null
 
     // Reports each collapse frame's height shrink so the owner can adjust the list
     // padding in the same frame; a one-frame lag lets the layout manager pull the
@@ -72,9 +106,12 @@ class AgentHintsCell(context: Context) :
         clipToPadding = false
     }
 
-    // The empty chat's spinning top turns at half speed over its suggestions
-    private val emptyStateIconView = AgentSpinningTopView(context, speed = EMPTY_STATE_ICON_SPEED)
-        .apply { isTouchInteractive = true }
+    // The empty chat's spinning top turns at half speed over its suggestions, standing on the ground
+    private val emptyStateIconView = AgentSpinningTopView(
+        context,
+        speed = EMPTY_STATE_ICON_SPEED,
+        showsGround = true
+    ).apply { isTouchInteractive = true }
 
     /** What the grown top sees behind it, where the suggestions aren't in a list */
     var backdropSource: View?
@@ -84,6 +121,12 @@ class AgentHintsCell(context: Context) :
         }
 
     private var renderedHints = listOf<AgentHint>()
+    private val followupReveals = mutableMapOf<View, Animator>()
+
+    /** What the row shows: the cards, with the empty chat's spinning top or the placeholders */
+    val contentViews: List<View>
+        get() = (0 until column.childCount).map(column::getChildAt)
+
     private var isLoadingRendered = false
     private var loadingRevealCompletedAt: Long? = null
 
@@ -99,16 +142,15 @@ class AgentHintsCell(context: Context) :
             toTop(column, FOLLOWUPS_TOP.toFloat())
             toBottom(column, FOLLOWUPS_BOTTOM.toFloat())
         }
-        for ((index, width) in listOf(230, 270, 200).withIndex()) {
-            val placeholder = AgentMessagesSkeletonView(
-                context,
-                AgentMessagesSkeletonView.Style.SUGGESTION
-            ).apply {
-                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        for ((index, width) in PLACEHOLDER_WIDTHS.withIndex()) {
+            // The pill a suggestion has, which turns into the suggestion once it comes
+            val placeholder = makeCard("", showsIcon = true) {}.apply {
+                isPlaceholder = true
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             }
             column.addView(
                 placeholder,
-                LinearLayout.LayoutParams(width.dp, 40.dp).apply {
+                LinearLayout.LayoutParams(width.dp, PLACEHOLDER_HEIGHT.dp).apply {
                     if (index > 0) topMargin = CARD_SPACING.dp
                 }
             )
@@ -128,10 +170,13 @@ class AgentHintsCell(context: Context) :
     private var expandSpring: SpringAnimation? = null
     private var expandEnd: (() -> Unit)? = null
     private var revealPreDrawListener: OneShotPreDrawListener? = null
-    private val loadingOverlays = mutableListOf<Pair<View, View>>()
 
     val isCollapsing: Boolean
         get() = collapseEnd != null
+
+    // Whether the row is opening its space, or is about to on the next frame
+    private val isOpening: Boolean
+        get() = revealPreDrawListener != null || revealSpring != null
 
     // The animating cell is smaller than its content; let the cards overflow instead of
     // being clipped at the cell's bottom edge while the height catches up.
@@ -194,13 +239,14 @@ class AgentHintsCell(context: Context) :
         isLoading: Boolean = false
     ) {
         if (isLoading) {
+            val isComingIn = !isLoadingRendered
             showLoading()
+            // Placeholders that come in late come in as the suggestions do, one by one out of a blur
+            if (isComingIn && shouldAnimate && canReveal) {
+                loadingRevealCompletedAt = computeRevealEnd(delay = 0)
+                startReveal()
+            }
             return
-        }
-        val loadingPlaceholders = if (isLoadingRendered) {
-            (0 until column.childCount).map(column::getChildAt)
-        } else {
-            emptyList()
         }
         val wasLoading = isLoadingRendered
         val loadingAlreadyRevealed = loadingRevealCompletedAt?.let {
@@ -220,8 +266,19 @@ class AgentHintsCell(context: Context) :
             // Mid-animation rebind (e.g. reloadData); let the running collapse/expand finish.
             return
         }
-        // Stop callbacks that still reference the current children before replacing them.
-        cancelAnimations()
+        // The placeholders turn into the suggestions in place, so their borders keep turning
+        val shouldTurnPlaceholdersIntoHints = hasChanged && wasLoading && areFollowups &&
+            !shouldShowEmptyStateIcon && WGlobalStorage.getAreAnimationsActive()
+        val placeholders = if (shouldTurnPlaceholdersIntoHints) {
+            (0 until minOf(column.childCount, hints.size))
+                .mapNotNull { column.getChildAt(it) as? WAgentHintView }
+        } else {
+            emptyList()
+        }
+        val previousHeight = height
+        // Stop callbacks that still reference the current children before replacing them. A row still opening its
+        // space goes on opening as its placeholders turn into the suggestions, and they go on coming in.
+        cancelAnimations(shouldKeepOpening = placeholders.isNotEmpty(), keptReveals = placeholders)
         if (hasChanged) {
             renderedHints = hints
             isEmptyStateIconRendered = shouldShowEmptyStateIcon
@@ -230,7 +287,7 @@ class AgentHintsCell(context: Context) :
                 toTop(column, (if (areFollowups) FOLLOWUPS_TOP else EMPTY_STATE_TOP).toFloat())
                 toBottom(column, if (areFollowups) FOLLOWUPS_BOTTOM.toFloat() else 4f)
             }
-            column.removeAllViews()
+            for (index in column.childCount - 1 downTo placeholders.size) column.removeViewAt(index)
             if (shouldShowEmptyStateIcon) {
                 column.addView(
                     emptyStateIconView,
@@ -242,64 +299,53 @@ class AgentHintsCell(context: Context) :
                     }
                 )
             }
-            for (hint in hints) {
-                val card = WAgentHintView(
-                    context,
-                    hint.title,
-                    contentHorizontalPadding = CHIP_HORIZONTAL_PADDING.dp,
-                    borderWidth = CHIP_BORDER_WIDTH.dp,
-                    showsIcon = areFollowups
-                ) { onHintTap?.invoke(hint) }.apply {
-                    contentDescription = hint.title
-                    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
-                    accessibilityDelegate = object : AccessibilityDelegate() {
-                        override fun onInitializeAccessibilityNodeInfo(
-                            host: View,
-                            info: AccessibilityNodeInfo
-                        ) {
-                            super.onInitializeAccessibilityNodeInfo(host, info)
-                            info.className = android.widget.Button::class.java.name
-                        }
+            for ((index, hint) in hints.withIndex()) {
+                val placeholder = placeholders.getOrNull(index)
+                if (placeholder != null) {
+                    // Only the title comes in, after the placeholder's own entrance, and the pill resizes to it
+                    placeholder.setOnClickListener { onHintTap?.invoke(hint, placeholder) }
+                    makeAccessible(placeholder, hint)
+                    placeholder.updateLayoutParams<LinearLayout.LayoutParams> {
+                        width = WRAP_CONTENT
+                        height = WRAP_CONTENT
                     }
+                    val stagger = if (loadingAlreadyRevealed) 0L else index * revealStagger
+                    placeholder.revealContent(hint.title, CONTENT_REVEAL_DELAY_MS + stagger)
+                    continue
                 }
-                for (childIndex in 0 until card.childCount) {
-                    card.getChildAt(childIndex).importantForAccessibility =
-                        IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                lateinit var card: WAgentHintView
+                card = makeCard(hint.title, showsIcon = areFollowups) {
+                    onHintTap?.invoke(hint, card)
                 }
+                makeAccessible(card, hint)
                 val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     if (column.childCount > 0) topMargin = CARD_SPACING.dp
                 }
                 column.addView(card, lp)
             }
+            if (placeholders.isNotEmpty()) {
+                // The row takes the suggestions' height on the spring it opens on rather than at once, so that a list
+                // resting on its end moves with it
+                when {
+                    isOpening -> Unit
+                    canReveal && previousHeight > 0 -> openFollowups(from = previousHeight)
+                    else -> resetPresentation()
+                }
+                if (canReveal) {
+                    // The suggestions past the placeholders come in after the last of them, one by one
+                    val lastPlaceholderSlot =
+                        if (loadingAlreadyRevealed) 0 else placeholders.lastIndex
+                    revealFollowups(
+                        fromIndex = placeholders.size,
+                        delay = (lastPlaceholderSlot + 1) * FOLLOWUP_REVEAL_STAGGER_MS
+                    )
+                }
+                return
+            }
         } else {
             updateTheme()
         }
-        if (wasLoading && WGlobalStorage.getAreAnimationsActive()) {
-            resetPresentation()
-            revealPreDrawListener = column.doOnPreDraw {
-                revealPreDrawListener = null
-                for (index in 0 until minOf(column.childCount, loadingPlaceholders.size)) {
-                    val card = column.getChildAt(index)
-                    val placeholder = loadingPlaceholders[index]
-                    card.pivotX = 0f
-                    card.pivotY = 0f
-                    card.scaleX = placeholder.width.toFloat() / card.width.coerceAtLeast(1)
-                    card.scaleY = placeholder.height.toFloat() / card.height.coerceAtLeast(1)
-                    placeholder.layout(0, 0, card.width, card.height)
-                    (card as ViewGroup).overlay.add(placeholder)
-                    loadingOverlays.add(card to placeholder)
-                    card.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(300).start()
-                    placeholder.animate().alpha(0f)
-                        .setStartDelay(if (loadingAlreadyRevealed) 0 else index * revealStagger)
-                        .setDuration(300)
-                        .withEndAction {
-                            card.overlay.remove(placeholder)
-                            loadingOverlays.remove(card to placeholder)
-                        }
-                        .start()
-                }
-            }
-        } else if (shouldAnimate && WGlobalStorage.getAreAnimationsActive()) {
+        if (shouldAnimate && canReveal) {
             startReveal()
         } else {
             resetPresentation()
@@ -308,19 +354,43 @@ class AgentHintsCell(context: Context) :
 
     fun updateTheme() {
         for (i in 0 until column.childCount) {
-            when (val child = column.getChildAt(i)) {
-                is WAgentHintView -> child.updateTheme()
-                is AgentMessagesSkeletonView -> child.updateTheme()
-            }
+            (column.getChildAt(i) as? WAgentHintView)?.updateTheme()
         }
     }
 
     fun setCardsEnabled(enabled: Boolean) {
         for (i in 0 until column.childCount) {
-            (column.getChildAt(i) as? WAgentHintView)?.apply {
-                isEnabled = enabled
-                isClickable = enabled
+            val card = column.getChildAt(i) as? WAgentHintView ?: continue
+            if (card.isPlaceholder) continue
+            card.isEnabled = enabled
+            card.isClickable = enabled
+        }
+    }
+
+    private fun makeCard(title: String, showsIcon: Boolean, onTap: () -> Unit) = WAgentHintView(
+        context,
+        title,
+        contentHorizontalPadding = CHIP_HORIZONTAL_PADDING.dp,
+        borderWidth = CHIP_BORDER_WIDTH.dp,
+        showsIcon = showsIcon,
+        onTap = onTap
+    )
+
+    private fun makeAccessible(card: WAgentHintView, hint: AgentHint) {
+        card.contentDescription = hint.title
+        card.importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        card.accessibilityDelegate = object : AccessibilityDelegate() {
+            override fun onInitializeAccessibilityNodeInfo(
+                host: View,
+                info: AccessibilityNodeInfo
+            ) {
+                super.onInitializeAccessibilityNodeInfo(host, info)
+                info.className = android.widget.Button::class.java.name
             }
+        }
+        for (childIndex in 0 until card.childCount) {
+            card.getChildAt(childIndex).importantForAccessibility =
+                IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         }
     }
 
@@ -436,24 +506,27 @@ class AgentHintsCell(context: Context) :
         }
     }
 
-    private fun cancelAnimations() {
+    // A row still opening the suggestions' space goes on opening with [shouldKeepOpening], and the cards in
+    // [keptReveals] go on coming in
+    private fun cancelAnimations(
+        shouldKeepOpening: Boolean = false,
+        keptReveals: Collection<View> = emptyList()
+    ) {
         loadingRevealCompletedAt = null
+        finishReveal(keptReveals)
         // Hand back the pending completions before dropping them: callers such as the hints
         // dismissal own state that is only released by these callbacks.
         val pendingCollapseEnd = collapseEnd
         val pendingExpandEnd = expandEnd
         collapseEnd = null
         expandEnd = null
-        setListClipping(true)
-        revealPreDrawListener?.removeListener()
-        revealPreDrawListener = null
-        loadingOverlays.forEach { (card, placeholder) ->
-            placeholder.animate().cancel()
-            (card as ViewGroup).overlay.remove(placeholder)
+        if (!shouldKeepOpening) {
+            setListClipping(true)
+            revealPreDrawListener?.removeListener()
+            revealPreDrawListener = null
+            revealSpring?.cancel()
+            revealSpring = null
         }
-        loadingOverlays.clear()
-        revealSpring?.cancel()
-        revealSpring = null
         collapseSpring?.cancel()
         collapseSpring = null
         expandSpring?.cancel()
@@ -471,14 +544,24 @@ class AgentHintsCell(context: Context) :
         }
     }
 
+    /** Ends the suggestions' blur-in where it would end, except on the cards in [keptReveals] */
+    fun finishReveal(keptReveals: Collection<View> = emptyList()) {
+        val reveals = followupReveals.filterKeys { it !in keptReveals }
+        followupReveals.keys.removeAll(reveals.keys)
+        reveals.values.forEach { it.end() }
+    }
+
     fun reveal(delay: Long = 0) {
-        cancelAnimations()
-        resetPresentation()
-        if (!WGlobalStorage.getAreAnimationsActive()) return
-        if (isLoadingRendered) {
-            loadingRevealCompletedAt = SystemClock.uptimeMillis() + delay +
-                (column.childCount - 1).coerceAtLeast(0) * revealStagger +
-                AnimationConstants.VERY_QUICK_ANIMATION
+        // A row still opening its space goes on opening, so that a list resting on its end doesn't jump, and only its
+        // suggestions come in again
+        val shouldKeepOpening = areFollowupsRendered && isOpening
+        cancelAnimations(shouldKeepOpening)
+        if (!shouldKeepOpening) resetPresentation()
+        if (!canReveal) return
+        if (isLoadingRendered) loadingRevealCompletedAt = computeRevealEnd(delay)
+        if (areFollowupsRendered) {
+            revealFollowups(delay)
+            return
         }
         for (i in 0 until column.childCount) {
             column.getChildAt(i).apply {
@@ -492,9 +575,23 @@ class AgentHintsCell(context: Context) :
         }
     }
 
+    // When the cards coming in one by one after `delay` are all in
+    private fun computeRevealEnd(delay: Long): Long {
+        val duration = if (areFollowupsRendered) {
+            FOLLOWUP_REVEAL_MS
+        } else {
+            AnimationConstants.VERY_QUICK_ANIMATION
+        }
+        return SystemClock.uptimeMillis() + delay +
+            (column.childCount - 1).coerceAtLeast(0) * revealStagger + duration
+    }
+
     private fun resetPresentation() {
         for (i in 0 until column.childCount) {
-            column.getChildAt(i).apply {
+            val child = column.getChildAt(i)
+            // A card still coming in out of its blur ends where its own entrance does
+            if (followupReveals[child]?.isStarted == true) continue
+            child.apply {
                 alpha = 1f
                 translationY = 0f
                 scaleX = 1f
@@ -505,6 +602,11 @@ class AgentHintsCell(context: Context) :
     }
 
     private fun startReveal() {
+        if (areFollowupsRendered) {
+            revealFollowups(delay = 0)
+            openFollowups(from = 1)
+            return
+        }
         for (i in 0 until column.childCount) {
             column.getChildAt(i).apply {
                 alpha = 0f
@@ -514,27 +616,13 @@ class AgentHintsCell(context: Context) :
         setAnimatedHeight(1)
         revealPreDrawListener = doOnPreDraw {
             revealPreDrawListener = null
-            measure(
-                MeasureSpec.makeMeasureSpec((parent as? View)?.width ?: width, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
-            )
-            // measuredHeight reports animatedHeight while animating; the natural size is
-            // captured by onMeasure during the measure call above.
-            val targetHeight = naturalHeight
+            val targetHeight = measureNaturalHeight()
             if (targetHeight <= 0) {
                 resetPresentation()
                 return@doOnPreDraw
             }
             setListClipping(false)
             val revealedViews = (0 until column.childCount).mapNotNull { column.getChildAt(it) }
-            if (areFollowupsRendered) {
-                revealedViews.forEachIndexed { index, card ->
-                    card.animate().alpha(1f).translationY(0f)
-                        .setStartDelay(index * revealStagger)
-                        .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
-                        .start()
-                }
-            }
             val count = revealedViews.size
             val totalMs = (
                 (count - 1).coerceAtLeast(0) * cardStagger +
@@ -552,7 +640,7 @@ class AgentHintsCell(context: Context) :
                     val newHeight = value.roundToInt().coerceIn(1, targetHeight)
                     setAnimatedHeight(newHeight)
                     val progress = (newHeight - 1f) / (targetHeight - 1).coerceAtLeast(1)
-                    for (i in 0 until if (areFollowupsRendered) 0 else count) {
+                    for (i in 0 until count) {
                         val local = ((progress - i * stagger) / window).coerceIn(0f, 1f)
                         revealedViews[i].apply {
                             alpha = local
@@ -563,12 +651,75 @@ class AgentHintsCell(context: Context) :
                 addEndListener { _, canceled, _, _ ->
                     revealSpring = null
                     setListClipping(true)
-                    if (!canceled) {
-                        if (areFollowupsRendered) clearAnimatedHeight() else resetPresentation()
-                    }
+                    if (!canceled) resetPresentation()
                 }
                 start()
             }
         }
+    }
+
+    /**
+     * The suggestions under an answer come in one after another, each out of a blur as it fades in
+     * and rises into place, as on iOS
+     */
+    private fun revealFollowups(delay: Long, fromIndex: Int = 0) {
+        for (index in fromIndex until column.childCount) {
+            val card = column.getChildAt(index)
+            followupReveals[card] = AgentBlurTransition.animateIn(
+                card,
+                FOLLOWUP_REVEAL_MS,
+                delayMs = delay + (index - fromIndex) * FOLLOWUP_REVEAL_STAGGER_MS,
+                fromOffsetDp = FOLLOWUP_REVEAL_OFFSET,
+                interpolator = FOLLOWUP_REVEAL_CURVE
+            )
+        }
+    }
+
+    /**
+     * Opens the suggestions' row from [from] to the height they take, which a list resting on its end follows, so
+     * that it scrolls them into view as iOS's list does. The row follows that height while it changes, as a
+     * placeholder's pill resizes to its suggestion.
+     */
+    private fun openFollowups(from: Int) {
+        setAnimatedHeight(from)
+        revealPreDrawListener = doOnPreDraw {
+            revealPreDrawListener = null
+            var targetHeight = measureNaturalHeight()
+            if (targetHeight <= 0) {
+                resetPresentation()
+                return@doOnPreDraw
+            }
+            setListClipping(false)
+            revealSpring = SpringAnimation(FloatValueHolder()).apply {
+                setStartValue(from.toFloat())
+                spring = SpringForce(targetHeight.toFloat()).apply {
+                    stiffness = FOLLOWUP_OPENING_STIFFNESS
+                    dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+                }
+                addUpdateListener { _, value, _ ->
+                    // Each layout of the list measures the height the suggestions take by then
+                    if (naturalHeight > 0 && naturalHeight != targetHeight) {
+                        targetHeight = naturalHeight
+                        animateToFinalPosition(targetHeight.toFloat())
+                    }
+                    setAnimatedHeight(value.roundToInt().coerceAtLeast(1))
+                }
+                addEndListener { _, canceled, _, _ ->
+                    revealSpring = null
+                    setListClipping(true)
+                    if (!canceled) clearAnimatedHeight()
+                }
+                start()
+            }
+        }
+    }
+
+    // measuredHeight reports animatedHeight while animating; the natural size is captured by onMeasure
+    private fun measureNaturalHeight(): Int {
+        measure(
+            MeasureSpec.makeMeasureSpec((parent as? View)?.width ?: width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+        )
+        return naturalHeight
     }
 }

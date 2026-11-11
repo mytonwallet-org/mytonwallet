@@ -79,6 +79,10 @@ internal object AgentTextLinks {
         return copy.toString()
     }
 
+    /** `text` without its markers, each label left as plain text, as code shows it */
+    fun removeMarkers(text: String): String =
+        markedLinkOrStrayMarker.replace(text) { it.groups[2]?.value.orEmpty() }
+
     /** The URL of a marker, or null when it does not decode to a link the app may open */
     fun decodeUrl(encodedUrl: String): String? =
         runCatching { URLDecoder.decode(encodedUrl, "UTF-8") }.getOrNull()?.takeIf(::isOpenable)

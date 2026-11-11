@@ -47,11 +47,11 @@ object RobinhoodConfig : MBlockchainConfig {
 
     override fun idToTxHash(id: String?): String? = id?.substringBefore(":")
 
-    override fun transactionExplorers() = listOf(MBlockchainExplorer.ROBINSCAN)
+    override fun transactionExplorers() = listOf(MBlockchainExplorer.BLOCKSCOUT)
 
-    override fun addressExplorers() = listOf(MBlockchainExplorer.ROBINSCAN)
+    override fun addressExplorers() = listOf(MBlockchainExplorer.BLOCKSCOUT)
 
-    override fun tokenExplorer() = MBlockchainExplorer.ROBINSCAN
+    override fun tokenExplorer() = MBlockchainExplorer.BLOCKSCOUT
 
     override fun nftExplorer() = null
 }

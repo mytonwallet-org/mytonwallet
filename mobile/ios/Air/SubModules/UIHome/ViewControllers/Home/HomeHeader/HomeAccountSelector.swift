@@ -60,7 +60,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var collectionView: _CollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
-    var contentMargins = NSDirectionalEdgeInsets(top: 0, leading: compactInsetSectionHorizontalPadding, bottom: 0, trailing: compactInsetSectionHorizontalPadding) {
+    public var contentMargins = NSDirectionalEdgeInsets(top: 0, leading: compactInsetSectionHorizontalPadding, bottom: 0, trailing: compactInsetSectionHorizontalPadding) {
         didSet {
             guard oldValue != contentMargins else { return }
             setNeedsLayout()

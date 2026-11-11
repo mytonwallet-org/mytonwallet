@@ -1,13 +1,14 @@
 import type { LangFn } from '../../../util/langProvider';
 
-import { formatFullDay, formatTime, getDayStartAt } from '../../../util/dateFormat';
+import { formatAgentDay, formatAgentTime } from './agentDateFormat';
 
-/** The day and the time a chat's date line and message menus show: "Today" or the month and day, then the time */
+/**
+ * The day and the time a chat's date line and message menus show: "Today", "Yesterday" or the month and day, with the
+ * year for another year, then the time
+ */
 export default function formatAgentChatDate(lang: LangFn, timestamp: number) {
-  const isToday = getDayStartAt(timestamp) === getDayStartAt(Date.now());
-
   return {
-    day: isToday ? lang('Today') : formatFullDay(lang.code!, timestamp),
-    time: formatTime(timestamp),
+    day: formatAgentDay(lang, timestamp),
+    time: formatAgentTime(lang.code ?? 'en', timestamp),
   };
 }

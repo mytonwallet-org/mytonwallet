@@ -274,7 +274,7 @@ public struct ApiTokenDetails: Equatable, Decodable, Sendable {
     }
 }
 
-private struct LossyDecodable<Value: Decodable>: Decodable {
+struct LossyDecodable<Value: Decodable>: Decodable {
     let value: Value?
 
     init(from decoder: any Decoder) throws {

@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
+import androidx.core.view.children
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -30,6 +31,8 @@ import me.everything.android.ui.overscroll.IOverScrollState
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiassets.viewControllers.views.MultisigWalletWarningView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
+import org.mytonwallet.app_air.uicomponents.base.ITabsVC
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -76,6 +79,7 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.activities.AllActivitiesVC
 import org.mytonwallet.uihome.home.cells.HomeAssetsVCPool
+import org.mytonwallet.uihome.home.cells.HomeExploreCell
 import org.mytonwallet.uihome.home.cells.HomePhoneAssetsCell
 import org.mytonwallet.uihome.home.cells.HomeTabletAssetsCell
 import org.mytonwallet.uihome.home.cells.HomeTabletAssetsSkeletonCell
@@ -106,6 +110,7 @@ class ActivityListView<T>(
     companion object {
         private const val REMOVE_ANIMATION_FALLBACK_MS = 1500L
         private const val SHOW_ALL_ROW_HEIGHT = 56
+        private const val EMPTY_CARD_HEIGHT = 160
         val HEADER_CELL = WCell.Type(1)
         val ACTIONS_CELL = WCell.Type(2)
         val ASSETS_CELL = WCell.Type(3)
@@ -124,6 +129,7 @@ class ActivityListView<T>(
         val SHOW_ALL_ACTIVITIES_CELL = WCell.Type(15)
 
         val PROMOTIONS_CELL = WCell.Type(16)
+        val EXPLORE_CELL = WCell.Type(17)
 
         const val HEADER_SECTION = 0
         const val PROMOTIONS_SECTION = 1
@@ -132,6 +138,7 @@ class ActivityListView<T>(
         const val TRANSACTION_SECTION = 4
         const val EMPTY_VIEW_SECTION = 5
         const val LOADING_SECTION = 6
+        const val EXPLORE_SECTION = 7
 
         const val LARGE_INT = 10000
 
@@ -903,7 +910,8 @@ class ActivityListView<T>(
                 TOKENS_CELL,
                 ACTIVITY_TITLE_CELL,
                 SHOW_ALL_ACTIVITIES_CELL,
-                PROMOTIONS_CELL
+                PROMOTIONS_CELL,
+                EXPLORE_CELL
             )
         ).apply {
             setHasStableIds(true)
@@ -1049,7 +1057,7 @@ class ActivityListView<T>(
             context,
             ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, SHOW_ALL_ROW_HEIGHT.dp)
         ).apply {
-            val showAllView = ShowAllView(context).apply {
+            val showAllView = ShowAllView(context, UIComponentsR.id.activity_menu_button).apply {
                 configure(
                     icon = org.mytonwallet.app_air.icons.R.drawable.ic_show_all,
                     text = LocaleController.getString("Show All Actions")
@@ -1066,6 +1074,19 @@ class ActivityListView<T>(
         }
     }
     private val showAllActivitiesCell: WCell by showAllActivitiesCellLazy
+
+    private val exploreCell: HomeExploreCell by lazy {
+        HomeExploreCell(
+            context,
+            onMarketTap = { tabsVC?.switchToMarket() },
+            onFuturesTap = { tabsVC?.switchToFutures() },
+            onAppsTap = { tabsVC?.switchToExplore() }
+        )
+    }
+
+    private val tabsVC: ITabsVC?
+        get() = dataSource?.window?.topNavigationController?.viewControllers
+            ?.firstOrNull() as? ITabsVC
 
     // The "Show All" row entered the card on the latest update (activities outgrew the card):
     // its next bind reveals it by growing from zero.
@@ -1148,6 +1169,13 @@ class ActivityListView<T>(
                 hasSeparator = false
             ) {
                 setHomeActivitiesTopLimit(option)
+            }.apply {
+                testViewId = when (option) {
+                    5 -> UIComponentsR.id.activity_menu_top_5
+                    10 -> UIComponentsR.id.activity_menu_top_10
+                    30 -> UIComponentsR.id.activity_menu_top_30
+                    else -> null
+                }
             }
         }
         WMenuPopup.present(
@@ -1380,15 +1408,16 @@ class ActivityListView<T>(
         val dataSource = dataSource ?: return 0
         val itemCount = recyclerView.adapter?.itemCount ?: 0
         if (itemCount == 0 || recyclerView.height <= 0) return 0
-        val contentBottom = rvLayoutManager.findViewByPosition(itemCount - 1)?.let { last ->
-            if (removingEmptyCell) {
-                rvLayoutManager.getDecoratedTop(last)
-            } else {
-                rvLayoutManager.getDecoratedBottom(last)
-            }
-        } ?: rvLayoutManager.estimateContentBottom(
-            if (removingEmptyCell) itemCount - 1 else itemCount
-        ) ?: return 0
+        val lastBottom = rvLayoutManager.findViewByPosition(itemCount - 1)?.let { last ->
+            rvLayoutManager.getDecoratedBottom(last)
+        } ?: rvLayoutManager.estimateContentBottom(itemCount) ?: return 0
+        // A collapsing empty card is measured as already gone, so the gap doesn't follow it.
+        val removingEmptyCellHeight = if (removingEmptyCell) {
+            recyclerView.children.firstOrNull { it is EmptyCell }?.height ?: 0
+        } else {
+            0
+        }
+        val contentBottom = lastBottom - removingEmptyCellHeight
         val currentOffset = recyclerView.computeVerticalScrollOffset()
         val contentTop = recyclerView.paddingTop - currentOffset
         val scrollable = contentBottom - contentTop +
@@ -1784,7 +1813,8 @@ class ActivityListView<T>(
             recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, LOADING_SECTION)
-        if (rvAdapter.itemCount != startInt + count) {
+        val trailingCount = recyclerViewNumberOfItems(recyclerView, EXPLORE_SECTION)
+        if (rvAdapter.itemCount != startInt + count + trailingCount) {
             reloadData()
         } else if (count > 0) {
             rvAdapter.reloadRange(startInt, count)
@@ -1794,7 +1824,7 @@ class ActivityListView<T>(
     // RECYCLER VIEW ///////////////////////////////////////////////////////////////////////////////
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = when (rv) {
         recyclerView -> {
-            if (isShowingRecyclerView || isGeneralDataAvailable) 7 else 1
+            if (isShowingRecyclerView || isGeneralDataAvailable) 8 else 1
         }
 
         skeletonRecyclerView -> {
@@ -1852,6 +1882,9 @@ class ActivityListView<T>(
                         if (usesCardSections) 0 else 1
                     }
 
+                    // Gap + card.
+                    EXPLORE_SECTION -> if (usesCardSections && showingTransactions != null) 2 else 0
+
                     else -> throw Error()
                 }
             }
@@ -1899,6 +1932,8 @@ class ActivityListView<T>(
                     LOADING_SECTION -> {
                         SKELETON_CELL
                     }
+
+                    EXPLORE_SECTION -> if (indexPath.row == 0) BLACK_CELL else EXPLORE_CELL
 
                     else -> {
                         if (usesCardSections) {
@@ -1998,6 +2033,10 @@ class ActivityListView<T>(
 
                     SHOW_ALL_ACTIVITIES_CELL -> {
                         showAllActivitiesCell
+                    }
+
+                    EXPLORE_CELL -> {
+                        exploreCell
                     }
 
                     TRANSACTION_CELL -> {
@@ -2237,27 +2276,7 @@ class ActivityListView<T>(
                                 }
                                 emptyCellCollapseAnimation?.cancel()
                                 cell.emptyView.alpha = 1f
-                                // Fill the viewport below the collapsed header so the list can
-                                // still scroll far enough to collapse the card.
-                                val systemBars = dataSource?.navigationController?.getSystemBars()
-                                val occupiedHeight =
-                                    (systemBars?.top ?: 0) +
-                                        (dataSource?.phoneHeaderView?.collapsedHeight ?: 0) +
-                                        (tokensCell?.height ?: 0) + ViewConstants.GAP.dp +
-                                        (
-                                            if (showsCollectiblesCard) {
-                                                (assetsCell?.asCell?.height ?: 0) +
-                                                    ViewConstants.GAP.dp
-                                            } else {
-                                                0
-                                            }
-                                            ) +
-                                        activityTitleCell.height +
-                                        recyclerView.paddingBottom
-                                cell.layoutParams = cell.layoutParams.apply {
-                                    height = (recyclerView.height - occupiedHeight)
-                                        .coerceAtLeast(160.dp)
-                                }
+                                cell.updateLayoutParams { height = EMPTY_CARD_HEIGHT.dp }
                             } else {
                                 val systemBars = dataSource?.navigationController?.getSystemBars()
                                 val occupiedHeight =
@@ -2273,6 +2292,14 @@ class ActivityListView<T>(
                                         occupiedHeight
                                 }
                             }
+                        }
+                    }
+
+                    EXPLORE_SECTION -> {
+                        if (cellHolder.cell === exploreCell) {
+                            exploreCell.updateTheme()
+                        } else {
+                            cellHolder.cell.updateLayoutParams { height = ViewConstants.GAP.dp }
                         }
                     }
 

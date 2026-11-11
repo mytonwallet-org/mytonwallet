@@ -10,6 +10,7 @@ import {
 
 import type { AlchemyPrepareCallsResult, AlchemyPreparedCallItem, AlchemyPreparedCallsBinding } from './alchemyWallet';
 import type { EvmMetaTransaction } from './types';
+import type { UserOperationV07Data } from './userOperation';
 
 import {
   estimateMaxCostFromPrepareResult,
@@ -124,7 +125,7 @@ function bindTo(wallet: { address: string }, calls = BASE_CALLS): AlchemyPrepare
 function withOperationData(operation: AlchemyPreparedCallItem, patch: Record<string, string>): AlchemyPreparedCallItem {
   const data = { ...operation.data, ...patch };
 
-  const raw = hashUserOperationV07(data, CHAIN_ID);
+  const raw = hashUserOperationV07(data as UserOperationV07Data, CHAIN_ID);
 
   return { ...operation, data, signatureRequest: { type: 'personal_sign', data: { raw } } };
 }

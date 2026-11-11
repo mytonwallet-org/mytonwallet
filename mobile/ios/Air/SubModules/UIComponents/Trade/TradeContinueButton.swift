@@ -25,14 +25,7 @@ public struct TradeContinueButton: UIViewRepresentable {
         button.accessibilityIdentifier = accessibilityIdentifier
         context.coordinator.presenter = DraftButtonPresenter(button: button)
         let titleView = context.coordinator.titleView
-        titleView.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(titleView)
-        NSLayoutConstraint.activate([
-            titleView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 40),
-            titleView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -40),
-            titleView.topAnchor.constraint(equalTo: button.topAnchor),
-            titleView.bottomAnchor.constraint(equalTo: button.bottomAnchor)
-        ])
+        button.setCustomContentView(titleView)
         button.addTarget(context.coordinator, action: #selector(Coordinator.pressed), for: .touchUpInside)
         return button
     }
@@ -50,6 +43,7 @@ public struct TradeContinueButton: UIViewRepresentable {
         )
         context.coordinator.action = action
         context.coordinator.isEnabled = effectiveConfiguration.isEnabled
+        button.areLoadingAnimationsEnabled = !reduceMotion && animationsEnabled
         // Keep UIKit's configured title empty: switching glass styles can rebuild
         // its label before it has a centered frame.
         context.coordinator.presenter?.apply(.init(
@@ -73,6 +67,8 @@ public struct TradeContinueButton: UIViewRepresentable {
             foreground: foreground,
             animated: button.window != nil && !reduceMotion && animationsEnabled
         )
+        button.invalidateIntrinsicContentSize()
+        button.setNeedsLayout()
         button.isAccessibilityElement = true
         button.accessibilityTraits.insert(.button)
         button.accessibilityLabel = context.coordinator.titleView.text
@@ -92,52 +88,4 @@ public struct TradeContinueButton: UIViewRepresentable {
     }
 }
 
-/// A fixed text surface keeps both sides of a replacement centered, independently
-/// of UIButton's glass configuration and its internal title layout.
-public final class TradeButtonTitleView: UILabel {
-    private var title: DraftButtonConfiguration.Title?
-
-    public init() {
-        super.init(frame: .zero)
-        font = WButton.capsuleFont
-        textAlignment = .center
-        numberOfLines = 1
-        adjustsFontSizeToFitWidth = true
-        minimumScaleFactor = 0.8
-        isUserInteractionEnabled = false
-        isAccessibilityElement = false
-    }
-
-    public required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    public func update(title: DraftButtonConfiguration.Title, foreground: UIColor, animated: Bool) {
-        if !animated {
-            layer.removeAnimation(forKey: "titleOpacity")
-            layer.removeAnimation(forKey: "titleScale")
-        }
-        let replacesTitle = self.title != nil && self.title != title
-        self.title = title
-        if replacesTitle && animated && !bounds.isEmpty {
-            let fade = CATransition()
-            fade.type = .fade
-            fade.duration = 0.2
-            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            layer.add(fade, forKey: "titleOpacity")
-
-            let scale = CABasicAnimation(keyPath: "transform.scale")
-            scale.fromValue = 0.96
-            scale.toValue = 1
-            scale.duration = fade.duration
-            scale.timingFunction = fade.timingFunction
-            layer.add(scale, forKey: "titleScale")
-        }
-        switch title {
-        case .text(let text):
-            self.attributedText = nil
-            self.text = text
-        case .attributed(let text, _):
-            self.attributedText = text
-        }
-        textColor = foreground
-    }
-}
+public typealias TradeButtonTitleView = NativeTradeButtonTitleView

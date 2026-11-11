@@ -33,6 +33,7 @@ enum AgentSkeletonReveal {
                 let targetView = (cell as? AgentMessageCell)?.skeletonRevealView
                     ?? (cell as? AgentNewsPostCell)?.newsView.bubbleView
                     ?? (cell as? AgentNewsFeedCardCell)?.newsView.bubbleView
+                    ?? (cell as? AgentNewsDigestCardCell)?.bubbleView
                     ?? cell.contentView
                 let target = targetView.convert(targetView.bounds, to: collectionView)
                 guard target.width > 0, target.height > 0 else { continue }

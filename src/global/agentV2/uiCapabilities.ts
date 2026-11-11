@@ -8,4 +8,5 @@ export const AGENT_V2_CLASSIC_UI_CAPABILITIES: AgentV2HostUiCapabilities = {
   supportsMessageEdit: true,
   supportsRegenerate: true,
   supportsSendRecipientWithoutAsset: true,
+  supportsSupportHandoff: true,
 };

@@ -115,6 +115,10 @@ export function parseCssColor(color: string): RgbaColor | undefined {
     };
   }
 
+  // `color-mix()` computes to this form
+  const srgbMatch = normalizedColor.match(/^color\(srgb\s+(.*)\)$/);
+  if (srgbMatch) return parseSrgbColor(srgbMatch[1]);
+
   const rgbMatch = normalizedColor.match(/^rgba?\((.*)\)$/i);
   if (!rgbMatch) return undefined;
 
@@ -160,6 +164,28 @@ function parseHexadecimalColorChannel(hexadecimal: string, isShort: boolean, off
       : hexadecimal.slice(offset, offset + 2),
     16,
   );
+}
+
+// The channels of `color(srgb …)` run from 0 to 1
+function parseSrgbColor(value: string): RgbaColor | undefined {
+  const [channels, alphaComponent, ...rest] = value.trim().split(/\s*\/\s*/);
+  const components = channels.split(/\s+/);
+  if (rest.length || components.length !== 3) return undefined;
+
+  const [red, green, blue] = components.map(parseSrgbColorChannel);
+  const alpha = alphaComponent === undefined ? 1 : parseCssAlpha(alphaComponent);
+  if ([red, green, blue, alpha].some((component) => component === undefined)) return undefined;
+
+  return {
+    red: red!, green: green!, blue: blue!, alpha: alpha!,
+  };
+}
+
+function parseSrgbColorChannel(component: string) {
+  const value = parseFloat(component);
+  if (!Number.isFinite(value)) return undefined;
+
+  return Math.min(255, Math.max(0, component.endsWith('%') ? value * 2.55 : value * 255));
 }
 
 function parseCssColorChannel(component: string) {

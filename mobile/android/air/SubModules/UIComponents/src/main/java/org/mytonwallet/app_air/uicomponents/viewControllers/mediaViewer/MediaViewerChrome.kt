@@ -2,13 +2,11 @@ package org.mytonwallet.app_air.uicomponents.viewControllers.mediaViewer
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.TextPaint
@@ -28,7 +26,6 @@ import kotlin.math.min
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
-import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLtrBaselineSpacingOffset
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
@@ -78,41 +75,21 @@ private fun Calendar.isSameDay(other: Calendar): Boolean =
     get(Calendar.YEAR) == other.get(Calendar.YEAR) &&
         get(Calendar.DAY_OF_YEAR) == other.get(Calendar.DAY_OF_YEAR)
 
-internal data class MediaViewerCountText(
-    val prefix: String,
-    val middle: String,
-    val suffix: String
-) {
-    companion object {
-        fun from(format: String): MediaViewerCountText {
-            val current = format.indexOf(CURRENT)
-            val total = format.indexOf(TOTAL)
-            if (current < 0 || total < current) return MediaViewerCountText("", " / ", "")
-            return MediaViewerCountText(
-                format.substring(0, current),
-                format.substring(current + CURRENT.length, total),
-                format.substring(total + TOTAL.length)
-            )
-        }
-
-        private const val CURRENT = "%current%"
-        private const val TOTAL = "%total%"
-    }
-}
+/** The bar's lines: among several pictures, the picture's place over its [date]; alone, the date. */
+internal fun mediaViewerTitles(position: Int, count: Int, date: String?): Pair<String, String?> =
+    if (count > 1) formatMediaViewerPlace(position, count) to date else date.orEmpty() to null
 
 internal fun mediaViewerDescription(position: Int, count: Int, label: String?): String {
     val picture = LocaleController.getString("Picture")
-    val name = if (count > 1) {
-        val place = LocaleController.getStringWithKeyValues(
-            "\$agent_wallet_page_indicator",
-            listOf("%current%" to position.toString(), "%total%" to count.toString())
-        )
-        "$picture $place"
-    } else {
-        picture
-    }
+    val name = if (count > 1) "$picture ${formatMediaViewerPlace(position, count)}" else picture
     return listOfNotNull(name, label?.takeIf { it.isNotBlank() }).joinToString(", ")
 }
+
+private fun formatMediaViewerPlace(position: Int, count: Int): String =
+    LocaleController.getStringWithKeyValues(
+        "\$agent_wallet_page_indicator",
+        listOf("%current%" to position.toString(), "%total%" to count.toString())
+    )
 
 internal enum class MediaViewerTurn(val step: Int, val titleKey: String) {
     PREVIOUS(-1, "Previous"),
@@ -331,112 +308,6 @@ internal class MediaViewerActionBar(context: Context) : FrameLayout(context) {
         const val NAVIGATION_TITLE_SIZE = 22f
         const val NAVIGATION_SUBTITLE_SIZE = 12f
         const val TEXT_SWAP_MS = 320L
-    }
-}
-
-@SuppressLint("ViewConstructor")
-internal class MediaViewerCountView(context: Context) :
-    View(context),
-    Counter.Callback {
-    private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = TEXT_SIZE.dp.toFloat()
-        typeface = WFont.Medium.typeface
-    }
-    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BAR_COLOR }
-    private val current = Counter(textPaint, this, duration = DIGITS_MS)
-    private val total = Counter(textPaint, this, duration = DIGITS_MS)
-    private var text =
-        MediaViewerCountText.from(LocaleController.getString("\$agent_wallet_page_indicator"))
-    private val pill = RectF()
-    private var isPillShown = false
-    private var showProgress = 0f
-    private var showAnimator: ValueAnimator? = null
-
-    var bandTop = 0
-        set(value) {
-            if (field == value) return
-            field = value
-            requestLayout()
-        }
-
-    fun set(position: Int, count: Int, animated: Boolean) {
-        current.setValue(position.toString(), animated && isPillShown)
-        total.setValue(count.toString(), animated && isPillShown)
-        invalidate()
-    }
-
-    fun setShown(show: Boolean, animated: Boolean) {
-        if (show == isPillShown) return
-        isPillShown = show
-        showAnimator?.cancel()
-        if (!animated) {
-            showProgress = if (show) 1f else 0f
-            invalidate()
-            return
-        }
-        showAnimator = ValueAnimator.ofFloat(showProgress, if (show) 1f else 0f).apply {
-            duration = SHOW_MS
-            interpolator = CubicBezierInterpolator.EASE_OUT_QUINT
-            addUpdateListener {
-                showProgress = it.animatedValue as Float
-                invalidate()
-            }
-            start()
-        }
-    }
-
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension(
-            MeasureSpec.getSize(widthMeasureSpec),
-            bandTop + (PILL_TOP + PILL_HEIGHT + PILL_TOP).dp
-        )
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        if (showProgress <= 0f) return
-        val prefixWidth = textPaint.measureText(text.prefix)
-        val middleWidth = textPaint.measureText(text.middle)
-        val suffixWidth = textPaint.measureText(text.suffix)
-        val contentWidth = prefixWidth + current.getVisibleWidth() + middleWidth +
-            total.getVisibleWidth() + suffixWidth
-        val width = contentWidth + 2 * PILL_PADDING.dp
-        val top = bandTop + PILL_TOP.dp - (1f - showProgress) * SHOW_SLIDE.dp
-        pill.set((this.width - width) / 2f, top, (this.width + width) / 2f, top + PILL_HEIGHT.dp)
-        backgroundPaint.alpha = (Color.alpha(BAR_COLOR) * showProgress).toInt()
-        val radius = PILL_RADIUS.dp.toFloat()
-        canvas.drawRoundRect(pill, radius, radius, backgroundPaint)
-        val metrics = textPaint.fontMetrics
-        val baseline = pill.centerY() - (metrics.ascent + metrics.descent) / 2f
-        var x = pill.left + PILL_PADDING.dp
-        val alpha = showProgress
-        textPaint.alpha = (255 * alpha).toInt()
-        canvas.drawText(text.prefix, x, baseline, textPaint)
-        x += prefixWidth
-        current.draw(canvas, x, baseline, alpha)
-        x += current.getVisibleWidth()
-        textPaint.alpha = (255 * alpha).toInt()
-        canvas.drawText(text.middle, x, baseline, textPaint)
-        x += middleWidth
-        total.draw(canvas, x, baseline, alpha)
-        x += total.getVisibleWidth()
-        textPaint.alpha = (255 * alpha).toInt()
-        canvas.drawText(text.suffix, x, baseline, textPaint)
-    }
-
-    override fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean) {
-        invalidate()
-    }
-
-    private companion object {
-        const val TEXT_SIZE = 14
-        const val PILL_TOP = 10
-        const val PILL_HEIGHT = 23
-        const val PILL_RADIUS = 12
-        const val PILL_PADDING = 9
-        const val SHOW_SLIDE = 8
-        const val SHOW_MS = 350L
-        const val DIGITS_MS = 320L
     }
 }
 

@@ -6,7 +6,9 @@ import {
   type AgentV2MessagesStateAction,
   INITIAL_AGENT_V2_MESSAGES_STATE,
   reduceAgentV2MessagesState,
+  restoreAgentV2MessagesState,
   selectAgentV2Activity,
+  selectAgentV2CachedChat,
   selectIsAgentV2InputDisabled,
   selectIsAgentV2RunActive,
 } from './agentV2MessagesState';
@@ -14,8 +16,313 @@ import {
 const THREAD_ID = '11111111-1111-4111-8111-111111111111';
 const CLIENT_RUN_ID = '22222222-2222-4222-8222-222222222222';
 const RESET_AT = Date.parse('2026-08-12T00:00:00.000Z');
+const ACTIVE_SEND = {
+  kind: 'send' as const,
+  status: 'active' as const,
+  network: 'ton' as const,
+  accountLabel: 'Main',
+  feeStatus: 'estimated' as const,
+  warningCodes: [],
+};
 
 describe('Agent V2 messages state', () => {
+  it('leaves a loaded chat\'s saved history to open with, and restores it until the history loads again', () => {
+    const hydrated = reduce(INITIAL_AGENT_V2_MESSAGES_STATE, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(2),
+      entries: [entry('persisted-response', message('Persisted response'))],
+      nextCursor: 'older-page',
+      shouldPreserveLiveContent: false,
+    });
+    const cachedChat = selectAgentV2CachedChat(hydrated)!;
+    expect(cachedChat).toMatchObject({
+      thread: threadSummary(2),
+      messages: hydrated.messages,
+      sourceIdByMessageId: { 1: 'persisted-response' },
+      nextCursor: 'older-page',
+    });
+
+    // A message the server doesn't keep and a failure of the chat stay out; a news discussion and a chat loading
+    // again in place leave their history too
+    const failed = selectAgentV2CachedChat({
+      ...hydrated,
+      messages: [...hydrated.messages, message('Failed to go', 2, true)],
+      error: { text: 'Error', timestamp: 1 },
+    })!;
+    expect(failed.messages).toEqual(hydrated.messages);
+    expect(failed.sourceIdByMessageId).toEqual({ 1: 'persisted-response' });
+    expect(failed).not.toHaveProperty('error');
+    expect(selectAgentV2CachedChat({ ...hydrated, isLoading: true })?.messages).toEqual(hydrated.messages);
+    const news = { ...threadSummary(2), news: newsCard() };
+    expect(selectAgentV2CachedChat({ ...hydrated, thread: news })?.thread).toEqual(news);
+    // Nothing is left while an answer is produced, the chat is cleared, or the history is not loaded
+    const answering = reduce(hydrated, { kind: 'runRequested', operationId: 1, operationKind: 'command' });
+    expect(selectAgentV2CachedChat(answering)).toBeUndefined();
+    expect(selectAgentV2CachedChat(INITIAL_AGENT_V2_MESSAGES_STATE)).toBeUndefined();
+
+    const restored = restoreAgentV2MessagesState(cachedChat);
+    expect(restored).toMatchObject({
+      isConsentAccepted: true, hasHydratedHistory: true, isShowingCachedHistory: true, messages: hydrated.messages,
+    });
+    const refreshing = reduce(restored, { kind: 'hydrationStarted', shouldClearError: false });
+    expect(refreshing.isShowingCachedHistory).toBe(true);
+    expect(reduce(refreshing, { kind: 'hydrationFailed' }).isShowingCachedHistory).toBeUndefined();
+    expect(reduce(refreshing, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('persisted-response', message('Persisted response'))],
+      shouldPreserveLiveContent: true,
+    }).isShowingCachedHistory).toBeUndefined();
+  });
+
+  it('takes a restored chat\'s actions from the server, keeping the presentations of unchanged ones', () => {
+    const kept = receiveAction('33333333-3333-4333-8333-333333333331');
+    const changed = receiveAction('33333333-3333-4333-8333-333333333332');
+    const dropped = receiveAction('33333333-3333-4333-8333-333333333333');
+    const restored = restoreAgentV2MessagesState({
+      thread: threadSummary(2),
+      messages: [{
+        ...message('Answer', 2),
+        actions: [kept, changed, dropped],
+        actionPresentations: { [kept.id]: ACTIVE_SEND, [changed.id]: ACTIVE_SEND, [dropped.id]: ACTIVE_SEND },
+      }],
+      sourceIdByMessageId: { 2: 'answer' },
+    });
+    const serverChanged = { ...changed, title: 'Receive TON' };
+
+    const hydrated = reduce(reduce(restored, { kind: 'hydrationStarted', shouldClearError: false }), {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('answer', {
+        ...message('Answer', 2),
+        actions: [kept, serverChanged],
+        actionPresentations: { [kept.id]: { kind: 'inactive' }, [serverChanged.id]: { kind: 'inactive' } },
+      })],
+      shouldPreserveLiveContent: true,
+    });
+
+    expect(hydrated.messages[0].actions).toEqual([kept, serverChanged]);
+    expect(hydrated.messages[0].actionPresentations).toEqual({
+      [kept.id]: ACTIVE_SEND, [serverChanged.id]: { kind: 'inactive' },
+    });
+  });
+
+  it('keeps a live run\'s actions over the history read during it', () => {
+    const liveAction = receiveAction('33333333-3333-4333-8333-333333333334');
+    const live: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      messages: [
+        {
+          ...message('Replayed answer', 2),
+          actions: [liveAction],
+          actionPresentations: { [liveAction.id]: ACTIVE_SEND },
+        },
+        { ...message('Streaming answer', 3), isStreaming: true, actions: [liveAction] },
+      ],
+      sourceIdByMessageId: { 2: 'replayed', 3: 'streaming' },
+    };
+    const readDuringRun = (state: AgentV2MessagesState) => reduce(state, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('replayed', message('Replayed answer', 2)), entry('streaming', message('Streaming', 3))],
+      shouldPreserveLiveContent: true,
+    });
+
+    expect(readDuringRun(live).messages.map(({ actions }) => actions)).toEqual([[liveAction], [liveAction]]);
+    expect(readDuringRun(live).messages[0].actionPresentations).toEqual({ [liveAction.id]: ACTIVE_SEND });
+    // Over a cached history, the answer the stream is writing keeps its live actions too
+    expect(readDuringRun({ ...live, isShowingCachedHistory: true }).messages[1].actions).toEqual([liveAction]);
+  });
+
+  it('keeps the text a stopped answer showed while the server holds less of it, until it holds as much', () => {
+    const question = message('Question', 1, true);
+    const shownText = 'The answer streamed this far';
+    const streaming: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      hasHydratedHistory: true,
+      messages: [question, { ...message(shownText, 2), isStreaming: true }],
+      sourceIdByMessageId: { 1: 'question', 2: 'answer' },
+    };
+    const stopped = reduce(streaming, { kind: 'runStopped', messageId: 2 });
+    const shownAnswer = stopped.messages[1];
+    expect(shownAnswer).toMatchObject({ id: 2, text: shownText });
+    expect(shownAnswer.isStreaming).toBeUndefined();
+
+    // The server leaves out the answer it cancelled before saving what streamed, so the shown one stays in its place
+    const later = message('Later question', 3, true);
+    const withoutAnswer = readHistory(stopped, [entry('question', question), entry('later', later)]);
+    expect(withoutAnswer.messages).toEqual([question, shownAnswer, later]);
+    expect(withoutAnswer.sourceIdByMessageId).toEqual({ 1: 'question', 2: 'answer', 3: 'later' });
+
+    // A shorter saved text gives way to the shown one, with no follow-ups and nothing to rate
+    const shorter = readHistory(withoutAnswer, [entry('question', question), entry('answer', {
+      ...message('The answer', 2),
+      isComplete: true,
+      followups: [{ id: 'followup', kind: 'suggested_prompt', text: 'Tell me more' }],
+    })]);
+    expect(shorter.messages).toEqual([question, shownAnswer]);
+
+    // The chat opened again in this session keeps it too
+    const reopened = restoreAgentV2MessagesState(selectAgentV2CachedChat(shorter)!);
+    expect(readHistory(reopened, [entry('question', question)]).messages).toEqual([question, shownAnswer]);
+
+    // Once the server holds as much, its answer shows, and a later read shows only what the server has
+    const savedAnswer = { ...message(`${shownText}, and the rest`, 2), isComplete: true };
+    const caughtUp = readHistory(shorter, [entry('question', question), entry('answer', savedAnswer)]);
+    expect(caughtUp.messages).toEqual([question, savedAnswer]);
+    expect(caughtUp.stoppedAnswers).toBeUndefined();
+    expect(readHistory(caughtUp, [entry('question', question)]).messages).toEqual([question]);
+
+    // An answer stopped before its first words leaves nothing to keep
+    expect(reduce({
+      ...streaming, messages: [question, { ...message('', 2), isStreaming: true }],
+    }, { kind: 'runStopped', messageId: 2 }).stoppedAnswers).toBeUndefined();
+  });
+
+  it('keeps a stopped answer whose question is on an older page out of the newest messages until it loads', () => {
+    const question = message('Question', 1, true);
+    const shownText = 'The answer streamed this far';
+    const stopped = reduce({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      hasHydratedHistory: true,
+      messages: [question, { ...message(shownText, 2), isStreaming: true }],
+      sourceIdByMessageId: { 1: 'question', 2: 'answer' },
+    }, { kind: 'runStopped', messageId: 2 });
+    const shownAnswer = stopped.messages[1];
+
+    // Later messages have pushed the question past the newest page, and the server left the answer out
+    const laterQuestion = message('Later question', 3, true);
+    const laterAnswer = message('Later answer', 4);
+    const newest = reduce(stopped, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('later-question', laterQuestion), entry('later-answer', laterAnswer)],
+      nextCursor: 'older',
+      shouldPreserveLiveContent: false,
+    });
+    expect(newest.messages).toEqual([laterQuestion, laterAnswer]);
+    expect(newest.stoppedAnswers).toHaveLength(1);
+
+    // The older page brings the question, and the answer goes after it again
+    const loading = reduce(newest, {
+      kind: 'historyPageStarted', requestId: 1, threadId: THREAD_ID, cursor: 'older',
+    });
+    const olderPage = {
+      kind: 'historyPageSucceeded' as const, requestId: 1, threadId: THREAD_ID, cursor: 'older', threadRevision: 3,
+    };
+    const older = reduce(loading, { ...olderPage, entries: [entry('question', question)] });
+    expect(older.messages).toEqual([question, shownAnswer, laterQuestion, laterAnswer]);
+    expect(older.sourceIdByMessageId).toMatchObject({ 1: 'question', 2: 'answer' });
+    expect(older.stoppedAnswers).toHaveLength(1);
+
+    // A shorter saved answer on that page gives way to the shown one
+    const withShorter = reduce(loading, {
+      ...olderPage, entries: [entry('question', question), entry('answer', message('The answer', 5))],
+    });
+    expect(withShorter.messages).toEqual([question, { ...shownAnswer, id: 5 }, laterQuestion, laterAnswer]);
+  });
+
+  it('keeps a stopped answer waiting for an older page through an admitted edit or regeneration later on', () => {
+    const question = message('Question', 1, true);
+    const stopped = reduce({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      hasHydratedHistory: true,
+      messages: [question, { ...message('The answer streamed this far', 2), isStreaming: true }],
+      sourceIdByMessageId: { 1: 'question', 2: 'answer' },
+    }, { kind: 'runStopped', messageId: 2 });
+    const shownAnswer = stopped.messages[1];
+    const laterQuestion = message('Later question', 3, true);
+    const laterAnswer = message('Later answer', 4);
+    const newest = reduce(stopped, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('later-question', laterQuestion), entry('later-answer', laterAnswer)],
+      nextCursor: 'older',
+      shouldPreserveLiveContent: false,
+    });
+    // The later answer was stopped too, as it showed
+    const waiting = newest.stoppedAnswers!;
+    const withLaterStopped: AgentV2MessagesState = {
+      ...newest,
+      stoppedAnswers: [...waiting, {
+        message: { ...laterAnswer, text: 'Later answer as it showed' },
+        sourceId: 'later-answer',
+        previousSourceId: 'later-question',
+      }],
+    };
+
+    const truncations: AgentV2MessagesStateAction[] = [
+      { kind: 'regenerateRunAdmitted', targetMessageId: 4 },
+      { kind: 'editRunAdmitted', targetMessageId: 3, text: 'Later question, edited' },
+    ];
+    truncations.forEach((truncation) => {
+      const truncated = reduce(withLaterStopped, truncation);
+      expect(truncated.stoppedAnswers).toEqual(waiting);
+
+      const loading = reduce(truncated, {
+        kind: 'historyPageStarted', requestId: 1, threadId: THREAD_ID, cursor: 'older',
+      });
+      const older = reduce(loading, {
+        kind: 'historyPageSucceeded',
+        requestId: 1,
+        threadId: THREAD_ID,
+        cursor: 'older',
+        threadRevision: 3,
+        entries: [entry('question', question)],
+      });
+      expect(older.messages.slice(0, 2)).toEqual([question, shownAnswer]);
+    });
+  });
+
+  it('forgets a stopped answer regenerated after it came back on an older page under a new id', () => {
+    const question = message('Question', 1, true);
+    const stopped = reduce({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      hasHydratedHistory: true,
+      messages: [question, { ...message('The answer streamed this far', 2), isStreaming: true }],
+      sourceIdByMessageId: { 1: 'question', 2: 'answer' },
+    }, { kind: 'runStopped', messageId: 2 });
+    const laterQuestion = message('Later question', 3, true);
+    const laterAnswer = message('Later answer', 4);
+    const newest = reduce(stopped, {
+      kind: 'hydrationSucceeded',
+      thread: threadSummary(3),
+      entries: [entry('later-question', laterQuestion), entry('later-answer', laterAnswer)],
+      nextCursor: 'older',
+      shouldPreserveLiveContent: false,
+    });
+    const loading = reduce(newest, {
+      kind: 'historyPageStarted', requestId: 1, threadId: THREAD_ID, cursor: 'older',
+    });
+    // The older page brings the answer's shorter saved copy under a new id
+    const older = reduce(loading, {
+      kind: 'historyPageSucceeded',
+      requestId: 1,
+      threadId: THREAD_ID,
+      cursor: 'older',
+      threadRevision: 3,
+      entries: [entry('question', question), entry('answer', message('The answer', 5))],
+    });
+    expect(older.messages[1]).toMatchObject({ id: 5, text: 'The answer streamed this far' });
+
+    const regenerated = reduce(older, { kind: 'regenerateRunAdmitted', targetMessageId: 5 });
+    expect(regenerated.stoppedAnswers).toBeUndefined();
+    const reloaded = readHistory(regenerated, [
+      entry('question', question),
+      entry('new-answer', message('A new answer', 6)),
+      entry('later-question', laterQuestion),
+      entry('later-answer', laterAnswer),
+    ]);
+    expect(reloaded.messages.map(({ text }) => text)).toEqual([
+      'Question', 'A new answer', 'Later question', 'Later answer',
+    ]);
+  });
+
   it('owns hydration and preserves live message-only content', () => {
     const semanticContent = {
       kind: 'notice' as const,
@@ -186,6 +493,7 @@ describe('Agent V2 messages state', () => {
     });
     const staleSuccess = reduce(currentRequest, {
       kind: 'historyPageSucceeded',
+      threadRevision: 2,
       requestId: 1,
       threadId: THREAD_ID,
       cursor: 'cursor-1',
@@ -197,6 +505,7 @@ describe('Agent V2 messages state', () => {
 
     const succeeded = reduce(currentRequest, {
       kind: 'historyPageSucceeded',
+      threadRevision: 2,
       requestId: 2,
       threadId: THREAD_ID,
       cursor: 'cursor-1',
@@ -226,6 +535,76 @@ describe('Agent V2 messages state', () => {
       'Current question',
       'Current answer',
     ]);
+  });
+
+  it.each([1, 2, 3])('updates support from history only at the known revision or newer: %s', (threadRevision) => {
+    const current: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: { ...threadSummary(2), support: { state: 'closed' } },
+      nextCursor: 'cursor-1',
+    };
+    const loading = reduce(current, {
+      kind: 'historyPageStarted', requestId: 1, threadId: THREAD_ID, cursor: 'cursor-1',
+    });
+    const support = { state: 'operator' as const, lastOperatorMessageAt: '2026-08-11T10:00:00.000Z' };
+    const succeeded = reduce(loading, {
+      kind: 'historyPageSucceeded', requestId: 1, threadId: THREAD_ID, cursor: 'cursor-1',
+      threadRevision, support, entries: [entry('older-source', message('Older message'))],
+    });
+
+    expect(succeeded.thread?.support).toEqual(threadRevision >= 2 ? support : { state: 'closed' });
+    expect(succeeded.thread?.revision).toBe(Math.max(2, threadRevision));
+    expect(succeeded.messages).toEqual([message('Older message')]);
+    expect(succeeded.isLoadingOlderMessages).toBe(false);
+    // The reply the summary announces is not on this page, so it is not read yet
+    expect(succeeded.loadedOperatorMessageAt).toBeUndefined();
+  });
+
+  it('counts an operator reply as loaded only from the newest history, not from a thread summary', () => {
+    const current: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: { ...threadSummary(2), support: { state: 'waiting' } },
+    };
+    const support = { state: 'operator' as const, lastOperatorMessageAt: '2026-08-11T10:00:00.000Z' };
+
+    const announced = reduce(current, { kind: 'threadChanged', thread: { ...threadSummary(3), support } });
+    expect(announced.thread?.support).toEqual(support);
+    expect(announced.loadedOperatorMessageAt).toBeUndefined();
+
+    const loaded = reduce(announced, {
+      kind: 'latestMessagesReceived',
+      thread: { ...threadSummary(3), support },
+      entries: [entry('reply-source', message('Operator reply'))],
+      sourceIds: ['reply-source'],
+    });
+    expect(loaded.loadedOperatorMessageAt).toBe(support.lastOperatorMessageAt);
+  });
+
+  it('places refreshed messages in the server history order before local messages', () => {
+    const earlier = message('Earlier answer', 1);
+    const question = message('Question', 2, true);
+    const local = message('Not confirmed yet', 3, true);
+    const current: AgentV2MessagesState = {
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(2),
+      messages: [earlier, question, local],
+      sourceIdByMessageId: { 1: 'earlier-source', 2: 'question-source' },
+    };
+
+    const merged = reduce(current, {
+      kind: 'latestMessagesReceived',
+      thread: threadSummary(3),
+      entries: [entry('reply-source', message('Operator reply', 4)), entry('closed-source', message('Closed', 5))],
+      sourceIds: ['earlier-source', 'reply-source', 'question-source', 'closed-source'],
+    });
+
+    expect(merged.messages.map(({ text }) => text)).toEqual([
+      'Earlier answer', 'Operator reply', 'Question', 'Closed', 'Not confirmed yet',
+    ]);
+    expect(merged.messages[2]).toBe(question);
+    expect(merged.sourceIdByMessageId).toEqual({
+      1: 'earlier-source', 2: 'question-source', 4: 'reply-source', 5: 'closed-source',
+    });
   });
 
   it('keeps pagination failures separate and leaves the composer usable', () => {
@@ -684,6 +1063,27 @@ describe('Agent V2 messages state', () => {
     expect(selectAgentV2Activity(withAnswer)).toBeUndefined();
     expect(selectAgentV2Activity(lateCompletion)).toBeUndefined();
   });
+
+  // The chat renders again for every new state, so an update that changes nothing keeps the one it has
+  it('keeps the state for updates that change nothing', () => {
+    const streaming = reduce(
+      { ...INITIAL_AGENT_V2_MESSAGES_STATE, messages: [message('Answer')] },
+      {
+        kind: 'runStarted', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1,
+      },
+    );
+    const withText = reduce(streaming, { kind: 'textDeltasFlushed', deltas: [[1, ' grows']] });
+
+    expect(reduce(withText, { kind: 'textDeltasFlushed', deltas: [[99, 'lost']] })).toBe(withText);
+    expect(reduce(withText, { kind: 'textDeltasFlushed', deltas: [[1, ' more']] })).not.toBe(withText);
+    expect(reduce(withText, { kind: 'messageContentEnded', messageId: 99 })).toBe(withText);
+    expect(reduce(withText, {
+      kind: 'runActivityChanged', clientRunId: CLIENT_RUN_ID, event: runActivityEvent('analysis.computing', 'active'),
+    })).toBe(withText);
+    expect(reduce(withText, {
+      kind: 'toolActivityChanged', clientRunId: 'another-run', activity: { kind: 'preparingResponse' },
+    })).toBe(withText);
+  });
 });
 
 function runActivityEvent(
@@ -720,6 +1120,18 @@ function runFailure(
   };
 }
 
+function receiveAction(id: string) {
+  return {
+    id,
+    kind: 'receive' as const,
+    title: 'Receive',
+    labelCode: 'open_receive' as const,
+    effect: 'open_receive' as const,
+    localDraftRequired: false as const,
+    requiresConfirmation: false as const,
+  };
+}
+
 function message(text = 'Response', id = 1, isOutgoing = false): AgentMessage {
   return {
     id,
@@ -733,6 +1145,13 @@ function entry(sourceId: string, currentMessage: AgentMessage) {
   return { sourceId, message: currentMessage };
 }
 
+// A read of the latest history page, as after a stop
+function readHistory(state: AgentV2MessagesState, entries: ReturnType<typeof entry>[]) {
+  return reduce(state, {
+    kind: 'hydrationSucceeded', thread: threadSummary(3), entries, shouldPreserveLiveContent: false,
+  });
+}
+
 function threadSummary(revision: number): AgentThreadSummaryV2 {
   return {
     id: THREAD_ID,
@@ -741,5 +1160,14 @@ function threadSummary(revision: number): AgentThreadSummaryV2 {
     updatedAt: '2026-08-11T10:00:00.000Z',
     lastActivityAt: '2026-08-11T10:00:00.000Z',
     messageCount: 1,
+  };
+}
+
+function newsCard() {
+  return {
+    eventId: 1,
+    headline: 'News',
+    excerpt: 'Excerpt',
+    publishedAt: '2026-08-11T10:00:00.000Z',
   };
 }

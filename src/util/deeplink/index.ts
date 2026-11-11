@@ -16,6 +16,7 @@ import {
   TRC20_USDT_MAINNET,
   TRX,
 } from '../../config';
+import { getIsTinyOrScamTransaction } from '../../global/helpers';
 import {
   selectAccountTokenBySlug,
   selectCurrentAccount,
@@ -756,9 +757,19 @@ async function openSelfDeeplink(
           actions.showError({ error: 'Swap is not yet supported by Ledger.' });
           return 'handledWithoutOpening';
         } else {
-          const swapBySlug = global.swapTokenInfo?.bySlug;
           const rawIn = searchParams.get('in');
           const rawOut = searchParams.get('out');
+          // On a cold start the swap token list holds only the built-in tokens until the backend list arrives
+          const areTokensReady = await waitFor(() => {
+            const { isLoaded, bySlug } = getGlobal().swapTokenInfo;
+            return Boolean(isLoaded || ((!rawIn || bySlug[rawIn]) && (!rawOut || bySlug[rawOut])));
+          }, 100, 100);
+          if (!areTokensReady) {
+            actions.showError({ error: '$swap_service_unavailable' });
+            return 'handledWithoutOpening';
+          }
+
+          const swapBySlug = getGlobal().swapTokenInfo.bySlug;
           let tokenInSlug = (rawIn && swapBySlug?.[rawIn]) ? rawIn : DEFAULT_SWAP_FIRST_TOKEN_SLUG;
           let tokenOutSlug = (rawOut && swapBySlug?.[rawOut]) ? rawOut : DEFAULT_SWAP_SECOND_TOKEN_SLUG;
 
@@ -1113,9 +1124,12 @@ async function openSelfDeeplink(
           return 'handledWithoutOpening';
         }
 
-        // Without a wallet address, the activities are parsed as sent by their initiator, so the view account
-        // belongs to the sender of the first activity
-        const viewAddress = activities[0].fromAddress;
+        // The link does not say whose transaction it is, so the API returns the activities of the wallet that
+        // signed it, with `isIncoming` relative to that wallet. Its address is on the matching side of the activity
+        const [firstActivity] = activities;
+        const viewAddress = firstActivity.kind === 'transaction' && firstActivity.isIncoming
+          ? firstActivity.toAddress
+          : firstActivity.fromAddress;
 
         if (!viewAddress) {
           actions.showError({ error: '$could_not_determine_address' });
@@ -1124,8 +1138,21 @@ async function openSelfDeeplink(
 
         if (shouldOpenViewAccount && !await openViewAccount(chain, viewAddress)) return false;
 
+        // The wallet's history hides these activities too
+        const { areTinyTransfersHidden } = global.settings;
+        const shownActivities = activities.filter((activity) => (
+          activity.kind !== 'transaction'
+          || (!activity.shouldHide
+            && !(areTinyTransfersHidden
+              && getIsTinyOrScamTransaction(activity, global.tokenInfo.bySlug[activity.slug])))
+        ));
+
         // Pass activities to avoid duplicate API call
-        actions.openTransactionInfo({ txId, chain, activities });
+        actions.openTransactionInfo({
+          txId,
+          chain,
+          activities: shownActivities.length ? shownActivities : activities,
+        });
         return true;
       }
 
@@ -1287,7 +1314,7 @@ function getOfframpTokenMapping(
 
   const normalizedCode = baseCurrencyCode.toLowerCase();
 
-  if (normalizedCode === 'ton' || normalizedCode === 'toncoin') {
+  if (normalizedCode === 'gram' || normalizedCode === 'ton' || normalizedCode === 'toncoin') {
     return {
       chain: 'ton' as ApiChain,
       tokenSlug: TONCOIN.slug,

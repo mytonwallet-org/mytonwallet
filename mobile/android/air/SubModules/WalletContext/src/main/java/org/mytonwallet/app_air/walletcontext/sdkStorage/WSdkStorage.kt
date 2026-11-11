@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcontext.sdkStorage
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import org.mytonwallet.app_air.walletcontext.installationStorage.WalletAttributionMigration
 
 object WSdkStorage {
     private lateinit var sharedPreferences: SharedPreferences
@@ -31,6 +32,7 @@ object WSdkStorage {
     fun getKeys(): Array<String> = sharedPreferences.all.keys.toTypedArray()
 
     fun clearStorage() {
+        WalletAttributionMigration.beforeClear()
         sharedPreferences.edit().clear().commit()
     }
 }

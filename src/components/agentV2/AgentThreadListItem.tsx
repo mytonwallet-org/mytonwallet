@@ -9,12 +9,11 @@ import type { DropdownItem } from '../ui/Dropdown';
 
 import buildClassName from '../../util/buildClassName';
 import buildStyle from '../../util/buildStyle';
-import { formatTime } from '../../util/dateFormat';
 import { stopEvent } from '../../util/domEvents';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import { formatAgentListTime, formatAgentTime } from '../agent/helpers/agentDateFormat';
 import { getAgentPointerMenuLayout } from '../agent/helpers/bubbleMenuLayout';
 import { getAvatarGradientColors } from '../ui/helpers/getAvatarGradientColor';
-import { formatAgentThreadTime } from './agentThreadListSections';
 import useAgentThreadSwipe, { closeAgentThreadSwipe } from './useAgentThreadSwipe';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
@@ -27,16 +26,21 @@ import AgentSearchGlyph from '../agent/AgentSearchGlyph';
 import AgentSpinningTop from '../agent/AgentSpinningTop';
 import Transition from '../ui/Transition';
 import WithContextMenu from '../ui/WithContextMenu';
+import AgentSupportIcon from './AgentSupportIcon';
 import AgentThreadThumbnail from './AgentThreadThumbnail';
 
+import supportStyles from './AgentSupport.module.scss';
 import styles from './AgentThreadList.module.scss';
 
 interface OwnProps {
   item: AgentThreadListItemV2;
+  support?: AgentThreadSummaryV2['support'];
   /** The chat holds an answer the user has not seen */
   isUnread: boolean;
   /** What the Agent is doing in the chat while it answers, as a localization key */
   activityLangKey?: string;
+  /** The row has turned to dust and keeps its place until the chat leaves the list */
+  isDissolved?: boolean;
   onSelect: (threadId: string) => void;
   onRename: (thread: AgentThreadSummaryV2) => void;
   onTogglePin: (thread: AgentThreadSummaryV2) => void;
@@ -85,17 +89,22 @@ const AgentThreadAvatar = memo(({ thread }: { thread: AgentThreadSummaryV2 }) =>
 });
 
 function AgentThreadListItem({
-  item, isUnread, activityLangKey, onSelect, onRename, onTogglePin, onDelete,
+  item, support, isUnread, activityLangKey, isDissolved, onSelect, onRename, onTogglePin, onDelete,
 }: OwnProps) {
   const lang = useLang();
   const { thread, preview } = item;
   // Without a title the preview names the chat and is not repeated under it
   const title = thread.title || preview || lang('New Chat');
   const previewText = thread.title ? preview : undefined;
+  // The row shows the picture of its latest message, as Telegram's chat list does. Only a news post has one, and it is
+  // a discussion's latest message while it is the thread's only one.
+  const previewImageUrl = previewText && thread.messageCount <= 1 ? thread.news?.imageUrl : undefined;
+  // A chat that support has carries its label before the preview, bright while an operator is in it
+  const isWithSupport = support?.state === 'waiting' || support?.state === 'operator';
   // A row under a day header has the time of day only; a pinned row names its day as well
   const time = thread.isPinned
-    ? formatAgentThreadTime(lang, thread.lastActivityAt)
-    : formatTime(thread.lastActivityAt);
+    ? formatAgentListTime(lang, thread.lastActivityAt)
+    : formatAgentTime(lang.code ?? 'en', thread.lastActivityAt);
   const swipeRef = useRef<HTMLDivElement>();
   const isAnswering = Boolean(activityLangKey);
   const renderedActivityLangKey = useCurrentOrPrev(activityLangKey, true);
@@ -191,6 +200,7 @@ function AgentThreadListItem({
 
   const ariaLabel = [
     title,
+    isWithSupport ? lang('$agent_support_label') : undefined,
     activityLangKey ? lang(activityLangKey) : previewText,
     time,
     thread.isPinned ? lang('Pinned') : undefined,
@@ -243,7 +253,7 @@ function AgentThreadListItem({
       {({ ref, onMouseDown, onContextMenu }, isMenuOpen) => (
         <div
           ref={ref as ElementRef<HTMLDivElement>}
-          className={buildClassName(styles.item, isMenuOpen && styles.menuOpen)}
+          className={buildClassName(styles.item, isMenuOpen && styles.menuOpen, isDissolved && styles.dissolved)}
           data-agent-row-key={thread.id}
           onMouseDown={onMouseDown}
           onContextMenu={onContextMenu}
@@ -269,7 +279,18 @@ function AgentThreadListItem({
                 <div className={styles.itemBottom}>
                   <div className={styles.itemStatus}>
                     <span ref={previewRef} className={styles.itemPreview}>
-                      {previewText && thread.news?.imageUrl && <AgentThreadThumbnail url={thread.news.imageUrl} />}
+                      {previewImageUrl && <AgentThreadThumbnail url={previewImageUrl} />}
+                      {isWithSupport && (
+                        <span
+                          className={buildClassName(
+                            supportStyles.label,
+                            support.state === 'operator' ? supportStyles.labelActive : supportStyles.labelMuted,
+                          )}
+                        >
+                          <AgentSupportIcon className={supportStyles.labelIcon} />
+                          {lang('$agent_support_label')}
+                        </span>
+                      )}
                       {previewText}
                     </span>
                     {shouldRenderActivity && renderedActivityLangKey && (

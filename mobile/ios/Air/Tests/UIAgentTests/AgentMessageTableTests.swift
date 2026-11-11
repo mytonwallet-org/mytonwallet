@@ -2,6 +2,8 @@ import XCTest
 import UIKit
 @testable import UIAgent
 import UIComponents
+import WalletContext
+import WalletCore
 import WalletResources
 
 final class AgentMessageTableTests: XCTestCase {
@@ -9,6 +11,27 @@ final class AgentMessageTableTests: XCTestCase {
         let source = "Balance: **125 TON**\nNo table here."
 
         XCTAssertEqual(AgentMessageBlockParser.parse(source), [.text(source)])
+    }
+
+    func testStreamingTableAndCodeSettleOnceTheLineAfterThemIsComplete() {
+        let table = "Intro\n\n| A | B |\n|---|---:|\n| x | 1 |"
+        let code = "```swift\nlet a = 1\n```"
+        let cases: [(source: String, settledLines: Int)] = [
+            (table, 0),
+            (table + "\n", 0),
+            (table + "\n| y", 0),
+            (table + "\n\nNext", 6),
+            (table + "\n\nNext\n", 6),
+            (table + "\nNext words", 0),
+            (table + "\nNext words\n", 5),
+            (code, 0),
+            (code + "\n", 3),
+            (code + "\n\n\nTail", 5),
+            ("```\nopen fence\n| A | B |\n|---|---|\n| x | 1 |\nmore\n", 0),
+        ]
+        for (source, settledLines) in cases {
+            XCTAssertEqual(AgentMessageBlockParser.countSettledLines(in: source), settledLines, source)
+        }
     }
 
     func testMarkdownTableParsesAlignmentAndEscapedPipes() throws {
@@ -263,6 +286,55 @@ final class AgentMessageTableLayoutTests: XCTestCase {
         }
     }
 
+    func testStreamingAnswerShowsItsClosedTableAboveTheTextStillArriving() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentMessageCell(frame: CGRect(x: 0, y: 0, width: 402, height: 80))
+        var message = AgentMessage(role: .assistant, text: source, isStreaming: true)
+        cell.configure(with: message, onURLTap: { _ in })
+        cell.layoutIfNeeded()
+        let richContent = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentRichMessageView }.first)
+        let revealView = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentStreamingTextView }.first)
+        XCTAssertTrue(richContent.isHidden)
+
+        message.text = source + "\n\nUpdated just now"
+        cell.updateStreamingMessage(message)
+        cell.layoutIfNeeded()
+        XCTAssertFalse(richContent.isHidden)
+        XCTAssertTrue(richContent.displayText.contains("USDT"))
+        XCTAssertFalse(revealView.isHidden)
+        XCTAssertEqual(revealView.displayText, "Updated just now")
+    }
+
+    func testNewsPostDrawsItsTableAsAnswersDo() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let code = "Run:\n```\nlet USDT = 1\n```"
+        for (body, hasBlocks) in [(source, true), (code, true), ("Plain news text", false)] {
+            let post = AgentNewsPostView()
+            post.configure(with: AgentNewsPostView.Content(news: ApiAgentV2ThreadNewsCard(
+                eventId: 1,
+                headline: "Headline",
+                excerpt: nil,
+                imageUrl: nil,
+                publishedAt: "2026-11-05T08:00:00Z",
+                source: nil,
+                body: body,
+                sources: nil
+            )), isHeaderVisible: true)
+            post.updateTextMaxWidth(forBubbleWidth: 360)
+            post.layoutIfNeeded()
+
+            let richContent = try XCTUnwrap(descendants(of: post).compactMap { $0 as? AgentRichMessageView }.first)
+            XCTAssertEqual(richContent.isHidden, !hasBlocks)
+            XCTAssertEqual(richContent.displayText.contains("USDT"), hasBlocks)
+            let isBodyLabelShown = descendants(of: post).contains {
+                ($0 as? UILabel)?.attributedText?.string == body && !$0.isHidden
+            }
+            XCTAssertEqual(isBodyLabelShown, !hasBlocks)
+            // The body drawn once the width is known reaches VoiceOver too
+            XCTAssertEqual(post.accessibilityContentElement.accessibilityLabel?.contains("USDT"), hasBlocks)
+        }
+    }
+
     private func assertTableLayout(_ cell: AgentMessageCell, width: CGFloat, file: StaticString = #filePath, line: UInt = #line) throws {
         let attributes = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
         attributes.size = CGSize(width: width, height: 80)
@@ -278,6 +350,163 @@ final class AgentMessageTableLayoutTests: XCTestCase {
         let introduction = try XCTUnwrap(descendants(of: richContent).compactMap { $0 as? UITextView }.first { $0.text.hasPrefix("Вот ваши активы") })
         XCTAssertLessThan(introduction.bounds.height, 100, file: file, line: line)
         XCTAssertLessThan(fitted.size.height, 350, file: file, line: line)
+    }
+
+    private func descendants(of view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants(of: $0) }
+    }
+}
+
+/// Code and tables as Telegram draws them in an incoming message, in the accent and in greys over the bubble
+@MainActor
+final class AgentMessageCodeAndTableStyleTests: XCTestCase {
+    func testFencesStandApartWithTheirLanguageIfAny() {
+        let blocks = AgentMessageBlockParser.separatingCode([
+            .text("Run this:\n```swift\nlet a = 1\nprint(a)\n```\nThen\n```\nplain\n```\n```js\nopen"),
+        ])
+
+        XCTAssertEqual(blocks, [
+            .text("Run this:"),
+            .code(AgentMessageCode(language: "swift", text: "let a = 1\nprint(a)")),
+            .text("Then"),
+            .code(AgentMessageCode(language: nil, text: "plain")),
+            .code(AgentMessageCode(language: "js", text: "open")),
+        ])
+    }
+
+    func testAnswerLinkInsideCodeStaysItsLabel() {
+        let source = "See docs\n```\nopen docs now\n```"
+        let marked = AgentTextLinks.mark(source, links: [
+            ApiAgentV2AnswerLink(textOffset: 4, textLength: 4, url: "https://example.com/a"),
+            ApiAgentV2AnswerLink(textOffset: 18, textLength: 4, url: "https://example.com/b"),
+        ], tableOffsets: []).text
+
+        let blocks = AgentMessageBlockParser.separatingCode([.text(marked)])
+
+        XCTAssertEqual(blocks.last, .code(AgentMessageCode(language: nil, text: "open docs now")))
+    }
+
+    func testCodeTakesTheAccentWithoutABackground() throws {
+        let rendered = AgentMessageTextRenderer.makeAttributedText(
+            "Call `swap()` now\n```swift\nlet a = 1\n```",
+            textColor: .label,
+            rendersMarkdown: true,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            linkColor: .systemPink
+        )
+        let string = rendered.string as NSString
+
+        for code in ["swap()", "let a = 1"] {
+            let attributes = rendered.attributes(at: string.range(of: code).location, effectiveRange: nil)
+            XCTAssertEqual(attributes[.foregroundColor] as? UIColor, .systemPink, code)
+            XCTAssertNil(attributes[.backgroundColor], code)
+            let font = try XCTUnwrap(attributes[.font] as? UIFont)
+            XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitMonoSpace), code)
+        }
+        XCTAssertEqual(rendered.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor, .label)
+    }
+
+    /// A fence still open while the answer arrives shows its lines as code: 2 pt under the body, in the accent, on
+    /// lines 1.5 times the code's size without gaps between them, an empty one as tall as the others
+    func testOpenFenceArrivingShowsItsLinesAsCode() throws {
+        let rendered = AgentMessageTextRenderer.makeAttributedText(
+            "Run:\n```swift\nlet a = 1\n\nprint(",
+            textColor: .label,
+            rendersMarkdown: true,
+            detectsLinks: false,
+            markdownProfile: .agentMarkdownV1,
+            isStreaming: true,
+            baseFont: .systemFont(ofSize: 17),
+            linkColor: .systemPink
+        )
+        let string = rendered.string as NSString
+
+        XCTAssertEqual(rendered.string, "Run:\nlet a = 1\n\nprint(")
+        let codeLineHeight = ceil(15 * 1.5)
+        for line in ["let a = 1", "print("] {
+            let attributes = rendered.attributes(at: string.range(of: line).location, effectiveRange: nil)
+            XCTAssertEqual((attributes[.font] as? UIFont)?.pointSize, 15, line)
+            XCTAssertEqual(attributes[.foregroundColor] as? UIColor, .systemPink, line)
+            let style = try XCTUnwrap(attributes[.paragraphStyle] as? NSParagraphStyle)
+            XCTAssertEqual(style.minimumLineHeight, codeLineHeight, line)
+            XCTAssertEqual(style.paragraphSpacing, 0, line)
+        }
+        let emptyLine = string.range(of: "\n\n").location + 1
+        let emptyStyle = try XCTUnwrap(rendered.attribute(.paragraphStyle, at: emptyLine, effectiveRange: nil) as? NSParagraphStyle)
+        XCTAssertEqual(emptyStyle.minimumLineHeight, codeLineHeight)
+    }
+
+    func testCodeBlockStripNamesTheLanguageOrCopy() {
+        XCTAssertEqual(AgentCodeBlockView.makeTitle(language: "swift"), "swift")
+        XCTAssertEqual(AgentCodeBlockView.makeTitle(language: nil), lang("Copy"))
+        XCTAssertEqual(AgentCodeBlockView.makeTitle(language: " "), lang("Copy"))
+    }
+
+    func testCodeBlockColorsFollowTheAccentAndTheTheme() {
+        let accent = UIColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1)
+        let light = AgentCodeBlockView.Colors.make(accent: accent, isDark: false)
+        let dark = AgentCodeBlockView.Colors.make(accent: accent, isDark: true)
+
+        XCTAssertEqual(light.background, accent.withAlphaComponent(0.12))
+        XCTAssertEqual(dark.background, UIColor.black.withAlphaComponent(0.75))
+        for colors in [light, dark] {
+            XCTAssertEqual(colors.bar, accent.withAlphaComponent(0.9))
+            XCTAssertEqual(colors.header, accent.withAlphaComponent(0.3))
+            XCTAssertEqual(colors.title, accent)
+            XCTAssertEqual(colors.copyIcon, accent.withAlphaComponent(0.6))
+            XCTAssertEqual(colors.code, accent)
+        }
+    }
+
+    func testCodeBlockStripCopiesTheCode() throws {
+        let view = AgentCodeBlockView()
+        view.configure(code: AgentMessageCode(language: "swift", text: "let a = 1"), baseFont: .systemFont(ofSize: 17))
+        var copyCount = 0
+        view.onCopy = { copyCount += 1 }
+        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? UIControl }.first)
+
+        XCTAssertEqual(strip.accessibilityLabel, lang("Copy"))
+        let action = try XCTUnwrap(strip.actions(forTarget: view, forControlEvent: .touchUpInside)?.first)
+        view.perform(NSSelectorFromString(action))
+        XCTAssertEqual(copyCount, 1)
+        XCTAssertEqual(view.codeLabel.text, "let a = 1")
+        XCTAssertEqual((view.codeLabel.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)?.pointSize, 15)
+    }
+
+    func testTableShadesItsHeaderAndBordersOverTheBubbleInEachTheme() {
+        for (style, white) in [(UIUserInterfaceStyle.light, CGFloat(0)), (.dark, 1)] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            for (color, alpha) in [(AgentTableColors.headerFill, CGFloat(0.05)), (AgentTableColors.border, 0.12)] {
+                var resolvedWhite: CGFloat = -1
+                var resolvedAlpha: CGFloat = -1
+                XCTAssertTrue(color.resolvedColor(with: traits).getWhite(&resolvedWhite, alpha: &resolvedAlpha))
+                XCTAssertEqual(resolvedWhite, white, accuracy: 0.01)
+                XCTAssertEqual(resolvedAlpha, alpha, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testAnswerWithCodeShowsItsCodeBlockInTheRichView() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentMessageCell(frame: CGRect(x: 0, y: 0, width: 402, height: 80))
+        let message = AgentMessage(
+            role: .assistant,
+            text: "Run:\n```swift\nlet a = 1\n```",
+            isStreaming: false,
+            renderingPolicy: .agentV2Safe
+        )
+        cell.configure(with: message, onURLTap: { _ in })
+        let attributes = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
+        attributes.size = CGSize(width: 402, height: 80)
+        cell.frame.size = cell.preferredLayoutAttributesFitting(attributes).size
+        cell.layoutIfNeeded()
+
+        let richContent = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentRichMessageView }.first)
+        XCTAssertFalse(richContent.isHidden)
+        let codeBlock = try XCTUnwrap(descendants(of: richContent).compactMap { $0 as? AgentCodeBlockView }.first)
+        XCTAssertEqual(codeBlock.codeLabel.text, "let a = 1")
+        XCTAssertEqual(richContent.displayText, "Run:\nlet a = 1")
     }
 
     private func descendants(of view: UIView) -> [UIView] {

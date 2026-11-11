@@ -7,7 +7,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
 
 internal data class AgentV2ConsentCopy(
-    val subtitle: String,
     val features: List<String>,
     val disclosureTitle: String,
     val disclosure: String,
@@ -26,7 +25,6 @@ internal fun agentV2ConsentCopy(): AgentV2ConsentCopy {
     )
 
     return AgentV2ConsentCopy(
-        subtitle = localized("\$agent_consent_subtitle"),
         features = listOf(
             localized("\$agent_consent_feature_answers"),
             localized("\$agent_consent_feature_actions"),
@@ -146,7 +144,7 @@ internal fun getAgentDictationFailureText(failure: AgentDictationFailure): Strin
     AgentDictationFailure.NoSpeech -> LocaleController.getString("\$agent_dictation_no_speech")
 
     AgentDictationFailure.MicrophoneDenied ->
-        LocaleController.getString("\$agent_dictation_microphone_denied")
+        LocaleController.getString("\$agent_dictation_microphone_denied_device")
 
     is AgentDictationFailure.Error -> agentV2ErrorText(failure.code)
 }

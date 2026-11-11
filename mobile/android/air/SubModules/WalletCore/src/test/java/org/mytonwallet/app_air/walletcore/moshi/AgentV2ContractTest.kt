@@ -5,12 +5,23 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.adapters.PolymorphicJsonAdapterFactory
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mytonwallet.app_air.walletcore.api.readAgentV2Cache
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Availability
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
@@ -18,17 +29,22 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedPage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2NewsFeedRequest
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ProblemReportResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunActivityEvent
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadCreateResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDigestRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSupport
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadUpdate
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionRequest
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2TranscriptionResponse
@@ -36,6 +52,12 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2UserQuota
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.parseBridgeResult
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationMode
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationOutcome
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationSettings
+import org.mytonwallet.app_air.walletcore.pushNotifications.AgentNewsNotificationState
+import org.mytonwallet.app_air.walletcore.pushNotifications.NewsNotificationPermissionDenied
 
 class AgentV2ContractTest {
     private val moshi = Moshi.Builder()
@@ -128,23 +150,425 @@ class AgentV2ContractTest {
     }
 
     @Test
+    fun cachedThreadReadsDecodeTheSdkCacheAndTurnEveryFailureIntoNull() = runBlocking {
+        val threads = ApiMethod.AgentV2.GetCachedThreads()
+        val messages = ApiMethod.AgentV2.GetCachedMessages("thread", MoshiBuilder.build())
+        val thread = """{"id":"thread","revision":2,"messageCount":1,"isPinned":true}"""
+
+        assertEquals("getAgentV2CachedThreads", threads.name)
+        assertEquals("[]", threads.arguments)
+        assertEquals("getAgentV2CachedMessages", messages.name)
+        assertEquals("""["thread"]""", messages.arguments)
+        assertEquals(
+            listOf(
+                AgentV2ThreadListItem(
+                    AgentV2ThreadSummary("thread", 2, messageCount = 1, isPinned = true),
+                    "You hold 5 TON."
+                )
+            ),
+            readCache(threads, """[{"thread":$thread,"preview":"You hold 5 TON."}]""")
+        )
+        val cached = readCache(
+            messages,
+            """
+            {
+              "thread":$thread,
+              "messages":[{
+                "id":"question","threadId":"thread","role":"user","status":"complete",
+                "createdAt":"2026-10-20T12:00:01Z",
+                "content":{"kind":"markdown","text":"Cached question"}
+              }],
+              "hasOlder":true
+            }
+            """.trimIndent()
+        )!!
+        assertEquals("thread", cached.thread.id)
+        assertEquals(listOf("question"), cached.messages.map { it.id })
+        assertTrue(cached.hasOlder)
+
+        for (raw in listOf("undefined", """{"thread":""", """{"thread":$thread}""")) {
+            assertNull(readCache(threads, raw))
+            assertNull(readCache(messages, raw))
+        }
+    }
+
+    private suspend fun <T> readCache(method: ApiMethod<T?>, raw: String) = readAgentV2Cache {
+        parseBridgeResult<T?>(method.name, raw, method.type, moshi)
+    }
+
+    @Test
     fun serializesNewsFeedLanguagePaginationAndThreadNewsForTheSdk() {
         val argumentMoshi = MoshiBuilder.build()
-        val firstPage = ApiMethod.AgentV2.GetNewsFeed("ru-RU", null, argumentMoshi)
+        val firstPage = ApiMethod.AgentV2.GetNewsFeed(
+            AgentV2NewsFeedRequest("ru-RU"),
+            argumentMoshi
+        )
 
         assertEquals("getAgentV2NewsFeed", firstPage.name)
         assertEquals("""[{"lang":"ru-RU"}]""", firstPage.arguments)
         assertEquals(
             """[{"lang":"en","cursor":"next-page"}]""",
-            ApiMethod.AgentV2.GetNewsFeed("en", "next-page", argumentMoshi).arguments
+            ApiMethod.AgentV2.GetNewsFeed(
+                AgentV2NewsFeedRequest("en", "next-page"),
+                argumentMoshi
+            ).arguments
         )
         assertEquals(
             """[{"news":{"eventId":42,"locale":"ru"}}]""",
             ApiMethod.AgentV2.CreateThread(
                 AgentV2ThreadNewsRequest(42, "ru"),
+                null,
                 argumentMoshi
             ).arguments
         )
+    }
+
+    @Test
+    fun serializesDigestSchedulingCreationAndPushSettingsForTheSdk() {
+        val argumentMoshi = MoshiBuilder.build()
+        assertEquals(
+            """[{"lang":"en","cursor":"older","digestHour":21,"timeZone":"Europe/Moscow"}]""",
+            ApiMethod.AgentV2.GetNewsFeed(
+                AgentV2NewsFeedRequest("en", "older", 21, "Europe/Moscow"),
+                argumentMoshi
+            ).arguments
+        )
+        val digestId = "ru:2026-11-08T18:00:00.000Z"
+        assertEquals(
+            """[{"digest":{"id":"$digestId"}}]""",
+            ApiMethod.AgentV2.CreateThread(
+                null,
+                AgentV2ThreadDigestRequest(digestId),
+                argumentMoshi
+            ).arguments
+        )
+        val method = ApiMethod.Notifications.SetNewsNotifications(
+            ApiMethod.Notifications.SetNewsNotifications.Props(
+                "digest",
+                "push-token",
+                "ru",
+                21,
+                "Europe/Moscow"
+            ),
+            argumentMoshi
+        )
+        assertEquals("setNewsNotifications", method.name)
+        assertEquals(
+            """[{"mode":"digest","userToken":"push-token","langCode":"ru","digestHour":21,""" +
+                """"timeZone":"Europe/Moscow","platform":"android"}]""",
+            method.arguments
+        )
+    }
+
+    @Test
+    fun decodesOptionalFeedDigestsAndThreadDigestWithTheirServerPost() {
+        val digestId = "ru:2026-11-08T18:00:00.000Z"
+        val pageAdapter = moshi.adapter(AgentV2NewsFeedPage::class.java)
+        assertNull(pageAdapter.fromJson("""{"locale":"ru","items":[]}""")!!.digests)
+        val page = pageAdapter.fromJson(
+            """{"locale":"ru","items":[],"digests":[{
+                "id":"$digestId","deliveredAt":"2026-11-08T18:00:00.000Z","total":7,
+                "top":[{"eventId":42,"headline":"Headline"}],
+                "discussion":{"threadId":"digest-thread","icon":"📰"}
+            }]}"""
+        )!!
+        val digest = page.digests!!.single()
+        assertEquals(digestId, digest.id)
+        assertEquals("2026-11-08T18:00:00.000Z", digest.deliveredAt)
+        assertEquals(7, digest.total)
+        assertEquals(42, digest.top.single().eventId)
+        assertEquals("Headline", digest.top.single().headline)
+        assertEquals(AgentV2NewsFeedItem.Discussion("digest-thread", "📰"), digest.discussion)
+        assertNull(
+            moshi.adapter(
+                AgentV2ThreadSummary::class.java
+            ).fromJson("""{"id":"old","revision":1}""")!!.digest
+        )
+        val hydration = moshi.adapter(AgentV2ThreadHydration::class.java).fromJson(
+            """{"thread":{"id":"digest-thread","revision":1,"messageCount":1,"digest":{
+                "id":"$digestId","windowEnd":"2026-11-08T18:00:00.000Z","total":7,
+                "top":[{"eventId":42,"headline":"Headline"}]
+            }},"messages":[{"id":"post","threadId":"digest-thread","role":"assistant","status":"complete",
+                "createdAt":"2026-11-08T18:00:00.000Z",
+                "newsPost":true,"content":{"kind":"markdown","text":"Daily digest"}
+            }]}"""
+        )!!
+        assertEquals(digestId, hydration.thread.digest!!.id)
+        assertEquals(digest.deliveredAt, hydration.thread.digest!!.windowEnd)
+        assertEquals(digest.total, hydration.thread.digest!!.total)
+        assertEquals(digest.top, hydration.thread.digest!!.top)
+        assertEquals(true, hydration.messages.single().newsPost)
+    }
+
+    @Test
+    fun newsNotificationModePersistsOnlyAfterPermissionTokenAndSuccessfulSubscription() =
+        runBlocking {
+            var stored: String? = null
+            var token = "token"
+            var language = "en"
+            var zone = "Europe/London"
+            var canRequest = false
+            var shouldFailToken = false
+            var shouldSucceed = true
+            val calls = mutableListOf<ApiMethod.Notifications.SetNewsNotifications.Props>()
+            val states = mutableListOf<AgentNewsNotificationState>()
+            val settings = AgentNewsNotificationSettings(
+                read = { stored },
+                write = { stored = it },
+                ensurePushToken = {
+                    if (!canRequest) throw NewsNotificationPermissionDenied()
+                    if (shouldFailToken) error("Token unavailable")
+                    token
+                },
+                getToken = { token },
+                language = { language },
+                timeZone = { zone },
+                apply = {
+                    calls += it
+                    shouldSucceed
+                }
+            )
+            val observation =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    settings.state.take(3).toList(states)
+                }
+            assertEquals(AgentNewsNotificationState(), settings.state.value)
+            assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
+            assertTrue(calls.isEmpty())
+            assertEquals(
+                AgentNewsNotificationOutcome.PermissionDenied,
+                settings.setMode(AgentNewsNotificationMode.Digest)
+            )
+            assertEquals(AgentNewsNotificationMode.Off, settings.mode)
+            assertTrue(calls.isEmpty())
+            canRequest = true
+            shouldFailToken = true
+            assertEquals(
+                AgentNewsNotificationOutcome.Failed,
+                settings.setMode(AgentNewsNotificationMode.News)
+            )
+            assertTrue(calls.isEmpty())
+            shouldFailToken = false
+            assertEquals(
+                AgentNewsNotificationOutcome.Ok,
+                settings.setMode(AgentNewsNotificationMode.Digest)
+            )
+            kotlinx.coroutines.yield()
+            shouldSucceed = false
+            assertEquals(
+                AgentNewsNotificationOutcome.Failed,
+                settings.setMode(AgentNewsNotificationMode.News)
+            )
+            assertEquals(AgentNewsNotificationMode.Digest, settings.mode)
+            assertEquals(
+                AgentNewsNotificationMode.Digest,
+                AgentNewsNotificationSettings(read = { stored }, write = {}).mode
+            )
+            shouldSucceed = true
+            assertEquals(
+                AgentNewsNotificationOutcome.Ok,
+                settings.setMode(AgentNewsNotificationMode.Off)
+            )
+            observation.join()
+            assertEquals(
+                listOf(
+                    AgentNewsNotificationMode.Off,
+                    AgentNewsNotificationMode.Digest,
+                    AgentNewsNotificationMode.Off
+                ),
+                states.map {
+                    it.mode
+                }
+            )
+            val offCount = calls.size
+            token = "next-token"
+            language = "ru"
+            zone = "Europe/Moscow"
+            settings.setDigestHour(18)
+            assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
+            assertEquals(offCount, calls.size)
+        }
+
+    @Test
+    fun newsNotificationPermissionWaitDoesNotBlockHourResetOrReapplication() = runBlocking {
+        val calls = mutableListOf<String>()
+        val settings = AgentNewsNotificationSettings(
+            read = { null },
+            write = {},
+            ensurePushToken = { awaitCancellation() },
+            getToken = { "token" },
+            language = { "en" },
+            timeZone = { "Etc/UTC" },
+            apply = {
+                calls += it.mode
+                true
+            }
+        )
+        val enabling = launch(start = CoroutineStart.UNDISPATCHED) {
+            settings.setMode(AgentNewsNotificationMode.Digest)
+        }
+        try {
+            withTimeout(1_000) {
+                assertEquals(AgentNewsNotificationOutcome.Ok, settings.setDigestHour(18))
+                assertEquals(AgentNewsNotificationOutcome.Ok, settings.reset())
+                assertEquals(AgentNewsNotificationOutcome.Ok, settings.reapplyIfNeeded())
+            }
+            assertTrue(enabling.isActive)
+            assertEquals(18, settings.digestHour)
+            assertEquals(AgentNewsNotificationMode.Off, settings.mode)
+            assertEquals(listOf("off"), calls)
+        } finally {
+            enabling.cancelAndJoin()
+        }
+    }
+
+    @Test
+    fun newsNotificationResetDiscardsModePreparedBeforeReset() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val calls = mutableListOf<String>()
+        val settings = AgentNewsNotificationSettings(
+            read = { null },
+            write = {},
+            ensurePushToken = {
+                gate.await()
+                "token"
+            },
+            getToken = { "token" },
+            language = { "en" },
+            timeZone = { "Etc/UTC" },
+            apply = {
+                calls += it.mode
+                true
+            }
+        )
+        val enabling = async(start = CoroutineStart.UNDISPATCHED) {
+            settings.setMode(AgentNewsNotificationMode.Digest)
+        }
+        try {
+            withTimeout(1_000) {
+                assertEquals(AgentNewsNotificationOutcome.Ok, settings.reset())
+                gate.complete(Unit)
+                assertEquals(AgentNewsNotificationOutcome.Failed, enabling.await())
+            }
+            assertEquals(AgentNewsNotificationMode.Off, settings.mode)
+            assertEquals(listOf("off"), calls)
+        } finally {
+            enabling.cancelAndJoin()
+        }
+    }
+
+    @Test
+    fun newsNotificationNewerModeDiscardsPendingEnable() = runBlocking {
+        for (newerMode in listOf(AgentNewsNotificationMode.Off, AgentNewsNotificationMode.News)) {
+            val gate = CompletableDeferred<Unit>()
+            var shouldWaitForToken = true
+            val calls = mutableListOf<String>()
+            var stored: String? = null
+            val settings = AgentNewsNotificationSettings(
+                read = { stored },
+                write = { stored = it },
+                ensurePushToken = {
+                    if (shouldWaitForToken) {
+                        shouldWaitForToken = false
+                        gate.await()
+                    }
+                    "token"
+                },
+                getToken = { "token" },
+                language = { "en" },
+                timeZone = { "Etc/UTC" },
+                apply = {
+                    calls += it.mode
+                    true
+                }
+            )
+            val enabling = async(start = CoroutineStart.UNDISPATCHED) {
+                settings.setMode(AgentNewsNotificationMode.Digest)
+            }
+            try {
+                withTimeout(1_000) {
+                    assertEquals(AgentNewsNotificationOutcome.Ok, settings.setMode(newerMode))
+                    gate.complete(Unit)
+                    assertEquals(AgentNewsNotificationOutcome.Failed, enabling.await())
+                }
+                assertEquals(newerMode, settings.mode)
+                assertEquals(
+                    newerMode,
+                    AgentNewsNotificationSettings(read = {
+                        stored
+                    }, write = {}).mode
+                )
+                assertEquals(listOf(newerMode.name.lowercase()), calls)
+            } finally {
+                enabling.cancelAndJoin()
+            }
+        }
+    }
+
+    @Test
+    fun newsNotificationHourAndChangedDeviceContextReapplyAndResetTurnsPushesOff() = runBlocking {
+        var stored: String? = null
+        var token = "first-token"
+        var language = "en"
+        var zone = "Europe/London"
+        var shouldSucceed = true
+        val calls = mutableListOf<ApiMethod.Notifications.SetNewsNotifications.Props>()
+        fun restore() = AgentNewsNotificationSettings(
+            read = {
+                stored
+            },
+            write = { stored = it },
+            ensurePushToken = { token },
+            getToken = { token },
+            language = { language },
+            timeZone = { zone },
+            apply = {
+                calls += it
+                shouldSucceed
+            }
+        )
+        val settings = restore()
+        settings.setDigestHour(19)
+        assertTrue(calls.isEmpty())
+        settings.setMode(AgentNewsNotificationMode.News)
+        settings.setDigestHour(20)
+        assertEquals(1, calls.size)
+        settings.setMode(AgentNewsNotificationMode.Digest)
+        settings.setDigestHour(21)
+        assertEquals(3, calls.size)
+        assertEquals(21, calls.last().digestHour)
+        shouldSucceed = false
+        assertEquals(AgentNewsNotificationOutcome.Failed, settings.setDigestHour(22))
+        assertEquals(22, restore().digestHour)
+        shouldSucceed = true
+        val restored = restore()
+        restored.reapplyIfNeeded()
+        assertEquals(22, calls.last().digestHour)
+        val unchangedCount = calls.size
+        restore().reapplyIfNeeded()
+        assertEquals(unchangedCount, calls.size)
+        token = "next-token"
+        restored.reapplyIfNeeded()
+        language = "ru"
+        restored.reapplyIfNeeded()
+        zone = "Europe/Moscow"
+        restored.reapplyIfNeeded()
+        assertEquals(unchangedCount + 3, calls.size)
+        assertEquals("next-token", calls.last().userToken)
+        assertEquals("ru", calls.last().langCode)
+        assertEquals("Europe/Moscow", calls.last().timeZone)
+        shouldSucceed = false
+        assertEquals(AgentNewsNotificationOutcome.Failed, restored.reset())
+        assertEquals("off", calls.last().mode)
+        val resetCount = calls.size
+        val resetSettings = restore()
+        assertEquals(AgentNewsNotificationMode.Off, resetSettings.mode)
+        shouldSucceed = true
+        assertEquals(AgentNewsNotificationOutcome.Ok, resetSettings.reapplyIfNeeded())
+        assertEquals(resetCount + 1, calls.size)
+        assertEquals("off", calls.last().mode)
+        restore().reapplyIfNeeded()
+        assertEquals(resetCount + 1, calls.size)
     }
 
     @Test
@@ -394,6 +818,105 @@ class AgentV2ContractTest {
             history.messages[0].content
         )
         assertNull(history.messages[1].newsPost)
+    }
+
+    @Test
+    fun decodesSupportMessagesAlongsideAgentHistoryAndUnknownEventCodes() {
+        val history = moshi.adapter(AgentV2ThreadHydration::class.java).fromJson(
+            """
+            {
+              "thread":{"id":"thread","revision":7,"support":{"state":"operator","lastOperatorMessageAt":"2026-11-08T12:00:04Z"}},
+              "messages":[
+                {
+                  "id":"user","threadId":"thread","role":"user","status":"complete",
+                  "createdAt":"2026-11-08T12:00:00Z","content":{"kind":"markdown","text":"Help"}
+                },
+                {
+                  "id":"assistant","threadId":"thread","role":"assistant","status":"complete",
+                  "createdAt":"2026-11-08T12:00:01Z","content":{"kind":"markdown","text":"Connecting"}
+                },
+                {
+                  "id":"requested","threadId":"thread","role":"event","status":"complete",
+                  "createdAt":"2026-11-08T12:00:02Z","code":"support_requested"
+                },
+                {
+                  "id":"joined","threadId":"thread","role":"event","status":"complete",
+                  "createdAt":"2026-11-08T12:00:03Z","code":"operator_joined",
+                  "author":{"operatorId":"operator","name":"Alex","avatarUrl":"https://example.com/avatar.png"}
+                },
+                {
+                  "id":"operator","threadId":"thread","role":"operator","status":"complete",
+                  "createdAt":"2026-11-08T12:00:04Z","text":"**Plain text**",
+                  "author":{"operatorId":"operator","name":"Alex"}
+                },
+                {
+                  "id":"future","threadId":"thread","role":"event","status":"complete",
+                  "createdAt":"2026-11-08T12:00:05Z","code":"future_support_event"
+                },
+                {
+                  "id":"closed","threadId":"thread","role":"event","status":"complete",
+                  "createdAt":"2026-11-08T12:00:06Z","code":"support_closed","reason":"inactivity"
+                }
+              ],
+              "nextCursor":"older"
+            }
+            """.trimIndent()
+        )!!
+
+        assertEquals(7, history.messages.size)
+        assertEquals("older", history.nextCursor)
+        assertEquals(
+            AgentV2ThreadSupport("operator", "2026-11-08T12:00:04Z"),
+            history.thread.support
+        )
+        assertEquals(AgentV2MessageContent.Markdown("Help"), history.messages[0].content)
+        assertEquals(AgentV2MessageContent.Markdown("Connecting"), history.messages[1].content)
+        assertEquals("support_requested", history.messages[2].code)
+        assertEquals(
+            AgentV2OperatorAuthor("operator", "Alex", "https://example.com/avatar.png"),
+            history.messages[3].author
+        )
+        assertEquals("operator_joined", history.messages[3].code)
+        assertEquals("operator", history.messages[4].role)
+        assertEquals("**Plain text**", history.messages[4].text)
+        assertEquals(AgentV2OperatorAuthor("operator", "Alex"), history.messages[4].author)
+        assertNull(history.messages[4].content)
+        assertEquals("future_support_event", history.messages[5].code)
+        assertEquals("support_closed", history.messages[6].code)
+        assertEquals("inactivity", history.messages[6].reason)
+    }
+
+    @Test
+    fun decodesSupportFromThreadListsAndLiveThreadChanges() {
+        val list = moshi.adapter(AgentV2ThreadListResponse::class.java).fromJson(
+            """
+            {"threads":[
+              {"thread":{"id":"waiting","revision":1,"support":{"state":"waiting"}}},
+              {"thread":{"id":"ordinary","revision":0}}
+            ]}
+            """.trimIndent()
+        )!!
+        val update = adapter.fromJson(
+            """
+            {
+              "type":"agentV2",
+              "update":{
+                "kind":"threadChanged","threadId":"waiting",
+                "thread":{"id":"waiting","revision":2,"support":{"state":"closed"}}
+              }
+            }
+            """.trimIndent()
+        ) as ApiUpdate.ApiUpdateAgentV2
+
+        assertEquals(AgentV2ThreadSupport("waiting"), list.threads[0].thread.support)
+        assertNull(list.threads[1].thread.support)
+        assertEquals(
+            AgentV2Update.ThreadChanged(
+                "waiting",
+                AgentV2ThreadSummary("waiting", 2, support = AgentV2ThreadSupport("closed"))
+            ),
+            update.update
+        )
     }
 
     @Test

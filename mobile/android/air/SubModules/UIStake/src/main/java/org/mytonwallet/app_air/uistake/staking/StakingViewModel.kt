@@ -196,13 +196,15 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 WalletCore.baseCurrency.decimalsCount
             )
         } else {
-            amountInCrypto =
+            val convertiblePrice = tokenPrice?.takeIf { it.toBigInteger(9)?.signum() == 1 }
+            amountInCrypto = convertiblePrice?.let { price ->
                 PriceConversionUtils.convertBaseCurrencyToToken(
                     inputAmount.toString(),
                     currentToken.decimals,
-                    tokenPrice,
+                    price,
                     WalletCore.baseCurrency.decimalsCount
                 )
+            }
             amountInBaseCurrency = CoinUtils.fromDecimal(
                 inputAmount?.toString(),
                 WalletCore.baseCurrency.decimalsCount
@@ -573,8 +575,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                         currency = "",
                         currencyDecimals =
                             (tonOperationFees?.real ?: BigInteger.ZERO).smartDecimalsCount(9),
-                        showPositiveSign = false,
-                        roundUp = true
+                        showPositiveSign = false
                     ),
                     maxAmountString = createMaxString(),
                     tvl = commonTvl(),
@@ -647,22 +648,31 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                     return
                 }
 
-                val amountInCrypto = inputStateValue().amountInCrypto ?: run {
-                    updateViewStateOnInputChanged()
-                    return
+                if (walletEvent == WalletEvent.BaseCurrencyChanged &&
+                    !inputStateValue().isInputCurrencyCrypto
+                ) {
+                    isInputListenerLocked = true
+                    _inputStateFlow.tryEmit(
+                        inputStateValue().copy(
+                            isInputCurrencyCrypto = true,
+                            amountInBaseCurrency = null
+                        )
+                    )
                 }
+
                 val inputValue = inputStateValue().run {
                     if (isInputCurrencyCrypto) {
-                        CoinUtils.toDecimalString(
-                            amountInCrypto,
-                            currentToken.decimals
-                        )
+                        amountInCrypto?.let {
+                            CoinUtils.toDecimalString(it, currentToken.decimals)
+                        }
                     } else {
-                        CoinUtils.toDecimalString(
-                            amountInBaseCurrency ?: BigInteger.ZERO,
-                            WalletCore.baseCurrency.decimalsCount
-                        )
+                        amountInBaseCurrency?.let {
+                            CoinUtils.toDecimalString(it, WalletCore.baseCurrency.decimalsCount)
+                        }
                     }
+                } ?: run {
+                    updateViewStateOnInputChanged()
+                    return
                 }
 
                 isInputListenerLocked = true

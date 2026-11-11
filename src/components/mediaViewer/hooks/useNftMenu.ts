@@ -24,7 +24,7 @@ import useLastCallback from '../../../hooks/useLastCallback';
 
 export type NftMenuHandler = 'send' | 'tondns' | 'fragment' | 'marketplace' | 'explorer' | 'collection' | 'hide'
   | 'hideAndReport' | 'unhide' | 'not_scam' | 'burn' | 'select' | 'installCard' | 'resetCard' | 'installAccentColor'
-  | 'resetAccentColor' | 'renew' | 'linkDomain' | 'shareLink';
+  | 'resetAccentColor' | 'renew' | 'linkDomain' | 'unlinkDomain' | 'shareLink';
 
 const ON_SALE_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Cannot be sent',
@@ -115,6 +115,10 @@ const LINK_TO_ADDRESS: DropdownItem<NftMenuHandler> = {
 const CHANGE_LINKED_ADDRESS: DropdownItem<NftMenuHandler> = {
   name: 'Change Wallet',
   value: 'linkDomain',
+};
+const UNLINK_ADDRESS: DropdownItem<NftMenuHandler> = {
+  name: 'Unlink Wallet',
+  value: 'unlinkDomain',
 };
 const SHARE_LINK_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Share Link',
@@ -312,6 +316,11 @@ export default function useNftMenu({
         break;
       }
 
+      case 'unlinkDomain': {
+        openDomainLinkingModal({ address: nft!.address, isUnlinking: true });
+        break;
+      }
+
       case 'shareLink': {
         void shareUrl(getViewNftUrl(nft!.address, isTestnet));
         break;
@@ -327,7 +336,7 @@ export default function useNftMenu({
     } = nft;
     const isDotTon = isDotTonDomainNft(nft);
     const isRenewable = isRenewableDnsNft(nft);
-    const isLinkable = isLinkableDnsNft(nft);
+    const canLink = !isViewMode && isLinkableDnsNft(nft) && !isOnSale;
     const isCard = nft.collectionAddress === MW_CARDS_COLLECTION;
     const canHide = (!isScam && !isNftBlacklisted) || isNftWhitelisted;
 
@@ -336,7 +345,8 @@ export default function useNftMenu({
       ...(isCard ? [!isNftAccentColorInstalled ? INSTALL_ACCENT_COLOR : RESET_ACCENT_COLOR] : []),
       isOnFragment && FRAGMENT_ITEM,
       !isViewMode && (isOnSale ? ON_SALE_ITEM : SEND_ITEM),
-      !isViewMode && isLinkable && !isOnSale && (linkedAddress ? CHANGE_LINKED_ADDRESS : LINK_TO_ADDRESS),
+      canLink && (linkedAddress ? CHANGE_LINKED_ADDRESS : LINK_TO_ADDRESS),
+      canLink && Boolean(linkedAddress) && UNLINK_ADDRESS,
       isDotTon && !isViewMode && TON_DOMAIN_ITEM,
       !isViewMode && isRenewable && !isOnSale && dnsExpireInDays !== undefined && {
         ...RENEW_ITEM,

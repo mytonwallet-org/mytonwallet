@@ -57,6 +57,8 @@ export function getAgentV2ErrorText(code: AgentV2ErrorCode, lang: LangFn) {
       return lang('$agent_error_transcription_unavailable');
     case 'news_unavailable':
       return lang('$agent_news_unavailable');
+    case 'digest_unavailable':
+      return lang('$agent_digest_unavailable');
     case 'market_data_unavailable':
       return lang('$agent_error_generic');
     case 'network_error':

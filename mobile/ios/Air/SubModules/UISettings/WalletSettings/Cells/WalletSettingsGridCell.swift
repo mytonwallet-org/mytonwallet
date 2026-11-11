@@ -37,6 +37,7 @@ final class WalletSettingsGridCell: UICollectionViewCell, ReorderableCell {
     }
 
     func configure(with accountContext: AccountContext, isSelected: Bool?) {
+        accessibilityIdentifier = "wallets_cell_grid"
         contentView.backgroundColor = .clear
         cellModel.isSelected = isSelected
         let onClearHighlight: () -> Void = { [weak self] in
@@ -169,6 +170,9 @@ private struct _Content: View {
                 height: layoutGeometry.selectionBulletSize
             )
             .contentTransition(.opacity)
+            .accessibilityLabel(lang("Select"))
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityIdentifier("wallets_checkbox")
     }
 }
 

@@ -1,5 +1,6 @@
 import type { AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
 import type { AgentConversationSession } from '../../components/agent/AgentConversationShell';
+import type { AgentV2CachedChat } from '../../components/agent/hooks/agentV2MessagesState';
 import type { AgentV2ChatTarget } from '../../components/agent/hooks/useAgentV2Messages';
 import type { AgentThreadUnreadStart } from '../../components/agentV2/agentThreadReadState';
 
@@ -12,22 +13,23 @@ export interface ChatSelection {
   /** The list's copy of the thread, which names the chat before its history loads */
   thread?: AgentThreadSummaryV2;
   initialMessage?: string;
-  /** The news whose discussion this is, when the user opened it from the feed; back returns to that news */
+  /** The news whose discussion this is, when the user opened it from the feed; back gives the focus to its card */
   newsEventId?: number;
   /** Where the messages the user had not seen started as the chat opened; the "New" line stays there */
   unreadStart?: AgentThreadUnreadStart;
+  /** A cached list row leaves the unread position unknown until fresh history loads */
+  isUnreadStateUnknown?: boolean;
 }
 
 export interface FeedSelection {
   /** Remounts the feed each time it opens, so that it scrolls to where it opens again */
   key: number;
-  /** The news to show first, as when the user comes back from its discussion */
-  eventId?: number;
 }
 
 export interface ReadRecord {
   /** The message count the list saw once the user had left the chat and it stopped answering */
   seenMessageCount?: number;
+  seenAt?: number;
   /** The user left the chat, and the list has not yet seen its count with the answer settled */
   isBaselineNeeded: boolean;
   isMarkedUnread: boolean;
@@ -55,19 +57,39 @@ interface AgentV2LocalState {
   isConsentAcceptedOnSwitch?: boolean;
   threadReadState?: StoredReadState;
   shownThreadCounts: Map<string, number>;
+  /** The chats shown last, oldest first, which open again at once with the history they had */
+  recentChats: Map<string, AgentV2CachedChat>;
 }
 
 export const AGENT_THREAD_READ_STATE_STORAGE_KEY = 'mytonwallet-agent-thread-read-state';
+// As many recent chats as iOS keeps loaded
+const RECENT_CHAT_LIMIT = 8;
 export const agentThreadReadStateListeners = new Set<NoneToVoidFunction>();
+export const agentThreadListListeners = new Set<(threads: AgentThreadSummaryV2[]) => void>();
 
-let localState: AgentV2LocalState = { draftOnMount: '', shownThreadCounts: new Map() };
+let localState: AgentV2LocalState = createLocalState();
 
 export function getAgentV2LocalState() {
   return localState;
 }
 
+export function getRecentAgentChat(threadId: string) {
+  return localState.recentChats.get(threadId);
+}
+
+export function keepRecentAgentChat(chat: AgentV2CachedChat) {
+  const { recentChats } = localState;
+  recentChats.delete(chat.thread.id);
+  recentChats.set(chat.thread.id, chat);
+  if (recentChats.size > RECENT_CHAT_LIMIT) recentChats.delete(recentChats.keys().next().value!);
+}
+
+export function forgetRecentAgentChat(threadId: string) {
+  localState.recentChats.delete(threadId);
+}
+
 export function resetAgentV2LocalState() {
-  localState = { draftOnMount: '', shownThreadCounts: new Map() };
+  localState = createLocalState();
   try {
     localStorage.removeItem(AGENT_THREAD_READ_STATE_STORAGE_KEY);
     localStorage.removeItem('mytonwallet-agent-last-thread');
@@ -75,4 +97,8 @@ export function resetAgentV2LocalState() {
     // An unavailable store does not block sign-out
   }
   agentThreadReadStateListeners.forEach((listener) => listener());
+}
+
+function createLocalState(): AgentV2LocalState {
+  return { draftOnMount: '', shownThreadCounts: new Map(), recentChats: new Map() };
 }

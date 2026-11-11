@@ -211,6 +211,8 @@ function NftAttributesModal({
           </div>
         ) : lottie ? (
           <AnimatedIconWithPreview
+            // A remount per animation keeps the new preview up if TLottie rejects the animation
+            key={lottie}
             size={ANIMATED_ICON_SIZE}
             shouldStretch
             play={isOpen}

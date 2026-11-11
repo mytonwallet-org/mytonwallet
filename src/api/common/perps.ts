@@ -1,26 +1,12 @@
 import { Interface } from 'ethers';
 
-import type {
-  ApiEvmSwapTransactionRequest,
-  ApiPerpsBuildBalanceWithdrawResult,
-  ApiPerpsBuildClosePositionRequest,
-  ApiPerpsBuildClosePositionResult,
-  ApiPerpsBuildDepositResult,
-  ApiPerpsBuildModifyPositionRequest,
-  ApiPerpsBuildModifyPositionResult,
-  ApiPerpsBuildPositionResult,
-  ApiPerpsCctpDeposit,
-  ApiPerpsChain,
-  ApiPerpsExchangeBuild,
-  ApiPerpsExchangeSignature,
-  ApiPerpsExecuteClosePositionRequest,
-  ApiPerpsExecutePositionRequest,
-  ApiPerpsOpenPositionResult,
-  ApiPerpsSignedExchangeAction,
-  ApiPerpsWithdrawPermit,
-} from '../types';
+import type { ApiEvmSwapTransactionRequest, ApiPerpsCctpDeposit, ApiPerpsExchangeSignature } from '../types';
 
-import { HYPERLIQUID_BRIDGE_CHAIN_ID } from '../chains/evm/hyperliquidPayloadValidation';
+/** Arbitrum One: the chain of the USDC bridge and of Hyperliquid's user-signed actions. */
+export const HYPERLIQUID_BRIDGE_CHAIN_ID = 42161;
+
+/** Fee in bps / 10, so 88 = 0.088% */
+export const HYPERLIQUID_BUILDER_ORDER_FEE = 88;
 
 /** HL SDK + CCTP deposit assembly on perps position build routes (default fetch timeout is 10s). */
 export const PERPS_BUILD_REQUEST_TIMEOUT_MS = 60_000;
@@ -34,10 +20,27 @@ export const PERPS_CLOSE_EXECUTE_TIMEOUT_MS = 195_000;
 /** Market IOC slippage shared with the backend's default order builder. */
 export const PERPS_REVIEW_PRICE_TOLERANCE = '0.03';
 
+/** Share of the position's value a leverage decrease reviews above the margin it needs when previewed. */
+export const PERPS_LEVERAGE_MARGIN_HEADROOM = '0.005';
+
 export const PERPS_CCTP_FORWARD_FEE_USDC = 0.2;
+
+/** Matches backend `HYPERLIQUID_CCTP_WITHDRAW_GAS_RESERVE_USDC`, which a balance withdrawal leaves on its source. */
+export const PERPS_CCTP_WITHDRAW_GAS_RESERVE_USDC = 0.03;
+
+/** The backend submits a signed action once, so the venue's refusal of it means no funds moved. */
+export function isPerpsVenueRejection(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('[HL_EXCHANGE_ERROR]');
+}
+
+/** Operation `assetId` of a balance withdrawal. Catalogue asset IDs always start with `hyperliquid:`. */
+export const PERPS_BALANCE_WITHDRAWAL_ASSET_ID = 'USDC';
 
 /** CCTP bridge fee in Arbitrum USDC base units (6 decimals). */
 export const PERPS_CCTP_FORWARD_FEE_USDC_BASE_UNITS = 200_000n;
+
+/** Conservative USDC reserve when a Pimlico gas quote is unavailable during funding checks. */
+export const PERPS_GASLESS_GAS_FALLBACK_USDC = '0.5';
 
 export function getPerpsOrderError(status: string): string {
   if (status === 'minTradeNtlRejected' || status.includes('minimum value of $10')) return 'PerpsOrderTooSmall';
@@ -138,160 +141,12 @@ export function buildPerpsCctpDepositTx(params: {
   };
 }
 
-/** Maps `/perps/position/close/build` → phase-1 `/perps/position/close/execute` (`action.type === 'order'`). */
-export function buildPerpsCloseOrderExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildClosePositionResult,
-  request: ApiPerpsBuildClosePositionRequest,
-  signature: ApiPerpsExchangeSignature,
-): ApiPerpsExecuteClosePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    asset: request.asset,
-    action: build.action,
-    nonce: build.nonce,
-    signature,
-    destination: request.address,
-  };
+/** Whether an address from a request or a backend build is the account's own wallet. */
+export function isPerpsWalletAddress(address: unknown, walletAddress: string): boolean {
+  return typeof address === 'string' && address.toLowerCase() === walletAddress.toLowerCase();
 }
 
-/** Maps signed CCTP withdraw permit → phase-2 `/perps/position/close/execute` (`sendToEvmWithData`). */
-export function buildPerpsCloseWithdrawExecuteRequest(
-  chain: ApiPerpsChain,
-  address: string,
-  withdraw: ApiPerpsWithdrawPermit,
-  signature: ApiPerpsExchangeSignature,
-): ApiPerpsExecuteClosePositionRequest {
-  return {
-    chain,
-    address,
-    action: withdraw.action,
-    nonce: withdraw.nonce,
-    signature,
-  };
-}
-
-export function buildPerpsOpenExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildPositionResult,
-  signed: {
-    signature: ApiPerpsExchangeSignature;
-    approveBuilderFee?: ApiPerpsSignedExchangeAction;
-    spotToPerp?: ApiPerpsSignedExchangeAction;
-    updateLeverage?: ApiPerpsSignedExchangeAction;
-  },
-): ApiPerpsExecutePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    action: build.action,
-    nonce: build.nonce,
-    signature: signed.signature,
-    approveBuilderFee: signed.approveBuilderFee,
-    spotToPerp: signed.spotToPerp,
-    updateLeverage: signed.updateLeverage,
-    depositAmount: build.deposit.amountUsdc,
-  };
-}
-
-/** Maps `/perps/deposit/build` → `/perps/position/execute` with no order. */
-export function buildPerpsDepositExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildDepositResult,
-  signed: { spotToPerp?: ApiPerpsSignedExchangeAction },
-): ApiPerpsExecutePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    depositAmount: build.deposit.amountUsdc,
-    spotToPerp: signed.spotToPerp,
-  };
-}
-
-/** Maps `/perps/withdraw/build` → `/perps/position/execute` (`sendToEvmWithData` only). */
-export function buildPerpsBalanceWithdrawExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildBalanceWithdrawResult,
-  signature: ApiPerpsExchangeSignature,
-): ApiPerpsExecutePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    action: build.action,
-    nonce: build.nonce,
-    signature,
-  };
-}
-
-/** Maps `/perps/position/open` → `/perps/position/execute` without `depositAmount`. */
-export function buildPerpsOpenFromBalanceExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsOpenPositionResult,
-  signed: {
-    signature: ApiPerpsExchangeSignature;
-    approveBuilderFee?: ApiPerpsSignedExchangeAction;
-    updateLeverage: ApiPerpsSignedExchangeAction;
-  },
-): ApiPerpsExecutePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    action: build.action,
-    nonce: build.nonce,
-    signature: signed.signature,
-    approveBuilderFee: signed.approveBuilderFee,
-    updateLeverage: signed.updateLeverage,
-  };
-}
-
-/** Maps `/perps/position/modify/build` → shared `/perps/position/execute`. */
-export function buildPerpsModifyExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildModifyPositionResult,
-  signed: {
-    signature?: ApiPerpsExchangeSignature;
-    approveBuilderFee?: ApiPerpsSignedExchangeAction;
-    spotToPerp?: ApiPerpsSignedExchangeAction;
-    updateLeverage?: ApiPerpsSignedExchangeAction;
-    updateIsolatedMargin?: ApiPerpsSignedExchangeAction;
-  },
-): ApiPerpsExecutePositionRequest {
-  const request: ApiPerpsExecutePositionRequest = {
-    chain,
-    address: build.address,
-    approveBuilderFee: signed.approveBuilderFee,
-    spotToPerp: signed.spotToPerp,
-    updateLeverage: signed.updateLeverage,
-    updateIsolatedMargin: signed.updateIsolatedMargin,
-    depositAmount: build.deposit?.amountUsdc,
-  };
-
-  if (build.action !== undefined && build.nonce !== undefined && signed.signature !== undefined) {
-    request.action = build.action;
-    request.nonce = build.nonce;
-    request.signature = signed.signature;
-  }
-
-  return request;
-}
-
-/** Reduce-only modify order → `/perps/position/close/execute` (same as close phase 1). */
-export function buildPerpsModifyReduceExecuteRequest(
-  chain: ApiPerpsChain,
-  build: ApiPerpsBuildModifyPositionResult & ApiPerpsExchangeBuild,
-  request: ApiPerpsBuildModifyPositionRequest,
-  signature: ApiPerpsExchangeSignature,
-): ApiPerpsExecuteClosePositionRequest {
-  return {
-    chain,
-    address: build.address,
-    asset: request.asset,
-    action: build.action,
-    nonce: build.nonce,
-    signature,
-    destination: request.address,
-    skipPositionFlatWait: true,
-    depositAmount: request.depositAmount,
-  };
+/** Hyperliquid wire coin of a catalogue asset ID: `hyperliquid:hl:BTC` → `BTC`, `hyperliquid:xyz:TSLA` → `xyz:TSLA`. */
+export function getPerpsCoinFromAssetId(assetId: string): string {
+  return assetId.replace(/^hyperliquid:(hl:)?/, '');
 }

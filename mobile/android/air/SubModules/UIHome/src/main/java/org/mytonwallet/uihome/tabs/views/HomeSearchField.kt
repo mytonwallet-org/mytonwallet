@@ -44,6 +44,10 @@ class HomeSearchField(
     companion object {
         const val HEIGHT = 48
         private const val HINT_KEY = "Search or Ask"
+        private const val SHORT_HINT_KEY = "Search"
+
+        // The unfocused placeholder starts past the magnifier
+        private const val PLACEHOLDER_START = 44
     }
 
     private var isProcessingSearchKeyword = false
@@ -112,6 +116,11 @@ class HomeSearchField(
             searchFocused.animatedValue = focused
         }
 
+        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+            super.onLayout(changed, left, top, right, bottom)
+            updateHint()
+        }
+
         override fun onSelectionChanged(selStart: Int, selEnd: Int) {
             super.onSelectionChanged(selStart, selEnd)
             if (isProcessingSearchKeyword ||
@@ -137,6 +146,7 @@ class HomeSearchField(
             }
         }
     }.apply {
+        isHintSingleLine = true
         id = UIComponentsR.id.home_search_input
         isSaveEnabled = false
         hint = LocaleController.getString(HINT_KEY)
@@ -181,12 +191,13 @@ class HomeSearchField(
             checkForMatchingUrl(query ?: "")
         }
         setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_DONE ||
-                (
-                    event?.action == KeyEvent.ACTION_DOWN &&
-                        event.keyCode == KeyEvent.KEYCODE_ENTER
-                    )
-            ) {
+            if (event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+                // The release is consumed too, or `TextView` moves focus on it and the blur closes
+                // the search before a submit waiting for results can open anything
+                if (event.action == KeyEvent.ACTION_DOWN) onSubmit(this)
+                return@setOnEditorActionListener true
+            }
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
                 onSubmit(this)
                 return@setOnEditorActionListener true
             }
@@ -237,6 +248,22 @@ class HomeSearchField(
             0
         )
     }
+
+    private fun updateHint() {
+        val fullHint = LocaleController.getString(HINT_KEY)
+        val width = editText.width - PLACEHOLDER_START.dp - editText.compoundPaddingRight
+        val hint = if (width <= 0 || editText.paint.measureText(fullHint) <= width) {
+            fullHint
+        } else {
+            LocaleController.getString(SHORT_HINT_KEY)
+        }
+        if (hint == appliedHint) return
+        appliedHint = hint
+        editText.hint = hint
+        editText.requestLayout()
+    }
+
+    private var appliedHint: String? = null
 
     private fun checkForMatchingUrl(keyword: String) {
         searchKeyword = keyword

@@ -23,10 +23,6 @@ enum AgentNewsDiscussionMetrics {
 /// A news item of the News feed: the post the item's discussion starts with, ended by Telegram's comments strip that
 /// opens the discussion
 final class AgentNewsFeedCardCell: UICollectionViewCell {
-    private static let timeFormatter = DateFormatter()
-    private static var timeFormattingLocale: Locale?
-    private static var timeFormattingCalendar: Calendar?
-
     var contextMenuConfigurationProvider: (() -> ContextMenuConfiguration?)? {
         get { newsView.contextMenuConfigurationProvider }
         set { newsView.contextMenuConfigurationProvider = newValue }
@@ -35,7 +31,7 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
         get { newsView.onPreferredHeightChanged }
         set { newsView.onPreferredHeightChanged = newValue }
     }
-    var openSourceAction: (() -> Void)? {
+    var openSourceAction: ((String) -> Void)? {
         get { newsView.openSourceAction }
         set { newsView.openSourceAction = newValue }
     }
@@ -47,13 +43,7 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
 
     let newsView = AgentNewsPostView()
     private let contentLayoutGuide = UILayoutGuide()
-    private let discussionStrip = UIStackView()
-    private let discussionButton = AgentNewsDiscussionButton()
-    private let discussionIconView = UIView()
-    private let discussionAvatarView = AgentThreadAvatarView()
-    /// The Agent's mark in the accent color, like the button's title
-    private let discussionTopView = UIImageView(image: AgentSpinningTopIcon.makeTemplateImage(size: 26))
-    private let discussionLabel = UILabel()
+    private let discussionStrip = AgentNewsDiscussionStrip()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -92,18 +82,15 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
     }
 
     private func configureDiscussion(with item: ApiAgentV2NewsFeedItem, isStarted: Bool) {
-        let hasDiscussion = item.discussion != nil && isStarted
-        discussionLabel.text = lang(hasDiscussion ? "$agent_news_continue_discussion" : "$agent_news_discuss")
-        discussionButton.accessibilityLabel = hasDiscussion
-            ? L10n.agentNewsContinueDiscussionAccessibility(headline: item.headline)
-            : "\(lang("$agent_news_discuss")), \(item.headline)"
-        discussionButton.accessibilityIdentifier = "AgentNewsDiscussion-\(item.eventId)"
-        // A discussion shows its thread's avatar, the same as in the thread list; a new one the Agent's mark
-        if hasDiscussion, let discussion = item.discussion {
-            discussionAvatarView.configure(seed: discussion.threadId, emoji: discussion.icon)
-        }
-        discussionAvatarView.isHidden = !hasDiscussion
-        discussionTopView.isHidden = hasDiscussion
+        let discussion = isStarted ? item.discussion : nil
+        discussionStrip.configure(
+            title: lang(discussion != nil ? "$agent_news_continue_discussion" : "$agent_news_discuss"),
+            accessibilityLabel: discussion != nil
+                ? L10n.agentNewsContinueDiscussionAccessibility(headline: item.headline)
+                : "\(lang("$agent_news_discuss")), \(item.headline)",
+            accessibilityIdentifier: "AgentNewsDiscussion-\(item.eventId)",
+            discussion: discussion
+        )
     }
 
     /// A picture of the card and its frame in the window, for the post that flies into the new discussion. The picture
@@ -117,36 +104,28 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
         newsView.alpha = isHidden ? 0 : 1
     }
 
-    /// Telegram's disclosure arrow: a 2 pt chevron in a 24 pt box
-    private static let discussionArrowImage = AgentGlyph.makeImage(
-        size: AgentNewsDiscussionMetrics.arrowBoxSize,
-        lineWidth: 2,
-        strokes: [[CGPoint(x: 10, y: 7), CGPoint(x: 15, y: 12), CGPoint(x: 10, y: 17)]]
-    ).imageFlippedForRightToLeftLayoutDirection()
-
     @objc private func openDiscussion() {
         discussionAction?()
     }
 
-    /// What the card shows of `item`: its time alone, under the day line that gives its date
+    /// What the card shows of `item`: its time alone, whatever its date, under the day capsule that gives the date
     static func makeContent(for item: ApiAgentV2NewsFeedItem) -> AgentNewsPostView.Content {
         AgentNewsPostView.Content(item: item, time: timeText(for: item.deliveredAt))
     }
 
+    /// The card's time, on the device's 12- or 24-hour clock as a chat's date lines show it
     static func timeText(
         for timestamp: String,
-        calendar: Calendar = .current,
-        locale: Locale = LocalizationSupport.shared.locale
+        timeZone: TimeZone = .autoupdatingCurrent,
+        locale: Locale = LocalizationSupport.shared.locale,
+        hourCycle: Locale.HourCycle = Locale.autoupdatingCurrent.hourCycle
     ) -> String {
-        if timeFormattingLocale != locale || timeFormattingCalendar != calendar {
-            timeFormatter.calendar = calendar
-            timeFormatter.locale = locale
-            timeFormatter.timeZone = calendar.timeZone
-            timeFormatter.setLocalizedDateFormatFromTemplate("jmm")
-            timeFormattingLocale = locale
-            timeFormattingCalendar = calendar
-        }
-        return timeFormatter.string(from: AgentV2DateParser.date(timestamp))
+        BaseAgentModel.formattedTime(
+            AgentV2DateParser.date(timestamp),
+            locale: locale,
+            hourCycle: hourCycle,
+            timeZone: timeZone
+        )
     }
 
     private func configureViews() {
@@ -155,64 +134,7 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
         contentView.addLayoutGuide(contentLayoutGuide)
         contentView.addSubview(newsView)
 
-        let separator = UIView()
-        separator.backgroundColor = .air.separator
-        separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
-        discussionButton.addTarget(self, action: #selector(openDiscussion), for: .touchUpInside)
-        discussionLabel.applyTextStyle(.body, scaling: .dynamic)
-        discussionLabel.textColor = .tintColor
-        discussionLabel.numberOfLines = 0
-        let arrow = UIImageView(image: Self.discussionArrowImage)
-        arrow.tintColor = .tintColor
-        arrow.setContentHuggingPriority(.required, for: .horizontal)
-        arrow.setContentCompressionResistancePriority(.required, for: .horizontal)
-        for view in [discussionAvatarView, discussionTopView] as [UIView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            discussionIconView.addSubview(view)
-            NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: discussionIconView.leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: discussionIconView.trailingAnchor),
-                view.topAnchor.constraint(equalTo: discussionIconView.topAnchor),
-                view.bottomAnchor.constraint(equalTo: discussionIconView.bottomAnchor),
-            ])
-        }
-        // The mark keeps its own size inside the avatar's box, as Telegram's comment icon does
-        discussionTopView.contentMode = .center
-        discussionIconView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            discussionIconView.widthAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.avatarSize),
-            discussionIconView.heightAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.avatarSize),
-        ])
-        let discussionRow = UIStackView(arrangedSubviews: [discussionIconView, discussionLabel, arrow])
-        discussionRow.translatesAutoresizingMaskIntoConstraints = false
-        discussionRow.axis = .horizontal
-        discussionRow.alignment = .center
-        discussionRow.spacing = AgentNewsDiscussionMetrics.iconSpacing
-        discussionRow.setCustomSpacing(AgentNewsDiscussionMetrics.arrowSpacing, after: discussionLabel)
-        discussionRow.isUserInteractionEnabled = false
-        discussionRow.accessibilityElementsHidden = true
-        discussionButton.addSubview(discussionRow)
-        discussionButton.highlightedContentView = discussionRow
-        NSLayoutConstraint.activate([
-            discussionButton.heightAnchor.constraint(greaterThanOrEqualToConstant: AgentNewsDiscussionMetrics.minimumHeight),
-            // The strip is as short as its row allows, or a card measured against a taller height would stretch it
-            discussionButton.heightAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.minimumHeight)
-                .withPriority(.defaultLow),
-            discussionRow.leadingAnchor.constraint(equalTo: discussionButton.leadingAnchor, constant: AgentNewsDiscussionMetrics.leadingInset),
-            discussionRow.trailingAnchor.constraint(equalTo: discussionButton.trailingAnchor, constant: -AgentNewsDiscussionMetrics.arrowTrailingInset),
-            discussionRow.centerYAnchor.constraint(equalTo: discussionButton.centerYAnchor, constant: AgentNewsDiscussionMetrics.verticalOffset),
-            discussionRow.topAnchor.constraint(
-                greaterThanOrEqualTo: discussionButton.topAnchor,
-                constant: AgentNewsDiscussionMetrics.minimumVerticalInset
-            ),
-            discussionRow.bottomAnchor.constraint(
-                lessThanOrEqualTo: discussionButton.bottomAnchor,
-                constant: -AgentNewsDiscussionMetrics.minimumVerticalInset
-            ),
-        ])
-        discussionStrip.axis = .vertical
-        discussionStrip.addArrangedSubview(separator)
-        discussionStrip.addArrangedSubview(discussionButton)
+        discussionStrip.button.addTarget(self, action: #selector(openDiscussion), for: .touchUpInside)
         newsView.setFooter(discussionStrip)
 
         NSLayoutConstraint.activate([
@@ -232,14 +154,120 @@ final class AgentNewsFeedCardCell: UICollectionViewCell {
             ),
         ])
         isAccessibilityElement = false
-        discussionButton.isAccessibilityElement = true
-        discussionButton.accessibilityTraits = .button
-        accessibilityElements = [newsView.accessibilityContentElement, discussionButton]
+        accessibilityElements = [newsView.accessibilityContentElement, discussionStrip.button]
+    }
+}
+
+/// Telegram's comments strip under a feed card, which opens its discussion: a separator over a button with the
+/// discussion's icon, its title and a disclosure arrow
+final class AgentNewsDiscussionStrip: UIStackView {
+    /// Telegram's disclosure arrow: a 2 pt chevron in a 24 pt box
+    static let arrowImage = AgentGlyph.makeImage(
+        size: AgentNewsDiscussionMetrics.arrowBoxSize,
+        lineWidth: 2,
+        strokes: [[CGPoint(x: 10, y: 7), CGPoint(x: 15, y: 12), CGPoint(x: 10, y: 17)]]
+    ).imageFlippedForRightToLeftLayoutDirection()
+
+    let button = AgentNewsDimmingButton()
+    private let iconView = UIView()
+    private let avatarView = AgentThreadAvatarView()
+    /// The Agent's mark in the accent color, like the button's title
+    private let topView = UIImageView(image: AgentSpinningTopIcon.makeTemplateImage(size: 26))
+    private let label = UILabel()
+
+    init() {
+        super.init(frame: .zero)
+        configureViews()
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    /// A `discussion` the user has written in shows its thread's avatar, the same as in the thread list; without one
+    /// the strip shows the Agent's mark
+    func configure(
+        title: String,
+        accessibilityLabel: String,
+        accessibilityIdentifier: String,
+        discussion: ApiAgentV2NewsFeedItem.Discussion?
+    ) {
+        label.text = title
+        button.accessibilityLabel = accessibilityLabel
+        button.accessibilityIdentifier = accessibilityIdentifier
+        if let discussion {
+            avatarView.configure(seed: discussion.threadId, emoji: discussion.icon)
+        }
+        avatarView.isHidden = discussion == nil
+        topView.isHidden = discussion != nil
+    }
+
+    private func configureViews() {
+        let separator = UIView()
+        separator.backgroundColor = .air.separator
+        separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
+        label.applyTextStyle(.body, scaling: .dynamic)
+        label.textColor = .tintColor
+        label.numberOfLines = 0
+        let arrow = UIImageView(image: Self.arrowImage)
+        arrow.tintColor = .tintColor
+        arrow.setContentHuggingPriority(.required, for: .horizontal)
+        arrow.setContentCompressionResistancePriority(.required, for: .horizontal)
+        for view in [avatarView, topView] as [UIView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            iconView.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: iconView.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: iconView.trailingAnchor),
+                view.topAnchor.constraint(equalTo: iconView.topAnchor),
+                view.bottomAnchor.constraint(equalTo: iconView.bottomAnchor),
+            ])
+        }
+        // The mark keeps its own size inside the avatar's box, as Telegram's comment icon does
+        topView.contentMode = .center
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            iconView.widthAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.avatarSize),
+            iconView.heightAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.avatarSize),
+        ])
+        let row = UIStackView(arrangedSubviews: [iconView, label, arrow])
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = AgentNewsDiscussionMetrics.iconSpacing
+        row.setCustomSpacing(AgentNewsDiscussionMetrics.arrowSpacing, after: label)
+        row.isUserInteractionEnabled = false
+        row.accessibilityElementsHidden = true
+        button.addSubview(row)
+        button.highlightedContentView = row
+        NSLayoutConstraint.activate([
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: AgentNewsDiscussionMetrics.minimumHeight),
+            // The strip is as short as its row allows, or a card measured against a taller height would stretch it
+            button.heightAnchor.constraint(equalToConstant: AgentNewsDiscussionMetrics.minimumHeight)
+                .withPriority(.defaultLow),
+            row.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: AgentNewsDiscussionMetrics.leadingInset),
+            row.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -AgentNewsDiscussionMetrics.arrowTrailingInset),
+            row.centerYAnchor.constraint(equalTo: button.centerYAnchor, constant: AgentNewsDiscussionMetrics.verticalOffset),
+            row.topAnchor.constraint(
+                greaterThanOrEqualTo: button.topAnchor,
+                constant: AgentNewsDiscussionMetrics.minimumVerticalInset
+            ),
+            row.bottomAnchor.constraint(
+                lessThanOrEqualTo: button.bottomAnchor,
+                constant: -AgentNewsDiscussionMetrics.minimumVerticalInset
+            ),
+        ])
+        button.isAccessibilityElement = true
+        button.accessibilityTraits = .button
+        axis = .vertical
+        addArrangedSubview(separator)
+        addArrangedSubview(button)
     }
 }
 
 /// Dims its content the moment it is pressed and brightens it back over 0.2 s, as Telegram's comments button does
-private final class AgentNewsDiscussionButton: UIButton {
+final class AgentNewsDimmingButton: UIButton {
     private static let highlightedAlpha: CGFloat = 0.4
     private static let unhighlightDuration: TimeInterval = 0.2
 

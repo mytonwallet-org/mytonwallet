@@ -5,79 +5,235 @@
     import AppKit
     typealias SVGPlatformFont = NSFont
 #endif
+import ImageIO
 
 final class SVGRenderContext {
     var gradients = [String: SVGGradientDefinition]()
     var textStyle = SVGTextStyle()
-    var shapeFills = [(CAShapeLayer, String)]()
-    private var styleSheets = [String]()
+    /// Shapes painted with `url(#id)`, keyed by layer so a later color replaces the reference.
+    var shapeFills = [ObjectIdentifier: (CAShapeLayer, String)]()
+    var shapeStrokes = [ObjectIdentifier: (CAShapeLayer, String)]()
+    private var styleRules = [StyleRule]()
+    private var embeddedImages = [String: SVGEmbeddedImage?]()
+    private var gradientPixels = CGFloat(0)
 
-    func applyClasses(_ classes: String, to element: SVGElement) {
-        for styleSheet in styleSheets {
-            for name in classes.split(whereSeparator: { $0.isWhitespace }) {
-                guard let block = declarationBlock(for: "." + name, in: styleSheet) else { continue }
-                for declaration in block.split(separator: ";") {
-                    let parts = declaration.split(separator: ":", maxSplits: 1)
-                    guard parts.count == 2 else { continue }
-                    let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                    let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                    element.supportedAttributes[key]?(value)
+    /// Embedded bitmaps decode once per document, and only so many distinct ones.
+    private static let maximumEmbeddedImages = 16
+    /// Gradient layers rasterize before compositing; this bounds their pixels across a document.
+    private static let gradientPixelBudget = CGFloat(16_000_000)
+
+    private struct StyleRule {
+        var selectors: [String]
+        var declarations: [(String, String)]
+    }
+
+    /// Handles `fill` and `stroke` values that are either a color or a paint server reference.
+    func paintHandler(for layer: CAShapeLayer, isStroke: Bool, color: @escaping (String) -> Void) -> (String) -> Void {
+        return { [weak self] value in
+            self?.setPaint(value, on: layer, isStroke: isStroke, color: color)
+        }
+    }
+
+    func setPaint(_ value: String, on layer: CAShapeLayer, isStroke: Bool, color: (String) -> Void) {
+        let key = ObjectIdentifier(layer)
+        guard let id = value.svgURLReferenceId else {
+            if isStroke {
+                shapeStrokes[key] = nil
+            } else {
+                shapeFills[key] = nil
+            }
+            color(value)
+            return
+        }
+        // An opaque placeholder carries `fill-opacity` or `stroke-opacity` until the paint resolves.
+        if isStroke {
+            shapeStrokes[key] = (layer, id)
+            layer.strokeColor = UIColor.black.cgColor
+        } else {
+            shapeFills[key] = (layer, id)
+            layer.fillColor = UIColor.black.cgColor
+        }
+    }
+
+    /// Decodes a PNG or JPEG `data:` URL of at most 16 megapixels into a bitmap of at most 512 pixels a side.
+    func embeddedImage(_ href: String) -> SVGEmbeddedImage? {
+        if let image = embeddedImages[href] {
+            return image
+        }
+        guard embeddedImages.count < Self.maximumEmbeddedImages else {
+            return nil
+        }
+        let image = Self.decodeEmbeddedImage(href)
+        embeddedImages[href] = .some(image)
+        return image
+    }
+
+    private static func decodeEmbeddedImage(_ href: String) -> SVGEmbeddedImage? {
+        let href = href.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard href.hasPrefix("data:"), let comma = href.firstIndex(of: ","), href[..<comma].hasSuffix(";base64"),
+              let data = Data(base64Encoded: String(href[href.index(after: comma)...]), options: .ignoreUnknownCharacters),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let type = CGImageSourceGetType(source) as String?, type == "public.png" || type == "public.jpeg",
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0, width * height <= 16_777_216,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 512,
+                  kCGImageSourceShouldCacheImmediately: true,
+              ] as CFDictionary) else {
+            return nil
+        }
+        return SVGEmbeddedImage(image: image, size: CGSize(width: width, height: height))
+    }
+
+    /// Paints the shape's fill, or its stroke outline, with a gradient drawn in a masked sublayer at `pixelsPerUnit`.
+    func applyGradient(_ id: String, to shape: CAShapeLayer, isStroke: Bool, pixelsPerUnit: CGFloat) -> Bool {
+        guard let definition = gradients[id] else {
+            return false
+        }
+        guard var path = shape.path else {
+            return true
+        }
+        if isStroke {
+            path = path.copy(strokingWithWidth: shape.lineWidth, lineCap: shape.lineCap.cgLineCap,
+                             lineJoin: shape.lineJoin.cgLineJoin, miterLimit: shape.miterLimit)
+        }
+        let bounds = path.boundingBoxOfPath
+        // Each gradient gets at most 512 pixels a side, and less once the document budget runs low.
+        let remainingPixels = max(Self.gradientPixelBudget - gradientPixels, 4096)
+        let scale = min(pixelsPerUnit, 512 / max(bounds.width, bounds.height),
+                        (remainingPixels / (bounds.width * bounds.height)).squareRoot())
+        guard bounds.width > 0, bounds.height > 0, let gradient = definition.makeLayer(frame: bounds, scale: scale) else {
+            return true
+        }
+        gradientPixels += bounds.width * bounds.height * scale * scale
+        let mask = CAShapeLayer()
+        mask.frame = CGRect(origin: .zero, size: bounds.size)
+        var translation = CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY)
+        mask.path = path.copy(using: &translation)
+        mask.fillRule = isStroke ? .nonZero : shape.fillRule
+        gradient.mask = mask
+        if isStroke {
+            gradient.opacity = Float(shape.strokeColor?.alpha ?? 1)
+            shape.strokeColor = nil
+            shape.addSublayer(gradient)
+        } else {
+            gradient.opacity = Float(shape.fillColor?.alpha ?? 1)
+            shape.fillColor = UIColor.clear.cgColor
+            liftStroke(of: shape)
+            shape.insertSublayer(gradient, at: 0)
+        }
+        return true
+    }
+
+    /// Sublayers draw over the shape's own stroke, so a stroke moves above a fill drawn in a sublayer. Strokes resolve first.
+    func liftStroke(of shape: CAShapeLayer) {
+        guard let strokeColor = shape.strokeColor, shape.lineWidth > 0 else {
+            return
+        }
+        let stroke = CAShapeLayer()
+        stroke.path = shape.path
+        stroke.fillColor = nil
+        stroke.strokeColor = strokeColor
+        stroke.lineWidth = shape.lineWidth
+        stroke.lineCap = shape.lineCap
+        stroke.lineJoin = shape.lineJoin
+        stroke.miterLimit = shape.miterLimit
+        shape.strokeColor = nil
+        shape.addSublayer(stroke)
+    }
+
+    func applyStyleSheet(_ styleSheet: String) {
+        let withoutComments = styleSheet.replacingOccurrences(of: "(?s)/\\*.*?\\*/", with: "", options: [.regularExpression])
+        guard let regex = try? NSRegularExpression(pattern: "([^{}]+)\\{([^}]*)\\}") else {
+            return
+        }
+        let range = NSRange(withoutComments.startIndex..<withoutComments.endIndex, in: withoutComments)
+        for match in regex.matches(in: withoutComments, range: range) {
+            guard let selectorRange = Range(match.range(at: 1), in: withoutComments),
+                  let blockRange = Range(match.range(at: 2), in: withoutComments) else {
+                continue
+            }
+            let selectors = withoutComments[selectorRange].split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let declarations = Self.declarations(in: String(withoutComments[blockRange]))
+            styleRules.append(StyleRule(selectors: selectors, declarations: declarations))
+            if selectors.contains("text") {
+                for (name, value) in declarations {
+                    textStyle.apply(name: name, value: value)
                 }
             }
         }
     }
 
-    func applyShapeFills() {
-        for (shape, id) in shapeFills {
-            guard let path = shape.path else { continue }
-            let bounds = path.boundingBoxOfPath
-            guard bounds.width > 0, bounds.height > 0,
-                  let gradient = gradients[id]?.makeLayer(frame: bounds) else { continue }
-            let mask = CAShapeLayer()
-            mask.frame = CGRect(origin: .zero, size: bounds.size)
-            var translation = CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY)
-            mask.path = path.copy(using: &translation)
-            mask.fillRule = shape.fillRule
-            gradient.mask = mask
-            gradient.opacity = Float(shape.fillColor?.alpha ?? 1)
-            shape.fillColor = UIColor.clear.cgColor
-            shape.addSublayer(gradient)
+    /// Declarations of every matching rule, from the least to the most specific and in source order among equals.
+    func styleDeclarations(forElement name: String, classes: [String], id: String?) -> [(String, String)] {
+        var matches = [(specificity: Int, order: Int, declarations: [(String, String)])]()
+        for (order, rule) in styleRules.enumerated() {
+            let specificity = rule.selectors.compactMap { Self.specificity(of: $0, name: name, classes: classes, id: id) }.max()
+            if let specificity {
+                matches.append((specificity, order, rule.declarations))
+            }
         }
-        shapeFills.removeAll()
+        return matches
+            .sorted { ($0.specificity, $0.order) < ($1.specificity, $1.order) }
+            .flatMap(\.declarations)
     }
 
-    func applyStyleSheet(_ styleSheet: String) {
-        styleSheets.append(styleSheet)
-        guard let textBlock = declarationBlock(for: "text", in: styleSheet) else {
-            return
-        }
-
-        for declaration in textBlock.split(separator: ";") {
+    static func declarations(in block: String) -> [(String, String)] {
+        block.split(separator: ";").compactMap { declaration in
             let parts = declaration.split(separator: ":", maxSplits: 1)
             guard parts.count == 2 else {
-                continue
+                return nil
             }
-
-            let name = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            textStyle.apply(name: name, value: value)
+            let value = parts[1].replacingOccurrences(of: "!important", with: "")
+            return (parts[0].trimmingCharacters(in: .whitespacesAndNewlines), value.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 
-    private func declarationBlock(for selector: String, in styleSheet: String) -> String? {
-        let pattern = "\(NSRegularExpression.escapedPattern(for: selector))\\s*\\{([^}]*)\\}"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+    /// Matches compound selectors such as `path`, `.a`, `#b`, `path.a.b` and `*`; other selectors never match.
+    private static func specificity(of selector: String, name: String, classes: [String], id: String?) -> Int? {
+        guard !selector.isEmpty, !selector.contains(where: { $0.isWhitespace || ">+~[:".contains($0) }) else {
             return nil
         }
-
-        let range = NSRange(styleSheet.startIndex..<styleSheet.endIndex, in: styleSheet)
-        guard let match = regex.firstMatch(in: styleSheet, range: range),
-              let blockRange = Range(match.range(at: 1), in: styleSheet) else {
-            return nil
+        var specificity = 0
+        var remainder = Substring(selector)
+        let tagEnd = remainder.firstIndex(where: { $0 == "." || $0 == "#" }) ?? remainder.endIndex
+        let tag = remainder[..<tagEnd]
+        if !tag.isEmpty, tag != "*" {
+            guard tag == name else {
+                return nil
+            }
+            specificity += 1
         }
-
-        return String(styleSheet[blockRange])
+        remainder = remainder[tagEnd...]
+        while let marker = remainder.first {
+            remainder = remainder.dropFirst()
+            let end = remainder.firstIndex(where: { $0 == "." || $0 == "#" }) ?? remainder.endIndex
+            let value = String(remainder[..<end])
+            remainder = remainder[end...]
+            if marker == "." {
+                guard classes.contains(value) else {
+                    return nil
+                }
+                specificity += 10
+            } else {
+                guard value == id else {
+                    return nil
+                }
+                specificity += 100
+            }
+        }
+        return specificity
     }
+}
+
+struct SVGEmbeddedImage {
+    var image: CGImage
+    /// The size the encoded image declares, which a decoded thumbnail may be smaller than.
+    var size: CGSize
 }
 
 struct SVGGradientStop {
@@ -89,8 +245,8 @@ struct SVGGradientDefinition {
     var id = ""
     var x1 = "0%"
     var y1 = "0%"
-    var x2 = "0%"
-    var y2 = "100%"
+    var x2 = "100%"
+    var y2 = "0%"
     var stops = [SVGGradientStop]()
     var usesUserSpace = false
     var isRadial = false
@@ -99,55 +255,33 @@ struct SVGGradientDefinition {
     var radius = "50%"
     var transform = CGAffineTransform.identity
 
-    func makeLayer(frame: CGRect) -> CALayer? {
+    func makeLayer(frame: CGRect, scale: CGFloat) -> CALayer? {
         guard !stops.isEmpty else {
             return nil
         }
-        if isRadial {
-            let layer = SVGRadialGradientLayer()
-            layer.definition = self
-            layer.frame = frame
-            layer.contentsScale = min(2, 512 / max(frame.width, frame.height))
-            layer.setNeedsDisplay()
-            layer.displayIfNeeded()
-            return layer
-        }
-
-        let layer = CAGradientLayer()
+        let layer = SVGGradientLayer()
+        layer.definition = self
         layer.frame = frame
-        layer.colors = stops.map { $0.color.cgColor }
-        layer.locations = stops.map { NSNumber(value: Double($0.offset)) }
-        if usesUserSpace {
-            layer.startPoint = CGPoint(
-                x: ((SVGLengthParser.number(x1) ?? 0) - frame.minX) / frame.width,
-                y: ((SVGLengthParser.number(y1) ?? 0) - frame.minY) / frame.height
-            )
-            layer.endPoint = CGPoint(
-                x: ((SVGLengthParser.number(x2) ?? 0) - frame.minX) / frame.width,
-                y: ((SVGLengthParser.number(y2) ?? 0) - frame.minY) / frame.height
-            )
-            return layer
-        }
-        layer.startPoint = CGPoint(
-            x: SVGLengthParser.unitCoordinate(x1, axisLength: frame.width) ?? 0,
-            y: SVGLengthParser.unitCoordinate(y1, axisLength: frame.height) ?? 0
-        )
-        layer.endPoint = CGPoint(
-            x: SVGLengthParser.unitCoordinate(x2, axisLength: frame.width) ?? 0,
-            y: SVGLengthParser.unitCoordinate(y2, axisLength: frame.height) ?? 1
-        )
+        layer.contentsScale = scale
+        layer.setNeedsDisplay()
+        layer.displayIfNeeded()
         return layer
     }
 }
 
-private final class SVGRadialGradientLayer: CALayer {
+/// Draws a gradient in the coordinates its definition uses, so `gradientTransform` applies exactly.
+private final class SVGGradientLayer: CALayer {
     var definition = SVGGradientDefinition()
 
     override func draw(in context: CGContext) {
         let colors = definition.stops.map { $0.color.cgColor } as CFArray
-        let locations = definition.stops.map { $0.offset }
+        // Offsets never decrease; a smaller one takes the value of the largest before it.
+        var offsets = [CGFloat]()
+        for stop in definition.stops {
+            offsets.append(min(1, max(stop.offset, offsets.last ?? 0, 0)))
+        }
         guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors,
-                                        locations: locations) else { return }
+                                        locations: offsets) else { return }
         context.saveGState()
         defer { context.restoreGState() }
         if definition.usesUserSpace {
@@ -163,10 +297,15 @@ private final class SVGRadialGradientLayer: CALayer {
             }
             return SVGLengthParser.number(value) ?? 0
         }
-        let center = CGPoint(x: coordinate(definition.cx), y: coordinate(definition.cy))
-        context.drawRadialGradient(gradient, startCenter: center, startRadius: 0,
-                                   endCenter: center, endRadius: coordinate(definition.radius),
-                                   options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        let options: CGGradientDrawingOptions = [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+        if definition.isRadial {
+            let center = CGPoint(x: coordinate(definition.cx), y: coordinate(definition.cy))
+            context.drawRadialGradient(gradient, startCenter: center, startRadius: 0,
+                                       endCenter: center, endRadius: coordinate(definition.radius), options: options)
+        } else {
+            context.drawLinearGradient(gradient, start: CGPoint(x: coordinate(definition.x1), y: coordinate(definition.y1)),
+                                       end: CGPoint(x: coordinate(definition.x2), y: coordinate(definition.y2)), options: options)
+        }
     }
 }
 
@@ -265,5 +404,25 @@ enum SVGLengthParser {
         }
 
         return number / axisLength
+    }
+}
+
+private extension CAShapeLayerLineCap {
+    var cgLineCap: CGLineCap {
+        switch self {
+        case .round: return .round
+        case .square: return .square
+        default: return .butt
+        }
+    }
+}
+
+private extension CAShapeLayerLineJoin {
+    var cgLineJoin: CGLineJoin {
+        switch self {
+        case .round: return .round
+        case .bevel: return .bevel
+        default: return .miter
+        }
     }
 }

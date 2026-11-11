@@ -26,14 +26,14 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 /**
  * Placeholder bubbles shown while a chat's messages load, after Telegram's chat loading placeholder: from the
  * bottom up, an answer and a question in turn, with a light band crossing them from the leading side. In the
- * [Style.NEWS_CARDS] style, cards of the News feed stand in their place. [Style.SUGGESTION] fills one hint chip.
+ * [Style.NEWS_CARDS] style, cards of the News feed stand in their place.
  */
 internal class AgentMessagesSkeletonView(
     context: Context,
     private val style: Style = Style.MESSAGES
 ) : View(context),
     WThemedView {
-    enum class Style { MESSAGES, NEWS_CARDS, SUGGESTION }
+    enum class Style { MESSAGES, NEWS_CARDS }
     data class Placeholder(val frame: RectF, val isOutgoing: Boolean)
     private val placeholders = mutableListOf<Placeholder>()
 
@@ -58,7 +58,11 @@ internal class AgentMessagesSkeletonView(
     private var shimmer: LinearGradient? = null
     private var startTimeNanos = 0L
     private var isFrameScheduled = false
-    private var isShownOnScreen = false
+
+    // A page of the tabs laid out beside the selected one still counts as visible
+    private val onScreenTracker = AgentOnScreenTracker(this) { scheduleFrameIfNeeded() }
+    private val isShownOnScreen: Boolean
+        get() = onScreenTracker.isOnScreen
 
     private val frameCallback = Choreographer.FrameCallback {
         isFrameScheduled = false
@@ -87,12 +91,17 @@ internal class AgentMessagesSkeletonView(
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
-        isShownOnScreen = isVisible
-        scheduleFrameIfNeeded()
+        onScreenTracker.setVisibilityAggregated(isVisible)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        onScreenTracker.attach()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        onScreenTracker.detach()
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         isFrameScheduled = false
     }
@@ -148,19 +157,6 @@ internal class AgentMessagesSkeletonView(
     private fun buildShapes(width: Int, height: Int) {
         shapes.rewind()
         placeholders.clear()
-        if (style == Style.SUGGESTION) {
-            shapes.addRoundRect(
-                0f,
-                0f,
-                width.toFloat(),
-                height.toFloat(),
-                SUGGESTION_RADIUS.dp,
-                SUGGESTION_RADIUS.dp,
-                Path.Direction.CW
-            )
-            invalidate()
-            return
-        }
         if (style == Style.NEWS_CARDS) {
             buildCards(width, height)
             return
@@ -225,7 +221,6 @@ internal class AgentMessagesSkeletonView(
     }
 
     private companion object {
-        const val SUGGESTION_RADIUS = 18f
         const val CARD_RADIUS = 21f
         const val CARD_INSET = 16f
         const val CARD_GAP = 14
@@ -239,16 +234,18 @@ internal class AgentMessagesSkeletonView(
         const val BUBBLE_EDGE_INSET = 10f
         const val GAP = 12
 
+        // The Agent's answers run several paragraphs and the user's questions a line or two, so the Agent's bubbles
+        // are tall and wide and the user's short and narrow
         val WIDTH_FRACTIONS = floatArrayOf(
             0.86f,
-            0.70f,
+            0.56f,
             0.92f,
-            0.64f,
+            0.44f,
             0.80f,
-            0.72f,
+            0.60f,
             0.86f,
-            0.64f
+            0.48f
         )
-        val HEIGHTS = intArrayOf(184, 120, 184, 120, 184, 120, 184, 120)
+        val HEIGHTS = intArrayOf(248, 56, 216, 40, 264, 56, 232, 40)
     }
 }

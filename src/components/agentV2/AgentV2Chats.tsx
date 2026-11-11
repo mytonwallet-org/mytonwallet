@@ -4,21 +4,29 @@ import React, {
 import { removeExtraClass, toggleExtraClass } from '../../lib/teact/teact-dom';
 import { getActions } from '../../global';
 
-import type { AgentNewsFeedItemV2, AgentThreadSummaryV2 } from '../../api/agentV2/protocol/types';
+import type {
+  AgentNewsFeedItemV2,
+  AgentThreadListItemV2,
+  AgentThreadSummaryV2,
+} from '../../api/agentV2/protocol/types';
 import type { ChatSelection, FeedSelection } from '../../util/agent/agentV2LocalState';
 import type { AgentConversationSessionStore } from '../agent/AgentConversationShell';
 import type { AgentV2ChatTarget } from '../agent/hooks/useAgentV2Messages';
 
 import { IS_EXTENSION } from '../../config';
 import { requestMeasure } from '../../lib/fasterdom/fasterdom';
-import { getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
+import { forgetRecentAgentChat, getAgentV2LocalState } from '../../util/agent/agentV2LocalState';
 import { subscribeToAgentV2RuntimeReady } from '../../util/agentV2Updates';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import { pause } from '../../util/schedulers';
 import { captureControlledSwipe } from '../../util/swipeController';
 import useTelegramMiniAppSwipeToClose from '../../util/telegram/hooks/useTelegramMiniAppSwipeToClose';
 import { IS_ANDROID, IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import windowSize from '../../util/windowSize';
 import { callApi } from '../../api';
+import { getIsAgentV2ThreadStarted } from '../../api/agentV2/threadStarted';
 import getCanAnimate from '../agent/helpers/getCanAnimate';
+import { getSnapEffectKind, getSnapGapCloseDelay } from '../agent/helpers/snapEffect';
 import { startAgentNewsCardFlight } from './agentNewsCardFlight';
 import { buildAgentNewsPreviewCard } from './agentNewsFeedItems';
 import { getAgentThreadUnreadStart, markAgentThreadHidden, markAgentThreadShown } from './agentThreadReadState';
@@ -28,14 +36,13 @@ import useAgentV2ThreadList from './useAgentV2ThreadList';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
-import useShowTransition from '../../hooks/useShowTransition';
 import useAgentLayoutSwitch from '../agent/hooks/useAgentLayoutSwitch';
 
 import Transition from '../ui/Transition';
 import AgentNewsFeed from './AgentNewsFeed';
 import AgentThreadList from './AgentThreadList';
 import AgentV2Classic from './AgentV2Classic';
-import { AgentV2ConsentPage } from './AgentV2Conversation';
+import { AgentV2ConsentSheet } from './AgentV2Conversation';
 import DeleteAgentChatModal from './DeleteAgentChatModal';
 import RenameAgentChatModal from './RenameAgentChatModal';
 
@@ -61,9 +68,13 @@ const STACK_LEVEL_COUNT = 3;
 const SWIPE_EXCLUDED_SELECTOR = '[data-agent-v2-message-role] pre, [data-agent-v2-message-role] table';
 // The platform's own push on Android, as on its other screens; the iOS-like layers elsewhere, as on iPad
 const STACK_TRANSITION_NAME = IS_ANDROID ? 'slideFadeAndroid' : 'slideLayers';
-const CONSENT_CLOSE_DURATION = 250;
+// Before consent the list has no chats to load, and shows what an allowed user without chats sees
+const NO_THREADS: AgentThreadListItemV2[] = [];
+const NO_THREAD_IDS: ReadonlySet<string> = new Set();
 // How many frames the focus waits for a screen to show what takes it
 const RETURN_FOCUS_FRAMES = 10;
+// The longest the consent sheet waits for the keyboard to go, past the window's size updates, which come 250 ms apart
+const KEYBOARD_HIDE_TIMEOUT_MS = 600;
 
 function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   const localState = useRef(getAgentV2LocalState()).current;
@@ -83,6 +94,8 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   const deletingChatRef = useRef<{ key: number; cancelPendingRequests: () => Promise<string | undefined> }>();
   // Requests of the chats being deleted, so that a chat is deleted once however often it is asked
   const deletingThreadIds = useRef(new Set<string>()).current;
+  // The chats whose rows turn to dust in the list while their deletion runs
+  const [dissolvingThreadIds, setDissolvingThreadIds] = useState<ReadonlySet<string>>(NO_THREAD_IDS);
   // The screens a swipe back left, which come back if the swipe is cancelled
   const swipedScreensRef = useRef<{ chat?: ChatSelection; feed?: FeedSelection }>();
   // After going back, the focus moves to the element that opened the closed screen: a chat's row or the News row in
@@ -92,8 +105,8 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   const [isInPlacePush, setIsInPlacePush] = useState(false);
   // The chats the Agent answered in while open here, as news discussions the user has written in
   const [answeredThreadIds, setAnsweredThreadIds] = useState<Set<string>>(() => new Set());
-  // Until consent is given, its screen in place of the list is the whole stack
-  const activeLevel = isConsentAccepted !== true ? StackLevel.List : feed
+  // Before consent the feed and its discussions open as they do after it, and chats wait for it
+  const activeLevel = feed
     ? (chat ? StackLevel.OverFeed : StackLevel.Pushed)
     : (chat ? StackLevel.Pushed : StackLevel.List);
   const canGoBack = activeLevel !== StackLevel.List;
@@ -101,14 +114,15 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   const { disableSwipeToClose, enableSwipeToClose } = useTelegramMiniAppSwipeToClose(isActive && canGoBack);
 
   const {
-    items, isUserChange, hasMore, activityLangKeys, loadMore, removeThread, setThreadPinned, syncLoadedChat,
-    releaseLoadedChat, scheduleRefresh,
+    items, isUserChange, isCacheShown, hasMore, hasLoadFailed, hasPageLoadFailed, isRetrying, activityLangKeys,
+    loadMore, retry, removeThread, setThreadPinned, syncLoadedChat, releaseLoadedChat, scheduleRefresh,
   } = useAgentV2ThreadList({
     isEnabled: isConsentAccepted === true,
     isVisible: isActive && activeLevel === StackLevel.List,
   });
+  // The feed needs no consent, only the SDK, which answers once the list knows the consent
   const newsFeed = useAgentNewsFeed({
-    isEnabled: isConsentAccepted === true,
+    isEnabled: isConsentAccepted !== undefined,
     isActive,
     langCode: lang.code ?? 'en',
     isFeedVisible: isActive && Boolean(feed) && !chat,
@@ -136,13 +150,18 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
       if (localState.openChatOnMount?.key === chatKey) localState.chatSessionOnMount = { chatKey, session };
     },
   }), [chatKey, localState]);
-  // The feed opens again where it was, as a chat does, as the app switches layouts
+  // The feed opens again where it was, as a chat does, as the app switches layouts, and as the user comes back to it from
+  // a discussion, as on mobile
   const feedKey = feed?.key;
   const feedSession = useMemo<AgentConversationSessionStore | undefined>(() => (feedKey === undefined ? undefined : {
-    initial: localState.feedSessionOnMount?.feedKey === feedKey ? localState.feedSessionOnMount.session : undefined,
+    // Read as the feed mounts, which it does again under a discussion that goes away
+    get initial() {
+      return localState.feedSessionOnMount?.feedKey === feedKey ? localState.feedSessionOnMount.session : undefined;
+    },
     save: (session) => {
       if (localState.openFeedOnMount?.key === feedKey) localState.feedSessionOnMount = { feedKey, session };
     },
+    shouldKeepPlaceOffScreen: true,
   }), [feedKey, localState]);
 
   // The app takes the agent's background while the section is on screen
@@ -155,7 +174,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   }, [isActive]);
 
   // The chat on screen is read, and its answers do not mark it
-  const shownThreadId = isActive ? chat?.threadId : undefined;
+  const shownThreadId = isActive && !chat?.isUnreadStateUnknown ? chat?.threadId : undefined;
   useEffect(() => {
     if (!shownThreadId) return undefined;
 
@@ -178,9 +197,11 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     const threadId = target.kind === 'thread' ? target.threadId : undefined;
     const thread = threadId ? findListThread(threadId) : undefined;
     // A chat the list marks as unread opens at the first message the user has not seen
-    const unreadStart = thread && getAgentThreadUnreadStart(thread);
+    const isUnreadStateUnknown = isCacheShown && Boolean(thread);
+    const unreadStart = !isUnreadStateUnknown && thread ? getAgentThreadUnreadStart(thread) : undefined;
     return {
-      key: chatKeyRef.current, target, threadId, thread, ...(unreadStart !== undefined && { unreadStart }), ...options,
+      key: chatKeyRef.current, target, threadId, thread, isUnreadStateUnknown,
+      ...(unreadStart !== undefined && { unreadStart }), ...options,
     };
   }
 
@@ -191,9 +212,9 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     setChat(createChat(target, options));
   });
 
-  const openFeed = useLastCallback((eventId?: number) => {
+  const openFeed = useLastCallback(() => {
     feedKeyRef.current += 1;
-    setFeed({ key: feedKeyRef.current, eventId });
+    setFeed({ key: feedKeyRef.current });
   });
 
   const goBack = useLastCallback(() => {
@@ -204,9 +225,8 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     }
 
     setChat(undefined);
-    // The feed under a discussion opens again at the news the discussion is about
+    // The feed under a discussion comes back where it was left, with the focus on the news the discussion is about
     if (feed && chat.newsEventId !== undefined) {
-      openFeed(chat.newsEventId);
       returnFocusRef.current = {
         level: StackLevel.Pushed,
         selector: `[data-agent-news-event-id="${chat.newsEventId}"] [data-agent-news-discuss]`,
@@ -245,8 +265,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     };
   }, [isActive, isConsentAccepted]);
 
-  // Back from the list or the consent screen leaves the agent; a chat or the feed opened over the list handles back
-  // itself
+  // Back from the list leaves the agent; a chat or the feed opened over the list handles back itself
   useHistoryBack({
     isActive: isActive && activeLevel === StackLevel.List && isConsentAccepted !== undefined,
     onBack: switchToWallet,
@@ -312,11 +331,11 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     }
   });
 
-  // A news card offers to continue its discussion once the user has written in it: the post alone is one message
+  // A news card offers to continue its discussion once the user has written in it
   const continuedThreadIds = useMemo(() => {
     const threadIds = new Set(answeredThreadIds);
     items?.forEach(({ thread }) => {
-      if (thread.messageCount > 1) threadIds.add(thread.id);
+      if (getIsAgentV2ThreadStarted(thread)) threadIds.add(thread.id);
     });
     return threadIds;
   }, [answeredThreadIds, items]);
@@ -328,11 +347,13 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     openFeed();
   });
 
-  const handleOpenDiscussion = useLastCallback((item: AgentNewsFeedItemV2, cardElement?: HTMLElement) => {
+  const handleOpenNewsDiscussion = useLastCallback((
+    eventId: number, item?: AgentNewsFeedItemV2, cardElement?: HTMLElement,
+  ) => {
     // Taps on the feed while a discussion slides in over it are ignored
-    if (chat) return;
+    if (chat || !newsFeed.locale) return;
 
-    const { eventId, discussion } = item;
+    const discussion = item?.discussion;
     const threadId = discussion?.threadId;
     const isContinued = Boolean(threadId && continuedThreadIds.has(threadId));
     // The card flies into a discussion the user has not written in, which starts with the news post alone. The
@@ -340,17 +361,37 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     if (cardElement && !isContinued && getCanAnimate()) {
       startAgentNewsCardFlight(cardElement, eventId);
     }
-    const preview = isContinued ? undefined : buildAgentNewsPreviewCard(item);
+    const preview = item && !isContinued ? buildAgentNewsPreviewCard(item) : undefined;
     // A listed discussion opens by its thread; other discussions resolve through their news identity
     if (threadId && findListThread(threadId)) {
-      openChat({ kind: 'thread', threadId, preview }, { newsEventId: eventId });
+      openChat({ kind: 'thread', threadId, preview, isNews: true }, { newsEventId: eventId });
       return;
     }
     openChat({
       kind: 'news',
-      news: { eventId, locale: newsFeed.locale! },
+      news: { eventId, locale: newsFeed.locale },
       preview,
     }, { newsEventId: eventId });
+  });
+
+  const handleOpenDiscussion = useLastCallback((item: AgentNewsFeedItemV2, cardElement?: HTMLElement) => {
+    handleOpenNewsDiscussion(item.eventId, item, cardElement);
+  });
+
+  const handleOpenDigestNews = useLastCallback((eventId: number) => {
+    const item = newsFeed.items?.find((entry) => entry.kind === 'news' && entry.eventId === eventId);
+    handleOpenNewsDiscussion(eventId, item?.kind === 'news' ? item : undefined);
+  });
+
+  const handleOpenDigestDiscussion = useLastCallback((id: string) => {
+    if (chat) return;
+    const digest = newsFeed.items?.find((entry) => entry.kind === 'digest' && entry.id === id);
+    const threadId = digest?.discussion?.threadId;
+    if (threadId && findListThread(threadId)) {
+      openChat({ kind: 'thread', threadId, isNews: true });
+      return;
+    }
+    openChat({ kind: 'digest', digest: { id } });
   });
 
   // A chat reports its thread by its key, so a chat sliding away cannot rename the one that replaced it. A chat that a
@@ -366,6 +407,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     if (swipedChat) swipedScreensRef.current = { ...swipedScreens, chat: { ...swipedChat, threadId } };
     setChat((current) => (current?.key === key ? { ...current, threadId } : current));
     if (selection.target.kind === 'news') newsFeed.markDiscussion(selection.target.news.eventId, { threadId });
+    if (selection.target.kind === 'digest') newsFeed.markDigestDiscussion(selection.target.digest.id, { threadId });
   });
 
   const handleInitialMessageSent = useLastCallback((key: number) => {
@@ -383,32 +425,85 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
   // The chat keeps its thread as last loaded, so that it opens again with its name, as after the app switches layouts
   const handleThreadLoaded = useLastCallback((thread: AgentThreadSummaryV2) => {
     setChat((current) => (
-      current?.threadId === thread.id && current.thread !== thread ? { ...current, thread } : current
+      current?.threadId === thread.id && (current.isUnreadStateUnknown || current.thread !== thread) ? {
+        ...current,
+        thread,
+        unreadStart: current.isUnreadStateUnknown ? getAgentThreadUnreadStart(thread) : current.unreadStart,
+        isUnreadStateUnknown: false,
+      } : current
     ));
   });
 
   const handleThreadNotFound = useLastCallback(() => {
     const threadId = chat?.threadId;
     if (threadId) {
+      forgetRecentAgentChat(threadId);
       removeThread(threadId);
       newsFeed.removeDiscussion(threadId);
     }
     goBack();
   });
 
-  // The list opens in place of the consent screen, as on mobile
-  // Allowing the Agent fades the consent into the chat list in 250 ms
-  const { ref: consentRef, shouldRender: shouldRenderConsent } = useShowTransition<HTMLDivElement>({
-    isOpen: isConsentAccepted === false,
-    withShouldRender: true,
-    noMountTransition: true,
-    closeDuration: CONSENT_CLOSE_DURATION,
-    className: false,
+  // The consent is asked in a sheet at the first thing the user does that sends something to the Agent, which waits
+  // for Allow; closing the sheet drops it, and the next one asks again
+  const [isConsentSheetOpen, setIsConsentSheetOpen] = useState(false);
+  const [isAllowingConsent, setIsAllowingConsent] = useState(false);
+  const consentActionRef = useRef<NoneToVoidFunction>();
+  const consentDeclineRef = useRef<NoneToVoidFunction>();
+  // The field a question was sent from, which gets its focus and keyboard back if the sheet closes without consent
+  const consentFieldRef = useRef<HTMLElement>();
+
+  const requestConsent = useLastCallback((
+    action: NoneToVoidFunction, field?: HTMLElement, onDecline?: NoneToVoidFunction,
+  ) => {
+    if (isConsentAccepted) {
+      action();
+      return;
+    }
+
+    consentActionRef.current = action;
+    consentFieldRef.current = field;
+    consentDeclineRef.current = onDecline;
+    // The keyboard goes before the sheet comes, so the whole sheet shows without moving under it
+    const { activeElement } = document;
+    if (!(activeElement instanceof HTMLElement) || !activeElement.matches('input, textarea')) {
+      setIsConsentSheetOpen(true);
+      return;
+    }
+    activeElement.blur();
+    openAfterKeyboard(() => {
+      if (consentActionRef.current === action) setIsConsentSheetOpen(true);
+    });
   });
 
-  const handleAcceptConsent = useLastCallback(async () => {
+  const handleConsentClose = useLastCallback(() => {
+    const onDecline = consentDeclineRef.current;
+    consentActionRef.current = undefined;
+    consentDeclineRef.current = undefined;
+    setIsConsentSheetOpen(false);
+    consentFieldRef.current?.focus();
+    consentFieldRef.current = undefined;
+    onDecline?.();
+  });
+
+  const handleConsentAllow = useLastCallback(async () => {
+    if (isAllowingConsent) return;
+
+    setIsAllowingConsent(true);
     const isAccepted = await callApi('acceptAgentV2Consent');
-    if (isAccepted === true) setIsConsentAccepted(true);
+    setIsAllowingConsent(false);
+    if (isAccepted !== true) {
+      showError({ error: 'An error occurred' });
+      return;
+    }
+
+    const action = consentActionRef.current;
+    consentActionRef.current = undefined;
+    consentDeclineRef.current = undefined;
+    consentFieldRef.current = undefined;
+    setIsConsentAccepted(true);
+    setIsConsentSheetOpen(false);
+    action?.();
   });
 
   // The row moves at once, and back if the server refuses
@@ -471,18 +566,20 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     if (deletingThreadIds.has(id)) return;
 
     deletingThreadIds.add(id);
+    setDissolvingThreadIds((current) => new Set([...current, id]));
+    // The chat's place holds while most of its dust drifts off, so the chats that stay don't run into it
+    const closesGapAt = Date.now() + getSnapGapCloseDelay(getSnapEffectKind(getCanAnimate()));
     const result = await callApi('deleteAgentV2Thread', id).catch(() => undefined);
+    if (result?.ok) await pause(Math.max(0, closesGapAt - Date.now()));
     deletingThreadIds.delete(id);
-    if (!result?.ok) {
-      showError({ error: 'An error occurred' });
-      return;
-    }
-
-    handleThreadDeleted(id);
+    if (result?.ok) handleThreadDeleted(id);
+    setDissolvingThreadIds((current) => new Set([...current].filter((threadId) => threadId !== id)));
+    if (!result?.ok) showError({ error: 'An error occurred' });
   }
 
   // Runs after the request, against the chat shown by then
   const handleThreadDeleted = useLastCallback((threadId: string) => {
+    forgetRecentAgentChat(threadId);
     removeThread(threadId);
     newsFeed.removeDiscussion(threadId);
     if (chat?.threadId === threadId) goBack();
@@ -502,6 +599,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           initialMessage={selection.initialMessage}
           initialThread={selection.thread}
           unreadStart={selection.unreadStart}
+          isUnreadStateUnknown={selection.isUnreadStateUnknown}
           session={selection.key === chatKey ? chatSession : undefined}
           onInitialMessageSent={handleInitialMessageSent}
           onUnreadStartResolved={handleUnreadStartResolved}
@@ -514,6 +612,8 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           onThreadNotFound={selection.key === chatKey ? handleThreadNotFound : undefined}
           onAnswerChange={handleAnswerChange}
           onDelete={handleChatDelete}
+          hasConsent={Boolean(isConsentAccepted)}
+          onRequestConsent={requestConsent}
         />
       </div>
     );
@@ -527,7 +627,6 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           isActive={isActive && isScreenActive}
           items={newsFeed.items}
           unreadEventId={newsFeed.unreadEventId}
-          initialEventId={selection.eventId}
           hasMore={newsFeed.hasMore}
           isLoading={newsFeed.isLoading}
           isLoadingMore={newsFeed.isLoadingMore}
@@ -537,7 +636,10 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           onBack={goBack}
           onRetry={newsFeed.refresh}
           onLoadMore={newsFeed.loadMore}
+          onDigestReached={newsFeed.markDigestReached}
           onOpenDiscussion={handleOpenDiscussion}
+          onOpenNewsDiscussion={handleOpenDigestNews}
+          onOpenDigestDiscussion={handleOpenDigestDiscussion}
         />
       </div>
     );
@@ -547,16 +649,23 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
     return (
       <AgentThreadList
         isActive={isActive && isScreenActive}
-        items={items}
+        items={isConsentAccepted ? items : NO_THREADS}
         isUserChange={isUserChange}
+        dissolvingThreadIds={dissolvingThreadIds}
         hasMore={hasMore}
+        hasLoadFailed={hasLoadFailed}
+        hasPageLoadFailed={hasPageLoadFailed}
+        isRetrying={isRetrying}
         activityLangKeys={activityLangKeys}
         latestNewsItem={newsFeed.latestItem}
         newsUnreadCount={newsFeed.unreadCount}
+        isDictationHeld={!isConsentAccepted}
         onSelect={handleSelect}
         onOpenNews={handleOpenNews}
         onStartChat={handleStartChat}
+        onRequestConsent={requestConsent}
         onLoadMore={loadMore}
+        onRetry={retry}
         onRename={setRenamingThread}
         onTogglePin={handleTogglePin}
         onDelete={setDeletingThread}
@@ -571,10 +680,7 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
       case StackLevel.List:
         return (
           <div className={styles.listLevel}>
-            {isConsentAccepted && renderList(isScreenActive)}
-            {shouldRenderConsent && (
-              <AgentV2ConsentPage pageRef={consentRef} onAccept={handleAcceptConsent} />
-            )}
+            {renderList(isScreenActive)}
           </div>
         );
       case StackLevel.Pushed:
@@ -600,6 +706,12 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
           {renderScreen}
         </Transition>
       )}
+      <AgentV2ConsentSheet
+        isOpen={isConsentSheetOpen}
+        isAllowing={isAllowingConsent}
+        onAllow={handleConsentAllow}
+        onClose={handleConsentClose}
+      />
       <RenameAgentChatModal
         thread={renamingThread}
         onClose={handleRenameClose}
@@ -616,6 +728,18 @@ function AgentV2Chats({ isActive, onScroll }: OwnProps) {
 }
 
 export default memo(AgentV2Chats);
+
+/** Calls `callback` once the on-screen keyboard has gone, or at once without one, waiting no longer than it takes */
+function openAfterKeyboard(callback: NoneToVoidFunction) {
+  const startedAt = performance.now();
+  requestAnimationFrame(function check() {
+    if (windowSize.getIsKeyboardVisible() && performance.now() - startedAt < KEYBOARD_HIDE_TIMEOUT_MS) {
+      requestAnimationFrame(check);
+      return;
+    }
+    callback();
+  });
+}
 
 /**
  * Focuses what `selector` finds once the screen shows it, as the feed shows its news once it has placed them. Focus that
@@ -641,15 +765,19 @@ function takeSwitchedLayoutConsent() {
 
 /** A chat reopens by its thread once known, keeping a question until it is sent */
 function rememberChat({
-  key, target, threadId, thread, initialMessage, newsEventId, unreadStart,
+  key, target, threadId, thread, initialMessage, newsEventId, unreadStart, isUnreadStateUnknown,
 }: ChatSelection): ChatSelection {
+  // A news discussion stays one on the thread it resolved, so that it loads before consent again
+  const isNews = target.kind === 'news' || target.kind === 'digest' || (target.kind === 'thread' && target.isNews)
+    || Boolean(thread?.news || thread?.digest);
   return {
     key,
-    target: threadId ? { kind: 'thread', threadId } : target,
+    target: threadId ? { kind: 'thread', threadId, ...(isNews && { isNews }) } : target,
     threadId,
     thread,
     initialMessage,
     newsEventId,
     unreadStart,
+    isUnreadStateUnknown,
   };
 }

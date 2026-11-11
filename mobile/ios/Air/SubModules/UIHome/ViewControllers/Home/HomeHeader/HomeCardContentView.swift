@@ -128,6 +128,7 @@ final class HomeCardContentView: UIView {
         if mode == .expanded, accountContext.isCurrent, data.showsMintAction {
             AppActions.preloadUpgradeCard()
         }
+        updateAccessibilityIdentifiers(isEnabled: mode == .expanded && accountContext.isCurrent, isWalletNameShown: data.showsWalletName)
         renderState = RenderState(
             data: data,
             usesTopTabs: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs,
@@ -136,6 +137,12 @@ final class HomeCardContentView: UIView {
             animatesBalance: accountContext.isCurrent && animatesChanges && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
         )
         render()
+    }
+
+    private func updateAccessibilityIdentifiers(isEnabled: Bool, isWalletNameShown: Bool) {
+        content.balance.accessibilityIdentifier = isEnabled ? "home_balance" : nil
+        content.change.accessibilityIdentifier = isEnabled ? "home_portfolio_pill" : nil
+        content.accountLine.addressesButton.accessibilityIdentifier = isEnabled ? (isWalletNameShown ? "home_wallet_name" : "home_address") : nil
     }
 
     func updateCollapseProgress(_ progress: CGFloat) {

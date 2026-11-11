@@ -2,8 +2,13 @@ package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.HYPERLIQUID_USDC_MAINNET_SLUG
 
 object HyperliquidConfig : MBlockchainConfig {
+
+    override val usdcSlug = mapOf(
+        MBlockchainNetwork.MAINNET to HYPERLIQUID_USDC_MAINNET_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = null,

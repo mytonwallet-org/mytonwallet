@@ -30,6 +30,16 @@ public final class ImportExistingPickerVC: CreateWalletBaseVC {
         configureSheetWithOpaqueBackground(color: .air.sheetBackground)
         view.backgroundColor = .air.sheetBackground
     }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let hostingController else { return }
+        // A bottom sheet with a top navigation bar has no side toolbar to reserve space for
+        let shouldIgnoreHorizontalSafeArea = isSheetPresentationAttachedToBottom && view.safeAreaInsets.top > 0
+        if hostingController.rootView.shouldIgnoreHorizontalSafeArea != shouldIgnoreHorizontalSafeArea {
+            hostingController.rootView.shouldIgnoreHorizontalSafeArea = shouldIgnoreHorizontalSafeArea
+        }
+    }
     
     private func makeView() -> ImportExistingPickerView {
         ImportExistingPickerView(

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.threadList
 
 import java.text.DateFormat
+import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -17,6 +18,10 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.uiagent.agentV2.LiveAgentV2Client
 import org.mytonwallet.app_air.uiagent.agentV2.parseAgentV2Timestamp
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentCachedHistories
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentSession
+import org.mytonwallet.app_air.walletbasecontext.localization.WLanguage
+import org.mytonwallet.app_air.walletbasecontext.utils.WDateFormatter
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadDeleteResponse
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListItem
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadListResponse
@@ -27,6 +32,7 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 
 internal interface AgentThreadListClient {
     suspend fun list(cursor: String?): AgentV2ThreadListResponse
+    suspend fun getCached(): List<AgentV2ThreadListItem>?
     suspend fun update(id: String, update: AgentV2ThreadUpdate): AgentV2ThreadResponse
     suspend fun delete(id: String): AgentV2ThreadDeleteResponse
 }
@@ -36,6 +42,8 @@ internal class LiveAgentThreadListClient : AgentThreadListClient {
 
     override suspend fun list(cursor: String?) =
         client.listThreads(cursor = cursor, limit = PAGE_SIZE)
+
+    override suspend fun getCached() = client.getCachedThreads()
 
     override suspend fun update(id: String, update: AgentV2ThreadUpdate) =
         client.updateThread(id, update)
@@ -61,6 +69,7 @@ internal class AgentThreadListModel(
     private val client: AgentThreadListClient = LiveAgentThreadListClient(),
     private val readState: AgentThreadReadState = AgentThreadReadState.shared,
     private val activityTracker: AgentThreadActivityTracker = AgentThreadActivityTracker(),
+    private val cachedHistories: AgentCachedHistories = AgentSession.cachedHistories,
     private val nowMs: () -> Long = System::currentTimeMillis,
     private val activityHoldMillis: Long = ACTIVITY_HOLD_MS
 ) {
@@ -71,8 +80,19 @@ internal class AgentThreadListModel(
     var isLoading = false
         private set
 
-    /** The first page of chats has loaded, or failed to: until then the list has nothing to say about them */
+    /**
+     * The first page of chats, or the device's copy of it, has loaded, or the page failed to: until then the list has
+     * nothing to say about them
+     */
     var hasLoaded = false
+        private set
+
+    /** The latest load of the first page failed while the list had no chats to show */
+    var hasLoadFailed = false
+        private set
+
+    /** The next page failed to load: the list ends with a line that loads it again */
+    var hasPageLoadFailed = false
         private set
     var onChange: ((AgentThreadListChange) -> Unit)? = null
     var onError: ((Throwable) -> Unit)? = null
@@ -80,6 +100,9 @@ internal class AgentThreadListModel(
     /** The threads whose answering status changed */
     var onActivityChange: ((Set<String>) -> Unit)? = null
 
+    /** The chats are the device's copy of the first page, shown until the page itself loads */
+    var isCacheShown = false
+        private set
     private var loadJob: Job? = null
     private var loadChanges: MutableMap<String, AgentV2ThreadSummary?>? = null
     private val mutations = mutableMapOf<String, Job>()
@@ -108,14 +131,17 @@ internal class AgentThreadListModel(
         mutations.clear()
         items = emptyList()
         nextCursor = null
+        isCacheShown = false
         hasLoaded = false
+        hasLoadFailed = false
+        hasPageLoadFailed = false
         removeAllActivities()
         onChange?.invoke(AgentThreadListChange.DATA)
     }
 
     /** Reloads at least as many chats as the list shows, following cursors */
     fun refresh() {
-        load(cursor = null, minimumCount = items.size)
+        load(cursor = null, minimumCount = if (isCacheShown) 0 else items.size)
     }
 
     fun loadMore() {
@@ -154,8 +180,8 @@ internal class AgentThreadListModel(
         }
     }
 
-    fun delete(thread: AgentV2ThreadSummary) {
-        mutate(thread.id) {
+    fun delete(thread: AgentV2ThreadSummary, onFailure: (() -> Unit)? = null) {
+        mutate(thread.id, onFailure) {
             val response = client.delete(thread.id)
             currentCoroutineContext().ensureActive()
             removeLoadedThread(response.threadId)
@@ -173,6 +199,7 @@ internal class AgentThreadListModel(
         val hasBeenLoaded = items.any { it.thread.id == threadId }
         items = items.filterNot { it.thread.id == threadId }
         readState.remove(threadId)
+        cachedHistories.remove(threadId)
         val changed = removeActivity(threadId)
         if (hasBeenLoaded) onChange?.invoke(AgentThreadListChange.USER)
         notifyActivityChange(changed)
@@ -207,7 +234,11 @@ internal class AgentThreadListModel(
             else -> Unit
         }
         notifyActivityChange(activityTracker.handle(update, nowMs()))
-        if (update is AgentV2Update.MessageCompleted) readState.onAnswerCompleted(update.threadId)
+        if (update is AgentV2Update.MessageCompleted &&
+            update.finishReason != "delivered_to_support"
+        ) {
+            readState.onAnswerCompleted(update.threadId)
+        }
     }
 
     /**
@@ -265,6 +296,9 @@ internal class AgentThreadListModel(
         items = sortAgentThreads(
             items.map { if (it.thread.id == thread.id) it.copy(thread = thread) else it }
         )
+        AgentSession.findLoadedModel(thread.id)
+            ?.takeIf { it.isChatWithSupport || thread.support != it.currentThread.support }
+            ?.refreshThreadIfNeeded(thread)
         onChange?.invoke(change)
     }
 
@@ -297,11 +331,18 @@ internal class AgentThreadListModel(
     private fun load(cursor: String?, minimumCount: Int) {
         invalidateLoad()
         isLoading = true
+        if (cursor != null) hasPageLoadFailed = false
         onChange?.invoke(AgentThreadListChange.DATA)
         val changes = mutableMapOf<String, AgentV2ThreadSummary?>()
         loadChanges = changes
         val request = scope.launch(start = CoroutineStart.LAZY) {
             val owner = currentCoroutineContext().job
+            // The device's copy of the first page goes with this load
+            val cacheJob = if (cursor == null && items.isEmpty()) {
+                launch { showCachedThreads() }
+            } else {
+                null
+            }
             var released = emptySet<String>()
             try {
                 val merged = if (cursor == null) {
@@ -313,7 +354,12 @@ internal class AgentThreadListModel(
                 val requestedCursors = mutableSetOf<String>()
                 do {
                     pageCursor?.let(requestedCursors::add)
-                    val response = client.list(pageCursor)
+                    // Any end of the first page's request makes the device's copy outdated
+                    val response = try {
+                        client.list(pageCursor)
+                    } finally {
+                        cacheJob?.cancel()
+                    }
                     currentCoroutineContext().ensureActive()
                     if (loadJob !== owner) return@launch
                     response.threads.forEach { item ->
@@ -328,7 +374,19 @@ internal class AgentThreadListModel(
                 } while (merged.size < minimumCount && pageCursor != null)
                 items = sortAgentThreads(merged.values.toList())
                 nextCursor = pageCursor
+                isCacheShown = false
+                hasLoadFailed = false
+                hasPageLoadFailed = false
                 readState.observe(items.map { it.thread }, activityTracker.answeringThreadIds)
+                items.forEach { item ->
+                    AgentSession.findLoadedModel(item.thread.id)
+                        ?.takeIf {
+                            it.isChatWithSupport ||
+                                item.thread.support != it.currentThread.support
+                        }
+                        ?.refreshThreadIfNeeded(item.thread)
+                }
+                if (cursor == null) cachedHistories.prefetch(items.map { it.thread })
                 // The rows now have the previews of the answers that completed before this load started, and of
                 // those the load has past their run's revision. Their statuses end in the change that brings the
                 // previews, which also moves the rows.
@@ -342,7 +400,14 @@ internal class AgentThreadListModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Throwable) {
-                // Keep the displayed list on load failures
+                // A failed refresh keeps the chats shown without a word
+                if (loadJob === owner) {
+                    if (cursor == null) {
+                        hasLoadFailed = items.isEmpty()
+                    } else {
+                        hasPageLoadFailed = true
+                    }
+                }
             } finally {
                 if (loadJob === owner) {
                     loadJob = null
@@ -359,6 +424,38 @@ internal class AgentThreadListModel(
         request.start()
     }
 
+    /**
+     * Shows the device's copy of the first page while the page loads. Its chats change no read state or answering
+     * status, and it has no cursor to load further pages with.
+     */
+    private suspend fun showCachedThreads() {
+        val cached = try {
+            client.getCached()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            null
+        }
+        currentCoroutineContext().ensureActive()
+        // The copy takes the changes made while it was read, as the page does
+        val changes = loadChanges.orEmpty()
+        val shown = cached.orEmpty().mapNotNull { item ->
+            if (changes.containsKey(item.thread.id)) {
+                changes[item.thread.id]?.let { item.copy(thread = it) }
+            } else {
+                item
+            }
+        }
+        if (shown.isEmpty()) return
+        items = sortAgentThreads(shown)
+        nextCursor = null
+        isCacheShown = true
+        hasLoaded = true
+        hasLoadFailed = false
+        onChange?.invoke(AgentThreadListChange.DATA)
+        cachedHistories.prefetch(items.map { it.thread })
+    }
+
     private companion object {
         const val ACTIVITY_HOLD_MS = 5_000L
     }
@@ -367,6 +464,13 @@ internal class AgentThreadListModel(
 internal fun agentThreadActivityDate(thread: AgentV2ThreadSummary): Date =
     (thread.lastActivityAt ?: thread.updatedAt ?: thread.createdAt)
         ?.let(::parseAgentV2Timestamp) ?: Date(0)
+
+/**
+ * The picture of a thread's latest message, which its row shows before the preview, as Telegram's chat list does. Only
+ * a news post has one, and it is a discussion's latest message while it is the thread's only one.
+ */
+internal fun agentThreadPreviewImageUrl(thread: AgentV2ThreadSummary): String? =
+    thread.news?.imageUrl?.takeIf { it.isNotBlank() && thread.messageCount <= 1 }
 
 internal fun sortAgentThreads(items: List<AgentV2ThreadListItem>): List<AgentV2ThreadListItem> =
     items.sortedWith(
@@ -392,7 +496,18 @@ internal object AgentThreadDateFormatting {
     enum class DayGroup { TODAY, YESTERDAY, WEEKDAY, DATE }
 
     private const val DAYS_IN_WEEK = 7
-    private const val RECENT_YESTERDAY_MS = 12 * 60 * 60 * 1000L
+
+    // A month abbreviated with a single dot at its end, as "июл." and "Okt.", but not "ต.ค.", whose dot Telegram's
+    // dates leave out
+    private val ABBREVIATION_DOT = Regex("^([^.]+)\\.$")
+
+    // Russian abbreviates every month to three letters, as Telegram does: "7 ноя", "4 сен"
+    private val RUSSIAN_SHORT_MONTHS = arrayOf(
+        "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"
+    )
+
+    // A word after the year, as Russian's "г.", which Telegram's dates leave out
+    private val YEAR_SUFFIX = Regex("(?<=y)\\s*'[^']*'\\.?$")
 
     fun startOfDay(date: Date, timeZone: TimeZone): Long = Calendar.getInstance(timeZone).apply {
         time = date
@@ -440,44 +555,59 @@ internal object AgentThreadDateFormatting {
     }
 
     /**
+     * A day as the date capsules of a chat and of the News feed name it: Today, Yesterday, then the date, with the
+     * year for another year, as "7 ноября" or "7 ноября 2025". Persian dates take the Persian calendar, as the app's
+     * other dates do.
+     */
+    fun formatDayText(
+        date: Date,
+        now: Date,
+        today: String,
+        yesterday: String,
+        langCode: String,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): String {
+        val group = dayGroup(date, now, timeZone)
+        if (group == DayGroup.TODAY) return today
+        if (group == DayGroup.YESTERDAY) return yesterday
+        val locale = Locale.forLanguageTag(langCode)
+        val skeleton = if (isSameYear(date, now, timeZone)) "MMMMd" else "yMMMMd"
+        val pattern = removeYearSuffix(getLocalizedPattern(locale, skeleton))
+        val text = if (langCode == WLanguage.PERSIAN.langCode) {
+            WDateFormatter.of(pattern, langCode).format(date)
+        } else {
+            format(date, pattern, locale, timeZone)
+        }
+        return text.replaceFirstChar { it.titlecase(locale) }
+    }
+
+    /**
      * The time label of a list row, in Telegram's chat list format. Rows under day headers show the time. Rows that
-     * stay at the top regardless of their date (pinned chats and News) show the time for today and for the last
-     * 12 hours of yesterday, [yesterday] for the rest of it, then the weekday within the last week, then the date,
-     * with the year for a previous year.
+     * stay at the top regardless of their date (pinned chats and News) show the time for today, the short weekday
+     * within the last week, then the day and the short month this year, as "7 ноя", and the numeric date with the
+     * year before, as "07.11.25".
      */
     fun formatRowTimestamp(
         date: Date,
         now: Date,
         shouldShowDateWhenNotToday: Boolean,
         is24HourFormat: Boolean,
-        yesterday: String,
         locale: Locale = Locale.getDefault(),
         timeZone: TimeZone = TimeZone.getDefault()
     ): String {
         val time = format(date, if (is24HourFormat) "HH:mm" else "h:mm\u00A0a", Locale.US, timeZone)
         if (!shouldShowDateWhenNotToday) return time
         val daysAgo = countDaysAgo(date, now, timeZone)
-        if (daysAgo == 0) return time
-        if (daysAgo == 1) return if (now.time - date.time < RECENT_YESTERDAY_MS) time else yesterday
-        if (!isSameYear(date, now, timeZone)) {
-            return format(
-                date,
-                getNumericDatePattern(locale, shouldIncludeYear = true),
-                locale,
-                timeZone
-            )
-        }
         return when {
+            daysAgo == 0 -> time
             daysAgo < DAYS_IN_WEEK -> format(date, "EEE", locale, timeZone)
-
-            else -> format(
-                date,
-                getNumericDatePattern(locale, shouldIncludeYear = false),
-                locale,
-                timeZone
-            )
+            isSameYear(date, now, timeZone) -> formatShortDay(date, locale, timeZone)
+            else -> format(date, getNumericDatePattern(locale), locale, timeZone)
         }
     }
+
+    /** Leaves out a word after the year, as Russian's "г.", from a platform date pattern */
+    fun removeYearSuffix(pattern: String): String = pattern.replace(YEAR_SUFFIX, "")
 
     /** The short date and time of a message or post, used outside the list */
     fun formatDate(
@@ -505,20 +635,59 @@ internal object AgentThreadDateFormatting {
         return formatter.format(date)
     }
 
-    // The day and month in the locale's order and with its separator, as `dd.MM` or `MM/dd/yy`
-    private fun getNumericDatePattern(locale: Locale, shouldIncludeYear: Boolean): String {
-        val shortFormat = DateFormat.getDateInstance(DateFormat.SHORT, locale)
-        val shortPattern = (shortFormat as? SimpleDateFormat)?.toPattern().orEmpty()
+    // The day and the short month in the locale's order, without the abbreviation's dot
+    private fun formatShortDay(date: Date, locale: Locale, timeZone: TimeZone): String =
+        makeShortMonthFormat(getLocalizedPattern(locale, "MMMd"), locale)
+            .apply { this.timeZone = timeZone }
+            .format(date)
+
+    /**
+     * A format of `pattern` whose short months go without their dot, as Telegram writes dates: "Nov 7", "7 ноя".
+     * Russian months are cut to three letters, where the platform writes "нояб." and "сент.".
+     */
+    fun makeShortMonthFormat(pattern: String, locale: Locale): SimpleDateFormat {
+        val symbols = DateFormatSymbols.getInstance(locale)
+        symbols.shortMonths = if (locale.language == "ru") {
+            RUSSIAN_SHORT_MONTHS + symbols.shortMonths.drop(RUSSIAN_SHORT_MONTHS.size)
+        } else {
+            symbols.shortMonths.map { it.replace(ABBREVIATION_DOT, "$1") }.toTypedArray()
+        }
+        // The locale gives the calendar and the digits, which a format made from the symbols alone takes from the device
+        return SimpleDateFormat(pattern, locale).apply { dateFormatSymbols = symbols }
+    }
+
+    // The day, month and year in the locale's order and with its separator, as `dd.MM.yy` or `MM/dd/yy`
+    private fun getNumericDatePattern(locale: Locale): String {
+        val shortPattern = getShortDatePattern(locale)
         val separator = listOf('.', '/', '-').firstOrNull { it in shortPattern } ?: '.'
-        val monthIndex = shortPattern.indexOf('M')
-        val isMonthFirst = monthIndex >= 0 && monthIndex < shortPattern.indexOf('d')
-        val dayMonth = if (isMonthFirst) "MM${separator}dd" else "dd${separator}MM"
-        return if (shouldIncludeYear) "$dayMonth${separator}yy" else dayMonth
+        val dayMonth = if (isMonthFirst(shortPattern)) "MM${separator}dd" else "dd${separator}MM"
+        return "$dayMonth${separator}yy"
     }
 
     private fun getLocalizedPattern(locale: Locale, skeleton: String): String =
         android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
-            ?: if (skeleton.startsWith("y")) "d MMMM y" else "d MMMM"
+            ?: buildFallbackPattern(locale, skeleton)
+
+    // Where the platform gives no pattern, as in unit tests: the day and the month in the locale's numeric order
+    private fun buildFallbackPattern(locale: Locale, skeleton: String): String {
+        val month = skeleton.filter { it == 'M' }
+        val hasYear = skeleton.startsWith("y")
+        return if (isMonthFirst(getShortDatePattern(locale))) {
+            if (hasYear) "$month d, y" else "$month d"
+        } else {
+            if (hasYear) "d $month y" else "d $month"
+        }
+    }
+
+    private fun getShortDatePattern(locale: Locale): String {
+        val shortFormat = DateFormat.getDateInstance(DateFormat.SHORT, locale)
+        return (shortFormat as? SimpleDateFormat)?.toPattern().orEmpty()
+    }
+
+    private fun isMonthFirst(shortPattern: String): Boolean {
+        val monthIndex = shortPattern.indexOf('M')
+        return monthIndex >= 0 && monthIndex < shortPattern.indexOf('d')
+    }
 
     private fun format(date: Date, pattern: String, locale: Locale, timeZone: TimeZone): String =
         SimpleDateFormat(pattern, locale).apply { this.timeZone = timeZone }.format(date)

@@ -32,6 +32,7 @@ import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -56,8 +57,21 @@ class AgentSpinningTopView(
     context: Context,
     private val speed: Float = 1f,
     // A top in the chat stands on the chat's background, one in the list on the list's card
-    private val isOnChatBackground: Boolean = true
+    private val isOnChatBackground: Boolean = true,
+    // A large top, as the empty chat's, stands on the ground, with a shadow or a glow under it and its reflection
+    private val showsGround: Boolean = false
 ) : ViewGroup(context) {
+    /** The Agent's state a top shows */
+    enum class AgentState {
+        IDLE,
+
+        /** Thinking or writing an answer */
+        THINKING,
+
+        /** The user stopped the Agent while it was thinking */
+        STOPPED
+    }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shaderMatrix = Matrix()
     private val fitMatrix = Matrix()
@@ -65,7 +79,12 @@ class AgentSpinningTopView(
     private var markFrame = RectF()
     private var shader: LinearGradient? = null
     private var isFrameScheduled = false
-    private var isShownOnScreen = false
+
+    // A page of the tabs laid out beside the selected one still counts as visible, so the top checks that it is on
+    // screen before it moves
+    private val onScreenTracker = AgentOnScreenTracker(this, ::onShownOnScreenChanged)
+    private val isShownOnScreen: Boolean
+        get() = onScreenTracker.isOnScreen
 
     // The motion, advanced frame by frame so that a spin-up changes its pace without a jump
     private var lastFrameNanos = 0L
@@ -73,6 +92,19 @@ class AgentSpinningTopView(
     private var turn = 0.0
     private var precessionPhase = 0.0
     private var boost = 0.0
+
+    // A drag's or a fling's spin, in radians a second, coasting down over its own time
+    private var coastSpin = 0.0
+    private var coastDuration = FLING_COAST_S
+    private var lastSpinTime = 0L
+
+    // The Agent's state: the spin thinking adds, in multiples of the top's own speed, when the last knock came and
+    // how it moves the top this frame
+    private var thinkingBoost = 0.0
+    private var knockSeconds: Double? = null
+    private val knock = Knock()
+    private var isHeldByStop = false
+    private val releaseAfterStop = Runnable { releaseStopHold() }
 
     // The camera's pitch around its elevation: a slow sway, a nod when the held top is let go, and a finger's tilt
     private var pitchOffset = 0.0
@@ -108,6 +140,10 @@ class AgentSpinningTopView(
     private val renderedFrame = AgentSpinningTopRenderer.Frame()
     private val location = IntArray(2)
 
+    // The top's lean and spin without the camera, and the ground's mirror, for the ground and the reflection
+    private val tiltAndSpin = FloatArray(16)
+    private val mirroredTop = FloatArray(16)
+
     // While the canvas over the window shows the top, the resting canvas is cleared
     private var isRestingCleared = false
 
@@ -131,6 +167,27 @@ class AgentSpinningTopView(
     /** What the grown top sees behind it, drawn as it lifts; by default the list the top sits in */
     var backdropSource: View? = null
 
+    /**
+     * Thinking spins the top up; its end eases it back; a Stop while the Agent thinks grows it as a press does and
+     * knocks it over a little while grown, and it rights itself. Without animations the top stands still as ever.
+     */
+    var agentState = AgentState.IDLE
+        set(value) {
+            if (field == value) return
+            field = value
+            releaseStopHold()
+            if (value == AgentState.STOPPED && canAnimate) {
+                knockSeconds = elapsedSeconds
+                // A Stop grows the top over what is around it, as a press does, and a second later it shrinks back
+                if (!isHolding) {
+                    isHeldByStop = true
+                    setHolding(true)
+                    postDelayed(releaseAfterStop, STOP_GROWTH_MS)
+                }
+            }
+            scheduleFrameIfNeeded()
+        }
+
     /** Holds the motion still, as while the screen showing it doesn't render */
     var isAnimationPaused = false
         set(value) {
@@ -139,6 +196,11 @@ class AgentSpinningTopView(
             redraw()
             scheduleFrameIfNeeded()
         }
+
+    private val onSystemAnimationsChanged: () -> Unit = {
+        redraw()
+        scheduleFrameIfNeeded()
+    }
 
     private val frameCallback = Choreographer.FrameCallback {
         isFrameScheduled = false
@@ -175,6 +237,11 @@ class AgentSpinningTopView(
     private val isRenderedIn3D: Boolean
         get() = restingCanvas != null
 
+    // Debug builds show the top as without animations while system animations are off, to keep E2E runs fast
+    private val canAnimate: Boolean
+        get() = WGlobalStorage.getAreAnimationsActive() &&
+            AgentDebugAnimations.areSystemAnimationsOn(context)
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension(
             getDefaultSize(suggestedMinimumWidth, widthMeasureSpec),
@@ -182,9 +249,13 @@ class AgentSpinningTopView(
         )
         restingCanvas?.let { canvas ->
             val margin = computeCanvasMargin(measuredWidth, measuredHeight)
+            val groundExtension = computeGroundExtension(measuredWidth, measuredHeight)
             canvas.measure(
                 MeasureSpec.makeMeasureSpec(measuredWidth + 2 * margin, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(measuredHeight + 2 * margin, MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(
+                    measuredHeight + 2 * margin + groundExtension,
+                    MeasureSpec.EXACTLY
+                )
             )
         }
     }
@@ -192,7 +263,17 @@ class AgentSpinningTopView(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         val canvas = restingCanvas ?: return
         val margin = computeCanvasMargin(width, height)
-        canvas.layout(-margin, -margin, width + margin, height + margin)
+        val groundExtension = computeGroundExtension(width, height)
+        canvas.layout(-margin, -margin, width + margin, height + margin + groundExtension)
+    }
+
+    // A top on the ground reaches below its box, where its shadow and reflection lie
+    private fun computeGroundExtension(width: Int, height: Int): Int {
+        if (!showsGround) return 0
+        val unit = min(width, height) / 2f / AgentSpinningTopGeometry.BOX_HALF_EXTENT
+        val below = -AgentSpinningTopGeometry.RESTING_OFFSET_Y + GROUND_REACH_BELOW
+        val canvasBelow = AgentSpinningTopGeometry.BOX_HALF_EXTENT * (1 + 2 * RESTING_CANVAS_MARGIN)
+        return ceil(max(0f, below - canvasBelow) * unit).toInt()
     }
 
     // The resting canvas reaches this share of the side past each edge, so the leaning top is never clipped
@@ -206,8 +287,13 @@ class AgentSpinningTopView(
 
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
-        isShownOnScreen = isVisible
-        if (!isVisible) {
+        // A still frame, ready before the top comes on screen
+        if (isVisible) redraw()
+        onScreenTracker.setVisibilityAggregated(isVisible)
+    }
+
+    private fun onShownOnScreenChanged() {
+        if (!isShownOnScreen) {
             removeCallbacks(landing)
             settleNow()
         } else {
@@ -216,10 +302,26 @@ class AgentSpinningTopView(
         scheduleFrameIfNeeded()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        onScreenTracker.attach()
+        AgentDebugAnimations.addListener(context, onSystemAnimationsChanged)
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        onScreenTracker.detach()
+        AgentDebugAnimations.removeListener(context, onSystemAnimationsChanged)
         removeCallbacks(landing)
         removeCallbacks(claimTouch)
+        removeCallbacks(releaseAfterStop)
+        // A top a Stop grew is back in its place when it shows again
+        if (isHeldByStop) {
+            isHeldByStop = false
+            isHolding = false
+            isExpanding = false
+            grip = 0.0
+        }
         settleNow()
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         isFrameScheduled = false
@@ -241,6 +343,8 @@ class AgentSpinningTopView(
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain().apply { addMovement(event) }
                 removeCallbacks(landing)
+                // A touch stops a drag's or a fling's coast, as on iOS
+                coastSpin = 0.0
                 setHolding(true)
             }
 
@@ -257,6 +361,7 @@ class AgentSpinningTopView(
                 if (isTouchClaimed && isMoving) {
                     spinByFinger(event.rawX - touchX)
                     tiltByFinger(event.rawY - touchY)
+                    lastSpinTime = event.eventTime
                 }
                 touchX = event.rawX
                 touchY = event.rawY
@@ -272,7 +377,14 @@ class AgentSpinningTopView(
                 if (isTap && event.eventTime - touchStartTime <= TAP_DURATION_MS) {
                     spinUp()
                 } else if (isTouchClaimed && abs(velocity) > FLING_VELOCITY.dp) {
-                    fling()
+                    fling(velocity)
+                } else if (
+                    isTouchClaimed && isMoving &&
+                    event.eventTime - lastSpinTime <= RELEASE_COAST_WINDOW_MS
+                ) {
+                    // A drag let go while the finger still moves carries its spin on
+                    val spin = 2 * PI * SPIN_SENSE * velocity / fingerTurnWidth
+                    coast(spin.coerceIn(-RELEASE_SPIN_LIMIT, RELEASE_SPIN_LIMIT), RELEASE_COAST_S)
                 }
                 // Let go, the top nods as it springs back into place
                 if (isTouchClaimed && isMoving) pitchVelocity -= RELEASE_NOD
@@ -311,20 +423,40 @@ class AgentSpinningTopView(
         boost = min(MAXIMUM_BOOST, boost + TAP_BOOST + TAP_BOOST_GROWTH * boost)
     }
 
-    private fun fling() {
+    // A fling spins the top as on iOS, in its own direction, without standing it up as taps do
+    private fun fling(velocity: Float) {
         if (!isMoving) return
-        boost = min(MAXIMUM_BOOST, boost + FLING_BOOST)
+        val share = (abs(velocity) / FLING_FULL_VELOCITY.dp).toDouble()
+            .coerceIn(MINIMUM_FLING_SHARE, MAXIMUM_FLING_SHARE)
+        coast(sign(SPIN_SENSE * velocity) * FLING_SPIN * share, FLING_COAST_S)
     }
 
-    // A drag across the lifted top's width turns it once
-    private fun spinByFinger(dx: Float) {
-        val width = markFrame.width() * (1 + 2 * grip).toFloat()
-        if (width > 0f) turn = (turn + dx / width + 1.0) % 1.0
+    private fun coast(spin: Double, duration: Double) {
+        if (!spin.isFinite()) return
+        coastSpin = spin
+        coastDuration = duration
     }
+
+    // A drag across the lifted top's width turns it once, its front following the finger
+    private fun spinByFinger(dx: Float) {
+        val width = fingerTurnWidth
+        if (width > 0f) turn = (turn + SPIN_SENSE * dx / width + 1.0) % 1.0
+    }
+
+    private val fingerTurnWidth: Float
+        get() = markFrame.width() * (1 + 2 * grip).toFloat()
 
     // A vertical drag tilts the held top toward or away from the viewer, less and less the further it goes
     private fun tiltByFinger(dy: Float) {
         dragPitch += dy / 1f.dp * PI / DRAG_SCALE
+    }
+
+    // A finger that took the top in the meantime keeps holding it
+    private fun releaseStopHold() {
+        removeCallbacks(releaseAfterStop)
+        if (!isHeldByStop) return
+        isHeldByStop = false
+        if (!isTouchClaimed) setHolding(false)
     }
 
     // The top grows out of its place at once and springs back when let go
@@ -333,7 +465,7 @@ class AgentSpinningTopView(
         val now = System.nanoTime()
         updateExpansion(now)
         isHolding = shouldHold
-        if (!WGlobalStorage.getAreAnimationsActive()) {
+        if (!canAnimate) {
             isExpanding = false
             grip = if (shouldHold) 1.0 else 0.0
         } else {
@@ -578,11 +710,27 @@ class AgentSpinningTopView(
         }
         lastFrameNanos = nowNanos
         elapsedSeconds += deltaSeconds * speed
-        // One turn of the body moves the coating bands by one tile
-        turn = (turn + deltaSeconds * speed * (1 + boost) / TURN_PERIOD_S) % 1.0
-        precessionPhase =
-            (precessionPhase + 2 * PI * deltaSeconds * speed / PRECESSION_PERIOD_S / (1 + boost)) %
-            (2 * PI)
+        val thinkingTarget = if (agentState == AgentState.THINKING) THINKING_BOOST else 0.0
+        val easing = if (thinkingTarget > thinkingBoost) THINKING_RISE_S else THINKING_FALL_S
+        thinkingBoost += (thinkingTarget - thinkingBoost) * (1 - exp(-deltaSeconds / easing))
+        knockSeconds?.let { if (elapsedSeconds - it >= KNOCK_DURATION_S) knockSeconds = null }
+        updateKnock()
+        // One turn of the body moves the coating bands by one tile; taps and thinking spin it faster, and a knock
+        // slows it for a while
+        var nextTurn = turn + deltaSeconds * speed * spinMultiple / TURN_PERIOD_S
+        // A drag's or a fling's spin adds its own travel, either way, as it coasts down
+        if (coastSpin != 0.0) {
+            val fade = exp(-deltaSeconds / coastDuration)
+            nextTurn += coastSpin * coastDuration * (1 - fade) / (2 * PI)
+            coastSpin *= fade
+            if (abs(coastSpin) < MINIMUM_COAST_SPIN) coastSpin = 0.0
+        }
+        turn = (nextTurn % 1.0 + 1.0) % 1.0
+        // The faster a tap spins the top, the slower its lean goes around; thinking speeds it up
+        val thinking = thinkingBoost / THINKING_BOOST
+        val precessionRate =
+            2 * PI * speed * (1 + THINKING_PRECESSION * thinking) / PRECESSION_PERIOD_S
+        precessionPhase = (precessionPhase + precessionRate * deltaSeconds / (1 + boost)) % (2 * PI)
         boost *= exp(-deltaSeconds / BOOST_DECAY_S)
         if (boost < MINIMUM_BOOST) boost = 0.0
         if (isRenderedIn3D) advancePitch(deltaSeconds)
@@ -610,9 +758,35 @@ class AgentSpinningTopView(
         }
     }
 
+    // The top's spin, in multiples of its own speed, with taps, thinking and a knock
+    private val spinMultiple: Double
+        get() = (1 + boost + thinkingBoost) * (1 - knock.slowdown)
+
+    private class Knock {
+        var tilt = 0.0
+        var wobble = 0.0
+        var slowdown = 0.0
+    }
+
+    // The knock's tilt, its wobble and the share of spin it costs this frame, all 0 once it has settled or without one
+    private fun updateKnock() {
+        val seconds = knockSeconds?.let { elapsedSeconds - it } ?: -1.0
+        if (seconds < 0) {
+            knock.tilt = 0.0
+            knock.wobble = 0.0
+            knock.slowdown = 0.0
+            return
+        }
+        knock.tilt = exp(-seconds / KNOCK_DECAY_S) * (1 - exp(-seconds / KNOCK_RISE_S))
+        knock.wobble = exp(-seconds / WOBBLE_DECAY_S) * sin(2 * PI * WOBBLE_FREQUENCY * seconds)
+        knock.slowdown = KNOCK_SLOWDOWN * exp(-seconds / SLOWDOWN_DECAY_S)
+    }
+
+    // In debug builds the spin stops while system animations are off, so E2E runs get an idle main thread
     private val isMoving: Boolean
         get() = isShownOnScreen && isAttachedToWindow && !isAnimationPaused &&
-            WGlobalStorage.getAreAnimationsActive()
+            WGlobalStorage.getAreAnimationsActive() &&
+            AgentDebugAnimations.areSystemAnimationsOn(context)
 
     private fun scheduleFrameIfNeeded() {
         if (isFrameScheduled) return
@@ -676,7 +850,10 @@ class AgentSpinningTopView(
         }
         frame.pixelsPerUnit = pixelsPerUnit
         frame.originX = boxX + AgentSpinningTopGeometry.RESTING_OFFSET_X * pixelsPerUnit
-        frame.originY = -boxY + AgentSpinningTopGeometry.RESTING_OFFSET_Y * pixelsPerUnit
+        // The canvas of a top on the ground reaches further down, so the resting top stands higher in it
+        val groundShift = if (isLifted) 0f else computeGroundExtension(width, height) / 2f
+        frame.originY =
+            -boxY + AgentSpinningTopGeometry.RESTING_OFFSET_Y * pixelsPerUnit + groundShift
         frame.strength = strength
         frame.isDark = ThemeManager.isDark
         val color = backdropColor
@@ -696,28 +873,60 @@ class AgentSpinningTopView(
             frame.backdropRect[3] = backdropRect.height()
         }
         frame.isEmpty = false
-        if (WGlobalStorage.getAreAnimationsActive()) {
-            // A faster spin stands the top up; held, it leans half as much
+        frame.iridescence = IRIDESCENCE
+        val yaw = (SPIN_SENSE * turn * 2 * PI).toFloat()
+        var pitch = AgentSpinningTopGeometry.VIEW_PITCH
+        var lean = AgentSpinningTopGeometry.LEAN
+        var leanDirection = 0f
+        if (canAnimate) {
+            val thinking = thinkingBoost / THINKING_BOOST
+            // A faster spin from taps stands the top up; thinking leans it further; held, it leans half as much
             val nod = 1 + NOD_AMPLITUDE * sin(2 * PI * elapsedSeconds / NOD_PERIOD_S)
             val hold = 1 - strength * HELD_LEAN_REDUCTION
-            val lean = AgentSpinningTopGeometry.LEAN * nod / sqrt(1 + boost) * hold
-            AgentSpinningTopGeometry.computeTransform(
-                yaw = (turn * 2 * PI).toFloat(),
-                pitch = AgentSpinningTopGeometry.VIEW_PITCH + pitchOffset.toFloat(),
-                lean = lean.toFloat(),
-                leanDirection = precessionPhase.toFloat(),
-                out = frame.rotation
-            )
+            val signedLean = AgentSpinningTopGeometry.LEAN * nod * (1 + THINKING_LEAN * thinking) /
+                sqrt(1 + boost) * hold + KNOCK_TILT * knock.tilt + WOBBLE_LEAN * knock.wobble
+            val signedDirection = SPIN_SENSE * precessionPhase + WOBBLE_DIRECTION * knock.wobble
+            // A wobble past the upright leans the other way
+            lean = min(MAXIMUM_LEAN, abs(signedLean)).toFloat()
+            val direction = if (signedLean < 0) signedDirection + PI else signedDirection
+            leanDirection = direction.toFloat()
+            pitch += (pitchOffset + WOBBLE_PITCH * knock.wobble).toFloat()
+            // The angle the body turns during an exposure, which blurs the patterns that turn with it, and the rings
+            // a fast spin draws
+            val rotationSpeed = 2 * PI * speed / TURN_PERIOD_S
+            val sweep = min(PI, abs(rotationSpeed * spinMultiple + coastSpin) * EXPOSURE_S)
+            frame.sweep = sweep.toFloat()
+            frame.streaks = (0.6 * ((sweep - 0.4) / 1.1).coerceIn(0.0, 1.0)).toFloat()
         } else {
             // Without animations the top leans to the right, as the mark does
-            AgentSpinningTopGeometry.computeTransform(
-                yaw = (turn * 2 * PI).toFloat(),
-                pitch = AgentSpinningTopGeometry.VIEW_PITCH,
-                lean = AgentSpinningTopGeometry.LEAN,
-                leanDirection = 0f,
-                out = frame.rotation
-            )
+            frame.sweep = 0f
+            frame.streaks = 0f
         }
+        AgentSpinningTopGeometry.computeTransform(yaw, pitch, lean, leanDirection, frame.rotation)
+        // The grown top keeps its ground and reflection, grown with it
+        frame.showsGround = showsGround
+        if (frame.showsGround) composeGround(frame, yaw, pitch, lean, leanDirection)
+    }
+
+    // The ground through the top's point under the top, seen from the camera, and the top mirrored in it
+    private fun composeGround(
+        frame: AgentSpinningTopRenderer.Frame,
+        yaw: Float,
+        pitch: Float,
+        lean: Float,
+        leanDirection: Float
+    ) {
+        AgentSpinningTopGeometry.computeTransform(0f, pitch, 0f, 0f, frame.groundCamera)
+        AgentSpinningTopGeometry.computeTransform(yaw, 0f, lean, leanDirection, tiltAndSpin)
+        // The mirror flips the height
+        tiltAndSpin.copyInto(mirroredTop)
+        mirroredTop[1] = -mirroredTop[1]
+        mirroredTop[5] = -mirroredTop[5]
+        mirroredTop[9] = -mirroredTop[9]
+        android.opengl.Matrix.multiplyMM(frame.reflection, 0, frame.groundCamera, 0, mirroredTop, 0)
+        // The body's shadow lies under the rim's center, up the leaning axis
+        frame.bodyX = tiltAndSpin[4] * GROUND_BODY_HEIGHT
+        frame.bodyZ = tiltAndSpin[6] * GROUND_BODY_HEIGHT
     }
 
     // Pixels per model unit of the threefold top
@@ -760,6 +969,18 @@ class AgentSpinningTopView(
         val centerY = restingY - location[1] + height / 2f + expandedOffsetY
         canvas.translationX = centerX - canvas.width / 2f
         canvas.translationY = centerY - canvas.height / 2f
+        // and fades with it, as a row leaving with the grown top does
+        canvas.alpha = computeShownAlpha()
+    }
+
+    private fun computeShownAlpha(): Float {
+        var shownAlpha = alpha
+        var ancestor = parent
+        while (ancestor is View) {
+            shownAlpha *= ancestor.alpha
+            ancestor = ancestor.parent
+        }
+        return shownAlpha
     }
 
     /**
@@ -773,15 +994,15 @@ class AgentSpinningTopView(
         val left = restingLeft - location[0]
         val right = left + width
         val center = left + width / 2f
-        val bodyLeft = center + EXPANDED_BODY_REACH_MIN_X * expandedUnit
-        val bodyRight = center + EXPANDED_BODY_REACH_MAX_X * expandedUnit
-        val leftInset = max(0f, min(SCREEN_EDGE_INSET.dp, left))
-        val rightInset = max(0f, min(SCREEN_EDGE_INSET.dp, root.width - right))
-        return when {
-            bodyLeft < leftInset -> leftInset - bodyLeft
-            bodyRight > root.width - rightInset -> root.width - rightInset - bodyRight
-            else -> 0f
-        }
+        return agentEdgeShift(
+            restingStart = left,
+            restingEnd = right,
+            grownStart = center + EXPANDED_BODY_REACH_MIN_X * expandedUnit,
+            grownEnd = center + EXPANDED_BODY_REACH_MAX_X * expandedUnit,
+            areaStart = 0f,
+            areaEnd = root.width.toFloat(),
+            inset = AGENT_SCREEN_EDGE_INSET.dp
+        )
     }
 
     /**
@@ -872,16 +1093,15 @@ class AgentSpinningTopView(
             val restingRight = restingLeft + width
             val centerX = restingLeft + width / 2f
             val halfWidth = markFrame.width() * EXPANDED_SCALE / 2f
-            val leftInset = max(0f, min(SCREEN_EDGE_INSET.dp, restingLeft))
-            val rightInset = max(0f, min(SCREEN_EDGE_INSET.dp, windowWidth - restingRight))
-            return when {
-                centerX - halfWidth < leftInset -> leftInset - (centerX - halfWidth)
-
-                centerX + halfWidth > windowWidth - rightInset ->
-                    windowWidth - rightInset - (centerX + halfWidth)
-
-                else -> 0f
-            }
+            return agentEdgeShift(
+                restingStart = restingLeft,
+                restingEnd = restingRight,
+                grownStart = centerX - halfWidth,
+                grownEnd = centerX + halfWidth,
+                areaStart = 0f,
+                areaEnd = windowWidth,
+                inset = AGENT_SCREEN_EDGE_INSET.dp
+            )
         }
 
         override fun setAlpha(alpha: Int) = Unit
@@ -912,12 +1132,29 @@ class AgentSpinningTopView(
         const val TAP_BOOST = 1.0
         const val TAP_BOOST_GROWTH = 0.5
         const val FLING_VELOCITY = 600f
-        const val FLING_BOOST = 6.0
+
+        // A fling spins the top this many radians a second more at this speed, from half of it to 1.6 times
+        // it, coasting down over this long, as on iOS
+        const val FLING_SPIN = 39.0
+        const val FLING_FULL_VELOCITY = 1500f
+        const val MINIMUM_FLING_SHARE = 0.5
+        const val MAXIMUM_FLING_SHARE = 1.6
+        const val FLING_COAST_S = 0.7
+
+        // A drag let go while the finger still moves carries its spin on, up to this many radians a second, coasting
+        // down over this long
+        const val RELEASE_SPIN_LIMIT = 5.0
+        const val RELEASE_COAST_S = 1.2
+        const val RELEASE_COAST_WINDOW_MS = 120L
+        const val MINIMUM_COAST_SPIN = 0.001
         const val MAXIMUM_BOOST = 12.0
         const val BOOST_DECAY_S = 1.6
         const val MINIMUM_BOOST = 0.001
         const val EXPANDED_SCALE = 3f
-        const val SCREEN_EDGE_INSET = 16f
+
+        // The top spins clockwise as seen from above, and its lean goes round the same way: against the positive
+        // sense of the transform's yaw and lean direction
+        const val SPIN_SENSE = -1.0
         const val GROW_DURATION_S = 0.46
         const val GROW_DAMPING = 5.6
         const val GROW_FREQUENCY = 6.2
@@ -930,9 +1167,9 @@ class AgentSpinningTopView(
 
         // Where the threefold top can reach around its box's center, in model units, y up, however it is tilted, and
         // the margin its canvas keeps around that for the springy overshoot
-        const val EXPANDED_REACH_MIN_X = -1.22f
-        const val EXPANDED_REACH_MAX_X = 0.96f
-        const val EXPANDED_REACH_MIN_Y = -1.52f
+        const val EXPANDED_REACH_MIN_X = -1.18f
+        const val EXPANDED_REACH_MAX_X = 0.92f
+        const val EXPANDED_REACH_MIN_Y = -1.47f
         const val EXPANDED_REACH_MAX_Y = 0.82f
         const val EXPANDED_REACH_MARGIN = 0.1f
         const val MINIMUM_EXPANDED_CANVAS_SIDE = 160
@@ -941,8 +1178,8 @@ class AgentSpinningTopView(
 
         // The held top's body across, around its box's center in model units: the rim around the point, and the
         // leaning stem to the right
-        const val EXPANDED_BODY_REACH_MIN_X = -0.87f
-        const val EXPANDED_BODY_REACH_MAX_X = 0.75f
+        const val EXPANDED_BODY_REACH_MIN_X = -0.83f
+        const val EXPANDED_BODY_REACH_MAX_X = 0.71f
 
         // The pitch's sway, its spring, the nod a release gives it and how far a finger tilts it, in radians
         const val SWAY_SCALE = 0.45
@@ -956,6 +1193,46 @@ class AgentSpinningTopView(
         const val PITCH_LIMIT = 1.1
         const val RELEASE_NOD = 2.2
         const val DRAG_SCALE = 220.0
+
+        // The film over the coating shows at full strength, as on iOS
+        const val IRIDESCENCE = 1f
+
+        // How the top answers the Agent's state, as on iOS. Thinking spins it up this many times its own speed on
+        // top of it, over this long, and its end eases it back over this long; thinking also leans it this much
+        // further and turns its lean this much faster.
+        const val THINKING_BOOST = 6.0
+        const val THINKING_RISE_S = 0.6
+        const val THINKING_FALL_S = 0.9
+        const val THINKING_LEAN = 0.3
+        const val THINKING_PRECESSION = 0.4
+
+        // A Stop knocks the top over this far beyond its lean, landing and decaying this fast, and sets off a
+        // nutation
+        const val KNOCK_TILT = 0.3
+        const val KNOCK_RISE_S = 0.05
+        const val KNOCK_DECAY_S = 0.55
+        const val WOBBLE_FREQUENCY = 3.2
+        const val WOBBLE_DECAY_S = 0.7
+        const val WOBBLE_LEAN = 0.05
+        const val WOBBLE_DIRECTION = 0.6
+        const val WOBBLE_PITCH = 0.08
+
+        // The share of its spin the knock costs, how it comes back, and when the knock has settled
+        const val KNOCK_SLOWDOWN = 0.55
+        const val SLOWDOWN_DECAY_S = 0.8
+        const val KNOCK_DURATION_S = 4.0
+
+        // The exposure the motion blur stands for, and how far the top may lean at most
+        const val EXPOSURE_S = 1 / 24.0
+        const val MAXIMUM_LEAN = 0.6
+
+        // A top grown by a Stop shrinks back after this long
+        const val STOP_GROWTH_MS = 1000L
+
+        // A large top's ground reaches this far below its point, in model units, and its body's shadow lies this far
+        // up its axis from the point
+        const val GROUND_REACH_BELOW = 0.6f
+        const val GROUND_BODY_HEIGHT = 0.53f
     }
 }
 

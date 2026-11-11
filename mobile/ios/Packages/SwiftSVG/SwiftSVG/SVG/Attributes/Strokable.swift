@@ -72,6 +72,7 @@ extension Strokable where Self : SVGShapeElement {
             "stroke-linecap": self.strokeLineCap,
             "stroke-linejoin": self.strokeLineJoin,
             "stroke-miterlimit": self.strokeMiterLimit,
+            "stroke-opacity": self.strokeOpacity,
             "stroke-width": self.strokeWidth
         ]
     }
@@ -89,10 +90,22 @@ extension Strokable where Self : SVGShapeElement {
      - SeeAlso: CAShapeLayer's [`strokeColor`](https://developer.apple.com/documentation/quartzcore/cashapelayer/1521897-strokecolor)
      */
     internal func strokeColor(strokeColor: String) {
-        guard let strokeColor = UIColor(svgString: strokeColor) else {
+        Self.applyStroke(strokeColor, to: self.svgLayer)
+    }
+
+    static func applyStroke(_ value: String, to layer: CAShapeLayer) {
+        if value == "none" {
+            layer.strokeColor = nil
+        } else if let strokeColor = UIColor(svgString: value) {
+            layer.strokeColor = strokeColor.cgColor
+        }
+    }
+
+    internal func strokeOpacity(opacity: String) {
+        guard let opacity = CGFloat(opacity) else {
             return
         }
-        self.svgLayer.strokeColor = strokeColor.cgColor
+        self.svgLayer.svgStrokeOpacity = opacity
     }
 
     /**
@@ -119,7 +132,7 @@ extension Strokable where Self : SVGShapeElement {
      - SeeAlso: CAShapeLayer's [`strokeWidth`](https://developer.apple.com/documentation/quartzcore/cashapelayer/1521890-linewidth)
      */
     internal func strokeWidth(strokeWidth: String) {
-        guard let strokeWidth = CGFloat(strokeWidth) else {
+        guard let strokeWidth = CGFloat(lengthString: strokeWidth.trimWhitespace()) else {
             return
         }
         self.svgLayer.lineWidth = strokeWidth
@@ -144,6 +157,7 @@ extension Strokable where Self : SVGGroup {
             "stroke-linecap": unown(self, SVGGroup.strokeLineCap),
             "stroke-linejoin": unown(self, SVGGroup.strokeLineJoin),
             "stroke-miterlimit": unown(self, SVGGroup.strokeMiterLimit),
+            "stroke-opacity": unown(self, SVGGroup.strokeOpacity),
             "stroke-width": unown(self, SVGGroup.strokeWidth)
         ]
     }
@@ -152,6 +166,10 @@ extension Strokable where Self : SVGGroup {
      Sets the stroke line cap of all subelements
      - SeeAlso: CAShapeLayer's [`lineCap`](https://developer.apple.com/documentation/quartzcore/cashapelayer/1521905-linecap) for supported values.
      */
+    internal func strokeOpacity(opacity: String) {
+        self.delayedAttributes["stroke-opacity"] = opacity
+    }
+
     internal func strokeLineCap(lineCap: String) {
         self.delayedAttributes["stroke-linecap"] = lineCap
     }

@@ -26,14 +26,13 @@ export function setPerpsAssetsUpdater(update: OnApiUpdate) {
 }
 
 /** Restores the last catalogue so the first read does not wait for the network. */
-export async function loadPerpsAssetsCache(update?: OnApiUpdate) {
-  if (update) onUpdate = update;
+export async function loadPerpsAssetsCache() {
   if (cached) return;
 
   const stored = await readStoredCache();
   // A request that finished while the disk read was in flight is newer than this snapshot
   if (cached) return;
-  if (!stored?.result?.assetsByChain) return;
+  if (!stored?.result?.assetsByChain || !stored.result.sections || !stored.result.limitsByChain?.hyperliquid) return;
 
   cached = stored;
   publish();
@@ -41,17 +40,17 @@ export async function loadPerpsAssetsCache(update?: OnApiUpdate) {
 
 /**
  * Returns the cached `GET /perps/assets` response. A missing catalogue, or one stored for another
- * language, is fetched once and then reused until the periodic refresh replaces it.
+ * language, is fetched once and then reused until a refresh replaces it.
  */
-export function getPerpsAssets(langCode?: string, signal?: AbortSignal): Promise<ApiPerpsGetAssetsResult> {
+export function getPerpsAssets(langCode?: string): Promise<ApiPerpsGetAssetsResult> {
   const hit = readCache(langCode);
   if (hit) return Promise.resolve(hit);
 
-  if (!signal && pending && (langCode === undefined || pending.langCode === langCode)) {
+  if (pending && (langCode === undefined || pending.langCode === langCode)) {
     return pending.promise;
   }
 
-  return refreshPerpsAssets(langCode, signal);
+  return refreshPerpsAssets(langCode);
 }
 
 /** Timestamp of this exact cached catalogue, or zero when its freshness is unknown. */
@@ -60,13 +59,13 @@ export function getPerpsAssetsFetchedAt(result: ApiPerpsGetAssetsResult, langCod
 }
 
 /** Always requests `GET /perps/assets` and replaces the cache. */
-export function refreshPerpsAssets(langCode?: string, signal?: AbortSignal): Promise<ApiPerpsGetAssetsResult> {
+export function refreshPerpsAssets(langCode?: string): Promise<ApiPerpsGetAssetsResult> {
   const requestId = ++requestGeneration;
-  const promise = fetchPerpsAssets(langCode, signal, requestId).finally(() => {
+  const promise = fetchPerpsAssets(langCode, requestId).finally(() => {
     if (pending?.promise === promise) pending = undefined;
   });
 
-  if (!signal) pending = { langCode, promise };
+  pending = { langCode, promise };
 
   return promise;
 }
@@ -87,13 +86,8 @@ function readCache(langCode?: string) {
   return cached.result;
 }
 
-async function fetchPerpsAssets(langCode: string | undefined, signal: AbortSignal | undefined, requestId: number) {
-  const result = await callBackendGet<ApiPerpsGetAssetsResult>(
-    '/perps/assets',
-    langCode ? { langCode } : undefined,
-    undefined,
-    signal,
-  );
+async function fetchPerpsAssets(langCode: string | undefined, requestId: number) {
+  const result = await callBackendGet<ApiPerpsGetAssetsResult>('/perps/assets', langCode ? { langCode } : undefined);
 
   if (!result?.assetsByChain) {
     throw new Error('Invalid perps assets response');

@@ -26,7 +26,7 @@ enum class MBlockchainExplorer(val identifier: String) {
     MONADSCAN("monadscan"),
     SNOWTRACE("snowtrace"),
     HYPEREVMSCAN("hyperevmscan"),
-    ROBINSCAN("robinscan"),
+    BLOCKSCOUT("blockscout"),
     ARCSCAN("arcscan");
 
     companion object {
@@ -84,7 +84,7 @@ enum class MBlockchainExplorer(val identifier: String) {
 
                 HYPEREVMSCAN -> "Hyperevmscan"
 
-                ROBINSCAN -> "Robinscan"
+                BLOCKSCOUT -> "Blockscout"
 
                 ARCSCAN -> "Arcscan"
             }
@@ -101,7 +101,7 @@ enum class MBlockchainExplorer(val identifier: String) {
             MONADSCAN,
             SNOWTRACE,
             HYPEREVMSCAN,
-            ROBINSCAN,
+            BLOCKSCOUT,
             ARCSCAN
         )
 
@@ -208,9 +208,9 @@ enum class MBlockchainExplorer(val identifier: String) {
             .scheme("https")
             .authority("hyperevmscan.io")
 
-        ROBINSCAN -> Uri.Builder()
+        BLOCKSCOUT -> Uri.Builder()
             .scheme("https")
-            .authority("robinscan.io")
+            .authority("robinhoodchain.blockscout.com")
 
         ARCSCAN -> Uri.Builder()
             .scheme("https")

@@ -64,7 +64,7 @@ class TokenActionsView: WTouchPassStackView {
         
         addButton = makeButton(
             title: lang("Fund"),
-            image: .airBundle("DepositIconLarge"),
+            image: usesSplitHomeActionStyle ? .airBundle("DepositIconLarge") : WActionButtonIcon.fund,
             onTap: { [weak self] in self?.addPressed() },
         )
         addButton.accessibilityIdentifier = "header_action_fund"
@@ -72,7 +72,7 @@ class TokenActionsView: WTouchPassStackView {
         
         sendButton = makeButton(
             title: lang("Send"),
-            image: .airBundle(usesSplitHomeActionStyle ? "SendIconLarge" : "SendIconBold"),
+            image: usesSplitHomeActionStyle ? .airBundle("SendIconLarge") : WActionButtonIcon.send,
             onTap: { [weak self] in self?.sendPressed() },
         )
         sendButton.accessibilityIdentifier = "header_action_send"
@@ -80,7 +80,7 @@ class TokenActionsView: WTouchPassStackView {
 
         swapButton = makeButton(
             title: lang("Trade"),
-            image: .airBundle(usesSplitHomeActionStyle ? "SwapIconLarge" : "SwapIconBold"),
+            image: usesSplitHomeActionStyle ? .airBundle("SwapIconLarge") : WActionButtonIcon.trade,
             onTap: { [weak self] in self?.swapPressed() },
         )
         swapButton.accessibilityIdentifier = "header_action_swap"
@@ -88,7 +88,7 @@ class TokenActionsView: WTouchPassStackView {
 
         earnButton = makeButton(
             title: lang("Earn"),
-            image: .airBundle(usesSplitHomeActionStyle ? "EarnIconLarge" : "EarnIconBold"),
+            image: usesSplitHomeActionStyle ? .airBundle("EarnIconLarge") : WActionButtonIcon.earn,
             onTap: { [weak self] in self?.earnPressed() },
         )
         earnButton.accessibilityIdentifier = "header_action_earn"

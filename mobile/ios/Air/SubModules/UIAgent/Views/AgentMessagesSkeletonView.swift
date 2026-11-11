@@ -18,6 +18,7 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
     enum Style {
         case messages
         case newsCards
+        /// The passing light alone, inside a suggestion's pill that stands in for the suggestion
         case suggestion
     }
 
@@ -31,19 +32,18 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
         !index.isMultiple(of: 2)
     }
 
-    /// Agent answers are usually longer than chat messages; reserve several paragraphs rather than a few lines.
-    private static let shortBubbleHeight: CGFloat = 120
-    private static let tallBubbleHeight: CGFloat = 184
-    /// Telegram's sequence from the bottom, with widths as fractions of the screen width
+    /// Telegram's sequence from the bottom, with widths as fractions of the screen width. The Agent's answers run
+    /// several paragraphs and the user's questions a line or two, so the Agent's bubbles are tall and wide and the
+    /// user's short and narrow.
     private static let bubbles: [Bubble] = [
-        Bubble(widthFraction: 0.86, height: tallBubbleHeight),
-        Bubble(widthFraction: 0.70, height: shortBubbleHeight),
-        Bubble(widthFraction: 0.92, height: tallBubbleHeight),
-        Bubble(widthFraction: 0.64, height: shortBubbleHeight),
-        Bubble(widthFraction: 0.80, height: tallBubbleHeight),
-        Bubble(widthFraction: 0.72, height: shortBubbleHeight),
-        Bubble(widthFraction: 0.86, height: tallBubbleHeight),
-        Bubble(widthFraction: 0.64, height: shortBubbleHeight),
+        Bubble(widthFraction: 0.86, height: 248),
+        Bubble(widthFraction: 0.56, height: 56),
+        Bubble(widthFraction: 0.92, height: 216),
+        Bubble(widthFraction: 0.44, height: 40),
+        Bubble(widthFraction: 0.80, height: 264),
+        Bubble(widthFraction: 0.60, height: 56),
+        Bubble(widthFraction: 0.86, height: 232),
+        Bubble(widthFraction: 0.48, height: 40),
     ]
     /// The chat's spacing between messages, so a tail never reaches the bubble below it
     private static let bubbleSpacing = AgentVCLayout.rowSpacing
@@ -119,6 +119,8 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
         outlineMask.fillColor = nil
         outlineMask.strokeColor = UIColor.black.cgColor
         outlineMask.lineWidth = 1
+        // The pill under the light draws its own fill and border
+        outlineShimmerLayer.isHidden = style == .suggestion
         updateColors()
     }
 
@@ -132,7 +134,7 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
         case .newsCards:
             layoutCards(into: path)
         case .suggestion:
-            path.append(UIBezierPath(roundedRect: bounds, cornerRadius: 18))
+            path.append(UIBezierPath(roundedRect: bounds, cornerRadius: AgentSuggestionButton.height / 2))
         }
         // One contour without the edges where a tail overlaps its bubble, so the glint follows only the outline
         let shape = path.cgPath.normalized()
@@ -202,7 +204,9 @@ final class AgentMessagesSkeletonView: AgentSkeletonView {
         let isDark = traitCollection.userInterfaceStyle == .dark
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        cardsLayer.fillColor = UIColor.air.agentBubbleFill.resolvedColor(with: traitCollection).cgColor
+        cardsLayer.fillColor = style == .suggestion
+            ? nil
+            : UIColor.air.agentBubbleFill.resolvedColor(with: traitCollection).cgColor
         fillBandLayer.colors = Self.makeBandColors(peakAlpha: isDark ? 0.14 : 0.7)
         outlineBandLayer.colors = Self.makeBandColors(peakAlpha: isDark ? 0.35 : 0.6)
         CATransaction.commit()

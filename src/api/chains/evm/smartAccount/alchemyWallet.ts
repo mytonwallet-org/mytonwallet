@@ -1,14 +1,17 @@
 import {
   getBytes,
-  hashAuthorization,
-  Signature,
   Wallet,
 } from 'ethers';
 
 import type { EvmMetaTransaction } from './types';
 
 import { fetchJson } from '../../../../util/fetch';
-import { hashUserOperationV07, isModularAccountCallData } from './userOperation';
+import { signEip7702AuthorizationSignature } from './delegation';
+import {
+  hashUserOperationV07,
+  isModularAccountCallData,
+  type UserOperationV07Data,
+} from './userOperation';
 
 type JsonRpcError = {
   code: number;
@@ -199,9 +202,12 @@ function signAuthorization(wallet: Wallet, item: AlchemyPreparedCallItem, bindin
     throw new Error('Alchemy authorization delegates to a contract the wallet did not request');
   }
 
-  const digest = hashAuthorization({ address, nonce: BigInt(nonce), chainId: binding.chainId });
-
-  return Signature.from(wallet.signingKey.sign(digest)).serialized;
+  return signEip7702AuthorizationSignature(
+    wallet,
+    binding.chainId,
+    BigInt(nonce),
+    address,
+  );
 }
 
 function signUserOperation(wallet: Wallet, item: AlchemyPreparedCallItem, binding: AlchemyPreparedCallsBinding) {
@@ -231,7 +237,7 @@ function signUserOperation(wallet: Wallet, item: AlchemyPreparedCallItem, bindin
     throw new Error('Alchemy user operation selects another validation');
   }
 
-  const digest = hashUserOperationV07(data, binding.chainId);
+  const digest = hashUserOperationV07(data as UserOperationV07Data, binding.chainId);
   const requestedDigest = getPersonalSignPayload(signatureRequest);
 
   if (requestedDigest && requestedDigest.toLowerCase() !== digest.toLowerCase()) {
@@ -274,7 +280,7 @@ export async function prepareAlchemyCalls(
   from: string,
   chainId: bigint,
   transactions: EvmMetaTransaction[],
-  shouldDelegate = true,
+  shouldDelegate: boolean,
 ): Promise<AlchemyPrepareCallsResult> {
   return alchemyWalletRpc<AlchemyPrepareCallsResult>(apiUrl, 'wallet_prepareCalls', [{
     calls: toAlchemyCalls(transactions),

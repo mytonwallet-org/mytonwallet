@@ -42,17 +42,10 @@
   }
 }
 
-// In portrait the text and the button stand side by side. Landscape columns are narrow, so there the button floats
-// at the end of the text: the text takes the full width and its last line flows around the button. When the last line
-// leaves no room, the button moves below it and stays in the bottom corner.
+// The text takes the full width and the button floats after it: on the last line, or below it when the line is full.
 // The floating text is inline, so its line height comes from this block and the text styles are set here.
 .body {
-  display: flex;
-  flex-grow: 1;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.625rem;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: flow-root;
 
   font-size: 0.8125rem;
   font-weight: 500;
@@ -60,29 +53,23 @@
   color: var(--color-gray-2);
 
   @include mixins.respond-above(xs) {
-    display: flow-root;
     font-size: 0.75rem;
   }
 }
 
 .description {
-  flex: 1 1 8.75rem;
-  min-width: 0;
-  margin: 0;
-  padding-bottom: 0.25rem;
-
-  @include mixins.respond-above(xs) {
-    display: inline;
-  }
+  display: inline;
+  overflow-wrap: anywhere;
 }
 
 .button {
   --color-dot: var(--color-accent);
 
-  flex-shrink: 0;
-  align-self: flex-end;
+  float: right;
 
   height: 1.75rem;
+  margin-top: 0.5rem;
+  margin-inline-start: 0.625rem;
   padding: 0 0.625rem;
   border-radius: 0.875rem;
 
@@ -94,10 +81,12 @@
   background-color: var(--color-activity-blue-background);
 
   @include mixins.respond-above(xs) {
-    float: inline-end;
-    margin-top: 0.25rem;
-    margin-inline-start: 0.625rem;
     font-size: 0.8125rem;
+  }
+
+  // Chromium supports the logical `float: inline-end` only since version 118, below our targets
+  :global([dir="rtl"]) & {
+    float: left;
   }
 
   @supports (background-color: color-mix(in srgb, var(--color-accent) 10%, transparent)) {
@@ -131,4 +120,11 @@
 
   font-size: 1.5rem;
   color: var(--color-gray-4);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-gray-3);
+    }
+  }
 }

@@ -17,6 +17,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -267,6 +268,7 @@ class WalletCustomizationVC private constructor(
 
     private val getMoreCardsButton by lazy {
         WLabel(context).apply {
+            id = UIComponentsR.id.customize_get_card
             setStyle(adaptiveFontSize())
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setPadding(20.dp, 0, 20.dp, 0)
@@ -410,6 +412,7 @@ class WalletCustomizationVC private constructor(
         WalletCore.registerObserver(this)
 
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.customize_wallet_title
         setTopBlur(false, animated = false)
 
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))

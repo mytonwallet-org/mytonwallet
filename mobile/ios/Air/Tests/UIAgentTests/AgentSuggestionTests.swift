@@ -98,6 +98,25 @@ final class AgentSuggestionTests: XCTestCase {
         XCTAssertTrue(descendants(of: cell).compactMap { $0 as? AgentSuggestionButton }.isEmpty)
     }
 
+    /// A suggestion whose highlight a host passes on, as search's prompt cell does, presses as one pill: its glass and
+    /// what is on it shrink together, so the title never shrinks inside an unchanged edge
+    func testPressedSuggestionShrinksAsOnePill() {
+        let button = AgentSuggestionButton()
+        button.configure(title: "Получить токены")
+        button.frame = CGRect(origin: .zero, size: button.intrinsicContentSize)
+        button.layoutIfNeeded()
+        let pill = try? XCTUnwrap(button.subviews.first)
+        UIView.performWithoutAnimation { button.isHighlighted = true }
+        XCTAssertLessThan(pill?.transform.a ?? 1, 1, "The pill shrinks")
+        func descendants(of view: UIView) -> [UIView] { view.subviews.flatMap { [$0] + descendants(of: $0) } }
+        XCTAssertTrue(
+            descendants(of: pill ?? button).allSatisfy { $0.transform == .identity },
+            "Nothing on the pill shrinks on its own"
+        )
+        button.resetPressedAppearance()
+        XCTAssertEqual(pill?.transform, .identity)
+    }
+
     func testAnAnswerErrorWrapsOnlyAtTheBubbleWidth() {
         _ = WalletResourcesBundle.bundle.load()
         let error = "Agent could not complete the request. Please try again."
@@ -162,6 +181,59 @@ final class AgentSuggestionTests: XCTestCase {
         await fulfillment(of: [completed], timeout: 5)
         let button = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentSuggestionButton }.first)
         XCTAssertFalse(button.superview!.isHidden)
+        XCTAssertFalse(cell.bubbleBackgroundView.showsTail, "The suggestions hang from the bubble in place of its tail")
+    }
+
+    /// The bubble's tail goes into its corner as suggestions come in under the answer, and comes back out of it as they
+    /// go: each change runs as a transition, the tail shrinking into a point inside the body's rounded corner, and ends
+    /// with the bubble as its state has it
+    func testBubbleTailMorphsIntoItsCornerAndBack() async throws {
+        try XCTSkipIf(UIAccessibility.isReduceMotionEnabled, "Reduce Motion cross-fades the tail")
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let host = UIViewController()
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let bubble = AgentBubbleBackgroundView()
+        host.view.addSubview(bubble)
+        NSLayoutConstraint.activate([
+            bubble.leadingAnchor.constraint(equalTo: host.view.leadingAnchor, constant: 16),
+            bubble.topAnchor.constraint(equalTo: host.view.topAnchor, constant: 200),
+            bubble.contentView.widthAnchor.constraint(equalToConstant: 240),
+            bubble.contentView.heightAnchor.constraint(equalToConstant: 60),
+        ])
+        bubble.configure(direction: .incoming, fillColor: .gray)
+        host.view.layoutIfNeeded()
+        let overflow = AgentBubbleBackgroundView.tailBottomOverflow
+        XCTAssertEqual(bubble.previewPath().bounds.maxY, bubble.bodyFrame.maxY + overflow, accuracy: 0.5)
+        XCTAssertFalse(bubble.isTailMorphing)
+
+        // Suggestions come in: the tail goes into its corner, in step with them
+        bubble.configure(direction: .incoming, fillColor: .gray, showsTail: false, shouldAnimateTail: true)
+        XCTAssertTrue(bubble.isTailMorphing, "A transition runs")
+        host.view.layoutIfNeeded()
+        XCTAssertTrue(bubble.previewPath().contains(bubble.tailCornerAnchor), "Into a point inside the body's rounded corner")
+        for _ in 0..<100 where bubble.isTailMorphing {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertFalse(bubble.isTailMorphing)
+        XCTAssertFalse(bubble.showsTail)
+        XCTAssertEqual(bubble.previewPath().bounds.maxY, bubble.bodyFrame.maxY, accuracy: 0.5, "No tail under the body")
+
+        // They go: the tail comes back out of its corner
+        bubble.configure(direction: .incoming, fillColor: .gray, showsTail: true, shouldAnimateTail: true)
+        XCTAssertTrue(bubble.isTailMorphing, "A transition runs")
+        for _ in 0..<100 where bubble.isTailMorphing {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertFalse(bubble.isTailMorphing)
+        XCTAssertTrue(bubble.showsTail)
+        host.view.layoutIfNeeded()
+        XCTAssertEqual(bubble.previewPath().bounds.maxY, bubble.bodyFrame.maxY + overflow, accuracy: 0.5, "The tail is whole again")
+
+        // Without a transition, as for a row the chat reuses, the tail simply is as its state has it
+        bubble.configure(direction: .incoming, fillColor: .gray, showsTail: false)
+        XCTAssertFalse(bubble.isTailMorphing)
     }
 
     private func response() -> AgentMessage {

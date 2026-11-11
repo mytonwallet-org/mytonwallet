@@ -19,16 +19,10 @@ open class ActivitySummaryCell: WHighlightCollectionViewCell {
     public override init(frame: CGRect) {
         icon = IconView(size: 40)
         super.init(frame: frame)
-        setup(maximumAmountWidthRatio: 0.42)
+        setup()
     }
 
-    public init(frame: CGRect, iconSize: CGFloat, maximumAmountWidthRatio: CGFloat) {
-        icon = IconView(size: iconSize)
-        super.init(frame: frame)
-        setup(maximumAmountWidthRatio: maximumAmountWidthRatio)
-    }
-
-    private func setup(maximumAmountWidthRatio: CGFloat) {
+    private func setup() {
         baseBackgroundColor = .air.groupedItem
         highlightBackgroundColor = .air.highlight
         contentView.backgroundColor = .clear
@@ -72,7 +66,7 @@ open class ActivitySummaryCell: WHighlightCollectionViewCell {
             amountLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 22),
             amounts.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
             amounts.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            amounts.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: maximumAmountWidthRatio),
+            amounts.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.42),
         ])
         amounts.onMaskStateChanged = { [weak self] hidden in
             guard let self else { return }

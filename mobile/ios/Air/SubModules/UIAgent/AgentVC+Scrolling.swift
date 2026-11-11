@@ -171,16 +171,24 @@ extension AgentVC: AgentChatListScrolling {
         let dateHeaderFrame = dateHeaderID(for: userMessageID)
             .flatMap(messageIndexPath(for:))
             .flatMap { collectionView.layoutAttributesForItem(at: $0)?.frame }
+        let previousAnswerFrame = previousAnswerID(for: userMessageID)
+            .flatMap(messageIndexPath(for:))
+            .flatMap { collectionView.layoutAttributesForItem(at: $0)?.frame }
         return Self.pinnedOffsetY(
             userMessageFrame: attributes.frame,
             dateHeaderFrame: dateHeaderFrame,
+            previousAnswerFrame: previousAnswerFrame,
             adjustedContentInsetTop: collectionView.adjustedContentInset.top
         )
     }
 
+    /// Where the chat stops as it brings a sent question up: the question's top under the header, or its tail
+    /// `arrivalUserMessageTailInset` below the header when it is tall. The last line of an answer right above the
+    /// question stays in sight, whole with the bubble's padding under it.
     static func pinnedOffsetY(
         userMessageFrame: CGRect,
         dateHeaderFrame: CGRect?,
+        previousAnswerFrame: CGRect? = nil,
         adjustedContentInsetTop: CGFloat
     ) -> CGFloat {
         if let dateHeaderFrame {
@@ -188,7 +196,21 @@ extension AgentVC: AgentChatListScrolling {
         }
         let tail = userMessageFrame.maxY - adjustedContentInsetTop - AgentVCLayout.arrivalUserMessageTailInset
         let topAligned = userMessageFrame.minY - adjustedContentInsetTop - AgentVCLayout.sectionTopInset
-        return min(tail, topAligned)
+        guard let previousAnswerFrame else {
+            return min(tail, topAligned)
+        }
+        let previousAnswerLineTop = previousAnswerFrame.maxY - AgentMessageCellMetrics.bodyVerticalPadding
+            - AgentMessageTextRenderer.answerLineHeight
+        return min(tail, topAligned, previousAnswerLineTop - adjustedContentInsetTop)
+    }
+
+    /// The answer right above a question, with nothing between them
+    func previousAnswerID(for userMessageID: AgentItemID) -> AgentItemID? {
+        let itemIDs = model.itemIDs
+        guard let index = itemIDs.firstIndex(of: userMessageID), index > 0,
+              case .message(let message)? = model.item(for: itemIDs[index - 1]),
+              message.role == .assistant else { return nil }
+        return message.id
     }
 
     func dateHeaderID(for userMessageID: AgentItemID) -> AgentItemID? {
@@ -263,6 +285,22 @@ extension AgentVC: AgentChatListScrolling {
             offsetFromPin: collectionView.contentOffset.y - pinnedY,
             maxOffsetFromPin: maxContentOffsetY - pinnedY
         )
+    }
+
+    /// Keeps the list's scrollable extent while the row at `indexPath` leaves it: the row's place, with the spacing
+    /// after it, joins the reserve under the content. An animated removal then never pulls the content offset in, which
+    /// UIKit would animate as the rows above sliding, and the rows above stay where they show. Fitting the reserve
+    /// after the update keeps it as long as the offset needs it.
+    func reserveSpaceForLeavingRow(at indexPath: IndexPath) {
+        collectionView.layoutIfNeeded()
+        guard let row = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
+        let next = IndexPath(item: indexPath.item + 1, section: indexPath.section)
+        let nextMinY = next.item < collectionView.numberOfItems(inSection: indexPath.section)
+            ? collectionView.layoutAttributesForItem(at: next)?.frame.minY
+            : nil
+        let height = (nextMinY ?? row.maxY) - row.minY
+        guard height > 0.5 else { return }
+        applyReserveSpacerHeight(reserveSpacerHeight + height)
     }
 
     private func applyReserveSpacerHeight(_ height: CGFloat, preservingOffset: Bool = false) {
@@ -448,10 +486,8 @@ extension AgentVC: AgentChatListScrolling {
             cell.configure(
                 with: message,
                 onURLTap: { [weak self] url in self?.openMessageURL(url, renderingPolicy: message.renderingPolicy) },
-                onControlTap: { [weak self] controlID in
-                    guard let self else { return }
-                    self.dictationController.cancel()
-                    self.model.performControl(messageID: message.id, controlID: controlID)
+                onControlTap: makeControlTapHandler(for: message) { [weak cell] in
+                    cell?.getFollowupButton(controlID: $0)
                 }
             )
         }

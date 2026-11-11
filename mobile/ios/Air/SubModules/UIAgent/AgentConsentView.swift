@@ -6,18 +6,21 @@ import WalletCore
 private enum AgentConsentMetrics {
     static let maxContentWidth: CGFloat = 580
     static let horizontalInset: CGFloat = 24
-    static let topInset: CGFloat = 24
+    /// Under the sheet's header, which holds the title
+    static let topInset: CGFloat = 12
     static let bottomInset: CGFloat = 24
-    static let buttonHorizontalInset: CGFloat = 16
-    static let rowIconSize: CGFloat = 32
-    static let heroIconSize: CGFloat = 74
+    /// As the app's other sheets with a button at the bottom have it, as connecting a dapp's does: 30 pt from the
+    /// sides, and on the bottom safe area, at least 16 pt from the bottom
+    static let buttonHorizontalInset: CGFloat = 30
+    static let buttonMinimumBottomInset: CGFloat = 16
+    /// The feature icons' column: their symbols are title2's, the size after the text's body
+    static let rowIconWidth: CGFloat = 28
     static let disclosureCornerRadius: CGFloat = 18
+    /// The data note's text: a point under the footnote style at the default text size, scaling as the style does
+    static let disclosureFontSize: CGFloat = 12
 }
 
 private enum AgentConsentCopy {
-    static var subtitle: String {
-        lang("$agent_consent_subtitle")
-    }
     static var rowOne: String {
         L10n.agentConsentFeatureAnswers(appName: APP_NAME)
     }
@@ -41,14 +44,12 @@ private enum AgentConsentCopy {
     }
 }
 
+/// The Agent's consent: the features, the note on the data the Agent gets, and Allow pinned at the bottom, which
+/// `AgentConsentSheetVC` hosts under its header. The content scrolls when it doesn't fit above Allow.
 final class AgentConsentView: UIView {
     var onContinue: (() -> Void)?
     var onLearnMore: (() -> Void)?
-    var isActive = true {
-        didSet { iconView.isActive = isActive }
-    }
 
-    private let iconView = AgentSpinningTopView(speedMultiplier: 0.5, expandedScale: 2, centersExpandedTop: true)
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let contentStack = UIStackView()
@@ -74,15 +75,20 @@ final class AgentConsentView: UIView {
         scrollView.setContentOffset(offset, animated: animated)
     }
 
+    /// The height that shows all of the content and Allow's area at the current width, once laid out
+    var fittingHeight: CGFloat {
+        safeAreaInsets.top + scrollView.contentSize.height + bottomContainerView.bounds.height
+    }
+
     private func setupViews() {
         backgroundColor = UIColor.air.background
 
-        iconView.backdropSourceView = scrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.backgroundColor = UIColor.air.background
-        scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
-        scrollView.contentInsetAdjustmentBehavior = .automatic
+        // `layoutSubviews` keeps the content between the top bars and the button's area, which covers the home
+        // indicator, so the content scrolls only when it doesn't fit there and only as far as its end
+        scrollView.contentInsetAdjustmentBehavior = .never
         if #available(iOS 26.0, *) {
             scrollView.topEdgeEffect.isHidden = true
         }
@@ -114,6 +120,8 @@ final class AgentConsentView: UIView {
         contentFullWidthConstraint.priority = UILayoutPriority(999)
         let buttonFullWidthConstraint = buttonWidthGuide.widthAnchor.constraint(equalTo: safeAreaLayoutGuide.widthAnchor)
         buttonFullWidthConstraint.priority = UILayoutPriority(999)
+        let buttonOnSafeAreaConstraint = continueButton.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor)
+        buttonOnSafeAreaConstraint.priority = UILayoutPriority(999)
 
         NSLayoutConstraint.activate([
             contentWidthGuide.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
@@ -151,7 +159,12 @@ final class AgentConsentView: UIView {
             continueButton.leadingAnchor.constraint(equalTo: buttonWidthGuide.leadingAnchor, constant: AgentConsentMetrics.buttonHorizontalInset),
             continueButton.trailingAnchor.constraint(equalTo: buttonWidthGuide.trailingAnchor, constant: -AgentConsentMetrics.buttonHorizontalInset),
             continueButton.topAnchor.constraint(equalTo: bottomContainerView.topAnchor, constant: 12),
-            continueButton.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -12)
+            buttonOnSafeAreaConstraint,
+            continueButton.bottomAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.bottomAnchor),
+            continueButton.bottomAnchor.constraint(
+                lessThanOrEqualTo: bottomAnchor,
+                constant: -AgentConsentMetrics.buttonMinimumBottomInset
+            ),
         ])
     }
 
@@ -163,7 +176,18 @@ final class AgentConsentView: UIView {
             UIColor.air.background.cgColor,
         ]
         bottomFade.locations = [0, 0.35]
-        scrollView.contentInset.bottom = max(0, bottomContainerView.bounds.height - safeAreaInsets.bottom)
+        let contentInset = UIEdgeInsets(
+            top: safeAreaInsets.top,
+            left: 0,
+            bottom: bottomContainerView.bounds.height,
+            right: 0
+        )
+        guard scrollView.contentInset != contentInset else { return }
+        let isAtTop = scrollView.contentOffset.y <= -scrollView.contentInset.top + 0.5
+        scrollView.contentInset = contentInset
+        if isAtTop {
+            scrollView.contentOffset.y = -contentInset.top
+        }
     }
 
     override func tintColorDidChange() {
@@ -172,9 +196,6 @@ final class AgentConsentView: UIView {
     }
 
     private func buildContent() {
-        contentStack.addArrangedSubview(makeHeaderView())
-        contentStack.setCustomSpacing(34, after: contentStack.arrangedSubviews.last!)
-
         contentStack.addArrangedSubview(makeInfoRow(iconName: "questionmark.bubble.fill", text: AgentConsentCopy.rowOne))
         contentStack.setCustomSpacing(18, after: contentStack.arrangedSubviews.last!)
         contentStack.addArrangedSubview(makeInfoRow(iconName: "wand.and.sparkles", text: AgentConsentCopy.rowTwo))
@@ -185,66 +206,12 @@ final class AgentConsentView: UIView {
         contentStack.addArrangedSubview(makeDisclosureView())
     }
 
-    private func makeHeaderView() -> UIView {
-        let container = UIStackView()
-        container.axis = .vertical
-        container.alignment = .center
-        container.spacing = 14
-
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.isAccessibilityElement = false
-        NSLayoutConstraint.activate([
-            iconView.widthAnchor.constraint(equalToConstant: AgentConsentMetrics.heroIconSize),
-            iconView.heightAnchor.constraint(equalTo: iconView.widthAnchor)
-        ])
-
-        let titleLabel = UILabel()
-        titleLabel.font = UIFont.preferredFont(forTextStyle: .largeTitle).withWeight(.bold)
-        titleLabel.adjustsFontForContentSizeCategory = true
-        titleLabel.textColor = .label
-        titleLabel.textAlignment = .center
-        titleLabel.text = lang("Agent")
-
-        let subtitleLabel = UILabel()
-        subtitleLabel.font = UIFont.preferredFont(forTextStyle: .body)
-        subtitleLabel.adjustsFontForContentSizeCategory = true
-        subtitleLabel.textColor = .air.secondaryLabel
-        subtitleLabel.textAlignment = .center
-        subtitleLabel.numberOfLines = 0
-        subtitleLabel.text = AgentConsentCopy.subtitle
-
-        container.addArrangedSubview(iconView)
-        container.addArrangedSubview(titleLabel)
-        container.addArrangedSubview(subtitleLabel)
-        return container
-    }
-
     private func makeInfoRow(iconName: String, text: String) -> UIView {
+        // The symbol stands in the middle of the text, of all of its lines
         let row = UIStackView()
         row.axis = .horizontal
-        row.alignment = .top
+        row.alignment = .center
         row.spacing = 14
-
-        let iconContainer = UIView()
-        iconContainer.translatesAutoresizingMaskIntoConstraints = false
-        iconContainer.backgroundColor = UIColor.air.secondaryFill
-        iconContainer.layer.cornerRadius = 10
-        iconContainer.layer.cornerCurve = .continuous
-
-        let iconView = UIImageView(image: UIImage(systemName: iconName))
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.tintColor = .tintColor
-        iconView.contentMode = .scaleAspectFit
-
-        iconContainer.addSubview(iconView)
-        NSLayoutConstraint.activate([
-            iconContainer.widthAnchor.constraint(equalToConstant: AgentConsentMetrics.rowIconSize),
-            iconContainer.heightAnchor.constraint(equalTo: iconContainer.widthAnchor),
-            iconView.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 17),
-            iconView.heightAnchor.constraint(equalTo: iconView.widthAnchor)
-        ])
 
         let label = UILabel()
         label.font = UIFont.preferredFont(forTextStyle: .body)
@@ -253,7 +220,14 @@ final class AgentConsentView: UIView {
         label.numberOfLines = 0
         label.text = text
 
-        row.addArrangedSubview(iconContainer)
+        let iconView = UIImageView(image: UIImage(systemName: iconName))
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.tintColor = .tintColor
+        iconView.contentMode = .center
+        iconView.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2)
+        iconView.widthAnchor.constraint(equalToConstant: AgentConsentMetrics.rowIconWidth).isActive = true
+
+        row.addArrangedSubview(iconView)
         row.addArrangedSubview(label)
         return row
     }
@@ -277,7 +251,8 @@ final class AgentConsentView: UIView {
         titleLabel.text = AgentConsentCopy.disclosureTitle
         titleLabel.accessibilityIdentifier = "agent_consent_title"
 
-        let font = UIFont.preferredFont(forTextStyle: .footnote)
+        let font = UIFontMetrics(forTextStyle: .footnote)
+            .scaledFont(for: .systemFont(ofSize: AgentConsentMetrics.disclosureFontSize))
         let disclosure = NSMutableAttributedString(
             string: AgentConsentCopy.disclosureText + " ",
             attributes: [.font: font, .foregroundColor: UIColor.air.secondaryLabel]

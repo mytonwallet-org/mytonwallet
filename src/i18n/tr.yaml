@@ -139,8 +139,8 @@ You can always enable seasonal theming again in the appearance settings.: Görü
 Base Currency: Ana Para Birimi
 Investor View: Yatırımcı Görünümü
 Toggle Investor View: Yatırımcı Görünümüne Geçiş Yap
-Hide Tiny Transfers: Küçük Transferleri Gizle
-Toggle Hide Tiny Transfers: Küçük Transferleri Gizlemeyi Aç/Kapat
+Hide Tiny Transfers and Spam: Küçük Transferleri ve Spamı Gizle
+Toggle Hide Tiny Transfers and Spam: Küçük Transferleri ve Spamı Gizlemeyi Aç/Kapat
 Network: Ağ
 Developer Options: Geliştirici Seçenekleri
 All Wallet Versions: Tüm cüzdan sürümleri
@@ -1320,11 +1320,10 @@ Agent: Asistan
 Learn more: Daha fazla bilgi
 Data shared with Agent: Asistan ile paylaşılan veriler
 $agent_consent_allow_button: Asistana İzin Ver
-$agent_consent_subtitle: Cüzdan yardımı, token bilgileri ve desteklenen işlemler için Asistan'a danışın.
 $agent_consent_feature_answers: "%app_name%, tokenlar ve cüzdan etkinliği hakkında yanıtlar alın."
 $agent_consent_feature_actions: Gönderme, alma ve staking gibi desteklenen işlemleri hazırlayın.
 $agent_consent_feature_context: Yanıtların ilgili varlıklara ve adreslere referans verebilmesi için cüzdan bağlamını kullanın.
-$agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının Asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mywallet.io) ile üçüncü taraf AI sağlayıcımız Anthropic Claude API'ye isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Veriler yalnızca Asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
+$agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mywallet.io) ile üçüncü taraf AI sağlayıcımız Anthropic Claude API'ye isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Veriler yalnızca asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
 $agent_consent_search_disclosure_text: Web aramalarında Serper'a yalnızca arama sorguları gönderilebilir; cüzdan bağlamı ve sohbet geçmişi gönderilmez.
 $settings_token_change_threshold: "% Değişim Eşiği"
 $settings_token_change_threshold_description: Seçilen eşiğin altındaki 24 saatlik yüzde değişimlerini gizler.
@@ -1393,7 +1392,7 @@ $agent_hint_receive_title: Token alma
 $agent_hint_receive_prompt: Token almama yardım et.
 $agent_notice_content_over_budget: Sonuç çok büyük olduğu için tamamı görüntülenemiyor.
 $agent_notice_web_search_no_results: İsteğinizle eşleşen bilgi bulunamadı.
-$agent_error_session: Asistan oturumunuzun süresi doldu. Asistan'ı yeniden açıp tekrar deneyin.
+$agent_error_session: Asistan oturumunuzun süresi doldu. Asistanı yeniden açıp tekrar deneyin.
 $agent_error_limit: Asistan sınırına ulaşıldığı için istek tamamlanamıyor.
 $agent_error_tool: Cüzdan işlemi tamamlanamadı. Lütfen tekrar deneyin.
 $agent_error_conversation_updated: Konuşma güncellendi. Lütfen isteği tekrar deneyin.
@@ -1408,12 +1407,13 @@ $agent_dictation_no_speech: "Konuşma duyulmadı. Mikrofona daha yakın konuşup
 $agent_dictation_time_left: "%seconds% sn kaldı"
 $agent_dictation_time_left_short: "%seconds% sn"
 $agent_dictation_limit_reached: "Dikte bir dakika sonra durduruldu; izin verilen en uzun kayıt süresi bu."
+$agent_stop_answer: "Yanıtı durdur"
 $agent_dictation_microphone_denied: "Dikte etmek için mikrofon erişimine izin verin."
 $agent_dictation_hold_hint: "Dikte etmek için basılı tutun. Eller serbest kayıt için yukarı kaydırın."
 $agent_dictation_too_short: "Çok kısa. Konuşurken basılı tutun."
 $agent_dictation_slide_to_cancel: "İptal etmek için sola kaydırın"
 $agent_dictation_deleted: "Kayıt silindi"
-$agent_error_invalid_response: Ajanın yanıtı okunamadı. Lütfen tekrar deneyin.
+$agent_error_invalid_response: Asistanın yanıtı okunamadı. Lütfen tekrar deneyin.
 $agent_error_update_required: Devam etmek için uygulamayı güncelleyin.
 $agent_wallet_page_navigation: Cüzdan veri sayfaları
 $agent_wallet_page_indicator: "%current% / %total%"
@@ -1998,9 +1998,9 @@ $agent_capacity_limit_known: Yeni istekler %duration% sonra gönderilebilir.
 $agent_capacity_degraded_title: Agent kararsız yanıt verebilir
 $agent_capacity_limit_unknown: Tekrar deneyebilirsiniz, ancak yanıt yüklenmeyebilir.
 $agent_retry_request: İsteği yeniden dene
-$agent_rate_limit_title: Çok fazla Agent isteği
+$agent_rate_limit_title: Çok fazla asistan isteği
 $agent_rate_limit_body: "%duration% sonra tekrar deneyin."
-$agent_user_quota_exhausted_title: Agent kotası yetersiz
+$agent_user_quota_exhausted_title: Asistan kotası yetersiz
 $agent_user_quota_exhausted_body: "Bu istek için yeterli kota yok. Günlük kota %limit% birimdir ve %duration% sonra sıfırlanır."
 $agent_time_hours: "%value% sa"
 $agent_time_minutes: "%value% dk"
@@ -2133,6 +2133,8 @@ News: "Haberler"
 Crypto Market News: "Kripto piyasası haberleri"
 $agent_news_new: "Yeni"
 $agent_news_open_source: "Kaynağı Aç"
+$agent_news_source: "Kaynak: %sources%"
+$agent_news_sources: "Kaynaklar: %sources%"
 $agent_news_unavailable: "Haberler şu anda kullanılamıyor"
 $agent_news_read_more: "Devamını oku"
 $agent_news_discuss: "Tartış"
@@ -2169,7 +2171,6 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "Review": "İncele"
 "$perps_order_long": "%asset% Uzun"
 "$perps_order_short": "%asset% Kısa"
-"$perps_swap_fee_hint": "Bu işlem kapsamında bir tokenı başka bir tokena dönüştürme ücreti."
 "$perps_trading_fee_hint": "Bu pozisyonu açma ücreti."
 "$perps_position_size_hint": "Pozisyon büyüklüğü — kaldıraçlı pozisyonunuzun toplam değeri."
 "$perps_position_size_details_hint": "Kaldıraç dikkate alındığında pozisyonunuzun toplam değeri.\n\nÖrneğin, 5x kaldıraçla $100 yatırırsanız pozisyon büyüklüğünüz $500 olur."
@@ -2179,14 +2180,13 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "$perps_closing_value_hint": "Pozisyonunuz likide edildikten sonra kalan tutar. Likidasyonun sonucuna bağlı olarak bu tutar yatırdığınızdan daha az veya sıfır olabilir."
 "$perps_fees_hint": "Bu işlem için alınan toplam ücretler. İşleme bağlı olarak alım satım, takas ve ağ ücretlerini içerebilir."
 "$perps_liquidation_price_hint": "Pozisyonunuzu açık tutmaya yetecek fon bulunmadığı için otomatik olarak kapatılabileceği tahmini fiyat."
-"$perps_high_leverage_warning": "Yüksek kaldıraç: küçük bir fiyat hareketi likidasyonu tetikler."
 "$perps_leverage_disclaimer": "Daha yüksek kaldıraç, olası kâr ve zararları artırır. Pozisyonunuzun aleyhine küçük bir fiyat değişikliği bile pozisyonun otomatik olarak kapanmasına neden olabilir."
 
 # Perps order review
 "Open Position": "Pozisyon aç"
 "$perps_asset_price": "%asset% fiyatı"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "Onaylayarak bu pozisyonun likide edilebileceğini ve yatırdığım parayı kaybedebileceğimi anlıyorum."
+"$perps_liquidation_acknowledgment": "Onaylayarak bu pozisyonun likide edilebileceğini ve yatırdığım parayı kaybedebileceğimi anlıyorum."
 
 # Perps position receipt
 "Position Opened": "Pozisyon açıldı"
@@ -2257,7 +2257,16 @@ $perps_open_interest_hint: "Bu vadeli işlem piyasasında şu anda açık olan s
 "PerpsQuoteExpired": "Fiyatlar veya pozisyonunuz değişti. Geri dönüp emri tekrar inceleyin."
 "PerpsReviewChanged": "Emir değişti. Geri dönüp tekrar inceleyin."
 "PerpsInsufficientUsdc": "Köprü ücreti dahil, Arbitrum üzerinde yeterli USDC yok."
+"EvmUserOperationMismatch": "Gas ödemesi bu işlemle eşleşmiyor."
+"PerpsInsufficientBalance": "İşlem ücretleri dahil, Hyperliquid bakiyenizde yeterli USDC yok."
+"PerpsMarketNeedsUnifiedAccount": "Bu piyasa, mevcut Hyperliquid hesap türünüzle cüzdanınızdan fonlanamaz."
+"PerpsRequiresMultichainWallet": "Vadeli işlemler için çok zincirli (multichain) bir cüzdan gerekir. İşleme başlamak için birine geçin veya yeni bir tane oluşturun."
+"PerpsSwitchesToUnifiedAccount": "Bu emir Hyperliquid hesabınızı da Unified moduna geçirir; böylece tek bir USDC bakiyesi tüm piyasaları karşılar."
 "PerpsAmountTooSmall": "Bu tutar piyasanın alt sınırının altında."
+"$perps_minimum_amount": "Minimum tutar: %amount% USDC."
+"$perps_minimum_reduction": "Köprü ücretini karşılamak için tutarı %amount% USDC'den fazla azaltın."
+"$perps_required_balance": "Gerekli: %required% USDC (ücretler dahil). Hyperliquid'de kullanılabilir bakiye: %available% USDC."
+"$perps_available_balance": "Hyperliquid'de kullanılabilir bakiye: %available% USDC. İşlem ücretleri için pay bırakmak üzere tutarı azaltın."
 "PerpsUnchanged": "Pozisyonu güncellemek için farklı bir tutar girin."
 "PerpsPositionChanged": "Bu pozisyon değişti. Yenileyip tekrar deneyin."
 "PerpsPositionExists": "Bu piyasada zaten bir pozisyonunuz var. Mevcut pozisyonu düzenleyin."
@@ -2304,8 +2313,6 @@ Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekr
 "$perps_funding_usdc_increase": "Bu pozisyonu artırmak için Arbitrum’da en az %minUSDC% USDC gerekir."
 "PerpsFundingGasTitle": "Ücret için yeterli ETH yok"
 "$perps_funding_gas": "Arbitrum’daki ücretler ETH ile ödenir. %feeETH% ETH (~%feeFiat%) alın."
-"PerpsFundingTokenTitle": "Arbitrum’da USDC ile ödeyin"
-"PerpsFundingTokenDescription": "Diğer tokenlar henüz desteklenmiyor. Devam etmek için USDC alın."
 "Not Enough Funds": "Yetersiz bakiye"
 "Unsupported Token": "Desteklenmeyen token"
 "PerpsReviewUpdated": "Fiyatlar güncellendi. Onaylamadan önce emri tekrar inceleyin."
@@ -2324,13 +2331,14 @@ Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekr
 "PerpsExchangeFee": "Borsa ücreti"
 "PerpsServiceFee": "Cüzdan ücreti"
 "PerpsBridgeFee": "Köprü ücreti"
+"PerpsFirstWithdrawalFee": "İlk çekim ücreti"
 "PerpsTotalFees": "Toplam USDC ücretleri"
 "PerpsFeeEstimateHint": "≈ ile işaretli ücretler tahminidir ve gerçekleşme anında değişebilir. Arbitrum ağ ücreti ayrıca ETH olarak ödenir."
 "PerpsUnallocatedCollateral": "Ayrılmamış teminat"
 "PerpsUnallocatedCollateralHint": "Piyasanın işlem büyüklüğüne yuvarlama, bir miktar USDC’yi pozisyon dışında bırakabilir. Bu fonlar vadeli işlem hesabınızda kalır; ücret değildir."
-"PerpsOnboardingTitle": "Vadeli işlemlerde yeni misiniz?"
-"PerpsOnboardingDescription": "Nasıl çalıştığını 1 dakikadan kısa sürede öğrenin."
-"PerpsOnboardingOpen": "Tanıtımı Aç"
+"PerpsOnboardingTitle": "Vadeli işlemler\n%app_name% içinde!"
+"PerpsOnboardingDescription": "Birkaç dokunuşla long veya short açın."
+"PerpsOnboardingOpen": "Nasıl çalıştığını gör"
 "PerpsStoryIntroTitle": "Sürekli vadeli işlemlerle tanışın"
 "PerpsStoryIntroBody": "Varlık fiyatının hem yükselişine hem de düşüşüne pozisyon açın."
 "PerpsStoryLongTitle": "Yükseliş mi bekliyorsunuz? Uzun pozisyon açın"
@@ -2345,17 +2353,15 @@ Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekr
 "PerpsStoryFundingBody": "Fonlama oranı pozitif olduğunda Uzun pozisyondakiler Kısa pozisyondakilere ödeme yapar. Negatif olduğunda Kısa pozisyondakiler Uzun pozisyondakilere ödeme yapar."
 "PerpsStoryStart": "Başla"
 
-"Funding Payment": "Fonlama ödemesi"
 "Withdrawal": "Çekim"
 "Transfer": "Transfer"
-"Spot Balance": "Spot bakiye"
 "From": "Kaynak"
 "To": "Hedef"
 
 Delete Chat: Sohbeti sil
 Unread: Okunmadı
 $agent_connection_lost: Asistan bağlantısı kesildi.
-$agent_daily_limit_reached: Günlük Asistan sınırına ulaşıldı
+$agent_daily_limit_reached: Günlük asistan sınırına ulaşıldı
 $media_viewer_date_at_time: "%date%, %time%"
 Picture: Görsel
 
@@ -2370,3 +2376,71 @@ $enclave_data_missing_message: |
   Cüzdanlarınızın gizli kelimeleri sizdeyse tüm cüzdanlardan çıkıp onları yeniden içe aktarabilirsiniz.
 
 Install the TON App on your Ledger and try again.: TON Uygulamasını Ledger'ınıza yükleyin ve tekrar deneyin.
+Liked: Beğenildi
+Disliked: Beğenilmedi
+$agent_feedback_liked_toast: "Asistan daha çok böyle yanıt verecek."
+$agent_feedback_disliked_toast: "Asistanı geliştirmek için bunu inceleyeceğiz."
+$agent_voice_pause: "Kaydı duraklat"
+$agent_voice_resume: "Kayda devam et"
+$agent_message_copied: Mesaj kopyalandı.
+$agent_copied: "Kopyalandı."
+$agent_news_empty: "Henüz haber yok"
+$agent_chats_unavailable: "Sohbetler yüklenemedi"
+
+"PerpsAvailable": "Kullanılabilir"
+"PerpsWithdraw": "Çek"
+"PerpsBalanceWithdrawalTitle": "Cüzdana çek"
+"PerpsWithdrawalFromHyperliquid": "Hyperliquid’den"
+"PerpsWithdrawalToWallet": "Arbitrum cüzdanına"
+"PerpsBalanceWithdrawalNote": "USDC birkaç dakika içinde Arbitrum cüzdanınıza ulaşır. Çekimin gazını karşılamak için 0,03 USDC Hyperliquid’de kalır."
+"PerpsBalanceWithdrawalUpdated": "Hyperliquid bakiyeniz değişti. Onaylamadan önce çekimi tekrar inceleyin."
+"PerpsWithdrawalStatus": "Çekim durumu"
+"PerpsWithdrawalCompleted": "Çekim gönderildi"
+"PerpsWithdrawalOnItsWay": "USDC’niz Arbitrum cüzdanınıza doğru yolda. Bu birkaç dakika sürebilir."
+"PerpsWithdrawalProcessing": "Çekiminiz işleniyor. Köprü transferi birkaç dakika sürebilir."
+"PerpsWithdrawalUnknown": "Sonuç henüz doğrulanmadı. Başka bir işlem yapmadan önce Hyperliquid bakiyenizi ve cüzdanınızı kontrol edin."
+"PerpsAcknowledgeWithdrawalUnknown": "Çekim hâlâ tamamlanabilir. Önce Hyperliquid bakiyenizi ve cüzdanınızı kontrol edin. Yeni emirlere izin vermek çekimi iptal etmez."
+"PerpsNothingToWithdraw": "Şu anda Hyperliquid bakiyenizden çekilecek bir tutar yok."
+"PerpsWithdrawalRejected": "Hyperliquid bu çekimi reddetti. USDC’niz Hyperliquid bakiyenizde kalır."
+"View your assets and activity": "Varlıklarınızı ve etkinliklerinizi görüntüleyin"
+"Ask AI and follow the news": "Yapay zekâya sorun ve haberleri takip edin"
+$underlying_stock: '%symbol% hissesi'
+$agent_support_requested: "Destek istediniz. Bir temsilci burada yanıt verecek"
+$agent_support_operator_joined: "Destek sohbete katıldı: %name%"
+$agent_support_closed_operator: "Destek talebi kapattı. Bundan sonra asistan yanıt verecek"
+$agent_support_closed_inactivity: "Talep, 48 saat boyunca yanıt gelmediği için kapatıldı. Bundan sonra asistan yanıt verecek"
+$agent_support_waiting: "Destek · temsilci bekleniyor"
+$agent_support_with_operator: "Destek · %name%"
+$agent_support_label: "Destek"
+$agent_support_badge: "%app_name% Destek"
+$agent_support_placeholder: "Desteğe mesaj"
+"PerpsStoryFinaleTitle": "Vadeli işlemleri denemeye hazır mısınız?"
+"PerpsStoryFinaleBody": "Bir piyasa seçin, pozisyon açın ve doğrudan %app_name% üzerinden takip edin!"
+"PerpsStoryViewMarkets": "Piyasaları Gör"
+Unlink Wallet: Cüzdanın bağlantısını kaldır
+Confirm Unlinking: Bağlantıyı Kaldırmayı Onayla
+Domain Unlinked: Alan adının bağlantısı kaldırıldı
+Drag here to add to the toolbar: Araç çubuğuna eklemek için buraya sürükleyin
+$send_only_chain_and_token: Bu adrese yalnızca %symbol%, %tokenSymbol% veya diğer %chain% tabanlı varlıkları gönderin. Diğer tokenlar kaybolur.
+$agent_digest_unavailable: "Bu özet artık kullanılamıyor"
+$agent_digest_title: "Günün öne çıkanları"
+$agent_digest_meta:
+  oneValue: "%count% haber · %time%"
+  otherValue: "%count% haber · %time%"
+$agent_digest_more:
+  oneValue: "ve %count% haber daha — akışta yukarıda"
+  otherValue: "ve %count% haber daha — akışta yukarıda"
+$agent_digest_settings_title: "Özet ve bildirimler"
+$agent_digest_settings_text: "Akışta günde bir kez günün öne çıkan haberlerinin özeti yer alır."
+$agent_digest_time: "Özet saati"
+$agent_digest_time_zone: "Telefonunuzun saat diliminde."
+$agent_digest_notifications_off: "Kapalı"
+$agent_digest_notifications_off_hint: "Özet yalnızca akışta görünür"
+$agent_digest_notifications_daily: "Günlük özet"
+$agent_digest_notifications_daily_hint: "%time% saatinde, öne çıkan haberler tek bildirimde"
+$agent_digest_notifications_every: "Her haber"
+$agent_digest_notifications_every_hint: "Her haber için ayrı bildirim"
+$agent_digest_post_header: "MyPulse · özet · %time%"
+$agent_digest_sheet_title: "Günlük özet"
+$agent_digest_device_time_zone: "Bu cihazın saat diliminde."
+$agent_dictation_microphone_denied_device: "Dikte etmek için cihaz ayarlarından mikrofon erişimine izin verin."

@@ -110,15 +110,33 @@ internal class AgentNewsDiscussStrip(context: Context) :
 
     fun configure(item: AgentV2NewsFeedItem, isDiscussionStarted: Boolean) {
         val discussion = item.discussion?.takeIf { isDiscussionStarted }
-        label.text = LocaleController.getString(
-            if (discussion == null) "\$agent_news_discuss" else "\$agent_news_continue_discussion"
-        )
-        button.contentDescription = if (discussion == null) {
-            "${LocaleController.getString("\$agent_news_discuss")}, ${item.headline}"
-        } else {
-            LocaleController.getString("\$agent_news_continue_discussion_accessibility")
-                .replace("%headline%", item.headline)
+        if (discussion == null) {
+            configureDiscuss(item.headline)
+            return
         }
+        configure(
+            LocaleController.getString("\$agent_news_continue_discussion"),
+            LocaleController.getString("\$agent_news_continue_discussion_accessibility")
+                .replace("%headline%", item.headline),
+            discussion
+        )
+    }
+
+    /** Discuss what [subject] names, with the Agent's mark: a news item's headline, or a digest's title */
+    fun configureDiscuss(subject: String) = configure(
+        LocaleController.getString("\$agent_news_discuss"),
+        "${LocaleController.getString("\$agent_news_discuss")}, $subject",
+        discussion = null
+    )
+
+    // A discussion the user has written in shows its thread's avatar, the same as in the thread list
+    private fun configure(
+        title: String,
+        contentDescription: String,
+        discussion: AgentV2NewsFeedItem.Discussion?
+    ) {
+        label.text = title
+        button.contentDescription = contentDescription
         markView.isGone = discussion != null
         avatarView.isGone = discussion == null
         discussion?.let { avatarView.configure(it.threadId, it.icon?.takeIf(String::isNotBlank)) }

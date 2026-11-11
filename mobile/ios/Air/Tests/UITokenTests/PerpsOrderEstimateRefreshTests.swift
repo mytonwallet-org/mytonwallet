@@ -94,31 +94,11 @@ struct PerpsOrderEstimateRefreshTests {
         #expect(state.estimateRefreshRequest != nil)
     }
 
-    @Test func leverageFundingNoticeSurvivesSwitchingBackToAnAmountEdit() {
-        var data = order()
-        data.editingPosition = .init(id: "btc", currentInput: .init(text: "20.00"), currentAmount: "$20",
-                                     change: .leverage, currentLeverage: 2)
-        data.input.leverage = 5
-        data.input.leverageOnly = true
-        data.fundingRequirement = .init(title: "Not enough USDC", message: "Buy USDC", buttonTitle: "Not enough USDC",
-                                        actionTitle: "Buy USDC", action: .buyUsdc)
-        let state = PerpsOrderState(data: data) { request in
-            #expect(!request.input.leverageOnly)
-            #expect(request.input.leverage == 2)
-        }
-        state.editAmount(.init(text: "15"))
-        #expect(state.data.fundingRequirement == data.fundingRequirement)
-        #expect(state.data.paymentAmount == nil)
-        #expect(!state.canReview)
-    }
-
     private func order() -> PerpsOrderDisplayData {
         var data = PerpsOrderDisplayData(token: .ETH, direction: .long, paymentToken: .ETH,
-                                        input: .init(amount: "20.00", leverage: 2))
+                                        input: .init(amount: "20.00", leverage: 2), maxLeverage: 5)
         data.status = .ready
-        data.leverageOptions = [.init(value: 2), .init(value: 5)]
         data.availableCollateral = .init(text: "100")
-        data.canUseFractions = true
         data.paymentAmount = "20.2"
         return data
     }

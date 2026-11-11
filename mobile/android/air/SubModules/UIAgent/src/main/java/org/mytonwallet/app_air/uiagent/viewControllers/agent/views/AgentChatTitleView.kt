@@ -16,10 +16,13 @@ import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.core.animation.doOnEnd
 import androidx.core.view.ViewCompat
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
+import org.mytonwallet.app_air.uiagent.R
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -28,7 +31,10 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
-/** A chat's title in its header: the thread's emoji, then its title, centered and cut short at the end */
+/**
+ * A chat's title in its header: the thread's emoji, then its title, centered and cut short at the end, and under it the
+ * line that tells that support has the chat, with its headset
+ */
 internal class AgentChatTitleView(context: Context) :
     FrameLayout(context),
     WThemedView {
@@ -44,7 +50,30 @@ internal class AgentChatTitleView(context: Context) :
         ellipsize = TextUtils.TruncateAt.END
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
+    private val subtitleIcon = ImageView(context).apply {
+        setImageResource(R.drawable.ic_agent_support)
+    }
+    private val subtitleLabel = WLabel(context).apply {
+        setStyle(SUBTITLE_SIZE, WFont.Medium)
+        setLineHeight(SUBTITLE_LINE_HEIGHT)
+        setSingleLine()
+        ellipsize = TextUtils.TruncateAt.END
+    }
+    private val subtitleRow = LinearLayout(context).apply {
+        id = generateViewId()
+        gravity = Gravity.CENTER_VERTICAL
+        isVisible = false
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        addView(
+            subtitleIcon,
+            LinearLayout.LayoutParams(SUBTITLE_ICON_SIZE.dp, SUBTITLE_ICON_SIZE.dp).apply {
+                marginEnd = SUBTITLE_ICON_GAP.dp
+            }
+        )
+        addView(subtitleLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+    }
     private var currentTitle: String? = null
+    private var currentSubtitle: String? = null
     private var currentIcon: String? = null
     private var hasDrawnTitle = false
     private var renameAnimator: ValueAnimator? = null
@@ -52,7 +81,7 @@ internal class AgentChatTitleView(context: Context) :
     init {
         id = generateViewId()
         minimumHeight = 44.dp
-        setPadding(0, 8.dp, 0, 8.dp)
+        setPadding(0, TITLE_PADDING.dp, 0, TITLE_PADDING.dp)
         clipChildren = true
         clipToPadding = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
@@ -60,15 +89,28 @@ internal class AgentChatTitleView(context: Context) :
         addView(
             LinearLayout(context).apply {
                 id = generateViewId()
-                gravity = Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
                 clipChildren = false
                 addView(
-                    iconLabel,
-                    LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                        marginEnd = EMOJI_GAP.dp
-                    }
+                    LinearLayout(context).apply {
+                        id = generateViewId()
+                        gravity = Gravity.CENTER_VERTICAL
+                        clipChildren = false
+                        addView(
+                            iconLabel,
+                            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                                marginEnd = EMOJI_GAP.dp
+                            }
+                        )
+                        addView(
+                            textLabel,
+                            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+                        )
+                    },
+                    LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
                 )
-                addView(textLabel, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+                addView(subtitleRow, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             },
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
         )
@@ -78,6 +120,28 @@ internal class AgentChatTitleView(context: Context) :
     override fun updateTheme() {
         textLabel.setTextColor(WColor.PrimaryText.color)
         iconLabel.setTextColor(WColor.PrimaryText.color)
+        subtitleIcon.setColorFilter(WColor.Tint.color)
+        subtitleLabel.setTextColor(WColor.Tint.color)
+    }
+
+    /** Shows the line under the title, or hides it with null */
+    fun setSubtitle(subtitle: String?) {
+        if (currentSubtitle == subtitle) return
+        currentSubtitle = subtitle
+        subtitleLabel.text = subtitle
+        subtitleRow.isVisible = subtitle != null
+        // The title and its line fit the bar's height together
+        val verticalPadding = if (subtitle == null) TITLE_PADDING else SUBTITLE_TITLE_PADDING
+        setPadding(0, verticalPadding.dp, 0, verticalPadding.dp)
+        updateDescription()
+    }
+
+    private fun updateDescription() {
+        val title = currentTitle ?: return
+        contentDescription = listOfNotNull(
+            if (currentIcon == null) title else "$currentIcon $title",
+            currentSubtitle
+        ).joinToString(", ")
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -103,7 +167,7 @@ internal class AgentChatTitleView(context: Context) :
         textLabel.text = title
         iconLabel.text = icon
         iconLabel.isGone = icon == null
-        contentDescription = if (icon == null) title else "$icon $title"
+        updateDescription()
         if (bitmap == null) return
 
         val snapshot = BitmapDrawable(resources, bitmap).apply {
@@ -176,7 +240,10 @@ internal class AgentChatTitleView(context: Context) :
             }
             canvas.clipPath(clip)
         }
+        // The line under the title stays in place as the title changes
+        subtitleRow.alpha = 0f
         draw(canvas)
+        subtitleRow.alpha = 1f
         return bitmap
     }
 
@@ -201,6 +268,12 @@ internal class AgentChatTitleView(context: Context) :
     private companion object {
         const val TITLE_SIZE = 20f
         const val TITLE_LINE_HEIGHT = 28f
+        const val TITLE_PADDING = 8
+        const val SUBTITLE_TITLE_PADDING = 0
+        const val SUBTITLE_SIZE = 13f
+        const val SUBTITLE_LINE_HEIGHT = 16f
+        const val SUBTITLE_ICON_SIZE = 12
+        const val SUBTITLE_ICON_GAP = 4
 
         // Draws the design's 24 dp emoji
         const val EMOJI_SIZE = 23f

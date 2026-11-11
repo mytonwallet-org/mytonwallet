@@ -7,6 +7,8 @@ import type {
   AgentRunRequestWireV2,
   AgentThreadCreateRequestV2,
   AgentThreadListRequestV2,
+  AgentThreadListResponseV2,
+  AgentThreadSummaryV2,
   AgentToolCall,
   AgentToolResultRequestV2,
   AgentV2FinishReason,
@@ -17,6 +19,7 @@ import type {
   AgentV2ClientUpdate,
   AgentV2Hints,
   AgentV2HostContextSnapshot,
+  AgentV2NewsFeedRequest,
   AgentV2ProblemReport,
   AgentV2ResolvedAction,
   AgentV2RunCommand,
@@ -27,9 +30,15 @@ import type {
 } from './types';
 
 import { APP_ENV } from '../../config';
-import { mergeAbortSignalsWithTimeout, pauseWithAbortSignal } from '../../util/abortSignal';
+import {
+  mergeAbortSignalsWithTimeout,
+  pauseWithAbortSignal,
+  raceWithAbortSignal,
+  throwIfAborted,
+} from '../../util/abortSignal';
 import { logDebug, logDebugError } from '../../util/logs';
 import { decodeAgentV2WalletSnapshotAck } from './protocol/decoders/coreRun';
+import { uuid } from './protocol/decoders/readers';
 import {
   AgentV2CompatibilityError,
   AgentV2ContractError,
@@ -71,6 +80,20 @@ import { buildAgentV2RunOrigin } from './runCommand';
 import { AgentV2RuntimeProbes } from './runtimeProbes';
 import { DEFAULT_SECRET_PHRASE_PLACEHOLDER, getSecretPhraseWordList, removeSecretPhrases } from './secretPhrase';
 import { AgentV2StreamMessage } from './streamMessage';
+import {
+  beginThreadListCacheRequest,
+  beginThreadMessagesCacheRequest,
+  cacheMessages,
+  cacheThreads,
+  clearThreadCache,
+  deleteCachedMessages,
+  deleteCachedThread,
+  getCachedMessages,
+  getCachedThreads,
+  THREAD_CACHE_MESSAGE_LIMIT,
+  updateCachedThread,
+} from './threadCache';
+import { getIsAgentV2ThreadStarted } from './threadStarted';
 import { type AgentV2ToolExecutionContext, type AgentV2ToolExecutor, AgentV2ToolRunner } from './toolRunner';
 import { isWalletSelectionChange } from './walletAuthority';
 import { AgentV2WalletSession } from './walletSession';
@@ -90,6 +113,8 @@ const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const UTC_DAY_MS = 24 * 60 * 60_000;
 const FAILED_RUN_RETRY_GRACE_MS = 5 * 60_000;
 const FAILED_RUN_RETRY_MAX_TTL_MS = UTC_DAY_MS;
+// How many pages past the first the chat list reads to make up for the untouched news discussions it leaves out
+const MAX_SKIPPED_THREAD_PAGES = 10;
 interface RunState {
   trace?: AgentClientTrace;
   authorityGeneration: number;
@@ -109,6 +134,23 @@ interface RunState {
     name: AgentToolCall['name'];
     operation?: AgentWalletSemanticOperationV2;
   }>;
+  /** Set by `stopRun`. A stopped run the server has not named yet reads its stream on only for the id to cancel it. */
+  isStopped?: boolean;
+  /** Ends `executeRun` with the cancelled result once the run is stopped */
+  resolveStop: () => void;
+  /** Settles once the run stops reading its stream */
+  completion?: Promise<AgentV2RunResult>;
+  /** The revision a stopped answer moved the thread to, which a revision conflict sends the run once more with */
+  revisionAfterStop?: number;
+}
+
+/** A run before it reaches the server, which `stopRun` ends at once */
+interface RunPreparation {
+  threadId?: string;
+  clientRunId?: string;
+  controller: AbortController;
+  /** The server cancellation of a stopped answer that the run waited for */
+  stopCancellation?: Promise<AgentThreadSummaryV2 | undefined>;
 }
 
 interface FailedRunRequest {
@@ -148,6 +190,9 @@ export class AgentV2Runtime {
   private readonly requestTimeoutMs: number;
   private readonly lifecycleController = new AbortController();
   private readonly runs = new Map<string, RunState>();
+  private readonly runPreparations = new Set<RunPreparation>();
+  // The server cancellation of each thread's stopped answers, which the thread's next run waits for
+  private readonly stopCancellationByThreadId = new Map<string, Promise<AgentThreadSummaryV2 | undefined>>();
   private readonly actions: AgentV2ActionResolver;
   private readonly backgroundTasks = new Set<Promise<void>>();
   private readonly clearGenerationByThreadId = new Map<string, number>();
@@ -215,10 +260,24 @@ export class AgentV2Runtime {
     this.toolExecutor = executor;
   }
 
+  /**
+   * Reads the consent once it is given and keeps it from then on. A refusal or a failed read is read again next time,
+   * so consent given elsewhere, as in another tab, shows.
+   */
   getConsent(): Promise<boolean> {
     this.assertActive();
-    this.consentPromise ??= this.readConsent();
-    return this.consentPromise;
+    if (this.consentPromise) return this.consentPromise;
+
+    const read = this.readConsent();
+    this.consentPromise = read;
+    // A read that ends after `acceptConsent` leaves the consent it stored
+    const forgetRead = () => {
+      if (this.consentPromise === read) this.consentPromise = undefined;
+    };
+    read.then((isAccepted) => {
+      if (!isAccepted) forgetRead();
+    }, forgetRead);
+    return read;
   }
 
   acceptConsent() {
@@ -239,6 +298,8 @@ export class AgentV2Runtime {
     await this.dependencies.storage.setItem(AGENT_V2_CONSENT_STORAGE_KEY, record);
     this.assertActive();
     this.consentPromise = Promise.resolve(true);
+    // A chat shown before consent, as a news discussion is, starts syncing the wallet once the user allows the Agent
+    if (this.isChatActive) this.snapshots.setActive(true);
     return true;
   }
 
@@ -327,37 +388,109 @@ export class AgentV2Runtime {
     return this.getJson(`${this.dependencies.baseUrl}/threads/default`, decodeAgentV2DefaultThread);
   }
 
+  /**
+   * The user's chats, without the news discussions they have not written in. A page that holds none of those comes
+   * back as the server gave it. Otherwise the chats of the following pages join the page's until there are `limit` of
+   * them, or without a `limit` at least one, until the list ends or after `MAX_SKIPPED_THREAD_PAGES` more pages, with
+   * the cursor of the last page read. Whole pages join, so the chats can be more than `limit`, none lost or repeated.
+   */
   async listThreads({ cursor, limit, query }: AgentThreadListRequestV2 = {}) {
     this.assertActive();
+    const cacheGeneration = !cursor && !query ? beginThreadListCacheRequest() : undefined;
     await this.requireConsent();
-    const params = new URLSearchParams();
-    if (cursor) params.set('cursor', cursor);
-    if (limit !== undefined) params.set('limit', String(limit));
-    const trimmedQuery = query?.trim();
-    if (trimmedQuery) params.set('query', trimmedQuery);
-    const search = params.toString();
-    return this.getJson(`${this.dependencies.baseUrl}/threads${search ? `?${search}` : ''}`, decodeAgentV2ThreadList);
+    let pageCursor = cursor;
+    let result: AgentThreadListResponseV2;
+    const threads: AgentThreadListResponseV2['threads'] = [];
+    for (let skippedPages = 0; ; skippedPages++) {
+      const params = new URLSearchParams();
+      if (pageCursor) params.set('cursor', pageCursor);
+      if (limit !== undefined) params.set('limit', String(limit));
+      const trimmedQuery = query?.trim();
+      if (trimmedQuery) params.set('query', trimmedQuery);
+      const search = params.toString();
+      const page = await this.getJson(
+        `${this.dependencies.baseUrl}/threads${search ? `?${search}` : ''}`,
+        decodeAgentV2ThreadList,
+      );
+      const startedThreads = page.threads.filter(({ thread }) => getIsAgentV2ThreadStarted(thread));
+      if (!skippedPages && startedThreads.length === page.threads.length) {
+        result = page;
+        break;
+      }
+      threads.push(...startedThreads);
+      const isFilled = limit === undefined ? threads.length > 0 : threads.length >= limit;
+      if (isFilled || !page.nextCursor || skippedPages >= MAX_SKIPPED_THREAD_PAGES) {
+        result = { ...page, threads };
+        break;
+      }
+      pageCursor = page.nextCursor;
+    }
+    if (cacheGeneration !== undefined) {
+      void this.accessThreadCache((deviceId) => cacheThreads(deviceId, result.threads, cacheGeneration));
+    }
+    return result;
   }
 
-  async getNewsFeed({ lang, cursor }: { lang: string; cursor?: string }) {
+  getCachedThreads() {
+    return this.accessThreadCache(async (deviceId) => {
+      const cached = await getCachedThreads(deviceId);
+      if (!cached || !await this.getConsent()) return undefined;
+
+      return cached;
+    });
+  }
+
+  getCachedMessages(threadId: string) {
+    return this.accessThreadCache(async (deviceId) => {
+      const cached = await getCachedMessages(deviceId, threadId);
+      if (!cached || (!cached.thread.news && !cached.thread.digest && !await this.getConsent())) return undefined;
+
+      // A stored copy may give operator photos by their path on the agent origin
+      return {
+        ...cached,
+        messages: cached.messages.map((message) => resolveOperatorAvatarUrl(message, this.dependencies.baseUrl)),
+      };
+    });
+  }
+
+  /**
+   * The news feed is readable before the user allows the Agent, as are a news or digest discussion's thread and its
+   * messages: their requests carry only the device's token, the feed's locale and digest time, the news or digest
+   * reference or the thread's id, nothing about the wallet or the user's messages. The messages of any other thread
+   * need the consent.
+   */
+  async getNewsFeed({ lang, cursor, digestHour, timeZone }: AgentV2NewsFeedRequest) {
     this.assertActive();
-    await this.requireConsent();
     const params = new URLSearchParams({ locale: getNewsFeedLocale(lang) });
     if (cursor) params.set('cursor', cursor);
-    const { locale, items, nextCursor } = await this.getJson(
+    if (digestHour !== undefined && timeZone !== undefined) {
+      params.set('digestHour', String(digestHour));
+      params.set('timeZone', timeZone);
+    }
+    const { locale, items, nextCursor, digests } = await this.getJson(
       `${this.dependencies.baseUrl}/news-feed?${params}`,
       decodeAgentV2NewsFeed,
     );
-    return { locale, items, ...(nextCursor !== undefined && { nextCursor }) };
+    return {
+      locale,
+      items,
+      ...(nextCursor !== undefined && { nextCursor }),
+      ...(digests !== undefined && { digests }),
+    };
   }
 
-  async createThread({ news }: Omit<AgentThreadCreateRequestV2, 'protocolVersion'> = {}) {
+  // A news or digest discussion opens with its post and suggestions before consent; any other chat needs it
+  async createThread({ news, digest }: Omit<AgentThreadCreateRequestV2, 'protocolVersion'> = {}) {
     this.assertActive();
-    await this.requireConsent();
+    if (news === undefined && digest === undefined) await this.requireConsent();
     return this.getJson(`${this.dependencies.baseUrl}/threads`, decodeAgentV2ThreadCreate, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ protocolVersion: 3, ...(news !== undefined && { news }) }),
+      body: JSON.stringify({
+        protocolVersion: 3,
+        ...(news !== undefined && { news }),
+        ...(digest !== undefined && { digest: { id: digest.id } }),
+      }),
     });
   }
 
@@ -411,12 +544,14 @@ export class AgentV2Runtime {
     this.cancelThreadRuns(threadId);
     this.unansweredProblemReportByThreadId.delete(threadId);
     this.invalidateThread(threadId);
+    void this.accessThreadCache((deviceId) => deleteCachedThread(deviceId, threadId));
     return result;
   }
 
   async getMessages(threadId: string, cursorValue?: string, limit = 100): Promise<AgentV2ThreadHydration> {
     this.assertActive();
-    await this.requireConsent();
+    const cacheGeneration = !cursorValue && limit >= THREAD_CACHE_MESSAGE_LIMIT
+      ? beginThreadMessagesCacheRequest(threadId) : undefined;
     const authorityGeneration = this.authorityGeneration;
     const walletContextGeneration = this.walletContextGeneration;
     const threadGeneration = this.getThreadGeneration(threadId);
@@ -425,12 +560,20 @@ export class AgentV2Runtime {
     const page = await this.getJson(
       `${this.dependencies.baseUrl}/threads/${encodeURIComponent(threadId)}/messages?${params}`,
       decodeAgentV2Messages,
-    );
+    ).catch((error: unknown) => {
+      if (error instanceof AgentV2HttpError && error.code === 'thread_not_found') {
+        void this.accessThreadCache((deviceId) => deleteCachedThread(deviceId, threadId, cacheGeneration));
+      }
+      throw error;
+    });
     this.assertAuthorityGeneration(authorityGeneration);
     this.assertWalletContextGeneration(walletContextGeneration);
     this.assertThreadBinding(threadId, page.thread.id);
     page.messages.forEach((message) => this.assertThreadBinding(threadId, message.threadId));
-    const persistedMessages = page.messages;
+    if (!page.thread.news && !page.thread.digest) await this.requireConsent();
+    const persistedMessages = page.messages.map((message) => (
+      resolveOperatorAvatarUrl(message, this.dependencies.baseUrl)
+    ));
     if (threadGeneration !== this.getThreadGeneration(threadId)) throw invalidStreamEvent();
     this.assertAuthorityGeneration(authorityGeneration);
     this.assertWalletContextGeneration(walletContextGeneration);
@@ -438,6 +581,11 @@ export class AgentV2Runtime {
       for (const action of message.actions ?? []) {
         this.actions.registerPersistedAction(threadId, message.id, action);
       }
+    }
+    if (cacheGeneration !== undefined && !page.thread.news && !page.thread.digest) {
+      void this.accessThreadCache((deviceId) => cacheMessages(
+        deviceId, threadId, { ...page, messages: persistedMessages }, cacheGeneration,
+      ));
     }
     return {
       thread: page.thread,
@@ -472,16 +620,24 @@ export class AgentV2Runtime {
     command: AgentV2RunCommand,
     trace?: AgentClientTrace,
   ): Promise<AgentV2RunResult> {
+    if (command.clientRunId !== undefined) this.assertNewClientRunId(command.clientRunId);
     const prepared = trace?.start('client_preparation');
+    const preparation = this.startRunPreparation(command.threadId, command.clientRunId);
+    let clientRunId = command.clientRunId;
+    let messageId: string | undefined;
     try {
       this.assertActive();
       const origin = buildAgentV2RunOrigin(command);
       const clearGeneration = this.getClearGeneration(command.threadId);
-      await this.requireConsent();
+      await raceWithAbortSignal(this.requireConsent(), preparation.controller.signal);
       if (command.threadId && command.input.kind !== 'append') this.invalidateThread(command.threadId);
-      const clientRunId = this.randomUuid();
-      const messageId = command.input.kind === 'regenerate' ? undefined : this.randomUuid();
-      await this.probes.ensureFeatureCapabilities(prepared?.trace);
+      clientRunId ??= this.randomUuid();
+      preparation.clientRunId = clientRunId;
+      messageId = command.input.kind === 'regenerate' ? undefined : this.randomUuid();
+      await raceWithAbortSignal(
+        this.probes.ensureFeatureCapabilities(prepared?.trace),
+        preparation.controller.signal,
+      );
       this.assertActive();
       const authorityGeneration = this.authorityGeneration;
       const runGeneration = this.runGeneration;
@@ -508,61 +664,154 @@ export class AgentV2Runtime {
         walletContext: built.walletContext,
         ...this.snapshots.forRun(),
       };
-      await this.requireConsent();
+      const stoppedThread = await this.waitForStopCancellation(preparation, command.threadId);
+      await raceWithAbortSignal(this.requireConsent(), preparation.controller.signal);
       if (runGeneration !== this.runGeneration) this.assertAuthorityGeneration(authorityGeneration);
       // A clear of the thread cancels a run it finds still being prepared, before the run reaches the server
       if (clearGeneration !== this.getClearGeneration(command.threadId)) {
         prepared?.('cancelled');
-        return { clientRunId, ...(messageId ? { inputMessageId: messageId } : {}), state: 'cancelled' };
+        return buildCancelledRunResult(clientRunId, messageId);
       }
+      this.finishRunPreparation(preparation);
       prepared?.();
       const userMessageId = command.input.kind === 'regenerate' ? command.input.userMessageId : messageId;
-      return this.executeRun(request, authorityGeneration, trace, userMessageId);
+      return this.executeRun(request, authorityGeneration, trace, userMessageId, stoppedThread);
     } catch (error) {
+      if (preparation.controller.signal.aborted) {
+        prepared?.('cancelled');
+        return buildCancelledRunResult(clientRunId ?? this.randomUuid(), messageId);
+      }
       prepared?.('error');
       throw error;
+    } finally {
+      this.runPreparations.delete(preparation);
     }
   }
 
   async retryRun(clientRunId: string): Promise<AgentV2RunResult | undefined> {
     this.assertActive();
-    await this.requireConsent();
-    const authorityGeneration = this.authorityGeneration;
-    const failed = [...this.failedRunRequestByThreadId.values()]
-      .find(({ request }) => request.clientRunId === clientRunId);
-    if (!failed) return undefined;
-    const threadId = failed.request.threadId;
-    const clearGeneration = this.getClearGeneration(threadId);
-    this.clearFailedRunRequest(threadId);
-    if (failed.expiresAt <= this.now()) return undefined;
-    const trace = this.timingSink ? new AgentClientTrace(newClientTraceId(), this.timingSink) : undefined;
-    const end = trace?.start('client_request');
+    const preparation = this.startRunPreparation(
+      this.findFailedRunRequest(clientRunId)?.request.threadId, clientRunId,
+    );
+    let end: ReturnType<AgentClientTrace['start']> | undefined;
+    let inputMessageId: string | undefined;
     try {
-      await this.probes.ensureFeatureCapabilities(trace);
+      await raceWithAbortSignal(this.requireConsent(), preparation.controller.signal);
+      const authorityGeneration = this.authorityGeneration;
+      const failed = this.findFailedRunRequest(clientRunId);
+      if (!failed) return undefined;
+      const threadId = failed.request.threadId;
+      const clearGeneration = this.getClearGeneration(threadId);
+      inputMessageId = getRunInputMessageId(failed.request);
+      this.clearFailedRunRequest(threadId);
+      if (failed.expiresAt <= this.now()) return undefined;
+      const trace = this.timingSink ? new AgentClientTrace(newClientTraceId(), this.timingSink) : undefined;
+      end = trace?.start('client_request');
+      await raceWithAbortSignal(this.probes.ensureFeatureCapabilities(trace), preparation.controller.signal);
       this.assertAuthorityGeneration(authorityGeneration);
-      await this.requireConsent();
+      const stoppedThread = await this.waitForStopCancellation(preparation, threadId);
+      await raceWithAbortSignal(this.requireConsent(), preparation.controller.signal);
       this.assertAuthorityGeneration(authorityGeneration);
       if (clearGeneration !== this.getClearGeneration(threadId)) {
         end?.('cancelled');
-        const inputMessageId = getRunInputMessageId(failed.request);
-        return { clientRunId, ...(inputMessageId ? { inputMessageId } : {}), state: 'cancelled' };
+        return buildCancelledRunResult(clientRunId, inputMessageId);
       }
-      const result = await this.executeRun(failed.request, authorityGeneration, trace, failed.userMessageId);
+      this.finishRunPreparation(preparation);
+      const result = await this.executeRun(
+        failed.request, authorityGeneration, trace, failed.userMessageId, stoppedThread,
+      );
       end?.(result.state === 'completed' ? 'success' : result.state === 'cancelled' ? 'cancelled' : 'error');
       return result;
     } catch (error) {
+      if (preparation.controller.signal.aborted) {
+        end?.('cancelled');
+        return buildCancelledRunResult(clientRunId, inputMessageId);
+      }
       end?.('error');
       throw error;
+    } finally {
+      this.runPreparations.delete(preparation);
     }
   }
 
-  private async executeRun(
+  /**
+   * Stops every run of the thread at once. A run still being prepared never reaches the server; the others end with
+   * `cancelled`, emit nothing more and drop their tool results. The server cancellation goes on in the background.
+   */
+  stopRun(threadId: string) {
+    this.assertActive();
+    this.runPreparations.forEach((preparation) => {
+      if (preparation.threadId === threadId) preparation.controller.abort();
+    });
+    [...this.runs.values()]
+      .filter((state) => (
+        !state.outcome && !state.controller.signal.aborted && (state.threadId ?? state.request.threadId) === threadId
+      ))
+      .forEach((state) => this.stopRunState(state, threadId));
+    return Promise.resolve();
+  }
+
+  private startRunPreparation(threadId: string | undefined, clientRunId: string | undefined) {
+    const preparation: RunPreparation = {
+      ...(threadId ? { threadId } : {}),
+      ...(clientRunId ? { clientRunId } : {}),
+      controller: new AbortController(),
+    };
+    this.runPreparations.add(preparation);
+    return preparation;
+  }
+
+  // A caller that chooses its run ids tells the runs' updates apart only while no other run has the same id
+  private assertNewClientRunId(clientRunId: string) {
+    let isUuid = true;
+    try {
+      uuid(clientRunId, '$.clientRunId');
+    } catch {
+      isUuid = false;
+    }
+    const isHeld = this.runs.has(clientRunId)
+      || [...this.runPreparations].some((preparation) => preparation.clientRunId === clientRunId)
+      || Boolean(this.findFailedRunRequest(clientRunId));
+    if (!isUuid || isHeld) {
+      throw new AgentV2HttpError(0, 'invalid_request', 'Agent run id is invalid or already in use.', false);
+    }
+  }
+
+  // The thread's next run waits for the server to cancel a stopped answer, since until then the server refuses it
+  private async waitForStopCancellation(preparation: RunPreparation, threadId: string | undefined) {
+    const stopCancellation = threadId ? this.stopCancellationByThreadId.get(threadId) : undefined;
+    if (!stopCancellation) return undefined;
+    preparation.stopCancellation = stopCancellation;
+    return raceWithAbortSignal(stopCancellation, preparation.controller.signal);
+  }
+
+  // A run that reaches the server takes over the revision its wait brought, so later runs wait for nothing
+  private finishRunPreparation(preparation: RunPreparation) {
+    throwIfAborted(preparation.controller.signal);
+    this.runPreparations.delete(preparation);
+    const { threadId, stopCancellation } = preparation;
+    if (threadId && stopCancellation && this.stopCancellationByThreadId.get(threadId) === stopCancellation) {
+      this.stopCancellationByThreadId.delete(threadId);
+    }
+  }
+
+  private findFailedRunRequest(clientRunId: string) {
+    return [...this.failedRunRequestByThreadId.values()]
+      .find(({ request }) => request.clientRunId === clientRunId);
+  }
+
+  private executeRun(
     request: AgentRunRequestWireV2,
     authorityGeneration = this.authorityGeneration,
     trace?: AgentClientTrace,
     userMessageId?: string,
+    stoppedThread?: AgentThreadSummaryV2,
   ): Promise<AgentV2RunResult> {
     const inputMessageId = getRunInputMessageId(request);
+    let resolveStop!: () => void;
+    const stop = new Promise<void>((resolve) => {
+      resolveStop = resolve;
+    });
     const state: RunState = {
       trace: trace ?? (this.timingSink ? new AgentClientTrace(newClientTraceId(), this.timingSink) : undefined),
       authorityGeneration,
@@ -576,21 +825,33 @@ export class AgentV2Runtime {
       pendingToolResults: new Map(),
       pendingToolCallIds: new Set(),
       toolActivityByCallId: new Map(),
+      resolveStop,
+      ...(stoppedThread && stoppedThread.revision > request.expectedThreadRevision
+        ? { revisionAfterStop: stoppedThread.revision }
+        : {}),
     };
     this.runs.set(request.clientRunId, state);
+    state.completion = this.completeRun(state, inputMessageId);
+    return Promise.race([
+      state.completion,
+      stop.then(() => buildCancelledRunResult(request.clientRunId, inputMessageId, state.binding.runId)),
+    ]);
+  }
 
+  private async completeRun(state: RunState, inputMessageId: string | undefined): Promise<AgentV2RunResult> {
+    const { clientRunId } = state;
     try {
       await this.followRun(state);
       return {
-        clientRunId: request.clientRunId,
+        clientRunId,
         runId: state.binding.runId,
         ...(inputMessageId ? { inputMessageId } : {}),
         state: state.outcome ?? 'interrupted',
       };
     } catch (error) {
-      if (state.controller.signal.aborted) {
+      if (state.controller.signal.aborted || state.isStopped) {
         return {
-          clientRunId: request.clientRunId,
+          clientRunId,
           runId: state.binding.runId,
           ...(inputMessageId ? { inputMessageId } : {}),
           state: 'cancelled',
@@ -599,7 +860,7 @@ export class AgentV2Runtime {
       if (state.binding.lastSequence === 0 && this.isAuthorityGenerationCurrent(state.authorityGeneration)) {
         const retryExpiresAt = failedRunRequestExpiresAt(error, this.now());
         if (retryExpiresAt !== undefined) {
-          this.retainFailedRunRequest(request, retryExpiresAt, state.userMessageId);
+          this.retainFailedRunRequest(state.request, retryExpiresAt, state.userMessageId);
         }
       }
       this.emitFailure(error, state);
@@ -609,7 +870,7 @@ export class AgentV2Runtime {
         ? 'interrupted'
         : 'failed';
       return {
-        clientRunId: request.clientRunId,
+        clientRunId,
         runId: state.binding.runId,
         ...(inputMessageId ? { inputMessageId } : {}),
         state: outcome,
@@ -618,7 +879,7 @@ export class AgentV2Runtime {
       state.pendingToolCallIds.forEach((toolCallId) => this.discardToolResult(toolCallId));
       state.pendingToolCallIds.clear();
       state.pendingToolResults.clear();
-      this.runs.delete(request.clientRunId);
+      this.runs.delete(clientRunId);
       if (this.isRunCurrent(state)) {
         if (
           state.outcome === 'completed'
@@ -660,10 +921,14 @@ export class AgentV2Runtime {
     this.assertActive();
     await this.requireConsent();
     const hasCancelledRuns = this.cancelThreadRuns(threadId);
+    // Until the server has cancelled a stopped answer, it refuses the clear
+    const stoppedThread = await this.stopCancellationByThreadId.get(threadId);
     const result = await this.requestThreadClear(threadId, expectedThreadRevision).catch((error: unknown) => {
-      // A cancelled answer may have moved the revision after the caller read it, so the clear is sent once more
-      const currentThread = hasCancelledRuns && error instanceof AgentV2HttpError
-        && error.code === 'thread_revision_conflict' ? error.currentThread : undefined;
+      if (!(error instanceof AgentV2HttpError) || error.code !== 'thread_revision_conflict') throw error;
+      // A cancelled or stopped answer may have moved the revision after the caller read it, so the clear is sent
+      // once more
+      const currentThread = hasCancelledRuns ? error.currentThread
+        : stoppedThread && stoppedThread.revision > expectedThreadRevision ? stoppedThread : undefined;
       if (currentThread?.id !== threadId) throw error;
       return this.requestThreadClear(threadId, currentThread.revision);
     });
@@ -671,6 +936,7 @@ export class AgentV2Runtime {
     // The server revokes every run of the thread, including one admitted while the clear was pending
     this.cancelThreadRuns(threadId);
     this.invalidateThread(threadId);
+    void this.accessThreadCache((deviceId) => deleteCachedMessages(deviceId, threadId));
     this.emitUpdate({ kind: 'threadChanged', threadId: result.thread.id, thread: result.thread });
     return result;
   }
@@ -785,12 +1051,15 @@ export class AgentV2Runtime {
     shouldClearPersistentIdentity = false,
   }: { shouldClearPersistentIdentity?: boolean } = {}) {
     this.lifecycleController.abort();
+    const cacheCleanup = shouldClearPersistentIdentity ? clearThreadCache() : undefined;
     this.snapshots.reset();
     const pendingOperations: Promise<unknown>[] = [];
     pendingOperations.push(...this.backgroundTasks);
     if (this.consentWritePromise) pendingOperations.push(this.consentWritePromise);
     this.runs.forEach(({ controller }) => controller.abort());
     this.runs.clear();
+    this.runPreparations.clear();
+    this.stopCancellationByThreadId.clear();
     this.clearFailedRunRequests();
     this.unansweredProblemReportByThreadId.clear();
     this.unansweredThreadDeletionByThreadId.clear();
@@ -803,11 +1072,12 @@ export class AgentV2Runtime {
       shouldClearPersistentIdentity,
     });
     await Promise.allSettled(pendingOperations);
+    await cacheCleanup;
     await identityDestroy;
     if (shouldClearPersistentIdentity) {
       await this.walletSession.reset({ shouldClearPersistentState: true });
       await this.dependencies.storage.removeItem(AGENT_V2_CONSENT_STORAGE_KEY);
-      this.consentPromise = Promise.resolve(false);
+      this.consentPromise = undefined;
     } else {
       await this.walletSession.flushPersistence();
     }
@@ -817,7 +1087,10 @@ export class AgentV2Runtime {
     let attempt = 0;
     let lastProtocolFailureSequence: number | undefined;
     let protocolFailureCount = 0;
-    while (!state.outcome && !state.controller.signal.aborted) {
+    // A stopped run the server has not named goes on reconnecting as a run before admission does, to learn its id
+    const isFollowing = () => (!state.outcome || (state.isStopped && !state.binding.runId))
+      && !state.controller.signal.aborted;
+    while (isFollowing()) {
       let endStream: ReturnType<AgentClientTrace['start']> | undefined;
       try {
         const response = await this.identity.authenticatedFetch(
@@ -847,7 +1120,12 @@ export class AgentV2Runtime {
           lastSequence: state.binding.lastSequence,
         });
         endStream = state.trace?.start('client_stream');
-        for await (const event of parseAgentV2Ndjson(response.body, state.binding)) {
+        for await (const event of parseAgentV2Ndjson(response.body, state.binding, state.controller.signal)) {
+          // A stopped run reads its stream only until the server names it, so that it can be cancelled by that name
+          if (state.isStopped && state.binding.runId) {
+            state.controller.abort();
+            break;
+          }
           if (event.type !== 'text_delta') {
             logDebug('AgentV2 run stream', {
               stage: 'event_received',
@@ -866,13 +1144,21 @@ export class AgentV2Runtime {
             protocolFailureCount = 0;
           }
         }
-        if (!state.outcome && !state.controller.signal.aborted) {
+        if (isFollowing()) {
           throw new AgentV2StreamTransportError('Agent V2 stream ended before a terminal event');
         }
         endStream?.(state.controller.signal.aborted ? 'cancelled' : state.outcome === 'failed' ? 'error' : 'success');
       } catch (error) {
         endStream?.(state.controller.signal.aborted ? 'cancelled' : 'error');
-        if (state.controller.signal.aborted || state.outcome) return;
+        if (!isFollowing()) return;
+        // A stopped answer moved the thread past the revision this run was sent with, so it is sent once more
+        const { revisionAfterStop } = state;
+        if (revisionAfterStop !== undefined && !state.isStopped && state.binding.lastSequence === 0
+          && error instanceof AgentV2HttpError && error.code === 'thread_revision_conflict') {
+          state.revisionAfterStop = undefined;
+          state.request = { ...state.request, expectedThreadRevision: revisionAfterStop };
+          continue;
+        }
         logDebugError(
           'AgentV2 run stream',
           {
@@ -1343,11 +1629,26 @@ export class AgentV2Runtime {
 
   private emitUpdate(update: AgentV2ClientUpdate) {
     if (this.lifecycleController.signal.aborted) return;
+    if (update.kind === 'threadChanged') {
+      void this.accessThreadCache((deviceId) => updateCachedThread(deviceId, update.thread));
+    }
     const trace = update.clientRunId ? this.runs.get(update.clientRunId)?.trace : undefined;
     if (trace) {
       trace.markOnce('client_update_dispatched');
       this.dependencies.onUpdate({ ...update, developmentTraceId: trace.traceId });
     } else this.dependencies.onUpdate(update);
+  }
+
+  private async accessThreadCache<T>(operation: (deviceId: string) => Promise<T>): Promise<T | undefined> {
+    try {
+      if (this.lifecycleController.signal.aborted) return undefined;
+      const deviceId = await this.identity.getDeviceId();
+      if (!deviceId || this.lifecycleController.signal.aborted) return undefined;
+      return await operation(deviceId);
+    } catch (error) {
+      logDebugError('AgentV2 thread cache', error);
+      return undefined;
+    }
   }
 
   private assertActive() {
@@ -1375,8 +1676,9 @@ export class AgentV2Runtime {
 
   private cancelAllLocally() {
     const states = [...this.runs.values()];
+    // A stopped run has its own server cancellation
     const runIds = states
-      .flatMap(({ binding }) => binding.runId ? [binding.runId] : []);
+      .flatMap(({ binding, isStopped }) => binding.runId && !isStopped ? [binding.runId] : []);
     states.forEach((state) => this.cancelRunLocally(state));
     return runIds;
   }
@@ -1402,6 +1704,60 @@ export class AgentV2Runtime {
     state.pendingToolCallIds.forEach((toolCallId) => this.discardToolResult(toolCallId));
     state.pendingToolCallIds.clear();
     state.pendingToolResults.clear();
+  }
+
+  private stopRunState(state: RunState, threadId: string) {
+    const runId = state.binding.runId;
+    // The server runs an answer apart from its stream, so a run it has not named yet keeps reading its stream
+    if (runId) {
+      this.cancelRunLocally(state);
+    } else {
+      state.outcome = 'cancelled';
+    }
+    state.isStopped = true;
+    state.resolveStop();
+    if (runId) this.emitUpdate({ kind: 'runCancelled', clientRunId: state.clientRunId, runId, threadId });
+
+    const cancellation = this.limitStopCancellation(this.cancelStoppedRun(state));
+    const previous = this.stopCancellationByThreadId.get(threadId);
+    const threadCancellation = previous
+      ? Promise.all([previous, cancellation]).then(([first, second]) => (
+        first && (!second || first.revision > second.revision) ? first : second
+      ))
+      : cancellation;
+    this.stopCancellationByThreadId.set(threadId, threadCancellation);
+    this.trackBackgroundTask(threadCancellation.then(() => undefined));
+  }
+
+  // The thread's next run and clear wait for the cancellation no longer than for any other request
+  private limitStopCancellation(cancellation: Promise<AgentThreadSummaryV2 | undefined>) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<undefined>((resolve) => {
+      timer = setTimeout(resolve, this.requestTimeoutMs, undefined);
+    });
+    return Promise.race([cancellation, timeout]).finally(() => clearTimeout(timer));
+  }
+
+  private async cancelStoppedRun(state: RunState) {
+    if (!state.binding.runId) {
+      // A stream that does not name the run in time is given up, together with the run's cancellation
+      const timer = setTimeout(() => state.controller.abort(), this.requestTimeoutMs);
+      await state.completion;
+      clearTimeout(timer);
+    }
+    const runId = state.binding.runId;
+    if (!runId || this.lifecycleController.signal.aborted) return undefined;
+    try {
+      const result = await this.requestRunCancel(runId, REMOTE_CANCEL_TIMEOUT_MS);
+      this.assertRunBinding(runId, result.runId);
+      this.emitUpdate({ kind: 'threadChanged', threadId: result.thread.id, thread: result.thread });
+      return result.thread;
+    } catch (error) {
+      if (!this.lifecycleController.signal.aborted) {
+        logDebugError('AgentV2 run cancellation', { runId, stage: 'stop' }, error);
+      }
+      return undefined;
+    }
   }
 
   private getClearGeneration(threadId?: string) {
@@ -1580,8 +1936,38 @@ function terminalOutcome(finishReason: AgentV2FinishReason) {
   return 'completed' as const;
 }
 
+function buildCancelledRunResult(clientRunId: string, inputMessageId?: string, runId?: string): AgentV2RunResult {
+  return {
+    clientRunId,
+    ...(runId ? { runId } : {}),
+    ...(inputMessageId ? { inputMessageId } : {}),
+    state: 'cancelled',
+  };
+}
+
 function getRunInputMessageId(request: AgentRunRequestWireV2) {
   return request.input.kind === 'regenerate' ? undefined : request.input.message.id;
+}
+
+/**
+ * The agent gives an operator's photo by a path on its own origin, which every host shows by its full address. A
+ * malformed address goes, so the operator's initial shows instead of the whole history failing.
+ */
+function resolveOperatorAvatarUrl<T extends { author?: { avatarUrl?: string } }>(message: T, baseUrl: string): T {
+  if (message.author?.avatarUrl === undefined) return message;
+  const { avatarUrl, ...author } = message.author;
+  const href = resolveHttpUrl(avatarUrl, baseUrl);
+  return { ...message, author: href ? { ...author, avatarUrl: href } : author };
+}
+
+function resolveHttpUrl(url: string, baseUrl: string) {
+  if (!url.trim()) return undefined;
+  try {
+    const resolved = new URL(url, new URL(baseUrl).origin);
+    return resolved.protocol === 'https:' || resolved.protocol === 'http:' ? resolved.href : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function invalidStreamEvent() {

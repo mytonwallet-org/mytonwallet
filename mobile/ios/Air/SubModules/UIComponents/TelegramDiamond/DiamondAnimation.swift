@@ -103,7 +103,7 @@ struct DiamondMotion {
     var releaseDecay: Float = 0
     var releaseTilt: Float = 0
     private var swayPhase: SIMD2<Float>?
-    private var spinVelocity: Float = 0
+    private(set) var spinVelocity: Float = 0
     private(set) var spinAtPress: Float = 0
     private var spinDecay: Float = 0.7
     private var lastDragTime: Double = 0

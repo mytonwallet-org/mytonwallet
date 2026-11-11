@@ -5,6 +5,16 @@ private enum AgentMessageTextRendererMetrics {
     static let lineHeight: CGFloat = 20
     static let emptyLineHeight: CGFloat = 12
     static let paragraphSpacing: CGFloat = 8
+    /// A heading stands this much further from the text above it than paragraphs do, as Telegram's stand 10 pt from
+    /// it where its paragraphs stand 4 pt
+    static let headingSpacingBefore: CGFloat = 6
+    /// A heading's lines are this many times its size, as Telegram's are
+    static let headingLineHeightMultiple: CGFloat = 1.4
+    static let headingPattern = #"^ {0,3}#{1,6}[ \t]+\S"#
+    /// A heading's marks before its text, perhaps with the marks of its bold start
+    static let headingMarksPattern = #"^ {0,3}#{1,6}(?:[ \t]+\*{0,2})?$"#
+    /// A code block's lines are this many times its size, as Telegram's are, without gaps between them
+    static let codeBlockLineHeightMultiple: CGFloat = 1.5
     static let markdownSeparator = "⸻"
     static let markdownOptions = AttributedString.MarkdownParsingOptions(
         interpretedSyntax: .inlineOnlyPreservingWhitespace,
@@ -14,6 +24,13 @@ private enum AgentMessageTextRendererMetrics {
     static let codeSpanPattern = #"`([^`\n]+)`"#
     static let boldPattern = #"\*\*([^*\n]+)\*\*"#
     static let italicPattern = #"(?<!\*)\*([^*\n]+)\*(?!\*)"#
+}
+
+extension NSAttributedString.Key {
+    /// Marks code, in a line or in a block, which takes the accent the links take
+    static let agentCode = NSAttributedString.Key("AgentCode")
+    /// Marks the lines of a fenced code block
+    static let agentCodeBlock = NSAttributedString.Key("AgentCodeBlock")
 }
 
 enum AgentMessageMarkdownProfile: Hashable {
@@ -27,10 +44,34 @@ enum AgentMessageTextRenderer {
         WTypography.uiFont(.body)
     }
 
+    /// The height of a line of an answer's text, whichever markdown profile renders it
+    static var answerLineHeight: CGFloat {
+        max(AgentMessageTextRendererMetrics.lineHeight, ceil(baseFont.lineHeight))
+    }
+
     /// How far apart paragraphs a blank line apart stand, from one's last line to the next one's first. A heading
     /// stands this far from the text under it.
     nonisolated static let blankLineGap: CGFloat = AgentMessageTextRendererMetrics.paragraphSpacing
         + AgentMessageTextRendererMetrics.emptyLineHeight
+
+    /// A fence that opens code, with or without the code's language
+    nonisolated static let codeFenceStartPattern = #"^```[A-Za-z0-9_+-]*\s*$"#
+
+    /// A code block's text is 2 pt under the body's, as Telegram's 14 pt code under its 16 pt body
+    static func makeCodeBlockFont(baseFont: UIFont) -> UIFont {
+        .monospacedSystemFont(ofSize: baseFont.pointSize - 2, weight: .regular)
+    }
+
+    /// A code block's lines: 1.5 times the code's size, without gaps between them, an empty one as tall as the others
+    static func makeCodeBlockParagraphStyle(font: UIFont, lineBreakMode: NSLineBreakMode) -> NSParagraphStyle {
+        let lineHeight = ceil(font.pointSize * AgentMessageTextRendererMetrics.codeBlockLineHeightMultiple)
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = lineHeight
+        style.maximumLineHeight = lineHeight
+        style.paragraphSpacing = 0
+        style.lineBreakMode = lineBreakMode
+        return style
+    }
 
     static func makeAttributedText(
         _ text: String,
@@ -68,9 +109,18 @@ enum AgentMessageTextRenderer {
         guard fullRange.length > 0 else { return attributedText }
 
         attributedText.addAttribute(.foregroundColor, value: textColor, range: fullRange)
+        // Code is in the accent and on no background, as Telegram draws it
+        attributedText.enumerateAttribute(.agentCode, in: fullRange) { value, range, _ in
+            guard value != nil else { return }
+            attributedText.addAttribute(.foregroundColor, value: linkColor, range: range)
+        }
         attributedText.enumerateAttribute(.font, in: fullRange) { value, range, _ in
-            let font = normalizedMarkdownFont(from: value as? UIFont, baseFont: baseFont)
-            attributedText.addAttribute(.font, value: font, range: range)
+            // A heading's runs keep their heading's size and weight
+            attributedText.enumerateAttribute(.accessibilityTextHeadingLevel, in: range) { level, textRange, _ in
+                guard level == nil else { return }
+                let font = normalizedMarkdownFont(from: value as? UIFont, baseFont: baseFont)
+                attributedText.addAttribute(.font, value: font, range: textRange)
+            }
         }
         attributedText.enumerateAttribute(.paragraphStyle, in: fullRange) { value, range, _ in
             let paragraphStyle = normalizedParagraphStyle(
@@ -82,7 +132,9 @@ enum AgentMessageTextRenderer {
             attributedText.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
         applyEmptyLineHeights(to: attributedText, baseFont: baseFont)
+        applyHeadingStyles(to: attributedText)
         applyHeadingSpacing(to: attributedText)
+        applyCodeBlockStyles(to: attributedText, baseFont: baseFont)
         if detectsLinks {
             applyDetectedLinks(to: attributedText)
         } else {
@@ -196,6 +248,24 @@ enum AgentMessageTextRenderer {
         if isArriving, line.range(of: #"^[-+*]$"#, options: .regularExpression) != nil {
             return NSAttributedString()
         }
+        // A heading's marks still arriving wait for its text, as a list item's marker does
+        if isArriving, line.range(of: AgentMessageTextRendererMetrics.headingMarksPattern, options: .regularExpression) != nil {
+            return NSAttributedString()
+        }
+        if let heading = agentHeading(in: line) {
+            let headingText = NSMutableAttributedString(attributedString: parseAgentInlineMarkdown(
+                heading.content,
+                isArriving: isArriving,
+                textColor: textColor,
+                baseFont: makeHeadingFont(level: heading.level, baseFont: baseFont)
+            ))
+            headingText.addAttribute(
+                .accessibilityTextHeadingLevel,
+                value: heading.level,
+                range: NSRange(location: 0, length: headingText.length)
+            )
+            return headingText
+        }
         let itemContent = isArriving ? "" : #"\S"#
         let unorderedPrefix = line.range(
             of: #"^[-+*]\s+"# + itemContent,
@@ -235,6 +305,10 @@ enum AgentMessageTextRenderer {
             baseFont: baseFont
         )
         guard let prefix else { return parsed }
+        // A list item still arriving shows once its text does, not as a marker on its own
+        if isArriving, parsed.length == 0 {
+            return NSAttributedString()
+        }
 
         let listLine = NSMutableAttributedString(
             string: prefix,
@@ -343,7 +417,7 @@ enum AgentMessageTextRenderer {
                             weight: .regular
                         ),
                         .foregroundColor: textColor,
-                        .backgroundColor: UIColor.secondarySystemFill
+                        .agentCode: true
                     ]
                 )
             )
@@ -374,12 +448,25 @@ enum AgentMessageTextRenderer {
     }
 
     /// Markers at the end of an arriving line may still open or close a run, so they wait for the next characters
+    /// `text` without the markers at its end, and the spaces after them, which wait for the text they open: asterisks
+    /// and backticks, and underscores that open a word
     private static func droppingTrailingMarkers(from text: String) -> String {
-        var text = text
-        while text.last == "*" || text.last == "`" {
-            text.removeLast()
+        var core = Substring(text)
+        while core.last?.isWhitespace == true {
+            core.removeLast()
         }
-        return text
+        let markersEnd = core.endIndex
+        while true {
+            if core.last == "*" || core.last == "`" {
+                core.removeLast()
+                continue
+            }
+            let underscores = core.reversed().prefix { $0 == "_" }.count
+            let beforeUnderscores = core.dropLast(underscores).last
+            guard underscores > 0, beforeUnderscores?.isWhitespace ?? true else { break }
+            core.removeLast(underscores)
+        }
+        return core.endIndex == markersEnd ? text : String(core)
     }
 
     /// `text` followed by `marker`, when that closes a run that `text` opens with a non-space character after its marker
@@ -431,6 +518,32 @@ enum AgentMessageTextRenderer {
         }
     }
 
+    /// A `#`–`######` line's level and text, without a closing run of `#`. Only the marks make no heading.
+    private static func agentHeading(in line: String) -> (level: Int, content: String)? {
+        guard line.range(of: AgentMessageTextRendererMetrics.headingPattern, options: .regularExpression) != nil else {
+            return nil
+        }
+        let marks = line.drop { $0 == " " }
+        let level = marks.prefix { $0 == "#" }.count
+        var content = marks.dropFirst(level).trimmingCharacters(in: .whitespaces)
+        if let closingMarks = content.range(of: #"\s+#+$"#, options: .regularExpression) {
+            content.removeSubrange(closingMarks)
+        }
+        return (level, content)
+    }
+
+    /// Telegram's headings, semibold from 6 pt over its body size for the first level down to 1 pt for the sixth.
+    /// The system font takes its semibold weight; another face, as Persian's, its bold one.
+    private static func makeHeadingFont(level: Int, baseFont: UIFont) -> UIFont {
+        let size = baseFont.pointSize + CGFloat(7 - level)
+        let traits = baseFont.fontDescriptor.symbolicTraits.union(.traitBold)
+        guard !baseFont.fontName.hasPrefix("."),
+              let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) else {
+            return .systemFont(ofSize: size, weight: .semibold)
+        }
+        return UIFont(descriptor: descriptor, size: size)
+    }
+
     private static func makeAgentCodeBlock(
         _ code: String,
         textColor: UIColor,
@@ -439,18 +552,16 @@ enum AgentMessageTextRenderer {
         NSAttributedString(
             string: code,
             attributes: [
-                .font: UIFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
+                .font: makeCodeBlockFont(baseFont: baseFont),
                 .foregroundColor: textColor,
-                .backgroundColor: UIColor.secondarySystemFill
+                .agentCode: true,
+                .agentCodeBlock: true
             ]
         )
     }
 
     private static func isAgentCodeFenceStart(_ line: String) -> Bool {
-        line.range(
-            of: #"^```[A-Za-z0-9_+-]+\s*$"#,
-            options: .regularExpression
-        ) != nil
+        line.range(of: codeFenceStartPattern, options: .regularExpression) != nil
     }
 
     private static func passiveAgentLinks(in text: String) -> String {
@@ -587,6 +698,48 @@ enum AgentMessageTextRenderer {
         }
     }
 
+    /// A `#` heading's lines are as tall as Telegram's for its size, and it stands further from the text above it than
+    /// paragraphs do, unless it opens the text. The text under it follows it as paragraphs follow each other.
+    private static func applyHeadingStyles(to attributedText: NSMutableAttributedString) {
+        let string = attributedText.string as NSString
+        var hasTextAbove = false
+        string.enumerateSubstrings(
+            in: NSRange(location: 0, length: string.length),
+            options: [.byParagraphs, .substringNotRequired]
+        ) { _, range, enclosingRange, _ in
+            defer { hasTextAbove = hasTextAbove || !isBlank(range, in: string) }
+            guard range.length > 0,
+                  attributedText.attribute(.accessibilityTextHeadingLevel, at: range.location, effectiveRange: nil) != nil,
+                  let font = attributedText.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont else { return }
+            let style = (attributedText.attribute(.paragraphStyle, at: range.location, effectiveRange: nil) as? NSParagraphStyle)?
+                .mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            let lineHeight = ceil(font.pointSize * AgentMessageTextRendererMetrics.headingLineHeightMultiple)
+            style.minimumLineHeight = lineHeight
+            style.maximumLineHeight = lineHeight
+            style.paragraphSpacingBefore = hasTextAbove ? AgentMessageTextRendererMetrics.headingSpacingBefore : 0
+            attributedText.addAttribute(.paragraphStyle, value: style, range: enclosingRange)
+        }
+    }
+
+    /// A code block's lines keep their code's size and line height, without the gaps between paragraphs
+    private static func applyCodeBlockStyles(to attributedText: NSMutableAttributedString, baseFont: UIFont) {
+        let string = attributedText.string as NSString
+        let font = makeCodeBlockFont(baseFont: baseFont)
+        attributedText.enumerateAttribute(.agentCodeBlock, in: NSRange(location: 0, length: string.length)) { value, range, _ in
+            guard value != nil else { return }
+            attributedText.addAttribute(.font, value: font, range: range)
+        }
+        let style = makeCodeBlockParagraphStyle(font: font, lineBreakMode: .byWordWrapping)
+        string.enumerateSubstrings(
+            in: NSRange(location: 0, length: string.length),
+            options: [.byParagraphs, .substringNotRequired]
+        ) { _, _, enclosingRange, _ in
+            guard enclosingRange.length > 0,
+                  attributedText.attribute(.agentCodeBlock, at: enclosingRange.location, effectiveRange: nil) != nil else { return }
+            attributedText.addAttribute(.paragraphStyle, value: style, range: enclosingRange)
+        }
+    }
+
     /// A heading, a line in bold on its own, stands as far from the text right under it as paragraphs a blank line
     /// apart do
     private static func applyHeadingSpacing(to attributedText: NSMutableAttributedString) {
@@ -611,7 +764,10 @@ enum AgentMessageTextRenderer {
 
     private static func isHeading(_ range: NSRange, in attributedText: NSAttributedString) -> Bool {
         let string = attributedText.string as NSString
-        guard range.length > 0, !isBlank(range, in: string) else { return false }
+        guard range.length > 0, !isBlank(range, in: string),
+              attributedText.attribute(.accessibilityTextHeadingLevel, at: range.location, effectiveRange: nil) == nil else {
+            return false
+        }
         var isBold = true
         attributedText.enumerateAttribute(.font, in: range) { value, runRange, stop in
             guard !isBlank(runRange, in: string) else { return }

@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.helpers
 
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -211,12 +212,34 @@ class ActivityHelpers {
         ): MApiTransaction? = byId[id] ?: fallback.firstOrNull { it.id == id }
 
         /**
-         * Hashes of CEX swap activities that are still pending (mid-flight on the
-         * exchange side). Used to drive `fetchSwaps` reconciliation polling.
+         * CEX and cross-chain swaps settle on the backend after their source transaction,
+         * so pending ones are polled through `fetchSwaps`.
          */
+        fun isPolledPendingSwap(activity: MApiTransaction): Boolean =
+            activity is MApiTransaction.Swap && activity.isPending() &&
+                (activity.cex != null || isCrossChainBackendSwap(activity))
+
+        private fun isCrossChainBackendSwap(swap: MApiTransaction.Swap): Boolean {
+            if (!swap.isBackendSwapId()) return false
+            val fromChain = chainBySlug(swap.from) ?: return false
+            val toChain = chainBySlug(swap.to) ?: return false
+            return fromChain != toChain
+        }
+
+        /** Mirrors the SDK's `getChainBySlug`: `chain-address` or a native token slug */
+        private fun chainBySlug(slug: String): MBlockchain? {
+            val items = slug.split('-')
+            return when (items.size) {
+                1 -> MBlockchain.entries.firstOrNull { it.nativeSlug == slug }
+                2 -> MBlockchain.valueOfOrNull(items[0])
+                else -> null
+            }?.takeIf { it.isSupported }
+        }
+
+        /** Hashes of pending swaps polled through `fetchSwaps` reconciliation. */
         fun pendingCexSwapHashes(activities: Collection<MApiTransaction>): List<String> =
             activities.asSequence()
-                .filter { it is MApiTransaction.Swap && it.cex != null && it.isPending() }
+                .filter(::isPolledPendingSwap)
                 .map { it.parsedTxId.hash }
                 .filter { it.isNotEmpty() }
                 .distinct()

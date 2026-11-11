@@ -46,11 +46,18 @@ export interface AgentV2StreamBinding {
 export async function* parseAgentV2Ndjson(
   body: ReadableStream<Uint8Array>,
   binding: AgentV2StreamBinding,
+  /** Ends the read at once, since a fetch whose response has arrived may no longer stop its body on its own signal */
+  signal?: AbortSignal,
 ): AsyncGenerator<AgentV2StreamItem> {
   const reader = body.getReader();
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let buffered = '';
   let bufferedBytes = 0;
+  const cancelRead = () => {
+    reader.cancel(signal!.reason).catch(() => undefined);
+  };
+  signal?.addEventListener('abort', cancelRead, { once: true });
+  if (signal?.aborted) cancelRead();
 
   try {
     while (true) {
@@ -60,6 +67,7 @@ export async function* parseAgentV2Ndjson(
       } catch (error) {
         throw new AgentV2StreamTransportError('Agent V2 stream read failed', { cause: error });
       }
+      if (signal?.aborted) return;
       const { value, done } = result;
       if (done) break;
       bufferedBytes += value.byteLength;
@@ -107,6 +115,7 @@ export async function* parseAgentV2Ndjson(
       }
     }
   } finally {
+    signal?.removeEventListener('abort', cancelRead);
     reader.releaseLock();
   }
 }

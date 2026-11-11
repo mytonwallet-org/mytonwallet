@@ -18,7 +18,7 @@ struct TradeContinueButtonTests {
         control.update(configuration: .init(title: .text("Review"), isEnabled: false, showLoading: true),
                        tintColor: .systemBlue, animated: false)
         let button = control.button
-        let spinner = try #require(button.subviews.compactMap { $0 as? WActivityIndicator }.first)
+        let spinner = try #require(button.subviews.flatMap(\.subviews).compactMap { $0 as? WActivityIndicator }.first)
         #expect(!button.isEnabled)
         #expect(!button.isUserInteractionEnabled)
         #expect(spinner.tintColor.resolvedColor(with: button.traitCollection)

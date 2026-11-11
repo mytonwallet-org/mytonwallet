@@ -14,6 +14,8 @@ protocol RootContainerRouting {
     func pushOnHome(_ viewController: UIViewController) -> Bool
     func showAddWallet(network: ApiNetwork, sourceView: UIView?)
     func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?)
+    func showAgentNewsChat(_ controller: UIViewController)
+    func showAgentNewsFeed(digestId: String)
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     func showExplore()
     func showHome(popToRoot: Bool)
@@ -30,23 +32,29 @@ extension RootContainerRouting {
             return
         }
         guard AppTabManager.shared.contains(id) else {
-            presentTabModally(id, path: [])
+            if let presenter = topViewController() {
+                presentTabModally(id, from: presenter, makePath: { _ in [] })
+            }
             return
         }
         if let splitVC = findActiveViewController(of: SplitRootViewController.self) {
             splitVC.select(tab: id, popToRoot: popToRoot)
         }
     }
+}
 
-    @MainActor
-    private func presentTabModally(_ id: AppTabId, path: [UIViewController]) {
-        guard let nc = AppTabManager.shared.makeNavigationController(for: id, layout: .tab) else { return }
-        if !path.isEmpty, let root = nc.viewControllers.first {
-            nc.setViewControllers([root] + path, animated: false)
-        }
-        nc.modalPresentationStyle = .fullScreen
-        topViewController()?.present(nc, animated: true)
-    }
+@MainActor
+func presentTabModally(
+    _ id: AppTabId,
+    from presenter: UIViewController,
+    makePath: (UIViewController) -> [UIViewController]
+) {
+    guard let navigation = AppTabManager.shared.makeNavigationController(for: id, layout: .tab) else { return }
+    (navigation as? AppTabLazyNavigationController)?.ensureRootViewControllerInstalled()
+    let root = navigation.viewControllers.first!
+    navigation.setViewControllers([root] + makePath(root), animated: false)
+    navigation.modalPresentationStyle = .fullScreen
+    (presenter.navigationController ?? presenter).present(navigation, animated: true)
 }
 
 
@@ -76,6 +84,14 @@ struct TopTabsRootContainerRouter: RootContainerRouting {
 
     func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
         topTabsVC?.showAgent(query: query, entryPoint: entryPoint)
+    }
+
+    func showAgentNewsChat(_ controller: UIViewController) {
+        topTabsVC?.showAgentNewsChat(controller)
+    }
+
+    func showAgentNewsFeed(digestId: String) {
+        topTabsVC?.showAgentNewsFeed(digestId: digestId)
     }
 
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {
@@ -147,6 +163,14 @@ struct SplitRootContainerRouter: RootContainerRouting {
 
     func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
         splitVC?.showAgent(query: query, entryPoint: entryPoint)
+    }
+
+    func showAgentNewsChat(_ controller: UIViewController) {
+        splitVC?.showAgentNewsChat(controller)
+    }
+
+    func showAgentNewsFeed(digestId: String) {
+        splitVC?.showAgentNewsFeed(digestId: digestId)
     }
 
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {

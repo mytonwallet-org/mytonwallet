@@ -52,22 +52,21 @@ struct SVGRootElement: SVGContainerElement {
     // :nodoc:
     internal var supportedAttributes = [String : (String) -> ()]()
 
-    /**
-     Function that parses a number string and sets the `containerLayer`'s width
-     */
-    internal func parseWidth(lengthString: String) {
-        if let width = CGFloat(lengthString: lengthString) {
-            self.containerLayer.frame.size.width = width
-        }
+    private let viewport = Viewport()
+
+    /// Attributes arrive in dictionary order, so the layout is computed once all of them are known.
+    private final class Viewport {
+        var width: CGFloat?
+        var height: CGFloat?
+        var viewBox: CGRect?
     }
 
-    /**
-     Function that parses a number string and sets the `containerLayer`'s height
-     */
+    internal func parseWidth(lengthString: String) {
+        viewport.width = CGFloat(lengthString: lengthString.trimWhitespace()).flatMap { $0 > 0 ? $0 : nil }
+    }
+
     internal func parseHeight(lengthString: String) {
-        if let height = CGFloat(lengthString: lengthString) {
-            self.containerLayer.frame.size.height = height
-        }
+        viewport.height = CGFloat(lengthString: lengthString.trimWhitespace()).flatMap { $0 > 0 ? $0 : nil }
     }
 
     /// :nodoc:
@@ -82,9 +81,27 @@ struct SVGRootElement: SVGContainerElement {
             .compactMap { (thisString) -> Double? in
                return Double(thisString.trimWhitespace())
             }
-        guard points.count == 4 else {
+        guard points.count == 4, points[2] > 0, points[3] > 0 else {
             return
         }
-        self.containerLayer.frame = CGRect(x: points[0], y: points[1], width: points[2], height: points[3])
+        viewport.viewBox = CGRect(x: points[0], y: points[1], width: points[2], height: points[3])
+    }
+
+    /// A layer the size of the viewport that centers the view box in it, scaled to fit as `xMidYMid meet` does.
+    internal func makeViewportLayer() -> CALayer {
+        let viewBox = viewport.viewBox
+        let width = viewport.width ?? viewport.height.flatMap { height in viewBox.map { height * $0.width / $0.height } } ?? viewBox?.width ?? 0
+        let height = viewport.height ?? viewport.width.flatMap { width in viewBox.map { width * $0.height / $0.width } } ?? viewBox?.height ?? 0
+        let viewportLayer = CALayer()
+        viewportLayer.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        let content = viewBox ?? viewportLayer.bounds
+        containerLayer.bounds = content
+        if content.width > 0, content.height > 0 {
+            let scale = min(width / content.width, height / content.height)
+            containerLayer.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+        }
+        containerLayer.position = CGPoint(x: width / 2, y: height / 2)
+        viewportLayer.addSublayer(containerLayer)
+        return viewportLayer
     }
 }

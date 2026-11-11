@@ -217,6 +217,7 @@ private fun View.captureHardwareBuffer(onResult: (Bitmap?) -> Unit) {
         node.setPosition(0, 0, width, height)
         draw(node.beginRecording())
         node.endRecording()
+        renderer.isOpaque = false
         renderer.setSurface(reader.surface)
         renderer.setContentRoot(node)
         reader.setOnImageAvailableListener({

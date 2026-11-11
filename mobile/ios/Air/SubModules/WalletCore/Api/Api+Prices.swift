@@ -5,8 +5,8 @@ import WalletCoreTypes
 
 extension Api {
     
-    public static func fetchPriceHistory(token: ApiToken, period: ApiPriceHistoryPeriod, baseCurrency: MBaseCurrency) async throws -> ApiHistoryList {
-        try await bridge.callApi("fetchPriceHistory", token.slug, period, baseCurrency, token, decoding: ApiHistoryList.self)
+    public static func fetchPriceHistory(token: ApiToken, period: ApiPriceHistoryPeriod, baseCurrency: MBaseCurrency) async throws -> ApiPriceHistory {
+        try await bridge.callApi("fetchPriceHistory", token.slug, period, baseCurrency, token, decoding: ApiPriceHistory.self)
     }
 
     @concurrent public static func fetchPortfolioNetWorthHistory(
@@ -83,6 +83,17 @@ extension Api {
 // MARK: - Types
 
 public typealias ApiHistoryList = [[Double]]
+
+/// Daily USD closes of the underlying stock, all earlier than the first point of the token's own history
+public struct ApiPriceHistoryBackfill: Codable, Equatable, Hashable, Sendable {
+    public let symbol: String
+    public let points: ApiHistoryList
+}
+
+public struct ApiPriceHistory: Codable, Equatable, Hashable, Sendable {
+    public let points: ApiHistoryList
+    public let backfill: ApiPriceHistoryBackfill?
+}
 
 public struct ApiPortfolioHistoryRequest: Encodable, Equatable, Hashable, Sendable {
     public let from: Double

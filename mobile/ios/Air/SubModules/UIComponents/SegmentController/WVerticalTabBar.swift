@@ -21,7 +21,12 @@ public final class WVerticalTabBar: UIView {
     }
 
     public var onSelect: ((Int, Bool) -> Void)?
+    /// Holding a tab still for the long-press time lifts it, and dragging it along the bar moves it among the others.
+    /// The bar shows the new order before it reports the move; a drop never selects. Without a handler a hold only
+    /// scrubs the tabs
+    public var onReorder: ((_ sourceIndex: Int, _ destinationIndex: Int) -> Void)?
     public private(set) var selectedIndex = 0
+    public var itemIds: [String] { items.map(\.id) }
     public var showsSelection = true {
         didSet {
             guard oldValue != showsSelection else { return }
@@ -43,7 +48,7 @@ public final class WVerticalTabBar: UIView {
         CGSize(width: 48, height: CGFloat(items.count - 1) * 50 + 62)
     }
 
-    private let items: [Item]
+    private var items: [Item]
     private let surface = UIView()
     private let glass = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
     private let stage = UIView()
@@ -59,13 +64,20 @@ public final class WVerticalTabBar: UIView {
     private var showsTitles = false
     private var tracksSelectionMotion = false
     private var holdTimer: Timer?
+    private var reorderTimer: Timer?
+    /// The lifted tab's index and the place it takes if dropped now
+    private var drag: (index: Int, destination: Int)?
     private var layoutAnimator: UIViewPropertyAnimator?
     private var displayLink: CADisplayLink?
     private var currentSelectionFrame = CGRect.zero
     private var appliedLensLifted: Bool?
     private var isApplyingLensLift = false
     private let feedback = UISelectionFeedbackGenerator()
+    private let liftFeedback = UIImpactFeedbackGenerator(style: .medium)
     private let trackingSpring = Animation.spring(response: 0.2, dampingFraction: 0.85)
+    // UIKit's standard long press: 0.5 s within 10 pt
+    private static let reorderHoldDuration: TimeInterval = 0.5
+    private static let reorderHoldSlop: CGFloat = 10
     private lazy var scrubRecognizer = VerticalTabScrubRecognizer(target: self, action: #selector(onScrub(_:)))
 
     public init(items: [Item]) {
@@ -106,7 +118,11 @@ public final class WVerticalTabBar: UIView {
             target.isAccessibilityElement = true
             target.accessibilityLabel = item.title
             target.accessibilityIdentifier = "top-tabs.side-tab.\(item.id)"
-            target.activate = { [weak self] in self?.activate(index); return true }
+            target.activate = { [weak self, weak target] in
+                guard let self, let index = self.targets.firstIndex(where: { $0 === target }) else { return false }
+                self.activate(index)
+                return true
+            }
             target.isUserInteractionEnabled = false
             surface.addSubview(target)
             targets.append(target)
@@ -127,6 +143,7 @@ public final class WVerticalTabBar: UIView {
     deinit {
         displayLink?.invalidate()
         holdTimer?.invalidate()
+        reorderTimer?.invalidate()
     }
 
     public override func didMoveToWindow() {
@@ -182,17 +199,32 @@ public final class WVerticalTabBar: UIView {
         normalContent.frame = surface.bounds
         selectedContent.frame = surface.bounds
         for index in items.indices {
-            let frame = itemFrame(index)
-            for glyph in [normalItems[index], selectedItems[index]] {
-                glyph.bounds = CGRect(origin: .zero, size: frame.size)
-                glyph.center = CGPoint(x: frame.midX, y: frame.midY)
-                glyph.layoutGlyph(expanded: showsTitles, font: labelFont)
-            }
+            placeGlyphs(at: index)
             normalItems[index].tintColor = .label
             selectedItems[index].tintColor = tintColor
-            targets[index].frame = frame
+            targets[index].frame = itemFrame(index)
         }
         updateSelection(animated: false)
+    }
+
+    private func placeGlyphs(at index: Int) {
+        let frame = glyphFrame(index)
+        for glyph in [normalItems[index], selectedItems[index]] {
+            glyph.bounds = CGRect(origin: .zero, size: frame.size)
+            glyph.center = CGPoint(x: frame.midX, y: frame.midY)
+            glyph.layoutGlyph(expanded: showsTitles, font: labelFont)
+        }
+    }
+
+    /// While a tab is lifted it rides under the finger with the selection, and the tabs between its place and the
+    /// one it would take move a place to make room
+    private func glyphFrame(_ index: Int) -> CGRect {
+        guard let drag else { return itemFrame(index) }
+        if index == drag.index { return selectionFrame(lifted: false) }
+        var place = index
+        if drag.index < index, index <= drag.destination { place -= 1 }
+        if drag.destination <= index, index < drag.index { place += 1 }
+        return itemFrame(place)
     }
 
     private func itemFrame(_ index: Int) -> CGRect {
@@ -241,11 +273,48 @@ public final class WVerticalTabBar: UIView {
         }
         holdTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+        reorderTimer?.invalidate()
+        reorderTimer = nil
+        if onReorder != nil, items.count > 1 {
+            liftFeedback.prepare()
+            let reorderTimer = Timer(
+                timeInterval: max(0, start + Self.reorderHoldDuration - CACurrentMediaTime()),
+                repeats: false
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.liftScrubbedItem() }
+            }
+            self.reorderTimer = reorderTimer
+            RunLoop.main.add(reorderTimer, forMode: .common)
+        }
+    }
+
+    private func liftScrubbedItem() {
+        reorderTimer = nil
+        guard let scrub, drag == nil, onReorder != nil else { return }
+        drag = (scrub.start, scrub.start)
+        liftFeedback.impactOccurred()
     }
 
     func moveScrub(translation: CGPoint) {
         guard var scrub else { return }
+        if hypot(translation.x, translation.y) > Self.reorderHoldSlop {
+            // A finger that slides scrubs the tabs and never lifts one
+            reorderTimer?.invalidate()
+            reorderTimer = nil
+        }
         scrub.offset = translation.y.rounded()
+        if var drag {
+            self.scrub = scrub
+            let destination = nearestIndex(to: selectionFrame(lifted: false).midY)
+            let isMoving = destination != drag.destination
+            if isMoving { feedback.selectionChanged() }
+            drag.destination = destination
+            self.drag = drag
+            tracksSelectionMotion = true
+            layoutGlyphs(animatingOthers: isMoving)
+            updateSelection(animated: false)
+            return
+        }
         let index = nearestIndex(to: itemFrame(scrub.start).midY + scrub.offset)
         if index != scrub.preview { feedback.selectionChanged() }
         scrub.preview = index
@@ -258,16 +327,66 @@ public final class WVerticalTabBar: UIView {
     func finishScrub(cancelled: Bool) {
         holdTimer?.invalidate()
         holdTimer = nil
+        reorderTimer?.invalidate()
+        reorderTimer = nil
         guard let scrub else { return }
+        let drag = self.drag
         let repeated = showsSelection && selectedIndex == scrub.preview
         self.scrub = nil
+        self.drag = nil
         tracksSelectionMotion = false
         showsTitles = false
-        if !cancelled { selectedIndex = scrub.preview }
+        let move = drag.flatMap { !cancelled && $0.index != $0.destination ? $0 : nil }
+        if let move {
+            moveItem(from: move.index, to: move.destination)
+        } else if drag == nil, !cancelled {
+            selectedIndex = scrub.preview
+        }
         setLifted(false)
         animateLayout(damping: 0.75)
         updateAccessibility()
-        if !cancelled { onSelect?(scrub.preview, repeated) }
+        if let move {
+            onReorder?(move.index, move.destination)
+        } else if drag == nil, !cancelled {
+            onSelect?(scrub.preview, repeated)
+        }
+    }
+
+    private func moveItem(from source: Int, to destination: Int) {
+        items.insert(items.remove(at: source), at: destination)
+        normalItems.insert(normalItems.remove(at: source), at: destination)
+        selectedItems.insert(selectedItems.remove(at: source), at: destination)
+        targets.insert(targets.remove(at: source), at: destination)
+        if selectedIndex == source {
+            selectedIndex = destination
+        } else if source < selectedIndex, selectedIndex <= destination {
+            selectedIndex -= 1
+        } else if destination <= selectedIndex, selectedIndex < source {
+            selectedIndex += 1
+        }
+    }
+
+    private func layoutGlyphs(animatingOthers: Bool) {
+        let placeOthers = {
+            for index in self.items.indices where index != self.drag?.index {
+                self.placeGlyphs(at: index)
+            }
+        }
+        if animatingOthers, !UIAccessibility.isReduceMotionEnabled {
+            UIView.animate(
+                withDuration: 0.3,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction],
+                animations: placeOthers
+            )
+        } else {
+            placeOthers()
+        }
+        if let index = drag?.index {
+            UIView.performWithoutAnimation { placeGlyphs(at: index) }
+        }
     }
 
     private func animateLayout(damping: CGFloat) {

@@ -254,10 +254,20 @@ struct ActivityDetailsView: View {
             InsetSection {
                 InsetCell {
                     TappableAddressFull(accountContext: model.accountContext, model: .fromTransaction(tx, chain: chain, addressKind: address))
+                        .accessibilityIdentifier(addressRowIdentifier(address))
                 }
             } header: {
                 Text(title)
             }
+        }
+    }
+
+    // An external sheet shows both addresses, so each needs its own id
+    private func addressRowIdentifier(_ address: ApiTransactionActivity.AddressKind) -> String {
+        switch address {
+        case .from: return "transaction_sender_row"
+        case .to: return "transaction_recipient_row"
+        case .peer: return "transaction_address_row"
         }
     }
 
@@ -551,6 +561,7 @@ struct ActivityDetailsView: View {
             } value: {
                 TappableTransactionId(chain: self.chain, txId: txId, isTraceId: traceId != nil)
                     .fixedSize()
+                    .accessibilityIdentifier("transaction_id")
             }
         }
     }

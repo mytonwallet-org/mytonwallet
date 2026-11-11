@@ -1,23 +1,31 @@
 import UIComponents
 import UIKit
 import WalletContext
+import WalletCore
+
+private let STORY_IDS = ["intro", "long", "short", "leverage", "liquidation", "funding", "finale"]
 
 @MainActor public enum PerpsOnboarding {
     public static let bannerID = "perps-onboarding"
 
-    public static func makeViewController() -> StoriesViewController {
-        StoriesViewController(pages: pages(), backgroundView: PerpsStoryBackgroundView())
+    public static func makeViewController(onboarding: ApiPerpsOnboarding? = nil) -> StoriesViewController {
+        let controller = StoriesViewController(pages: pages(onboarding: onboarding), backgroundView: PerpsStoryBackgroundView())
+        controller.preferredContentSize = CGSize(width: 402, height: 874)
+        return controller
     }
 
-    static func pages() -> [StoryPage] {
-        [
-            .init(id: "intro", title: lang("PerpsStoryIntroTitle"), body: lang("PerpsStoryIntroBody"), buttonTitle: lang("PerpsStoryStart")),
-            .init(id: "long", title: lang("PerpsStoryLongTitle"), body: lang("PerpsStoryLongBody"), buttonTitle: lang("Next")),
-            .init(id: "short", title: lang("PerpsStoryShortTitle"), body: lang("PerpsStoryShortBody"), buttonTitle: lang("Next")),
-            .init(id: "leverage", title: lang("PerpsStoryLeverageTitle"), body: lang("PerpsStoryLeverageBody"), buttonTitle: lang("Next")),
-            .init(id: "liquidation", title: lang("PerpsStoryLiquidationTitle"), body: lang("PerpsStoryLiquidationBody"), buttonTitle: lang("Next")),
-            .init(id: "funding", title: lang("PerpsStoryFundingTitle"), body: lang("PerpsStoryFundingBody"), buttonTitle: lang("Got It")),
-        ]
+    static func pages(onboarding: ApiPerpsOnboarding? = nil, cache: PerpsStoryMediaCache = .shared) -> [StoryPage] {
+        STORY_IDS.map { id in
+            let name = "PerpsStory" + id.capitalized
+            let story = onboarding?.stories.first { $0.id == id }
+            let still = UIImage.airBundleOptional(name)
+            let preview = story.flatMap { cache.cachedFile(for: $0.preview) }.flatMap { UIImage(contentsOfFile: $0.path) }
+            let body = id == "finale" ? L10n.perpsstoryfinalebody(appName: APP_NAME) : lang(name + "Body")
+            return .init(id: id, title: lang(name + "Title"), body: body,
+                         buttonTitle: id == "finale" ? lang("PerpsStoryViewMarkets") : nil,
+                         duration: story?.duration ?? 7, image: preview ?? still, reducedMotionImage: still,
+                         videoURL: story.map { cache.cachedFile(for: $0.url) ?? $0.url })
+        }
     }
 }
 

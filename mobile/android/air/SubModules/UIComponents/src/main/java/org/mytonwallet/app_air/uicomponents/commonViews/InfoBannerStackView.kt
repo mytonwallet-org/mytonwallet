@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
@@ -550,9 +551,19 @@ class InfoBannerStackView(context: Context) :
         bounds(upper, upperBounds)
         bounds(lower, lowerBounds)
         shadowClip.reset()
-        shadowClip.addRoundRect(lowerBounds, 26f.dp * lower.scaleX, 26f.dp, Path.Direction.CW)
+        shadowClip.addRoundRect(
+            lowerBounds,
+            cardRadius * lower.scaleX,
+            cardRadius,
+            Path.Direction.CW
+        )
         upperOutline.reset()
-        upperOutline.addRoundRect(upperBounds, 26f.dp * upper.scaleX, 26f.dp, Path.Direction.CW)
+        upperOutline.addRoundRect(
+            upperBounds,
+            cardRadius * upper.scaleX,
+            cardRadius,
+            Path.Direction.CW
+        )
         shadowClip.op(upperOutline, Path.Op.DIFFERENCE)
         val saved = canvas.save()
         canvas.clipPath(shadowClip)
@@ -564,8 +575,8 @@ class InfoBannerStackView(context: Context) :
             shadowPaint.alpha = ((1.75f - step * 0.14f) * upper.alpha * lower.alpha).roundToInt()
             canvas.drawRoundRect(
                 shadowBounds,
-                26f.dp * upper.scaleX + spread,
-                26f.dp + spread,
+                cardRadius * upper.scaleX + spread,
+                cardRadius + spread,
                 shadowPaint
             )
         }
@@ -576,8 +587,11 @@ class InfoBannerStackView(context: Context) :
         get() = WGlobalStorage.getAreAnimationsActive() &&
             (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
+    private val cardRadius: Float
+        get() = if (ViewConstants.BLOCK_RADIUS == 0f) 0f else 26f.dp
+
     private fun cardBackground() = GradientDrawable().apply {
-        cornerRadius = 26f.dp
+        cornerRadius = cardRadius
         setColor(WColor.Background.color)
     }
 

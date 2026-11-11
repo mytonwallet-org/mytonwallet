@@ -10,6 +10,7 @@ import type {
 import type { AgentSpinningTopHandoff } from './helpers/agentSpinningTop';
 
 import buildClassName from '../../util/buildClassName';
+import { TYPING_ANSWER_MORPH_DURATION } from './helpers/typingAnswerMorph';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
@@ -54,6 +55,12 @@ const CLOSE_DURATION = 200;
 // Each step stays at least this long before the next replaces it, as on mobile
 const MIN_STEP_DURATION = 1200;
 const STEP_LEAVE_DURATION = 250;
+// The indicator rises into place this long after it mounts (`agent-activity-appear`)
+const ENTRANCE_DELAY = 180;
+// A glint of light crosses each step once, this long after it comes, as it comes into focus, and takes
+// `GLINT_DURATION` (`agent-activity-glint`), as on iOS
+const GLINT_DELAY = 300;
+const GLINT_DURATION = 750;
 // An indicator that comes this soon after another one left takes its place
 const HANDOFF_WINDOW_MS = 300;
 
@@ -64,6 +71,7 @@ const HANDOFF_WINDOW_MS = 300;
 export interface AgentRunActivityHandoff {
   langKey?: string;
   shownAt?: number;
+  glintStartsAt?: number;
   mountedCount: number;
   leftAt?: number;
   top: AgentSpinningTopHandoff;
@@ -77,27 +85,41 @@ interface OwnProps {
   /** The indicator fades out with its last phase once the activity is gone */
   activity?: AgentRunActivityType;
   /**
-   * Stands in for the answer bubble inside its message. It takes the bubble's place without an entrance
-   * and, once the bubble arrives, fades out on top of it instead of being pushed below.
+   * Stands in for the answer bubble inside its message. It takes the bubble's place without an entrance and, once the
+   * bubble arrives, leaves on top of it instead of being pushed below, turning into it where motion is allowed.
    */
   isAnswerPlaceholder?: boolean;
+  /**
+   * The user stopped the Agent while it was thinking: the step fades out at once, and the top grows and is knocked
+   * while grown, before the indicator goes
+   */
+  isStopped?: boolean;
   /** Shared with the indicator that takes this one's place */
   handoff?: AgentRunActivityHandoff;
 }
 
-function AgentRunActivity({ activity, isAnswerPlaceholder = false, handoff }: OwnProps) {
+function AgentRunActivity({
+  activity, isAnswerPlaceholder = false, isStopped = false, handoff,
+}: OwnProps) {
   const lang = useLang();
   const renderedActivity = useCurrentOrPrev(activity, true);
+  // An indicator closing after a Stop stays stopped as it fades out
+  const isShownStopped = useCurrentOrPrev(activity ? isStopped : undefined, true) ?? false;
   const { ref, shouldRender } = useShowTransition<HTMLDivElement>({
     isOpen: Boolean(activity),
     withShouldRender: true,
     className: false,
-    closeDuration: CLOSE_DURATION,
+    // The bubble that takes the place of the answer's stand-in grows out of it as its top and its step leave
+    closeDuration: isAnswerPlaceholder ? TYPING_ANSWER_MORPH_DURATION : CLOSE_DURATION,
   });
   const [handedOffStep] = useState(() => (activity ? takeHandoff(handoff) : undefined));
   const {
-    currentKey, leavingKey, hasChanged, shownAt,
-  } = useActivitySteps(renderedActivity && getAgentRunActivityLangKey(renderedActivity), handedOffStep);
+    currentKey, leavingKey, hasChanged, shownAt, glintDelay, glintStartsAt,
+  } = useActivitySteps(
+    renderedActivity && getAgentRunActivityLangKey(renderedActivity),
+    handedOffStep,
+    isAnswerPlaceholder ? 0 : ENTRANCE_DELAY,
+  );
 
   useLayoutEffect(() => {
     if (!handoff) return undefined;
@@ -114,6 +136,7 @@ function AgentRunActivity({ activity, isAnswerPlaceholder = false, handoff }: Ow
 
     handoff.langKey = activity ? currentKey : undefined;
     handoff.shownAt = shownAt;
+    handoff.glintStartsAt = glintStartsAt;
   });
 
   if (!shouldRender || !currentKey) return undefined;
@@ -131,17 +154,34 @@ function AgentRunActivity({ activity, isAnswerPlaceholder = false, handoff }: Ow
         className={styles.icon}
         markClassName={styles.iconMark}
         isTouchInteractive
+        // The run's activity shows while the Agent thinks or writes
+        agentState={isShownStopped ? 'stopped' : 'thinking'}
         handoff={handoff?.top}
       />
       {/* A new step comes into focus while the previous one blurs away above it, as on mobile */}
-      <span className={buildClassName(styles.steps, !isAnswerPlaceholder && styles.stepsFocusing)}>
+      <span
+        className={buildClassName(
+          styles.steps, !isAnswerPlaceholder && styles.stepsFocusing, isShownStopped && styles.stepsStopped,
+        )}
+      >
         {leavingKey && (
           <span key={`leaving-${leavingKey}`} className={buildClassName(styles.step, styles.stepLeaving)} aria-hidden>
             <span className={styles.text}>{lang(leavingKey)}</span>
           </span>
         )}
         <span key={currentKey} className={buildClassName(styles.step, hasChanged && styles.stepEntering)}>
-          <span className={styles.text} data-agent-activity-step>{lang(currentKey)}</span>
+          <span className={styles.text} data-agent-activity-step>
+            {glintDelay > -GLINT_DURATION ? (
+              // The glint lights only the text, over its gradient
+              <span
+                className={styles.glint}
+                style={`--glint-delay: ${Math.round(glintDelay)}ms`}
+                data-agent-activity-glint
+              >
+                {lang(currentKey)}
+              </span>
+            ) : lang(currentKey)}
+          </span>
         </span>
       </span>
     </div>
@@ -163,21 +203,57 @@ export function getAgentRunActivityLangKey(activity: AgentRunActivityType) {
 export default memo(AgentRunActivity);
 
 // The step of an indicator that is still on screen, or has just left it
-function takeHandoff(handoff?: AgentRunActivityHandoff) {
-  if (!handoff?.langKey || handoff.shownAt === undefined) return undefined;
+function takeHandoff(handoff?: AgentRunActivityHandoff): HandedOffStep | undefined {
+  if (!handoff?.langKey || handoff.shownAt === undefined || handoff.glintStartsAt === undefined) return undefined;
   const isRecent = handoff.mountedCount > 0
     || (handoff.leftAt !== undefined && performance.now() - handoff.leftAt < HANDOFF_WINDOW_MS);
-  return isRecent ? { langKey: handoff.langKey, shownAt: handoff.shownAt } : undefined;
+  return isRecent
+    ? { langKey: handoff.langKey, shownAt: handoff.shownAt, glintStartsAt: handoff.glintStartsAt }
+    : undefined;
 }
 
-function useActivitySteps(langKey?: string, handedOffStep?: { langKey: string; shownAt: number }) {
+interface HandedOffStep {
+  langKey: string;
+  shownAt: number;
+  glintStartsAt: number;
+}
+
+interface ActivitySteps {
+  currentKey?: string;
+  leavingKey?: string;
+  hasChanged: boolean;
+  /** How long after the current step mounts its glint starts, less than zero for a glint under way */
+  glintDelay: number;
+  glintStartsAt: number;
+}
+
+/**
+ * The step shown, the one leaving, and when the shown step's glint starts: `entranceDelay` and `GLINT_DELAY` after the
+ * first step comes, `GLINT_DELAY` after each later one, and where it stood for a step handed over that goes on
+ */
+function useActivitySteps(
+  langKey: string | undefined,
+  handedOffStep: HandedOffStep | undefined,
+  entranceDelay: number,
+) {
   // The step handed over goes on, or blurs away as the step that came with the move comes into focus
   const isHandedOffStepLeaving = Boolean(handedOffStep && langKey && handedOffStep.langKey !== langKey);
-  const [steps, setSteps] = useState<{ currentKey?: string; leavingKey?: string; hasChanged: boolean }>(() => (
-    isHandedOffStepLeaving
-      ? { currentKey: langKey, leavingKey: handedOffStep?.langKey, hasChanged: true }
-      : { currentKey: langKey ?? handedOffStep?.langKey, hasChanged: false }
-  ));
+  const [steps, setSteps] = useState<ActivitySteps>(() => {
+    if (isHandedOffStepLeaving) {
+      return {
+        currentKey: langKey, leavingKey: handedOffStep!.langKey, hasChanged: true, ...buildGlint(GLINT_DELAY),
+      };
+    }
+    if (handedOffStep) {
+      return {
+        currentKey: langKey ?? handedOffStep.langKey,
+        hasChanged: false,
+        glintDelay: handedOffStep.glintStartsAt - Date.now(),
+        glintStartsAt: handedOffStep.glintStartsAt,
+      };
+    }
+    return { currentKey: langKey, hasChanged: false, ...buildGlint(entranceDelay + GLINT_DELAY) };
+  });
   const shownAtRef = useRef(handedOffStep && !isHandedOffStepLeaving ? handedOffStep.shownAt : Date.now());
   const { currentKey, leavingKey } = steps;
 
@@ -187,7 +263,7 @@ function useActivitySteps(langKey?: string, handedOffStep?: { langKey: string; s
     // The first step shows at once
     if (!currentKey) {
       shownAtRef.current = Date.now();
-      setSteps({ currentKey: langKey, hasChanged: false });
+      setSteps({ currentKey: langKey, hasChanged: false, ...buildGlint(entranceDelay + GLINT_DELAY) });
       return undefined;
     }
 
@@ -195,11 +271,13 @@ function useActivitySteps(langKey?: string, handedOffStep?: { langKey: string; s
     const delay = Math.max(0, shownAtRef.current + MIN_STEP_DURATION - Date.now());
     const timer = window.setTimeout(() => {
       shownAtRef.current = Date.now();
-      setSteps({ currentKey: langKey, leavingKey: currentKey, hasChanged: true });
+      setSteps({
+        currentKey: langKey, leavingKey: currentKey, hasChanged: true, ...buildGlint(GLINT_DELAY),
+      });
     }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [currentKey, langKey]);
+  }, [currentKey, entranceDelay, langKey]);
 
   useEffect(() => {
     if (!leavingKey) return undefined;
@@ -212,4 +290,8 @@ function useActivitySteps(langKey?: string, handedOffStep?: { langKey: string; s
   }, [leavingKey]);
 
   return { ...steps, currentKey: currentKey ?? langKey, shownAt: shownAtRef.current };
+}
+
+function buildGlint(delay: number) {
+  return { glintDelay: delay, glintStartsAt: Date.now() + delay };
 }

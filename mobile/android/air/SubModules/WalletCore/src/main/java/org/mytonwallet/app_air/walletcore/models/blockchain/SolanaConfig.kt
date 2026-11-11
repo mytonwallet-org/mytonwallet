@@ -1,8 +1,19 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
 import java.math.BigDecimal
+import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
+import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
+import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
 
 object SolanaConfig : MBlockchainConfig {
+
+    override val usdtSlug = mapOf(
+        MBlockchainNetwork.MAINNET to SOLANA_USDT_SLUG
+    )
+
+    override val usdcSlug = mapOf(
+        MBlockchainNetwork.MAINNET to SOLANA_USDC_SLUG
+    )
 
     override val gas = MBlockchain.Gas(
         maxSwap = null,
@@ -34,8 +45,9 @@ object SolanaConfig : MBlockchainConfig {
     override val burnAddress = null
     override val multiWalletSupport = MultiWalletSupport.PATH
 
+    // A 32-byte Base58 address shorter than 43 characters starts with `1`
     override fun isValidAddress(address: String): Boolean =
-        Regex("""^[1-9A-HJ-NP-Za-km-z]{32,44}$""").matches(address)
+        Regex("""^(?:[1-9A-HJ-NP-Za-km-z]{43,44}|1[1-9A-HJ-NP-Za-km-z]{31,41})$""").matches(address)
 
     override fun isValidDNS(address: String): Boolean = false
 

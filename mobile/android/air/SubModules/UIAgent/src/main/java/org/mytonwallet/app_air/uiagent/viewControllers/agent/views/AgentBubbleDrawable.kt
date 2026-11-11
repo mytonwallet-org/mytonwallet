@@ -24,14 +24,9 @@ internal const val AGENT_BUBBLE_TAIL_WIDTH = 8
 /** In dp */
 internal const val AGENT_BUBBLE_RADIUS = 21f
 
-// How a bubble's tail grows back out of its corner as the suggestions under it go
-internal const val AGENT_TAIL_REVEAL_DURATION_MS = 400L
-internal const val AGENT_TAIL_REVEAL_DELAY_MS = 50L
-internal const val AGENT_TAIL_REVEAL_DAMPING = 0.75f
-
 /**
  * A message bubble with Telegram's tail at its bottom corner on the sender's side. A bubble that suggestions hang
- * from has no tail, and its tail grows back out of the corner when they go ([tailProgress]).
+ * from has no tail: it goes into the corner as they come and grows back out of it when they go ([tailProgress]).
  */
 class AgentBubbleDrawable(
     private val isOutgoing: Boolean,
@@ -59,6 +54,21 @@ class AgentBubbleDrawable(
             rebuildPaths(bounds.width().toFloat(), bounds.height().toFloat())
             invalidateSelf()
         }
+
+    /**
+     * Bounds the bubble keeps whatever its view sets, as while the skeleton's reveal draws it at a frame moving toward
+     * its own; null lets the view set them again
+     */
+    var lockedBounds: Rect? = null
+        set(value) {
+            field = value?.let(::Rect)
+            value?.let(::setBounds)
+        }
+
+    override fun setBounds(left: Int, top: Int, right: Int, bottom: Int) {
+        val locked = lockedBounds ?: return super.setBounds(left, top, right, bottom)
+        super.setBounds(locked.left, locked.top, locked.right, locked.bottom)
+    }
 
     override fun onBoundsChange(bounds: Rect) {
         super.onBoundsChange(bounds)
@@ -146,6 +156,8 @@ class AgentBubbleDrawable(
 
     override fun draw(canvas: Canvas) {
         canvas.save()
+        // The paths are built from the corner of the bounds, which needn't be the canvas's
+        canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
         if (isMirrored) {
             canvas.translate(bounds.width().toFloat(), 0f)
             canvas.scale(-1f, 1f)
@@ -159,6 +171,9 @@ class AgentBubbleDrawable(
         }
         canvas.restore()
     }
+
+    val bubbleColor: Int
+        get() = paint.color
 
     fun setBubbleColor(color: Int) {
         paint.color = color

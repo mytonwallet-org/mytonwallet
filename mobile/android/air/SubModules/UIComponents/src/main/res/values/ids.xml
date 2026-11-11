@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Stable resource ids for UI automation (Maestro `id:` selectors) -->
+<!-- Stable resource ids for UI automation -->
 <resources>
     <!-- App tabs (top segmented tabs on phones), from `AppTabsManager.registeredTabs` -->
     <item name="tab_wallet" type="id" />
@@ -19,9 +19,14 @@
     <item name="header_action_send" type="id" />
     <item name="header_action_swap" type="id" />
     <item name="header_action_earn" type="id" />
+    <item name="header_action_details" type="id" />
+    <item name="header_action_repeat" type="id" />
+    <item name="header_action_share" type="id" />
 
     <!-- Home search field beside the "+" button -->
     <item name="home_search_input" type="id" />
+    <item name="home_toolbar_accounts_button" type="id" />
+    <item name="home_toolbar_scan_button" type="id" />
 
     <!-- Home "+" button and the actions sheet it opens (HomeActionsSheetVC) -->
     <item name="home_more_actions_button" type="id" />
@@ -142,6 +147,17 @@
     <item name="assets_tokens_on_home_title" type="id" />
     <item name="wallet_versions_current_title" type="id" />
 
+    <!-- Settings sub-screen titles (PortfolioVC, WalletCustomizationVC, HiddenNFTsVC, ChainDisplaySettingsVC, TokenSelectorVC, AppInfoVC, SubWalletsVC, DebugMenuVC, LogsVC) -->
+    <item name="portfolio_title" type="id" />
+    <item name="customize_wallet_title" type="id" />
+    <item name="hidden_nfts_title" type="id" />
+    <item name="blockchains_title" type="id" />
+    <item name="token_selector_title" type="id" />
+    <item name="about_title" type="id" />
+    <item name="subwallets_title" type="id" />
+    <item name="debug_menu_title" type="id" />
+    <item name="logs_title" type="id" />
+
     <!-- Passcode unlock / confirm (PasscodeScreenView) -->
     <item name="passcode_title" type="id" />
     <item name="passcode_subtitle" type="id" />
@@ -183,11 +199,15 @@
     <item name="dialog_action" type="id" />
     <item name="dialog_secondary" type="id" />
 
+    <!-- Rename Wallet dialog (AccountDialogHelpers.presentRename) -->
+    <item name="rename_wallet_input" type="id" />
+
     <!-- Agent chat (AgentVC, AgentComposerView, AgentConsentView, AgentNewChatVC) -->
     <item name="agent_chat_list" type="id" />
     <item name="agent_input" type="id" />
     <item name="agent_send" type="id" />
     <item name="agent_microphone" type="id" />
+    <item name="agent_stop" type="id" />
     <item name="agent_menu_button" type="id" />
     <item name="agent_menu_retry" type="id" />
     <item name="agent_menu_report" type="id" />
@@ -210,6 +230,7 @@
     <item name="agent_message_text" type="id" />
     <item name="agent_message_system" type="id" />
     <item name="agent_typing_indicator" type="id" />
+    <item name="agent_run_idle" type="id" />
     <item name="agent_message_actions" type="id" />
     <item name="agent_action_button" type="id" />
 
@@ -227,4 +248,107 @@
     <item name="agent_thread_menu_rename" type="id" />
     <item name="agent_thread_menu_delete" type="id" />
     <item name="agent_message_menu_tap" type="id" />
+
+    <!-- Home card (only the current card carries them, see `WalletCardView`) -->
+    <item name="home_wallet_name" type="id" />
+    <item name="home_address" type="id" />
+    <item name="home_balance" type="id" />
+    <item name="home_portfolio_pill" type="id" />
+
+    <!-- Address popover on the Home card -->
+    <item name="address_share" type="id" />
+    <item name="address_row" type="id" />
+    <item name="address_copy" type="id" />
+    <item name="address_qr" type="id" />
+
+    <!-- Home lists -->
+    <item name="home_token_row" type="id" />
+    <item name="home_assets_more_button" type="id" />
+    <item name="home_show_all" type="id" />
+    <item name="activity_row" type="id" />
+
+    <!-- Tokens and Collectibles tabs -->
+    <item name="assets_tab_tokens" type="id" />
+    <item name="assets_tab_collectibles" type="id" />
+
+    <!-- Home assets menu -->
+    <item name="assets_menu_top_5" type="id" />
+    <item name="assets_menu_top_10" type="id" />
+    <item name="assets_menu_top_30" type="id" />
+    <item name="assets_menu_add_token" type="id" />
+    <item name="assets_menu_manage_assets" type="id" />
+    <item name="assets_menu_reorder_tabs" type="id" />
+
+    <!-- Home activity menu -->
+    <item name="activity_menu_button" type="id" />
+    <item name="activity_menu_top_5" type="id" />
+    <item name="activity_menu_top_10" type="id" />
+    <item name="activity_menu_top_30" type="id" />
+
+    <!-- Token long-press menu -->
+    <item name="token_menu_add" type="id" />
+    <item name="token_menu_send" type="id" />
+    <item name="token_menu_trade" type="id" />
+    <item name="token_menu_stake" type="id" />
+    <item name="token_menu_pin" type="id" />
+    <item name="token_menu_unpin" type="id" />
+    <item name="token_menu_manage_assets" type="id" />
+
+    <!-- Send long-press menu -->
+    <item name="send_menu_send" type="id" />
+    <item name="send_menu_multisend" type="id" />
+    <item name="send_menu_sell" type="id" />
+
+    <!-- Wallet switcher -->
+    <item name="wallet_switcher_manage" type="id" />
+    <item name="wallet_switcher_add" type="id" />
+    <item name="wallet_switcher_account" type="id" />
+
+    <!-- Token screen and QR scanner -->
+    <item name="token_more_button" type="id" />
+    <item name="qr_scan_close" type="id" />
+    <item name="qr_scan_torch" type="id" />
+
+    <!-- Manage Wallets -->
+    <item name="wallets_tab_all" type="id" />
+    <item name="wallets_tab_my" type="id" />
+    <item name="wallets_tab_ledger" type="id" />
+    <item name="wallets_tab_view" type="id" />
+    <item name="wallets_cell_list" type="id" />
+    <item name="wallets_cell_grid" type="id" />
+    <item name="wallets_menu_button" type="id" />
+    <item name="wallets_checkbox" type="id" />
+    <item name="wallets_primary_button" type="id" />
+    <item name="wallets_drag_handle" type="id" />
+    <item name="wallets_view_mode" type="id" />
+    <item name="wallets_reorder" type="id" />
+    <item name="wallets_menu_reorder" type="id" />
+    <item name="wallets_menu_rename" type="id" />
+    <item name="wallets_menu_customize" type="id" />
+    <item name="wallets_menu_remove" type="id" />
+
+    <!-- Customize Wallet, Add Token and Settings rows -->
+    <item name="customize_palette_item" type="id" />
+    <item name="customize_get_card" type="id" />
+    <item name="token_selector_row" type="id" />
+    <item name="settings_account_row" type="id" />
+
+    <!-- Navigation bar buttons -->
+    <item name="nav_back" type="id" />
+    <item name="nav_close" type="id" />
+
+    <!-- Market, Explore and search lists -->
+    <item name="market_list" type="id" />
+    <item name="market_see_all" type="id" />
+    <item name="market_mover" type="id" />
+    <item name="market_grid_item" type="id" />
+    <item name="market_row" type="id" />
+    <item name="explore_trending_item" type="id" />
+    <item name="explore_connected_item" type="id" />
+    <item name="explore_site_row" type="id" />
+    <item name="explore_site_icon_1" type="id" />
+    <item name="explore_site_icon_2" type="id" />
+    <item name="explore_site_icon_3" type="id" />
+    <item name="explore_other_sites" type="id" />
+    <item name="search_item_row" type="id" />
 </resources>

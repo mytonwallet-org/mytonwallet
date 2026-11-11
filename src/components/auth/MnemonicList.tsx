@@ -5,6 +5,7 @@ import buildClassName from '../../util/buildClassName';
 import { IS_LEGACY_APP_HOST } from '../../util/windowEnvironment';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../hooks/useInactivityTimeout';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -33,6 +34,8 @@ function MnemonicList({
     isActive,
     onBack: onClose,
   });
+
+  useInactivityTimeout(onClose, isActive);
 
   const handleOpenNewDomain = useLastCallback(() => {
     window.open(NEW_APP_URL, '_blank', 'noopener');

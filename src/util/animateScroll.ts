@@ -1,6 +1,6 @@
 import { setExtraStyles } from '../lib/teact/teact-dom';
 
-import { requestMeasure, requestMutation } from '../lib/fasterdom/fasterdom';
+import { getPhase, requestMeasure, requestMutation } from '../lib/fasterdom/fasterdom';
 import { animateSingle, cancelSingleAnimation } from './animation';
 
 type GetTargetScrollTop = (container: HTMLElement) => number;
@@ -340,7 +340,7 @@ function stopHoldingTarget() {
 
 function resetActiveAnimation() {
   if (activeContainer) {
-    setExtraStyles(activeContainer, { scrollBehavior: '' });
+    restoreScrollBehavior(activeContainer);
   }
 
   stopHoldingTarget();
@@ -351,6 +351,21 @@ function resetActiveAnimation() {
   activeTiming = undefined;
   activeWrittenScrollTop = undefined;
   activeMovedAt = 0;
+}
+
+// A touch or a wheel stops the animation outside the mutation phase, so the style is cleared in the next one.
+// A new animation that has taken the container by then keeps its `scroll-behavior`.
+function restoreScrollBehavior(container: HTMLElement) {
+  if (getPhase() === 'mutate') {
+    setExtraStyles(container, { scrollBehavior: '' });
+    return;
+  }
+
+  requestMutation(() => {
+    if (activeContainer !== container) {
+      setExtraStyles(container, { scrollBehavior: '' });
+    }
+  });
 }
 
 function shortTransition(t: number) {

@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.CardThumbnailView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -152,6 +153,7 @@ class SettingsAccountCell(context: Context) :
     }
 
     init {
+        id = UIComponentsR.id.settings_account_row
         super.setupViews()
 
         addView(contentView, LayoutParams(MATCH_PARENT, 50.dp))

@@ -3,6 +3,21 @@ import UIKit
 import UIComponents
 import WalletContext
 
+/// One metric of the Info card, shared by token and futures pages.
+struct AssetInfoField: Equatable, Identifiable {
+    let id: String
+    let title: String
+    var info: String?
+    let value: String
+}
+
+/// Info card content for an asset without token details, such as a futures market.
+struct AssetInfoSummary: Equatable {
+    var description: String?
+    var fields: [AssetInfoField]
+    var isStale = false
+}
+
 struct AssetInfoMetricRow: View {
     let title: String
     var info: String? = nil
@@ -48,10 +63,13 @@ struct AssetInfoHelpButton: View {
                 .textStyle(.supporting, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel.opacity(0.4))
                 .frame(width: 16, height: 22)
-                .padding(4)
-                .contentShape(.circle)
+                // A 44-point touch target that does not move the row's layout.
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(.rect)
         }
-        .padding(-4)
+        .padding(.horizontal, -14)
+        .padding(.vertical, -11)
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityHint(lang("Shows more information"))

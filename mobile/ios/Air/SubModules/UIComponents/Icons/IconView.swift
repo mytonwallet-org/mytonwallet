@@ -82,6 +82,8 @@ public class IconView: UIView {
     private static let tokenPlaceholderTextColor = UIColor.air.secondaryLabel
     private static let tokenPlaceholderBorderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.5)
     private static let tokenLoadingPlaceholderColor = UIColor.air.secondaryLabel.withAlphaComponent(0.08)
+    /// Sits behind dark glyph icons, which would otherwise disappear on dark backgrounds.
+    private static let darkGlyphBackingColor = UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.94, alpha: 1) : .clear }
 
     private enum IconShape {
         case circle
@@ -1001,7 +1003,73 @@ public class IconView: UIView {
     }
 
     private func hideTokenLoadingPlaceholder() {
-        imageView.backgroundColor = iconShape == .roundedSquare && tokenImageState == .loaded ? .black : .clear
+        guard tokenImageState == .loaded else {
+            imageView.backgroundColor = .clear
+            return
+        }
+        // A stock tile would surround round artwork, such as XYZ 100 and PAX Gold, with black corners.
+        if iconShape == .roundedSquare, imageView.image.map(Self.isRoundArtwork) == true {
+            applyIconShape(.circle)
+        }
+        imageView.backgroundColor = iconShape == .roundedSquare ? .black
+            : imageView.image.map(Self.isDarkGlyph) == true ? Self.darkGlyphBackingColor : .clear
+    }
+
+    /// A dark shape that leaves much of its circle transparent, such as Hyperliquid's ETH and XRP icons.
+    static func isDarkGlyph(_ image: UIImage) -> Bool {
+        let side = 16
+        guard let pixels = sampledPixels(of: image, side: side) else { return false }
+        var inside = 0
+        var covered = 0
+        var luminance = 0.0
+        for y in 0..<side {
+            for x in 0..<side {
+                let dx = Double(x) + 0.5 - Double(side) / 2
+                let dy = Double(y) + 0.5 - Double(side) / 2
+                guard dx * dx + dy * dy <= Double(side * side) / 4 else { continue }
+                inside += 1
+                let pixel = (y * side + x) * 4
+                let alpha = Double(pixels[pixel + 3]) / 255
+                guard alpha > 0.5 else { continue }
+                covered += 1
+                luminance += (0.2126 * Double(pixels[pixel]) + 0.7152 * Double(pixels[pixel + 1])
+                    + 0.0722 * Double(pixels[pixel + 2])) / 255 / alpha
+            }
+        }
+        guard covered > 0 else { return false }
+        return Double(covered) / Double(inside) < 0.75 && luminance / Double(covered) < 0.3
+    }
+
+    /// Artwork that leaves the corners of its square transparent and fills a circle out to near its edge.
+    static func isRoundArtwork(_ image: UIImage) -> Bool {
+        let side = 32
+        guard let pixels = sampledPixels(of: image, side: side) else { return false }
+        func isOpaque(_ x: Double, _ y: Double) -> Bool {
+            pixels[(Int(y * Double(side)) * side + Int(x * Double(side))) * 4 + 3] > 128
+        }
+        // These corner points lie inside a stock tile's rounded corners but outside the inscribed circle.
+        guard [(0.12, 0.12), (0.88, 0.12), (0.12, 0.88), (0.88, 0.88)].allSatisfy({ !isOpaque($0.0, $0.1) }) else {
+            return false
+        }
+        let rim = (0..<36).filter { step in
+            let angle = Double(step) * .pi / 18
+            return isOpaque(0.5 + 0.4 * cos(angle), 0.5 + 0.4 * sin(angle))
+        }
+        return rim.count >= 32
+    }
+
+    /// RGBA pixels, premultiplied, of the image drawn into a square of the given side.
+    private static func sampledPixels(of image: UIImage, side: Int) -> [UInt8]? {
+        guard let cgImage = image.cgImage else { return nil }
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                          bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        return drawn ? pixels : nil
     }
 
     private func updateTokenPlaceholderAppearance() {

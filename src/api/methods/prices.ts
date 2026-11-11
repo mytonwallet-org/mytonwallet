@@ -1,4 +1,4 @@
-import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistoryPeriod, ApiToken } from '../types';
+import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistory, ApiPriceHistoryPeriod, ApiToken } from '../types';
 
 import { DEFAULT_PRICE_CURRENCY } from '../../config';
 import { callBackendGet } from '../common/backend';
@@ -9,7 +9,7 @@ export async function fetchPriceHistory(
   period: ApiPriceHistoryPeriod,
   baseCurrency: ApiBaseCurrency = DEFAULT_PRICE_CURRENCY,
   fallbackToken?: Pick<ApiToken, 'chain' | 'tokenAddress' | 'symbol'>,
-): Promise<ApiHistoryList | undefined> {
+): Promise<ApiPriceHistory | undefined> {
   await tokensPreload.promise;
   const token = getTokenBySlug(slug) ?? fallbackToken;
 
@@ -19,9 +19,10 @@ export async function fetchPriceHistory(
 
   const assetId = `${token.chain}:${token.tokenAddress ?? token.symbol}`;
 
-  return callBackendGet<ApiHistoryList>(`/prices/chart/${encodeURIComponent(assetId)}`, {
+  return callBackendGet<ApiPriceHistory>(`/prices/chart/${encodeURIComponent(assetId)}`, {
     base: baseCurrency,
     period,
+    withSegments: true,
   });
 }
 

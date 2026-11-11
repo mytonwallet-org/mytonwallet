@@ -1,5 +1,6 @@
 plugins {
     id("org.mytonwallet.android.library")
+    alias(libs.plugins.google.devtools.ksp)
 }
 
 android {
@@ -9,6 +10,8 @@ android {
 val airSubModulePath = project.property("airSubModulePath")
 
 dependencies {
+    ksp(libs.moshi.codegen)
+    implementation(libs.moshi.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.biometric)

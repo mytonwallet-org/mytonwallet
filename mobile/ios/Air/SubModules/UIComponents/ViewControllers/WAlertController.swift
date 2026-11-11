@@ -49,7 +49,7 @@ public final class WAlertController: UIViewController {
     private var actions: [WAlertAction]
     private var isPerformingAction = false
     fileprivate let dimView = UIControl()
-    fileprivate let glassContainer: UIVisualEffectView
+    fileprivate let glassContainer = WAlertGlassContainer()
     fileprivate let panel = UIView()
     private let panelBackground = UIVisualEffectView()
     private let scrollView = UIScrollView()
@@ -67,13 +67,6 @@ public final class WAlertController: UIViewController {
         self.configuration = configuration
         self.actions = actions
         self.contentView = contentView
-        if #available(iOS 26.0, *) {
-            let effect = UIGlassContainerEffect()
-            effect.spacing = 7
-            self.glassContainer = WAlertGlassContainer(effect: effect)
-        } else {
-            self.glassContainer = WAlertGlassContainer(effect: nil)
-        }
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .custom
         transitioningDelegate = self
@@ -352,10 +345,33 @@ extension WAlertController: UIGestureRecognizerDelegate {
     }
 }
 
-private final class WAlertGlassContainer: UIVisualEffectView {
+private final class WAlertGlassContainer: UIView {
+    let contentView: UIView
+    private let effectView: UIVisualEffectView?
+
+    init() {
+        if #available(iOS 26.0, *) {
+            let effect = UIGlassContainerEffect()
+            effect.spacing = 7
+            let effectView = UIVisualEffectView(effect: effect)
+            self.effectView = effectView
+            contentView = effectView.contentView
+        } else {
+            effectView = nil
+            contentView = UIView()
+        }
+        super.init(frame: .zero)
+        let container = effectView ?? contentView
+        container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(container)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let result = super.hitTest(point, with: event)
-        return result === self || result === contentView ? nil : result
+        return result === self || result === effectView || result === contentView ? nil : result
     }
 }
 
@@ -503,12 +519,26 @@ private final class WAlertTransition: NSObject, UIViewControllerAnimatedTransiti
             alert.view.frame = context.finalFrame(for: alert)
             alert.view.layoutIfNeeded()
         }
-        // Telegram fades the glass container separately from the 1.15 -> 1 spring on its panel.
-        let fromAlpha: CGFloat = presenting ? 0 : 1
         let toAlpha: CGFloat = presenting ? 1 : 0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock {
+            let completed = !context.transitionWasCancelled
+            if !completed {
+                let restoredAlpha: Float = self.presenting ? 0 : 1
+                alert.dimView.layer.opacity = restoredAlpha
+                alert.glassContainer.layer.opacity = restoredAlpha
+            }
+            context.completeTransition(completed)
+            if self.presenting && completed {
+                UIAccessibility.post(notification: .screenChanged, argument: nil)
+            }
+        }
         for view in [alert.dimView, alert.glassContainer] {
-            let currentAlpha = view.layer.presentation().map { CGFloat($0.opacity) } ?? fromAlpha
-            view.alpha = presenting ? 0 : currentAlpha
+            let fromAlpha = presenting ? 0 : CGFloat(view.layer.presentation()?.opacity ?? view.layer.opacity)
+            view.layer.opacity = Float(toAlpha)
+            view.layer.animateAlpha(from: fromAlpha, to: toAlpha, duration: 0.2,
+                                    timingFunction: CAMediaTimingFunctionName.linear.rawValue)
         }
         if presenting && !UIAccessibility.isReduceMotionEnabled {
             let spring = makeSpringAnimation("transform.scale")
@@ -527,17 +557,6 @@ private final class WAlertTransition: NSObject, UIViewControllerAnimatedTransiti
             spring.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
             alert.panel.layer.add(spring, forKey: "alertEntrance")
         }
-        let duration = transitionDuration(using: context)
-        UIView.animateKeyframes(withDuration: duration, delay: 0, options: .calculationModeLinear) {
-            UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.2 / duration) {
-                alert.dimView.alpha = toAlpha
-                alert.glassContainer.alpha = toAlpha
-            }
-        } completion: { _ in
-            context.completeTransition(!context.transitionWasCancelled)
-            if self.presenting && !context.transitionWasCancelled {
-                UIAccessibility.post(notification: .screenChanged, argument: nil)
-            }
-        }
+        CATransaction.commit()
     }
 }

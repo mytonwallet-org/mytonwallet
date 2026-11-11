@@ -11,6 +11,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.ViewTreeObserver
 import android.widget.Toast
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.constraintlayout.widget.ConstraintLayout.generateViewId
 import androidx.core.view.isGone
@@ -25,11 +26,15 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.widgets.IPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -38,6 +43,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
+import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopupView
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
@@ -50,7 +56,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
+import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
+import org.mytonwallet.app_air.walletbasecontext.utils.vec2i
+import org.mytonwallet.app_air.walletbasecontext.utils.y
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -68,7 +78,8 @@ class ReceiveVC private constructor(
     private val preferredBuyingTokenSlug: String? = null,
     private val singleChain: Boolean = false,
     private val tokenSymbol: String? = null
-) : WViewControllerWithModelStore(context) {
+) : WViewControllerWithModelStore(context),
+    WalletCore.EventObserver {
     @Suppress("PropertyName")
     override val TAG = "Receive"
 
@@ -83,6 +94,7 @@ class ReceiveVC private constructor(
     companion object {
         const val OPTION_ROW_HEIGHT = 50
         private const val BOTTOM_CONTENT_PADDING = 15
+        private const val NETWORK_CHECKMARK_EXTRA_WIDTH = 36
 
         fun createIfAvailable(
             context: Context,
@@ -149,6 +161,7 @@ class ReceiveVC private constructor(
     private val pendingGradientBackgrounds = mutableMapOf<Int, Pair<Int, Int>>()
     private var gradientBackgroundWidth = 0
     private var gradientBackgroundHeight = 0
+    private var networkMenu: IPopup? = null
 
     private val qrSegmentView: WSegmentedController by lazy {
         val defaultIndex = defaultChainIndex
@@ -200,9 +213,14 @@ class ReceiveVC private constructor(
             },
             forceCenterTabs = false,
             pilledTabs = true,
-            applyPagerSideInsets = false
+            applyPagerSideInsets = false,
+            shouldSkipIntermediatePages = true,
+            onDirectPageTransitionProgress = ::updateDirectNetworkTransition
         )
         segmentedController.addCloseButton()
+        segmentedController.shouldCenterSelectedTab = true
+        segmentedController.onSelectedTabClick = ::presentNetworkMenu
+        segmentedController.onTabsLongPress = ::presentNetworkMenu
         if (singleChain) segmentedController.lockTab()
         segmentedController
     }
@@ -257,6 +275,7 @@ class ReceiveVC private constructor(
             toBottom(copyAddressSeparator)
         }
         v.setOnClickListener {
+            if (qrSegmentView.isPageTransitioning) return@setOnClickListener
             if (!ClipboardHelpers.copyToClipboard(
                     context,
                     "Wallet Address",
@@ -309,6 +328,7 @@ class ReceiveVC private constructor(
                 toTop(buyWithCardLabel, 14f)
             }
             v.setOnClickListener {
+                if (qrSegmentView.isPageTransitioning) return@setOnClickListener
                 openBuyWithCard(currentQRCode.chain.name)
             }
         }
@@ -334,6 +354,7 @@ class ReceiveVC private constructor(
                 toCenterY(buyWithCryptoLabel)
             }
             v.setOnClickListener {
+                if (qrSegmentView.isPageTransitioning) return@setOnClickListener
                 val chain = currentQRCode.chain
                 val buyingToken = TokenStore.getToken(preferredBuyingTokenSlug)
                     ?.takeIf { it.mBlockchain == chain }
@@ -366,6 +387,7 @@ class ReceiveVC private constructor(
             toTop(invoiceLabel, 14f)
         }
         v.setOnClickListener {
+            if (qrSegmentView.isPageTransitioning) return@setOnClickListener
             val invoiceVC = InvoiceVC(context)
             navigationController?.push(invoiceVC)
         }
@@ -453,6 +475,7 @@ class ReceiveVC private constructor(
 
     override fun setupViews() {
         super.setupViews()
+        WalletCore.registerObserver(this)
 
         val layerPaint = Paint().apply {
             isAntiAlias = true
@@ -503,6 +526,8 @@ class ReceiveVC private constructor(
 
     override val isTinted = true
     override fun updateTheme() {
+        qrSegmentView.finishPageTransition()
+        networkMenu?.dismiss()
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         titleLabel.setTextColor(Color.WHITE)
@@ -540,7 +565,14 @@ class ReceiveVC private constructor(
 
     private fun retainGradientBackgroundsAround(offset: Float) {
         if (availableChains.isEmpty()) return
+        val centerIndex = offset.roundToInt().coerceIn(0, availableChains.lastIndex)
+        retainGradientBackgrounds(
+            (centerIndex - 1..centerIndex + 1)
+                .filterTo(mutableSetOf()) { it in availableChains.indices }
+        )
+    }
 
+    private fun retainGradientBackgrounds(indices: Set<Int>) {
         val cacheWidth = ApplicationContextHolder.screenWidth
         val cacheHeight = (navigationController?.getSystemBars()?.top ?: 0) + 307.dp + 64.dp
         val sizeChanged = cacheWidth != gradientBackgroundWidth ||
@@ -551,9 +583,7 @@ class ReceiveVC private constructor(
             gradientColorViews.forEach { it.background = null }
         }
 
-        val centerIndex = offset.roundToInt().coerceIn(0, availableChains.lastIndex)
-        retainedGradientIndices = (centerIndex - 1..centerIndex + 1)
-            .filterTo(mutableSetOf()) { it in availableChains.indices }
+        retainedGradientIndices = indices
 
         gradientColorViews.forEachIndexed { index, view ->
             if (index !in retainedGradientIndices) {
@@ -637,6 +667,8 @@ class ReceiveVC private constructor(
         switchableAccounts().any { it.accountId != AccountStore.activeAccountId }
 
     private fun switchAccount(account: MAccount) {
+        qrSegmentView.finishPageTransition()
+        networkMenu?.dismiss()
         accountSelectorView.setLoading(true)
         WalletCore.ensureAccountActivated(account.accountId) { accountChanged ->
             if (accountChanged) {
@@ -664,6 +696,115 @@ class ReceiveVC private constructor(
             fadeInView = { receiveVC.scrollView }
         ) {
             nav.replaceRoot(receiveVC)
+        }
+    }
+
+    private fun presentNetworkMenu(anchor: View): Boolean {
+        if (networkMenu != null || isDisappeared || isDestroyed || singleChain) return false
+        qrSegmentView.finishPageTransition()
+        val popupHost = PopupHelpers.popupHost ?: return false
+        val account = AccountStore.activeAccount
+            ?.takeIf { it.accountId == displayedAccount.accountId } ?: return false
+        val chains = availableChains.filter { chain ->
+            chain in MBlockchain.supportedChains && account.byChain.containsKey(chain.name)
+        }
+        if (chains.size < 2) return false
+        val selectedChain = currentQRCode.chain
+
+        val items = chains.map { chain ->
+            val address = account.byChain.getValue(chain.name).address
+            WMenuPopup.Item(
+                config = WMenuPopup.Item.Config.Item(
+                    icon = WMenuPopup.Item.Config.Icon(
+                        chain.icon,
+                        iconSize = 36.dp
+                    ),
+                    title = chain.displayName,
+                    subtitle = address.trimAddress(12),
+                    textMargin = 58.dp,
+                    trailingViewProvider = if (chain == selectedChain) {
+                        ::createNetworkCheckmark
+                    } else {
+                        null
+                    },
+                    rowStyle = WMenuPopup.RowStyle.WALLET
+                ),
+                onTap = {
+                    selectNetwork(chain, account.accountId, address)
+                }
+            )
+        }
+        // The trailing checkmark column needs 36dp beyond the menu's default end inset
+        val menuWidth = (
+            WMenuPopupView.measureWidth(context, items) + NETWORK_CHECKMARK_EXTRA_WIDTH.dp
+            ).coerceAtMost(popupHost.getContentAreaBounds().width())
+        networkMenu = WMenuPopup.present(
+            view = anchor,
+            items = items,
+            popupWidth = menuWidth,
+            positioning = WMenuPopup.Positioning.ALIGNED,
+            backdropStyle = WMenuPopup.BackdropStyle.PlainBlur,
+            placement = { width, _ ->
+                val bounds = popupHost.getContentAreaBounds()
+                vec2i(
+                    ((popupHost.width - width) / 2).coerceIn(bounds.left, bounds.right - width),
+                    anchor.getLocationInWindow().y
+                )
+            },
+            shouldMorphFromSource = true,
+            onDidDismiss = { networkMenu = null }
+        )
+        return true
+    }
+
+    private fun createNetworkCheckmark(): View = object : AppCompatImageView(context) {
+        init {
+            setImageDrawable(
+                context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_check)
+                    ?.mutate()?.apply { setTint(WColor.Tint.color) }
+            )
+        }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            super.onMeasure(28.dp.exactly, 28.dp.exactly)
+        }
+    }
+
+    private fun selectNetwork(chain: MBlockchain, accountId: String, address: String) {
+        if (isDisappeared || isDestroyed || displayedAccount.accountId != accountId) return
+        val account = AccountStore.activeAccount?.takeIf { it.accountId == accountId } ?: return
+        if (chain !in MBlockchain.supportedChains ||
+            account.byChain[chain.name]?.address != address ||
+            (singleChain && chain != defaultChain)
+        ) {
+            return
+        }
+        val index = availableChains.indexOf(chain)
+        if (index >= 0) qrSegmentView.onIndexChanged(index, animated = true)
+    }
+
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        when (walletEvent) {
+            is WalletEvent.AccountWillChange,
+            is WalletEvent.AccountChanged,
+            is WalletEvent.AccountChangedInApp,
+            is WalletEvent.AccountRemoved,
+            WalletEvent.AccountsReset,
+            WalletEvent.ConfigReceived,
+            WalletEvent.AccountConfigReceived,
+            WalletEvent.AppBackground -> {
+                qrSegmentView.finishPageTransition()
+                networkMenu?.dismiss()
+            }
+
+            is WalletEvent.ByChainUpdated -> {
+                if (walletEvent.accountId == displayedAccount.accountId) {
+                    qrSegmentView.finishPageTransition()
+                    networkMenu?.dismiss()
+                }
+            }
+
+            else -> Unit
         }
     }
 
@@ -745,6 +886,8 @@ class ReceiveVC private constructor(
     }
 
     override fun viewWillDisappear() {
+        qrSegmentView.finishPageTransition()
+        networkMenu?.dismiss()
         super.viewWillDisappear()
         window?.forceStatusBarLight = null
     }
@@ -810,6 +953,23 @@ class ReceiveVC private constructor(
         }
     }
 
+    private fun updateDirectNetworkTransition(from: Int, to: Int, progress: Float) {
+        val source = availableChains.getOrNull(from)?.let(qrCodeVCs::get) ?: return
+        val destination = availableChains.getOrNull(to)?.let(qrCodeVCs::get) ?: return
+        retainGradientBackgrounds(setOf(from, to))
+        gradientColorViews.forEachIndexed { index, view ->
+            view.alpha = when (index) {
+                from -> 1f - progress
+                to -> progress
+                else -> 0f
+            }
+        }
+        animateQrView(destination, 0, 0f)
+        val height = qrCodeHeight(source) * (1f - progress) + qrCodeHeight(destination) * progress
+        qrSegmentView.updateLayoutParams { this.height = height.toInt() }
+        updateOptionsForTransition(from, to, progress)
+    }
+
     private fun animateQrView(vc: QRCodeVC, direction: Int, progress: Float) {
         val qrCodeView = vc.qrCodeView
         val ornamentView = vc.ornamentView
@@ -835,6 +995,11 @@ class ReceiveVC private constructor(
     }
 
     override fun onDestroy() {
+        WalletCore.unregisterObserver(this)
+        qrSegmentView.finishPageTransition()
+        networkMenu?.dismiss()
+        qrSegmentView.onTabsLongPress = null
+        qrSegmentView.onSelectedTabClick = null
         super.onDestroy()
         retainedGradientIndices = emptySet()
         pendingGradientBackgrounds.clear()
@@ -849,24 +1014,26 @@ class ReceiveVC private constructor(
     }
 
     private fun updateOptionsForOffset(offset: Float) {
+        if (availableChains.isEmpty()) return
+        val from = offset.toInt().coerceIn(0, availableChains.lastIndex)
+        val to = (from + 1).coerceAtMost(availableChains.lastIndex)
+        updateOptionsForTransition(from, to, (offset - from).coerceIn(0f, 1f))
+    }
+
+    private fun updateOptionsForTransition(from: Int, to: Int, progress: Float) {
         if (isViewOnlyAccount) return
 
-        val tonIndex = availableChains.indexOf(MBlockchain.ton)
-        val tonFraction = if (tonIndex >= 0) {
-            (1f - kotlin.math.abs(offset - tonIndex)).coerceIn(0f, 1f)
-        } else {
-            0f
-        }
+        val sourceTonFraction = if (availableChains[from] == MBlockchain.ton) 1f else 0f
+        val destinationTonFraction = if (availableChains[to] == MBlockchain.ton) 1f else 0f
+        val tonFraction = sourceTonFraction * (1f - progress) + destinationTonFraction * progress
         invoiceView.layoutParams?.height = (OPTION_ROW_HEIGHT.dp * tonFraction).toInt()
         invoiceView.requestLayout()
         invoiceView.isClickable = tonFraction == 1f
 
         if (AccountStore.activeAccount?.supportsBuyWithCard == true) {
-            val floorIdx = offset.toInt().coerceIn(0, availableChains.size - 1)
-            val ceilIdx = (floorIdx + 1).coerceAtMost(availableChains.size - 1)
-            val fracA = if (isBuyWithCardOffered(availableChains[floorIdx])) 1f else 0f
-            val fracB = if (isBuyWithCardOffered(availableChains[ceilIdx])) 1f else 0f
-            val buyWithCardFraction = fracA + (fracB - fracA) * (offset - floorIdx)
+            val fracA = if (isBuyWithCardOffered(availableChains[from])) 1f else 0f
+            val fracB = if (isBuyWithCardOffered(availableChains[to])) 1f else 0f
+            val buyWithCardFraction = fracA + (fracB - fracA) * progress
             val buyWithCardHeight = (OPTION_ROW_HEIGHT.dp * buyWithCardFraction).toInt()
             buyWithCardView.layoutParams?.height = buyWithCardHeight
             buyWithCardView.isGone = buyWithCardHeight == 0

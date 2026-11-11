@@ -110,8 +110,7 @@ npm run smoke:agent:v2:local
 
 The smoke uses PostgreSQL, the Agent scripted provider and synthetic wallet data. It does not call an external LLM,
 wallet backend, Portfolio API or Market API. It validates the shared SDK and Classic integration through the production
-decoders and client-side wallet tool paths. Native iOS uses the same SDK through the WalletCore bridge; Android Air
-continues to use Agent V1.
+decoders and client-side wallet tool paths. Native iOS and Android Air use the same SDK through their WalletCore bridges.
 
 For interactive Classic testing, start the backend from the sibling `agent`
 repository. The backend owns its PostgreSQL lifecycle, migrations, provider

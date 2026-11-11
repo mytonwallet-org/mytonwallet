@@ -1,6 +1,8 @@
+import SwiftUI
 import Testing
 import UIKit
 import UIComponents
+import WalletCore
 import WalletResources
 @testable import UIToken
 
@@ -21,6 +23,11 @@ struct PerpsReceiptPresentationTests {
         #expect(sheet.selectedDetentIdentifier == .init("perpsReceipt"))
         #expect(sheet.prefersGrabberVisible)
         #expect(sheet.delegate === receipt)
+        // The unmeasured 264-point summary sits below the 44-point bar and the 8-point content inset.
+        let compact = try #require(sheet.detents.first)
+        let summaryBottom: CGFloat = 264 + 44 + 8
+        #expect(compact.resolvedValue(in: DetentContext(maximumDetentValue: 1_000)) == summaryBottom)
+        #expect(compact.resolvedValue(in: DetentContext(maximumDetentValue: 200)) == 200)
     }
 
     @Test func adaptingRestoresCompactSizeWithoutCollapsingExpandedDetailsOnRepeatedSetup() throws {
@@ -102,6 +109,42 @@ struct PerpsReceiptPresentationTests {
         [view] + view.subviews.flatMap(descendants)
     }
 
+    @Test func hideUnavailableClosedReceiptRows() async throws {
+        func render(hasDetails: Bool) async throws -> CGFloat {
+            let outcome = PerpsPositionOutcome(invested: hasDetails ? "$10.85" : "—",
+                closingValue: hasDetails ? "$9.51" : "—", entryPrice: "$80 578", exitPrice: "$79 848",
+                profitLoss: .init("−$0.23", tone: .negative),
+                closingValueAmount: hasDetails ? .fromDouble(9.51, .USD) : nil)
+            var data = PerpsPositionReceiptDisplayData(token: .ETH, direction: .long, leverage: 0,
+                margin: .fromDouble(-0.23, .USD), timestamp: 1_792_866_000_000, positionSize: "$21.54",
+                price: "$79 848", liquidationPrice: nil, paymentAmount: hasDetails ? "9.51 USDC" : "—",
+                fee: "0.03 USDC", event: .closed(outcome))
+            data.feeRows = [.init(id: "exchange", title: "Exchange Fee", value: "0.03 USDC"),
+                            .init(id: "bridge", title: "Bridge Fee", value: hasDetails ? "0.2 USDC" : "—")]
+            let presentation = PerpsPositionReceiptPresentation(data: data)
+            presentation.detailsExpanded = true
+            let controller = UIHostingController(rootView: PerpsPositionReceiptView(presentation: presentation,
+                onDetails: {}, onShare: nil, onHeightChange: { _ in }).padding(16))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 1100))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(100))
+            let height = controller.sizeThatFits(in: CGSize(width: 402, height: CGFloat.greatestFiniteMagnitude)).height
+            controller.view.frame = CGRect(x: 0, y: 0, width: 402, height: height)
+            controller.view.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: controller.view.bounds).image { context in
+                controller.view.layer.render(in: context.cgContext)
+            }
+            Attachment.record(try #require(image.pngData()), named: hasDetails ? "receipt-complete.png" : "receipt-missing.png")
+            return height
+        }
+        let completeHeight = try await render(hasDetails: true)
+        let missingHeight = try await render(hasDetails: false)
+        #expect(completeHeight - missingHeight > 80)
+    }
+
     private func makeReceipt() -> (PerpsPositionReceiptVC, UINavigationController) {
         let receipt = PerpsPositionReceiptVC(data: .init(token: .ETH, direction: .long, leverage: 5,
             margin: .fromDouble(100, .USD), timestamp: 1_792_866_000_000, positionSize: "$500", price: "$2 000",
@@ -119,4 +162,14 @@ private final class ReceiptTraitPresenter: UIViewController {
         traitOverrides.verticalSizeClass = height
     }
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
+}
+
+@MainActor
+private final class DetentContext: NSObject, UISheetPresentationControllerDetentResolutionContext {
+    let containerTraitCollection = UITraitCollection()
+    let maximumDetentValue: CGFloat
+
+    init(maximumDetentValue: CGFloat) {
+        self.maximumDetentValue = maximumDetentValue
+    }
 }

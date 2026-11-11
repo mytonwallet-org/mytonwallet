@@ -49,6 +49,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.uiinappbrowser.MinimizedBrowserTabsVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -115,7 +116,7 @@ class InAppBrowserTopBarView(
             useCustomEmoji = true
             if (optionsOnTitle && !options.isNullOrEmpty()) {
                 text = textWithArrow(options.find { it.identifier == selectedOption }?.title, true)
-                setOnClickListener {
+                setOnMenuClickListener {
                     showOptionsMenu(this)
                 }
             }
@@ -204,7 +205,7 @@ class InAppBrowserTopBarView(
             } else {
                 text =
                     textWithArrow(options?.find { it.identifier == selectedOption }?.title, false)
-                setOnClickListener {
+                setOnMenuClickListener {
                     showOptionsMenu(this)
                 }
             }
@@ -270,7 +271,7 @@ class InAppBrowserTopBarView(
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
         addView(moreButton, LayoutParams(40.dp, 40.dp))
         addView(minimizeButton, LayoutParams(40.dp, 40.dp))
-        moreButton.setOnClickListener {
+        moreButton.setOnMenuClickListener {
             morePressed()
         }
         setOnClickListener {
@@ -499,6 +500,7 @@ class InAppBrowserTopBarView(
                     isMinimized = true
                     isMinimizing = false
                     titleLabel.isClickable = false
+                    titleLabel.isLongClickable = false
                     updateStackTitle()
                     startMarquee()
                     minimizeFinished()
@@ -512,6 +514,7 @@ class InAppBrowserTopBarView(
                     maximizeStarted()
                     updateBackButton(true)
                     titleLabel.isClickable = true
+                    titleLabel.isLongClickable = true
                 }
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
                 val parent = parent as? ViewGroup

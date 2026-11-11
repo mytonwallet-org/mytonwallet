@@ -48,7 +48,6 @@ public final class MarketTokenListVC: WViewController, UICollectionViewDelegate 
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .air.background
         collectionView.delegate = self
-        collectionView.showsVerticalScrollIndicator = false
         collectionView.delaysContentTouches = false
         view.addStretchedToBounds(subview: collectionView)
 

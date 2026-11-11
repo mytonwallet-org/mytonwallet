@@ -23,7 +23,11 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
 
     var onRenew: (() -> Void)?
 
-    init(accountSource: AccountSource, nftsToRenew: [String]) {
+    init(
+        accountSource: AccountSource,
+        nftsToRenew: [String],
+        checkDraft: @escaping @MainActor @Sendable (String, [ApiNft]) async throws -> ApiDnsRenewalDraft = Api.checkDnsRenewalDraft
+    ) {
         let accountContext = AccountContext(source: accountSource)
         self._account = accountContext
         self.nftsToRenew = nftsToRenew
@@ -31,10 +35,7 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
             let nfts = request.nftAddresses.compactMap {
                 accountContext.domains.nftsByAddress[$0]
             }
-            return try await Api.checkDnsRenewalDraft(
-                accountId: request.accountId,
-                nfts: nfts
-            )
+            return try await checkDraft(request.accountId, nfts)
         }
         draft.start { [weak self] in
             self?.draftRequest
@@ -47,6 +48,7 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
     }
 
     private var draftRequest: RenewDomainDraftRequest? {
+        guard account.supportsSend else { return nil }
         let nfts = nfts
         guard !nfts.isEmpty else { return nil }
         return RenewDomainDraftRequest(
@@ -60,6 +62,7 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
     }
 
     var subtitle: String? {
+        guard account.supportsSend else { return nil }
         guard let date = Calendar.current.date(byAdding: .year, value: 1, to: Date()) else { return nil }
         return L10n.untilDateCapitalized(date: date.formatted(.localizedDateTime.year().month().day()))
     }
@@ -74,6 +77,9 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
     }
 
     var errorMessage: String? {
+        guard account.supportsSend else {
+            return lang("Action is not possible on a view-only wallet.")
+        }
         guard let failure = draft.failure else { return nil }
         return (failure as? LocalizedError)?.errorDescription
             ?? failure.localizedDescription
@@ -93,7 +99,7 @@ struct RenewDomainDraftRequest: Equatable, Sendable {
     }
 
     var canRenew: Bool {
-        !isSubmitting && draft.current != nil && !isInsufficientBalance
+        account.supportsSend && !isSubmitting && draft.current != nil && !isInsufficientBalance
     }
 
     var isButtonLoading: Bool {

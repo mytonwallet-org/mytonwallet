@@ -8,6 +8,7 @@ import android.text.TextUtils
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
 import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
@@ -148,6 +149,7 @@ class ExploreTrendingItemCell(
     override fun setupViews() {
         super.setupViews()
 
+        id = UIComponentsR.id.explore_trending_item
         setPaddingRelative(10.dp, 0.dp, 0.dp, 16.dp)
         addView(contentView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         if (site.withBorder) {

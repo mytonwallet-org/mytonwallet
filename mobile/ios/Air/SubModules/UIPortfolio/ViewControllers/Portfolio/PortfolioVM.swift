@@ -535,6 +535,7 @@ final class PortfolioVM: Sendable {
             }
         }
 
+        let stablecoinSlugs = getStablecoinSlugs()
         var totals = Dictionary(uniqueKeysWithValues: AssetClass.allCases.map { ($0, Double.zero) })
 
         for tokenBalance in $account.walletTokens ?? [] {
@@ -546,7 +547,7 @@ final class PortfolioVM: Sendable {
             let assetClass: AssetClass
             if tokenBalance.token?.isNative == true {
                 assetClass = .native
-            } else if isStablecoin(tokenBalance.token) {
+            } else if stablecoinSlugs.contains(tokenBalance.tokenSlug) {
                 assetClass = .stablecoins
             } else {
                 assetClass = .altcoins
@@ -618,19 +619,6 @@ final class PortfolioVM: Sendable {
     private func formatBaseValue(_ value: Double) -> String {
         BaseCurrencyAmount.fromDouble(value, TokenStore.baseCurrency)
             .formatted(.baseCurrencyEquivalent, roundHalfUp: true)
-    }
-
-    private func isStablecoin(_ token: ApiToken?) -> Bool {
-        guard let token else {
-            return false
-        }
-
-        let symbol = token.symbol
-            .uppercased()
-            .replacingOccurrences(of: "₮", with: "T")
-
-        return symbol.contains("USD")
-            && token.priceUsd.map { (0.95...1.05).contains($0) } == true
     }
 
     private func makeOverviewFromHistory() -> PortfolioOverviewModel? {

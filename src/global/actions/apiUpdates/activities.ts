@@ -32,7 +32,6 @@ import {
   applyIncomingNftFromActivity,
   applyOutgoingNftFromActivity,
   replaceCurrentActivityId,
-  replaceCurrentDomainLinkingId,
   replaceCurrentDomainRenewalId,
   replaceCurrentSwapId,
   replaceCurrentTransferId,
@@ -108,7 +107,6 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
             patch.upsert.filter(({ id }) => !localIds.has(id)),
           );
           global = replaceCurrentTransferId(global, replacedIds);
-          global = replaceCurrentDomainLinkingId(global, replacedIds);
           global = replaceCurrentDomainRenewalId(global, replacedIds);
           global = replaceCurrentSwapId(global, replacedIds);
           global = replaceCurrentActivityId(global, accountId, replacedIds);
@@ -160,7 +158,6 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
           global = applyActivitiesPatch(global, accountId, reconciliation.patch);
         }
         global = replaceCurrentTransferId(global, replacedIds);
-        global = replaceCurrentDomainLinkingId(global, replacedIds);
         global = replaceCurrentDomainRenewalId(global, replacedIds);
         global = replaceCurrentSwapId(global, replacedIds);
         global = replaceCurrentActivityId(global, accountId, replacedIds);

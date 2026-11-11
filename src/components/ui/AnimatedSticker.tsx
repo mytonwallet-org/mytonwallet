@@ -3,10 +3,10 @@ import React, {
   getIsHeavyAnimating, memo, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
 
-import type RLottieInstance from '../../lib/rlottie/RLottie';
+import type TLottieInstance from '../../lib/tlottie/TLottie';
 
 import { requestMeasure } from '../../lib/fasterdom/fasterdom';
-import { ensureRLottie, getRLottie } from '../../lib/rlottie/RLottie.async';
+import { ensureTLottie, getTLottie } from '../../lib/tlottie/TLottie.async';
 import buildStyle from '../../util/buildStyle';
 import { handleChunkLoadError } from '../../util/chunkLoading';
 import { hex2rgb } from '../../util/colors';
@@ -82,8 +82,8 @@ const AnimatedSticker: FC<OwnProps> = ({
 
   const viewId = useUniqueId();
 
-  const [animation, setAnimation] = useState<RLottieInstance>();
-  const animationRef = useRef<RLottieInstance>();
+  const [animation, setAnimation] = useState<TLottieInstance>();
+  const animationRef = useRef<TLottieInstance>();
   const isFirstRender = useRef(true);
 
   const playKey = play || (play === false ? false : playSegment);
@@ -123,7 +123,7 @@ const AnimatedSticker: FC<OwnProps> = ({
       return;
     }
 
-    const newAnimation = getRLottie().init(
+    const newAnimation = getTLottie().init(
       tgsUrl,
       container,
       renderId || generateUniqueId(),
@@ -151,11 +151,11 @@ const AnimatedSticker: FC<OwnProps> = ({
   });
 
   useEffect(() => {
-    if (getRLottie()) {
+    if (getTLottie()) {
       init();
     } else {
       // The sticker stays blank; the next run of this effect retries the load
-      void ensureRLottie().then(init, handleChunkLoadError('AnimatedSticker'));
+      void ensureTLottie().then(init, handleChunkLoadError('AnimatedSticker'));
     }
   }, [init, tgsUrl, sharedCanvas, sharedCanvasCoords]);
 

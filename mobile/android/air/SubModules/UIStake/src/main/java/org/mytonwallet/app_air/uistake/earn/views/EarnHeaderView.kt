@@ -216,11 +216,18 @@ class EarnHeaderView(
         innerContainer.setPadding(0, computeTopPadding(), 0, 0)
     }
 
+    private var isSkeletonShown = false
+
     fun hideInnerViews() {
         amountTextView.visibility = INVISIBLE
         messageLabel.visibility = INVISIBLE
         addStakeButton.visibility = INVISIBLE
         unstakeButton.visibility = GONE
+        isSkeletonShown = true
+        amountSkeletonView.animate().cancel()
+        messageSkeletonView.animate().cancel()
+        amountSkeletonView.alpha = 1f
+        messageSkeletonView.alpha = 1f
         amountSkeletonView.visibility = VISIBLE
         messageSkeletonView.visibility = VISIBLE
 
@@ -239,7 +246,8 @@ class EarnHeaderView(
         addStakeButton.visibility = VISIBLE
         changeStakeButtonVisibility(if (shouldShowStakeButton) VISIBLE else GONE)
         changeUnstakeButtonVisibility(shouldShowUnstakeButton)
-        if (amountSkeletonView.visibility != GONE) {
+        if (isSkeletonShown) {
+            isSkeletonShown = false
             amountSkeletonView.fadeOut(onCompletion = {
                 amountSkeletonView.visibility = GONE
             })

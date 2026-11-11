@@ -131,6 +131,7 @@ class AppInfoVC(context: Context) : WViewController(context) {
     }
 
     private val titleLabel = WLabel(context).apply {
+        id = R.id.about_title
         setStyle(20f, WFont.Medium)
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         val versionName = packageInfo.versionName ?: ""

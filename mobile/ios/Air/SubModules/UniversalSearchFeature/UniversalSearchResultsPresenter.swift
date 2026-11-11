@@ -541,7 +541,7 @@ public struct UniversalSearchResultsPresenter {
                   ApiAgentV2ThreadSummary.self,
                   from: Data(threadJSON.utf8)
               ),
-              document.id == SearchEntityID("agent-chat:\(thread.id)") else {
+              document.id == UniversalSearchAgentConversationSource.entityID(threadID: thread.id) else {
             return nil
         }
         return UniversalSearchResolvedResult(

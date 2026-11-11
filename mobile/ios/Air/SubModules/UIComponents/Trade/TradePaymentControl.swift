@@ -107,12 +107,22 @@ public final class TradePaymentControl: TradePressButton {
 
     public required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    public func setTitle(_ title: String, color: UIColor = .label, selectable: Bool) {
-        methodTitleLabel.text = title
-        methodTitleLabel.textColor = color
+    public func setTitle(_ title: String, color: UIColor = .label, selectable: Bool, animated: Bool) {
+        if methodTitleLabel.text != title || !methodTitleLabel.textColor.isEqual(color) {
+            let changes = {
+                self.methodTitleLabel.text = title
+                self.methodTitleLabel.textColor = color
+            }
+            if animated && TradeMotion.enabled {
+                UIView.transition(with: methodTitleLabel, duration: TradeMotion.duration,
+                                  options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction], animations: changes)
+            } else {
+                changes()
+            }
+        }
         self.selectable = selectable
         isUserInteractionEnabled = selectable
-        chevron.isHidden = !selectable
+        chevron.alpha = selectable ? 1 : 0
         accessibilityTraits = selectable ? .button : .staticText
         setNeedsLayout()
     }

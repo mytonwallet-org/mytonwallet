@@ -58,7 +58,12 @@ final class AgentBubbleBackgroundView: UIView {
     private var fillColor: UIColor = .clear
     private var usesTintColor = false
     private var cornerRadii = CornerRadii.standAlone
-    private var showsTail = true
+    private(set) var showsTail = true
+    /// The tail as it was, going into its corner while the real one is already gone
+    private var tailGhostLayer: CAShapeLayer?
+    /// The tail is growing out of its corner, in the growth of this generation
+    private var isTailGrowing = false
+    private var tailGrowthGeneration = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -78,8 +83,12 @@ final class AgentBubbleBackgroundView: UIView {
         cornerRadii: CornerRadii = .standAlone,
         shouldAnimateTail: Bool = false
     ) {
-        let shouldRevealTail = shouldAnimateTail && showsTail && !self.showsTail && window != nil
-            && !UIAccessibility.isReduceMotionEnabled
+        let isTailChanging = showsTail != self.showsTail
+        let morphsTail = isTailChanging && shouldAnimateTail && window != nil
+        // The tail leaves from where it stands now
+        if morphsTail, !showsTail {
+            morphTailAway()
+        }
         self.direction = direction
         self.fillColor = fillColor
         self.usesTintColor = usesTintColor
@@ -101,31 +110,198 @@ final class AgentBubbleBackgroundView: UIView {
         tailHeightConstraint.constant = showsTail ? Metrics.tailSize.height : 0
 
         setNeedsLayout()
-        if shouldRevealTail {
-            revealTail()
-        } else if !showsTail {
-            tailView.layer.removeAllAnimations()
-            tailView.alpha = 1
-            tailView.transform = .identity
+        if morphsTail, showsTail {
+            morphTailBack()
+        } else if isTailChanging, !morphsTail {
+            endTailMorph()
         }
     }
 
-    /// The tail grows out of the bubble's corner, from where it joins the bubble
-    private func revealTail() {
-        let scale: CGFloat = 0.4
-        tailView.alpha = 0
-        tailView.transform = CGAffineTransform(translationX: 0, y: -Metrics.tailSize.height * (1 - scale) / 2)
+    /// How the tail goes into its corner and comes back out of it. It goes as the suggestions that take its place come
+    /// in, with their timing and curve, and comes back on the spring the tail has on every platform as they go.
+    @MainActor
+    enum TailMorph {
+        static let awayDuration = AgentFollowupView.revealDuration
+        static let backDuration: TimeInterval = 0.4
+        static let backDelay: TimeInterval = 0.05
+        static let backDamping: CGFloat = 0.75
+        /// The tail at its smallest: a point in the corner
+        static let collapsedScale: CGFloat = 0.01
+    }
+
+    /// The point the tail shrinks into and grows out of, in the bubble: the middle of where it joins the body, inside
+    /// the body's rounded corner, so the tail stays on the bubble all the way
+    var tailCornerAnchor: CGPoint {
+        let body = bodyView.frame
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let isOnLeft = (direction == .incoming) != isRightToLeft
+        let minX = isOnLeft ? body.minX : body.maxX - Metrics.tailSize.width
+        return CGPoint(x: minX + Metrics.tailSize.width / 2, y: body.maxY - Metrics.tailAttachmentHeight / 2)
+    }
+
+    /// Whether the tail is on its way into its corner or out of it
+    var isTailMorphing: Bool {
+        tailGhostLayer != nil || isTailGrowing
+    }
+
+    /// The tail shrunk into `tailCornerAnchor`, as a transform about its centre
+    private static var collapsedTailTransform: CGAffineTransform {
+        makeTailTransform(scale: TailMorph.collapsedScale)
+    }
+
+    /// The tail at `scale` about `tailCornerAnchor`, as a transform about its centre
+    static func makeTailTransform(scale: CGFloat) -> CGAffineTransform {
+        let anchor = CGPoint(x: Metrics.tailSize.width / 2, y: Metrics.tailAttachmentHeight / 2)
+        let center = CGPoint(x: Metrics.tailSize.width / 2, y: Metrics.tailSize.height / 2)
+        return CGAffineTransform(translationX: (1 - scale) * (anchor.x - center.x), y: (1 - scale) * (anchor.y - center.y))
             .scaledBy(x: scale, y: scale)
-        UIView.animate(
-            withDuration: 0.4,
-            delay: 0.05,
-            usingSpringWithDamping: 0.75,
-            initialSpringVelocity: 0,
-            options: [.allowUserInteraction, .beginFromCurrentState]
-        ) {
-            self.tailView.alpha = 1
-            self.tailView.transform = .identity
+    }
+
+    /// The tail shrinks into its corner, uncovering the body's rounded corner under it. A copy of it goes, as the bubble
+    /// already has its tailless size. With Reduce Motion it fades instead.
+    private func morphTailAway() {
+        removeTailGhost()
+        tailGrowthGeneration += 1
+        isTailGrowing = false
+        guard !tailView.bounds.isEmpty, let path = tailLayer.path else { return }
+        let presentedTransform = tailView.layer.presentation()?.transform ?? CATransform3DMakeAffineTransform(tailView.transform)
+        let presentedOpacity = tailView.layer.presentation()?.opacity ?? Float(tailView.alpha)
+        tailView.layer.removeAllAnimations()
+        tailView.transform = .identity
+        tailView.alpha = 1
+
+        let ghost = CAShapeLayer()
+        ghost.bounds = tailView.bounds
+        ghost.position = tailView.center
+        ghost.path = path
+        ghost.fillColor = tailLayer.fillColor
+        ghost.actions = ["transform": NSNull(), "opacity": NSNull(), "position": NSNull(), "bounds": NSNull()]
+        layer.insertSublayer(ghost, above: tailView.layer)
+        tailGhostLayer = ghost
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self, weak ghost] in
+            guard let self, let ghost, self.tailGhostLayer === ghost else { return }
+            self.removeTailGhost()
         }
+        let animation: CABasicAnimation
+        if UIAccessibility.isReduceMotionEnabled {
+            ghost.opacity = 0
+            animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = presentedOpacity
+            animation.toValue = 0
+        } else {
+            let collapsed = CATransform3DMakeAffineTransform(Self.collapsedTailTransform)
+            ghost.transform = collapsed
+            ghost.opacity = presentedOpacity
+            animation = CABasicAnimation(keyPath: "transform")
+            animation.fromValue = presentedTransform
+            animation.toValue = collapsed
+        }
+        animation.duration = TailMorph.awayDuration
+        animation.timingFunction = AgentFollowupView.makeRevealTimingFunction()
+        ghost.add(animation, forKey: "tailMorph")
+        CATransaction.commit()
+    }
+
+    /// The tail grows back out of its corner, covering the body's rounded corner again. With Reduce Motion it fades in.
+    /// The animations are the layer's own, so they run also when the bubble's row is configured inside an update that
+    /// runs without UIKit's animations, as the chat's update of its rows does.
+    private func morphTailBack(delay: TimeInterval = TailMorph.backDelay) {
+        removeTailGhost()
+        tailView.layer.removeAllAnimations()
+        tailView.alpha = 1
+        tailView.transform = .identity
+        let layer = tailView.layer
+        let beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
+        let animation: CAAnimation
+        if UIAccessibility.isReduceMotionEnabled {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = TailMorph.awayDuration
+            fade.timingFunction = AgentFollowupView.makeRevealTimingFunction()
+            animation = fade
+        } else {
+            let growth = CAKeyframeAnimation(keyPath: "transform")
+            let frameCount = 40
+            growth.values = (0...frameCount).map { index in
+                let scale = Self.getSpringScale(at: TailMorph.backDuration * Double(index) / Double(frameCount))
+                return NSValue(caTransform3D: CATransform3DMakeAffineTransform(Self.makeTailTransform(scale: scale)))
+            }
+            growth.keyTimes = (0...frameCount).map { NSNumber(value: Double($0) / Double(frameCount)) }
+            growth.duration = TailMorph.backDuration
+            animation = growth
+        }
+        animation.beginTime = beginTime
+        animation.fillMode = .backwards
+        isTailGrowing = true
+        tailGrowthGeneration += 1
+        let generation = tailGrowthGeneration
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            // A later growth replaced this one
+            guard let self, self.tailGrowthGeneration == generation else { return }
+            self.isTailGrowing = false
+        }
+        layer.add(animation, forKey: "tailMorph")
+        CATransaction.commit()
+    }
+
+    /// The tail's scale `time` into its growth: a spring of `TailMorph.backDamping` from `collapsedScale` that settles
+    /// within `backDuration`, as UIKit's spring of that damping does
+    private static func getSpringScale(at time: TimeInterval) -> CGFloat {
+        let damping = Double(TailMorph.backDamping)
+        // The envelope falls to a thousandth by the end
+        let frequency = 6.9 / (damping * TailMorph.backDuration)
+        let dampedFrequency = frequency * (1 - damping * damping).squareRoot()
+        let envelope = exp(-damping * frequency * time)
+        let progress = 1 - envelope * (cos(dampedFrequency * time)
+            + damping * frequency / dampedFrequency * sin(dampedFrequency * time))
+        let start = TailMorph.collapsedScale
+        return start + (1 - start) * CGFloat(time >= TailMorph.backDuration ? 1 : progress)
+    }
+
+    /// The tail as its state has it, without a morph
+    private func endTailMorph() {
+        removeTailGhost()
+        tailGrowthGeneration += 1
+        isTailGrowing = false
+        tailView.layer.removeAllAnimations()
+        tailView.alpha = 1
+        tailView.transform = .identity
+    }
+
+    private func removeTailGhost() {
+        tailGhostLayer?.removeFromSuperlayer()
+        tailGhostLayer = nil
+    }
+
+    /// The bubble without its tail, its fill and its corners' radius, which a tapped suggestion turns into
+    var bodyFrame: CGRect { bodyView.frame }
+    var bodyFill: UIColor? { bodyView.backgroundColor }
+    /// The body's layer, whose opacity a test checks as the bubble takes a morph's place
+    var bodyLayer: CALayer { bodyView.layer }
+    var bodyCornerRadius: CGFloat { cornerRadii.topLeft }
+    /// The tail at rest, which a tapped suggestion grows as it turns into the bubble: its frame in the bubble, its shape
+    /// in that frame and its fill
+    struct RestingTail {
+        let frame: CGRect
+        let path: CGPath
+        let fill: CGColor?
+    }
+
+    /// Nil while the bubble has no tail
+    var restingTail: RestingTail? {
+        guard showsTail, let path = tailLayer.path, !tailView.bounds.isEmpty else { return nil }
+        let size = tailView.bounds.size
+        let frame = CGRect(
+            x: tailView.center.x - size.width / 2,
+            y: tailView.center.y - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+        return RestingTail(frame: frame, path: path, fill: tailLayer.fillColor)
     }
 
     /// `previewPath` moved into `rect`, for a menu that masks the bubble's attachment with it

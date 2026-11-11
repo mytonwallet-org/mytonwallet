@@ -15,6 +15,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.LinearInterpolator
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -140,6 +141,7 @@ class WalletCardCell(
         }
 
     init {
+        id = UIComponentsR.id.wallets_cell_grid
         setPaddingLocalized(0, 0, 4.dp, 4.dp)
         clipChildren = false
         clipToPadding = false

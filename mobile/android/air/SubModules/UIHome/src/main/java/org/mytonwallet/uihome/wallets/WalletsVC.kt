@@ -3,6 +3,7 @@ package org.mytonwallet.uihome.wallets
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -32,11 +33,13 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.HighlightOverlayView
-import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.WEmptyIconTitleSubtitleView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.OverlappedChromeFader
+import org.mytonwallet.app_air.uicomponents.helpers.frameInWindow
+import org.mytonwallet.app_air.uicomponents.helpers.hideChromeOverlapping
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -87,8 +90,6 @@ class WalletsVC(
         id = View.generateViewId()
     }
     override val topBlurViewGuideline = guideline
-    var parentTopReversedCornerView: WeakReference<ReversedCornerView>? = null
-    var parentBottomReversedCornerView: WeakReference<ReversedCornerViewUpsideDown>? = null
     var isModalExpanded = false
 
     companion object {
@@ -360,6 +361,7 @@ class WalletsVC(
     }
 
     private var highlightOverlayView: HighlightOverlayView? = null
+    private var restoreChromeAfterMenu: (() -> Unit)? = null
 
     private var emptyView: WEmptyIconTitleSubtitleView? = null
 
@@ -640,6 +642,7 @@ class WalletsVC(
         val cellView = activeMenuCellView ?: return
         activeMenuCellView = null
         val viewHolder = recyclerView.findContainingViewHolder(cellView) ?: return
+        showChromeAfterMenu()
         activeMenuPopup?.dismiss()
         activeMenuPopup = null
         onDragReorderStarted?.invoke()
@@ -666,6 +669,32 @@ class WalletsVC(
         }
     }
 
+    private val bottomCornerFader = OverlappedChromeFader()
+
+    override fun hideChromeOverlapping(windowRect: Rect): Boolean {
+        val isScreenChromeHidden = super.hideChromeOverlapping(windowRect)
+        val isBottomCornerHidden = bottomCornerFader.hideIfOverlapping(
+            windowRect,
+            listOfNotNull(
+                bottomReversedCornerViewUpsideDown.frameInWindow(
+                    topInset = ViewConstants.TOOLBAR_RADIUS.dp.toInt()
+                )
+            ),
+            listOf(bottomReversedCornerViewUpsideDown)
+        )
+        return isScreenChromeHidden || isBottomCornerHidden
+    }
+
+    override fun showOverlappedChrome() {
+        super.showOverlappedChrome()
+        bottomCornerFader.show()
+    }
+
+    private fun showChromeAfterMenu() {
+        restoreChromeAfterMenu?.invoke()
+        restoreChromeAfterMenu = null
+    }
+
     private fun showMenu(cell: IWalletCardCell, cellView: WView, account: MAccount) {
         val allowsDragToReorder = walletCategory == WalletsTabsVC.WalletCategory.ALL
         recyclerView.cancelActiveGesture()
@@ -682,21 +711,19 @@ class WalletsVC(
             rect.inset(-dx, -dy)
         }
         val cornerRadius = if (cell is WalletCardCell) 16f.dp else 24f.dp
+        restoreChromeAfterMenu = hideChromeOverlapping(
+            cellView,
+            navigationController,
+            Rect().also(rect::roundOut),
+            extraHosts = listOf(this)
+        )
         highlightOverlayView =
             HighlightOverlayView(
                 context,
                 rect,
                 cornerRadius,
-                if (topReversedCornerView?.isVisible == true) {
-                    topReversedCornerView
-                } else {
-                    parentTopReversedCornerView?.get()
-                },
-                if (bottomReversedCornerViewUpsideDown.isVisible) {
-                    bottomReversedCornerViewUpsideDown
-                } else {
-                    parentBottomReversedCornerView?.get()
-                }
+                null,
+                null
             ).apply {
                 alpha = 0f
                 fadeIn()
@@ -721,7 +748,7 @@ class WalletsVC(
                     onTap = {
                         onToggleReorderTapped?.invoke()
                     }
-                ),
+                ).apply { testViewId = R.id.wallets_menu_reorder },
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -734,7 +761,7 @@ class WalletsVC(
                     onTap = {
                         AccountDialogHelpers.presentRename(this, account)
                     }
-                ),
+                ).apply { testViewId = R.id.wallets_menu_rename },
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -756,7 +783,7 @@ class WalletsVC(
                         navVC.setRoot(walletCustomizationVC)
                         window.present(navVC)
                     }
-                ),
+                ).apply { testViewId = R.id.wallets_menu_customize },
                 WMenuPopup.Item(
                     config = WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -772,7 +799,7 @@ class WalletsVC(
                             AccountDialogHelpers.presentSignOut(it, account)
                         }
                     }
-                )
+                ).apply { testViewId = R.id.wallets_menu_remove }
             ),
             xOffset = if (isGridMode) (-8).dp else 72.dp,
             yOffset = if (isGridMode) 1 else (-20).dp,
@@ -788,6 +815,7 @@ class WalletsVC(
             // Keep the active gesture alive where drag-to-reorder from the menu is possible.
             cancelsAncestorTouches = !allowsDragToReorder,
             onWillDismiss = {
+                showChromeAfterMenu()
                 activeMenuPopup = null
                 activeMenuCellView = null
                 cell.isShowingPopup = false
@@ -796,7 +824,8 @@ class WalletsVC(
                         window?.windowView?.removeView(highlightOverlayView)
                     }
                 }
-            }
+            },
+            onDidDismiss = ::showChromeAfterMenu
         )
     }
 

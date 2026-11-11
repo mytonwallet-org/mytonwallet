@@ -115,6 +115,7 @@ struct NotificationsSettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Toggle(lang("Play Sounds"), isOn: $viewModel.playSounds)
                         .labelsHidden()
+                        .accessibilityIdentifier("notifications_play_sounds")
                 }
                 .frame(minHeight: 44)
             }

@@ -27,9 +27,16 @@ interface OwnProps {
   isClosing?: boolean;
   /** The input level, 0 to 1 */
   level: number;
-  /** How far the finger went toward cancelling (along the line) and up, in pixels */
-  drag: { x: number; y: number };
+  /**
+   * How far the finger went toward cancelling (along the line) and up, in pixels. The circle reads it on every frame,
+   * so that the finger's moves do not render the circle.
+   */
+  getDrag: () => { x: number; y: number };
   onFinish: NoneToVoidFunction;
+  /** A locked recording is held with `onPause` and goes on with `onResume` */
+  isPaused?: boolean;
+  onPause?: NoneToVoidFunction;
+  onResume?: NoneToVoidFunction;
   /** Whether the circle's middle covers the button at its anchor, called when that changes */
   onCoverChange?: (isCovering: boolean) => void;
 }
@@ -75,7 +82,7 @@ interface WavePoint {
  * Telegram's voice recording, as on mobile
  */
 function AgentDictationCircle({
-  anchor, mode, isFailureOnly, isClosing, level, drag, onFinish, onCoverChange,
+  anchor, mode, isFailureOnly, isClosing, level, getDrag, onFinish, isPaused, onPause, onResume, onCoverChange,
 }: OwnProps) {
   const lang = useLang();
   const isReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -88,10 +95,10 @@ function AgentDictationCircle({
   // The waves stand still where motion is reduced
   const isStill = isReducedMotion || getGlobal().settings.animationLevel === ANIMATION_LEVEL_MIN;
   const inputRef = useRef({
-    level, drag, isStill, isClosing, onCoverChange,
+    level, getDrag, isStill, isClosing, onCoverChange,
   });
   inputRef.current = {
-    level, drag, isStill, isClosing, onCoverChange,
+    level, getDrag, isStill, isClosing, onCoverChange,
   };
 
   useEffect(() => {
@@ -114,8 +121,9 @@ function AgentDictationCircle({
       const frameStep = Math.min(MAX_FRAME_STEP, (now - lastAt) / 1000);
       lastAt = now;
       const {
-        level: currentLevel, drag: currentDrag, isStill: isWaveStill, isClosing: isLeaving,
+        level: currentLevel, getDrag: getCurrentDrag, isStill: isWaveStill, isClosing: isLeaving,
       } = inputRef.current;
+      const currentDrag = getCurrentDrag();
 
       const keep = LEVEL_SMOOTHING ** (frameStep * LEVEL_SMOOTHING_FRAME_RATE);
       smoothedLevel = smoothedLevel * keep + currentLevel * (1 - keep);
@@ -155,7 +163,7 @@ function AgentDictationCircle({
         isCoveringAnchor = isCovering;
         inputRef.current.onCoverChange?.(isCovering);
       }
-      lockRef.current?.style.setProperty('--lockness', String(Math.min(1, Math.abs(currentDrag.y) / LOCK_DISTANCE)));
+      lockRef.current?.style.setProperty('--lockness', String(getAgentDictationLockProgress(currentDrag.y)));
 
       return true;
     }, requestMutation);
@@ -179,13 +187,13 @@ function AgentDictationCircle({
       style={`--anchor-x: ${anchor.x}px; --anchor-y: ${anchor.y}px`}
     >
       <div ref={lockRef} className={styles.lock} aria-hidden>
-        {/* The wallet's lock glyph with its shackle apart, so that the shackle stands open: its right leg reaches
-            into the body, and closed it is the glyph again */}
+        {/* The wallet's lock glyph with its shackle apart, so that the shackle stands open: its long right leg stays
+            in the body, and closed it is the glyph again */}
         <svg className={styles.lockIcon} viewBox="0 0 768 768">
           <path
             className={styles.lockShackle}
             d={'M239.148 340V241.375c0-78.645 64.983-142.628 144.857-142.628c79.875 0 144.857 63.983 144.857 142.628'
-              + 'V420H470.92V241.375c0-47.181-38.996-85.577-86.915-85.577c-47.918 0-86.914 38.396-86.914 85.577V340z'}
+              + 'V560H470.92V241.375c0-47.181-38.996-85.577-86.915-85.577c-47.918 0-86.914 38.396-86.914 85.577V340z'}
           />
           <path
             d={'M239.148 326.953H528.862q.563 0 1.124.01l1.12.028c36.499 1.224 65.163 32.195 63.249 68.954'
@@ -199,6 +207,29 @@ function AgentDictationCircle({
           <path d="M3 7.5l3-3 3 3" />
         </svg>
       </div>
+      {onPause && onResume && (
+        // Once the recording locks, Pause takes the lock's place, as on Telegram's mobile apps. It holds the recording
+        // as Telegram Web A's pause does, and turns into the microphone that resumes it.
+        <button
+          type="button"
+          className={styles.pause}
+          aria-label={lang(isPaused ? '$agent_voice_resume' : '$agent_voice_pause')}
+          disabled={mode !== 'locked'}
+          onClick={isPaused ? onResume : onPause}
+        >
+          <svg
+            className={buildClassName(styles.pauseGlyph, styles.pauseBars, !isPaused && styles.pauseGlyphShown)}
+            viewBox="0 0 20 20"
+            aria-hidden
+          >
+            <path d="M7 5v10M13 5v10" />
+          </svg>
+          <AgentIcon
+            name="microphone"
+            className={buildClassName(styles.pauseGlyph, isPaused && styles.pauseGlyphShown)}
+          />
+        </button>
+      )}
       <div ref={followRef} className={styles.follow}>
         <div className={styles.present}>
           <svg
@@ -233,6 +264,14 @@ function AgentDictationCircle({
       </div>
     </div>
   );
+}
+
+/**
+ * How far the finger has slid toward the lock, from 0 where it pressed to 1 at the lock, for a press dragged `dragY` up
+ * (negative): the lock shortens and its shackle comes down in proportion, as on Telegram's mobile apps
+ */
+export function getAgentDictationLockProgress(dragY: number) {
+  return Math.min(1, Math.abs(dragY) / LOCK_DISTANCE);
 }
 
 export default memo(AgentDictationCircle);

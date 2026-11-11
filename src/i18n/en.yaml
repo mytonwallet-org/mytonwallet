@@ -138,8 +138,8 @@ You can always enable seasonal theming again in the appearance settings.: You ca
 Base Currency: Base Currency
 Investor View: Investor View
 Toggle Investor View: Toggle Investor View
-Hide Tiny Transfers: Hide Tiny Transfers
-Toggle Hide Tiny Transfers: Toggle Hide Tiny Transfers
+Hide Tiny Transfers and Spam: Hide Tiny Transfers and Spam
+Toggle Hide Tiny Transfers and Spam: Toggle Hide Tiny Transfers and Spam
 Network: Network
 Developer Options: Developer Options
 All Wallet Versions: All Wallet Versions
@@ -1358,13 +1358,12 @@ Ask a Question: Ask a Question
 Ask anything: Ask anything
 Agent: Agent
 Learn more: Learn more
-Data shared with Agent: Data shared with Agent
-$agent_consent_allow_button: Allow Agent
-$agent_consent_subtitle: Ask Agent for wallet help, token information, and supported actions.
+Data shared with Agent: Data shared with the agent
+$agent_consent_allow_button: Allow the agent
 $agent_consent_feature_answers: Get answers about %app_name%, tokens, and wallet activity.
 $agent_consent_feature_actions: Prepare supported actions like sending, receiving, and staking.
 $agent_consent_feature_context: Use wallet context so answers can reference relevant assets and addresses.
-$agent_consent_disclosure_text: By tapping Allow Agent, you allow %app_name% to send your Agent messages and relevant wallet context to %app_name% Agent (agent.mywallet.io) and Anthropic Claude API, our third-party AI provider, to process your requests. Wallet context may include wallet addresses, balances, tokens, activity, and requested action details. Data is used only to provide Agent responses and prepare actions you request.
+$agent_consent_disclosure_text: By tapping “Allow the agent”, you allow %app_name% to send your messages to the agent and relevant wallet context to %app_name% Agent (agent.mywallet.io) and Anthropic Claude API, our third-party AI provider, to process your requests. Wallet context may include wallet addresses, balances, tokens, activity, and requested action details. Data is used only to provide the agent’s responses and prepare actions you request.
 $agent_consent_search_disclosure_text: For web searches, only search queries may be sent to Serper; wallet context and chat history are not sent.
 $settings_token_change_threshold: Change % Threshold
 $settings_token_change_threshold_description: Hides 24-hour percentage changes below the selected threshold.
@@ -1433,8 +1432,8 @@ $agent_hint_receive_title: Receive tokens
 $agent_hint_receive_prompt: Help me receive tokens.
 $agent_notice_content_over_budget: The result is too large to display completely.
 $agent_notice_web_search_no_results: No matching information could be found for your request.
-$agent_error_session: Your Agent session expired. Reopen Agent and try again.
-$agent_error_limit: The request cannot be completed because an Agent limit was reached.
+$agent_error_session: Your agent session expired. Reopen the agent and try again.
+$agent_error_limit: The request cannot be completed because an agent limit was reached.
 $agent_error_tool: A wallet operation could not be completed. Please try again.
 $agent_error_conversation_updated: The conversation was updated. Please try the request again.
 $agent_error_generic: Agent could not complete the request. Please try again.
@@ -1448,12 +1447,13 @@ $agent_dictation_no_speech: "Couldn’t hear any speech. Speak closer to the mic
 $agent_dictation_time_left: "%seconds% s left"
 $agent_dictation_time_left_short: "%seconds% s"
 $agent_dictation_limit_reached: "Dictation stopped after one minute, the longest recording allowed."
+$agent_stop_answer: "Stop response"
 $agent_dictation_microphone_denied: "Enable microphone access in settings to dictate."
 $agent_dictation_hold_hint: "Hold to dictate. Swipe up to record hands-free."
 $agent_dictation_too_short: "Too short. Hold while you speak."
 $agent_dictation_slide_to_cancel: "Slide left to cancel"
 $agent_dictation_deleted: "Recording deleted"
-$agent_error_invalid_response: The Agent response could not be read. Please try again.
+$agent_error_invalid_response: The agent’s response could not be read. Please try again.
 $agent_error_update_required: Update the app to continue.
 $agent_wallet_page_navigation: Wallet data pages
 $agent_wallet_page_indicator: "%current% of %total%"
@@ -1790,7 +1790,7 @@ $period_year: 1 Year
 Token: Token
 All Tokens: All Tokens
 Customize Widget: Customize Widget
-Ask Agent: Ask Agent
+Ask Agent: Ask the agent
 Chats: Chats
 Recent Searches: Recent Searches
 Clear All: Clear All
@@ -2000,9 +2000,9 @@ $agent_capacity_limit_known: New requests will be available in %duration%.
 $agent_capacity_degraded_title: Agent may be unstable
 $agent_capacity_limit_unknown: You can try again, but the response may not load.
 $agent_retry_request: Retry request
-$agent_rate_limit_title: Too many Agent requests
+$agent_rate_limit_title: Too many agent requests
 $agent_rate_limit_body: Try again in %duration%.
-$agent_user_quota_exhausted_title: Not enough Agent quota
+$agent_user_quota_exhausted_title: Not enough agent quota
 $agent_user_quota_exhausted_body: There isn’t enough quota for this request. The daily allowance is %limit% units and resets in %duration%.
 $agent_time_hours: "%value% h"
 $agent_time_minutes: "%value% min"
@@ -2136,6 +2136,8 @@ News: "News"
 Crypto Market News: "Crypto Market News"
 $agent_news_new: "New"
 $agent_news_open_source: "Open Source"
+$agent_news_source: "Source: %sources%"
+$agent_news_sources: "Sources: %sources%"
 $agent_news_unavailable: "News is currently unavailable"
 $agent_news_read_more: "Read More"
 $agent_news_discuss: "Discuss"
@@ -2172,7 +2174,6 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "Review": "Review"
 "$perps_order_long": "%asset% Long"
 "$perps_order_short": "%asset% Short"
-"$perps_swap_fee_hint": "The fee for converting one token into another as part of this transaction."
 "$perps_trading_fee_hint": "The fee for opening this position."
 "$perps_position_size_hint": "Position Size – Total value of your leveraged position."
 "$perps_position_size_details_hint": "The total value of your position, taking leverage into account.\n\nFor example, if you invest $100 with 5x leverage, your position size is $500."
@@ -2182,14 +2183,13 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_closing_value_hint": "The amount remaining after your position was liquidated. Depending on the outcome of the liquidation, this amount may be less than you invested or zero."
 "$perps_fees_hint": "The total fees charged for this transaction. Depending on the transaction, these may include trading, swap and network fees."
 "$perps_liquidation_price_hint": "The estimated price at which your position may be automatically closed because there are not enough funds to keep it open."
-"$perps_high_leverage_warning": "High leverage: a small move will trigger liquidation."
 "$perps_leverage_disclaimer": "Higher leverage increases potential profits and losses. Even a small price change against your position can cause it to be closed automatically."
 
 # Perps order review
 "Open Position": "Open Position"
 "$perps_asset_price": "%asset% Price"
 "$perps_leverage_direction": "%leverage%x %direction%"
-"$perps_liquidation_acknowledgment": "By confirming, I understand this position can be liquidated, and I could lose the money I put in."
+"$perps_liquidation_acknowledgment": "By confirming, I understand this position can be liquidated, and I could lose the money I put in."
 
 # Perps position receipt
 "Position Opened": "Position Opened"
@@ -2260,6 +2260,11 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "PerpsQuoteExpired": "Prices or your position changed. Go back to review the order again."
 "PerpsReviewChanged": "The order changed. Go back to review it again."
 "PerpsInsufficientUsdc": "Not enough USDC on Arbitrum, including the bridge fee."
+"EvmUserOperationMismatch": "The gas payment does not match this transaction."
+"PerpsInsufficientBalance": "Not enough USDC on your Hyperliquid balance, including trading fees."
+"PerpsMarketNeedsUnifiedAccount": "This market can't be funded from your wallet on your current Hyperliquid account type."
+"PerpsRequiresMultichainWallet": "Futures require a multichain wallet. Switch to one or create a new one to start trading."
+"PerpsSwitchesToUnifiedAccount": "This order also switches your Hyperliquid account to Unified, so one USDC balance covers every market."
 "PerpsInsufficientGas": "Not enough ETH on Arbitrum to cover the network fee. USDC for the position is separate from this fee."
 "PerpsFundingMissingTitle": "No USDC or ETH on Arbitrum"
 "$perps_funding_missing": "Receive at least %minUSDC% USDC and %feeETH% ETH for fees."
@@ -2267,12 +2272,14 @@ $perps_open_interest_hint: "The total value of contracts that are currently open
 "$perps_funding_usdc_increase": "You need at least %minUSDC% USDC on Arbitrum to increase this position."
 "PerpsFundingGasTitle": "Not enough ETH for the fee"
 "$perps_funding_gas": "Fees on Arbitrum are paid in ETH. Receive %feeETH% ETH (~%feeFiat%)."
-"PerpsFundingTokenTitle": "Pay with USDC on Arbitrum"
-"PerpsFundingTokenDescription": "Other tokens aren’t supported yet. Receive USDC to continue."
 "Not Enough Funds": "Not Enough Funds"
 "Unsupported Token": "Unsupported Token"
 "PerpsReviewUpdated": "Prices have been updated. Review the order again before confirming."
 "PerpsAmountTooSmall": "This amount is below the market minimum."
+"$perps_minimum_amount": "Minimum amount: %amount% USDC."
+"$perps_minimum_reduction": "Reduce by more than %amount% USDC to cover the bridge fee."
+"$perps_required_balance": "Required: %required% USDC including fees. Available on Hyperliquid: %available% USDC."
+"$perps_available_balance": "Available on Hyperliquid: %available% USDC. Reduce the amount to leave room for trading fees."
 "PerpsOrderTooSmall": "Minimum order value is $10."
 "PerpsOrderNotFilled": "The order could not be filled at the reviewed price. Refresh and try again."
 "PerpsInsufficientMargin": "There is not enough margin for this order. Refresh your position and adjust the amount."
@@ -2326,14 +2333,15 @@ Could not save the image. Please try again.: Could not save the image. Please tr
 "PerpsExchangeFee": "Exchange Fee"
 "PerpsServiceFee": "Wallet Fee"
 "PerpsBridgeFee": "Bridge Fee"
+"PerpsFirstWithdrawalFee": "First Withdrawal Fee"
 "PerpsTotalFees": "Total USDC Fees"
 "PerpsFeeEstimateHint": "Fees marked ≈ are estimates and may change at execution. Any Arbitrum network fee is paid separately in ETH."
 "PerpsUnallocatedCollateral": "Unallocated Collateral"
 "PerpsUnallocatedCollateralHint": "Rounding to the market’s trade size can leave some USDC outside the position. These funds remain in your Futures account; they are not a fee."
 
-"PerpsOnboardingTitle": "New to Futures?"
-"PerpsOnboardingDescription": "See how it works\nin under 1 minute."
-"PerpsOnboardingOpen": "Open Onboarding"
+"PerpsOnboardingTitle": "Futures\nin %app_name%!"
+"PerpsOnboardingDescription": "Go long or short in a few taps."
+"PerpsOnboardingOpen": "See how it works"
 "PerpsStoryIntroTitle": "Meet perpetual futures"
 "PerpsStoryIntroBody": "Open positions on both rising and falling asset prices."
 "PerpsStoryLongTitle": "Expect a rise? Go Long"
@@ -2348,13 +2356,9 @@ Could not save the image. Please try again.: Could not save the image. Please tr
 "PerpsStoryFundingBody": "When the funding rate is positive, Long pays Short. When it is negative, Short pays Long."
 "PerpsStoryStart": "Start"
 
-"Funding Payment": "Funding Payment"
-
 "Withdrawal": "Withdrawal"
 
 "Transfer": "Transfer"
-
-"Spot Balance": "Spot Balance"
 
 "From": "From"
 
@@ -2362,8 +2366,8 @@ Could not save the image. Please try again.: Could not save the image. Please tr
 
 Delete Chat: Delete Chat
 Unread: Unread
-$agent_connection_lost: Connection to the Agent was interrupted.
-$agent_daily_limit_reached: Daily Agent limit reached
+$agent_connection_lost: Connection to the agent was interrupted.
+$agent_daily_limit_reached: Daily agent limit reached
 $media_viewer_date_at_time: "%date% at %time%"
 Picture: Picture
 
@@ -2378,3 +2382,71 @@ $enclave_data_missing_message: |
   If you have the secret words of your wallets, you can exit all wallets and import them again.
 
 Install the TON App on your Ledger and try again.: Install the TON App on your Ledger and try again.
+Liked: Liked
+Disliked: Disliked
+$agent_feedback_liked_toast: "The agent will respond more like this."
+$agent_feedback_disliked_toast: "We’ll review this to help improve the agent."
+$agent_voice_pause: "Pause recording"
+$agent_voice_resume: "Resume recording"
+$agent_message_copied: Message copied.
+$agent_copied: "Copied."
+$agent_news_empty: "No news yet"
+$agent_chats_unavailable: "Couldn’t load chats"
+
+"PerpsAvailable": "Available"
+"PerpsWithdraw": "Withdraw"
+"PerpsBalanceWithdrawalTitle": "Withdraw to Wallet"
+"PerpsWithdrawalFromHyperliquid": "From Hyperliquid"
+"PerpsWithdrawalToWallet": "To Arbitrum Wallet"
+"PerpsBalanceWithdrawalNote": "The USDC reaches your Arbitrum wallet in a few minutes. 0.03 USDC stays on Hyperliquid to cover the withdrawal’s gas."
+"PerpsBalanceWithdrawalUpdated": "Your Hyperliquid balance changed. Review the withdrawal again before confirming."
+"PerpsWithdrawalStatus": "Withdrawal Status"
+"PerpsWithdrawalCompleted": "Withdrawal Sent"
+"PerpsWithdrawalOnItsWay": "Your USDC is on its way to your Arbitrum wallet. This can take a few minutes."
+"PerpsWithdrawalProcessing": "Processing your withdrawal. Bridging can take a few minutes."
+"PerpsWithdrawalUnknown": "The result is not confirmed yet. Check your Hyperliquid balance and wallet before taking another action."
+"PerpsAcknowledgeWithdrawalUnknown": "The withdrawal may still complete. Check your Hyperliquid balance and wallet first. Allowing new orders does not cancel it."
+"PerpsNothingToWithdraw": "There is nothing to withdraw from your Hyperliquid balance right now."
+"PerpsWithdrawalRejected": "Hyperliquid rejected this withdrawal. Your USDC stays on your Hyperliquid balance."
+"View your assets and activity": "View your assets and activity"
+"Ask AI and follow the news": "Ask AI and follow the news"
+$underlying_stock: '%symbol% stock'
+$agent_support_requested: "You asked for support. An operator will reply here"
+$agent_support_operator_joined: "Support joined the chat: %name%"
+$agent_support_closed_operator: "Support closed the request. The agent answers from here on"
+$agent_support_closed_inactivity: "The request closed after 48 hours without replies. The agent answers from here on"
+$agent_support_waiting: "Support · waiting for an operator"
+$agent_support_with_operator: "Support · %name%"
+$agent_support_label: "Support"
+$agent_support_badge: "%app_name% Support"
+$agent_support_placeholder: "Message to support"
+"PerpsStoryFinaleTitle": "Ready to try futures?"
+"PerpsStoryFinaleBody": "Choose a market, open positions, and track them right in %app_name%!"
+"PerpsStoryViewMarkets": "View Markets"
+Unlink Wallet: Unlink Wallet
+Confirm Unlinking: Confirm Unlinking
+Domain Unlinked: Domain Unlinked
+Drag here to add to the toolbar: Drag here to add to the toolbar
+$send_only_chain_and_token: Send only %symbol%, %tokenSymbol%, or other %chain%-based assets to this address. Sending other tokens will result in loss.
+$agent_digest_unavailable: "This digest is no longer available"
+$agent_digest_title: "Top stories of the day"
+$agent_digest_meta:
+  oneValue: "%count% story · %time%"
+  otherValue: "%count% stories · %time%"
+$agent_digest_more:
+  oneValue: "and %count% more — it's above in the feed"
+  otherValue: "and %count% more — they're above in the feed"
+$agent_digest_settings_title: "Digest and notifications"
+$agent_digest_settings_text: "Once a day the feed gets a digest of the day's top news."
+$agent_digest_time: "Digest time"
+$agent_digest_time_zone: "In your phone's time zone."
+$agent_digest_notifications_off: "Off"
+$agent_digest_notifications_off_hint: "The digest appears only in the feed"
+$agent_digest_notifications_daily: "Daily digest"
+$agent_digest_notifications_daily_hint: "At %time%, the top news in one notification"
+$agent_digest_notifications_every: "Every news item"
+$agent_digest_notifications_every_hint: "A notification for every news item"
+$agent_digest_post_header: "MyPulse · digest · %time%"
+$agent_digest_sheet_title: "Daily digest"
+$agent_digest_device_time_zone: "In this device's time zone."
+$agent_dictation_microphone_denied_device: "Allow microphone access in your device settings to dictate."

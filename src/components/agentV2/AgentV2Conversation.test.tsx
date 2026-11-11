@@ -3,7 +3,7 @@ import TeactDOM from '../../lib/teact/teact-dom';
 
 import { APP_NAME } from '../../config';
 
-import { AgentV2AssistantText, AgentV2ConsentScreen } from './AgentV2Conversation';
+import { AgentV2AssistantText, AgentV2ConsentSheet } from './AgentV2Conversation';
 
 const mockLang = jest.fn((key: string) => key);
 
@@ -11,6 +11,16 @@ jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => mockLang,
 }));
+// The sheet's content shows in place, without the modal's portal and gestures
+jest.mock('../ui/Modal', () => {
+  const { createElement } = jest.requireActual('../../lib/teact/teact');
+  return {
+    __esModule: true,
+    default: ({ isOpen, children }: { isOpen?: boolean; children: unknown }) => (
+      isOpen ? createElement('div', undefined, children) : undefined
+    ),
+  };
+});
 
 let nextAnimationFrameId = 0;
 let pendingAnimationFrames = new Map<number, FrameRequestCallback>();
@@ -96,9 +106,9 @@ describe('AgentV2AssistantText', () => {
     expect(root.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
   });
 
-  it('renders branded consent copy and forwards the allow action', async () => {
+  it('renders branded consent copy in its sheet and forwards the allow action', async () => {
     const onAccept = jest.fn();
-    TeactDOM.render(<AgentV2ConsentScreen onAccept={onAccept} />, root);
+    TeactDOM.render(<AgentV2ConsentSheet isOpen onAllow={onAccept} onClose={jest.fn()} />, root);
     await flushUi();
 
     expect(mockLang).toHaveBeenCalledWith('$agent_consent_feature_answers', { app_name: APP_NAME });

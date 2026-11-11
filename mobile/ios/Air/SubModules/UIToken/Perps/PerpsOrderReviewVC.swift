@@ -7,16 +7,15 @@ import WalletContext
 public final class PerpsOrderReviewVC: WViewController {
     private let state: PerpsOrderReviewState
 
-    public init(data: PerpsOrderReviewDisplayData, onSelectPayment: ((PerpsOrderReviewRequest) -> Void)? = nil,
-                onConfirm: @escaping (PerpsOrderReviewRequest) -> Void) {
-        state = PerpsOrderReviewState(data: data, onSelectPayment: onSelectPayment, onConfirm: onConfirm)
+    public init(data: PerpsOrderReviewDisplayData, onConfirm: @escaping (PerpsOrderReviewRequest) -> Void) {
+        state = PerpsOrderReviewState(data: data, onConfirm: onConfirm)
         super.init(nibName: nil, bundle: nil)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    /// Updates can refresh/invalidate the quote. While confirmation is pending, echo its request.
+    /// Updates can refresh or invalidate the quote. While confirmation is pending, echo its request.
     /// The adapter remains responsible for quote expiry, authentication, execution, and navigation.
     @discardableResult
     public func update(data: PerpsOrderReviewDisplayData, for request: PerpsOrderReviewRequest? = nil) -> Bool {
@@ -33,16 +32,9 @@ public final class PerpsOrderReviewVC: WViewController {
         })
         let content = addHostingController(PerpsOrderReviewView(state: state))
         let footer = addHostingController(PerpsOrderReviewFooter(state: state))
-        PerpsSheetContentView.prepare(content)
-        PerpsSheetContentView.prepare(footer)
-        let layout = PerpsSheetContentView(content: content.view, footer: footer.view, footerBackground: .air.headerBackground)
-        view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+        AssetDetailsView.prepare(content)
+        AssetDetailsView.prepare(footer)
+        AssetDetailsView(sections: [content.view], footer: footer.view, background: .air.headerBackground).install(in: view)
         addCustomNavigationBarBackground(color: .air.headerBackground)
     }
 

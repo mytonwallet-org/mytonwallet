@@ -20,6 +20,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiPriceHistoryBackfill
 import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -68,11 +69,14 @@ class TokenVM(
             field = value
             WGlobalStorage.setCurrentTokenPeriod(accountId, value.value)
             historyData = null
+            backfill = null
             delegate.get()?.priceDataUpdated()
             loadPriceHistoryChart(value)
         }
 
     var historyData: Array<Array<Double>>? = null
+
+    var backfill: ApiPriceHistoryBackfill? = null
     var activityLoader: IActivityLoader? = null
     val showingTransactions: List<MApiTransaction>?
         get() = if (supportsTokenChain) activityLoader?.showingTransactions else emptyList()
@@ -158,12 +162,13 @@ class TokenVM(
         TokenStore.loadPriceHistory(
             token,
             period
-        ) { res, isFromCache, err ->
+        ) { res, backfill, isFromCache, err ->
             if (period != selectedPeriod) return@loadPriceHistory
             if (!useCache && isFromCache) return@loadPriceHistory
             if (!isFromCache) scheduleChartRefresh(period)
             if (res == null || err != null) return@loadPriceHistory
             historyData = res
+            this.backfill = backfill
             delegate.get()?.priceDataUpdated()
         }
     }
@@ -202,6 +207,8 @@ class TokenVM(
 
             WalletEvent.BaseCurrencyChanged -> {
                 historyData = null
+                backfill = null
+                backfill = null
                 delegate.get()?.priceDataUpdated()
                 loadPriceHistoryChart(selectedPeriod)
                 delegate.get()?.dataUpdated(false)

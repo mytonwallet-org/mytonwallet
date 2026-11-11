@@ -6,6 +6,7 @@ import buildClassName from '../../../util/buildClassName';
 import { callApi } from '../../../api';
 
 import useHistoryBack from '../../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../../hooks/useInactivityTimeout';
 import useLang from '../../../hooks/useLang';
 import useScrolledState from '../../../hooks/useScrolledState';
 
@@ -55,6 +56,8 @@ function BackupPrivateKey({
     isActive,
     onBack: onBackClick,
   });
+
+  useInactivityTimeout(onBackClick, isActive);
 
   const {
     handleScroll: handleContentScroll,

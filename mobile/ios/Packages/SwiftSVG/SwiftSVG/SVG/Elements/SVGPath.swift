@@ -61,20 +61,7 @@ final class SVGPath: SVGShapeElement, ParsesAsynchronously, DelaysApplyingAttrib
     /// :nodoc:
     internal var svgLayer = CAShapeLayer()
 
-    /// :nodoc:
-    private let renderContext: SVGRenderContext?
-
-    internal init(context: SVGRenderContext? = nil) {
-        renderContext = context
-    }
-
-    internal func parseFill(_ value: String) {
-        if value.hasPrefix("url(#"), value.hasSuffix(")"), let renderContext {
-            renderContext.shapeFills.append((svgLayer, String(value.dropFirst(5).dropLast())))
-        } else {
-            fill(fillColor: value)
-        }
-    }
+    internal init() { }
 
     /**
      Initializer to to set the `svgLayer`'s cgPath. The path string does not have to be a single path for the whole element, but can include multiple subpaths in the `d` attribute. For instance, the following is a valid path string to pass:
@@ -84,7 +71,6 @@ final class SVGPath: SVGShapeElement, ParsesAsynchronously, DelaysApplyingAttrib
      - parameter singlePathString: The `d` attribute value of a `<path>` element
      */
     internal init(singlePathString: String) {
-        renderContext = nil
         self.shouldParseAsynchronously = false
         self.parseD(singlePathString)
     }

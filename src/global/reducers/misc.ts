@@ -10,7 +10,7 @@ import type {
 import type {
   Account, AccountChain, AccountState, AccountType, ChainDisplayConfiguration, GlobalState,
 } from '../types';
-import { AuthState } from '../types';
+import { AuthState, ContentTab, SettingsState } from '../types';
 
 import { POPULAR_WALLET_VERSIONS } from '../../config';
 import { generateAccountTitle } from '../../util/account';
@@ -19,6 +19,7 @@ import { getDefaultEnabledSlugs } from '../../util/chain';
 import { getIsDefaultChainDisplayConfiguration } from '../../util/chainDisplay';
 import { sanitizeCurrencyRates } from '../../util/currencyRates';
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
+import { resolveNavigationTabOrder } from '../../util/navigationTabOrder';
 import { getChainBySlug } from '../../util/tokens';
 import {
   selectAccount,
@@ -26,6 +27,7 @@ import {
   selectAccountSettings,
   selectAccountState,
   selectCurrentAccountId,
+  selectCurrentAccountState,
   selectCurrentNetwork,
   selectNetworkAccounts,
 } from '../selectors';
@@ -416,6 +418,26 @@ export function openSection(global: GlobalState, section: OpenableSection): Glob
     isMarketOpen: section === 'market' || undefined,
     isPortfolioOpen: section === 'portfolio' || undefined,
   };
+}
+
+/**
+ * Opens the first navigation tab of the user's order, as `switchTo*` would, for the app's start. A token screen
+ * restored from the cache keeps the wallet under it
+ */
+export function openFirstNavigationTab(global: GlobalState): GlobalState {
+  if (selectCurrentAccountState(global)?.currentTokenSlug) return global;
+
+  const tab = resolveNavigationTabOrder(global.settings.navigationTabOrder)[0];
+  switch (tab) {
+    case 'wallet':
+      return global;
+    case 'settings':
+      return openSection(updateSettings(global, { state: SettingsState.Initial }), 'settings');
+    case 'agent':
+      return updateCurrentAccountState(openSection(global, 'agent'), { activeContentTab: ContentTab.Agent });
+    default:
+      return openSection(global, tab);
+  }
 }
 
 export function updateAccountSettings(

@@ -5,6 +5,10 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
 object ArbitrumConfig : MBlockchainConfig {
 
+    override val usdcSlug = mapOf(
+        MBlockchainNetwork.MAINNET to "arbitrum-0xaf88d065"
+    )
+
     override val gas = MBlockchain.Gas(
         maxSwap = null,
         maxTransfer = BigDecimal.ZERO,

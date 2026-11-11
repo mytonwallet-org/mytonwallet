@@ -42,17 +42,24 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         public let id: String
         public let dequeueCell: @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell
         private let onWillDisplay: (@MainActor (UICollectionViewCell) -> Void)?
+        private let onSelect: (@MainActor () -> Void)?
         private let usesInsetGroupedMargins: Bool
         private let topSpacing: CGFloat
         private let bottomSpacing: CGFloat
+        private let contentInsets: NSDirectionalEdgeInsets?
+        private let height: CGFloat?
 
         public var itemIdentifiers: [String] { [id] }
 
+        /// `contentInsets` or `height` lays the cell out in its own full-width section instead of the host's default.
         public init(
             id: String,
             usesInsetGroupedMargins: Bool = false,
             topSpacing: CGFloat = 0,
             bottomSpacing: CGFloat = 16,
+            contentInsets: NSDirectionalEdgeInsets? = nil,
+            height: CGFloat? = nil,
+            onSelect: (@MainActor () -> Void)? = nil,
             dequeueCell: @escaping @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell,
             willDisplay: (@MainActor (UICollectionViewCell) -> Void)? = nil
         ) {
@@ -60,6 +67,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             self.usesInsetGroupedMargins = usesInsetGroupedMargins
             self.topSpacing = topSpacing
             self.bottomSpacing = bottomSpacing
+            self.contentInsets = contentInsets
+            self.height = height
+            self.onSelect = onSelect
             self.dequeueCell = dequeueCell
             self.onWillDisplay = willDisplay
         }
@@ -76,7 +86,25 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             onWillDisplay?(cell)
         }
 
+        public func shouldSelect(itemIdentifier: String) -> Bool {
+            onSelect != nil
+        }
+
+        public func didSelect(itemIdentifier: String) {
+            onSelect?()
+        }
+
         public func makeLayoutSection(layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
+            if !usesInsetGroupedMargins, contentInsets != nil || height != nil {
+                let size = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1),
+                    heightDimension: height.map { .absolute($0) } ?? .estimated(plainSectionEstimatedHeight)
+                )
+                let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [NSCollectionLayoutItem(layoutSize: size)])
+                let section = NSCollectionLayoutSection(group: group)
+                section.contentInsets = contentInsets ?? .zero
+                return section
+            }
             guard usesInsetGroupedMargins else { return nil }
             let listSection = NSCollectionLayoutSection.list(
                 using: UICollectionLayoutListConfiguration(appearance: .insetGrouped),
@@ -99,6 +127,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     public lazy var collectionView = ActivitiesCollectionView(frame: .zero, collectionViewLayout: makeLayout())
+    private lazy var dateRefreshController = ActivityDateRefreshController(collectionView: collectionView)
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>?
 
     public let skeletonView = SkeletonView()
@@ -156,6 +185,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         self.isViewVisible = true
+        dateRefreshController.start()
         self.updateNftAnimationPlaybackActivity()
         self.updateVisibleActivityNftAnimationPlayback()
     }
@@ -163,6 +193,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     open override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.isViewVisible = false
+        dateRefreshController.stop()
         self.updateNftAnimationPlaybackActivity()
     }
 
@@ -644,6 +675,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                     self.updateVisibleActivityNftAnimationPlayback()
+                    self.dateRefreshController.setNeedsUpdate()
                     self.didApplySnapshot()
                     replacementCompletion?()
                 }
@@ -717,6 +749,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                         self.collectionView.flushHomeTrace(reason: "snapshot-complete", force: true)
                         self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                         self.updateVisibleActivityNftAnimationPlayback()
+                        self.dateRefreshController.setNeedsUpdate()
                         if pending.notifiesDidApply {
                             self.didApplySnapshot()
                         }
@@ -814,6 +847,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                     self.updateVisibleActivityNftAnimationPlayback()
+                    self.dateRefreshController.setNeedsUpdate()
                 }
             }
         }
@@ -828,8 +862,16 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     public func firstItemFrame(inCustomSection id: String) -> CGRect? {
+        itemFrame(inCustomSection: id, row: \.first)
+    }
+
+    public func lastItemFrame(inCustomSection id: String) -> CGRect? {
+        itemFrame(inCustomSection: id, row: \.last)
+    }
+
+    private func itemFrame(inCustomSection id: String, row: KeyPath<[Row], Row?>) -> CGRect? {
         guard let dataProvider = customSectionDataProvider(id: id),
-              let row = customRows(for: dataProvider).first,
+              let row = customRows(for: dataProvider)[keyPath: row],
               let indexPath = dataSource?.indexPath(for: row) else {
             return nil
         }
@@ -897,6 +939,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     open func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        dateRefreshController.setNeedsUpdate()
         if let (dataProvider, itemIdentifier) = customSectionItem(at: indexPath) {
             dataProvider.willDisplay(cell, itemIdentifier: itemIdentifier)
         }
@@ -905,10 +948,16 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     open func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        dateRefreshController.setNeedsUpdate()
         if let (dataProvider, itemIdentifier) = customSectionItem(at: indexPath) {
             dataProvider.didEndDisplaying(cell, itemIdentifier: itemIdentifier)
         }
         updateVisibleActivityNftAnimationPlayback()
+    }
+
+    open func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView,
+                             forElementKind elementKind: String, at indexPath: IndexPath) {
+        dateRefreshController.setNeedsUpdate()
     }
 
     private func customSectionItem(

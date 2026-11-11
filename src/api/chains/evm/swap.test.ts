@@ -245,7 +245,9 @@ beforeEach(() => {
   jest.mocked(getSignerFromPrivateKey).mockReturnValue(signer as never);
   jest.mocked(getPermit2SignatureStrategy).mockResolvedValue('raw');
   jest.mocked(validateEvmSwapCalls).mockReturnValue(undefined);
-  jest.mocked(submitBatchUserOp).mockResolvedValue({ txHash: '0xbatch', userOpHash: '0xuserop', success: true });
+  jest.mocked(submitBatchUserOp).mockResolvedValue({
+    txHash: '0xbatch', userOpHash: '0xuserop', success: true,
+  });
   provider.call.mockResolvedValue(NEXT_NONCE_RESULT);
   provider.estimateGas.mockResolvedValue(21_000n);
   signer.signTypedData.mockResolvedValue(SIGNATURE);

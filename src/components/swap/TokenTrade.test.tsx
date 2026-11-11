@@ -1,3 +1,6 @@
+// Imports schedule layout work, so they must share the test clock.
+import '../../../tests/initFakeTimers';
+
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
@@ -57,8 +60,15 @@ const TOKENS = [
 describe('TokenTrade selling for a card', () => {
   let root: HTMLDivElement;
 
+  beforeAll(async () => {
+    await import('../../../tests/initGlobal');
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
     Object.keys(mockActions).forEach((name) => delete mockActions[name]);
     jest.mocked(useOffRampMaxAmount).mockReturnValue({ amount: CARD_MAX, isLoading: false });
@@ -70,7 +80,6 @@ describe('TokenTrade selling for a card', () => {
     TeactDOM.render(undefined, root);
     await jest.runAllTimersAsync();
     root.remove();
-    jest.useRealTimers();
   });
 
   it('cuts 100% chosen for a token down to the card maximum instead of reporting a short balance', async () => {

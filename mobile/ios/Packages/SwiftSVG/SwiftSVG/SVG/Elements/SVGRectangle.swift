@@ -54,8 +54,6 @@ final class SVGRectangle: SVGShapeElement {
     /// :nodoc:
     internal var supportedAttributes: [String : (String) -> ()] = [:]
 
-    internal var renderContext: SVGRenderContext?
-    private var fillReferenceId: String?
 
     /**
      The x radius of the corner oval. Defaults to `0`
@@ -127,15 +125,6 @@ final class SVGRectangle: SVGShapeElement {
         self.yCornerRadius = yCornerRadius
     }
 
-    internal func fill(_ value: String) {
-        if let referenceId = value.svgURLReferenceId {
-            fillReferenceId = referenceId
-            return
-        }
-
-        fill(fillColor: value)
-    }
-
     /**
      Creates a new rectangle path based on the set attributes.
      */
@@ -167,10 +156,6 @@ final class SVGRectangle: SVGShapeElement {
             rectanglePath = UIBezierPath(rect: self.rectangleRect)
         }
         self.svgLayer.path = rectanglePath.cgPath
-
-        if let fillReferenceId {
-            renderContext?.shapeFills.append((svgLayer, fillReferenceId))
-        }
         container.containerLayer.addSublayer(self.svgLayer)
     }
 }

@@ -23,3 +23,4 @@ export * from './swap';
 export * from './walletConnectPay';
 
 export * from './perpsTrading';
+export { perpsRefreshPositions } from './perpsPositions';

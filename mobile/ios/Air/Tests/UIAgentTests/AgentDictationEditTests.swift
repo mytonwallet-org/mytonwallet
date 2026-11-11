@@ -40,7 +40,8 @@ final class AgentDictationEditTests: XCTestCase {
         XCTAssertFalse(composer.isTextInputActive)
         scheduler.advance(by: 0.8)
         dictation.finish()
-        for _ in 0..<100 where composer.draftText != transcript { await Task.yield() }
+        // The transcript comes in word by word
+        for _ in 0..<300 where composer.draftText != transcript { try await Task.sleep(for: .milliseconds(10)) }
 
         XCTAssertEqual(composer.draftText, transcript)
         XCTAssertFalse(composer.isTextInputActive)
@@ -166,11 +167,10 @@ final class AgentDictationEditTests: XCTestCase {
         XCTAssertTrue(textView.isFirstResponder)
         scheduler.advance(by: 0.8)
         dictation.touchEnded()
-        for _ in 0..<100 where composer.draftText != transcript { await Task.yield() }
+        // Released, a held recording's transcript goes at once, here as the edit of the message
+        for _ in 0..<300 where backend.sentTexts.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
 
-        XCTAssertEqual(composer.draftText, transcript)
-        XCTAssertTrue(textView.isFirstResponder)
-        composer.onSend?()
+        XCTAssertEqual(composer.draftText ?? "", "")
         XCTAssertEqual(backend.sentTexts, [transcript])
         XCTAssertEqual(backend.editedMessageIDs, [message.id])
         XCTAssertEqual(backend.context?.message(for: message.id)?.text, transcript)

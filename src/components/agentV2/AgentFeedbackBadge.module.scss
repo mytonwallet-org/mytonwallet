@@ -1,0 +1,94 @@
+// Telegram's reaction on a message: the emoji alone in a 22 px frame, centred 3 px inside the bubble's trailing edge
+// with its bottom 3 px under the bubble's (see `getAgentFeedbackBadgeCenter`), drawn over what follows the bubble
+.root {
+  cursor: var(--custom-cursor, pointer);
+  user-select: none;
+
+  position: absolute;
+  z-index: 1;
+  bottom: -0.1875rem;
+  inset-inline-end: -0.5rem;
+
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+// Telegram's emoji, centred in the frame at the size `AGENT_FEEDBACK_ANIMATIONS` gives it
+.icon,
+.replacedIcon {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+// The emoji waits out of sight for the reaction flying to it, which `agentFeedbackFlight` shows as it lands, and gives
+// way to its animation while that plays
+.icon[data-agent-feedback-awaiting],
+.iconHidden {
+  visibility: hidden;
+}
+
+// The words are read with the bubble, and left out of a copy of its text
+.label {
+  user-select: none;
+}
+
+// Telegram's swap of a reaction's emoji: it comes from a fifth of its size in 0.12 s, and goes to it, as the emoji of
+// the reaction replaced does once the new one shows
+.iconAppearing {
+  animation: badge-appear 120ms ease-out backwards;
+}
+
+// The emoji replaced waits with the new one, and goes as that lands
+.leaving,
+.replacedIcon:not([data-agent-feedback-awaiting]) {
+  animation: badge-leave 120ms ease-in forwards;
+}
+
+// With reduced motion the emoji only fades, and where the app's animations are off it changes at once
+
+@media (prefers-reduced-motion: reduce) {
+  .iconAppearing {
+    animation-name: badge-fade-in;
+  }
+
+  .leaving,
+  .replacedIcon:not([data-agent-feedback-awaiting]) {
+    animation-name: badge-fade-out;
+  }
+}
+
+:global(html.animation-level-0) {
+  .iconAppearing,
+  .leaving,
+  .replacedIcon:not([data-agent-feedback-awaiting]) {
+    animation: none;
+  }
+}
+
+@keyframes badge-appear {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes badge-leave {
+  to {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes badge-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes badge-fade-out {
+  to {
+    opacity: 0;
+  }
+}

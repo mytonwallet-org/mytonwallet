@@ -15,7 +15,7 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
     private let presentation: PerpsPositionReceiptPresentation
     private var compactContentHeight: CGFloat = 264
     private var presentationMode: SheetPresentationMode?
-    private var contentLayout: PerpsSheetContentView?
+    private var contentLayout: AssetDetailsView?
 
     public init(data: PerpsPositionReceiptDisplayData, onShare: (() -> Void)? = nil, onStatus: (() -> Void)? = nil) {
         self.presentation = PerpsPositionReceiptPresentation(data: data)
@@ -54,25 +54,13 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
         })
         let content = addHostingController(PerpsPositionReceiptView(
             presentation: presentation, onDetails: { [weak self] in self?.showDetails() },
-            onShare: onShare, onHeightChange: { [weak self] in self?.contentHeightChanged($0) },
-            onCopyTransferID: { [weak self] in
-                guard let self, let transferID = data.transferID else { return }
-                UIPasteboard.general.string = transferID
-                showToast(.init(message: lang("Copied")))
-                Haptics.play(.lightTap)
-            }
+            onShare: onShare, onHeightChange: { [weak self] in self?.contentHeightChanged($0) }
         ))
-        PerpsSheetContentView.prepare(content)
-        let layout = PerpsSheetContentView(content: content.view)
+        AssetDetailsView.prepare(content)
+        let layout = AssetDetailsView(sections: [content.view], footer: nil, background: .air.sheetBackground)
         contentLayout = layout
         layout.scrollView.isScrollEnabled = presentation.detailsExpanded
-        view.addSubview(layout)
-        NSLayoutConstraint.activate([
-            layout.topAnchor.constraint(equalTo: view.topAnchor),
-            layout.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            layout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            layout.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-        ])
+        layout.install(in: view)
         addCustomNavigationBarBackground(color: .air.sheetBackground)
     }
 
@@ -143,7 +131,8 @@ public final class PerpsPositionReceiptVC: WViewController, UISheetPresentationC
 
     private func makeDetents() -> [UISheetPresentationController.Detent] {
         return [.custom(identifier: Self.compactDetent) { [weak self] context in
-            min((self?.compactContentHeight ?? 264) + 44, context.maximumDetentValue)
+            // The summary sits 8 points into the scroll content, below the 44-point navigation bar.
+            min((self?.compactContentHeight ?? 264) + 52, context.maximumDetentValue)
         }, .large()]
     }
 

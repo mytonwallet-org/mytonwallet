@@ -195,6 +195,33 @@ describe('animateScroll', () => {
     expect(container.scrollTop).toBe(146);
   });
 
+  // A touch or a wheel cancels the scroll from an event handler, outside the mutation phase
+  it('gives the container its scroll behavior back in a mutation once the scroll is cancelled', async () => {
+    const container = createContainer({ scrollHeight: 700, clientHeight: 500 });
+    requestMutation(animateScroll(container, getBottomScrollTop));
+    await runFrames(3);
+
+    cancelScrollAnimation();
+
+    expect(container.style.scrollBehavior).toBe('auto');
+    await runFrames(1);
+    expect(container.style.scrollBehavior).toBe('');
+  });
+
+  it('keeps the scroll behavior of an animation that starts before the cancelled one gives it back', async () => {
+    const container = createContainer({ scrollHeight: 700, clientHeight: 500 });
+    requestMutation(animateScroll(container, getBottomScrollTop));
+    await runFrames(3);
+
+    // The next animation is already on its way to the mutation phase as the user cancels the running one
+    requestMutation(animateScroll(container, () => 0));
+    cancelScrollAnimation();
+    await runFrames(1);
+
+    expect(isAnimatingScroll(container)).toBe(true);
+    expect(container.style.scrollBehavior).toBe('auto');
+  });
+
   it('tells the inertia of a swipe from before the animation from a new swipe', async () => {
     const container = createContainer({ scrollHeight: 3000, clientHeight: 500 });
     const wheel = (deltaY: number, delay = FRAME_DURATION) => {

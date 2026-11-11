@@ -100,6 +100,14 @@ func getIsBackendSwapId(_ id: String) -> Bool {
     id.hasSuffix(":backend-swap")
 }
 
+/// CEX and cross-chain swaps settle on the backend after their source transaction, so pending ones are polled
+func getIsCrossChainBackendSwap(_ id: String, _ swap: ApiSwapActivity) -> Bool {
+    guard getIsBackendSwapId(id), let fromChain = getChainBySlug(swap.from), let toChain = getChainBySlug(swap.to) else {
+        return false
+    }
+    return fromChain != toChain
+}
+
 func compareActivityIds(_ idA: String, _ idB: String, byId: [String: ApiActivity]) -> Bool {
     if let activityA = byId[idA], let activityB = byId[idB] {
         return activityA < activityB

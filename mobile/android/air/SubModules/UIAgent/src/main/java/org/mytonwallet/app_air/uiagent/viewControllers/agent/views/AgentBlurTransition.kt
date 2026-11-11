@@ -17,19 +17,21 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
  * on y. Coming in eases out; going out eases in.
  */
 internal object AgentBlurTransition {
-    private const val MAX_BLUR_DP = 8f
+    /** The blur at the far end of a transition, in dp */
+    const val RADIUS_DP = 8f
 
     fun animateIn(
         view: View,
         durationMs: Long,
         delayMs: Long = 0,
         fromOffsetDp: Float = 0f,
+        interpolator: TimeInterpolator = DecelerateInterpolator(),
         onEnd: (() -> Unit)? = null
     ): Animator = run(
         view,
         durationMs,
         delayMs,
-        DecelerateInterpolator(),
+        interpolator,
         fromOffsetDp.dp,
         0f,
         isAppearing = true,
@@ -86,8 +88,14 @@ internal object AgentBlurTransition {
     private fun applyFrame(view: View, visibility: Float, offset: Float, isBlurred: Boolean) {
         view.alpha = visibility
         view.translationY = offset
+        setBlur(view, if (isBlurred) (1 - visibility) * RADIUS_DP.dp else 0f)
+    }
+
+    /**
+     * Blurs [view] by [radius] px where the system supports it; under half a pixel, it shows sharp
+     */
+    fun setBlur(view: View, radius: Float) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val radius = if (isBlurred) (1 - visibility) * MAX_BLUR_DP.dp else 0f
         view.setRenderEffect(
             if (radius < 0.5f) {
                 null

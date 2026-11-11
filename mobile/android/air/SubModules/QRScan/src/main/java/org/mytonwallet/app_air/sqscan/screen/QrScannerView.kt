@@ -58,7 +58,9 @@ class QrScannerView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
-    private val flashlightView = QrScannerToggleFlashlight(context)
+    private val flashlightView = QrScannerToggleFlashlight(context).apply {
+        id = UIComponentsR.id.qr_scan_torch
+    }
     private val flashlightRect = Rect()
     private val blurRender = QrBlur()
 
@@ -66,6 +68,7 @@ class QrScannerView @JvmOverloads constructor(
     private val closeBlur = QrBlur()
 
     private val closeButtonView = AppCompatImageView(context).apply {
+        id = UIComponentsR.id.qr_scan_close
         setImageResource(R.drawable.ic_qr_close_12)
         scaleType = ImageView.ScaleType.CENTER
         background = WRippleDrawable.create(15f.dp).apply {

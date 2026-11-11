@@ -1,5 +1,6 @@
 import type {
-  ApiSubscribeNotificationsProps, ApiSubscribeNotificationsResult, ApiUnsubscribeNotificationsProps,
+  ApiSetNewsNotificationsProps, ApiSubscribeNotificationsProps, ApiSubscribeNotificationsResult,
+  ApiUnsubscribeNotificationsProps,
 } from '../types';
 
 import { logDebugError } from '../../util/logs';
@@ -24,6 +25,43 @@ export async function unsubscribeNotifications(props: ApiUnsubscribeNotification
     );
   } catch (err) {
     logDebugError('unsubscribeNotifications', err);
+    return handleServerError(err);
+  }
+}
+
+export async function setNewsNotifications(
+  props: ApiSetNewsNotificationsProps,
+): Promise<{ ok: true } | ReturnType<typeof handleServerError>> {
+  const { mode, userToken, platform, langCode, digestHour, timeZone } = props;
+
+  try {
+    switch (mode) {
+      case 'off':
+        await callBackendPost<{ ok: true }>(
+          '/notifications/news-digest/unsubscribe', { userToken }, { shouldRetry: true },
+        );
+        return await callBackendPost<{ ok: true }>(
+          '/notifications/news/unsubscribe', { userToken }, { shouldRetry: true },
+        );
+      case 'digest':
+        await callBackendPost<{ ok: true }>(
+          '/notifications/news-digest/subscribe',
+          { userToken, platform, hour: digestHour, timezone: timeZone, langCode },
+          { shouldRetry: true },
+        );
+        return await callBackendPost<{ ok: true }>(
+          '/notifications/news/unsubscribe', { userToken }, { shouldRetry: true },
+        );
+      case 'news':
+        await callBackendPost<{ ok: true }>(
+          '/notifications/news/subscribe', { userToken, platform, langCode }, { shouldRetry: true },
+        );
+        return await callBackendPost<{ ok: true }>(
+          '/notifications/news-digest/unsubscribe', { userToken }, { shouldRetry: true },
+        );
+    }
+  } catch (err) {
+    logDebugError('setNewsNotifications', err);
     return handleServerError(err);
   }
 }

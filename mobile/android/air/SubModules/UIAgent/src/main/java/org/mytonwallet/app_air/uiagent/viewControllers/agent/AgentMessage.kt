@@ -7,15 +7,22 @@ import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTableReference
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUp
-import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadNewsCard
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2OperatorAuthor
 
 enum class AgentMessageRole {
     ASSISTANT,
     USER,
+    OPERATOR,
     SYSTEM
 }
 
 data class AgentDeeplink(val title: String, val url: String? = null, val actionId: String? = null)
+
+data class AgentSupportEvent(
+    val code: String,
+    val operatorName: String? = null,
+    val reason: String? = null
+)
 
 /** The user's rating of a complete answer, spelled as the server stores it */
 enum class AgentAnswerFeedback(val wireValue: String) {
@@ -42,6 +49,8 @@ data class AgentMessage(
     val isAwaitingSemanticContent: Boolean = false,
     /** The step the Agent reports while it works on this answer, before its text arrives */
     val activityText: String? = null,
+    /** The user stopped the answer before any of it showed: its row shows the top stopping a moment, then goes */
+    val isStopping: Boolean = false,
     /** A system line that tells why the Agent could not answer */
     val isFailure: Boolean = false,
     /** Why the server stores this answer as failed, which shows as a failure line after it */
@@ -50,7 +59,10 @@ data class AgentMessage(
     /** The server stores the answer as complete, so the user can rate it */
     val isComplete: Boolean = false,
     val feedback: AgentAnswerFeedback? = null,
-    val newsPost: Boolean = false
+    val newsPost: Boolean = false,
+    val operator: AgentV2OperatorAuthor? = null,
+    val isPlainText: Boolean = false,
+    val supportEvent: AgentSupportEvent? = null
 ) {
     val hasText: Boolean
         get() = text.isNotEmpty() || tableReferences.any { reference ->
@@ -65,7 +77,7 @@ data class AgentMessage(
     }
 
     val hasVisibleBubble: Boolean
-        get() = role != AgentMessageRole.ASSISTANT || hasText || isStreaming
+        get() = role != AgentMessageRole.ASSISTANT || hasText || isStreaming || isStopping
 
     val hasVisibleContent: Boolean
         get() = hasVisibleBubble || deeplinks.isNotEmpty() || followups.isNotEmpty()
@@ -109,12 +121,17 @@ internal fun List<AgentMessage>.findFollowupOwner(): AgentMessage? =
     lastOrNull { it.role != AgentMessageRole.SYSTEM }
         ?.takeIf { it.role == AgentMessageRole.ASSISTANT }
 
-sealed class AgentTimelineItem {
+internal sealed class AgentTimelineItem {
     data class DateHeader(val date: Date) : AgentTimelineItem()
 
     data object UnreadDivider : AgentTimelineItem()
-    data class Message(val message: AgentMessage, val newsPost: AgentV2ThreadNewsCard? = null) :
-        AgentTimelineItem()
+
+    /** [hasAuthor]: an incoming message names its author, once an operator has joined the chat */
+    data class Message(
+        val message: AgentMessage,
+        val newsPost: AgentNewsPostContent? = null,
+        val hasAuthor: Boolean = false
+    ) : AgentTimelineItem()
     data class Hints(
         val hints: List<AgentHint>,
         val followupMessageId: String? = null,

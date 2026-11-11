@@ -57,7 +57,7 @@ extension Fillable where Self : SVGShapeElement {
             "fill": self.fill,
             "fill-opacity": self.fillOpacity,
             "fill-rule": self.fillRule,
-            "opacity": self.fillOpacity,
+            "opacity": self.layerOpacity,
         ]
     }
 
@@ -66,14 +66,23 @@ extension Fillable where Self : SVGShapeElement {
      - SeeAlso: CAShapeLayer's [`fillColor`](https://developer.apple.com/documentation/quartzcore/cashapelayer/1522248-fillcolor)
      */
     func fill(fillColor: String) {
-        if fillColor == "none" {
-            self.svgLayer.fillColor = nil
+        Self.applyFill(fillColor, to: self.svgLayer)
+    }
+
+    static func applyFill(_ value: String, to layer: CAShapeLayer) {
+        if value == "none" {
+            layer.fillColor = nil
+        } else if let fillColor = UIColor(svgString: value) {
+            layer.fillColor = fillColor.cgColor
+        }
+    }
+
+    /// `opacity` fades the whole element, its stroke included.
+    func layerOpacity(opacity: String) {
+        guard let opacity = Float(opacity) else {
             return
         }
-        guard let fillColor = UIColor(svgString: fillColor) else {
-            return
-        }
-        self.svgLayer.fillColor = fillColor.withAlphaComponent(self.svgLayer.fillColor?.alpha ?? 1).cgColor
+        self.svgLayer.opacity = opacity
     }
 
     /**
@@ -94,10 +103,7 @@ extension Fillable where Self : SVGShapeElement {
         guard let opacity = CGFloat(opacity) else {
             return
         }
-        guard let colorComponents = self.svgLayer.fillColor?.components else {
-            return
-        }
-        self.svgLayer.fillColor = UIColor(red: colorComponents[0], green: colorComponents[1], blue: colorComponents[2], alpha: opacity).cgColor
+        self.svgLayer.svgFillOpacity = opacity
     }
 
 }
@@ -115,7 +121,7 @@ extension Fillable where Self : SVGGroup {
             "fill": unown(self, SVGGroup.fill),
             "fill-opacity": unown(self, SVGGroup.fillOpacity),
             "fill-rule": unown(self, SVGGroup.fillRule),
-            "opacity": unown(self, SVGGroup.fillOpacity),
+            "opacity": unown(self, SVGGroup.groupOpacity),
         ]
     }
 
@@ -138,7 +144,15 @@ extension Fillable where Self : SVGGroup {
      Sets the fill opacity for all subelements of the `SVGGroup` through its CGColor, not the CALayer's opacity property.
      */
     func fillOpacity(_ opacity: String) {
-        self.delayedAttributes["opacity"] = opacity
+        self.delayedAttributes["fill-opacity"] = opacity
+    }
+
+    /// `opacity` fades the group as a whole rather than each of its shapes.
+    func groupOpacity(_ opacity: String) {
+        guard let opacity = Float(opacity) else {
+            return
+        }
+        self.containerLayer.opacity = opacity
     }
 
 }

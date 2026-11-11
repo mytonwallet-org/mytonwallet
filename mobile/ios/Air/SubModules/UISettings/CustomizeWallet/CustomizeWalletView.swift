@@ -53,6 +53,7 @@ struct GetMoreCardsSection: View {
                     .foregroundStyle(viewModel.tintColor)
                     .backportGeometryGroup()
                 }
+                .accessibilityIdentifier("customize_get_card")
             } footer: {
                 Text(lang("Browse My Wallet Cards available for purchase."))
             }

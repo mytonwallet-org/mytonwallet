@@ -23,12 +23,13 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
-class ShowAllView(context: Context) :
+class ShowAllView(context: Context, menuButtonViewId: Int? = null) :
     WView(context),
     WThemedView {
 
@@ -51,9 +52,9 @@ class ShowAllView(context: Context) :
         id = generateViewId()
     }
     private val menuButton = WImageButton(context).apply {
-        id = generateViewId()
+        id = menuButtonViewId ?: generateViewId()
         background = WRippleDrawable.create(20f.dp)
-        setOnClickListener {
+        setOnMenuClickListener {
             onMenuTap?.invoke(this)
         }
         visibility = GONE
@@ -198,7 +199,7 @@ class ShowAllView(context: Context) :
         iconDrawable?.setTint(WColor.SecondaryText.color)
         menuDrawable?.setTint(WColor.SecondaryText.color)
         titleLabel.setTextColor(WColor.PrimaryText.color)
-        counterLabel.setGradientColor(arrayOf(WColor.SecondaryText, WColor.SecondaryText))
+        counterLabel.updateTheme()
         counterLabel.setBackgroundColor(WColor.BadgeBackground.color, 8f.dp)
         menuButton.updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
     }

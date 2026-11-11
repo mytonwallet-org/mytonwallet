@@ -40,8 +40,27 @@ final class ContextMenuPageView: UIView {
     private var allowsImmediateSelection = false
     private var isCancellingImmediateSelectionForHorizontalPan = false
     private let feedbackGenerator = UISelectionFeedbackGenerator()
+    private var reorderHold: (rowIndex: Int, contentPoint: CGPoint, timer: Timer)?
+    private var reorderTouchContentPoint: CGPoint?
+    private var liftedRow: (view: UIView, touchOffsetY: CGFloat)?
+    /// In a menu that scrolls the rows take their own touches, so a long press lifts a row there: a touch resting
+    /// still on a row for the long-press time lifts it, and a touch that scrolls the menu first fails it
+    private lazy var scrollingReorderRecognizer: UILongPressGestureRecognizer = {
+        let recognizer = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(self.handleScrollingReorderPress(_:))
+        )
+        recognizer.minimumPressDuration = Self.reorderHoldDuration
+        recognizer.allowableMovement = Self.reorderHoldSlop
+        recognizer.delegate = self
+        recognizer.isEnabled = false
+        return recognizer
+    }()
+    private var scrollingReorderWindowPoint: CGPoint?
 
     var allowsBackNavigationGesture = false
+    /// The menu's corner radius when the presentation sets it rather than the style, as a system popover does
+    var menuCornerRadius: CGFloat?
 
     init(
         page: ContextMenuPage,
@@ -74,6 +93,7 @@ final class ContextMenuPageView: UIView {
 
         self.addSubview(self.scrollView)
         self.scrollView.addSubview(self.contentView)
+        self.scrollView.addGestureRecognizer(self.scrollingReorderRecognizer)
         self.contentView.addSubview(self.selectionView)
         self.addSubview(self.selectionTouchView)
 
@@ -120,7 +140,12 @@ final class ContextMenuPageView: UIView {
 
         let layoutResult = self.layoutResult(width: size.width)
         for (element, frame) in zip(self.elements, layoutResult.frames) {
-            element.view.frame = frame
+            if element.view === self.liftedRow?.view {
+                // The lifted row keeps following the finger
+                element.view.bounds.size = frame.size
+            } else {
+                element.view.frame = frame
+            }
             if case let .row(row) = element {
                 row.applyLayout(size: frame.size)
             }
@@ -133,7 +158,9 @@ final class ContextMenuPageView: UIView {
             contentHeight: layoutResult.contentSize.height
         )
 
-        if let highlightedRowIndex {
+        if let liftedRow {
+            self.selectionView.center = liftedRow.view.center
+        } else if let highlightedRowIndex {
             self.updateHighlight(index: highlightedRowIndex, animated: false, emitFeedback: false)
         } else {
             self.selectionView.frame = .zero
@@ -141,6 +168,8 @@ final class ContextMenuPageView: UIView {
     }
 
     func restoreVisualState() {
+        self.cancelReorderHold()
+        self.dropLiftedRow()
         self.activeSelectionWindowPoint = nil
         self.isCancellingImmediateSelectionForHorizontalPan = false
         self.stopAutoScroll()
@@ -153,6 +182,8 @@ final class ContextMenuPageView: UIView {
         self.updateExternalSelection(windowPoint: windowPoint)
     }
 
+    /// The finger that opened the menu from its source only selects, however long it rests on a row: a row lifts
+    /// for a new touch that goes down on it and holds
     func updateExternalSelection(windowPoint: CGPoint) {
         self.activeSelectionWindowPoint = windowPoint
 
@@ -191,7 +222,9 @@ final class ContextMenuPageView: UIView {
                         badgeText: action.badgeText,
                         role: action.role,
                         isEnabled: action.isEnabled,
-                        accessory: .none
+                        accessory: .none,
+                        accessibilityIdentifier: action.accessibilityIdentifier,
+                        animatedIcon: action.animatedIcon
                     ),
                     style: self.style,
                     sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection
@@ -209,7 +242,8 @@ final class ContextMenuPageView: UIView {
                         rowView.updateColors()
                         rowView.updateBadge()
                     },
-                    setDirectInteractionEnabled: { rowView.isUserInteractionEnabled = $0 }
+                    setDirectInteractionEnabled: { rowView.isUserInteractionEnabled = $0 },
+                    onHighlight: { rowView.playIconAnimation() }
                 )
                 self.installHandlers(on: row)
                 self.contentView.addSubview(rowView)
@@ -485,6 +519,7 @@ final class ContextMenuPageView: UIView {
         self.scrollView.isScrollEnabled = requiresScrolling
         self.scrollView.alwaysBounceVertical = requiresScrolling
         self.scrollView.delaysContentTouches = requiresScrolling
+        self.scrollingReorderRecognizer.isEnabled = requiresScrolling && self.supportsReorder
 
         for element in self.elements {
             if case let .row(row) = element {
@@ -570,6 +605,9 @@ final class ContextMenuPageView: UIView {
         if emitFeedback, previousIndex != index, index != nil {
             self.feedbackGenerator.selectionChanged()
         }
+        if let index {
+            self.selectableRow(at: index)?.notifyHighlighted()
+        }
 
         guard let index, let targetRowFrame = self.selectableRowViewFrame(for: index) else {
             let animations = {
@@ -595,7 +633,7 @@ final class ContextMenuPageView: UIView {
                 width: max(0.0, self.contentView.bounds.width - self.style.highlightHorizontalInset * 2.0),
                 height: targetRowFrame.height
             )
-            targetCornerRadius = min(20.0, targetFrame.height * 0.5)
+            targetCornerRadius = min(self.listHighlightCornerRadius, targetFrame.height * 0.5)
         case let .grid(layout):
             targetFrame = CGRect(
                 x: targetRowFrame.minX + layout.highlightInsets.left,
@@ -647,6 +685,12 @@ final class ContextMenuPageView: UIView {
                 animations()
             }
         }
+    }
+
+    /// Concentric with the menu's corners: their radius less the highlight's inset from the menu's sides. The list's
+    /// top and bottom padding, the same by default, keep the first and the last row's highlight as far from the ends.
+    private var listHighlightCornerRadius: CGFloat {
+        max(0.0, (self.menuCornerRadius ?? self.style.panelCornerRadius) - self.style.highlightHorizontalInset)
     }
 
     private func activateRow(at rowIndex: Int) {
@@ -731,6 +775,8 @@ final class ContextMenuPageView: UIView {
         self.scrollView.contentOffset.y = targetOffsetY
         if let activeSelectionWindowPoint {
             self.updateExternalSelection(windowPoint: activeSelectionWindowPoint)
+        } else if self.liftedRow != nil, let scrollingReorderWindowPoint {
+            self.moveLiftedRow(to: self.contentView.convert(scrollingReorderWindowPoint, from: nil))
         }
     }
 
@@ -741,10 +787,17 @@ final class ContextMenuPageView: UIView {
         self.isCancellingImmediateSelectionForHorizontalPan = false
         self.feedbackGenerator.prepare()
         self.updateImmediateSelection(locationInSelectionView: point, emitFeedback: false)
+        self.updateReorderHold(contentPoint: self.contentView.convert(point, from: self.selectionTouchView))
     }
 
     private func handleSelectionTouchMoved(initialPoint: CGPoint, point: CGPoint) {
         guard self.allowsImmediateSelection else {
+            return
+        }
+
+        let contentPoint = self.contentView.convert(point, from: self.selectionTouchView)
+        if self.liftedRow != nil {
+            self.moveLiftedRow(to: contentPoint)
             return
         }
 
@@ -757,6 +810,7 @@ final class ContextMenuPageView: UIView {
            backTranslationX > 10.0,
            backTranslationX > abs(translation.y) * 1.5 {
             self.isCancellingImmediateSelectionForHorizontalPan = true
+            self.cancelReorderHold()
             self.endImmediateSelection(performAction: false)
             return
         }
@@ -766,10 +820,17 @@ final class ContextMenuPageView: UIView {
         }
 
         self.updateImmediateSelection(locationInSelectionView: point, emitFeedback: true)
+        self.updateReorderHold(contentPoint: contentPoint)
     }
 
     private func handleSelectionTouchEnded(point: CGPoint, performAction: Bool) {
         guard self.allowsImmediateSelection else {
+            return
+        }
+
+        self.cancelReorderHold()
+        if self.liftedRow != nil {
+            self.dropLiftedRow()
             return
         }
 
@@ -798,7 +859,8 @@ final class ContextMenuPageView: UIView {
     }
 
     @objc private func rowTouchExit(_ sender: UIControl) {
-        guard self.activeSelectionWindowPoint == nil, self.allowsDirectInteraction(for: sender) else {
+        // The touch a lifted row takes over ends for the row's control, and the row stays highlighted
+        guard self.activeSelectionWindowPoint == nil, self.liftedRow == nil, self.allowsDirectInteraction(for: sender) else {
             return
         }
         if self.rowIndex(for: sender) == self.highlightedRowIndex {
@@ -863,5 +925,199 @@ final class ContextMenuPageView: UIView {
             }
         }
         return nil
+    }
+
+    // MARK: - Reordering
+
+    private static let reorderHoldDuration: TimeInterval = 0.5
+    private static let reorderHoldSlop: CGFloat = 10.0
+    private static let liftedRowScale: CGFloat = 1.04
+
+    private var supportsReorder: Bool {
+        guard self.page.onReorder != nil, case .list = self.page.layout else {
+            return false
+        }
+        return self.page.items.allSatisfy { item in
+            if case .action = item {
+                return true
+            }
+            return false
+        }
+    }
+
+    /// Arms the lift for the row under the finger, and re-arms it whenever the finger
+    /// leaves that row or moves on it, so only a finger resting on one row lifts it
+    private func updateReorderHold(contentPoint: CGPoint) {
+        guard self.supportsReorder, self.liftedRow == nil else {
+            return
+        }
+        self.reorderTouchContentPoint = contentPoint
+        let rowIndex = self.rowIndex(at: contentPoint)
+        if let reorderHold, reorderHold.rowIndex == rowIndex,
+           hypot(contentPoint.x - reorderHold.contentPoint.x, contentPoint.y - reorderHold.contentPoint.y) <= Self.reorderHoldSlop {
+            return
+        }
+        self.cancelReorderHold()
+        guard let rowIndex else {
+            return
+        }
+        ContextMenuHaptics.prepare()
+        let timer = Timer.scheduledTimer(withTimeInterval: Self.reorderHoldDuration, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.liftRow(at: rowIndex)
+            }
+        }
+        self.reorderHold = (rowIndex, contentPoint, timer)
+    }
+
+    @objc private func handleScrollingReorderPress(_ recognizer: UILongPressGestureRecognizer) {
+        let windowPoint = recognizer.location(in: nil)
+        switch recognizer.state {
+        case .began:
+            let contentPoint = self.contentView.convert(windowPoint, from: nil)
+            guard let rowIndex = self.rowIndex(at: contentPoint) else {
+                return
+            }
+            self.reorderTouchContentPoint = contentPoint
+            self.scrollingReorderWindowPoint = windowPoint
+            self.liftRow(at: rowIndex)
+        case .changed:
+            guard self.liftedRow != nil else {
+                return
+            }
+            self.scrollingReorderWindowPoint = windowPoint
+            self.moveLiftedRow(to: self.contentView.convert(windowPoint, from: nil))
+            // The scroll view's frame starts at this view's origin, so this is the point in the visible part
+            self.updateAutoScrollIfNeeded(scrollPoint: self.convert(windowPoint, from: nil))
+        default:
+            self.scrollingReorderWindowPoint = nil
+            self.stopAutoScroll()
+            self.dropLiftedRow()
+        }
+    }
+
+    private func cancelReorderHold() {
+        self.reorderHold?.timer.invalidate()
+        self.reorderHold = nil
+    }
+
+    private func liftRow(at index: Int) {
+        self.reorderHold = nil
+        guard self.liftedRow == nil,
+              self.elements.indices.contains(index),
+              let contentPoint = self.reorderTouchContentPoint
+        else {
+            return
+        }
+        let rowView = self.elements[index].view
+        self.liftedRow = (rowView, contentPoint.y - rowView.frame.minY)
+        self.stopAutoScroll()
+        ContextMenuHaptics.playRowLift()
+
+        self.contentView.bringSubviewToFront(rowView)
+        self.contentView.insertSubview(self.selectionView, belowSubview: rowView)
+        self.updateHighlight(index: index, animated: true, emitFeedback: false)
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0.0,
+            usingSpringWithDamping: 0.7,
+            initialSpringVelocity: 0.0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            rowView.transform = CGAffineTransform(scaleX: Self.liftedRowScale, y: Self.liftedRowScale)
+            self.selectionView.transform = CGAffineTransform(scaleX: Self.liftedRowScale, y: Self.liftedRowScale)
+        }
+    }
+
+    private func moveLiftedRow(to contentPoint: CGPoint) {
+        guard let liftedRow,
+              let index = self.elements.firstIndex(where: { $0.view === liftedRow.view })
+        else {
+            return
+        }
+        let width = self.contentView.bounds.width
+        let frames = self.listLayoutResult(width: width).frames
+        let rowFrame = frames[index]
+        let minY = frames.first!.minY
+        let maxY = frames.last!.maxY - rowFrame.height
+        let originY = min(max(contentPoint.y - liftedRow.touchOffsetY, minY), maxY)
+        let center = CGPoint(x: rowFrame.midX, y: originY + rowFrame.height * 0.5)
+        liftedRow.view.center = center
+        self.selectionView.center = center
+
+        let destinationIndex = Self.reorderDestination(of: index, at: originY, among: frames)
+        guard destinationIndex != index else {
+            return
+        }
+
+        let element = self.elements.remove(at: index)
+        self.elements.insert(element, at: destinationIndex)
+        self.highlightedRowIndex = destinationIndex
+        self.feedbackGenerator.selectionChanged()
+        self.page.onReorder?(index, destinationIndex)
+
+        let newFrames = self.listLayoutResult(width: width).frames
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0.0,
+            usingSpringWithDamping: 0.85,
+            initialSpringVelocity: 0.0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            for (element, frame) in zip(self.elements, newFrames) where element.view !== liftedRow.view {
+                element.view.frame = frame
+            }
+        }
+    }
+
+    /// The place the row at `index` takes with its top at `originY`, among rows laid out in `frames` in their current
+    /// order. The row passes a neighbor once its near edge crosses the neighbor's middle, so with its top held inside
+    /// the list it still reaches the first and the last place
+    static func reorderDestination(of index: Int, at originY: CGFloat, among frames: [CGRect]) -> Int {
+        let maxY = originY + frames[index].height
+        var destinationIndex = index
+        while destinationIndex > 0, originY < frames[destinationIndex - 1].midY {
+            destinationIndex -= 1
+        }
+        while destinationIndex < frames.count - 1, maxY > frames[destinationIndex + 1].midY {
+            destinationIndex += 1
+        }
+        return destinationIndex
+    }
+
+    private func dropLiftedRow() {
+        guard let liftedRow else {
+            return
+        }
+        self.liftedRow = nil
+        self.reorderTouchContentPoint = nil
+        guard let index = self.elements.firstIndex(where: { $0.view === liftedRow.view }) else {
+            liftedRow.view.transform = .identity
+            self.selectionView.transform = .identity
+            return
+        }
+        let frame = self.listLayoutResult(width: self.contentView.bounds.width).frames[index]
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0.0,
+            usingSpringWithDamping: 0.8,
+            initialSpringVelocity: 0.0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            liftedRow.view.transform = .identity
+            liftedRow.view.center = center
+            self.selectionView.transform = .identity
+            self.selectionView.center = center
+        }
+        self.updateHighlight(index: nil, animated: true, emitFeedback: false)
+    }
+}
+
+extension ContextMenuPageView: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // A touch that may become a hold readies its haptic
+        ContextMenuHaptics.prepare()
+        return true
     }
 }

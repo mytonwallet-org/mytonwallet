@@ -8,12 +8,18 @@ protocol AgentModelDelegate: AnyObject {
     func agentModelDidUpdateHints(animated: Bool)
     func agentModelDidUpdateState()
     func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void)
+    /// The typing row kept on screen after its run ended is about to leave the chat, once `completion` runs
+    func agentModelWillRemoveHeldTypingIndicator(_ id: AgentItemID, then completion: @escaping () -> Void)
 }
 
 extension AgentModelDelegate {
     func agentModelDidUpdateState() {}
 
     func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void) {
+        completion()
+    }
+
+    func agentModelWillRemoveHeldTypingIndicator(_ id: AgentItemID, then completion: @escaping () -> Void) {
         completion()
     }
 }
@@ -37,6 +43,12 @@ class BaseAgentModel {
     private(set) var userMessageRevision = 0
     private var availableHints: [AgentHint] = []
     private var deferredTypingIndicator: AgentTimelineItem?
+    /// The typing row a Stop while the Agent thought keeps on screen for a moment, for its top's knock
+    private(set) var heldTypingIndicatorID: AgentItemID?
+    /// The run's end took the held typing row out, which it leaves once the hold ends, animated as the run's end had it
+    private var isHeldTypingIndicatorRemoved = false
+    private var isHeldTypingIndicatorRemovalAnimated = false
+    private var typingIndicatorHold: Task<Void, Never>?
     private(set) var pendingRevealUserMessageID: AgentItemID?
     private var isAwaitingTypingIndicatorReveal = false
     private let backend: AgentBackend
@@ -140,6 +152,61 @@ class BaseAgentModel {
         backend.canSendMessages && Self.normalizedText(from: draftText) != nil
     }
 
+    var canStopAnswer: Bool {
+        backend.canStopAnswer
+    }
+
+    func stopAnswer() {
+        guard backend.canStopAnswer else { return }
+        backend.stopAnswer()
+    }
+
+    /// Keeps the typing row on screen for `duration`, with its status, as its run ends, and then lets it go as the run's
+    /// end had it go. Anything else the chat shows meanwhile, a new question first, lets it go at once.
+    func holdTypingIndicator(for duration: TimeInterval) {
+        releaseTypingIndicator()
+        guard let id = orderedItemIDs.last(where: { itemID in
+            if case .typingIndicator? = itemsByID[itemID] { return true }
+            return false
+        }) else { return }
+        heldTypingIndicatorID = id
+        // The chat takes the row as no longer thinking at once
+        delegate?.agentModelDidUpdateState()
+        typingIndicatorHold = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            guard !Task.isCancelled else { return }
+            self?.endTypingIndicatorHold()
+        }
+    }
+
+    /// The hold has run its time: the row leaves as the chat has rows leave, when the run's end took it out
+    private func endTypingIndicatorHold() {
+        typingIndicatorHold = nil
+        guard let id = heldTypingIndicatorID, isHeldTypingIndicatorRemoved, let delegate else {
+            releaseTypingIndicator()
+            return
+        }
+        delegate.agentModelWillRemoveHeldTypingIndicator(id) { [weak self] in
+            guard let self, heldTypingIndicatorID == id else { return }
+            isHeldTypingIndicatorRemovalAnimated = true
+            releaseTypingIndicator()
+        }
+    }
+
+    /// Lets the held typing row go: out of the chat, when the run's end took it out meanwhile
+    private func releaseTypingIndicator() {
+        typingIndicatorHold?.cancel()
+        typingIndicatorHold = nil
+        guard let id = heldTypingIndicatorID else { return }
+        heldTypingIndicatorID = nil
+        let isRemoved = isHeldTypingIndicatorRemoved
+        isHeldTypingIndicatorRemoved = false
+        if isRemoved {
+            removeItem(id: id, animated: isHeldTypingIndicatorRemovalAnimated)
+        }
+        delegate?.agentModelDidUpdateState()
+    }
+
     func refreshDerivedSystemMessages(animated: Bool = false) {
         setTimeline(baseTimelineItems, animated: animated)
         backend.refreshPresentation()
@@ -151,6 +218,7 @@ class BaseAgentModel {
         source: AgentBackendSendSource = .composer
     ) {
         guard let text = Self.normalizedText(from: rawText) else { return }
+        releaseTypingIndicator()
 
         if let editingMessageID,
            let editContext = makeEditContext(for: editingMessageID) {
@@ -233,6 +301,7 @@ class BaseAgentModel {
     }
 
     private func append(_ item: AgentTimelineItem, animated: Bool) {
+        releaseTypingIndicator()
         if case .typingIndicator = item, isAwaitingTypingIndicatorReveal {
             deferTypingIndicator(item, animated: animated)
             return
@@ -318,6 +387,7 @@ class BaseAgentModel {
     }
 
     private func replaceItem(id: AgentItemID, with item: AgentTimelineItem, animated: Bool) {
+        releaseTypingIndicator()
         flushDeferredTypingIndicatorIfNeeded(for: id)
         var baseItems = baseTimelineItems
         guard let index = baseItems.firstIndex(where: { $0.id == id }) else { return }
@@ -326,6 +396,11 @@ class BaseAgentModel {
     }
 
     private func removeItem(id: AgentItemID, animated: Bool) {
+        if id == heldTypingIndicatorID {
+            isHeldTypingIndicatorRemoved = true
+            isHeldTypingIndicatorRemovalAnimated = animated
+            return
+        }
         if deferredTypingIndicator?.id == id {
             deferredTypingIndicator = nil
             return
@@ -407,6 +482,21 @@ class BaseAgentModel {
         reconfigureItemIDs: [AgentItemID] = []
     ) {
         resetPendingTypingIndicator()
+        var items = items
+        if let heldID = heldTypingIndicatorID, let heldItem = itemsByID[heldID] {
+            // The same chat again keeps the held row at its end; a chat with more in it lets the row go
+            let itemIDs = Set(items.map(\.id))
+            if itemIDs.isSubset(of: orderedItemIDs), !itemIDs.contains(heldID) {
+                items.append(heldItem)
+                isHeldTypingIndicatorRemoved = true
+                isHeldTypingIndicatorRemovalAnimated = animated
+            } else {
+                heldTypingIndicatorID = nil
+                isHeldTypingIndicatorRemoved = false
+                typingIndicatorHold?.cancel()
+                typingIndicatorHold = nil
+            }
+        }
         let timelineItems = timelineItemsByInsertingDateMessages(into: items)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
@@ -513,19 +603,21 @@ class BaseAgentModel {
         return (dateText, Self.formattedTime(timestamp))
     }
 
+    /// The time in `locale`'s words on the clock `hourCycle` names, the device's 12- or 24-hour clock by default
     static func formattedTime(
         _ timestamp: Date,
         locale: Locale = .autoupdatingCurrent,
-        hourCycle: Locale.HourCycle = Locale.autoupdatingCurrent.hourCycle
+        hourCycle: Locale.HourCycle = Locale.autoupdatingCurrent.hourCycle,
+        timeZone: TimeZone = .autoupdatingCurrent
     ) -> String {
         var components = Locale.Components(locale: locale)
         components.hourCycle = hourCycle
-        return timestamp.formatted(
-            .dateTime
-                .hour(.defaultDigits(amPM: .abbreviated))
-                .minute()
-                .locale(Locale(components: components))
-        )
+        var style = Date.FormatStyle.dateTime
+            .hour(.defaultDigits(amPM: .abbreviated))
+            .minute()
+            .locale(Locale(components: components))
+        style.timeZone = timeZone
+        return timestamp.formatted(style)
     }
 
     private func makeDateTimeSystemMessage(for timestamp: Date) -> AgentMessage {

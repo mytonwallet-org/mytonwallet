@@ -7,7 +7,57 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 class AgentSessionTest {
-    private class Model(var shouldRetain: Boolean = false, var onIdle: (() -> Unit)? = null)
+    private class Model(
+        var shouldRetain: Boolean = false,
+        var onIdle: (() -> Unit)? = null,
+        var canKeep: Boolean = true
+    )
+
+    @Test
+    fun keepsTheLatestLeftChatsLoadedAndDestroysTheOldestBeyondTheLimit() {
+        val destroyed = mutableListOf<Model>()
+        val sessions = createSessions(destroyed, recentLimit = 2)
+        val first = sessions.acquire("first", keepsRecent = true) { Model() }
+        val second = sessions.acquire("second", keepsRecent = true) { Model() }
+        val third = sessions.acquire("third", keepsRecent = true) { Model() }
+
+        sessions.release("first", first)
+        sessions.release("second", second)
+        assertEquals(emptyList<Model>(), destroyed)
+        assertSame(first, sessions.acquire("first") { error("A chat left lately stays loaded") })
+        sessions.release("first", first)
+        sessions.release("third", third)
+
+        assertEquals(listOf(second), destroyed)
+        assertSame(first, sessions.acquire("first") { error("Reopening refreshed its place") })
+        assertSame(third, sessions.acquire("third") { error("The latest chat must stay loaded") })
+    }
+
+    @Test
+    fun destroysALeftChatThatCannotStayAndForgetsKeptOnesOnRequest() {
+        val destroyed = mutableListOf<Model>()
+        val sessions = createSessions(destroyed, recentLimit = 2)
+        val failed = sessions.acquire("failed", keepsRecent = true) { Model(canKeep = false) }
+        val kept = sessions.acquire("kept", keepsRecent = true) { Model() }
+        val running = sessions.acquire("running", keepsRecent = true) { Model() }
+        val owned = sessions.acquire("owned") { Model() }
+
+        sessions.release("owned", owned)
+        assertEquals(listOf(owned), destroyed)
+        destroyed.clear()
+        sessions.release("failed", failed)
+        sessions.release("kept", kept)
+        sessions.release("running", running)
+        assertEquals(listOf(failed), destroyed)
+
+        running.shouldRetain = true
+        sessions.forgetRecent()
+        assertEquals(listOf(failed, kept), destroyed)
+        running.shouldRetain = false
+        checkNotNull(running.onIdle)()
+        assertEquals(listOf(failed, kept, running), destroyed)
+        assertNotSame(kept, sessions.acquire("kept") { Model() })
+    }
 
     @Test
     fun sharesOneModelPerThreadUntilItsLastOwnerLeaves() {
@@ -88,9 +138,12 @@ class AgentSessionTest {
         assertEquals(emptyList<Model>(), destroyed)
     }
 
-    private fun createSessions(destroyed: MutableList<Model>) = AgentThreadSessions<Model>(
-        shouldRetain = { it.shouldRetain },
-        setIdleHandler = { model, handler -> model.onIdle = handler },
-        destroy = { destroyed += it }
-    )
+    private fun createSessions(destroyed: MutableList<Model>, recentLimit: Int = 0) =
+        AgentThreadSessions<Model>(
+            shouldRetain = { it.shouldRetain },
+            setIdleHandler = { model, handler -> model.onIdle = handler },
+            destroy = { destroyed += it },
+            recentLimit = recentLimit,
+            canKeep = { it.canKeep }
+        )
 }

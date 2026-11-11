@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.net.Uri
 import android.view.MotionEvent
 import android.view.View
@@ -32,18 +33,22 @@ import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
 import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HomeStatusController
+import org.mytonwallet.app_air.uicomponents.helpers.OverlappedChromeFader
+import org.mytonwallet.app_air.uicomponents.helpers.frameInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
+import org.mytonwallet.app_air.uifutures.viewControllers.futures.FuturesVC
 import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.PerpsAvailability
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -96,7 +101,11 @@ class TabletTabsVC(context: Context) :
         }
     }
 
-    override var currentTabId: Int = AppTabsManager.ID_HOME
+    // The app opens on the first tab in the user's order
+    override var currentTabId: Int = firstTabId
+
+    private val firstTabId: Int
+        get() = AppTabsManager.orderedTabs.firstOrNull()?.intId ?: AppTabsManager.ID_HOME
 
     // The content panel hosts a single navigation controller (the tablet main nav). Its root is a
     // host VC that shows the active per-tab stack; full-screen pushes stack above it.
@@ -127,6 +136,12 @@ class TabletTabsVC(context: Context) :
                 navForOrNull(id)?.apply {
                     if (viewControllers.size == 1) scrollToTop() else popToRoot()
                 }
+            },
+            onTabsReordered = { intIds ->
+                val ids = intIds.mapNotNull { intId ->
+                    AppTabsManager.registeredTabs.firstOrNull { it.intId == intId }?.id
+                }
+                AppTabsManager.reorderTabs(ids)
             },
             onAccountSelected = { account -> onAccountSelected(account) },
             onWalletSettings = { presentWalletSettings() },
@@ -1204,12 +1219,14 @@ class TabletTabsVC(context: Context) :
         searchField.editText.hideKeyboard()
     }
 
-    override fun switchToFirstTab(): Boolean {
-        if (currentTabId != AppTabsManager.ID_HOME) {
-            selectTab(AppTabsManager.ID_HOME)
-            return true
-        }
-        return false
+    override fun switchToFirstTab(): Boolean = selectTabIfNeeded(firstTabId)
+
+    override fun switchToWallet(): Boolean = selectTabIfNeeded(AppTabsManager.ID_HOME)
+
+    private fun selectTabIfNeeded(id: Int): Boolean {
+        if (currentTabId == id) return false
+        selectTab(id)
+        return true
     }
 
     // Tab-container navigation surface ////////////////////////////////////////////////////////////
@@ -1219,7 +1236,13 @@ class TabletTabsVC(context: Context) :
             (activeNavigationController?.viewControllers?.size ?: 0) == 1
 
     override fun switchToExplore(targetUri: Uri?) {
-        if (!AppTabsManager.contains(AppTabsManager.ID_EXPLORE)) return
+        if (!AppTabsManager.contains(AppTabsManager.ID_EXPLORE)) {
+            window?.dismissToRoot()
+            val exploreVC = ExploreVC(context)
+            activeNavigationController?.push(exploreVC)
+            targetUri?.let { exploreVC.findSiteAndOpenTargetUri(it) }
+            return
+        }
         selectTab(AppTabsManager.ID_EXPLORE)
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
@@ -1234,6 +1257,17 @@ class TabletTabsVC(context: Context) :
             return
         }
         selectTab(AppTabsManager.ID_MARKET)
+        window?.dismissToRoot()
+    }
+
+    override fun switchToFutures() {
+        if (!PerpsAvailability.isAvailable()) return
+        if (!AppTabsManager.contains(AppTabsManager.ID_FUTURES)) {
+            window?.dismissToRoot()
+            activeNavigationController?.push(FuturesVC(context))
+            return
+        }
+        selectTab(AppTabsManager.ID_FUTURES)
         window?.dismissToRoot()
     }
 
@@ -1272,6 +1306,34 @@ class TabletTabsVC(context: Context) :
         searchHiddenByTabId = null
         updateSearchVisibility()
         animateSearchChromeAlpha(1f)
+    }
+
+    private var isSearchHiddenByOverlap = false
+    private val bottomGradientFader = OverlappedChromeFader()
+
+    override fun hideChromeOverlapping(windowRect: Rect): Boolean {
+        val isScreenChromeHidden = super.hideChromeOverlapping(windowRect)
+        val bottomFrames =
+            listOfNotNull(searchField.frameInWindow(), bottomGradientView.frameInWindow())
+        if (searchHiddenByTabId == null && bottomFrames.any { Rect.intersects(it, windowRect) }) {
+            hideTabBar()
+            isSearchHiddenByOverlap = true
+        }
+        val isBottomGradientHidden = bottomGradientFader.hideIfOverlapping(
+            windowRect,
+            bottomFrames,
+            listOf(bottomGradientView)
+        )
+        return isScreenChromeHidden || isSearchHiddenByOverlap || isBottomGradientHidden
+    }
+
+    override fun showOverlappedChrome() {
+        super.showOverlappedChrome()
+        if (isSearchHiddenByOverlap) {
+            isSearchHiddenByOverlap = false
+            showTabBar()
+        }
+        bottomGradientFader.show()
     }
 
     private var searchChromeAlpha = 1f

@@ -9,7 +9,8 @@ import WalletCore
 @available(iOS 27.1, *)
 @MainActor
 final class SplitRootToolbarView: UIView {
-    let tabIds: [AppTabId]
+    /// The tabs in the order the bar shows them, which a drag on the bar changes
+    var tabIds: [AppTabId] { tabBar.itemIds.map { AppTabId($0) } }
     let accountButton = WalletAccountButton()
     let tabBar: WVerticalTabBar
     weak var navigationContainer: UIView?
@@ -19,7 +20,6 @@ final class SplitRootToolbarView: UIView {
     private var accountAnimationID: UUID?
 
     init(tabIds: [AppTabId]) {
-        self.tabIds = tabIds
         tabBar = WVerticalTabBar(items: tabIds.compactMap { id in
             guard let registration = AppTabManager.shared.registration(for: id) else { return nil }
             return .init(id: id.rawValue, title: registration.titleProvider(), image: registration.compactIcon)

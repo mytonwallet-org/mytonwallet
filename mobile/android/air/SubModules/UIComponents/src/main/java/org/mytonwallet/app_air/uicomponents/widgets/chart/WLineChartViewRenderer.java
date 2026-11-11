@@ -83,7 +83,8 @@ public class WLineChartViewRenderer extends LineChartRenderer {
 
             if (cur == null) return;
 
-            Path currentPath = cubicPath;
+            // A data set that starts after the highlighted point lies entirely past it
+            Path currentPath = isPastHighlight(dataSet, highlightedX) ? cubicPathRight : cubicPath;
             // let the spline start
             currentPath.moveTo(cur.getX(), cur.getY() * phaseY);
 
@@ -116,7 +117,7 @@ public class WLineChartViewRenderer extends LineChartRenderer {
         }
 
         // if filled is enabled, close the path
-        if (dataSet.isDrawFilledEnabled()) {
+        if (dataSet.isDrawFilledEnabled() && !isPastHighlight(dataSet, highlightedX)) {
 
             cubicFillPath.reset();
             cubicFillPath.addPath(cubicPath);
@@ -144,6 +145,10 @@ public class WLineChartViewRenderer extends LineChartRenderer {
         mRenderPaint.setPathEffect(null);
     }
 
+    private static boolean isPastHighlight(ILineDataSet dataSet, float highlightedX) {
+        return highlightedX >= 0 && dataSet.getEntryCount() > 0 && highlightedX < dataSet.getEntryForIndex(0).getX();
+    }
+
     @Override
     protected void drawCubicFill(Canvas c, ILineDataSet dataSet, Path spline, Transformer trans, XBounds bounds) {
         Highlight[] highlights = lineChart.getHighlighted();
@@ -156,7 +161,8 @@ public class WLineChartViewRenderer extends LineChartRenderer {
         float fillMin = dataSet.getFillFormatter()
             .getFillLinePosition(dataSet, mChart);
 
-        spline.lineTo(highlightedX > -1 ? highlightedX : dataSet.getEntryForIndex(bounds.min + bounds.range).getX(), fillMin);
+        float lastX = dataSet.getEntryForIndex(bounds.min + bounds.range).getX();
+        spline.lineTo(highlightedX > -1 ? Math.min(highlightedX, lastX) : lastX, fillMin);
         spline.lineTo(dataSet.getEntryForIndex(bounds.min).getX(), fillMin);
         spline.close();
 

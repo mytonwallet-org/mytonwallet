@@ -48,15 +48,16 @@ enum TokenHistoryLoadingState: Equatable {
     
     private(set) var historyData: [[Double]]?
     private(set) var isHistoryRestored = true
+    private(set) var backfill: ApiPriceHistoryBackfill?
     private(set) var historyLoadingState: TokenHistoryLoadingState = .loading
-    private let fetchPriceHistory: @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiHistoryList
+    private let fetchPriceHistory: @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiPriceHistory
     private var loadHistoryTask: Task<Void, Never>?
     private var loadTokenDetailsTask: Task<Void, Never>?
     private var lastRequestedTokenInfoPreset: DebugTokenInfoMock.Preset?
     private(set) var tokenInfoState: TokenInfoState
     
     init(accountId: String, selectedToken: ApiToken, tokenVMDelegate: TokenVMDelegate,
-         fetchPriceHistory: @escaping @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiHistoryList = Api.fetchPriceHistory) {
+         fetchPriceHistory: @escaping @MainActor (ApiToken, ApiPriceHistoryPeriod, MBaseCurrency) async throws -> ApiPriceHistory = Api.fetchPriceHistory) {
         self.accountId = accountId
         self.selectedToken = selectedToken
         self.tokenVMDelegate = tokenVMDelegate
@@ -68,7 +69,9 @@ enum TokenHistoryLoadingState: Equatable {
             self.tokenInfoState = .loading
         }
         
-        self.historyData = TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: selectedPeriod)
+        let cachedHistory = TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: selectedPeriod)
+        self.historyData = cachedHistory?.points
+        self.backfill = cachedHistory?.backfill
         WalletCoreData.add(eventObserver: self)
         
         // Listen for network connection events
@@ -155,7 +158,9 @@ enum TokenHistoryLoadingState: Equatable {
     
     func loadPriceHistory(period: ApiPriceHistoryPeriod, useCache: Bool = true) {
         loadHistoryTask?.cancel()
-        historyData = useCache ? TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: period) : nil
+        let cachedHistory = useCache ? TokenStore.cachedPriceHistory(tokenSlug: selectedToken.slug, period: period) : nil
+        historyData = cachedHistory?.points
+        backfill = cachedHistory?.backfill
         isHistoryRestored = true
         historyLoadingState = .loading
         let slug = selectedToken.slug
@@ -173,12 +178,14 @@ enum TokenHistoryLoadingState: Equatable {
                     }
                 }
                 do {
-                    let history = try await fetchPriceHistory(token, period, currency)
+                    let response = try await fetchPriceHistory(token, period, currency)
                     guard let self, !Task.isCancelled else { return }
-                    guard TokenStore.setPriceHistory(tokenSlug: slug, period: period, history: history, baseCurrency: currency) else { return }
-                    let shouldUpdatePriceData = isHistoryRestored || historyData != history
+                    let history = response.points
+                    guard TokenStore.setPriceHistory(tokenSlug: slug, period: period, history: response, baseCurrency: currency) else { return }
+                    let shouldUpdatePriceData = isHistoryRestored || historyData != history || backfill != response.backfill
                         || historyData?.isEmpty != false || previousLoadingState != .loaded
                     historyData = history
+                    backfill = response.backfill
                     isHistoryRestored = false
                     historyLoadingState = .loaded
                     if shouldUpdatePriceData {

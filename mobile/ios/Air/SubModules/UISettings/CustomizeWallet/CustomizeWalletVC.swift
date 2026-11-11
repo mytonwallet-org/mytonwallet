@@ -32,6 +32,7 @@ public final class CustomizeWalletVC: SettingsBaseVC {
         super.viewDidLoad()
         
         navigationItem.title = lang("Customize Wallet")
+        view.accessibilityIdentifier = "customize_wallet_title"
         MintCardVC.preloadMedia()
         addCloseNavigationItemIfNeeded()
         

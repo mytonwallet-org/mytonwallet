@@ -55,6 +55,7 @@ describe('Agent V2 hydration errors', () => {
     { code: 'device_token_invalid', message: '$agent_error_session' },
     { code: 'invalid_event', message: '$agent_error_invalid_response' },
     { code: 'news_unavailable', message: '$agent_news_unavailable' },
+    { code: 'digest_unavailable', message: '$agent_digest_unavailable' },
     { code: 'rate_limited', message: '$agent_error_limit' },
     { code: 'user_quota_exhausted', message: '$agent_daily_limit_reached' },
     { code: 'provider_timeout', message: '$agent_capacity_limit_unknown' },

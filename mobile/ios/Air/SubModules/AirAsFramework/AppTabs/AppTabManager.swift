@@ -78,6 +78,19 @@ final class AppTabManager {
         notifyObservers()
     }
 
+    /// Puts `ids` in their new order on the places they take, keeping every other tab where it is,
+    /// so a list that shows only some of the tabs can reorder them
+    func reorderTabs(_ ids: [AppTabId]) {
+        let movedIds = Set(ids)
+        guard movedIds.count == ids.count, movedIds.isSubset(of: orderedTabIds) else { return }
+        var remainingIds = ids[...]
+        let newOrder = orderedTabIds.map { id in
+            movedIds.contains(id) ? remainingIds.removeFirst() : id
+        }
+        guard newOrder != orderedTabIds else { return }
+        setTabIds(newOrder)
+    }
+
     func resetToDefault() {
         orderedTabIds = Self.defaultTabIds
         notifyObservers()
@@ -102,8 +115,7 @@ final class AppTabManager {
     private func applyStoredTabOrder() {
         let saved = AppStorageHelper.appTabOrder
         guard !saved.isEmpty else { return }
-        let validated = validatedTabOrder(from: saved)
-        orderedTabIds = validated
+        orderedTabIds = validatedTabOrder(from: saved)
     }
 
     func validatedTabOrder(from rawValues: [String]) -> [AppTabId] {

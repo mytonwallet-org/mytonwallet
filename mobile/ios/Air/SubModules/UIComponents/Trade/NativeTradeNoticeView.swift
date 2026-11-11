@@ -7,12 +7,14 @@ public final class NativeTradeNoticeView: UIView {
         public let title: String
         public let message: String
         public var isWarning = false
+        public var isInformational = false
         public var actionTitle: String?
 
-        public init(title: String, message: String, isWarning: Bool = false, actionTitle: String? = nil) {
+        public init(title: String, message: String, isWarning: Bool = false, isInformational: Bool = false, actionTitle: String? = nil) {
             self.title = title
             self.message = message
             self.isWarning = isWarning
+            self.isInformational = isInformational
             self.actionTitle = actionTitle
         }
     }
@@ -54,7 +56,8 @@ public final class NativeTradeNoticeView: UIView {
     }
 
     private var color: UIColor {
-        configuration?.isWarning == true ? .air.error : UIColor(light: "#DE8C00", dark: "#FFAB2F")
+        if configuration?.isInformational == true { return AirTintColor }
+        return configuration?.isWarning == true ? .air.error : UIColor(light: "#DE8C00", dark: "#FFAB2F")
     }
 
     private func font(_ style: WTextStyle, textStyle: UIFont.TextStyle, weight: UIFont.Weight = .regular) -> UIFont {

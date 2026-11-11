@@ -3349,6 +3349,47 @@
       ]
     },
     {
+      "schema": "AgentStreamEventV2",
+      "requiresFeatures": [
+        "supportHandoff"
+      ],
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "91919191-9191-4919-9191-919191919191",
+          "sequence": 3,
+          "toolCall": {
+            "id": "92929292-9292-4929-9292-929292929292",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "walletContextSession": {
+              "sessionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              "revision": 7,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "account.inventory",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "includePublicAddressReason": "support_handoff"
+            }
+          }
+        }
+      ]
+    },
+    {
       "schema": "AgentThreadMessagesPageV2",
       "values": [
         {
@@ -3394,6 +3435,136 @@
               "newsPost": true
             }
           ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "39393939-3939-4939-8939-393939393939",
+            "revision": 2,
+            "createdAt": "2026-11-04T09:00:00.000Z",
+            "updatedAt": "2026-11-04T09:00:00.000Z",
+            "lastActivityAt": "2026-11-04T09:00:00.000Z",
+            "messageCount": 1,
+            "digest": {
+              "id": "ru:2026-11-04T08:00:00.000Z",
+              "windowEnd": "2026-11-04T08:00:00.000Z",
+              "total": 24,
+              "top": [
+                {
+                  "eventId": 42,
+                  "headline": "TON network update"
+                },
+                {
+                  "eventId": 43,
+                  "headline": "Bitcoin reaches a new high"
+                }
+              ]
+            }
+          },
+          "messages": [
+            {
+              "id": "3a3a3a3a-3a3a-4a3a-8a3a-3a3a3a3a3a3a",
+              "threadId": "39393939-3939-4939-8939-393939393939",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "- TON network update\n- Bitcoin reaches a new high"
+              },
+              "createdAt": "2026-11-04T09:00:00.000Z",
+              "newsPost": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "requiresFeatures": [
+        "supportHandoff"
+      ],
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 5,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1,
+            "support": {
+              "state": "closed",
+              "lastOperatorMessageAt": "2026-10-28T09:00:00.000Z"
+            }
+          },
+          "messages": [
+            {
+              "id": "44444444-4444-4444-8444-000000000001",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "support_requested"
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000002",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "operator_joined",
+              "author": {
+                "operatorId": "support-42",
+                "name": "Alex",
+                "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+              }
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000003",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "operator",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "text": "I can help you check that transfer.",
+              "author": {
+                "operatorId": "support-42",
+                "name": "Alex",
+                "avatarUrl": "/api/v2/support/operators/support-42/avatar?v=abc123"
+              },
+              "feedback": "like"
+            },
+            {
+              "id": "44444444-4444-4444-8444-000000000004",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "event",
+              "status": "complete",
+              "createdAt": "2026-10-28T09:00:00.000Z",
+              "code": "support_closed",
+              "reason": "operator"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "requiresFeatures": [
+        "supportHandoff"
+      ],
+      "values": [
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "44444444-4444-4444-8444-000000000005",
+          "sequence": 3,
+          "finishReason": "delivered_to_support"
         }
       ]
     }

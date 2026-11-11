@@ -3,11 +3,12 @@ import type { ErrorTransferResult } from '../../helpers/transfer';
 import type { GlobalState } from '../../types';
 import { DomainLinkingState, DomainRenewalState } from '../../types';
 
+import { getTranslation } from '../../../util/langProvider';
 import { callApi } from '../../../api';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { isErrorTransferResult } from '../../helpers/transfer';
 import { handleTransferResults, prepareTransfer } from '../../helpers/transfer';
-import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
 import { updateCurrentDomainLinking, updateCurrentDomainRenewal } from '../../reducers';
 import {
   selectCurrentAccount,
@@ -40,7 +41,7 @@ function handleDomainOperationResult<T extends DomainOperationType>(
   mfaState: T extends 'renewal' ? DomainRenewalState : DomainLinkingState,
 ) {
   if (!handleTransferResults(results, updateState)) {
-    return;
+    return false;
   }
 
   const mfaResult = results.find((result): result is { mfaRequestHash: string } => {
@@ -53,7 +54,7 @@ function handleDomainOperationResult<T extends DomainOperationType>(
       mfaRequestHash: mfaResult.mfaRequestHash,
       txId: undefined,
     }));
-    return;
+    return false;
   }
 
   setGlobal(updateState(getGlobal(), {
@@ -61,6 +62,8 @@ function handleDomainOperationResult<T extends DomainOperationType>(
     ...(results.length === 1 && typeof results[0] === 'string' ? { txId: results[0] } : undefined),
     mfaRequestHash: undefined,
   }));
+
+  return true;
 }
 
 addActionHandler('checkDomainsRenewalDraft', async (global, actions, { nfts }) => {
@@ -111,7 +114,9 @@ addActionHandler('submitDomainsRenewal', withEnclaveSessionRelease(async (global
 
 addActionHandler('checkDomainLinkingDraft', async (global, actions, { nft }) => {
   const accountId = selectCurrentAccountId(global)!;
-  const currentAddress = selectCurrentAccount(global)!.byChain.ton!.address;
+  const currentAddress = global.currentDomainLinking.isUnlinking
+    ? undefined
+    : selectCurrentAccount(global)!.byChain.ton!.address;
 
   const result = await callApi('checkDnsChangeWalletDraft', accountId, nft, currentAddress);
   if (!result || 'error' in result) {
@@ -131,13 +136,20 @@ addActionHandler('submitDomainLinking', withEnclaveSessionRelease(async (global,
   const nftsByAddress = selectCurrentAccountState(global)?.nfts?.byAddress;
   const nftAddress = global.currentDomainLinking.address!;
   const realFee = global.currentDomainLinking.realFee!;
+  const { isUnlinking } = global.currentDomainLinking;
   const nft = nftsByAddress?.[nftAddress];
-  const currentAddress = global.currentDomainLinking.walletAddress!;
-  const checkAddressResult = await callApi('getAddressInfo', 'ton', network, currentAddress);
+  let linkedAddress: string | undefined;
 
-  if (isErrorTransferResult(checkAddressResult)) {
-    actions.showError({ error: checkAddressResult?.error });
-    return;
+  if (!isUnlinking) {
+    const currentAddress = global.currentDomainLinking.walletAddress!;
+    const checkAddressResult = await callApi('getAddressInfo', 'ton', network, currentAddress);
+
+    if (isErrorTransferResult(checkAddressResult)) {
+      actions.showError({ error: checkAddressResult?.error });
+      return;
+    }
+
+    linkedAddress = checkAddressResult.resolvedAddress;
   }
 
   if (!nft) {
@@ -153,18 +165,21 @@ addActionHandler('submitDomainLinking', withEnclaveSessionRelease(async (global,
     accountId,
     enclaveToken,
     nft,
-    checkAddressResult.resolvedAddress,
+    linkedAddress,
     realFee,
   );
 
-  handleDomainOperationResult<'linking'>(
+  const isCompleted = handleDomainOperationResult<'linking'>(
     [result && 'activityId' in result ? result.activityId
       : result && 'mfaRequestHash' in result ? { mfaRequestHash: result.mfaRequestHash }
         : result],
     updateCurrentDomainLinking,
-    DomainLinkingState.Complete,
+    DomainLinkingState.None,
     DomainLinkingState.ConfirmMfa,
   );
+  if (isCompleted) {
+    completeDomainLinking(isUnlinking);
+  }
 }));
 
 addActionHandler('checkLinkingAddress', async (global, actions, { address }) => {
@@ -207,17 +222,22 @@ addActionHandler('updateDomainsRenewalMfaRequestStatus', async (global) => {
 });
 
 addActionHandler('updateDomainLinkingMfaRequestStatus', async (global) => {
-  const hash = global.currentDomainLinking.mfaRequestHash;
+  const { mfaRequestHash: hash, isUnlinking } = global.currentDomainLinking;
   if (!hash) return;
 
   const result = await callApi('fetchMfaRequest', hash);
 
-  if (result?.isConfirmed) {
-    global = getGlobal();
-    global = updateCurrentDomainLinking(global, {
-      state: DomainLinkingState.Complete,
-      mfaRequestHash: undefined,
-    });
-    setGlobal(global);
+  // The status is polled every second, so a slow response may arrive after the modal is closed or shows another request
+  if (result?.isConfirmed && getGlobal().currentDomainLinking.mfaRequestHash === hash) {
+    completeDomainLinking(isUnlinking);
   }
 });
+
+function completeDomainLinking(isUnlinking?: boolean) {
+  const actions = getActions();
+  actions.cancelDomainLinking();
+  actions.showToast({
+    message: isUnlinking ? getTranslation('Domain Unlinked') : getTranslation('Domain Linked'),
+    icon: 'icon-check',
+  });
+}

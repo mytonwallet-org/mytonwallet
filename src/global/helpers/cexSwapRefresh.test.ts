@@ -1,7 +1,7 @@
 import type { ApiActivity, ApiSwapActivity, ApiTransactionActivity } from '../../api/types';
 import type { AccountState } from '../types';
 
-import { selectCexSwapRefreshContextActivities } from './cexSwapRefresh';
+import { getIsCrossChainBackendSwap, selectCexSwapRefreshContextActivities } from './cexSwapRefresh';
 
 function makeTransaction(id: string): ApiTransactionActivity {
   return {
@@ -96,5 +96,24 @@ describe('CEX refresh context', () => {
     const context = selectCexSwapRefreshContextActivities(activities, [activeCex]);
 
     expect(context.map(({ id }) => id)).toEqual([activeCex.id, hiddenSource.id]);
+  });
+});
+
+describe('pending swap polling', () => {
+  const crossChain: ApiSwapActivity = {
+    ...makePendingCexSwap('vt-id:backend-swap'),
+    cex: undefined,
+    from: 'base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+    to: 'arbitrum-0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+  };
+
+  it('polls backend cross-chain swaps besides CEX ones', () => {
+    expect(getIsCrossChainBackendSwap(crossChain)).toBe(true);
+  });
+
+  it('skips same-chain and local swaps', () => {
+    const sameChain = { ...crossChain, to: 'base-0xfde4c96c8593536e31f229ea8f37b2ada2699bb2' };
+    expect(getIsCrossChainBackendSwap(sameChain)).toBe(false);
+    expect(getIsCrossChainBackendSwap({ ...crossChain, id: 'vt-id:local' })).toBe(false);
   });
 });

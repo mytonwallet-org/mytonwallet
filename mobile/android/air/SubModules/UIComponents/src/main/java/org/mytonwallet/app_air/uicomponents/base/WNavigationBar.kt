@@ -24,6 +24,7 @@ import androidx.core.view.setPadding
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.extensions.animateTintColor
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLtrBaselineSpacingOffset
@@ -109,6 +110,7 @@ class WNavigationBar(
 
     private val backButton: WImageButton by lazy {
         WImageButton(context).apply {
+            id = UIComponentsR.id.nav_back
             setOnClickListener {
                 navigationController.onBackPressed()
             }
@@ -121,6 +123,7 @@ class WNavigationBar(
 
     private val closeButton: WImageButton by lazy {
         WImageButton(context).apply {
+            id = UIComponentsR.id.nav_close
             val closeDrawable = context.getDrawableCompat(R.drawable.ic_close)
             setImageDrawable(closeDrawable)
             updateColors(currentTint ?: WColor.SecondaryText, WColor.BackgroundRipple)

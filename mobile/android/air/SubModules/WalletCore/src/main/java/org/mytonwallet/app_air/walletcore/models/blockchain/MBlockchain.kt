@@ -259,6 +259,32 @@ enum class MBlockchain(
                 supported
             }
         }
+
+        // A TRON or UTXO address also matches Solana's regex, so stricter regexes are matched first
+        private val ADDRESS_MATCH_ORDER = listOf(
+            ton, tron, zcash, bitcoin, litecoin, dogecoin, bitcoincash, solana, ethereum, base,
+            bnb, polygon, arbitrum, optimism, monad, avalanche, hyperliquid, arc, robinhood
+        )
+
+        private val addressMatchChains: List<MBlockchain> by lazy {
+            supportedChains.sortedBy {
+                val i = ADDRESS_MATCH_ORDER.indexOf(it)
+                if (i < 0) Int.MAX_VALUE else i
+            }
+        }
+
+        // Chains that accept the same addresses, where `preferred` is kept over the match order
+        private val sharedAddressFormats: List<List<MBlockchain>> by lazy {
+            listOf(evmChains, listOf(bitcoin, bitcoincash))
+        }
+
+        fun chainForAddress(address: String, preferred: MBlockchain? = null): MBlockchain? {
+            val match = addressMatchChains.firstOrNull { it.isValidAddress(address) } ?: return null
+            val isPreferredKept = preferred?.isValidAddress(address) == true &&
+                sharedAddressFormats.any { match in it && preferred in it }
+            return if (isPreferredKept) preferred else match
+        }
+
         val supportedChainValues: List<String> by lazy { supportedChains.map { it.name } }
         val evmChains: List<MBlockchain> by lazy {
             supportedChains.filter { it.config?.chainStandard == "ethereum" }

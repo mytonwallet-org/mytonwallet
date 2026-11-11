@@ -1,47 +1,41 @@
 import AVFoundation
 import UIKit
 
-/// The still image remains visible until the video has a frame to display.
+/// The still image remains visible until the video has a frame to display
 final class StoryMediaView: UIView {
     private let imageView = UIImageView()
-    private let videoLayer = AVPlayerLayer()
-    private var player: AVQueuePlayer?
-    private var looper: AVPlayerLooper?
+    private let videoView = StoryVideoView()
+    private var videoLayer: AVPlayerLayer { videoView.layer as! AVPlayerLayer }
+    private let preview: UIImage?
+    private let reducedMotionImage: UIImage?
+    private let videoURL: URL?
+    private var player: AVPlayer?
     private var observations: [NSKeyValueObservation] = []
-    private var itemObservation: NSKeyValueObservation?
+    private var hasFailed = false
+    private var isReducedMotion = UIAccessibility.isReduceMotionEnabled
     private(set) var isPlaybackRequested = false
 
+    var isWaitingForFirstFrame: Bool {
+        videoURL != nil && !hasFailed && !isReducedMotion && !videoLayer.isReadyForDisplay
+    }
+
     init(page: StoryPage) {
+        preview = page.image
+        reducedMotionImage = page.reducedMotionImage ?? page.image
+        if let url = page.videoURL, url.isFileURL || ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
+            videoURL = url
+        } else {
+            videoURL = nil
+        }
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         accessibilityElementsHidden = true
-        imageView.image = page.image
+        imageView.image = isReducedMotion ? reducedMotionImage : preview
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
-        addSubview(imageView)
         videoLayer.videoGravity = .resizeAspectFill
-        videoLayer.opacity = 0
-        layer.addSublayer(videoLayer)
-
-        if let url = page.videoURL,
-           url.isFileURL || ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
-            let player = AVQueuePlayer()
-            player.isMuted = true
-            let item = AVPlayerItem(url: url)
-            self.player = player
-            looper = AVPlayerLooper(player: player, templateItem: item)
-            videoLayer.player = player
-            observations.append(videoLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] _, _ in
-                Task { @MainActor [weak self] in self?.updateVideoVisibility() }
-            })
-            observations.append(player.observe(\.status, options: [.new]) { [weak self] player, _ in
-                guard player.status == .failed else { return }
-                Task { @MainActor [weak self] in self?.stopVideo() }
-            })
-            observations.append(player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
-                Task { @MainActor [weak self] in self?.observeCurrentItem() }
-            })
-        }
+        addSubview(videoView)
+        addSubview(imageView)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -51,53 +45,95 @@ final class StoryMediaView: UIView {
         imageView.frame = bounds
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        videoLayer.frame = bounds
+        videoView.frame = bounds
         CATransaction.commit()
     }
 
-    func setPlaying(_ playing: Bool, reduceMotion: Bool = UIAccessibility.isReduceMotionEnabled) {
-        isPlaybackRequested = playing && !reduceMotion
-        if isPlaybackRequested { player?.play() } else { player?.pause() }
+    func setPlaying(_ isPlaying: Bool, reduceMotion: Bool = UIAccessibility.isReduceMotionEnabled) {
+        isReducedMotion = reduceMotion
+        isPlaybackRequested = isPlaying && !reduceMotion
+        imageView.image = reduceMotion || hasFailed ? reducedMotionImage : preview
+        if isPlaybackRequested {
+            preparePlayback()
+        }
+        updateVideoVisibility()
+    }
+
+    func preparePlayback() {
+        guard !isReducedMotion, !UIAccessibility.isReduceMotionEnabled else { return }
+        preparePlayer()
+    }
+
+    private func preparePlayer() {
+        guard player == nil, !hasFailed, let videoURL else { return }
+        do {
+            // Muted players still activate the shared audio session
+            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+        } catch {
+            stopVideo()
+            return
+        }
+        let item = AVPlayerItem(url: videoURL)
+        let player = AVPlayer(playerItem: item)
+        player.isMuted = true
+        player.actionAtItemEnd = .pause
+        self.player = player
+        videoLayer.player = player
+        observations.append(videoLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] _, _ in
+            Task { @MainActor [weak self] in self?.updateVideoVisibility() }
+        })
+        observations.append(player.observe(\.status, options: [.new]) { [weak self] player, _ in
+            guard player.status == .failed else { return }
+            Task { @MainActor [weak self] in self?.stopVideo() }
+        })
+        observations.append(item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor [weak self] in self?.stopVideo() }
+        })
     }
 
     private func updateVideoVisibility() {
-        setVideoVisible(videoLayer.isReadyForDisplay)
-        if isPlaybackRequested { player?.play() }
-    }
-
-    private func observeCurrentItem() {
-        itemObservation = player?.currentItem?.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
-            guard item.status == .failed else { return }
-            Task { @MainActor [weak self] in self?.stopVideo() }
+        let isReady = videoLayer.isReadyForDisplay && !hasFailed
+        setVideoVisible(isReady && !isReducedMotion)
+        if isPlaybackRequested && isReady {
+            player?.play()
+        } else {
+            player?.pause()
         }
     }
 
-    private func setVideoVisible(_ visible: Bool) {
-        let opacity: Float = visible ? 1 : 0
-        guard videoLayer.opacity != opacity else { return }
-        let previous = videoLayer.presentation()?.opacity ?? videoLayer.opacity
+    private func setVideoVisible(_ isVisible: Bool) {
+        let opacity: Float = isVisible ? 0 : 1
+        let layer = imageView.layer
+        guard layer.opacity != opacity else { return }
+        let previous = layer.presentation()?.opacity ?? layer.opacity
+        layer.removeAnimation(forKey: "storyVideoVisibility")
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        videoLayer.opacity = opacity
+        layer.opacity = opacity
         CATransaction.commit()
         if TradeMotion.enabled {
             let animation = CABasicAnimation(keyPath: "opacity")
             animation.fromValue = previous
             animation.toValue = opacity
             animation.duration = 0.2
-            videoLayer.add(animation, forKey: "storyVideoVisibility")
+            layer.add(animation, forKey: "storyVideoVisibility")
         }
     }
 
     private func stopVideo() {
+        hasFailed = true
         player?.pause()
+        imageView.image = reducedMotionImage
         setVideoVisible(false)
         videoLayer.player = nil
-        looper = nil
         player = nil
-        itemObservation = nil
         observations.removeAll()
     }
+}
+
+private final class StoryVideoView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
 }
 
 final class StoryProgressView: UIView {

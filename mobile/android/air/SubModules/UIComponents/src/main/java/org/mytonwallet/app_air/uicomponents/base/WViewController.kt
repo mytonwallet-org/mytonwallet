@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.os.MessageQueue.IdleHandler
@@ -34,10 +35,13 @@ import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.commonViews.ScreenRecordProtectionView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.OverlappedChromeFader
+import org.mytonwallet.app_air.uicomponents.helpers.frameInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -68,7 +72,8 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 abstract class WViewController(val context: Context) :
     WThemedView,
-    WProtectedView {
+    WProtectedView,
+    IChromeOverlapHost {
     companion object {
         private val inactivityHandler = Handler(Looper.getMainLooper())
         private val inactivityControllers: MutableSet<WViewController> =
@@ -535,6 +540,18 @@ abstract class WViewController(val context: Context) :
         navigationController?.pop()
     }
 
+    fun presentInNavigation(
+        root: WViewController,
+        presentationConfig: WNavigationController.PresentationConfig =
+            WNavigationController.PresentationConfig.PreferredFullScreen
+    ): WNavigationController? {
+        val window = window ?: return null
+        return WNavigationController(window, presentationConfig).apply {
+            setRoot(root)
+            window.present(this)
+        }
+    }
+
     private val _activeDialogs = mutableListOf<WDialog>()
     val activeDialogs: List<WDialog> get() = _activeDialogs
     val topActiveDialog: WDialog? get() = _activeDialogs.lastOrNull()
@@ -806,6 +823,37 @@ abstract class WViewController(val context: Context) :
             it.setShowSeparator(visible)
             return
         }
+    }
+
+    private val topChromeFader = OverlappedChromeFader()
+    private val bottomChromeFader = OverlappedChromeFader()
+
+    override fun hideChromeOverlapping(windowRect: Rect): Boolean {
+        val topViews = listOfNotNull(navigationBar, topReversedCornerView)
+        val isTopChromeHidden = topChromeFader.hideIfOverlapping(
+            windowRect,
+            listOfNotNull(
+                navigationBar?.frameInWindow(),
+                topReversedCornerView?.let {
+                    it.frameInWindow(bottomInset = it.cornerRadius.toInt())
+                }
+            ),
+            topViews
+        )
+        val bottomViews = listOfNotNull(bottomReversedCornerView)
+        val isBottomChromeHidden = bottomChromeFader.hideIfOverlapping(
+            windowRect,
+            bottomViews.mapNotNull {
+                it.frameInWindow(topInset = ViewConstants.TOOLBAR_RADIUS.dp.toInt())
+            },
+            bottomViews
+        )
+        return isTopChromeHidden || isBottomChromeHidden
+    }
+
+    override fun showOverlappedChrome() {
+        topChromeFader.show()
+        bottomChromeFader.show()
     }
 
     private var overrideShowTopBlurView: Boolean? = null
@@ -1185,6 +1233,7 @@ fun WViewController.showAlert(
                 }
             }
             messageLabel.apply {
+                id = UIComponentsR.id.dialog_message
                 setStyle(14f)
                 this.text = text
                 updateTheme()

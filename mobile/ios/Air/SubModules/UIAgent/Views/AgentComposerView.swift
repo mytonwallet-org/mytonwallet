@@ -15,6 +15,10 @@ enum AgentComposerMetrics {
     /// The glass circle beside the field while it is empty, and the gap between them: the microphone
     static let microphoneSize: CGFloat = 48
     static let microphoneSpacing: CGFloat = 12
+    /// The spring the trailing circle comes out of the field and merges back into it on, which the floating microphone
+    /// sinks into it on too
+    static let actionSeparationDuration: TimeInterval = 0.5
+    static let actionSeparationDamping: CGFloat = 0.72
     /// The design's send button inside the field once it has text: a 40 × 32 capsule at the field's trailing end,
     /// 8 pt from its edge and its bottom, with 12 pt before it for the text
     static let sendButtonSize = CGSize(width: 40, height: 32)
@@ -80,15 +84,31 @@ enum AgentComposerMetrics {
 final class AgentComposerTextView: UITextView {
     var onHardwareSend: (() -> Void)?
     var isInputBlocked = false
+    /// Typing, deleting, pasting or cutting is about to change the text, which ends what blocks it, if it can
+    var onWillEdit: (() -> Void)?
 
     override func insertText(_ text: String) {
+        onWillEdit?()
         guard !isInputBlocked else { return }
         super.insertText(text)
     }
 
     override func deleteBackward() {
+        onWillEdit?()
         guard !isInputBlocked else { return }
         super.deleteBackward()
+    }
+
+    override func paste(_ sender: Any?) {
+        onWillEdit?()
+        guard !isInputBlocked else { return }
+        super.paste(sender)
+    }
+
+    override func cut(_ sender: Any?) {
+        onWillEdit?()
+        guard !isInputBlocked else { return }
+        super.cut(sender)
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
@@ -111,9 +131,8 @@ final class AgentComposerTextView: UITextView {
                 onHardwareSend?()
                 return true
             }
-            if modifiers == UIKeyModifierFlags.shift
-                || modifiers == UIKeyModifierFlags.alternate
-                || modifiers == [UIKeyModifierFlags.shift, UIKeyModifierFlags.alternate] {
+            // With Shift, Option, Command or Control it starts a new line, as on the web
+            if modifiers.isSubset(of: [.shift, .alternate, .command, .control]) {
                 insertText("\n")
                 return true
             }
@@ -162,7 +181,21 @@ final class AgentComposerView: UIView {
     private let sendButton = UIButton(type: .system)
     private let microphoneButton = AgentDictationButton(type: .system)
     private let dictationStripView = AgentDictationStripView()
+    /// Telegram's listening light inside the field, while a recording is recognized and its text comes in
+    private let dictationGlowView = AgentFieldGlowView(part: .lights)
+    /// Over the field's edge, reaching beyond it for the rim's bloom
+    private let dictationRimView = AgentFieldGlowView(part: .rim)
+    private var textReveal: AgentDictationTextReveal?
     private let dictationTouchView = AgentDictationTouchView()
+    /// A hands-free recording's cancelling cross above the field's leading end, opposite where the floating microphone
+    /// rests, its glass in the field's glass container
+    let cancelBubble = AgentDictationCancelBubble()
+    private var isCancelBubbleShown = false
+    /// The cross stands above the field, rather than in the field's leading end, out of which it splits off the field's
+    /// glass and back into which it merges
+    private var isCancelBubbleOut = true
+    /// Identifies the latest showing or hiding of the cross, so an interrupted hiding doesn't hide it
+    private var cancelBubbleGeneration = 0
     private let dismissPanGestureRecognizer = UIPanGestureRecognizer()
     private let microphoneGestureRecognizer = UILongPressGestureRecognizer()
     private var microphoneTouchOrigin = CGPoint.zero
@@ -170,23 +203,40 @@ final class AgentComposerView: UIView {
     private var microphoneVelocity = CGPoint.zero
     private var dictationState = AgentDictationState()
     private var isSendEnabled = false
+    private var isStopAvailable = false
+    /// The trailing circle shows Stop in the microphone's place, while an answer that can be stopped is being written
+    private var isStopDisplayed = false
     private var isDictationStartedWithVoiceOver = false
     private var settledInputHeight = AgentComposerMetrics.minInputHeight
     /// 1 while the trailing circle stands apart from the field, 0 while it is merged into the field's trailing end
     private var actionSeparation: CGFloat = 0
     private var displayedActionTint: UIColor?
+    private var displayedActionGlyph: UIImage?
     private var glyphAnimators: [UIViewPropertyAnimator] = []
 
     var dictationController: AgentDictationController? {
         didSet {
             oldValue?.onStateChanged = nil
+            oldValue?.onSendTranscript = nil
             dictationController?.onStateChanged = { [weak self] state in
                 self?.updateDictationState(state)
+            }
+            dictationController?.onSendTranscript = { [weak self] text in
+                self?.sendDictatedText(text)
             }
             updateDictationState(dictationController?.state ?? AgentDictationState())
             updateActionSeparation(animated: false)
         }
     }
+
+    private lazy var placeholderLeadingConstraint = placeholderLabel.leadingAnchor.constraint(
+        equalTo: inputBackgroundView.contentView.leadingAnchor,
+        constant: AgentComposerMetrics.contentHorizontalInset
+    )
+    /// How far the field's text and placeholder stand in from the leading end, past a recording's cross and dot
+    private(set) var recordingTextInset: CGFloat = 0
+    /// The text's inset at the field's trailing end, wider while Send shows there
+    private var textTrailingInset = AgentComposerMetrics.contentHorizontalInset
 
     private lazy var placeholderTrailingConstraint: NSLayoutConstraint = {
         // A host can narrow the field to a circle while it morphs; the placeholder then just clips
@@ -200,13 +250,32 @@ final class AgentComposerView: UIView {
 
     var onDraftTextChanged: (() -> Void)?
     var onSend: (() -> Void)?
+    var onStop: (() -> Void)?
+    /// Asked before a recording starts, as the recording goes to the Agent: false holds it back, and the host starts it
+    /// later with `startDictationHandsFree()`
+    var shouldStartDictation: (() -> Bool)?
     var onBeginEditing: (() -> Void)?
     var onEndEditing: (() -> Void)?
     var onLayoutHeightChanged: (() -> Void)?
     var onRecordingCircleVisibilityChanged: (() -> Void)?
+    /// The dictation moved to another phase, such as from recording to recognizing, a touch on the microphone turned
+    /// out a hold, or the dictation began or ended offering to dictate more
+    var onDictationPhaseChanged: (() -> Void)?
+
+    /// The floating microphone shows above the field, where it dictates more
+    var isShowingFloatingMicrophone: Bool {
+        dictationState.showsFloatingMicrophone
+    }
 
     /// Whether the recording circle stands over the trailing circle: while recording, and while it shows a failure
     private(set) var isRecordingCircleVisible = false
+
+    /// The field shows a question: one being recorded or recognized, a transcript coming in, or text. A touch on the
+    /// microphone that isn't yet a tap or a hold shows nothing of its recording, so it adds no question until it is one.
+    var showsQuestion: Bool {
+        let isTouchUnclassified = dictationState.phase == .holding && !dictationState.isHeld && !dictationState.isFloating
+        return isDictating && !isTouchUnclassified || dictationState.canDictateMore || textReveal != nil || hasText
+    }
 
     var placeholder: String = lang("Ask anything") {
         didSet {
@@ -291,9 +360,11 @@ final class AgentComposerView: UIView {
         didSet { applyGlassAppearance() }
     }
 
-    /// The glass that lives in a host's container, for the host's hit testing
+    /// The glass that lives in a host's container, and the recording's pause button over it, for the host's hit testing
     var hostedGlassViews: [UIView] {
-        externalGlassHost == nil ? [] : [inputBackgroundView, actionGlassView]
+        guard externalGlassHost != nil else { return [] }
+        return [inputBackgroundView, actionGlassView] + (dictationTouchView.isTakingTouches ? [dictationTouchView] : [])
+            + (isCancelBubbleShown ? [cancelBubble.view] : [])
     }
 
     /// While a host animates the field's width, its height keeps the last settled value
@@ -325,16 +396,75 @@ final class AgentComposerView: UIView {
         externalGlassHost ?? glassContainerView?.contentView ?? self
     }
 
-    /// The microphone circle stands apart while the field is empty; it merges into the field while a recording is
-    /// recognized, when the field shows the progress, and while the field has text, when the send button is inside it
+    /// The trailing circle stands apart from an empty field as its microphone, and over a draft as Stop while an answer
+    /// can be stopped, as sending waits for the answer. Otherwise it stays merged into the field while the field has
+    /// text, with Send in its place through any dictation into the text, recording, recognizing or failing, so the text
+    /// never reflows; and while the field shows the recognition, or the floating microphone records as the one
+    /// microphone.
     private var shouldSeparateActionButton: Bool {
-        dictationState.phase != .recognizing && !(dictationState.phase == .idle && hasText)
+        if hasText { return isStopAvailable }
+        return dictationState.phase != .recognizing && !dictationState.isRecordingFloating
     }
 
-    /// Recording or recognizing: the field shows the recording strip instead of the text
+    /// A dictation into a field that already has text, as from the floating microphone, leaves the field as it is: its
+    /// text stays in sight and as tall as it is, without the dot, the cross or the recognition's status, while the
+    /// floating microphone shows the recording and the field glows as it is recognized. Into an empty field, the
+    /// recording strip shows the dot, with the cross hands-free, and the recognition's status.
+    private var isDictatingIntoText: Bool {
+        isDictating && hasText
+    }
+
+    /// While recording hands-free, an empty field keeps its placeholder, or text of nothing but spaces, in sight past
+    /// the dot. A recording held on the composer's own microphone shows "Slide to cancel" there instead.
+    private static func isFieldTextShown(during state: AgentDictationState) -> Bool {
+        state.phase == .handsFree
+    }
+
+    /// How far an empty field's placeholder stands in during `state`: hands-free, to the middle of the room past the
+    /// dot, where "Slide to cancel" stands while the microphone is held
+    private func getRecordingTextInset(for state: AgentDictationState) -> CGFloat {
+        guard state.phase == .handsFree else { return 0 }
+        return AgentDictationStripView.getCenteredPlaceholderInset(
+            placeholderWidth: ceil(placeholderLabel.intrinsicContentSize.width),
+            stripWidth: fieldFrame.width - 2 * AgentComposerMetrics.contentHorizontalInset
+        )
+    }
+
+    /// Recording with the field's text in sight
+    private var isFieldTextShownWhileDictating: Bool {
+        isDictatingIntoText || isDictating && Self.isFieldTextShown(during: dictationState)
+    }
+
+    /// The field shows its placeholder while empty: also while recording hands-free, and while a touch on the
+    /// microphone isn't yet a tap or a hold, but not once "Slide to cancel" or the recognition takes its place
+    private func isPlaceholderShown(for state: AgentDictationState) -> Bool {
+        guard textView.text?.isEmpty ?? true else { return false }
+        switch state.phase {
+        case .idle, .failed, .handsFree: return true
+        case .holding: return state.isFloating || !state.isHeld
+        case .recognizing: return false
+        }
+    }
+
+    /// The field's text in sight, as a recording keeps it
+    var isDraftTextShown: Bool {
+        !textView.isHidden
+    }
+
+    /// The placeholder as it shows, in the composer, or nil while it is hidden
+    var placeholderFrame: CGRect? {
+        placeholderLabel.isHidden ? nil : placeholderLabel.convert(placeholderLabel.bounds, to: self)
+    }
+
+    /// The text's inset at the field's leading end
+    var textLeadingInset: CGFloat {
+        effectiveUserInterfaceLayoutDirection == .rightToLeft ? textView.textContainerInset.right : textView.textContainerInset.left
+    }
+
+    /// Recording or recognizing: the field shows the recording strip, over its text or in its place
     private var isDictating: Bool {
         switch dictationState.phase {
-        case .holding, .locked, .recognizing: true
+        case .holding, .handsFree, .recognizing: true
         case .idle, .failed: false
         }
     }
@@ -404,6 +534,20 @@ final class AgentComposerView: UIView {
         applyTheme()
     }
 
+    /// The recording's pause button stands above the composer, where it takes its touches too, and so does the cross
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        super.point(inside: point, with: event)
+            || dictationTouchView.point(inside: convert(point, to: dictationTouchView), with: event)
+            || isCancelBubbleShown && convert(cancelBubble.view.bounds, from: cancelBubble.view).insetBy(dx: -4, dy: -4).contains(point)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        // The cross stands above the field, outside the bounds of the glass container it is in
+        guard hit === self, externalGlassHost == nil, isCancelBubbleShown else { return hit }
+        return cancelBubble.view.hitTest(cancelBubble.view.convert(point, from: self), with: event) ?? hit
+    }
+
     func applyTheme() {
         backgroundColor = AgentComposerMetrics.composerBackgroundColor
         inputBackgroundView.applyEffect()
@@ -421,14 +565,56 @@ final class AgentComposerView: UIView {
         updateActionButtons()
     }
 
+    /// Offers Stop in the microphone's place, a draft or not, for an answer being written that can be stopped
+    func setStopAvailable(_ isAvailable: Bool) {
+        guard isAvailable != isStopAvailable else { return }
+        isStopAvailable = isAvailable
+        updateActionButtons()
+    }
+
+    /// The field's text as it shows, for the sent question's bubble to grow out of
+    func makeSentTextSource(in container: UIView) -> AgentSentMessageSource? {
+        guard let rect = getShownTextRect() else { return nil }
+        return AgentSentMessageSource.makeText(of: textView, rect: rect, in: container)
+    }
+
+    /// The field's text drawn from its layers, also text set a moment ago, as a transcript sent on release is, for the
+    /// bubble of a chat on another screen to grow out of
+    func makeSentTextPictureSource(in container: UIView) -> AgentSentMessageSource? {
+        textView.layoutIfNeeded()
+        textView.layoutManager.ensureLayout(for: textView.textContainer)
+        guard let rect = getShownTextRect() else { return nil }
+        return AgentSentMessageSource.makeTextPicture(of: textView, rect: rect, in: container)
+    }
+
+    /// Where the field's text is, in the text view, while the field shows it
+    private func getShownTextRect() -> CGRect? {
+        guard !textView.isHidden, hasText else { return nil }
+        var used = textView.layoutManager.usedRect(for: textView.textContainer)
+        used.origin.x += textView.textContainerInset.left
+        used.origin.y += textView.textContainerInset.top
+        let rect = used.intersection(textView.bounds)
+        return rect.isNull ? nil : rect
+    }
+
+    /// Starts a recording that needs no finger on the microphone, as VoiceOver's does
+    func startDictationHandsFree() {
+        guard let dictationController, dictationState.phase == .idle || dictationState.phase == .failed else { return }
+        dictationController.startHandsFree()
+    }
+
     func clearDraft() {
+        endTextReveal()
         textView.text = nil
+        syncFloatingMicrophone()
         updatePlaceholderVisibility()
         updateInputHeightIfNeeded()
     }
 
     func setDraftText(_ text: String, focus: Bool) {
+        endTextReveal()
         textView.text = text
+        syncFloatingMicrophone()
         updatePlaceholderVisibility()
         updateInputHeightIfNeeded()
         onDraftTextChanged?()
@@ -438,6 +624,111 @@ final class AgentComposerView: UIView {
             textView.becomeFirstResponder()
         }
         textView.selectedRange = NSRange(location: text.utf16.count, length: 0)
+    }
+
+    /// Puts a transcript in the field after its text, a space apart, character by character, each out of a blur, as
+    /// `AgentDictationTextReveal` shows them. With Reduce Motion the text fades in. The field takes no typing and
+    /// offers no sending until all of it is in.
+    func revealDictatedText(_ text: String) {
+        endTextReveal()
+        let prefix = Self.getDictationPrefix(before: textView.text ?? "")
+        guard window != nil, UIView.areAnimationsEnabled else {
+            setDraftText(prefix + text, focus: false)
+            return
+        }
+        guard !UIAccessibility.isReduceMotionEnabled else {
+            UIView.transition(
+                with: textView,
+                duration: Self.glyphFadeDuration,
+                options: [.transitionCrossDissolve, .allowUserInteraction]
+            ) {
+                self.setDraftText(prefix + text, focus: false)
+            }
+            return
+        }
+        let reveal = AgentDictationTextReveal(
+            text: text,
+            after: prefix,
+            in: textView,
+            onTextGrown: { [weak self] in
+                self?.updatePlaceholderVisibility()
+                self?.updateInputHeightIfNeeded()
+            },
+            onFinished: { [weak self] in
+                guard let self else { return }
+                self.endTextReveal()
+                self.updatePlaceholderVisibility()
+                self.updateInputHeightIfNeeded()
+                self.onDraftTextChanged?()
+            }
+        )
+        textReveal = reveal
+        textView.isInputBlocked = true
+        updateDictationGlow()
+        reveal.start()
+    }
+
+    /// The field's text that a transcript goes after: none for blank text, else the text ending in a space
+    static func getDictationPrefix(before text: String) -> String {
+        guard text.contains(where: { !$0.isWhitespace }) else { return "" }
+        return text.last?.isWhitespace == true ? text : text + " "
+    }
+
+    /// The floating microphone shows while the field has text, typed, pasted or dictated: the trailing microphone
+    /// rises out of its circle into it as the text comes, and it sinks back as the field is emptied, sent or cleared
+    private func syncFloatingMicrophone() {
+        guard textReveal == nil, let dictationController else { return }
+        if hasText {
+            dictationController.offerDictatingMore()
+        } else {
+            dictationController.endDictatingMore()
+        }
+    }
+
+    /// A held recording's transcript goes as the question at once, as in the Claude app. One that can't be sent yet
+    /// stays in the field, with the floating microphone to dictate more.
+    private func sendDictatedText(_ text: String) {
+        setDraftText(Self.getDictationPrefix(before: textView.text ?? "") + text, focus: false)
+        guard isSendEnabled, let onSend else {
+            dictationController?.offerDictatingMore()
+            return
+        }
+        onSend()
+    }
+
+    private func endTextReveal() {
+        guard let textReveal else { return }
+        self.textReveal = nil
+        textReveal.complete()
+        textView.isInputBlocked = isDictating
+        updateDictationGlow()
+    }
+
+    /// Ends a transcript's reveal at once, as anything that interrupts it does: the field takes focus, its caret or
+    /// selection moves, it is typed in, pasted into, sent or cleared, a new dictation starts, the field leaves the
+    /// screen or the app goes to the background. All of the transcript shows, sharp and in the text colour.
+    @objc private func settleTextReveal() {
+        guard textReveal != nil else { return }
+        endTextReveal()
+        updatePlaceholderVisibility()
+        updateInputHeightIfNeeded()
+        onDraftTextChanged?()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            settleTextReveal()
+        }
+    }
+
+    /// The field glows once a recording is finished, while it is recognized and while its words come in, but not while
+    /// the user records
+    private func updateDictationGlow() {
+        let isRecognizing = dictationState.phase == .recognizing
+        let isGlowing = isRecognizing || textReveal != nil
+        dictationGlowView.setGlowing(isGlowing, animated: window != nil)
+        dictationRimView.setGlowing(isGlowing, animated: window != nil)
     }
 
     /// Moves the field's and the trailing circle's glass into `host`, the content view of a glass container that holds
@@ -454,9 +745,11 @@ final class AgentComposerView: UIView {
             if inputBackgroundView.superview !== target { target.addSubview(inputBackgroundView) }
             if actionGlassView.superview !== target { target.addSubview(actionGlassView) }
         }
+        if cancelBubble.view.superview !== target { target.insertSubview(cancelBubble.view, belowSubview: inputBackgroundView) }
         if host == nil, let glassContainerView {
-            // The touch circle stays above the glass
+            // The touch circle stays above the glass, and so does the field's rim
             insertSubview(glassContainerView, belowSubview: dictationTouchView)
+            insertSubview(dictationRimView, aboveSubview: glassContainerView)
         }
         layoutGlass()
     }
@@ -488,9 +781,20 @@ final class AgentComposerView: UIView {
         textView.delegate = self
         textView.accessibilityIdentifier = "agent_input"
         textView.onHardwareSend = { [weak self] in
-            guard self?.dictationState.phase == .idle else { return }
-            self?.onSend?()
+            guard let self, dictationState.phase == .idle else { return }
+            settleTextReveal()
+            onSend?()
         }
+        // Whatever the user does with the field settles a transcript coming in, rather than leaving it half shown
+        textView.onWillEdit = { [weak self] in
+            self?.settleTextReveal()
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settleTextReveal),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
 
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
         placeholderLabel.attributedText = NSAttributedString(string: placeholder, attributes: AgentComposerMetrics.placeholderAttributes)
@@ -523,11 +827,17 @@ final class AgentComposerView: UIView {
         microphoneButton.translatesAutoresizingMaskIntoConstraints = false
         microphoneButton.accessibilityIdentifier = "agent_microphone"
         microphoneButton.onAccessibilityActivate = { [weak self] in
-            guard let self, let dictationController = self.dictationController else { return false }
+            guard let self else { return false }
+            if self.isStopDisplayed {
+                self.onStop?()
+                return true
+            }
+            guard let dictationController = self.dictationController else { return false }
             switch self.dictationState.phase {
-            case .locked:
+            case .handsFree:
                 dictationController.finish()
             case .idle, .failed:
+                guard self.shouldStartDictation?() != false else { return true }
                 self.isDictationStartedWithVoiceOver = true
                 dictationController.startHandsFree()
             case .holding, .recognizing:
@@ -535,7 +845,7 @@ final class AgentComposerView: UIView {
             }
             return true
         }
-        microphoneButton.addTarget(self, action: #selector(finishDictationPressed), for: .touchUpInside)
+        microphoneButton.addTarget(self, action: #selector(actionButtonPressed), for: .touchUpInside)
         microphoneGestureRecognizer.minimumPressDuration = 0
         microphoneGestureRecognizer.allowableMovement = .greatestFiniteMagnitude
         microphoneGestureRecognizer.addTarget(self, action: #selector(handleMicrophoneGesture(_:)))
@@ -547,6 +857,30 @@ final class AgentComposerView: UIView {
             self?.dictationController?.cancel()
         }
         dictationTouchView.isHidden = true
+        cancelBubble.button.addTarget(self, action: #selector(cancelBubblePressed), for: .touchUpInside)
+        dictationTouchView.onResume = { [weak self] in
+            self?.dictationController?.startHandsFree(isFloating: true)
+        }
+        dictationTouchView.onFloatingTouchBegan = { [weak self] in
+            guard let self else { return }
+            self.dictationController?.touchBegan(
+                isRightToLeft: self.effectiveUserInterfaceLayoutDirection == .rightToLeft,
+                isFloating: true
+            )
+        }
+        dictationTouchView.onFloatingTouchEnded = { [weak self] in
+            self?.dictationController?.touchEnded()
+        }
+        dictationTouchView.onFloatingStop = { [weak self] in
+            self?.dictationController?.finish()
+        }
+        // The floating microphone sinking into the trailing circle becomes its microphone as it lands, so the circle
+        // shows none of its own meanwhile
+        dictationTouchView.onMicrophonePlaceChanged = { [weak self] in
+            guard let self else { return }
+            actionContentView.layer.removeAnimation(forKey: "opacity")
+            UIView.performWithoutAnimation { self.applyGlassAppearance() }
+        }
 
         dismissPanGestureRecognizer.addTarget(self, action: #selector(handleDismissPan(_:)))
         dismissPanGestureRecognizer.cancelsTouchesInView = false
@@ -556,8 +890,16 @@ final class AgentComposerView: UIView {
         if let glassContainerView {
             addSubview(glassContainerView)
         }
+        glassHost.addSubview(cancelBubble.view)
         glassHost.addSubview(inputBackgroundView)
         glassHost.addSubview(actionGlassView)
+        dictationRimView.cornerRadius = AgentComposerMetrics.inputCornerRadius
+        dictationRimView.field = inputBackgroundView
+        addSubview(dictationRimView)
+        dictationGlowView.frame = inputBackgroundView.contentView.bounds
+        dictationGlowView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        dictationGlowView.cornerRadius = AgentComposerMetrics.inputCornerRadius
+        inputBackgroundView.contentView.addSubview(dictationGlowView)
         inputBackgroundView.contentView.addSubview(textView)
         inputBackgroundView.contentView.addSubview(placeholderLabel)
         inputBackgroundView.contentView.addSubview(dictationStripView)
@@ -584,10 +926,7 @@ final class AgentComposerView: UIView {
             textView.topAnchor.constraint(equalTo: field.topAnchor),
             textView.bottomAnchor.constraint(equalTo: field.bottomAnchor),
 
-            placeholderLabel.leadingAnchor.constraint(
-                equalTo: field.leadingAnchor,
-                constant: AgentComposerMetrics.contentHorizontalInset
-            ),
+            placeholderLeadingConstraint,
             placeholderTrailingConstraint,
             placeholderLabel.topAnchor.constraint(
                 equalTo: field.topAnchor,
@@ -645,6 +984,14 @@ final class AgentComposerView: UIView {
         let fieldOffset = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -fieldHandoffOffset : fieldHandoffOffset
         place(inputBackgroundView, frame: fieldFrame.offsetBy(dx: dx + fieldOffset, dy: dy))
         place(actionGlassView, frame: actionFrame.offsetBy(dx: dx, dy: dy), swell: actionSwapSwell, shouldResize: true)
+        place(cancelBubble.view, frame: cancelBubbleFrame.offsetBy(dx: dx, dy: dy), shouldResize: true)
+        let rimMargin = AgentFieldGlowView.rimMargin
+        // Set at once, as the rim's drawing doesn't stretch with an animated frame; while it glows it follows the field
+        // as the field shows, frame by frame
+        UIView.performWithoutAnimation {
+            dictationRimView.frame = convert(inputBackgroundView.bounds, from: inputBackgroundView)
+                .insetBy(dx: -rimMargin, dy: -rimMargin)
+        }
         applyGlassAppearance()
     }
 
@@ -709,7 +1056,9 @@ final class AgentComposerView: UIView {
         let separation = effectiveActionSeparation
         // The glyph appears once the circle has mostly left the field
         let glyphAlpha = min(1, max(0, (separation - 0.35) / 0.65))
-        actionContentView.alpha = contentAlpha * glyphAlpha
+        // One microphone at a time: none in the circle while the floating one is up or sinking into it, though Stop shows
+        let isMicrophoneAway = !isStopDisplayed && (dictationTouchView.isMicrophoneUp || dictationTouchView.isSinking)
+        actionContentView.alpha = isMicrophoneAway ? 0 : contentAlpha * glyphAlpha
         inputBackgroundView.isHidden = isGlassHidden
         // Glass doesn't fade with its alpha, and neither does blur; they materialize instead
         let isMaterialized = glassAlpha > 0.01
@@ -720,7 +1069,8 @@ final class AgentComposerView: UIView {
         // with the field's comes in once the circle has mostly left the field, rather than darkening it where the
         // two overlap.
         actionGlassView.setMaterialized(
-            isMaterialized && dictationState.phase != .holding && (canMergeWithField || separation > 0.5)
+            isMaterialized && !(dictationState.phase == .holding && dictationState.isHeld && !dictationState.isFloating)
+                && (canMergeWithField || separation > 0.5)
         )
         if canMergeWithField {
             // Merged into the field, the circle is part of the field's glass
@@ -748,9 +1098,9 @@ final class AgentComposerView: UIView {
             return
         }
         UIView.animate(
-            withDuration: 0.5,
+            withDuration: AgentComposerMetrics.actionSeparationDuration,
             delay: 0,
-            usingSpringWithDamping: 0.72,
+            usingSpringWithDamping: AgentComposerMetrics.actionSeparationDamping,
             initialSpringVelocity: 0,
             options: [.beginFromCurrentState, .allowUserInteraction]
         ) {
@@ -761,6 +1111,7 @@ final class AgentComposerView: UIView {
     }
 
     @objc private func sendButtonPressed() {
+        settleTextReveal()
         onSend?()
     }
 
@@ -778,8 +1129,12 @@ final class AgentComposerView: UIView {
         }
     }
 
-    @objc private func finishDictationPressed() {
-        guard dictationState.phase == .locked else { return }
+    @objc private func actionButtonPressed() {
+        if isStopDisplayed {
+            onStop?()
+            return
+        }
+        guard dictationState.phase == .handsFree else { return }
         dictationController?.finish()
     }
 
@@ -789,6 +1144,12 @@ final class AgentComposerView: UIView {
         let now = CACurrentMediaTime()
         switch gestureRecognizer.state {
         case .began:
+            guard shouldStartDictation?() != false else {
+                // The press ends here; the host starts the recording once it may
+                gestureRecognizer.isEnabled = false
+                gestureRecognizer.isEnabled = true
+                return
+            }
             microphoneTouchOrigin = point
             microphoneLastSample = (point, now)
             microphoneVelocity = .zero
@@ -808,7 +1169,7 @@ final class AgentComposerView: UIView {
                 velocityY: Double(microphoneVelocity.y)
             )
         case .cancelled, .failed:
-            // Locking and automatic recognition disable the active recognizer.
+            // Pausing and automatic recognition disable the active recognizer.
             if dictationState.phase == .holding || dictationState.phase == .idle {
                 dictationController?.cancel()
             }
@@ -827,16 +1188,21 @@ final class AgentComposerView: UIView {
 
     private func updateDictationState(_ state: AgentDictationState) {
         let previousPhase = dictationState.phase
-        // As in Telegram, the field's placeholder fades out as the recording panel comes in
-        let isStartingRecording = (previousPhase == .idle || previousPhase == .failed)
-            && (state.phase == .holding || state.phase == .locked)
-        let placeholderSnapshot = isStartingRecording && !placeholderLabel.isHidden && window != nil
-            && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
+        let wasHoldShown = previousPhase == .holding && dictationState.isHeld
+        let couldDictateMore = dictationState.canDictateMore
+        // As in Telegram, the field's placeholder fades out as "Slide to cancel" comes in
+        let placeholderSnapshot = !placeholderLabel.isHidden && !isPlaceholderShown(for: state) && state.phase != .idle
+            && window != nil && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
             ? placeholderLabel.snapshotView(afterScreenUpdates: false)
             : nil
         dictationState = state
-        if (previousPhase == .holding) != (state.phase == .holding) {
-            if state.phase == .holding || window == nil || !UIView.areAnimationsEnabled {
+        if state.phase == .holding || state.phase == .handsFree {
+            settleTextReveal()
+        }
+        // The microphone's circle gives way to the recording circle once the touch is a hold
+        let isHoldShown = state.phase == .holding && state.isHeld
+        if wasHoldShown != isHoldShown {
+            if isHoldShown || window == nil || !UIView.areAnimationsEnabled {
                 UIView.performWithoutAnimation { applyGlassAppearance() }
             } else {
                 // Back under the recording circle as it goes, the microphone's circle materializes again
@@ -846,13 +1212,30 @@ final class AgentComposerView: UIView {
             }
         }
         let isDictating = self.isDictating
-        textView.isInputBlocked = isDictating
-        textView.isHidden = isDictating
-        dictationStripView.isHidden = !isDictating
+        textView.isInputBlocked = isDictating || textReveal != nil
+        textView.isHidden = isDictating && !isFieldTextShownWhileDictating
+        // Shown before its update, so its dot and hint come in, and hidden after it, so they leave as they showed
+        let isStripShown = isDictating && !isDictatingIntoText
+        if isStripShown { dictationStripView.isHidden = false }
         dictationStripView.update(state)
+        if !isStripShown { dictationStripView.isHidden = true }
+        // The field's content makes room for the cross and the dot as they come in, and takes it back as they go
+        setRecordingTextInset(
+            isDictatingIntoText ? 0 : getRecordingTextInset(for: state),
+            animated: window != nil && UIView.areAnimationsEnabled && !UIAccessibility.isReduceMotionEnabled
+        )
+        // No caret blinks in the field while it records or recognizes; the field keeps the keyboard
+        textView.tintColor = isDictating ? .clear : nil
+        setCancelBubbleShown(state.phase == .handsFree)
         updateDictationTouchPosition()
+        // With Stop in the trailing circle, the floating microphone comes and goes where it rests
+        dictationTouchView.isTrailingMicrophoneShown = !isStopAvailable
         dictationTouchView.update(state, isRightToLeft: effectiveUserInterfaceLayoutDirection == .rightToLeft)
+        let wasPlaceholderHidden = placeholderLabel.isHidden
         updatePlaceholderVisibility()
+        if previousPhase == .holding, wasPlaceholderHidden, !placeholderLabel.isHidden {
+            bringPlaceholderBack()
+        }
         if let placeholderSnapshot, placeholderLabel.isHidden, let container = placeholderLabel.superview {
             placeholderSnapshot.frame = placeholderLabel.frame
             container.insertSubview(placeholderSnapshot, aboveSubview: placeholderLabel)
@@ -864,18 +1247,29 @@ final class AgentComposerView: UIView {
         }
         updateDictationTouchPosition()
         updateRecordingCircleVisibility()
+        updateDictationGlow()
         if state.phase != previousPhase {
             if state.phase == .failed, state.failure == .microphoneDenied {
                 AppActions.showToast(ToastConfig(
                     style: .overlay, icon: .symbolImage("mic.slash"),
-                    message: lang("$agent_dictation_microphone_denied"), duration: 5, transition: .scale
+                    message: lang("$agent_dictation_microphone_denied_device"), duration: 5, transition: .scale,
+                    actionTitle: lang("Open Settings"),
+                    action: {
+                        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                        UIApplication.shared.open(url)
+                    }
                 ))
             }
             updateInputHeightIfNeeded()
-            if state.phase == .locked && !isDictationStartedWithVoiceOver {
+            if state.phase == .handsFree && !state.isFloating && !isDictationStartedWithVoiceOver {
                 UIAccessibility.post(notification: .layoutChanged, argument: microphoneButton)
+            } else if state.phase == .handsFree && state.isFloating {
+                UIAccessibility.post(notification: .layoutChanged, argument: dictationTouchView)
             } else if state.phase == .recognizing {
-                UIAccessibility.post(notification: .layoutChanged, argument: dictationStripView.cancelAccessibilityElement)
+                UIAccessibility.post(
+                    notification: .layoutChanged,
+                    argument: isDictatingIntoText ? textView : dictationStripView.cancelAccessibilityElement
+                )
             } else if previousPhase == .recognizing, state.phase == .idle {
                 UIAccessibility.post(notification: .layoutChanged, argument: textView)
             } else if state.phase == .failed, let failure = state.failure, UIAccessibility.isVoiceOverRunning {
@@ -885,11 +1279,132 @@ final class AgentComposerView: UIView {
         if state.phase == .idle {
             isDictationStartedWithVoiceOver = false
         }
+        // A touch turning out a hold changes what the field shows as much as a new phase does
+        if state.phase != previousPhase || state.canDictateMore != couldDictateMore || isHoldShown != wasHoldShown {
+            onDictationPhaseChanged?()
+        }
+    }
+
+    /// As "Slide to cancel" goes, after a held recording or a tap, the placeholder comes back the way the hint took its
+    /// place: in from the trailing side as it fades in, on the strip's timing. With Reduce Motion it fades in.
+    private func bringPlaceholderBack() {
+        guard window != nil, UIView.areAnimationsEnabled else { return }
+        let isMotionReduced = UIAccessibility.isReduceMotionEnabled
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let distance = (fieldFrame.width - 2 * AgentComposerMetrics.contentHorizontalInset) * 0.3
+        placeholderLabel.alpha = 0
+        placeholderLabel.transform = isMotionReduced ? .identity : CGAffineTransform(translationX: isRightToLeft ? -distance : distance, y: 0)
+        let animator = UIViewPropertyAnimator(
+            duration: AgentDictationStripView.slideDuration,
+            timingParameters: AgentComposerMetrics.makeTelegramCubicTiming()
+        )
+        animator.addAnimations {
+            self.placeholderLabel.alpha = 1
+            self.placeholderLabel.transform = .identity
+        }
+        animator.startAnimation()
+    }
+
+    /// Where the cross stands: above the field's leading end, opposite where the floating microphone rests, or, before it
+    /// splits off and once it has merged back, in the field's rounded leading end, inside the field's glass
+    private var cancelBubbleFrame: CGRect {
+        let side = AgentDictationCancelBubble.diameter
+        let field = fieldFrame
+        guard !isCancelBubbleOut else {
+            let centerX = bounds.width - actionFrame.midX
+            let maxY = field.minY - AgentVCLayout.scrollToBottomButtonSpacing
+            return CGRect(x: centerX - side / 2, y: maxY - side, width: side, height: side)
+        }
+        let endRadius = AgentComposerMetrics.minInputHeight / 2
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let centerX = isRightToLeft ? field.maxX - endRadius : field.minX + endRadius
+        let centerY = field.maxY - endRadius
+        return CGRect(x: centerX - side / 2, y: centerY - side / 2, width: side, height: side)
+    }
+
+    /// The cross comes as a hands-free recording starts and goes as it ends. Its Liquid Glass splits off the field's
+    /// leading end through the glass container they share and rises above the field on the trailing circle's spring, as
+    /// iOS 26 bars separate their buttons, the cross showing once it is mostly out; it merges back into the field the
+    /// same way. Without Liquid Glass it grows in and shrinks away as the scroll-to-bottom button does. With Reduce
+    /// Motion it fades in and out where it stands.
+    func setCancelBubbleShown(_ isShown: Bool, isReduceMotionEnabled: Bool = UIAccessibility.isReduceMotionEnabled) {
+        guard isShown != isCancelBubbleShown else { return }
+        isCancelBubbleShown = isShown
+        cancelBubbleGeneration += 1
+        let generation = cancelBubbleGeneration
+        let bubble = cancelBubble
+        if isShown {
+            bubble.view.isHidden = false
+        }
+        guard window != nil, UIView.areAnimationsEnabled else {
+            UIView.performWithoutAnimation {
+                isCancelBubbleOut = true
+                layoutGlass()
+                bubble.setShown(isShown)
+            }
+            bubble.view.isHidden = !isShown
+            return
+        }
+        let options: UIView.AnimationOptions = [.beginFromCurrentState, .allowUserInteraction]
+        guard !isReduceMotionEnabled, bubble.glassView != nil else {
+            let isScaling = !isReduceMotionEnabled
+            UIView.performWithoutAnimation {
+                isCancelBubbleOut = true
+                layoutGlass()
+                if isShown { bubble.setShown(false, isScaling: isScaling) }
+            }
+            if isScaling {
+                UIView.animate(
+                    withDuration: AgentScrollToBottomButton.animationDuration, delay: 0, usingSpringWithDamping: 1,
+                    initialSpringVelocity: 0, options: options
+                ) {
+                    bubble.setShown(isShown, isScaling: true)
+                } completion: { [weak self] _ in self?.hideCancelBubble(after: generation) }
+            } else {
+                UIView.animate(withDuration: Self.cancelBubbleFadeDuration, delay: 0, options: options) {
+                    bubble.setShown(isShown)
+                } completion: { [weak self] _ in self?.hideCancelBubble(after: generation) }
+            }
+            return
+        }
+        if isShown {
+            UIView.performWithoutAnimation {
+                isCancelBubbleOut = false
+                layoutGlass()
+                bubble.setShown(true)
+                bubble.button.alpha = 0
+            }
+        }
+        isCancelBubbleOut = isShown
+        UIView.animate(
+            withDuration: AgentComposerMetrics.actionSeparationDuration, delay: 0,
+            usingSpringWithDamping: AgentComposerMetrics.actionSeparationDamping, initialSpringVelocity: 0, options: options
+        ) {
+            self.layoutGlass()
+        } completion: { [weak self] _ in self?.hideCancelBubble(after: generation) }
+        // The cross shows once its glass has mostly left the field's, and is gone before the glass is back in
+        UIView.animate(withDuration: isShown ? 0.2 : 0.12, delay: isShown ? 0.15 : 0, options: options) {
+            bubble.button.alpha = isShown ? 1 : 0
+        }
+    }
+
+    private static let cancelBubbleFadeDuration: TimeInterval = 0.25
+
+    /// Out of sight once gone, unless it was shown again since
+    private func hideCancelBubble(after generation: Int) {
+        guard cancelBubbleGeneration == generation, !isCancelBubbleShown else { return }
+        cancelBubble.view.isHidden = true
+    }
+
+    @objc private func cancelBubblePressed() {
+        guard isCancelBubbleShown else { return }
+        dictationController?.cancel()
     }
 
     private func updateRecordingCircleVisibility() {
         let phase = dictationState.phase
-        let isVisible = phase == .holding || phase == .locked || phase == .failed
+        // The circle shows once the touch is a tap or a hold
+        let isVisible = phase == .holding && dictationState.isHeld || phase == .handsFree || phase == .failed
         guard isVisible != isRecordingCircleVisible else { return }
         isRecordingCircleVisible = isVisible
         onRecordingCircleVisibilityChanged?()
@@ -898,32 +1413,70 @@ final class AgentComposerView: UIView {
     private func updateActionButtons() {
         let phase = dictationState.phase
         let hasDictation = dictationController != nil
-        let isLocked = phase == .locked
-        let isRecording = phase == .holding || isLocked
-        let mode: ActionMode = phase == .idle && hasText ? .send : .microphone
+        // A recording on the floating microphone has its stop there, while the trailing circle is merged into the field
+        let isHandsFree = phase == .handsFree && !dictationState.isFloating
+        let isRecording = (phase == .holding || phase == .handsFree) && !dictationState.isFloating
+        // While an answer can be stopped, the circle holds Stop over a draft too, as sending waits for the answer, also
+        // while dictating into the draft on the floating microphone; otherwise Send with text, which keeps its place
+        // whatever a dictation into the text does
+        let mode: ActionMode = hasText && !isStopAvailable ? .send : .microphone
         let isSeparate = shouldSeparateActionButton
+        let wasStopDisplayed = isStopDisplayed
+        isStopDisplayed = isStopAvailable && mode == .microphone && (phase == .idle || hasText)
         sendButton.isHidden = mode != .send
         sendButton.isEnabled = isSendEnabled
+        // It sends nothing while a dictation into the text goes on, with no change to how it looks
+        sendButton.isUserInteractionEnabled = !isDictating
         microphoneButton.isHidden = mode != .microphone || !isSeparate
-        microphoneButton.isEnabled = hasDictation
-        microphoneButton.accessibilityLabel = lang(isLocked ? "$agent_dictation_finish" : "$agent_dictation_start")
-        microphoneGestureRecognizer.isEnabled = hasDictation && (phase == .idle || phase == .holding || phase == .failed)
+        microphoneButton.isEnabled = hasDictation || isStopDisplayed
+        microphoneButton.accessibilityLabel = lang(
+            isStopDisplayed ? "$agent_stop_answer" : isHandsFree ? "$agent_dictation_finish" : "$agent_dictation_start"
+        )
+        microphoneButton.accessibilityIdentifier = isStopDisplayed ? "agent_stop" : "agent_microphone"
 
-        let microphoneImage = isLocked ? Self.checkmarkImage : Self.microphoneImage
-        if microphoneGlyphView.image !== microphoneImage {
-            microphoneGlyphView.image = microphoneImage
+        microphoneGestureRecognizer.isEnabled = hasDictation && !isStopDisplayed
+            && (phase == .idle || phase == .holding || phase == .failed)
+
+        // An answer that ends under a draft merges the circle into the field for Send with Stop's glyph, so the
+        // microphone never shows in between; the circle comes back out of the field as the microphone
+        let isStopGlyph = (phase == .idle || hasText)
+            && (isStopAvailable || mode == .send && displayedActionGlyph === Self.stopImage)
+        let microphoneImage = isHandsFree ? Self.stopImage : isStopGlyph ? Self.stopImage : Self.microphoneImage
+        if displayedActionGlyph !== microphoneImage {
+            displayedActionGlyph = microphoneImage
+            if isStopDisplayed != wasStopDisplayed, window != nil, UIView.areAnimationsEnabled {
+                swapActionGlyph(to: microphoneImage)
+            } else {
+                microphoneGlyphView.image = microphoneImage
+            }
         }
         // Telegram's idle microphone is a plain grey glyph; the recording circle covers it while recording
         microphoneGlyphView.tintColor = isRecording ? tintColor.foregroundForTintedBackground : Self.idleMicrophoneColor
         let canAnimate = window != nil && UIView.areAnimationsEnabled
-        // The locked recording's checkmark sits on accent-tinted glass; otherwise the circle is clear glass
-        let tint: UIColor? = isLocked ? tintColor : nil
+        // The hands-free recording's stop sits on accent-tinted glass; otherwise the circle is clear glass
+        let tint: UIColor? = isHandsFree ? tintColor : nil
         if tint != displayedActionTint {
             displayedActionTint = tint
             applyActionTint(tint, animated: canAnimate)
         }
         applySendAppearance(isVisible: mode == .send, animated: canAnimate)
         updateActionSeparation(animated: true)
+    }
+
+    /// The microphone and Stop turn into each other with the symbols' own replace transition, or a cross-fade before
+    /// iOS 17
+    private func swapActionGlyph(to image: UIImage?) {
+        if #available(iOS 17.0, *), let image {
+            microphoneGlyphView.setSymbolImage(image, contentTransition: .replace)
+        } else {
+            UIView.transition(
+                with: microphoneGlyphView,
+                duration: Self.glyphFadeDuration,
+                options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]
+            ) {
+                self.microphoneGlyphView.image = image
+            }
+        }
     }
 
     private func applyActionTint(_ tint: UIColor?, animated: Bool) {
@@ -947,19 +1500,8 @@ final class AgentComposerView: UIView {
     private func applySendAppearance(isVisible: Bool, animated: Bool) {
         sendHighlightView.backgroundColor = isSendEnabled ? tintColor : Self.disabledSendBackgroundColor
         sendGlyphView.tintColor = isSendEnabled ? tintColor.foregroundForTintedBackground : Self.disabledSendForegroundColor
-        let trailingInset = isVisible ? AgentComposerMetrics.sendButtonReserve : AgentComposerMetrics.contentHorizontalInset
-        var insets = textView.textContainerInset
-        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
-            insets.left = trailingInset
-            insets.right = AgentComposerMetrics.contentHorizontalInset
-        } else {
-            insets.left = AgentComposerMetrics.contentHorizontalInset
-            insets.right = trailingInset
-        }
-        if textView.textContainerInset != insets {
-            textView.textContainerInset = insets
-            updateInputHeightIfNeeded()
-        }
+        textTrailingInset = isVisible ? AgentComposerMetrics.sendButtonReserve : AgentComposerMetrics.contentHorizontalInset
+        applyTextInsets()
         guard isVisible != isSendDisplayed else { return }
         isSendDisplayed = isVisible
         for animator in glyphAnimators where animator.state == .active {
@@ -997,14 +1539,15 @@ final class AgentComposerView: UIView {
     private static let hiddenGlyphScale: CGFloat = 0.01
     private static let highlightedSendAlpha: CGFloat = 0.4
 
-    private static let microphoneImage = UIImage(
+    static let microphoneImage = UIImage(
         systemName: "mic",
         withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
     )
 
-    private static let checkmarkImage = UIImage(
-        systemName: "checkmark",
-        withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+    /// A filled square, a little smaller than the microphone so the two weigh the same in the circle
+    private static let stopImage = UIImage(
+        systemName: "stop.fill",
+        withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
     )
 
     private static let disabledSendForegroundColor = UIColor { traits in
@@ -1016,13 +1559,14 @@ final class AgentComposerView: UIView {
     }
 
     /// The idle microphone reads as a control, like the toolbar's icons
-    private static let idleMicrophoneColor = UIColor.label
+    static let idleMicrophoneColor = UIColor.label
 
-    /// The recording circle grows out of the trailing circle, so it is centred on it rather than on the finger
+    /// The recording circle grows out of the trailing circle, so it is centred on it rather than on the finger. The
+    /// floating microphone sinking back goes to the trailing circle as it stands once the field has settled.
     private func updateDictationTouchPosition() {
-        guard dictationState.phase != .idle else { return }
+        guard dictationState.phase != .idle || dictationState.canDictateMore || dictationTouchView.isSinking else { return }
         let frame = actionFrame
-        dictationTouchView.setAnchor(CGPoint(x: frame.midX, y: frame.midY))
+        dictationTouchView.setAnchor(CGPoint(x: frame.midX, y: frame.midY), fieldTop: inputBackgroundFrame.minY)
     }
 
     @objc private func handleDismissPan(_ gestureRecognizer: UIPanGestureRecognizer) {
@@ -1038,8 +1582,54 @@ final class AgentComposerView: UIView {
     }
 
     private func updatePlaceholderVisibility() {
-        placeholderLabel.isHidden = isDictating || !(textView.text?.isEmpty ?? true)
+        placeholderLabel.isHidden = !isPlaceholderShown(for: dictationState)
         updateActionButtons()
+    }
+
+    /// The text's insets: at the leading end past a recording's cross and dot, at the trailing end past Send
+    private func applyTextInsets() {
+        let leadingInset = AgentComposerMetrics.contentHorizontalInset + recordingTextInset
+        var insets = textView.textContainerInset
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            insets.left = textTrailingInset
+            insets.right = leadingInset
+        } else {
+            insets.left = leadingInset
+            insets.right = textTrailingInset
+        }
+        if textView.textContainerInset != insets {
+            textView.textContainerInset = insets
+            updateInputHeightIfNeeded()
+        }
+    }
+
+    /// Moves the field's text and placeholder in from the leading end by `inset`, sliding with the recording's dot
+    private func setRecordingTextInset(_ inset: CGFloat, animated: Bool) {
+        guard inset != recordingTextInset else { return }
+        let delta = inset - recordingTextInset
+        let content = inputBackgroundView.contentView
+        if animated {
+            UIView.performWithoutAnimation { content.layoutIfNeeded() }
+        }
+        recordingTextInset = inset
+        placeholderLeadingConstraint.constant = AgentComposerMetrics.contentHorizontalInset + inset
+        applyTextInsets()
+        guard animated, !(textView.isHidden && placeholderLabel.isHidden) else {
+            textView.transform = .identity
+            return
+        }
+        // The text wraps at its new width at once, and slides there from where it stood
+        let shift = effectiveUserInterfaceLayoutDirection == .rightToLeft ? delta : -delta
+        textView.transform = CGAffineTransform(translationX: shift, y: 0)
+        let animator = UIViewPropertyAnimator(
+            duration: AgentDictationStripView.slideDuration,
+            timingParameters: AgentComposerMetrics.makeTelegramCubicTiming()
+        )
+        animator.addAnimations {
+            self.textView.transform = .identity
+            content.layoutIfNeeded()
+        }
+        animator.startAnimation()
     }
 
     /// As in Telegram, a long message grows the field until it comes within 120 pt of the top bar, then scrolls
@@ -1061,7 +1651,8 @@ final class AgentComposerView: UIView {
             )
         )
         let maximumHeight = maximumInputHeight
-        let clampedHeight = isDictating ? AgentComposerMetrics.minInputHeight : min(
+        // A recording keeps the field as tall as its text while the text shows
+        let clampedHeight = isDictating && !isFieldTextShownWhileDictating ? AgentComposerMetrics.minInputHeight : min(
             max(AgentComposerMetrics.minInputHeight, ceil(fittingSize.height)),
             maximumHeight
         )
@@ -1090,14 +1681,22 @@ extension AgentComposerView: UIGestureRecognizerDelegate {
 
 extension AgentComposerView: UITextViewDelegate {
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        !isDictating
+        !isDictating && textReveal == nil
     }
 
     func textViewDidBeginEditing(_ textView: UITextView) {
+        settleTextReveal()
         onBeginEditing?()
     }
 
+    func textViewDidChangeSelection(_ textView: UITextView) {
+        guard textView.isFirstResponder, let textReveal, !textReveal.isEditingText else { return }
+        settleTextReveal()
+    }
+
     func textViewDidChange(_ textView: UITextView) {
+        // The floating microphone first, so the trailing circle knows whether it is coming or going
+        syncFloatingMicrophone()
         updatePlaceholderVisibility()
         updateInputHeightIfNeeded()
         onDraftTextChanged?()

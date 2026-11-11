@@ -3,17 +3,23 @@ package org.mytonwallet.app_air.walletcore.pushNotifications
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import com.google.android.gms.tasks.OnCompleteListener
-import com.google.android.gms.tasks.Task
+import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -40,35 +46,71 @@ object AirPushNotifications {
     }
 
     fun register(subscribePreviousAccountsIfEmpty: Boolean) {
-        FirebaseMessaging.getInstance().isAutoInitEnabled = true
-        FirebaseMessaging
-            .getInstance()
-            .getToken()
-            .addOnCompleteListener(
-                OnCompleteListener { task: Task<String?>? ->
-                    if (task?.isSuccessful != true) {
-                        Logger.w(
-                            Logger.LogTag.AIR_APPLICATION,
-                            LogMessage.Builder()
-                                .append(
-                                    "register: Failed to fetch FCM token",
-                                    LogMessage.MessagePartPrivacy.PUBLIC
-                                )
-                                .append(
-                                    task?.exception,
-                                    LogMessage.MessagePartPrivacy.REDACTED
-                                )
-                                .build()
+        notificationScope.launch {
+            val token = try {
+                fetchToken()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Logger.w(
+                    Logger.LogTag.AIR_APPLICATION,
+                    LogMessage.Builder()
+                        .append(
+                            "register: Failed to fetch FCM token",
+                            LogMessage.MessagePartPrivacy.PUBLIC
                         )
-                        return@OnCompleteListener
-                    }
-                    val token = task.getResult() ?: return@OnCompleteListener
-                    updateToken(token)
-                    WalletCore.doOnBridgeReady {
-                        resubscribeAll(subscribePreviousAccountsIfEmpty)
-                    }
+                        .append(error, LogMessage.MessagePartPrivacy.REDACTED)
+                        .build()
+                )
+                return@launch
+            }
+            updateToken(token, subscribePreviousAccountsIfEmpty)
+        }
+    }
+
+    internal suspend fun ensureToken(): String = withContext(Dispatchers.Main.immediate) {
+        ensureNotificationPermission()
+        val token = fetchToken()
+        withQueue { updateTokenLocked(token) }
+        WalletCore.doOnBridgeReady { resubscribeAll(subscribePreviousAccountsIfEmpty = false) }
+        token
+    }
+
+    private suspend fun ensureNotificationPermission() {
+        val context = ApplicationContextHolder.applicationContext
+        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val delegate = WalletContextManager.delegate?.get() ?: error("No permission request host")
+        val isGranted = suspendCancellableCoroutine { continuation ->
+            delegate.requestNotificationPermission { isGranted ->
+                if (continuation.isActive) continuation.resume(isGranted)
+            }
+        }
+        if (!isGranted || !NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            throw NewsNotificationPermissionDenied()
+        }
+    }
+
+    private suspend fun fetchToken(): String {
+        FirebaseMessaging.getInstance().isAutoInitEnabled = true
+        return suspendCancellableCoroutine { continuation ->
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!continuation.isActive) return@addOnCompleteListener
+                val token = if (task.isSuccessful) task.result else null
+                if (token != null) {
+                    continuation.resume(token)
+                } else {
+                    continuation.resumeWithException(
+                        task.exception ?: IllegalStateException("No push token")
+                    )
                 }
-            )
+            }
+        }
+    }
+
+    fun refreshNewsSubscription() {
+        WalletCore.doOnBridgeReady {
+            notificationScope.launch { AgentNewsNotificationSettings.shared.reapplyIfNeeded() }
+        }
     }
 
     private val notificationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -79,36 +121,42 @@ object AirPushNotifications {
         block()
     }
 
-    private fun updateToken(newToken: String) {
-        notificationScope.launch {
-            withQueue {
-                val prevToken = WGlobalStorage.getPushNotificationsToken()
-                if (newToken == prevToken) return@withQueue
-                WGlobalStorage.setPushNotificationsToken(newToken)
+    private suspend fun updateToken(newToken: String, subscribePreviousAccountsIfEmpty: Boolean) {
+        withQueue { updateTokenLocked(newToken) }
+        withContext(Dispatchers.Main.immediate) {
+            WalletCore.doOnBridgeReady {
+                resubscribeAll(subscribePreviousAccountsIfEmpty)
+                refreshNewsSubscription()
+            }
+        }
+    }
 
-                val prevAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
-                val prevAccountsAddresses = prevAccounts?.mapNotNull {
-                    WGlobalStorage.getAccountTonAddress(it)
-                } ?: emptyList()
-                if (!prevToken.isNullOrEmpty() && prevAccountsAddresses.isNotEmpty()) {
-                    try {
-                        WalletCore.call(
-                            ApiMethod.Notifications.UnsubscribeNotifications(
-                                ApiMethod.Notifications.UnsubscribeNotifications.Props(
-                                    prevToken,
-                                    prevAccountsAddresses.map {
-                                        ApiNotificationAddress(
-                                            title = null,
-                                            address = it,
-                                            chain = MBlockchain.ton
-                                        )
-                                    }
+    private suspend fun updateTokenLocked(newToken: String) {
+        val prevToken = WGlobalStorage.getPushNotificationsToken()
+        if (newToken == prevToken) return
+        WGlobalStorage.setPushNotificationsToken(newToken)
+
+        val prevAccounts = WGlobalStorage.getPushNotificationsEnabledAccounts()
+        val prevAccountsAddresses = prevAccounts?.mapNotNull {
+            WGlobalStorage.getAccountTonAddress(it)
+        } ?: emptyList()
+        if (!prevToken.isNullOrEmpty() && prevAccountsAddresses.isNotEmpty()) {
+            try {
+                WalletCore.call(
+                    ApiMethod.Notifications.UnsubscribeNotifications(
+                        ApiMethod.Notifications.UnsubscribeNotifications.Props(
+                            prevToken,
+                            prevAccountsAddresses.map {
+                                ApiNotificationAddress(
+                                    title = null,
+                                    address = it,
+                                    chain = MBlockchain.ton
                                 )
-                            )
+                            }
                         )
-                    } catch (_: Throwable) {
-                    }
-                }
+                    )
+                )
+            } catch (_: Throwable) {
             }
         }
     }
@@ -248,14 +296,16 @@ object AirPushNotifications {
         }
     }
 
-    fun unsubscribeAll() {
+    fun unsubscribeAll(shouldResetNews: Boolean = false) {
+        val addresses = WGlobalStorage.accountIds().mapNotNull { accountId ->
+            WGlobalStorage.getAccountTonAddress(accountId)?.let { accountId to it }
+        }
         notificationScope.launch {
+            if (shouldResetNews) AgentNewsNotificationSettings.shared.reset()
             withQueue {
-                val accountIds = WGlobalStorage.accountIds()
-                for (accountId in accountIds) {
-                    val tonAddress = WGlobalStorage.getAccountTonAddress(accountId) ?: continue
-                    val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
-                    unsubscribeAsync(token, accountId, tonAddress)
+                val token = WGlobalStorage.getPushNotificationsToken() ?: return@withQueue
+                for ((accountId, address) in addresses) {
+                    unsubscribeAsync(token, accountId, address)
                 }
             }
         }

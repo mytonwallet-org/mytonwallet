@@ -220,6 +220,8 @@ public final class CompactLineChart {
     private var visibleIndices: ClosedRange<Int> = 0...0
     private var selectedIndex: Int?
     private var style: CompactLineChartStyle?
+    private var dimmedBefore: TimeInterval?
+    private let dimmedAlpha: CGFloat = 0.4
 
     public init() {
         mainRenderer.lineWidth = 2
@@ -259,10 +261,13 @@ public final class CompactLineChart {
         }
     }
 
+    /// Points earlier than `dimmedBefore` are drawn translucent, up to the first point at or after it.
     public func setData(
         _ points: [CompactLineChartPoint],
-        previewPoints: [CompactLineChartPoint]? = nil
+        previewPoints: [CompactLineChartPoint]? = nil,
+        dimmedBefore: TimeInterval? = nil
     ) {
+        self.dimmedBefore = dimmedBefore
         self.points = points
             .filter { $0.timestamp.isFinite && $0.value.isFinite }
             .sorted { $0.timestamp < $1.timestamp }
@@ -273,14 +278,8 @@ public final class CompactLineChart {
         rangeView.setRange(selectedRange, animated: false)
 
         let lineColor = style?.lineColor ?? .tintColor
-        mainRenderer.setLines(lines: [LinesChartRenderer.LineData(
-            color: lineColor,
-            points: self.points.map { CGPoint(x: $0.timestamp, y: $0.value) }
-        )], animated: false)
-        let previewLines = [LinesChartRenderer.LineData(
-            color: lineColor,
-            points: self.previewPoints.map { CGPoint(x: $0.timestamp, y: $0.value) }
-        )]
+        mainRenderer.setLines(lines: makeLines(self.points, color: lineColor), animated: false)
+        let previewLines = makeLines(self.previewPoints, color: lineColor)
         previewRenderer.setLines(lines: previewLines, animated: false)
         rangeRenderer.setLines(lines: previewLines, animated: false)
 
@@ -328,14 +327,8 @@ public final class CompactLineChart {
         selectionRenderer.backgroundColor = resolvedBackgroundColor
 
         if !points.isEmpty {
-            let mainLines = [LinesChartRenderer.LineData(
-                color: resolvedLineColor,
-                points: visibleIndices.map { CGPoint(x: points[$0].timestamp, y: points[$0].value) }
-            )]
-            let previewLines = [LinesChartRenderer.LineData(
-                color: resolvedLineColor,
-                points: previewPoints.map { CGPoint(x: $0.timestamp, y: $0.value) }
-            )]
+            let mainLines = makeLines(visibleIndices.map { points[$0] }, color: resolvedLineColor)
+            let previewLines = makeLines(previewPoints, color: resolvedLineColor)
             mainRenderer.setLines(lines: mainLines, animated: false)
             previewRenderer.setLines(lines: previewLines, animated: false)
             rangeRenderer.setLines(lines: previewLines, animated: false)
@@ -374,10 +367,7 @@ public final class CompactLineChart {
 
         let horizontalRange = horizontalRange(for: visibleIndices)
         let verticalRange = verticalRange(for: visibleIndices)
-        mainRenderer.setLines(lines: [LinesChartRenderer.LineData(
-            color: resolvedLineColor,
-            points: visibleIndices.map { CGPoint(x: points[$0].timestamp, y: points[$0].value) }
-        )], animated: false)
+        mainRenderer.setLines(lines: makeLines(visibleIndices.map { points[$0] }, color: resolvedLineColor), animated: false)
         setup(renderers: [mainRenderer, selectionRenderer], horizontalRange: horizontalRange, verticalRange: verticalRange, animated: animated)
         select(index: upperIndex, notifies: false)
         selectionDidChange?(nil)
@@ -400,6 +390,7 @@ public final class CompactLineChart {
         }
         selectedIndex = index
         let point = points[index]
+        selectionRenderer.color = isDimmed(point) ? resolvedLineColor.withAlphaComponent(dimmedAlpha) : resolvedLineColor
         mainRenderer.selectedX = point.timestamp
         selectionRenderer.coordinate = CGPoint(x: point.timestamp, y: point.value)
         if notifies {
@@ -443,6 +434,25 @@ public final class CompactLineChart {
         guard let lower = values.min(), let upper = values.max() else { return 0...1 }
         let padding = lower == upper ? max(abs(lower) * 0.1, 1) : (upper - lower) * 0.1
         return (lower - padding)...(upper + padding)
+    }
+
+    private func isDimmed(_ point: CompactLineChartPoint) -> Bool {
+        dimmedBefore.map { point.timestamp < $0 } ?? false
+    }
+
+    private func makeLines(_ points: [CompactLineChartPoint], color: UIColor) -> [LinesChartRenderer.LineData] {
+        let chartPoints = points.map { CGPoint(x: $0.timestamp, y: $0.value) }
+        guard let dimmedBefore, chartPoints.first.map({ $0.x < dimmedBefore }) == true else {
+            return [LinesChartRenderer.LineData(color: color, points: chartPoints)]
+        }
+        guard let firstRegularIndex = chartPoints.firstIndex(where: { $0.x >= dimmedBefore }) else {
+            return [LinesChartRenderer.LineData(color: color, points: chartPoints, alpha: dimmedAlpha)]
+        }
+        // The translucent line ends on the first regular point, so the two lines join without a gap
+        return [
+            LinesChartRenderer.LineData(color: color, points: Array(chartPoints[...firstRegularIndex]), alpha: dimmedAlpha),
+            LinesChartRenderer.LineData(color: color, points: Array(chartPoints[firstRegularIndex...])),
+        ]
     }
 
     private var resolvedLineColor: UIColor {

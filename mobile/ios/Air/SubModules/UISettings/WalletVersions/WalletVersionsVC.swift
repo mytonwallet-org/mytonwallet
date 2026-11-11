@@ -89,6 +89,7 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
             content.text = section.headerTitle
             content.applyTextStyle(.sectionHeader, scaling: .dynamic)
             cell.contentConfiguration = content
+            cell.accessibilityIdentifier = section == .currentVersion ? "wallet_versions_current_title" : nil
         }
 
         let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(

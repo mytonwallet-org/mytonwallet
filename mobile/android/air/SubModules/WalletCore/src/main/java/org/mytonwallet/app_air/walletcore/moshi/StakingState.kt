@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
+import java.math.RoundingMode
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.utils.DateUtils
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
@@ -115,7 +116,7 @@ sealed class StakingState {
                     currency = token.symbol,
                     currencyDecimals = unstakeRequestAmount.smartDecimalsCount(token.decimals),
                     showPositiveSign = false,
-                    roundUp = false
+                    rounding = RoundingMode.DOWN
                 )
             }
 

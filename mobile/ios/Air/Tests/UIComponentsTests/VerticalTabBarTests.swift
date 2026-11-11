@@ -56,6 +56,69 @@ final class VerticalTabBarTests: XCTestCase {
         XCTAssertEqual(selections.last?.1, true)
     }
 
+    func testHoldingATabStillLiftsItAndDraggingMovesItWithoutSelecting() async throws {
+        let (window, bar) = makeBar()
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        var selections: [Int] = []
+        var moves: [(Int, Int)] = []
+        bar.onSelect = { index, _ in selections.append(index) }
+        bar.onReorder = { moves.append(($0, $1)) }
+        bar.beginScrub(at: CGPoint(x: 24, y: 31))
+        try await Task.sleep(for: .milliseconds(650))
+        bar.moveScrub(translation: CGPoint(x: 0, y: 100))
+        bar.finishScrub(cancelled: false)
+
+        XCTAssertEqual(moves.map { $0.0 }, [0])
+        XCTAssertEqual(moves.map { $0.1 }, [2])
+        XCTAssertEqual(bar.itemIds, ["market", "explore", "wallet"])
+        XCTAssertTrue(selections.isEmpty, "A drop must not select the lifted tab")
+        XCTAssertEqual(bar.selectedIndex, 2, "The selected tab keeps its selection in its new place")
+        XCTAssertTrue(target("wallet", in: bar).accessibilityTraits.contains(.selected))
+        XCTAssertTrue(target("market", in: bar).accessibilityActivate())
+        XCTAssertEqual(selections, [0])
+    }
+
+    func testDraggingAnotherTabToTheFirstPlaceMovesTheSelectionAlong() async throws {
+        let (window, bar) = makeBar()
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        var moves: [(Int, Int)] = []
+        bar.onReorder = { moves.append(($0, $1)) }
+        bar.beginScrub(at: CGPoint(x: 24, y: 131))
+        try await Task.sleep(for: .milliseconds(650))
+        bar.moveScrub(translation: CGPoint(x: 0, y: -200))
+        bar.finishScrub(cancelled: false)
+
+        XCTAssertEqual(moves.map { $0.0 }, [2])
+        XCTAssertEqual(moves.map { $0.1 }, [0])
+        XCTAssertEqual(bar.itemIds, ["explore", "wallet", "market"])
+        XCTAssertEqual(bar.selectedIndex, 1)
+    }
+
+    func testSlidingBeforeTheHoldOrCancellingTheDragKeepsTheOrder() async throws {
+        let (window, bar) = makeBar()
+        defer { bar.cancelInteraction(); window.isHidden = true }
+        var selections: [Int] = []
+        var moves = 0
+        bar.onSelect = { index, _ in selections.append(index) }
+        bar.onReorder = { _, _ in moves += 1 }
+        bar.beginScrub(at: CGPoint(x: 24, y: 31))
+        try await Task.sleep(for: .milliseconds(300))
+        bar.moveScrub(translation: CGPoint(x: 0, y: 100))
+        try await Task.sleep(for: .milliseconds(400))
+        bar.finishScrub(cancelled: false)
+        XCTAssertEqual(selections, [2], "A finger that slid before the hold only scrubs")
+
+        bar.beginScrub(at: CGPoint(x: 24, y: 31))
+        try await Task.sleep(for: .milliseconds(650))
+        bar.moveScrub(translation: CGPoint(x: 0, y: 100))
+        bar.finishScrub(cancelled: true)
+
+        XCTAssertEqual(moves, 0)
+        XCTAssertEqual(selections, [2])
+        XCTAssertEqual(bar.itemIds, ["wallet", "market", "explore"])
+        XCTAssertEqual(bar.selectedIndex, 2)
+    }
+
     func testLocalizedTitleKeepsItsTextBoundsAcrossInterruptedHolds() async throws {
         let title = "Kryptowährungsmarkt"
         let (window, bar) = makeBar(titles: ["Wallet", title, "Explore"])

@@ -185,13 +185,14 @@ public class AssetsAndActivityVC: WViewController {
         }
 
         let hideTinyTransfersReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
-            cell.title = lang("Hide Tiny Transfers")
+            cell.title = lang("Hide Tiny Transfers and Spam")
             cell.accessibilityIdentifier = "assets_hide_tiny_transfers"
             cell.isSelectable = false
             cell.configureSwitchAccessory(isOn: AppStorageHelper.hideTinyTransfers) { isOn in
                 AppStorageHelper.hideTinyTransfers = isOn
                 WalletCoreData.notify(event: .hideTinyTransfersChanged)
             }
+            (cell.accessoryView as? SimpleGroupCell.SwitchAccessory)?.switchAccessibilityIdentifier = "assets_hide_tiny_transfers_switch"
         }
 
         let hideUnverifiedNftsReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
@@ -201,10 +202,12 @@ public class AssetsAndActivityVC: WViewController {
             cell.configureSwitchAccessory(isOn: AppStorageHelper.hideUnverifiedNfts) { isOn in
                 AppStorageHelper.hideUnverifiedNfts = isOn
             }
+            (cell.accessoryView as? SimpleGroupCell.SwitchAccessory)?.switchAccessibilityIdentifier = "assets_hide_unverified_nfts_switch"
         }
 
         let blockchainsReg = UICollectionView.CellRegistration<ChainDisplaySettingsRowCell, Item> { [weak self] cell, _, _ in
             guard let self else { return }
+            cell.accessibilityIdentifier = "assets_blockchains"
             cell.configure(chains: _account.displayedChains.map(\.0))
         }
 
@@ -274,6 +277,7 @@ public class AssetsAndActivityVC: WViewController {
         let listCellReg = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             switch item {
             case .addToken:
+                cell.accessibilityIdentifier = "assets_add_token"
                 cell.configurationUpdateHandler = { cell, state in
                     cell.contentConfiguration = UIHostingConfiguration {
                         HStack(spacing: 0) {

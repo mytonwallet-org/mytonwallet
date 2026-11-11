@@ -1,9 +1,25 @@
 import Testing
 import UIKit
+import WalletCore
 @testable import UIComponents
 
 @Suite("Account switcher navigation sizing")
 struct AccountSwitcherSizingTests {
+    @Test @MainActor func perpsAccountsRequireMainnetArbitrumSigningSupport() {
+        let supported = MAccount(id: "1-mainnet", title: "Wallet", type: .mnemonic,
+                                 byChain: [.arbitrum: .init(address: "0x1234")])
+        #expect(AccountSwitcherAccountSupport.perps.isSupported(by: supported))
+        for type in [AccountType.view, .hardware] {
+            var account = supported
+            account.type = type
+            #expect(!AccountSwitcherAccountSupport.perps.isSupported(by: account))
+        }
+        let tonOnly = MAccount(id: "2-mainnet", title: nil, type: .mnemonic, byChain: [.ton: .init(address: "ton")])
+        let testnet = MAccount(id: "3-testnet", title: nil, type: .mnemonic, byChain: [.arbitrum: .init(address: "0x1234")])
+        #expect(!AccountSwitcherAccountSupport.perps.isSupported(by: tonOnly))
+        #expect(!AccountSwitcherAccountSupport.perps.isSupported(by: testnet))
+    }
+
     @Test @MainActor func buttonFitsCompactNavigationHost() {
         let host = UIView(frame: CGRect(x: 0, y: 0, width: 66, height: 36))
         let button = AccountSwitcherButton()

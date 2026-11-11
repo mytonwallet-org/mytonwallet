@@ -47,6 +47,9 @@ sealed interface MBridgeError {
         DOMAIN_NOT_RESOLVED("DomainNotResolved"),
         SLIPPAGE_ERROR("SlippageError"),
         DEVICE_LOCKED("DeviceLocked"),
+        EVM_BUNDLER_NOT_CONFIGURED("EvmBundlerNotConfigured"),
+        EVM_USER_OPERATION_FAILED("EvmUserOperationFailed"),
+        EVM_USER_OPERATION_MISMATCH("EvmUserOperationMismatch"),
 
         BRIDGE_INTERRUPTED("BridgeInterrupted"),
         PARSE_ERROR("JSON Parse Error"),
@@ -155,8 +158,17 @@ sealed interface MBridgeError {
                     "\$swap_service_unavailable"
                 )
 
-                Type.UNSUCCESSFUL_TRANSFER -> LocaleController.getString(
+                Type.UNSUCCESSFUL_TRANSFER,
+                Type.EVM_USER_OPERATION_FAILED -> LocaleController.getString(
                     "Transfer was unsuccessful. Try again later."
+                )
+
+                Type.EVM_BUNDLER_NOT_CONFIGURED -> LocaleController.getString(
+                    "Unexpected error. Please let the support know."
+                )
+
+                Type.EVM_USER_OPERATION_MISMATCH -> LocaleController.getString(
+                    "EvmUserOperationMismatch"
                 )
 
                 Type.UNEXPECTED_ERROR -> LocaleController.getString("An error occurred")

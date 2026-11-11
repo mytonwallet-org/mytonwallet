@@ -194,6 +194,17 @@ fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) 
     }
 }
 
+fun ViewPager2.cancelSpringScroll() {
+    cancelSpring()
+    (getChildAt(0) as? RecyclerView)?.stopScroll()
+}
+
+// Leaves the RecyclerView's scroll running, so a finger's drag survives
+fun ViewPager2.cancelSpring() {
+    val recyclerView = getChildAt(0) as? RecyclerView ?: return
+    activeSprings.remove(recyclerView)?.cancel()
+}
+
 fun ViewPager2.springToItem(
     targetPosition: Int,
     velocityX: Float = 0f,
@@ -206,6 +217,7 @@ fun ViewPager2.springToItem(
     if (itemCount == Int.MAX_VALUE) {
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
         if (springToVisibleItem(recyclerView, layoutManager, clampedPosition, velocityX) {
+                if (isFakeDragging) return@springToVisibleItem
                 setCurrentItem(clampedPosition, false)
                 onCompletion?.invoke()
             }
@@ -228,6 +240,7 @@ fun ViewPager2.springToItem(
     springAnim.addEndListener { _, canceled, _, _ ->
         if (!canceled) {
             recyclerView.completeSpring {
+                if (isFakeDragging) return@completeSpring
                 this.setCurrentItem(clampedPosition, false)
                 onCompletion?.invoke()
             }

@@ -23,14 +23,20 @@ struct LinkDomainView: View {
                     }
                 }
                 InsetSection {
-                    LinkDomainAddressInput(viewModel: viewModel)
-                        .overlay {
-                            if viewModel.hasAddressError {
-                                RoundedRectangle(cornerRadius: S.insetSectionCornerRadius, style: .continuous)
-                                    .strokeBorder(Color.air.error, lineWidth: 1.5)
-                                    .allowsHitTesting(false)
-                            }
+                    if viewModel.isUnlinking {
+                        InsetCell {
+                            LinkDomainResolvedAddressView(viewModel: viewModel)
                         }
+                    } else {
+                        LinkDomainAddressInput(viewModel: viewModel)
+                            .overlay {
+                                if viewModel.hasAddressError {
+                                    RoundedRectangle(cornerRadius: S.insetSectionCornerRadius, style: .continuous)
+                                        .strokeBorder(Color.air.error, lineWidth: 1.5)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                    }
                 } header: {
                     Text(viewModel.addressLabel)
                 }

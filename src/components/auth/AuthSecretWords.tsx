@@ -5,6 +5,7 @@ import { IS_PRODUCTION } from '../../config';
 import buildClassName from '../../util/buildClassName';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
+import useInactivityTimeout from '../../hooks/useInactivityTimeout';
 import useLang from '../../hooks/useLang';
 import useScrolledState from '../../hooks/useScrolledState';
 
@@ -28,6 +29,7 @@ const AuthSecretWords = ({ isActive, mnemonic }: OwnProps) => {
   const canSkipMnemonicCheck = !IS_PRODUCTION;
 
   useHistoryBack({ isActive, onBack: openAuthBackupWalletModal });
+  useInactivityTimeout(openAuthBackupWalletModal, isActive);
   const { isScrolled, handleScroll } = useScrolledState();
 
   return (

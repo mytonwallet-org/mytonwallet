@@ -5,6 +5,7 @@ import { animate, timingFunctions } from '../../util/animation';
 import { vibrate } from '../../util/haptics';
 import { clamp } from '../../util/math';
 import { IS_TOUCH_ENV, REM } from '../../util/windowEnvironment';
+import getCanAnimate from '../agent/helpers/getCanAnimate';
 
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -117,6 +118,12 @@ export default function useAgentThreadSwipe({
         closeOpenRow = undefined;
       }
 
+      if (!getCanAnimate()) {
+        offset = target;
+        render();
+        return;
+      }
+
       animate(() => {
         if (generation !== settleGeneration) return false;
 
@@ -143,6 +150,10 @@ export default function useAgentThreadSwipe({
       velocity = 0;
       startOffset = offset;
       ({ left, width } = row.getBoundingClientRect());
+      const pillMaxWidth = width - 2 * ACTION_SPACING;
+      requestMutation(() => {
+        row.style.setProperty('--swipe-pill-max-width', `${pillMaxWidth}px`);
+      });
       // A tap on a row with its actions shown closes them instead of opening the chat
       shouldSkipClick = offset > 0 && !(e.target as HTMLElement).closest('[data-swipe-action-index]');
     }

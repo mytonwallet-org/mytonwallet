@@ -11,6 +11,7 @@ public final class AgentSuggestionButton: UIButton {
     private static let pressScaleInset: CGFloat = 15
     private static let minimumPressScale: CGFloat = 0.7
     private static let pressAnimationDuration: TimeInterval = 0.2
+    private static let contentAppearanceKey = "contentAppearance"
 
     /// Rounded as the glass under it is, also once a wrapped title makes it taller than a capsule
     private let capsuleView = AgentSuggestionBackgroundView(cornerRadius: AgentSuggestionButton.height / 2, cornerCurve: .continuous)
@@ -37,6 +38,32 @@ public final class AgentSuggestionButton: UIButton {
             guard abs(preferredMaxLayoutWidth - oldValue) > 0.5 else { return }
             invalidateIntrinsicContentSize()
         }
+    }
+
+    /// Where the pill shows, in the button's coordinates, while set: a placeholder's pill on its way to the size of the
+    /// suggestion it gets. The title and the arrow keep their places in the button.
+    public var pillFrameOverride: CGRect? {
+        didSet {
+            guard pillFrameOverride != oldValue else { return }
+            setNeedsLayout()
+        }
+    }
+
+    /// A view over the pill's fill and inside its border, which resizes with the pill, as a placeholder's passing light
+    public var pillOverlayView: UIView? {
+        didSet {
+            guard pillOverlayView !== oldValue else { return }
+            oldValue?.removeFromSuperview()
+            if let pillOverlayView {
+                capsuleView.addSubview(pillOverlayView)
+            }
+            setNeedsLayout()
+        }
+    }
+
+    /// The title's fade-in while it plays
+    public var contentAppearance: CAAnimation? {
+        titleGradient.animation(forKey: Self.contentAppearanceKey)
     }
 
     public override var isHighlighted: Bool {
@@ -103,6 +130,29 @@ public final class AgentSuggestionButton: UIButton {
         setNeedsLayout()
     }
 
+    /// The title's font, which a question sent from the suggestion grows from into its bubble's
+    public static var titleFont: UIFont {
+        WTypography.uiFont(.subheadlineEmphasized)
+    }
+
+    /// The title as it shows in its gradient, without the pill or a transition under way, and its frame in `view`
+    public func makeTitlePicture(in view: UIView) -> (image: UIImage, frame: CGRect)? {
+        layoutIfNeeded()
+        guard !titleGradient.bounds.isEmpty else { return nil }
+        let format = UIGraphicsImageRendererFormat.preferred()
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(bounds: titleGradient.bounds, format: format).image { context in
+            // The text's shape, filled with the gradient
+            let cgContext = context.cgContext
+            cgContext.beginTransparencyLayer(auxiliaryInfo: nil)
+            labelMask.layer.render(in: cgContext)
+            cgContext.setBlendMode(.sourceIn)
+            titleGradient.render(in: cgContext)
+            cgContext.endTransparencyLayer()
+        }
+        return (image, capsuleView.layer.convert(titleGradient.frame, to: view.layer))
+    }
+
     public static func width(for title: String, showsArrow: Bool = false) -> CGFloat {
         let textWidth = (title as NSString).size(withAttributes: textAttributes).width
         let scale = UIScreen.main.scale
@@ -138,27 +188,49 @@ public final class AgentSuggestionButton: UIButton {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        glassView?.frame = bounds
-        capsuleView.bounds = CGRect(origin: .zero, size: bounds.size)
-        capsuleView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let pillFrame = pillFrameOverride ?? bounds
+        // By bounds and centre, which a press's transform leaves alone
+        glassView?.bounds = CGRect(origin: .zero, size: pillFrame.size)
+        glassView?.center = CGPoint(x: pillFrame.midX, y: pillFrame.midY)
+        capsuleView.bounds = CGRect(origin: .zero, size: pillFrame.size)
+        // Inside the glass, the pill fills it
+        capsuleView.center = glassView == nil
+            ? CGPoint(x: pillFrame.midX, y: pillFrame.midY)
+            : CGPoint(x: pillFrame.width / 2, y: pillFrame.height / 2)
+        pillOverlayView?.frame = capsuleView.bounds
+        // The title and the arrow lie on the pill, placed in the button
         let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
         let arrowInset = showsArrow ? Self.arrowWidth : 0
         let titleHeight = titleHeight(forWidth: bounds.width)
-        titleGradient.frame = CGRect(
+        let titleFrame = CGRect(
             x: Self.horizontalInset + (isRTL ? 0 : arrowInset),
             y: (bounds.height - titleHeight) / 2,
             width: max(0, bounds.width - Self.horizontalInset * 2 - arrowInset),
             height: titleHeight
         )
+        titleGradient.frame = titleFrame.offsetBy(dx: -pillFrame.minX, dy: -pillFrame.minY)
         labelMask.frame = titleGradient.bounds
         labelMask.layer.contentsScale = window?.screen.scale ?? UIScreen.main.scale
         arrowView.frame = CGRect(
             x: isRTL ? bounds.width - Self.horizontalInset - 15 : Self.horizontalInset,
-            y: titleGradient.frame.minY,
+            y: titleFrame.minY,
             width: 15,
             height: Self.singleLineTitleHeight
-        )
+        ).offsetBy(dx: -pillFrame.minX, dy: -pillFrame.minY)
         arrowView.transform = isRTL ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+    }
+
+    /// Fades the title and the arrow in after `delay`, as a placeholder's pill gets its suggestion
+    public func animateContentAppearance(delay: CFTimeInterval, duration: CFTimeInterval) {
+        for layer in [titleGradient, arrowView.layer] {
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = 0
+            animation.toValue = 1
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + delay
+            animation.duration = duration
+            animation.fillMode = .backwards
+            layer.add(animation, forKey: Self.contentAppearanceKey)
+        }
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -180,6 +252,12 @@ public final class AgentSuggestionButton: UIButton {
         sendActions(for: [.touchUpInside, .primaryActionTriggered])
     }
 
+    /// The whole pill, its glass with what is on it, which a press shrinks together, as when a cell the pill fills
+    /// passes its highlight on. A touch on the glass itself swells it as the system's glass does instead.
+    private var pressedView: UIView {
+        glassView ?? capsuleView
+    }
+
     private func updatePressedAppearance() {
         let width = max(bounds.width, 1)
         let pressedScale = max(Self.minimumPressScale, (width - Self.pressScaleInset) / width)
@@ -188,7 +266,7 @@ public final class AgentSuggestionButton: UIButton {
             delay: 0,
             options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseOut]
         ) {
-            self.capsuleView.transform = self.isHighlighted
+            self.pressedView.transform = self.isHighlighted
                 ? CGAffineTransform(scaleX: pressedScale, y: pressedScale)
                 : .identity
         }
@@ -197,8 +275,8 @@ public final class AgentSuggestionButton: UIButton {
     public func resetPressedAppearance() {
         UIView.performWithoutAnimation {
             isHighlighted = false
-            capsuleView.layer.removeAllAnimations()
-            capsuleView.transform = .identity
+            pressedView.layer.removeAllAnimations()
+            pressedView.transform = .identity
         }
     }
 }

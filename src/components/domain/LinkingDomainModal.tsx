@@ -16,7 +16,6 @@ import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { isValidAddressOrDomain } from '../../util/isValidAddress';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
-import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
@@ -30,7 +29,6 @@ import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
 import NftInfo from '../transfer/NftInfo';
 import AddressInput from '../ui/AddressInput';
-import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
 import FeeLine from '../ui/FeeLine';
 import Modal from '../ui/Modal';
@@ -54,6 +52,7 @@ interface StateProps {
 function LinkingDomainModal({
   currentDomainLinking: {
     address,
+    isUnlinking,
     state,
     error,
     isLoading,
@@ -61,7 +60,6 @@ function LinkingDomainModal({
     walletAddress = '',
     walletAddressName = '',
     resolvedWalletAddress,
-    txId,
     mfaRequestHash,
   },
   isMediaViewerOpen,
@@ -79,7 +77,6 @@ function LinkingDomainModal({
     checkDomainLinkingDraft,
     checkLinkingAddress,
     setDomainLinkingWalletAddress,
-    showActivityInfo,
     updateDomainLinkingMfaRequestStatus,
   } = getActions();
 
@@ -90,7 +87,9 @@ function LinkingDomainModal({
   const domainNft = address ? byAddress?.[address] : undefined;
   const isInsufficientBalance = realFee ? tonBalance < realFee : undefined;
   const feeTerms = useMemo(() => (realFee ? { native: realFee } : undefined), [realFee]);
-  const modalTitle = currentLinkedWalletAddress ? 'Change Linked Wallet' : 'Link to Wallet';
+  const modalTitle = isUnlinking
+    ? 'Unlink Wallet'
+    : currentLinkedWalletAddress ? 'Change Linked Wallet' : 'Link to Wallet';
   const isAddressValid = isValidAddressOrDomain(walletAddress, 'ton');
   const [hasAddressFormatError, setHasAddressFormatError] = useState(false);
 
@@ -99,8 +98,11 @@ function LinkingDomainModal({
     setDomainLinkingWalletAddress({ address: newToAddress }, { forceOnHeavyAnimation: true });
   });
 
-  const canSubmit = isAddressValid && walletAddress !== currentLinkedWalletAddress
-    && !isInsufficientBalance && !isLoading;
+  const canSubmit = (
+    isUnlinking
+      ? Boolean(currentLinkedWalletAddress)
+      : isAddressValid && walletAddress !== currentLinkedWalletAddress
+  ) && !isInsufficientBalance && !isLoading;
 
   useInterval(() => {
     if (isOpen && state === DomainLinkingState.ConfirmMfa && mfaRequestHash) {
@@ -132,11 +134,6 @@ function LinkingDomainModal({
     }
   });
 
-  const handleInfoClick = useLastCallback(() => {
-    cancelDomainLinking();
-    showActivityInfo({ id: txId! });
-  });
-
   function renderInitialContent() {
     return (
       <>
@@ -149,6 +146,7 @@ function LinkingDomainModal({
             <AddressInput
               withQrScan
               withCurrentAccount
+              isReadonly={isUnlinking}
               value={walletAddress}
               // Domain linking is available only for TON blockchain
               addressBookChain="ton"
@@ -177,7 +175,9 @@ function LinkingDomainModal({
                 ? lang('Invalid Address')
                 : isInsufficientBalance
                   ? lang('Insufficient Balance')
-                  : lang('Link')}
+                  : isUnlinking
+                    ? lang('Unlink Wallet')
+                    : lang('Link')}
             </Button>
           </div>
         </div>
@@ -188,7 +188,12 @@ function LinkingDomainModal({
   function renderPasswordForm(isActive: boolean) {
     return (
       <>
-        {!getDoesUsePinPad() && <ModalHeader title={lang('Confirm Linking')} onClose={cancelDomainLinking} />}
+        {!getDoesUsePinPad() && (
+          <ModalHeader
+            title={isUnlinking ? lang('Confirm Unlinking') : lang('Confirm Linking')}
+            onClose={cancelDomainLinking}
+          />
+        )}
         <PasswordForm
           isActive={isActive}
           error={error}
@@ -205,37 +210,6 @@ function LinkingDomainModal({
             className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
           />
         </PasswordForm>
-      </>
-    );
-  }
-
-  function renderComplete(isActive: boolean) {
-    return (
-      <>
-        <ModalHeader title={lang('Domain Linked')} onClose={cancelDomainLinking} />
-
-        <div className={modalStyles.transitionContent}>
-          <AnimatedIconWithPreview
-            play={isActive}
-            noLoop={false}
-            nonInteractive
-            className={styles.sticker}
-            tgsUrl={ANIMATED_STICKERS_PATHS.thumbUp}
-            previewUrl={ANIMATED_STICKERS_PATHS.thumbUpPreview}
-          />
-          <NftInfo nft={domainNft} withMediaViewer />
-          {!!txId && (
-            <div className={buildClassName(styles.buttons, styles.buttonsAfterNft)}>
-              <Button onClick={handleInfoClick}>{lang('Details')}</Button>
-            </div>
-          )}
-
-          <div className={modalStyles.buttons}>
-            <Button className={styles.button} onClick={cancelDomainLinking} isPrimary>
-              {lang('Close')}
-            </Button>
-          </div>
-        </div>
       </>
     );
   }
@@ -277,9 +251,6 @@ function LinkingDomainModal({
             />
           </>
         );
-
-      case DomainLinkingState.Complete:
-        return renderComplete(isActive);
     }
   }
 

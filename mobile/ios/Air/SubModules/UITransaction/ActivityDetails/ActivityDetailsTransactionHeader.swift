@@ -64,6 +64,7 @@ struct ActivityDetailsTransactionHeader: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("transaction_amount")
     }
 
     private var amountColor: UIColor {

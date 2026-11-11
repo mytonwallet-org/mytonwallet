@@ -1016,7 +1016,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let byId = getAccountState(accountId).byId ?? [:]
         return byId.values.filter { activity in
             guard case .swap(let swap) = activity,
-                  swap.cex != nil,
+                  swap.cex != nil || getIsCrossChainBackendSwap(activity.id, swap),
                   getIsActivityPendingForUser(activity)
             else {
                 return false

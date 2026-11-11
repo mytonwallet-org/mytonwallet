@@ -2,6 +2,7 @@ package org.mytonwallet.uihome.walletsTabs
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Rect
 import android.text.SpannableString
 import android.text.Spanned
 import android.view.Gravity
@@ -17,17 +18,19 @@ import androidx.core.view.isGone
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.NestedScrollView
-import java.lang.ref.WeakReference
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.json.JSONArray
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.AccountDialogHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.OverlappedChromeFader
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.frameInWindow
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WReplaceableLabel
@@ -38,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegment
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.setOnMenuClickListener
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -75,11 +79,11 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         get() = !isInCenteredWindow
     override val ignoreSideGuttering = true
 
-    enum class WalletCategory(val value: String) {
-        MY("My"),
-        ALL("All"),
-        LEDGER("Ledger"),
-        VIEW("\$view_mode");
+    enum class WalletCategory(val value: String, val testViewId: Int) {
+        MY("My", UIComponentsR.id.wallets_tab_my),
+        ALL("All", UIComponentsR.id.wallets_tab_all),
+        LEDGER("Ledger", UIComponentsR.id.wallets_tab_ledger),
+        VIEW("\$view_mode", UIComponentsR.id.wallets_tab_view);
 
         val localized: String
             get() {
@@ -178,7 +182,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             walletsViewControllers.add(vc)
             WSegmentedControllerItem(
                 walletsViewControllers[index],
-                identifier = tab.value
+                identifier = tab.value,
+                testViewId = tab.testViewId
             )
         }.toMutableList()
     }
@@ -227,7 +232,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private val addNewWalletButton by lazy {
         WButton(context).apply {
-            id = generateViewId()
+            id = UIComponentsR.id.wallets_primary_button
             clickableError = true
             setOnClickListener {
                 val window = window ?: return@setOnClickListener
@@ -278,13 +283,14 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     private val listButton: WImageButton by lazy {
         WImageButton(context).apply {
+            id = UIComponentsR.id.wallets_menu_button
             val closeDrawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_list
             )
             setImageDrawable(closeDrawable)
             updateColors(WColor.SecondaryText, WColor.BackgroundRipple)
             setPadding(8.dp)
-            setOnClickListener {
+            setOnMenuClickListener {
                 if (isReordering) {
                     toggleReorder(false)
                 } else {
@@ -292,6 +298,42 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 }
             }
         }
+    }
+
+    private val topChromeFader = OverlappedChromeFader()
+    private val addNewWalletButtonFader = OverlappedChromeFader()
+
+    // The navigation bar, the title and the tabs' header read as one bar, so they fade together
+    override fun hideChromeOverlapping(windowRect: Rect): Boolean {
+        val isScreenChromeHidden = super.hideChromeOverlapping(windowRect)
+        val headerLocation = IntArray(2).also(segmentedController::getLocationInWindow)
+        val headerFrame = Rect(
+            headerLocation[0],
+            headerLocation[1],
+            headerLocation[0] + segmentedController.width,
+            headerLocation[1] + segmentedController.headerHeight
+        )
+        val isTopChromeHidden = topChromeFader.hideIfOverlapping(
+            windowRect,
+            listOfNotNull(
+                navigationBar?.frameInWindow(),
+                titleLinearLayout.frameInWindow(),
+                headerFrame
+            ),
+            listOfNotNull(navigationBar, titleLinearLayout, topReversedCornerView)
+        )
+        val isAddNewWalletButtonHidden = addNewWalletButtonFader.hideIfOverlapping(
+            windowRect,
+            listOfNotNull(addNewWalletButton.frameInWindow()),
+            listOf(addNewWalletButton)
+        )
+        return isScreenChromeHidden || isTopChromeHidden || isAddNewWalletButtonHidden
+    }
+
+    override fun showOverlappedChrome() {
+        super.showOverlappedChrome()
+        topChromeFader.show()
+        addNewWalletButtonFader.show()
     }
 
     override fun setupViews() {
@@ -333,10 +375,6 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         super.didSetupViews()
         bottomReversedCornerView?.updateLayoutParams {
             height = bottomCornerHeight()
-        }
-        walletsViewControllers.forEach {
-            it.parentTopReversedCornerView = WeakReference(segmentedController.reversedCornerView)
-            it.parentBottomReversedCornerView = WeakReference(bottomReversedCornerView)
         }
         addNewWalletButton.bringToFront()
     }
@@ -388,9 +426,6 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             corner.updateLayoutParams { height = bottomCornerHeight() }
             corner.isGone =
                 walletsViewControllers.firstOrNull()?.viewMode == MWalletSettingsViewMode.LIST
-            walletsViewControllers.forEach {
-                it.parentBottomReversedCornerView = WeakReference(corner)
-            }
             corner.bringToFront()
             addNewWalletButton.bringToFront()
         }
@@ -654,7 +689,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                         switchViewMode(viewMode)
                         WGlobalStorage.setAccountSelectorViewMode(viewMode)
                     }
-                ),
+                ).apply { testViewId = UIComponentsR.id.wallets_view_mode },
                 WMenuPopup.Item(
                     WMenuPopup.Item.Config.Item(
                         icon = WMenuPopup.Item.Config.Icon(
@@ -666,7 +701,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     onTap = {
                         toggleReorder(true)
                     }
-                )
+                ).apply { testViewId = UIComponentsR.id.wallets_reorder }
             ),
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 20f.dp),

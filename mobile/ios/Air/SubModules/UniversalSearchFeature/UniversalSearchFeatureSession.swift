@@ -7,6 +7,7 @@ import WalletContext
 import WalletCore
 
 private let log = Log("UniversalSearch")
+private let BROWSE_SELECTED_MODES_KEY = "universalSearch.browseSelectedModes"
 
 @MainActor
 public final class UniversalSearchFeatureSession: @unchecked Sendable {
@@ -64,6 +65,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     private let querySources: [any UniversalSearchQuerySource]
     private let interactionStore: WalletCoreSearchInteractionStore
     private let interactionSource: WalletCoreSearchInteractionSource
+    private let userDefaults: UserDefaults
 
     private var routesByItemID: [String: UniversalSearchFeatureRoute] = [:]
     private var queryTask: Task<Void, Never>?
@@ -74,7 +76,16 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     private var renderGeneration: UInt64 = 0
     private var currentQuery = ""
     private var currentContext: UniversalSearchContext?
-    private var browseSelectedModes: [String: UniversalSearchBrowseMode] = [:]
+    private var browseSelectedModes: [String: UniversalSearchBrowseMode] {
+        get {
+            (userDefaults.dictionary(forKey: BROWSE_SELECTED_MODES_KEY) ?? [:]).compactMapValues {
+                ($0 as? String).flatMap(UniversalSearchBrowseMode.init(rawValue:))
+            }
+        }
+        set {
+            userDefaults.set(newValue.mapValues(\.rawValue), forKey: BROWSE_SELECTED_MODES_KEY)
+        }
+    }
     private var lastAutocomplete: UniversalSearchAutocomplete?
     private var hasPresentedBrowseContent = false
     private var isStarted = false
@@ -86,7 +97,8 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         presenter: UniversalSearchResultsPresenter? = nil,
         entityRegistry: WalletCoreSearchEntityRegistry = .init(),
         querySources: [any UniversalSearchQuerySource]? = nil,
-        interactionStore: WalletCoreSearchInteractionStore = .shared
+        interactionStore: WalletCoreSearchInteractionStore = .shared,
+        userDefaults: UserDefaults = .standard
     ) {
         let indexService = indexService ?? (coordinator == nil
             ? UniversalSearchFeatureFactory.sharedIndexService
@@ -107,6 +119,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
         ]
         self.interactionStore = interactionStore
         self.interactionSource = WalletCoreSearchInteractionSource(store: interactionStore)
+        self.userDefaults = userDefaults
 
         screen.onSelect = { [weak self] item in
             guard let self, let route = routesByItemID[item.id] else { return }
@@ -623,11 +636,15 @@ extension UniversalSearchFeatureSession: UniversalSearchIndexServiceObserver {
         guard isStarted else { return }
         if currentContext != update.context {
             currentContext = update.context
-            browseSelectedModes = [:]
             hasPresentedBrowseContent = false
             apply(.empty, updateStyle: .none)
         }
-        guard case .source = update.kind else { return }
+        switch update.kind {
+        case .source, .documentRemoved:
+            break
+        case .contextChanged, .completed:
+            return
+        }
         Task { [weak self] in
             await self?.refreshVisibleResults(for: update.context)
         }

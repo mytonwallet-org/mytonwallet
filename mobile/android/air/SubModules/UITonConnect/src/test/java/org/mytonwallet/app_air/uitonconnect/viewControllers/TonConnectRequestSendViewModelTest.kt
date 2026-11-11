@@ -150,4 +150,32 @@ class TonConnectRequestSendViewModelTest {
         )
         assertEquals(1, items.filterIsInstance<Item.Alert>().size)
     }
+
+    @Test
+    fun `eip712 types show every field with its name and type`() {
+        val types = mapOf(
+            "EIP712Domain" to listOf(
+                MSignDataPayload.SignDataPayloadEip712.TypeField("name", "string"),
+                MSignDataPayload.SignDataPayloadEip712.TypeField("chainId", "uint256")
+            ),
+            "Permit" to listOf(
+                MSignDataPayload.SignDataPayloadEip712.TypeField("spender", "address"),
+                MSignDataPayload.SignDataPayloadEip712.TypeField("value", "uint256")
+            )
+        )
+
+        assertEquals(
+            mapOf(
+                "EIP712Domain" to listOf(
+                    mapOf("name" to "name", "type" to "string"),
+                    mapOf("name" to "chainId", "type" to "uint256")
+                ),
+                "Permit" to listOf(
+                    mapOf("name" to "spender", "type" to "address"),
+                    mapOf("name" to "value", "type" to "uint256")
+                )
+            ),
+            convertEip712TypesToMaps(types)
+        )
+    }
 }

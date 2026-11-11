@@ -140,6 +140,8 @@ const cspConnectSrcHosts = Array.from(new Set([
 
 const cspImageSrcHosts = [
   MW_STATIC_BASE_URL,
+  // Operator photos come from the agent; `https:` already admits an https agent, so only a local http one is listed
+  ...(AGENT_API_URL?.startsWith('http:') ? [new URL(AGENT_API_URL).origin] : []),
   'https://imgproxy.mytonwallet.org',
   'https://dns-image.mytonwallet.org',
   'https://mytonwallet.s3.eu-central-1.amazonaws.com',
@@ -321,7 +323,7 @@ export default defineConfig(({ command, mode }) => {
       rolldownOptions: {
         input: { main: path.resolve(ROOT_DIR, 'src/index.html') },
         output: {
-          // Opera add-on review rejects `.tgs` files, while RLottie reads them by content, not by extension
+          // Opera add-on review rejects `.tgs` files, while TLottie reads them by content, not by extension
           assetFileNames: IS_OPERA_EXTENSION
             ? (asset: { names: string[] }) => (
               asset.names[0]?.endsWith('.tgs') ? '[name].[hash].json' : '[name].[hash][extname]'

@@ -1,9 +1,7 @@
 package org.mytonwallet.app_air.walletbasecontext.logger
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
-import androidx.core.content.FileProvider
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -33,6 +31,7 @@ object Logger {
         TON_CONNECT("TonConnect"),
         WALLET_PAY("WalletPay"),
         JS_DEBUG_ERROR("JSErr"),
+        CONSOLE("console"),
         JS_WEBVIEW_BRIDGE("JSBridge"),
         PASSCODE_CONFIRM("PassConf"),
         SCREEN("Screen"),
@@ -74,6 +73,7 @@ object Logger {
 
     private const val MAX_BUFFER = 1_000_000
     private const val MAX_LOG_FILE = 5_000_000
+    private const val NEWLINE = '\n'.code.toByte()
 
     private val appStartTime = System.currentTimeMillis()
     private val buffer = ByteArrayOutputStream()
@@ -181,7 +181,9 @@ object Logger {
             try {
                 if (logFile.exists() && logFile.length() > MAX_LOG_FILE) {
                     val data = logFile.readBytes()
-                    val trimmed = data.copyOfRange((MAX_LOG_FILE / 2), data.size)
+                    val rowEnd = (MAX_LOG_FILE / 2 until data.size)
+                        .firstOrNull { data[it] == NEWLINE }
+                    val trimmed = data.copyOfRange(rowEnd?.plus(1) ?: data.size, data.size)
                     logFile.writeBytes(trimmed)
                 }
 
@@ -206,24 +208,5 @@ object Logger {
         } catch (_: Throwable) {
             ""
         }
-    }
-
-    fun shareLogFile(context: Context) {
-        synchronize()
-        val logFile = logFile ?: return
-
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            logFile
-        )
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/tab-separated-values"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        context.startActivity(Intent.createChooser(intent, "Share log file"))
     }
 }

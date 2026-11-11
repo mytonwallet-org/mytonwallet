@@ -102,64 +102,58 @@ $feedMaxWidth: agentBubble.$maxWidth;
   color: var(--color-black);
 }
 
-// A blank line under the headline, and none above the source line, in place of the bubble's paragraph margins. The
-// selector outweighs `.incoming p` in `MessageBubble.module.scss`, which `.newsBody` alone does not.
+// A blank line under the headline, and none above the sources or the time, in place of the bubble's paragraph margins.
+// The selector outweighs `.incoming p` in `MessageBubble.module.scss`, which `.newsBody` alone does not.
 .newsText > .newsBody {
   margin: 1.25rem 0 0;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
 
-// The source and the time at the bubble's foot, where a message's time is. The foot follows the app's direction rather
-// than the news text's, so the bullet stays between source and time.
-.newsMeta {
-  unicode-bidi: isolate;
-  display: flex;
-  justify-content: flex-end;
-
-  min-width: 0;
+// The sources in the time's type, from the news text's start, wrapping rather than cut off
+.newsSources {
   margin-top: 0.5rem;
 
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1rem;
   color: var(--color-gray-2);
+  overflow-wrap: anywhere;
 }
 
-.newsSource {
-  unicode-bidi: isolate;
-  overflow: hidden;
-
-  min-width: 0;
-
-  color: inherit;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-// The app turns off the touch callout for the whole page (see `styles/index.scss`). The source link turns it back on,
-// so a long press on it shows the system's link menu, as on a link in an answer.
+// A source link stays grey, the hover colour of links included. The app turns off the touch callout for the whole page
+// (see `styles/index.scss`); a source link turns it back on, so a long press on it shows the system's link menu, as on
+// a link in an answer.
 .newsSourceLink {
-  cursor: var(--custom-cursor, pointer);
+  color: inherit;
 
   -webkit-touch-callout: default;
 
   &:hover,
   &:focus-visible {
-    text-decoration: underline;
+    color: inherit;
   }
 }
 
+// The time at the bubble's foot, where a message's time is, on the app's trailing side rather than the news text's. It
+// ends 12 px from the bubble's edge, as on iOS and Android.
 .newsTime {
   unicode-bidi: isolate;
-  flex-shrink: 0;
+  display: block;
+
+  margin-top: 0.5rem;
+  margin-inline-end: -0.25rem;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+  text-align: end;
   white-space: nowrap;
 }
 
-// The bullet between the source and the time stays with the time, on its side in either direction
-.newsTimeAfterSource::before {
-  content: "\2022";
-  padding-inline: 0.25rem;
+.newsTimeUnderSources {
+  margin-top: 0.25rem;
 }
 
 // Telegram's comments strip under a channel post
@@ -258,6 +252,122 @@ $feedMaxWidth: agentBubble.$maxWidth;
   @include mixins.rtl-mirror();
 }
 
+// A daily digest's card, in the bubble the news cards have: its title and meta line, its headlines, each a button with
+// a bullet by its first line and an arrow where the "Discuss" strip has its own, and the news it leaves out
+
+.digestHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.875rem 1rem 0.375rem;
+}
+
+.digestMeta {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  color: var(--color-gray-2);
+}
+
+.digestHeadlines {
+  display: flex;
+  flex-direction: column;
+  padding-inline: 1rem 0.5625rem;
+}
+
+.digestHeadlineItem {
+  &:not(:first-child) {
+    border-top: 0.0625rem solid var(--color-separator);
+  }
+}
+
+// It dims at once under the finger and comes back over 200 ms, as the strip does
+.digestHeadline {
+  cursor: var(--custom-cursor, pointer);
+  user-select: none;
+
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0;
+  border: none;
+
+  font: inherit;
+  color: var(--color-black);
+  text-align: start;
+
+  background: none;
+  outline: none;
+
+  @include mixins.transition(opacity 200ms);
+
+  &:active {
+    opacity: 0.4;
+    transition: none;
+  }
+
+  &:focus-visible {
+    border-radius: 0.375rem;
+    box-shadow: 0 0 0 0.125rem var(--color-accent-10o);
+  }
+}
+
+.digestBullet {
+  flex-shrink: 0;
+
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-top: calc((#{agentBubble.$lineHeight} - 0.375rem) / 2);
+  border-radius: 50%;
+
+  background-color: var(--color-accent);
+
+  @include mixins.is-mobile() {
+    margin-top: calc((#{agentBubble.$mobileLineHeight} - 0.375rem) / 2);
+  }
+}
+
+.digestHeadlineText {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.digestHeadlineChevron {
+  flex-shrink: 0;
+  align-self: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+
+  color: var(--color-accent);
+
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+
+  @include mixins.rtl-mirror();
+}
+
+// Under the headlines' text, past their bullets
+.digestRemainder {
+  padding-block: 0.25rem 0.75rem;
+  padding-inline: 2rem 1rem;
+
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+
+  @include mixins.is-mobile() {
+    font-size: 0.9375rem;
+  }
+}
+
 // The news a chat discusses, posted at its start as the news card it was
 
 // The "News" line is a label of the post, which the pointer cannot select
@@ -303,6 +413,21 @@ $feedMaxWidth: agentBubble.$maxWidth;
   overflow: hidden;
 }
 
+// The frame's lift shadow, under it, with its strength set by its opacity
+.flightShadow {
+  will-change: transform, opacity;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  border-radius: var(--border-radius-content);
+
+  opacity: 0;
+  box-shadow: 0 0.625rem 1.125rem #000000;
+}
+
+// Square at the corner the bubble's tail grows from, as the card and the post are
 .flightFrame {
   will-change: transform;
 
@@ -312,7 +437,8 @@ $feedMaxWidth: agentBubble.$maxWidth;
 
   overflow: hidden;
 
-  border-radius: var(--border-radius-content);
+  border-radius: var(--flight-frame-radius, var(--border-radius-content));
+  border-end-start-radius: 0;
 
   background-color: var(--color-activity-gray-background);
 
@@ -325,11 +451,55 @@ $feedMaxWidth: agentBubble.$maxWidth;
   }
 }
 
+// The bubble's tail at the frame's corner, which the card and the post both have, so that the bubble keeps it as it
+// flies and lands. The element follows the frame, and the tail is scaled back to keep its size.
+.flightTail {
+  will-change: transform;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  @include mixins.transition("opacity 250ms ease-in, scale 250ms ease-in");
+
+  &::after {
+    content: "";
+
+    position: absolute;
+    bottom: 0;
+    inset-inline-start: -#{agentBubble.$tailWidth};
+    transform-origin: 100% 100%;
+    scale: var(--flight-tail-scale);
+
+    width: agentBubble.$tailWidth;
+    height: agentBubble.$tailHeight;
+
+    background-color: var(--color-activity-gray-background);
+
+    mask-image: agentBubble.$incomingTailMask;
+    mask-repeat: no-repeat;
+    mask-size: 100% 100%;
+  }
+}
+
+:global(html[dir="rtl"]) .flightTail::after {
+  transform-origin: 0 100%;
+
+  mask-image: agentBubble.$outgoingTailMask;
+}
+
+// A post that never shows takes the tail away with the card
+.flightDissolving .flightTail {
+  scale: 0.92;
+  opacity: 0;
+}
+
 // Laid out as the card or the post it copies, which take these from where they stand
 .flightFrame > .flightLayer {
   position: absolute;
   top: 0;
   left: 0;
+  // The frame scales from the card's size to the post's, and the copy is scaled back from the frame's corner
+  transform-origin: 0 0;
 
   display: flex;
   flex-direction: column;

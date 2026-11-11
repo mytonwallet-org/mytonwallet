@@ -68,6 +68,17 @@ enum AgentTextLinks {
         return removingStrayMarkers(from: result as String)
     }
 
+    /// Marked text with each link left as its label and every marker removed, for code, which shows no links
+    static func removingLinks(from text: String) -> String {
+        guard let markedLink else { return removingStrayMarkers(from: text) }
+        let labels = markedLink.stringByReplacingMatches(
+            in: text,
+            range: NSRange(location: 0, length: (text as NSString).length),
+            withTemplate: "$2"
+        )
+        return removingStrayMarkers(from: labels)
+    }
+
     /// Rendered text with each link's URL after its label, for copying
     static func copyText(from text: NSAttributedString) -> String {
         var result = ""

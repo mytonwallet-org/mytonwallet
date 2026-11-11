@@ -2,7 +2,9 @@ import React, { memo, useEffect, useMemo, useState } from '../../../lib/teact/te
 import { getActions, withGlobal } from '../../../global';
 
 import type { ApiBaseCurrency, ApiHistoryList, ApiPriceHistoryPeriod } from '../../../api/types';
-import type { LangCode, PriceHistoryPeriods, TokenChartMode, UserToken } from '../../../global/types';
+import type {
+  LangCode, PriceHistoryBackfillPeriods, PriceHistoryPeriods, TokenChartMode, UserToken,
+} from '../../../global/types';
 import type { TabWithProperties } from '../../ui/TabList';
 import type { TokenBalanceChange } from '../helpers/resolveBalanceChange';
 
@@ -10,7 +12,7 @@ import { DEFAULT_PRICE_CURRENCY } from '../../../config';
 import { selectCurrentAccount, selectCurrentAccountState } from '../../../global/selectors';
 import { isNetWorthChartAvailable } from '../../../util/assets/netWorth';
 import buildClassName from '../../../util/buildClassName';
-import { formatChartDate, formatShortDay, formatTime, SECOND } from '../../../util/dateFormat';
+import { formatChartDate, formatShortDay, formatShortMonth, formatTime, SECOND } from '../../../util/dateFormat';
 import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
 import { vibrate } from '../../../util/haptics';
 import { TIME_RANGES } from '../../../util/portfolio/timeRange';
@@ -47,6 +49,7 @@ interface StateProps {
   backendPercentChange24h?: number;
   historyPeriods?: PriceHistoryPeriods;
   restoredHistoryPeriods?: PriceHistoryPeriods;
+  backfillPeriods?: PriceHistoryBackfillPeriods;
   netWorthHistoryPeriods?: PriceHistoryPeriods;
   hasTokenChainWallet: boolean;
 }
@@ -72,6 +75,7 @@ function Chart({
   backendPercentChange24h,
   historyPeriods,
   restoredHistoryPeriods,
+  backfillPeriods,
   netWorthHistoryPeriods,
   hasTokenChainWallet,
   onChartModeChange,
@@ -98,6 +102,12 @@ function Chart({
   const isRestored = !sessionHistory?.length && Boolean(restoredHistory?.length);
   const history = isRestored ? restoredHistory : sessionHistory;
   const isLoading = !history;
+  // The backfill arrives with the session series only
+  const backfill = isNetWorthMode || isRestored ? undefined : backfillPeriods?.[period];
+  const stockCount = backfill?.points.length ?? 0;
+  const plotHistory = useMemo(() => (
+    history && backfill ? [...backfill.points, ...history] : history
+  ), [backfill, history]);
 
   const refreshHistory = useLastCallback(() => {
     if (isNetWorthMode) {
@@ -124,14 +134,17 @@ function Chart({
   }, [selectedIndex]);
 
   const lastPoint = history?.length && !isRestored ? history[history.length - 1] : undefined;
-  const selectedPoint = selectedIndex >= 0 ? history?.[selectedIndex] : undefined;
+  const selectedPoint = selectedIndex >= 0 ? plotHistory?.[selectedIndex] : undefined;
+  const isStockSelected = selectedIndex >= 0 && selectedIndex < stockCount;
   const shownPoint = selectedPoint ?? lastPoint;
 
   // A zero price gives no baseline for the change, so the period starts at the first traded point.
   // The caption on the left shows that same point.
   const initialPoint = useMemo(() => history?.find(([, value]) => Boolean(value)), [history]);
   const initialPrice = initialPoint?.[1];
-  const historyChangePercent = initialPrice && shownPoint ? (shownPoint[1] / initialPrice - 1) * 100 : undefined;
+  const historyChangePercent = initialPrice && shownPoint && !isStockSelected
+    ? (shownPoint[1] / initialPrice - 1) * 100
+    : undefined;
   const shouldUseTokenChange24h = (
     !isNetWorthMode
     && period === '1D'
@@ -143,7 +156,7 @@ function Chart({
     : historyChangePercent;
 
   // A price quoted in another currency would make the balance above jump between currencies
-  const isBalanceFollowingChart = !isNetWorthMode && chartCurrency === baseCurrency;
+  const isBalanceFollowingChart = !isNetWorthMode && chartCurrency === baseCurrency && !isStockSelected;
   const shownPrice = shownPoint?.[1];
 
   useEffect(() => {
@@ -158,7 +171,7 @@ function Chart({
     onBalanceChangeUpdate,
   ]);
 
-  const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, history), [lang.code, period, history]);
+  const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, plotHistory), [lang.code, period, plotHistory]);
 
   // The new period reaches the effect above through the global state, which loads the series
   const handlePeriodChange = useLastCallback((newPeriod: ApiPriceHistoryPeriod) => {
@@ -226,7 +239,11 @@ function Chart({
                       selectedPoint ? SELECTED_PRICE_FRACTION_DIGITS : PRICE_FRACTION_DIGITS,
                       true,
                     )}
-                    {Boolean(changePercent) && (
+                    {isStockSelected ? (
+                      <span className={buildClassName(styles.change, styles.changeStock)}>
+                        {lang('$underlying_stock', { symbol: backfill!.symbol })}
+                      </span>
+                    ) : Boolean(changePercent) && (
                       <span
                         className={buildClassName(
                           styles.change,
@@ -242,9 +259,10 @@ function Chart({
             </div>
           </div>
 
-          {history?.length ? (
+          {plotHistory?.length ? (
             <Plot
-              prices={history}
+              prices={plotHistory}
+              backfillCount={stockCount}
               selectedIndex={selectedIndex}
               className={styles.plot}
               onSelectIndex={handleSelectIndex}
@@ -270,17 +288,19 @@ function Chart({
   );
 }
 
+// The plot spaces points by time, so the labels split the time span evenly, in the formats of the native apps
 function buildAxisLabels(langCode: LangCode, period: ApiPriceHistoryPeriod, history?: ApiHistoryList) {
   if (!history?.length) return undefined;
 
-  const lastIndex = history.length - 1;
+  const first = history[0][0];
+  const span = history[history.length - 1][0] - first;
 
   return Array.from({ length: AXIS_LABEL_COUNT }, (_, index) => {
-    const [timestamp] = history[Math.round((index / (AXIS_LABEL_COUNT - 1)) * lastIndex)];
+    const timestamp = (first + (span * index) / (AXIS_LABEL_COUNT - 1)) * 1000;
 
-    return period === '1D'
-      ? formatTime(timestamp * 1000)
-      : formatShortDay(langCode, timestamp * 1000, false, true);
+    if (period === '1D') return formatTime(timestamp);
+    if (period === 'ALL') return formatShortMonth(langCode, timestamp);
+    return formatShortDay(langCode, timestamp, false, true);
   });
 }
 
@@ -298,6 +318,7 @@ export default memo(
       backendPercentChange24h,
       historyPeriods: global.tokenPriceHistory.bySlug[token.slug],
       restoredHistoryPeriods: global.tokenPriceHistory.restoredBySlug[token.slug],
+      backfillPeriods: global.tokenPriceHistory.backfillBySlug?.[token.slug],
       netWorthHistoryPeriods: accountState?.tokenNetWorthHistory?.[token.slug],
       hasTokenChainWallet: Boolean(selectCurrentAccount(global)?.byChain[token.chain]),
     };

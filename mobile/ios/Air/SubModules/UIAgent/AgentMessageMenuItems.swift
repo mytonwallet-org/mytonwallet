@@ -8,6 +8,7 @@ enum AgentMessageMenuItems {
     static func makeItems(
         for message: AgentMessage,
         copyText: String?,
+        canEdit: Bool,
         canRegenerate: Bool,
         canReportProblem: Bool,
         edit: @escaping () -> Void,
@@ -20,7 +21,7 @@ enum AgentMessageMenuItems {
                 AgentClipboard.copy(copyText)
             }))
         }
-        if message.role == .user {
+        if message.role == .user, canEdit {
             items.append(.action(ContextMenuAction(title: lang("Edit"), icon: .system("pencil"), handler: edit)))
         }
         if message.role == .assistant, canRegenerate {
@@ -31,14 +32,6 @@ enum AgentMessageMenuItems {
             items.append(.action(ContextMenuAction(title: lang("Report a Problem"), icon: .system("flag"), handler: reportProblem)))
         }
         return items
-    }
-
-    static func makeItems(
-        for news: ApiAgentV2ThreadNewsCard,
-        openSource: @escaping () -> Void,
-        share: @escaping (String) -> Void
-    ) -> [ContextMenuItem] {
-        makeItems(for: AgentNewsPostView.Content(news: news), openSource: openSource, share: share)
     }
 
     /// The menu of a news post, in the News feed and at the top of its discussion alike
@@ -73,10 +66,6 @@ enum AgentMessageMenuItems {
             parts.append(supplementaryErrorText)
         }
         return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
-    }
-
-    static func copyText(for news: ApiAgentV2ThreadNewsCard) -> String {
-        AgentNewsPostView.Content(news: news).copyText
     }
 }
 

@@ -1,12 +1,13 @@
 import type { LangCode } from '../../global/types';
 import type {
   ApiPerpsActivityPageRequest, ApiPerpsBuildWithdrawalRequest, ApiPerpsEstimatePositionRequest,
-  ApiPerpsExecutePositionResult, ApiPerpsMarketAsset, ApiPerpsOpenPositionRequest,
-  ApiPerpsPositionSide, ApiPerpsTradingAvailability,
-  ApiPerpsWithdrawPermit, ApiPriceHistoryPeriod, OnApiUpdate,
+  ApiPerpsExecutePositionResult, ApiPerpsGetPositionsResult, ApiPerpsLimits, ApiPerpsListedAsset, ApiPerpsMarketAsset,
+  ApiPerpsOpenPositionRequest, ApiPerpsPositionSide, ApiPerpsWithdrawPermit, ApiPriceHistoryPeriod, OnApiUpdate,
 } from '../types';
 import type {
+  ApiPerpsAccountPosition,
   ApiPerpsActivityHistory,
+  ApiPerpsBalanceWithdrawalQuote,
   ApiPerpsDraftRequest,
   ApiPerpsFundingRequirements,
   ApiPerpsLeverageEstimate,
@@ -22,21 +23,38 @@ import { Big } from '../../lib/big.js';
 import { parseAccountId } from '../../util/account';
 import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
+import { logDebugError } from '../../util/logs';
 import withCacheAsync from '../../util/withCacheAsync';
 import { chains } from '../chains';
-import { assertHyperliquidWithdrawPermitIntegrity } from '../chains/evm/hyperliquidPayloadValidation';
-import { fetchStoredChainAccount } from '../common/accounts';
-import { getPerpsOrderError, PERPS_CCTP_FORWARD_FEE_USDC } from '../common/perps';
+import {
+  assertHyperliquidExchangeBuildIntegrity,
+  assertHyperliquidWithdrawPermitIntegrity,
+} from '../chains/evm/hyperliquidPayloadValidation';
+import {
+  getPerpsOrderError,
+  isPerpsVenueRejection,
+  isPerpsWalletAddress,
+  PERPS_BALANCE_WITHDRAWAL_ASSET_ID,
+  PERPS_CCTP_DEPOSIT_CHAIN,
+  PERPS_CCTP_FORWARD_FEE_USDC,
+} from '../common/perps';
 import { normalizePerpsActivityPage } from '../common/perpsActivities';
 import { getPerpsAssetsFetchedAt } from '../common/perpsAssets';
 import { buildPerpsMarketCatalogue } from '../common/perpsMarket';
 import {
   applyPerpsLeverageChangeDeposit,
+  applyPerpsLeverageChangeMargin,
+  assertPerpsBalanceCovers,
+  getPerpsBalanceFundingRequirements,
+  getPerpsBalanceWithdrawalPreview,
   getPerpsFundingRequirements,
   getPerpsMarketTradingAvailability,
   getPerpsOpenInterestUsd,
+  getPerpsReceiveEstimate,
   getPerpsWireAssetIndex,
+  limitPerpsLeverageChangeDeposit,
   normalizePerpsPosition,
+  readPerpsSpendableUsdc,
   resolvePerpsDraft,
   resolvePerpsTradeIntent,
   validatePerpsOrderSize,
@@ -44,13 +62,19 @@ import {
 } from '../common/perpsPresentation';
 import { getPerpsReceiptDetails, getPerpsResultingPositionSize } from '../common/perpsReceipt';
 import { balanceRefreshRequests } from '../common/polling/balanceRefresh';
+import { getTokenBySlug } from '../common/tokens';
+import { ApiServerError } from '../errors';
 import {
+  estimatePerpsDepositFundingGasUsdc,
   executePerpsClosePosition,
   executePerpsDepositMargin,
   executePerpsModifyPosition,
   executePerpsOpenFromBalance,
   executePerpsOpenPosition,
+  executePerpsOpenPositionFromBalance,
   executePerpsWithdrawMargin,
+  getPerpsWallet as wallet,
+  perpsBuildBalanceWithdraw,
   perpsBuildWithdrawal,
   perpsEstimateModifyPosition,
   perpsEstimatePosition,
@@ -61,6 +85,12 @@ import {
   perpsGetPositions,
   perpsWithdrawReleasedMargin,
 } from './perps';
+import {
+  getPerpsAccountSnapshot,
+  getPerpsPositionsState,
+  initPerpsPositions,
+  requestPerpsPositionsRefresh,
+} from './perpsPositions';
 
 const quotes = new Map<string, ApiPerpsQuote>();
 const balanceAccountIds = new Set<string>();
@@ -68,6 +98,8 @@ const operations = new Map<string, ApiPerpsOperation>();
 const withdrawalReviews = new Map<string, {
   request: ApiPerpsBuildWithdrawalRequest; withdraw: ApiPerpsWithdrawPermit; expiresAt: number;
 }>();
+/** The latest balance withdrawal review of each account; preparing another one replaces it. */
+const balanceWithdrawalReviews = new Map<string, { quote: ApiPerpsBalanceWithdrawalQuote; sourceDex: unknown }>();
 type FundingBalances = { availableUsdc: string; availableEth: string };
 const fundingBalances = new Map<string, {
   value?: FundingBalances; pending?: Promise<FundingBalances>; expiresAt: number;
@@ -80,10 +112,18 @@ let onUpdate: OnApiUpdate | undefined;
 
 export function initPerpsTrading(update: OnApiUpdate) {
   onUpdate = update;
+  initPerpsPositions(update);
 }
 
 function publishOperation(operation: ApiPerpsOperation) {
   onUpdate?.({ type: 'perpsOperationUpdated', operation: { ...operation } });
+}
+
+/** A copy of the record an operation ID already belongs to. Another account's ID is refused. */
+function readExistingOperation(accountId: string, operationId: string): ApiPerpsOperation | undefined {
+  const operation = operations.get(operationId);
+  if (operation && operation.accountId !== accountId) throw new Error('PerpsInvalidOperation');
+  return operation && { ...operation };
 }
 
 function hasUnresolvedOperation(accountId: string, request?: Pick<ApiPerpsQuote, 'assetId' | 'kind'>): boolean {
@@ -109,40 +149,49 @@ function isRejectedExchangeSignature(operation: ApiPerpsOperation): boolean {
       .test(operation.error ?? '');
 }
 
-async function wallet(accountId: string, forTrading = false) {
-  const { network } = parseAccountId(accountId);
-  if (network !== 'mainnet') throw new Error('PerpsUnsupportedAccount');
-  const account = await fetchStoredChainAccount(accountId, 'arbitrum');
-  const tradingAvailability: ApiPerpsTradingAvailability = account.type === 'view' || account.type === 'ledger'
-    ? { isAvailable: false, reason: 'PerpsUnsupportedAccount' } : { isAvailable: true };
-  if (forTrading && !tradingAvailability.isAvailable) throw new Error(tradingAvailability.reason);
-  return { ...account.byChain.arbitrum, tradingAvailability };
+/** The listed market for `assetId`, outside `unavailableDexs`. Throws unless it can be traded. */
+function getTradablePerpsAsset<T extends ApiPerpsListedAsset>(
+  assets: readonly T[] | undefined, assetId: string, unavailableDexs: readonly string[] = [],
+): T {
+  const asset = assets?.find((value) => value.id === assetId);
+  if (!asset || unavailableDexs.includes(asset.dex)) throw new Error('PerpsMarketUnavailable');
+  const availability = getPerpsMarketTradingAvailability(asset);
+  if (!availability.isAvailable) throw new Error(availability.reason);
+  return asset;
 }
 
-/** Fetch the selected leverage only; clients debounce selection changes. */
-export async function perpsGetLeverageEstimates(
+/** The account's open position in `asset`, if any. */
+function findPerpsPosition(
+  accountId: string, asset: ApiPerpsListedAsset, result: ApiPerpsGetPositionsResult,
+): ApiPerpsAccountPosition | undefined {
+  const raw = getPerpsPositionsState(result).assetPositions
+    .find(({ position }) => position.coin === asset.name)?.position;
+  return raw && !Big(raw.szi).eq(0) ? normalizePerpsPosition(accountId, asset, raw) : undefined;
+}
+
+/** Fetch the selected leverage only; clients debounce selection changes. A draft without an amount prices nothing. */
+export async function perpsGetLeverageEstimate(
   accountId: string, draft: ApiPerpsDraftRequest,
-): Promise<ApiPerpsLeverageEstimate[]> {
-  if (!draft.leverageOnly && (!draft.amount || !Big(draft.amount).gt(0))) return [];
-  if (!draft.editing && draft.unit === 'currency' && draft.fraction === undefined
-    && !draft.reset && !draft.convertFrom && !draft.close) {
+): Promise<ApiPerpsLeverageEstimate> {
+  if (!draft.leverageOnly && (!draft.amount || !Big(draft.amount).gt(0))) return { leverage: draft.leverage };
+  if (!draft.editing && draft.fraction === undefined && !draft.reset && !draft.close) {
     const { address } = await wallet(accountId, true);
-    const catalogue = await perpsGetAssets();
-    const asset = buildPerpsMarketCatalogue(catalogue).assets.find((value) => value.id === draft.assetId);
-    if (!asset) throw new Error('PerpsMarketUnavailable');
-    const availability = getPerpsMarketTradingAvailability(asset);
-    if (!availability.isAvailable) throw new Error(availability.reason);
+    const asset = getTradablePerpsAsset((await perpsGetAssets()).assetsByChain.hyperliquid, draft.assetId);
+    const fromBalance = draft.funding === 'balance';
+    // A deposit's credit after the bridge fee is the margin; an open paid from the balance posts the whole amount.
     const estimate = await perpsEstimatePosition({
       chain: asset.chain, address, asset: asset.id, side: draft.side,
-      depositAmount: Big(draft.amount).plus(PERPS_CCTP_FORWARD_FEE_USDC).round(6, Big.roundUp).toFixed(),
+      depositAmount: Big(draft.amount).plus(fromBalance ? 0 : PERPS_CCTP_FORWARD_FEE_USDC).round(6, Big.roundUp)
+        .toFixed(),
       leverage: draft.leverage, isCross: false,
+      ...(fromBalance ? { fundingSource: 'balance' as const } : undefined),
     });
     if ('error' in estimate) throw new Error(estimate.error);
-    return [{ leverage: draft.leverage, liquidationPrice: positiveLiquidationPrice(estimate.liquidationPrice) }];
+    return { leverage: draft.leverage, liquidationPrice: positiveLiquidationPrice(estimate.liquidationPrice) };
   }
   const quote = await perpsPreviewOrder(accountId, draft);
-  return [{ leverage: quote.leverage,
-    liquidationPrice: quote.kind === 'unchanged' ? quote.liquidationPrice : quote.estimatedLiquidationPrice }];
+  return { leverage: quote.leverage,
+    liquidationPrice: quote.kind === 'unchanged' ? quote.liquidationPrice : quote.estimatedLiquidationPrice };
 }
 
 function positiveLiquidationPrice(price?: string): string | undefined {
@@ -167,7 +216,7 @@ function enrichAsset(asset: ApiPerpsMarketAsset): ApiPerpsMarketAsset {
 export async function perpsGetMarketSnapshot(
   langCode?: LangCode, options?: { force?: boolean },
 ): Promise<ApiPerpsMarketSnapshot> {
-  const response = await perpsGetAssets(undefined, langCode, options);
+  const response = await perpsGetAssets(langCode, options);
   const catalogue = buildPerpsMarketCatalogue(response);
   const assets = catalogue.assets.map(enrichAsset);
   return {
@@ -178,48 +227,20 @@ export async function perpsGetMarketSnapshot(
       assets: section.assets.map((asset) => assets.find((value) => value.id === asset.id)!),
     })),
     assetsFetchedAt: getPerpsAssetsFetchedAt(response, langCode),
+    onboarding: response.onboarding,
   };
 }
 
+/** The account snapshot with the market catalogue it was resolved against; the two are read in parallel. */
 export async function perpsGetSnapshot(
   accountId: string, langCode?: LangCode, options?: { forceAssets?: boolean },
 ): Promise<ApiPerpsSnapshot> {
-  const { address, tradingAvailability } = await wallet(accountId);
-  const market = await perpsGetMarketSnapshot(langCode, options?.forceAssets ? { force: true } : undefined);
-  const { assets } = market;
-  const unavailableDexs: string[] = [];
-  const positions: ApiPerpsSnapshot['positions'] = [];
-  const result = await perpsGetPositions({ addressByChain: { hyperliquid: address } });
-  const state = result.positionsByChain.hyperliquid;
-  if (!state) throw new Error('PerpsIncompleteData');
-  for (const { position } of state.assetPositions) {
-    if (Big(position.szi).eq(0)) continue;
-    const asset = assets.find((value) => value.name === position.coin);
-    if (!asset) {
-      unavailableDexs.push(position.coin.includes(':') ? position.coin.split(':')[0] : '');
-      continue;
-    }
-    positions.push(normalizePerpsPosition(accountId, asset, position));
-  }
-  const unique = [...new Map(positions.map((p) => [p.id, p])).values()].sort((a, b) =>
-    a.id.localeCompare(b.id),
-  );
-  const totalPnl = unique.reduce((sum, p) => sum.plus(p.raw.unrealizedPnl), Big(0));
-  const totalCollateral = unique.reduce((sum, p) => sum.plus(p.collateral), Big(0));
-  return {
-    ...market,
-    tradingAvailability,
-    abstractionMode: state.abstractionMode,
-    spotUsdcTotal: state.spotUsdcTotal,
-    spotUsdcAvailable: state.spotUsdcAvailable,
-    withdrawable: state.withdrawable,
-    positions: unique,
-    timestamp: Date.now(),
-    unavailableDexs: [...new Set(unavailableDexs)],
-    totalEquity: unique.reduce((sum, p) => sum.plus(p.equity), Big(0)).toFixed(),
-    totalPnl: totalPnl.toFixed(),
-    totalReturnOnEquity: totalCollateral.gt(0) ? totalPnl.div(totalCollateral).toFixed() : undefined,
-  };
+  let market: ApiPerpsMarketSnapshot | undefined;
+  const account = await getPerpsAccountSnapshot(accountId, async () => {
+    market = await perpsGetMarketSnapshot(langCode, options?.forceAssets ? { force: true } : undefined);
+    return market.assets;
+  });
+  return { ...market!, ...account };
 }
 
 export async function perpsGetCandles(assetId: string, period: ApiPriceHistoryPeriod): Promise<number[][]> {
@@ -246,18 +267,21 @@ export async function perpsGetAssetDetail(
   const { address } = await wallet(accountId);
   const detail = await perpsGetAsset({ ...page, chain: 'hyperliquid', address, asset: assetId });
   if (detail.asset?.id !== assetId) throw new Error('PerpsIncompleteData');
-  return { asset: enrichAsset(detail.asset), position: detail.position,
-    history: normalizePerpsActivityPage(detail, address) };
+  return { asset: enrichAsset(detail.asset), history: normalizePerpsActivityPage(detail, address) };
 }
 
 function estimateRequest(quote: ApiPerpsQuote): ApiPerpsEstimatePositionRequest {
+  if (quote.openFromBalance) {
+    const { chain, address, asset, side, amount, leverage, isCross } = quote.openFromBalance;
+    return { chain, address, asset, side, depositAmount: amount, leverage, isCross, fundingSource: 'balance' };
+  }
   if (quote.open) {
     const { chain, address, asset, side, depositAmount, leverage, isCross } = quote.open;
     return { chain, address, asset, side, depositAmount, leverage, isCross };
   }
   if (quote.modify) {
-    const { chain, address, asset, depositAmount, leverage, reduceOnly } = quote.modify;
-    return { chain, address, asset, depositAmount, leverage, reduceOnly };
+    const { chain, address, asset, depositAmount, leverage, reduceOnly, fundingSource } = quote.modify;
+    return { chain, address, asset, depositAmount, leverage, reduceOnly, fundingSource };
   }
   const { chain, address, asset } = quote.close!;
   return { chain, address, asset, close: true };
@@ -292,25 +316,111 @@ async function readFundingBalances(accountId: string, address: string, allowCach
   return pending;
 }
 
+type PerpsNativeFee = { eth: string; usd?: string };
+
+type PerpsDepositGas = {
+  requiredGasUsdc?: string;
+  nativeFee?: PerpsNativeFee;
+};
+
+async function readPerpsDepositGasUsdc(
+  accountId: string,
+  address: string,
+  paymentUsdc: string,
+): Promise<string> {
+  if (!Big(paymentUsdc).gt(0)) {
+    return '0';
+  }
+
+  return estimatePerpsDepositFundingGasUsdc(accountId, address, paymentUsdc);
+}
+
+/** ETH and USD estimates of a deposit's network fee, or nothing while fee data is unavailable. */
+async function estimatePerpsNetworkFee(accountId: string, address: string): Promise<PerpsNativeFee | undefined> {
+  try {
+    const { network } = parseAccountId(accountId);
+    const { nativeToken } = getChainConfig(PERPS_CCTP_DEPOSIT_CHAIN);
+    const eth = toDecimal(
+      await chains[PERPS_CCTP_DEPOSIT_CHAIN].estimatePerpsDepositNetworkFee(network, address),
+      nativeToken.decimals,
+    );
+    const priceUsd = getTokenBySlug(nativeToken.slug)?.priceUsd;
+    return { eth, usd: priceUsd ? Big(eth).mul(priceUsd).round(6, Big.roundUp).toFixed() : undefined };
+  } catch (err) {
+    logDebugError('estimatePerpsNetworkFee', err);
+    return undefined;
+  }
+}
+
+/** Starts the network-fee estimate of a wallet open or increase, which always deposits, alongside its estimate. */
+function startPerpsNetworkFee(quote: ApiPerpsQuote, address: string) {
+  return quote.funding !== 'balance' && (quote.kind === 'open' || quote.kind === 'increase')
+    ? estimatePerpsNetworkFee(quote.accountId, address) : undefined;
+}
+
+/**
+ * ETH gas when the wallet covers the estimated userOp. Otherwise the paymaster cost in USDC.
+ * `started` is an estimate already in flight; a settled `undefined` means that estimate failed.
+ */
+async function resolvePerpsDepositGas(
+  accountId: string,
+  address: string,
+  availableEth: string,
+  paymentUsdc: string,
+  started?: Promise<PerpsNativeFee | undefined>,
+): Promise<PerpsDepositGas> {
+  if (!Big(paymentUsdc).gt(0)) return {};
+
+  const nativeFee = await (started ?? estimatePerpsNetworkFee(accountId, address));
+  if (nativeFee && Big(availableEth).gte(nativeFee.eth)) {
+    return { nativeFee };
+  }
+
+  return { requiredGasUsdc: await readPerpsDepositGasUsdc(accountId, address, paymentUsdc) };
+}
+
+function applyPerpsDepositGas(quote: ApiPerpsQuote, gas: PerpsDepositGas) {
+  if (gas.requiredGasUsdc !== undefined) {
+    quote.estimatedNetworkFeeUsdc = gas.requiredGasUsdc;
+    return;
+  }
+  if (!gas.nativeFee) return;
+
+  quote.estimatedNetworkFeeEth = gas.nativeFee.eth;
+  if (gas.nativeFee.usd !== undefined) quote.estimatedNetworkFeeUsd = gas.nativeFee.usd;
+}
+
+async function attachPerpsFundingRequirements(
+  accountId: string,
+  address: string,
+  params: Parameters<typeof getPerpsFundingRequirements>[0],
+  paymentUsdc: string,
+): Promise<ApiPerpsFundingRequirements> {
+  const gas = await resolvePerpsDepositGas(accountId, address, params.availableEth, paymentUsdc);
+
+  return getPerpsFundingRequirements({ ...params, ...gas });
+}
+
 export async function perpsGetFundingRequirements(
   accountId: string, draft: ApiPerpsDraftRequest,
 ): Promise<ApiPerpsFundingRequirements> {
   const { address } = await wallet(accountId, true);
+  if (draft.funding === 'balance') {
+    const [response, positions] = await Promise.all([
+      perpsGetAssets(), perpsGetPositions({ addressByChain: { hyperliquid: address } }),
+    ]);
+    const asset = getTradablePerpsAsset(response.assetsByChain.hyperliquid, draft.assetId);
+    if (draft.editing && !findPerpsPosition(accountId, asset, positions)) throw new Error('PerpsPositionChanged');
+    const spendableUsdc = readPerpsSpendableUsdc(getPerpsPositionsState(positions).spendableUsdcByDex, asset.dex);
+    return buildFundingRequirements({ asset, draft, depositLimits: response.limitsByChain.hyperliquid, spendableUsdc });
+  }
   const [response, balances] = await Promise.all([
     perpsGetAssets(), readFundingBalances(accountId, address, false),
   ]);
-  const asset = buildPerpsMarketCatalogue(response).assets.find((value) => value.id === draft.assetId);
-  if (!asset) throw new Error('PerpsMarketUnavailable');
-  const availability = getPerpsMarketTradingAvailability(asset);
-  if (!availability.isAvailable) throw new Error(availability.reason);
-  let position: ApiPerpsSnapshot['positions'][number] | undefined;
-  if (draft.editing) {
-    const positions = (await perpsGetPositions({ addressByChain: { hyperliquid: address } }))
-      .positionsByChain.hyperliquid;
-    if (!positions) throw new Error('PerpsIncompleteData');
-    const raw = positions.assetPositions.find(({ position }) => position.coin === asset.name)?.position;
-    if (raw && !Big(raw.szi).eq(0)) position = normalizePerpsPosition(accountId, asset, raw);
-  }
+  const asset = getTradablePerpsAsset(response.assetsByChain.hyperliquid, draft.assetId);
+  const position = draft.editing
+    ? findPerpsPosition(accountId, asset, await perpsGetPositions({ addressByChain: { hyperliquid: address } }))
+    : undefined;
   const depositLimits = response.limitsByChain.hyperliquid;
   let leverageDepositAmount: string | undefined;
   if (position && draft.editing && draft.leverage !== position.raw.leverage.value
@@ -321,24 +431,60 @@ export async function perpsGetFundingRequirements(
     if ('error' in estimate) throw new Error(estimate.error);
     leverageDepositAmount = estimate.depositAmount;
   }
-  return getPerpsFundingRequirements({
+  const paymentUsdc = getPerpsFundingRequirements({
     asset, draft, position, depositLimits, leverageDepositAmount,
     ...balances,
+  }).requiredUsdc;
+
+  return attachPerpsFundingRequirements(accountId, address, {
+    asset, draft, position, depositLimits, leverageDepositAmount,
+    ...balances,
+  }, paymentUsdc);
+}
+
+/**
+ * What a draft requires from its source: the book's `spendableUsdc` when given, otherwise the wallet's `balances`.
+ */
+function buildFundingRequirements({ spendableUsdc, balances, ...params }: {
+  asset: ApiPerpsMarketAsset;
+  draft: ApiPerpsDraftRequest;
+  position?: ApiPerpsAccountPosition;
+  depositLimits: ApiPerpsLimits;
+  spendableUsdc?: string;
+  balances?: FundingBalances;
+  leverageDepositAmount?: string;
+}): ApiPerpsFundingRequirements {
+  if (spendableUsdc !== undefined) {
+    return getPerpsBalanceFundingRequirements(params.asset, params.draft.leverage, spendableUsdc);
+  }
+  return getPerpsFundingRequirements({
+    ...params,
+    ...balances!,
   });
 }
 
-async function estimatePerpsOrder(
-  quote: ApiPerpsQuote, asset: ApiPerpsMarketAsset, availableUsdc: string,
-): Promise<void> {
-  if (quote.kind === 'leverage') {
-    const modifyEstimate = await perpsEstimateModifyPosition({
-      chain: asset.chain, address: quote.modify!.address, asset: asset.id, leverage: quote.leverage,
-    });
-    if ('error' in modifyEstimate) throw new Error(modifyEstimate.error);
-    if (typeof modifyEstimate.depositAmount !== 'string') throw new Error('PerpsIncompleteData');
-    applyPerpsLeverageChangeDeposit(quote, modifyEstimate.depositAmount, availableUsdc);
-    quote.estimatedFees = modifyEstimate.estimatedFees;
-  }
+/**
+ * Quotes a leverage change and returns what it needs before its review adds headroom. `availableUsdc` is what the
+ * funding source holds. Without it (display previews), a deposit is not checked against it.
+ */
+async function estimatePerpsLeverageChange(
+  quote: ApiPerpsQuote, asset: ApiPerpsMarketAsset, availableUsdc?: string,
+): Promise<string> {
+  const fromBalance = quote.funding === 'balance';
+  const modifyEstimate = await perpsEstimateModifyPosition({
+    chain: asset.chain, address: quote.modify!.address, asset: asset.id, leverage: quote.leverage,
+    ...(fromBalance ? { fundingSource: 'balance' as const } : undefined),
+  });
+  if ('error' in modifyEstimate) throw new Error(modifyEstimate.error);
+  const needed = fromBalance ? modifyEstimate.marginAmount : modifyEstimate.depositAmount;
+  if (typeof needed !== 'string') throw new Error('PerpsIncompleteData');
+  if (fromBalance) applyPerpsLeverageChangeMargin(quote, needed, availableUsdc);
+  else applyPerpsLeverageChangeDeposit(quote, needed, availableUsdc);
+  quote.estimatedFees = modifyEstimate.estimatedFees;
+  return needed;
+}
+
+async function estimatePerpsOrder(quote: ApiPerpsQuote, asset: ApiPerpsMarketAsset): Promise<void> {
   if (quote.kind === 'unchanged') return;
   const request = quote.kind === 'leverage'
     ? { ...estimateRequest(quote), depositAmount: undefined } : estimateRequest(quote);
@@ -353,9 +499,13 @@ async function estimatePerpsOrder(
     throw new Error(estimate.error);
   }
   if (quote.kind !== 'leverage') quote.estimatedFees = estimate.estimatedFees;
+  if (quote.kind === 'open') quote.switchesToUnified = estimate.switchesToUnified;
   const size = Big(estimate.size);
   validatePerpsOrderSize(quote, asset, estimate.size);
-  if (quote.kind === 'close') return;
+  if (quote.kind === 'close') {
+    quote.estimatedReceiveAmount = getPerpsReceiveEstimate(quote);
+    return;
+  }
   if (quote.kind === 'leverage') {
     if (!size.eq(quote.previousSize!)) throw new Error('PerpsPositionChanged');
   } else {
@@ -364,10 +514,74 @@ async function estimatePerpsOrder(
     const totalSize = quote.kind === 'reduce' ? previousSize.minus(size) : previousSize.plus(size);
     if (totalSize.lte(0)) throw new Error('PerpsPositionChanged');
     quote.size = totalSize.toFixed();
-    quote.notional = quote.kind === 'open'
-      ? estimate.orderValue : totalSize.mul(quote.markPrice).toFixed();
+    // The estimate prices the order where its build will; the catalogue mark can lag that price.
+    const orderValue = Big(estimate.orderValue);
+    const price = orderValue.gt(0) ? orderValue.div(size) : Big(quote.markPrice);
+    quote.notional = quote.kind === 'open' ? estimate.orderValue : totalSize.mul(price).round(6).toFixed();
+    applyPerpsMarginEstimate(quote, estimate.marginRequired);
+    quote.estimatedReceiveAmount = getPerpsReceiveEstimate(quote);
   }
   quote.estimatedLiquidationPrice = positiveLiquidationPrice(estimate.liquidationPrice);
+}
+
+/**
+ * An order that deposits posts `marginRequired` of the credited USDC as margin. The rest of the credit, less the
+ * estimated trading fees, stays free on Hyperliquid. Unknown inputs leave the estimates unset, and an order paid from
+ * the balance deposits nothing to leave free.
+ */
+function applyPerpsMarginEstimate(quote: ApiPerpsQuote, marginRequired: string) {
+  if (quote.kind !== 'open' && quote.kind !== 'increase') return;
+  const margin = Big(marginRequired);
+  if (!margin.gt(0)) return;
+  quote.estimatedCollateral = margin.plus(quote.previousCollateral ?? 0).toFixed();
+  const trading = quote.estimatedFees?.trading;
+  if (trading === undefined || quote.funding === 'balance') return;
+  const remaining = Big(quote.paymentAmount).minus(quote.bridgeFee).minus(margin).minus(trading);
+  if (remaining.gte(0)) quote.estimatedRemainingCollateral = remaining.round(6, Big.roundDown).toFixed();
+}
+
+/**
+ * Prices a resolved quote and sets what it requires from its source. A quote paid from the balance must fit the book's
+ * spendable USDC. Any other quote reads `readBalances`, limits a leverage deposit to what the wallet holds, and pays
+ * the deposit gas in ETH when that balance covers it, otherwise in USDC.
+ */
+async function applyPerpsQuoteFunding(
+  quote: ApiPerpsQuote,
+  { address, availableUsdc, spendableUsdc, ...params }: {
+    address: string;
+    asset: ApiPerpsMarketAsset;
+    draft: ApiPerpsDraftRequest;
+    position?: ApiPerpsAccountPosition;
+    depositLimits: ApiPerpsLimits;
+    availableUsdc?: string;
+    spendableUsdc?: string;
+  },
+  readBalances: () => MaybePromise<FundingBalances>,
+) {
+  const nativeFeeEstimate = startPerpsNetworkFee(quote, address);
+  const leverageNeed = quote.kind === 'leverage'
+    ? await estimatePerpsLeverageChange(quote, params.asset, availableUsdc ?? spendableUsdc)
+    : undefined;
+  await estimatePerpsOrder(quote, params.asset);
+  if (spendableUsdc !== undefined) {
+    assertPerpsBalanceCovers(quote, params.asset, spendableUsdc);
+    quote.fundingRequirements = buildFundingRequirements({ ...params, spendableUsdc });
+    return;
+  }
+  const balances = await readBalances();
+  if (leverageNeed !== undefined && availableUsdc === undefined) {
+    limitPerpsLeverageChangeDeposit(quote, leverageNeed, balances.availableUsdc);
+  }
+  const gas = await resolvePerpsDepositGas(
+    quote.accountId, address, balances.availableEth, quote.paymentAmount, nativeFeeEstimate,
+  );
+  applyPerpsDepositGas(quote, gas);
+  quote.fundingRequirements = getPerpsFundingRequirements({
+    ...params,
+    ...balances,
+    ...gas,
+    leverageDepositAmount: leverageNeed,
+  });
 }
 
 /** Display estimate only. Review preparation refreshes funds and creates the executable quote. */
@@ -376,30 +590,26 @@ export async function perpsPreviewOrder(
 ): Promise<ApiPerpsQuote> {
   const { address } = await wallet(accountId, true);
   const response = await perpsGetAssets();
-  const asset = buildPerpsMarketCatalogue(response).assets.find((value) => value.id === request.assetId);
-  if (!asset) throw new Error('PerpsMarketUnavailable');
+  const asset = getTradablePerpsAsset(response.assetsByChain.hyperliquid, request.assetId);
   const depositLimits = response.limitsByChain.hyperliquid;
-  let position: ApiPerpsSnapshot['positions'][number] | undefined;
-  if ('kind' in request ? request.kind !== 'open' : request.editing) {
-    const state = (await getPreviewPositions(address)).positionsByChain.hyperliquid;
-    if (!state) throw new Error('PerpsIncompleteData');
-    const raw = state.assetPositions.find(({ position }) => position.coin === asset.name)?.position;
-    if (raw && !Big(raw.szi).eq(0)) position = normalizePerpsPosition(accountId, asset, raw);
-  }
+  const isEditing = 'kind' in request ? request.kind !== 'open' : request.editing;
+  const fromBalance = !('kind' in request) && request.funding === 'balance';
+  // The positions read also carries the spendable USDC a balance draft is checked against.
+  const positions = isEditing || fromBalance ? await getPreviewPositions(address) : undefined;
+  const position = isEditing ? findPerpsPosition(accountId, asset, positions!) : undefined;
   const draft = resolvePerpsTradeIntent(request, position);
-  const walletFraction = draft.fraction !== undefined && !draft.editing;
+  const spendableUsdc = fromBalance
+    ? readPerpsSpendableUsdc(getPerpsPositionsState(positions!).spendableUsdcByDex, asset.dex)
+    : undefined;
+  // A display preview checks the wallet balance only to size a wallet fraction; Review checks it in full.
+  const walletFraction = !fromBalance && draft.fraction !== undefined && !draft.editing;
   const fractionBalances = walletFraction ? await readFundingBalances(accountId, address, false) : undefined;
-  const availableUsdc = fractionBalances?.availableUsdc ?? '1e30';
-  const quote = resolvePerpsDraft({ accountId, address, asset, draft, position, depositLimits,
-    requestedKind: 'kind' in request ? request.kind : undefined,
-    availableUsdc, now: Date.now(), id: '' });
-  await estimatePerpsOrder(quote, asset, availableUsdc);
-  const balances = fractionBalances ?? (Big(quote.paymentAmount).gt(0)
-    ? await readFundingBalances(accountId, address) : { availableUsdc: '0', availableEth: '0' });
-  quote.fundingRequirements = getPerpsFundingRequirements({
-    asset, draft, position, depositLimits, ...balances,
-    leverageDepositAmount: quote.kind === 'leverage' ? quote.paymentAmount : undefined,
-  });
+  const availableUsdc = fractionBalances?.availableUsdc;
+  const params = { address, asset, draft, position, depositLimits, availableUsdc, spendableUsdc };
+  const quote = resolvePerpsDraft({ ...params, accountId, requestedKind: 'kind' in request ? request.kind : undefined,
+    now: Date.now(), id: '' });
+  await applyPerpsQuoteFunding(quote, params, () => fractionBalances ?? (Big(quote.paymentAmount).gt(0)
+    ? readFundingBalances(accountId, address) : { availableUsdc: '0', availableEth: '0' }));
   return quote;
 }
 
@@ -409,38 +619,27 @@ export async function perpsPrepareOrder(
 ): Promise<ApiPerpsQuote> {
   const { address } = await wallet(accountId, true);
   const snapshot = await perpsGetSnapshot(accountId, undefined, { forceAssets: true });
-  const asset = snapshot.assets.find((a) => a.id === request.assetId);
-
-  if (!asset || snapshot.unavailableDexs.includes(asset.dex)) throw new Error('PerpsMarketUnavailable');
-  const availability = getPerpsMarketTradingAvailability(asset);
-  if (!availability.isAvailable) throw new Error(availability.reason);
-  const balances = await readFundingBalances(accountId, address, false);
+  const asset = getTradablePerpsAsset(snapshot.assets, request.assetId, snapshot.unavailableDexs);
+  // A balance draft takes its margin from the book's spendable USDC and reads no wallet balance.
+  const spendableUsdc = !('kind' in request) && request.funding === 'balance'
+    ? readPerpsSpendableUsdc(snapshot.spendableUsdcByDex, asset.dex)
+    : undefined;
+  const balances = spendableUsdc === undefined ? await readFundingBalances(accountId, address, false) : undefined;
   const position = snapshot.positions.find((p) => p.assetId === request.assetId);
   const draft = resolvePerpsTradeIntent(request, position);
-  const { availableUsdc } = balances;
   const depositLimits = snapshot.limits;
-  const quote = resolvePerpsDraft({ accountId, address, asset, draft, position, depositLimits, availableUsdc,
-    requestedKind: 'kind' in request ? request.kind : undefined,
+  const availableUsdc = balances?.availableUsdc;
+  const params = { address, asset, draft, position, depositLimits, availableUsdc, spendableUsdc };
+  const quote = resolvePerpsDraft({ ...params, accountId, requestedKind: 'kind' in request ? request.kind : undefined,
     now: Date.now(), id: crypto.randomUUID() });
-  await estimatePerpsOrder(quote, asset, availableUsdc);
-  const fundingRequirements = getPerpsFundingRequirements({
-    asset, draft, position, depositLimits, availableUsdc,
-    availableEth: balances.availableEth,
-    leverageDepositAmount: quote.kind === 'leverage' ? quote.paymentAmount : undefined,
-  });
+  await applyPerpsQuoteFunding(quote, params, () => balances!);
+  if (quote.fundingRequirements!.needsUsdc) throw new Error('PerpsInsufficientUsdc');
 
-  if (fundingRequirements.needsEth) throw new Error('PerpsInsufficientGas');
-  quote.fundingRequirements = fundingRequirements;
   for (const [id, q] of quotes) if (q.expiresAt < Date.now()) quotes.delete(id);
   while (quotes.size >= 128) quotes.delete(quotes.keys().next().value!);
 
   quotes.set(quote.id, quote);
   return quote;
-}
-
-export function perpsGetOperation(accountId: string, id: string): ApiPerpsOperation | undefined {
-  const operation = operations.get(id);
-  return operation?.accountId === accountId ? { ...operation } : undefined;
 }
 
 export async function perpsExecuteReviewedOrder(
@@ -449,11 +648,8 @@ export async function perpsExecuteReviewedOrder(
   quoteId: string,
   operationId: string,
 ): Promise<ApiPerpsOperation> {
-  const existing = operations.get(operationId);
-  if (existing) {
-    if (existing.accountId !== accountId) throw new Error('PerpsInvalidOperation');
-    return { ...existing };
-  }
+  const existing = readExistingOperation(accountId, operationId);
+  if (existing) return existing;
   const quote = quotes.get(quoteId);
   if (!quote || quote.accountId !== accountId || quote.expiresAt < Date.now()) {
     throw new Error('PerpsQuoteExpired');
@@ -462,11 +658,8 @@ export async function perpsExecuteReviewedOrder(
   if (hasUnresolvedOperation(accountId, quote)) throw new Error('PerpsOperationPending');
   await wallet(accountId, true);
   // Recheck after wallet resolution: another account may have claimed this operation ID.
-  const concurrent = operations.get(operationId);
-  if (concurrent) {
-    if (concurrent.accountId !== accountId) throw new Error('PerpsInvalidOperation');
-    return { ...concurrent };
-  }
+  const concurrent = readExistingOperation(accountId, operationId);
+  if (concurrent) return concurrent;
   // Another confirmation can have started while resolving the wallet.
   if (hasUnresolvedOperation(accountId, quote) || !quotes.has(quoteId)) throw new Error('PerpsOperationPending');
   const operation: ApiPerpsOperation = {
@@ -482,6 +675,7 @@ export async function perpsExecuteReviewedOrder(
   };
   operations.set(operationId, operation);
   quotes.delete(quoteId);
+  const depositsFromWallet = quote.funding !== 'balance' && Big(quote.paymentAmount).gt(0);
   let started = false;
   try {
     const snapshot = await perpsGetSnapshot(accountId, undefined, { forceAssets: true });
@@ -503,16 +697,23 @@ export async function perpsExecuteReviewedOrder(
     const availability = getPerpsMarketTradingAvailability(asset);
     if (!availability.isAvailable) throw new Error(availability.reason);
     if (quote.wireAssetIndex !== getPerpsWireAssetIndex(asset)) throw new Error('PerpsReviewChanged');
+    assertPerpsBalanceCovers(quote, asset, readPerpsSpendableUsdc(snapshot.spendableUsdcByDex, asset.dex));
     let submittedOrderSize: string | undefined;
     const hooks = {
       validateBuild: (build: Parameters<typeof validatePerpsReviewedBuild>[2]) => {
         validatePerpsReviewedBuild(quote, asset, build);
+        // The switch changes the whole account, so this read has to agree that nothing it holds could be affected.
+        if (build.setAbstraction && (
+          snapshot.abstractionMode !== 'default' || snapshot.positions.length || snapshot.unavailableDexs.length
+        )) {
+          throw new Error('PerpsReviewChanged');
+        }
         const orders = build.action?.orders;
         if (Array.isArray(orders) && typeof orders[0]?.s === 'string') submittedOrderSize = orders[0].s;
       },
       onSubmitting: () => {
         started = true;
-        operation.stage = Big(quote.paymentAmount).gt(0) ? 'deposit' : 'trade';
+        operation.stage = depositsFromWallet ? 'deposit' : 'trade';
         publishOperation(operation);
       },
       onDeposit: (hash: string) => {
@@ -536,29 +737,34 @@ export async function perpsExecuteReviewedOrder(
         operation.withdrawalAmount = amount;
         publishOperation(operation);
       },
+      onWithdrawalRejected: (reason: string) => {
+        operation.error = `PerpsWithdrawalRejected: ${reason}`;
+      },
     };
     if (quote.close) {
-      const result = await executePerpsClosePosition(accountId, enclaveToken, quote.close, hooks);
-      if ('error' in result) throw new Error(result.error);
-      operation.state = result.phase === 'completed' ? 'completed' : 'partial';
+      const failure = await executePerpsClosePosition(accountId, enclaveToken, quote.close, hooks);
+      if (failure) throw new Error(failure.error);
+      // The close order filled. Proceeds the backend did not withdraw stay on the HyperCore balance, as for a reduce.
+      operation.state = 'completed';
     } else {
-      const result = quote.open
-        ? await executePerpsOpenPosition(accountId, enclaveToken, quote.open, hooks)
-        : await executePerpsModifyPosition(accountId, enclaveToken, quote.modify!, hooks);
+      const result = quote.openFromBalance
+        ? await executePerpsOpenPositionFromBalance(accountId, enclaveToken, quote.openFromBalance, hooks)
+        : quote.open
+          ? await executePerpsOpenPosition(accountId, enclaveToken, quote.open, hooks)
+          : await executePerpsModifyPosition(accountId, enclaveToken, quote.modify!, hooks,
+            quote.funding === 'balance' && quote.kind === 'leverage' ? quote.paymentAmount : undefined);
       if ('error' in result) {
-        throw new Error(result.error === 'InsufficientBalance' && Big(quote.paymentAmount).gt(0)
-          ? 'PerpsInsufficientGas' : result.error);
+        throw new Error(result.error === 'InsufficientBalance' && depositsFromWallet
+          ? 'PerpsInsufficientUsdc' : result.error);
       }
       hooks.onTrade(result);
       if (result.status.startsWith('error:')) throw new Error(result.status);
-      operation.state
-        = 'withdrawalPhase' in result && result.withdrawalPhase === 'withdraw_unavailable'
-          ? 'partial'
-          : result.status === 'filled' || (quote.kind === 'leverage' && result.status === 'ok')
-            ? 'completed'
-            : 'unknown';
+      operation.state = result.status === 'filled' || (quote.kind === 'leverage' && result.status === 'ok')
+        ? 'completed'
+        : 'unknown';
     }
-    if (operation.filledSize && submittedOrderSize && Big(operation.filledSize).lt(submittedOrderSize)) {
+    if (!operation.error && operation.filledSize && submittedOrderSize
+      && Big(operation.filledSize).lt(submittedOrderSize)) {
       operation.error = 'PerpsPartialFill';
     }
     operation.stage = 'finished';
@@ -567,15 +773,15 @@ export async function perpsExecuteReviewedOrder(
     operation.error = rejected ? getPerpsOrderError(operation.orderStatus!)
       : error instanceof Error ? error.message : String(error);
     const signatureRejected = isRejectedExchangeSignature(operation);
-    // A rejected order that pays nothing moved no funds. Deposits and uncertain withdrawals still need recovery.
+    // A rejected order that deposits nothing moved no funds. Deposits and uncertain withdrawals still need recovery.
     operation.state = !started || signatureRejected
-      || (rejected && !Big(quote.paymentAmount).gt(0)
-        && operation.stage !== 'withdrawal') ? 'failed' : 'unknown';
+      || (rejected && !depositsFromWallet && operation.stage !== 'withdrawal') ? 'failed' : 'unknown';
     if (signatureRejected) operation.error = `PerpsOrderRejected: ${operation.error}`;
     if (operation.state === 'failed' && started) operation.stage = 'finished';
   } finally {
     publishOperation(operation);
     balanceRefreshRequests.runCallbacks(accountId, 'arbitrum');
+    if (started) requestPerpsPositionsRefresh(accountId);
   }
   return { ...operation };
 }
@@ -621,17 +827,26 @@ function hasRunningOperation(accountId: string): boolean {
     operation.accountId === accountId && operation.state === 'running');
 }
 
+/** Runs a balance action while blocking reviewed trading, until `heldUntil` of its result settles when given. */
 async function withPerpsBalanceLock<T>(
   accountId: string,
   run: (address: string) => Promise<T>,
+  heldUntil?: (result: T) => Promise<void> | undefined,
 ): Promise<T> {
   const { address } = await wallet(accountId, true);
   if (hasUnresolvedOperation(accountId)) throw new Error('PerpsOperationPending');
   balanceAccountIds.add(accountId);
-  try {
-    return await run(address);
-  } finally {
+  const release = () => {
     balanceAccountIds.delete(accountId);
+  };
+  let held: Promise<void> | undefined;
+  try {
+    const result = await run(address);
+    held = heldUntil?.(result);
+    return result;
+  } finally {
+    if (held) void held.then(release, release);
+    else release();
   }
 }
 
@@ -645,25 +860,12 @@ export async function perpsDepositMargin(
   enclaveToken: string,
   amount: string,
 ): Promise<{ submitted: true } | { error: string }> {
-  const { address } = await wallet(accountId, true);
-  if (hasUnresolvedOperation(accountId)) throw new Error('PerpsOperationPending');
-  balanceAccountIds.add(accountId);
-  let handedOff = false;
-  try {
-    const result = await executePerpsDepositMargin(
-      accountId, enclaveToken, { chain: 'hyperliquid', address, amount },
-    );
-    if ('completion' in result) {
-      handedOff = true;
-      void result.completion.finally(() => {
-        balanceAccountIds.delete(accountId);
-      });
-      return { submitted: true };
-    }
-    return result;
-  } finally {
-    if (!handedOff) balanceAccountIds.delete(accountId);
-  }
+  const result = await withPerpsBalanceLock(
+    accountId,
+    (address) => executePerpsDepositMargin(accountId, enclaveToken, { chain: 'hyperliquid', address, amount }),
+    (deposit) => ('completion' in deposit ? deposit.completion : undefined),
+  );
+  return 'completion' in result ? { submitted: true } : result;
 }
 
 /** Send USDC from the perps balance back to the account wallet. Does not change a position. */
@@ -675,6 +877,109 @@ export function perpsWithdrawMargin(
   return withPerpsBalanceLock(accountId, (address) => executePerpsWithdrawMargin(
     accountId, enclaveToken, { chain: 'hyperliquid', address, amount },
   ));
+}
+
+/**
+ * A fresh review of withdrawing all that one withdrawal can send from the HyperCore balance to the account's wallet.
+ * The quote is valid for 60 seconds.
+ */
+export async function perpsPrepareBalanceWithdrawal(accountId: string): Promise<ApiPerpsBalanceWithdrawalQuote> {
+  const { address } = await wallet(accountId, true);
+  if (hasUnresolvedOperation(accountId)) throw new Error('PerpsOperationPending');
+  const preview = getPerpsBalanceWithdrawalPreview(
+    getPerpsPositionsState(await perpsGetPositions({ addressByChain: { hyperliquid: address } })),
+  );
+  if (!preview) throw new Error('PerpsNothingToWithdraw');
+  const build = await perpsBuildBalanceWithdraw({ chain: 'hyperliquid', address, amount: preview.amount }, address);
+  assertHyperliquidExchangeBuildIntegrity(build, { expectedWalletRecipient: address });
+  const quote: ApiPerpsBalanceWithdrawalQuote = {
+    ...preview, id: crypto.randomUUID(), accountId, destination: address, expiresAt: Date.now() + 60_000,
+  };
+  balanceWithdrawalReviews.set(accountId, { quote, sourceDex: build.action.sourceDex });
+  return quote;
+}
+
+/**
+ * Sends the reviewed withdrawal once, building it again and requiring the reviewed amount and source. A failure before
+ * submission or a venue rejection is `failed`. Any other result that does not confirm it is `unknown` and never retried.
+ */
+export async function perpsExecuteBalanceWithdrawal(
+  accountId: string,
+  enclaveToken: string,
+  quoteId: string,
+  operationId: string,
+): Promise<ApiPerpsOperation> {
+  const existing = readExistingOperation(accountId, operationId);
+  if (existing) return existing;
+  if (!readBalanceWithdrawalReview(accountId, quoteId)) throw new Error('PerpsQuoteExpired');
+  return withPerpsBalanceLock(accountId, async (address) => {
+    const concurrent = readExistingOperation(accountId, operationId);
+    if (concurrent) return concurrent;
+    const review = readBalanceWithdrawalReview(accountId, quoteId);
+    if (!review || !isPerpsWalletAddress(review.quote.destination, address)) throw new Error('PerpsQuoteExpired');
+    balanceWithdrawalReviews.delete(accountId);
+    const operation: ApiPerpsOperation = {
+      id: operationId,
+      accountId,
+      assetId: PERPS_BALANCE_WITHDRAWAL_ASSET_ID,
+      kind: 'withdraw',
+      state: 'running',
+      stage: 'preparing',
+      createdAt: Date.now(),
+      withdrawalAmount: review.quote.amount,
+      balanceWithdrawal: review.quote,
+    };
+    operations.set(operationId, operation);
+    let started = false;
+    try {
+      const result = await executePerpsWithdrawMargin(
+        accountId,
+        enclaveToken,
+        { chain: 'hyperliquid', address, amount: review.quote.amount },
+        {
+          validateBuild: (build) => {
+            if (build.action?.sourceDex !== review.sourceDex) throw new Error('PerpsReviewChanged');
+          },
+          onSubmitting: () => {
+            started = true;
+            operation.stage = 'withdrawal';
+            publishOperation(operation);
+          },
+        },
+      );
+      if ('error' in result) throw new Error(result.error);
+      operation.orderStatus = result.status;
+      if (result.status.startsWith('error')) {
+        operation.state = 'failed';
+        operation.error = `PerpsWithdrawalRejected: ${result.status}`;
+      } else {
+        operation.state = result.status === 'success' ? 'completed' : 'unknown';
+      }
+      operation.stage = 'finished';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (started && isPerpsVenueRejection(error)) {
+        operation.state = 'failed';
+        operation.stage = 'finished';
+        operation.error = `PerpsWithdrawalRejected: ${message}`;
+      } else {
+        operation.state = started ? 'unknown' : 'failed';
+        // The build refuses an amount its source no longer covers.
+        operation.error = !started && error instanceof ApiServerError && error.statusCode === 400
+          ? 'PerpsReviewChanged' : message;
+      }
+    } finally {
+      publishOperation(operation);
+      balanceRefreshRequests.runCallbacks(accountId, 'arbitrum');
+      if (started) requestPerpsPositionsRefresh(accountId);
+    }
+    return { ...operation };
+  });
+}
+
+function readBalanceWithdrawalReview(accountId: string, quoteId: string) {
+  const review = balanceWithdrawalReviews.get(accountId);
+  return review?.quote.id === quoteId && review.quote.expiresAt >= Date.now() ? review : undefined;
 }
 
 /** Open a position using USDC already on the perps balance. Does not bridge a deposit. */
@@ -706,16 +1011,20 @@ export function perpsOpenFromBalance(
 async function buildWithdrawalReview(
   request: ApiPerpsBuildWithdrawalRequest,
 ): Promise<ApiPerpsWithdrawPermit> {
-  const result = await perpsBuildWithdrawal(request);
+  return validateWithdrawalReview(request, await perpsBuildWithdrawal(request));
+}
+
+function validateWithdrawalReview(
+  request: ApiPerpsBuildWithdrawalRequest,
+  result: Awaited<ReturnType<typeof perpsBuildWithdrawal>>,
+): ApiPerpsWithdrawPermit {
   const { withdraw } = result;
   if (!withdraw) throw new Error('PerpsWithdrawalPending');
-  if (typeof result.address !== 'string' || result.address.toLowerCase() !== request.address.toLowerCase()) {
-    throw new Error('PerpsInvalidOperation');
-  }
+  if (!isPerpsWalletAddress(result.address, request.address)) throw new Error('PerpsInvalidOperation');
   assertHyperliquidWithdrawPermitIntegrity(withdraw, request.address);
   if (!Big(withdraw.amountUsdc).gt(PERPS_CCTP_FORWARD_FEE_USDC)
     || !Big(withdraw.amountUsdc).eq(String(withdraw.action.amount))
-    || (request.amountUsdc !== undefined && !Big(withdraw.amountUsdc).eq(request.amountUsdc))) {
+    || (request.amountUsdc !== undefined && Big(withdraw.amountUsdc).gt(request.amountUsdc))) {
     throw new Error('PerpsReviewChanged');
   }
   return withdraw;
@@ -727,15 +1036,22 @@ export async function perpsPrepareWithdrawal(accountId: string, operationId: str
     || !['close', 'reduce'].includes(operation.kind)) throw new Error('PerpsInvalidOperation');
   if (hasRunningOperation(accountId)) throw new Error('PerpsOperationPending');
   withdrawalReviews.delete(operationId);
-  const amountUsdc = operation.kind === 'reduce' ? operation.withdrawalRequestedAmount : undefined;
-  if (operation.kind === 'reduce' && (!amountUsdc || !Big(amountUsdc).gt(PERPS_CCTP_FORWARD_FEE_USDC))) {
-    throw new Error('PerpsWithdrawalPending');
-  }
+  // Recovery withdraws at most what the order prepared or a reduce released. Only a close without either sweeps.
+  const amountUsdc = operation.withdrawalAmount ?? operation.withdrawalRequestedAmount;
   const { address } = await wallet(accountId, true);
   const request: ApiPerpsBuildWithdrawalRequest = {
     chain: 'hyperliquid', address, asset: operation.assetId, amountUsdc,
   };
-  const withdraw = await buildWithdrawalReview(request);
+  // With nothing to withdraw the funds stay on the HyperCore balance, and the filled order holds no lock.
+  const hasAmount = operation.kind !== 'reduce' || (amountUsdc && Big(amountUsdc).gt(PERPS_CCTP_FORWARD_FEE_USDC));
+  const result = hasAmount ? await perpsBuildWithdrawal(request) : undefined;
+  if (!result?.withdraw) {
+    operation.state = 'completed';
+    operation.stage = 'finished';
+    publishOperation(operation);
+    throw new Error('PerpsWithdrawalPending');
+  }
+  const withdraw = validateWithdrawalReview(request, result);
   if (operation.state !== 'partial' || operations.get(operationId) !== operation || hasRunningOperation(accountId)) {
     throw new Error('PerpsOperationPending');
   }
@@ -783,11 +1099,12 @@ export async function perpsRetryWithdrawal(
     operation.state = result.phase === 'completed' && result.withdrawResult ? 'completed' : 'unknown';
     operation.stage = 'finished';
   } catch (error) {
-    operation.state = submitted ? 'unknown' : 'partial';
+    operation.state = submitted && !isPerpsVenueRejection(error) ? 'unknown' : 'partial';
     operation.stage = 'withdrawal';
     operation.error = error instanceof Error ? error.message : String(error);
   }
   balanceRefreshRequests.runCallbacks(accountId, 'arbitrum');
+  if (submitted) requestPerpsPositionsRefresh(accountId);
   publishOperation(operation);
   return { ...operation };
 }

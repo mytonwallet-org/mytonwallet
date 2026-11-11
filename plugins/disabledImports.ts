@@ -31,7 +31,9 @@ const DISABLED_IMPORTS: Record<string, Record<string, string[]>> = {
     'src/api/dappProtocols/index.ts': ['./adapters/walletConnect'],
     'src/api/methods/auth.ts': ['./agentV2Lifecycle'],
     'src/api/methods/init.ts': ['./agentV2Lifecycle', './extra'],
-    'src/api/methods/optional.ts': ['./agentV2Lifecycle', './mfa', '../common/perpsAssets', './staking', './swap'],
+    'src/api/methods/optional.ts': [
+      './agentV2Lifecycle', './mfa', '../common/perpsAssets', './perpsPositions', './staking', './swap',
+    ],
     'src/api/methods/other.ts': ['../../assets/receiveGradientSvgs'],
     'src/api/methods/registry.ts': ['./agentV2', './extra'],
   },

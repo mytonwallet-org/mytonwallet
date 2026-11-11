@@ -11,6 +11,7 @@ import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentMarkDrawable
+import org.mytonwallet.app_air.uicomponents.emoji.EmojiSpan
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -88,7 +89,9 @@ internal class AgentThreadAvatarView(context: Context, private val diameter: Int
     }
 
     private companion object {
-        const val EMOJI_SIZE_RATIO = 0.56f
+        // iOS's emoji across 26/60 of the diameter, as Telegram's 26 pt emoji in its 60 pt circle. Both draw Apple's
+        // emoji image: iOS one font size across, the emoji span its own ratio of the text size.
+        const val EMOJI_SIZE_RATIO = 26f / 60f / EmojiSpan.TEXT_SIZE_RATIO
         const val MARK_SIZE_RATIO = 0.6f
         const val EMOJI_ARRIVAL_SCALE = 0.6f
         const val EMOJI_ARRIVAL_MS = 250L

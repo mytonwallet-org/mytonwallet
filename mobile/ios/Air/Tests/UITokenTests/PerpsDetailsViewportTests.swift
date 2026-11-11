@@ -10,10 +10,11 @@ struct PerpsDetailsViewportTests {
     func closePreparationSurvivesRefreshAndPreventsConflictingActions() throws {
         _ = WalletResourcesBundle.bundle.load()
         let market = PerpsMarketDisplayData(title: "Bitcoin Futures", token: .ETH, price: 80_000,
-            percentChange24h: 0, history: [], description: "", fundingRate: "0.001%", maxLeverage: "40x", volume24h: "$1B", openInterest: "$2B")
+            percentChange24h: 0, history: [], description: "", fundingRate: "0.001%", maxLeverage: "40x",
+            volume24h: "$1B", openInterest: "$2B", canTrade: true)
         var data = PerpsPositionDisplayData(id: "position", market: market, direction: .long, leverage: 2,
             equity: .fromDouble(25, .USD), profitLoss: .init("$0"), invested: "$25", entryPrice: "$80 000",
-            liquidationPrice: "$40 000", positionSize: "$50", fundingPayments: .init("$0"), canEdit: true, canClose: true)
+            liquidationPrice: "$40 000", positionSize: "$50", fundingPayments: .init("$0"))
         var actions: [PerpsPositionAction] = []
         let controller = PerpsPositionVC(data: data, onSelectPeriod: { _ in }, onAction: { actions.append($0) })
         controller.loadViewIfNeeded()
@@ -43,10 +44,10 @@ struct PerpsDetailsViewportTests {
         close.sendActions(for: .touchUpInside)
         #expect(actions.count == 2)
 
-        data.canClose = false
+        data.market.canTrade = false
         controller.update(data: data)
-        close.sendActions(for: .touchUpInside)
-        #expect(actions.count == 2)
+        #expect(!edit.isEnabled)
+        #expect(close.accessibilityTraits.contains(.notEnabled))
     }
 
     @Test(arguments: [false, true], [false, true])
@@ -65,7 +66,8 @@ struct PerpsDetailsViewportTests {
         }
         setLayoutDirection(controller.view)
         let layout = try #require(controller.view.subviews.compactMap { $0 as? AssetDetailsView }.first)
-        let actions = try #require(layout.subviews.compactMap { $0 as? WActionButtonBar }.first)
+        let actions = try #require(descendants(layout).compactMap { $0 as? WActionButtonBar }.first)
+        func actionsFrame() -> CGRect { actions.convert(actions.bounds, to: layout) }
         let footer = UIView()
         footer.heightAnchor.constraint(equalToConstant: 1_200).isActive = true
         layout.content.addArrangedSubview(footer)
@@ -79,7 +81,7 @@ struct PerpsDetailsViewportTests {
             #expect(scroll.frame == layout.bounds)
             #expect(layout.frame == controller.view.bounds)
             #expect(abs(scroll.adjustedContentInset.top - layout.safeAreaInsets.top) < 0.5)
-            #expect(abs(scroll.adjustedContentInset.bottom - (layout.bounds.maxY - actions.frame.minY + 12)) < 0.5)
+            #expect(abs(scroll.adjustedContentInset.bottom - (layout.bounds.maxY - actionsFrame().minY + 12)) < 0.5)
             #expect(scroll.contentSize.width + scroll.adjustedContentInset.left + scroll.adjustedContentInset.right <= scroll.bounds.width + 0.5)
         }
         checkInsets()
@@ -92,12 +94,12 @@ struct PerpsDetailsViewportTests {
         #expect(firstFrame.minY < layout.safeAreaInsets.top)
         #expect(firstFrame.maxY > 0)
         #expect(scroll.frame.contains(CGPoint(x: layout.bounds.midX, y: 1)))
-        #expect(scroll.frame.contains(CGPoint(x: layout.bounds.midX, y: actions.frame.midY)))
-        let behindButtons = try #require(layout.hitTest(CGPoint(x: 20, y: actions.frame.midY), with: nil))
+        #expect(scroll.frame.contains(CGPoint(x: layout.bounds.midX, y: actionsFrame().midY)))
+        let behindButtons = try #require(layout.hitTest(CGPoint(x: 20, y: actionsFrame().midY), with: nil))
         #expect(behindButtons === scroll || behindButtons.isDescendant(of: scroll))
 
         scroll.contentOffset.y = scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
-        #expect(abs(footer.convert(footer.bounds, to: layout).maxY - (actions.frame.minY - 28)) < 0.5)
+        #expect(abs(footer.convert(footer.bounds, to: layout).maxY - (actionsFrame().minY - 28)) < 0.5)
 
         controller.additionalSafeAreaInsets = .init(top: 18, left: 40, bottom: 27, right: 8)
         window.layoutIfNeeded()
@@ -107,7 +109,7 @@ struct PerpsDetailsViewportTests {
         #expect(abs(contentFrame.minX - layout.safeAreaInsets.left - 16) < 0.5)
         #expect(abs(contentFrame.maxX - (layout.bounds.maxX - layout.safeAreaInsets.right - 16)) < 0.5)
         scroll.contentOffset.y = scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
-        #expect(abs(footer.convert(footer.bounds, to: layout).maxY - (actions.frame.minY - 28)) < 0.5)
+        #expect(abs(footer.convert(footer.bounds, to: layout).maxY - (actionsFrame().minY - 28)) < 0.5)
     }
 
     private func makeController(isPosition: Bool) -> UIViewController {
@@ -121,5 +123,9 @@ struct PerpsDetailsViewportTests {
             return PerpsPositionVC(data: data, onSelectPeriod: { _ in }, onAction: { _ in })
         }
         return PerpsMarketVC(data: market, onSelectPeriod: { _ in }, onSelectDirection: { _ in })
+    }
+
+    private func descendants(_ view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants($0) }
     }
 }

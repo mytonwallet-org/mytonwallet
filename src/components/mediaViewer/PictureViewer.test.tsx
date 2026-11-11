@@ -141,20 +141,27 @@ describe('the News picture viewer', () => {
     expect(globalState.getGlobal().mediaViewer.mediaId).toBe('second');
   });
 
-  it('heads a picture with its source, its place among several and its date, as Telegram heads a photo', async () => {
+  it('heads a picture with its place among several over its date, and a single picture with its date', async () => {
     const onClick = jest.fn();
     TeactDOM.render(<PictureInfo news={NEWS} position={2} count={3} onClick={onClick} />, root);
     await pause(20);
 
-    expect(root.textContent).toContain('Source');
-    expect(root.textContent).toContain('$agent_wallet_page_indicator 2/3');
+    function getLines() {
+      return Array.from(root.querySelectorAll<HTMLElement>('[dir="auto"]')).map((line) => line.textContent);
+    }
+
+    const date = getLines()[1];
+    expect(getLines()).toEqual(['$agent_wallet_page_indicator 2/3', date]);
+    expect(date).toMatch(/, /u);
+    expect(root.textContent).not.toContain('Source');
+    expect(root.querySelector('.pictureInfoAvatar')).toBeNull();
     root.querySelector<HTMLElement>('[dir="auto"]')!.click();
     expect(onClick).toHaveBeenCalledTimes(1);
 
     // A discussion's post has its picture alone, which needs no count
     TeactDOM.render(<PictureInfo news={NEWS} position={1} count={1} onClick={onClick} />, root);
     await pause(20);
-    expect(root.textContent).not.toContain('$agent_wallet_page_indicator');
+    expect(getLines()).toEqual([date]);
   });
 
   it('offers the post\'s own actions as buttons on a desktop, without saving the picture', async () => {

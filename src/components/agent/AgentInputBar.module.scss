@@ -85,7 +85,8 @@
 
   height: auto;
   min-height: 2.75rem !important;
-  max-height: 7.5rem;
+  // The chat sets how tall the field can grow, up to near its header
+  max-height: var(--agent-input-max-height, 7.5rem);
   padding-block: 0.75rem !important;
   padding-inline: 0.75rem var(--agent-input-inline-end-padding) !important;
   border: none !important;
@@ -103,6 +104,39 @@
   &:focus {
     box-shadow: none !important;
   }
+}
+
+// While a transcript's characters come in, they are drawn over the text, which keeps only its caret
+.inputRevealing {
+  color: transparent !important;
+  caret-color: var(--color-black);
+}
+
+// The transcript's characters, over the field's own text, which they match letter for letter once they are placed
+.transcriptReveal {
+  pointer-events: none;
+
+  position: absolute;
+
+  overflow: hidden;
+
+  box-sizing: border-box;
+
+  color: var(--color-black);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+
+  visibility: hidden;
+}
+
+// A character comes out of a blur in the accent, as on iOS: at 15% of its opacity, casting a shadow of the accent 6 px
+// wide, it sharpens within 0.15 s and then turns to the text's colour over 0.5 s
+.transcriptCharacter {
+  animation: agent-transcript-character 650ms linear backwards;
+}
+
+.transcriptFade {
+  animation: agent-transcript-fade 300ms ease-out backwards;
 }
 
 // The text keeps clear of the send button in the field
@@ -206,15 +240,50 @@
   @include fieldSurface;
 }
 
+// It holds the microphone, or the square of Stop while an answer is being written
 .microphoneButton {
   touch-action: none;
   user-select: none;
+  position: relative;
 }
 
 // `Icons/20px/Microphone Icon` at its own size
 .microphoneIcon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+// The microphone shrinks away as the square grows in its place, and back
+.microphoneIcon,
+.stopIcon {
+  @include mixins.transition("transform 200ms ease, opacity 200ms ease");
+}
+
+// Stop's filled square, as Telegram's and ChatGPT's
+.stopIcon {
+  position: absolute;
+  inset: 0;
+  transform: scale(0.5);
+
+  width: 0.875rem;
+  height: 0.875rem;
+  margin: auto;
+  border-radius: 0.1875rem;
+
+  opacity: 0;
+  background-color: currentColor;
+}
+
+.stopButton {
+  .microphoneIcon {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  .stopIcon {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 // The strip takes the text's place, and the circle the finish button's while the finger holds the recording
@@ -256,6 +325,20 @@
   animation:
     agent-dictation-dot-in 150ms ease-in-out,
     agent-dictation-dot-blink 500ms ease-in-out 150ms infinite alternate;
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// A held recording's dot stands still and grey, as the recording waits
+.recordingDotPaused {
+  background-color: var(--color-gray-3);
+  animation: none;
 }
 
 .dictationTimer {
@@ -267,6 +350,10 @@
   color: var(--color-black);
 
   animation: agent-dictation-fade-in 500ms ease-out;
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
 }
 
 .dictationEnding {
@@ -312,6 +399,11 @@
     animation-name: agent-dictation-hint-in-rtl, agent-dictation-hint-wobble-rtl;
   }
 
+  // The right-to-left rule above is as specific, so this one comes after it to win in both directions
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
@@ -343,6 +435,10 @@
   outline: none;
 
   animation: agent-dictation-cancel-in 250ms cubic-bezier(0.38, 0.7, 0.125, 1);
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
 
   &:focus-visible {
     background-color: var(--color-accent-10o);
@@ -420,6 +516,24 @@
 @keyframes agent-dictation-cancel-in {
   from {
     transform: translateY(1.375rem) scale(0.25);
+    opacity: 0;
+  }
+}
+
+@keyframes agent-transcript-character {
+  0% {
+    color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    filter: drop-shadow(0 0 0.375rem color-mix(in srgb, var(--color-accent) 90%, transparent));
+  }
+
+  23.077% {
+    color: var(--color-accent);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+@keyframes agent-transcript-fade {
+  from {
     opacity: 0;
   }
 }

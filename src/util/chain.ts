@@ -194,7 +194,7 @@ export interface ChainConfig {
 
 // Address-matching precedence order (NOT the display order — see `CHAIN_DISPLAY_ORDER` below).
 // A pasted address is matched against chains in this order and the first match wins, so the chain with the more
-// specific address regex must come first: e.g. a TRON address also matches Solana's regex, so `tron` must precede
+// specific address regex must come first: e.g. a Bitcoin address can match Solana's regex, so `bitcoin` must precede
 // `solana`; and all EVM chains share the same regex, so the first EVM chain (`ethereum`) is the default match.
 export const CHAIN_ORDER: ApiChain[] = [
   'ton',
@@ -425,7 +425,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isSubwalletsSupported: true,
     defaultDerivationPath: SOLANA_DERIVATION_PATHS.phantom,
     isNftSupported: true,
-    addressRegex: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+    // A 32-byte Base58 address shorter than 43 characters starts with `1`
+    addressRegex: /^(?:[1-9A-HJ-NP-Za-km-z]{43,44}|1[1-9A-HJ-NP-Za-km-z]{31,41})$/,
     addressPrefixRegex: /^[1-9A-HJ-NP-Za-km-z]{0,44}$/,
     nativeToken: SOLANA,
     displayColor: '#864BFF',
@@ -1081,11 +1082,11 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     crosschainSwapSlugs: [ROBINHOOD.slug],
     tokenInfo: [ROBINHOOD],
     explorers: [{
-      id: 'robinscan',
-      name: 'Robinscan',
+      id: 'blockscout',
+      name: 'Blockscout',
       baseUrl: {
-        mainnet: 'https://robinscan.io/',
-        testnet: 'https://robinscan.io/',
+        mainnet: 'https://robinhoodchain.blockscout.com/',
+        testnet: 'https://robinhoodchain.blockscout.com/',
       },
       address: '{base}address/{address}',
       token: '{base}token/{address}',

@@ -56,8 +56,8 @@ struct TokenTradeLayoutTests {
         presence.setContentVisible(true, animated: true)
         UIView.animate(withDuration: 0.32) { host.view.layoutIfNeeded() }
         try await Task.sleep(for: .milliseconds(30))
-        let spinner = try #require(content.button.subviews.compactMap { $0 as? WActivityIndicator }.first)
-        #expect(spinner.center == CGPoint(x: 326, y: 26))
+        let spinner = try #require(content.button.subviews.flatMap(\.subviews).compactMap { $0 as? WActivityIndicator }.first)
+        #expect(spinner.convert(CGPoint(x: spinner.bounds.midX, y: spinner.bounds.midY), to: content.button) == CGPoint(x: 326, y: 26))
         expectStableGeometry(spinner, through: content.button)
         #expect(spinner.layer.animation(forKey: "rotationAnimation") != nil)
     }

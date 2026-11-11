@@ -60,6 +60,9 @@ internal class AgentTimelineViewport(private val host: Host) {
     private var outgoingEditMessageId: String? = null
     var deferredPinMessageId: String? = null
         private set
+
+    // A question that pins without scrolling there, as an empty chat's first does
+    private var instantPinMessageId: String? = null
     private var cachedPinnedTarget = 0
 
     /** The composer's bottom as laid out now, which moves to [currentBottom] with the keyboard */
@@ -70,6 +73,58 @@ internal class AgentTimelineViewport(private val host: Host) {
     private val latestScroll = AgentRecyclerAnimationScrollHelper(host.recyclerView)
     var pinScrollExtraSpace = 0
         private set
+
+    /**
+     * While support has the chat, the list scrolls as a messenger does: a question sent goes to the end, without a pin
+     * or a reserve for an answer, and the list follows new messages while it rests at its end
+     */
+    var isLiveTailDisabled = false
+        private set
+
+    // A question pinned as support takes the chat keeps its place, and the messages that come with the switch stay
+    // under it
+    private var isFollowHeldOnce = false
+
+    /** Whether the list shows its end, so that it follows new messages there */
+    val isAtEnd: Boolean
+        get() = !chatRecyclerView.canScrollVertically(1)
+
+    fun setLiveTailDisabled(isDisabled: Boolean) {
+        if (isLiveTailDisabled == isDisabled) return
+        isLiveTailDisabled = isDisabled
+        isFollowHeldOnce = isDisabled && (pinnedMessageId != null || pendingPinMessageId != null)
+    }
+
+    /** Places a question about to be sent at the end; the reserve of a question pinned before goes */
+    fun prepareMessageAtEnd() {
+        latestScroll.finish()
+        pendingSharedScrollPosition = null
+        pendingPinMessageId = null
+        outgoingEditMessageId = null
+        isFollowHeldOnce = false
+        clearOutgoingPlacement()
+        unpin()
+    }
+
+    /** Follows the messages just added to the end while the list showed it, [wasAtEnd] before they were added */
+    fun followNewMessages(wasAtEnd: Boolean) {
+        if (isDisposed || pendingPinMessageId != null) return
+        if (isFollowHeldOnce) {
+            isFollowHeldOnce = false
+            return
+        }
+        val isAtEnd = wasAtEnd && !isUserScrolling
+        doOnPreDraw {
+            if (pendingPinMessageId != null) return@doOnPreDraw
+            val follow = getAgentNewMessagesFollow(
+                isAtEnd,
+                isPinned = pinnedMessageId != null,
+                latestRowOverhang = measureLatestRowOverhang()
+            )
+            if (follow == AgentNewMessagesFollow.RELEASE_PIN_AND_END) unpin()
+            if (follow != AgentNewMessagesFollow.NONE) scrollToBottom()
+        }
+    }
 
     fun onScrollStateChanged(state: Int) {
         if (isDisposed) return
@@ -153,18 +208,23 @@ internal class AgentTimelineViewport(private val host: Host) {
             resetPlacement()
         }
         pendingPinMessageId = messageId
+        // Only a sent question's own placement is instant; a pin asked for later scrolls to it
+        instantPinMessageId = null
         chatRecyclerView.stopScroll()
     }
 
+    /** [isInstant]: the question pins where it goes at once, without scrolling there */
     fun prepareOutgoingMessage(
         messageId: String,
         items: List<AgentTimelineItem>,
-        forcePin: Boolean = false
+        forcePin: Boolean = false,
+        isInstant: Boolean = false
     ): Boolean {
         latestScroll.finish()
         pendingSharedScrollPosition = null
         pendingPinMessageId = messageId
         deferredPinMessageId = null
+        instantPinMessageId = messageId.takeIf { isInstant }
         outgoingEditMessageId = messageId.takeIf { forcePin }
         val previousMessageId = prepareOutgoingPlacement(items)
         pendingOutgoingPreviousMessageId = if (forcePin) null else previousMessageId
@@ -420,13 +480,14 @@ internal class AgentTimelineViewport(private val host: Host) {
 
     private fun pinnedItemOffset(index: Int, itemHeight: Int): Int {
         val topInset = if (index > 0) AGENT_LIST_TOP_INSET.dp else 0
+        val reveal = timelineItems.agentPinPreviousLineReveal(index, AGENT_PIN_PREVIOUS_LINE.dp)
         return agentPinnedItemOffset(
             timelineItems[index],
             itemHeight,
-            chatTopPadding() - topInset,
+            chatTopPadding() - topInset + reveal,
             chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
                 MIN_MESSAGE_CELL_HEIGHT.dp
-        ) - topInset
+        ) - topInset + reveal
     }
 
     private fun pinnedMessageHeight(view: View): Int = when (view) {
@@ -752,7 +813,10 @@ internal class AgentTimelineViewport(private val host: Host) {
     private fun restorePinnedState(position: AgentVM.ScrollPosition) {
         val messageId = position.pinnedMessageId
         val bottomPadding = position.pinnedBottomPadding
-        if (messageId == null || bottomPadding <= 0 || timelineIndexOf(messageId) < 0) {
+        // A question pinned when the chat was on screen last is not pinned again while support has the chat
+        if (messageId == null || bottomPadding <= 0 || timelineIndexOf(messageId) < 0 ||
+            isLiveTailDisabled
+        ) {
             unpin()
             return
         }
@@ -874,7 +938,8 @@ internal class AgentTimelineViewport(private val host: Host) {
         messageId: String,
         targetHeight: Int? = null,
         isRetry: Boolean = false,
-        animated: Boolean = WGlobalStorage.getAreAnimationsActive()
+        animated: Boolean = WGlobalStorage.getAreAnimationsActive() &&
+            messageId != instantPinMessageId
     ) {
         if (isDisposed) return
         if (pendingPinMessageId != messageId) return
@@ -1182,12 +1247,65 @@ internal class AgentTimelineViewport(private val host: Host) {
     }
 }
 
+/** Where a question just sent goes: pinned under the header with room for its answer, or to the end as a messenger has it */
+internal enum class AgentSentQuestionPlacement {
+    PIN,
+    END
+}
+
+internal fun getAgentSentQuestionPlacement(
+    isLiveTailDisabled: Boolean
+): AgentSentQuestionPlacement =
+    if (isLiveTailDisabled) AgentSentQuestionPlacement.END else AgentSentQuestionPlacement.PIN
+
+internal enum class AgentNewMessagesFollow {
+    NONE,
+    END,
+    RELEASE_PIN_AND_END
+}
+
+/**
+ * How the list follows new messages: to the end while it rested there, past a pinned question only once they outgrow
+ * its reserve, and not at all when the user has scrolled up
+ */
+internal fun getAgentNewMessagesFollow(
+    wasAtEnd: Boolean,
+    isPinned: Boolean,
+    latestRowOverhang: Int
+): AgentNewMessagesFollow = when {
+    !wasAtEnd -> AgentNewMessagesFollow.NONE
+    !isPinned -> AgentNewMessagesFollow.END
+    latestRowOverhang > 0 -> AgentNewMessagesFollow.RELEASE_PIN_AND_END
+    else -> AgentNewMessagesFollow.NONE
+}
+
+/**
+ * The unread divider that an update of the timeline brings, which the list shows at its top as a chat that opens at it
+ * does; null when the divider was there before or isn't there
+ */
+internal fun List<AgentTimelineItem>.findArrivingUnreadDividerIndex(
+    previous: List<AgentTimelineItem>
+): Int? = indexOf(AgentTimelineItem.UnreadDivider)
+    .takeIf { it >= 0 && AgentTimelineItem.UnreadDivider !in previous }
+
 internal fun List<AgentTimelineItem>.agentPinAnchorIndex(messageIndex: Int): Int =
     if (getOrNull(messageIndex - 1) is AgentTimelineItem.DateHeader) {
         messageIndex - 1
     } else {
         messageIndex
     }
+
+/**
+ * How far below the content top the item at [anchorIndex] pins, so that the last line of a message above it stays in
+ * view: [lineReveal], or nothing with no message above
+ */
+internal fun List<AgentTimelineItem>.agentPinPreviousLineReveal(
+    anchorIndex: Int,
+    lineReveal: Int
+): Int {
+    val hasMessageAbove = (anchorIndex - 1 downTo 0).any { this[it] is AgentTimelineItem.Message }
+    return if (hasMessageAbove) lineReveal else 0
+}
 
 /** A question reaching below [previewTop] moves up so its answer's start shows. */
 internal fun agentPinnedItemOffset(

@@ -1,9 +1,42 @@
 import UIActivityList
+import UIComponents
 import UIKit
+import WalletContext
 import XCTest
 
 @MainActor
 final class ActivityListSnapshotTests: XCTestCase {
+    func testTimeChangeUpdatesVisibleDateHeadersWithoutApplyingASnapshot() async throws {
+        let date = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: -1, to: .now))
+        let controller = try await makeController(headerDate: date)
+        let window = UIWindow(frame: controller.view.frame)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.viewDidAppear(false)
+        defer {
+            controller.viewWillDisappear(false)
+            window.isHidden = true
+        }
+        controller.collectionView.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(20))
+        let header = try XCTUnwrap(controller.collectionView.supplementaryView(
+            forElementKind: UICollectionView.elementKindSectionHeader, at: IndexPath(item: 0, section: 2)
+        ) as? ActivityDateCell)
+        let label = try XCTUnwrap(header.contentView.subviews.compactMap { $0 as? UILabel }.first)
+        label.text = "Stale date"
+        let applyCount = controller.applyCount
+        let configurationCounts = controller.providers.map(\.configurationCount)
+        let offset = controller.collectionView.contentOffset
+
+        NotificationCenter.default.post(name: UIApplication.significantTimeChangeNotification, object: nil)
+        try await Task.sleep(for: .milliseconds(20))
+
+        XCTAssertEqual(label.text, ActivityDateFormatting.headerText(for: date))
+        XCTAssertEqual(controller.applyCount, applyCount)
+        XCTAssertEqual(controller.providers.map(\.configurationCount), configurationCounts)
+        XCTAssertEqual(controller.collectionView.contentOffset, offset)
+    }
+
     func testAccountScopedSectionReplacesHeaderAndKeepsProviderRouting() async throws {
         let controller = try await makeController()
         let activity = controller.providers[1]
@@ -286,8 +319,12 @@ final class ActivityListSnapshotTests: XCTestCase {
         XCTAssertEqual(controller.collectionView.contentSize.height, originalContentHeight + 100, accuracy: 0.5)
     }
 
-    private func makeController(usesBackgroundDiffing: Bool = false) async throws -> SnapshotTestController {
+    private func makeController(usesBackgroundDiffing: Bool = false, headerDate: Date? = nil) async throws -> SnapshotTestController {
         let controller = SnapshotTestController()
+        if let headerDate {
+            controller.providers[1].showsHeader = true
+            controller.providers[1].headerDate = headerDate
+        }
         controller.backgroundDiffing = usesBackgroundDiffing
         controller.loadViewIfNeeded()
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
@@ -346,6 +383,7 @@ private final class SnapshotSection: ActivityListViewController.CustomSectionDat
     let id: String
     var sectionAccountId: String?
     var showsHeader = false
+    var headerDate: Date?
     var itemIdentifiers: [String]
     var configurationCount = 0
     var layoutCount = 0
@@ -353,10 +391,11 @@ private final class SnapshotSection: ActivityListViewController.CustomSectionDat
         self?.configurationCount += 1
         cell.configure(height: 50)
     }
-    private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
+    private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<ActivityDateCell>(
         elementKind: UICollectionView.elementKindSectionHeader
     ) { [weak self] header, _, _ in
         header.accessibilityIdentifier = self?.id
+        if let date = self?.headerDate { header.configure(with: date) }
     }
 
     init(id: String) {

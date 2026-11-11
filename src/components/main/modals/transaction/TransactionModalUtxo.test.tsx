@@ -12,7 +12,7 @@ import { makeMockTransactionActivity } from '../../../../../tests/mocks';
 import TransactionHeader from '../../../common/TransactionHeader';
 import TransactionInfo, { formatUtxoEtaForModal } from './TransactionInfo';
 
-jest.mock('../../../../lib/rlottie/RLottie.async', () => {
+jest.mock('../../../../lib/tlottie/TLottie.async', () => {
   const animation = {
     changeData: jest.fn(),
     goToFirstFrame: jest.fn(),
@@ -28,8 +28,8 @@ jest.mock('../../../../lib/rlottie/RLottie.async', () => {
   };
 
   return {
-    ensureRLottie: jest.fn(() => Promise.resolve({ init: jest.fn(() => animation) })),
-    getRLottie: jest.fn(() => ({ init: jest.fn(() => animation) })),
+    ensureTLottie: jest.fn(() => Promise.resolve({ init: jest.fn(() => animation) })),
+    getTLottie: jest.fn(() => ({ init: jest.fn(() => animation) })),
   };
 });
 

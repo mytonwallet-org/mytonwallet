@@ -6,12 +6,19 @@ import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadSummary
 
-interface ITabsVC : ISearchOverlayHost {
+interface ITabsVC :
+    ISearchOverlayHost,
+    IChromeOverlapHost {
     val mainNavigationController: WNavigationController?
     val activeNavigationController: WNavigationController?
     val minimizedBlurRootView: ViewGroup? get() = null
     fun setSearchText(text: String)
+
+    /** Selects the first tab in the user's order, returning false when it is already selected */
     fun switchToFirstTab(): Boolean
+
+    /** Selects the Wallet tab, returning false when it is already selected */
+    fun switchToWallet(): Boolean
 
     fun hideTabBar()
     fun showTabBar()
@@ -19,6 +26,7 @@ interface ITabsVC : ISearchOverlayHost {
     val isOnHomeScreen: Boolean
     fun switchToExplore(targetUri: Uri? = null)
     fun switchToMarket()
+    fun switchToFutures()
     fun switchToAgent(
         prompt: String? = null,
         entryPoint: AgentV2EntryPoint = AgentV2EntryPoint(),

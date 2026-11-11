@@ -47,6 +47,8 @@
 }
 
 .button {
+  user-select: none;
+
   position: relative;
   z-index: 1;
 
@@ -61,6 +63,19 @@
   text-align: center;
 
   background: transparent;
+
+  -webkit-touch-callout: none;
+}
+
+.shifting {
+  @include mixins.transition('transform 200ms, scale 200ms');
+}
+
+.dragged {
+  z-index: 2;
+  scale: 1.1;
+
+  @include mixins.transition(scale 200ms);
 }
 
 .active {

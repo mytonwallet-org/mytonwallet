@@ -1,10 +1,19 @@
-import type { AgentNewsFeedItemV2, AgentNewsFeedPageV2, AgentThreadNewsCardV2 } from '../types';
+import type {
+  AgentNewsDigestHeadlineV2,
+  AgentNewsFeedDigestV2,
+  AgentNewsFeedItemV2,
+  AgentNewsFeedPageV2,
+  AgentThreadDigestCardV2,
+  AgentThreadNewsCardV2,
+} from '../types';
 
 import {
   AgentV2ContractError,
   array,
   boundedInteger,
   boundedString,
+  fail,
+  integer,
   object,
   oneOf,
   string,
@@ -14,6 +23,9 @@ import { protocol, uuid } from './readers';
 
 const NEWS_FEED_LOCALES = new Set(['ru', 'en']);
 const MAX_NEWS_EVENT_ID = 2_147_483_647;
+const MAX_FEED_CURSOR_LENGTH = 2070;
+const MAX_DIGEST_ID_LENGTH = 64;
+const MAX_FEED_DIGEST_TOP_LENGTH = 5;
 
 export function decodeAgentV2NewsFeed(value: unknown): AgentNewsFeedPageV2 {
   const result = object(value, '$');
@@ -22,8 +34,26 @@ export function decodeAgentV2NewsFeed(value: unknown): AgentNewsFeedPageV2 {
   const items = array(result.items, '$.items', 30).map((item, index) => newsFeedItem(item, `$.items[${index}]`));
   const nextCursor = result.nextCursor === undefined
     ? undefined
-    : boundedString(result.nextCursor, '$.nextCursor', 1, 2048);
-  return { protocolVersion: 3, locale, items, ...(nextCursor !== undefined && { nextCursor }) };
+    : boundedString(result.nextCursor, '$.nextCursor', 1, MAX_FEED_CURSOR_LENGTH);
+  const digests = result.digests === undefined
+    ? undefined
+    : array(result.digests, '$.digests').map((digest, index) => newsFeedDigest(digest, `$.digests[${index}]`));
+  return {
+    protocolVersion: 3,
+    locale,
+    items,
+    ...(nextCursor !== undefined && { nextCursor }),
+    ...(digests !== undefined && { digests }),
+  };
+}
+
+export function threadDigestCard(value: unknown, path: string): AgentThreadDigestCardV2 {
+  const result = object(value, path);
+  const id = digestId(result.id, `${path}.id`);
+  const windowEnd = timestamp(result.windowEnd, `${path}.windowEnd`);
+  const total = integer(result.total, `${path}.total`, 1);
+  const top = digestTop(result.top, `${path}.top`);
+  return { id, windowEnd, total, top };
 }
 
 export function threadNewsCard(value: unknown, path: string): AgentThreadNewsCardV2 {
@@ -77,6 +107,35 @@ function newsFeedItem(value: unknown, path: string): AgentNewsFeedItemV2 {
     sources,
     ...(discussion !== undefined && { discussion }),
   };
+}
+
+function newsFeedDigest(value: unknown, path: string): AgentNewsFeedDigestV2 {
+  const result = object(value, path);
+  const id = digestId(result.id, `${path}.id`);
+  const deliveredAt = timestamp(result.deliveredAt, `${path}.deliveredAt`);
+  const top = digestTop(result.top, `${path}.top`, MAX_FEED_DIGEST_TOP_LENGTH);
+  const total = integer(result.total, `${path}.total`, 1);
+  const discussion = result.discussion === undefined
+    ? undefined
+    : newsDiscussion(result.discussion, `${path}.discussion`);
+  return { id, deliveredAt, top, total, ...(discussion !== undefined && { discussion }) };
+}
+
+function digestId(value: unknown, path: string) {
+  return boundedString(value, path, 1, MAX_DIGEST_ID_LENGTH);
+}
+
+function digestTop(value: unknown, path: string, maxLength?: number): AgentNewsDigestHeadlineV2[] {
+  const top = array(value, path, maxLength);
+  if (!top.length) fail(path);
+  return top.map((headline, index) => digestHeadline(headline, `${path}[${index}]`));
+}
+
+function digestHeadline(value: unknown, path: string): AgentNewsDigestHeadlineV2 {
+  const result = object(value, path);
+  const eventId = boundedInteger(result.eventId, `${path}.eventId`, 1, MAX_NEWS_EVENT_ID);
+  const headline = string(result.headline, `${path}.headline`);
+  return { eventId, headline };
 }
 
 function newsSource(value: unknown, path: string): AgentNewsFeedItemV2['sources'][number] {

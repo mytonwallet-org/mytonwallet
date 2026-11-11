@@ -63,17 +63,16 @@ struct PerpsStalePresentationTests {
     @Test func stalePositionValuesKeepTheirAutoLayoutSize() throws {
         try withDependencies { $0.context = .live } operation: {
             let cell = PerpsPositionCell(frame: CGRect(x: 0, y: 0, width: 370, height: 60))
-            var row = PerpsPositionRowDisplayData(id: "btc", token: .TONCOIN, directionAndLeverage: "Long 2x",
-                value: "$123.45", profitLoss: .init("+$1 (1%)"), isStale: true)
-            cell.configure(row)
+            let row = PerpsPositionRowDisplayData(id: "btc", token: .TONCOIN, directionAndLeverage: "Long 2x",
+                value: "$123.45", profitLoss: .init("+$1 (1%)"))
+            cell.configure(row, isStale: true)
             cell.layoutIfNeeded()
             let shine = try #require(descendants(cell).compactMap { $0 as? TradeShineView }.first)
             let size = shine.bounds.size
             #expect(size.width > 0)
             #expect(size.height > 0)
             #expect(abs(shine.content.alpha - 0.55) < 0.0001)
-            row.isStale = false
-            cell.configure(row)
+            cell.configure(row, isStale: false)
             cell.layoutIfNeeded()
             #expect(shine.bounds.size == size)
             #expect(shine.content.alpha == 1)

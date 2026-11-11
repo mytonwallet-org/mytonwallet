@@ -417,12 +417,6 @@ final class RootSearchToolbarController: NSObject {
         updateRootChromeVisibility(for: navigationController, showing: viewController)
     }
 
-    var isAgentConsentVisible = false {
-        didSet {
-            if isAgentConsentVisible != oldValue { updatePresentation() }
-        }
-    }
-
     private func updateSharedBottomToolbar(
         provider: (any SharedBottomToolbarContentProviding)?,
         targetPresentation: UniversalSearchFieldPresentation,
@@ -622,9 +616,7 @@ final class RootSearchToolbarController: NSObject {
         isShowingRoot: Bool,
         provider: (any SharedBottomToolbarContentProviding)?
     ) -> UniversalSearchFieldPresentation {
-        if isAgentConsentVisible, isShowingRoot, sideBarEdge == nil {
-            .empty
-        } else if sideBarEdge != nil, !isShowingRoot || host?.showsRootSearchToolbar == true {
+        if sideBarEdge != nil, !isShowingRoot || host?.showsRootSearchToolbar == true {
             .sideToolbar
         } else if isShowingRoot, host?.showsRootSearchToolbar == true {
             .homeToolbar
@@ -733,8 +725,7 @@ final class RootSearchToolbarController: NSObject {
         let previous = contentInsets[identifier].flatMap { $0.controller === controller ? $0.bottom : nil } ?? 0
         let isRoot = host?.searchRootContentControllers.contains { $0 === controller } == true
         let usesToolbar = (controller as? any SharedBottomToolbarContentProviding)?.isSharedBottomToolbarEnabled == true
-        let needsConsent = (controller as? AgentThreadListVC)?.isConsentRequired == true
-        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) && !needsConsent ? rootBottomChromeHeight : 0
+        let bottom: CGFloat = sideBarEdge == nil && (isRoot || usesToolbar) ? rootBottomChromeHeight : 0
         if bottom != previous {
             controller.additionalSafeAreaInsets.bottom += bottom - previous
         }

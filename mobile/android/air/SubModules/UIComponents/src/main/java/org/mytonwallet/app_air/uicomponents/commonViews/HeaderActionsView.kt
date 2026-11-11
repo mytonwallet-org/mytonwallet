@@ -163,7 +163,7 @@ class HeaderActionsView(
                 LocaleController.getString("Send")
             ) {
                 onClick?.invoke(Identifier.SEND)
-            }
+            }.apply { testViewId = UIComponentsR.id.send_menu_send }
         )
         items.add(
             WMenuPopup.Item(
@@ -171,7 +171,7 @@ class HeaderActionsView(
                 LocaleController.getString("Multisend")
             ) {
                 onClick?.invoke(Identifier.MULTISEND)
-            }
+            }.apply { testViewId = UIComponentsR.id.send_menu_multisend }
         )
         if (isSellAllowed()) {
             items.add(
@@ -180,7 +180,7 @@ class HeaderActionsView(
                     LocaleController.getString("Sell")
                 ) {
                     onClick?.invoke(Identifier.SELL)
-                }
+                }.apply { testViewId = UIComponentsR.id.send_menu_sell }
             )
         }
         WMenuPopup.present(
@@ -221,6 +221,9 @@ class HeaderActionsView(
                 SEND -> UIComponentsR.id.header_action_send
                 SWAP -> UIComponentsR.id.header_action_swap
                 EARN -> UIComponentsR.id.header_action_earn
+                DETAILS -> UIComponentsR.id.header_action_details
+                REPEAT -> UIComponentsR.id.header_action_repeat
+                SHARE -> UIComponentsR.id.header_action_share
                 else -> null
             }
     }

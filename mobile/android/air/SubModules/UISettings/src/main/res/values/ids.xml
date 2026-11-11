@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Stable resource ids for UI automation (Maestro `id:` selectors) -->
+<!-- Stable resource ids for UI automation -->
 <resources>
     <!-- Settings list rows, keyed by `SettingsItem.Identifier` -->
     <item name="settings_item_add_account" type="id" />
@@ -22,11 +22,24 @@
     <item name="settings_item_install_on_desktop" type="id" />
     <item name="settings_item_about_mtw" type="id" />
 
+    <!-- Settings header buttons, wallet menu and version label (SettingsVC, SettingsVersionCell) -->
+    <item name="settings_qr_button" type="id" />
+    <item name="settings_more_button" type="id" />
+    <item name="settings_menu_rename" type="id" />
+    <item name="settings_wallet_name" type="id" />
+    <item name="settings_version" type="id" />
+
     <!-- Appearance and Assets & Activity screens -->
     <item name="appearance_theme_system" type="id" />
     <item name="appearance_theme_light" type="id" />
     <item name="appearance_theme_dark" type="id" />
+    <item name="appearance_customize_wallet" type="id" />
     <item name="assets_base_currency" type="id" />
+    <item name="assets_hidden_nfts" type="id" />
+    <item name="assets_blockchains" type="id" />
+    <item name="assets_add_token" type="id" />
+    <item name="assets_hide_tiny_transfers" type="id" />
+    <item name="assets_hide_unverified_nfts" type="id" />
 
     <!-- Security screen -->
     <item name="security_back_up" type="id" />
@@ -34,8 +47,15 @@
     <item name="security_change_passcode" type="id" />
     <item name="security_app_lock" type="id" />
     <item name="security_auto_lock" type="id" />
+    <item name="security_auto_lock_value" type="id" />
     <item name="security_remember_passcode" type="id" />
     <item name="security_auto_exit" type="id" />
     <item name="security_disable_screen_record_warning" type="id" />
     <item name="security_allow_suspicious_actions" type="id" />
+
+    <!-- Notifications & Sounds screen -->
+    <item name="notifications_play_sounds" type="id" />
+
+    <!-- Debug Menu screen -->
+    <item name="debug_view_logs" type="id" />
 </resources>

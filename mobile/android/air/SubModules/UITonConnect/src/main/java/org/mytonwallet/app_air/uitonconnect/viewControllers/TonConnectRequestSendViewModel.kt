@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -190,7 +191,7 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
                         topRounding = HeaderCell.TopRounding.NORMAL
                     ),
                     Item.CopyableText(
-                        pretty(eip712.types),
+                        pretty(convertEip712TypesToMaps(eip712.types)),
                         "EIP-712 typed data",
                         LocaleController.getString("Data Copied")
                     ),
@@ -225,6 +226,13 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
     }
 
     return uiItems
+}
+
+// `JSONObject.wrap` turns a `TypeField` into `null`, so the fields go to it as maps
+internal fun convertEip712TypesToMaps(
+    types: Map<String, List<MSignDataPayload.SignDataPayloadEip712.TypeField>>
+): Map<String, List<Map<String, String>>> = types.mapValues { (_, fields) ->
+    fields.map { mapOf("name" to it.name, "type" to it.type) }
 }
 
 private fun warningKey(isDangerous: Boolean, hasStateInit: Boolean): String? = when {
@@ -672,8 +680,7 @@ class TonConnectRequestSendViewModel private constructor(
                                                     tonToken.symbol,
                                                     realFee.smartDecimalsCount(tonToken.decimals),
                                                     false,
-                                                    forceCurrencyToRight = true,
-                                                    roundUp = true
+                                                    forceCurrencyToRight = true
                                                 ) + "**\u200F"
                                             )
                                         )
@@ -875,7 +882,7 @@ class TonConnectRequestSendViewModel private constructor(
                         decimals = 9,
                         currencyDecimals = totalBaseCurrencyAmount.smartDecimalsCount(),
                         showPositiveSign = false,
-                        roundUp = false
+                        rounding = RoundingMode.DOWN
                     )
                 )
             }
@@ -906,7 +913,7 @@ class TonConnectRequestSendViewModel private constructor(
                 currency = symbol,
                 currencyDecimals = 2,
                 showPositiveSign = false,
-                roundUp = false
+                rounding = RoundingMode.DOWN
             )
         }
 
@@ -1082,7 +1089,7 @@ class TonConnectRequestSendViewModel private constructor(
                     decimals = 9,
                     currencyDecimals = tokens.currency.decimalsCount,
                     showPositiveSign = false,
-                    roundUp = false
+                    rounding = RoundingMode.DOWN
                 )?.let { totalCurrencyAmount ->
                     summaryItems.add(
                         TonConnectItem.CurrencyAmount(
@@ -1233,7 +1240,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     decimals = 9,
                                     currencyDecimals = transaction.networkFee.smartDecimalsCount(9),
                                     showPositiveSign = false,
-                                    roundUp = false
+                                    rounding = RoundingMode.DOWN
                                 )
                             ),
                             image = null

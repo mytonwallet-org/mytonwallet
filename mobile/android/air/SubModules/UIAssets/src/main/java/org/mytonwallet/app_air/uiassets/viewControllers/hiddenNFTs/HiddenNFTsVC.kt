@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.cells.HiddenNFTsItemCell
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
+import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -109,6 +110,7 @@ class HiddenNFTsVC(context: Context, private val showingAccountId: String) :
 
         setNavTitle(LocaleController.getString("Hidden NFTs"))
         setupNavBar(true)
+        navigationBar?.titleLabel?.id = UIComponentsR.id.hidden_nfts_title
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.setConstraints {

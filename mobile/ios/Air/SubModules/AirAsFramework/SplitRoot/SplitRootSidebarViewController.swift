@@ -11,19 +11,21 @@ private let actionIconContainerWidth: CGFloat = 62
 private let actionIconSize: CGFloat = 30
 private let actionRowVerticalPadding: CGFloat = IOS_26_MODE_ENABLED ? 11 : 7
 private let sidebarEdgeGradientWidth: CGFloat = 16
-private let sidebarTopContentInset: CGFloat = 20
+private let sidebarTopContentInset: CGFloat = 16
 private let sidebarTopGradientSolidInset = S.homeInsetSectionCornerRadius
 
 
 @MainActor
-final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, Sendable {
+final class SplitRootSidebarViewController: WViewController, WalletCoreData.EventsObserver, UICollectionViewDelegate, UIGestureRecognizerDelegate, Sendable {
     private enum Section: Hashable {
+        case multisigWarning
         case banners
         case tabs
         case accounts
     }
     
     private enum Item: Hashable {
+        case multisigWarning(String)
         case banners(String)
         case tab(AppTabId)
         case account(String)
@@ -45,6 +47,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private let accountSelectorGradientTrailing = EdgeGradientView()
     private let collectionTopGradient = EdgeGradientView()
     private var accountSelectorHeightConstraint: NSLayoutConstraint?
+    private var contentMargins: NSDirectionalEdgeInsets = .zero
     private let updateStatusAccountContext = AccountContext(source: .current)
     private lazy var updateStatusView = UpdateStatusView(accountContext: updateStatusAccountContext)
     private var titleMenuInteraction: ContextMenuInteraction?
@@ -52,6 +55,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     private var bannersAccountId: String?
+    private var multisigWarningAccountId: String?
 
     private var activateAccountTask: Task<Void, Never>?
     private var setUpdatingAfterDelayTask: Task<Void, Never>?
@@ -75,8 +79,10 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
             guard let self else { return }
             let accountId = updateStatusAccountContext.accountId
             let bannersAccountId = updateStatusAccountContext.config.banners.home.isEmpty ? nil : accountId
-            guard self.bannersAccountId != bannersAccountId else { return }
+            let multisigWarningAccountId = updateStatusAccountContext.account.byChain.values.contains { $0.isMultisig == true } ? accountId : nil
+            guard self.bannersAccountId != bannersAccountId || self.multisigWarningAccountId != multisigWarningAccountId else { return }
             self.bannersAccountId = bannersAccountId
+            self.multisigWarningAccountId = multisigWarningAccountId
             applySnapshot(animated: true)
         }
         updateStatusViewState(animated: false)
@@ -85,7 +91,12 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        updateAccountSelectorHeightIfNeeded()
+        updateContentLayout()
+    }
+
+    override func viewLayoutMarginsDidChange() {
+        super.viewLayoutMarginsDidChange()
+        updateContentLayout()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -201,18 +212,24 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         accountsConfiguration.separatorConfiguration.color = .air.separator
         accountsConfiguration.separatorConfiguration.bottomSeparatorInsets.leading = 62
         
-        let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
-            guard let sectionType = self?.dataSource.sectionIdentifier(for: sectionIndex) else { return nil }
-            if sectionType == .banners {
+        let configuration = UICollectionViewCompositionalLayoutConfiguration()
+        configuration.contentInsetsReference = .none
+        let layout = UICollectionViewCompositionalLayout(sectionProvider: { [weak self] sectionIndex, layoutEnvironment in
+            guard let self, let sectionType = dataSource.sectionIdentifier(for: sectionIndex) else { return nil }
+            if sectionType == .banners || sectionType == .multisigWarning {
                 let size = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(120))
                 let item = NSCollectionLayoutItem(layoutSize: size)
                 let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [item])
                 let section = NSCollectionLayoutSection(group: group)
-                section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16)
+                section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: contentMargins.leading,
+                                                               bottom: sectionType == .multisigWarning ? 16 : 8, trailing: contentMargins.trailing)
                 return section
             }
             let listConfiguration = sectionType == .tabs ? tabsConfiguration : accountsConfiguration
             let section = NSCollectionLayoutSection.list(using: listConfiguration, layoutEnvironment: layoutEnvironment)
+            section.contentInsetsReference = .none
+            section.contentInsets.leading = contentMargins.leading
+            section.contentInsets.trailing = contentMargins.trailing
             if sectionType == .accounts {
                 section.contentInsets.top = tabsToAccountsSpacing
                 section.contentInsets.bottom = 24
@@ -220,7 +237,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
                 section.contentInsets.bottom = 0
             }
             return section
-        }
+        }, configuration: configuration)
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -229,12 +246,21 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         collectionView.clipsToBounds = false
         collectionView.showsVerticalScrollIndicator = false
         collectionView.contentInset.top = sidebarTopContentInset
+        collectionView.contentInsetAdjustmentBehavior = .scrollableAxes
         collectionView.verticalScrollIndicatorInsets.top = sidebarTopContentInset
         collectionView.delegate = self
 
         let bannersRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, accountId in
             cell.contentConfiguration = UIHostingConfiguration {
                 HomeAccountBannersView(accountContext: AccountContext(accountId: accountId))
+            }
+            .background { Color.clear }
+            .margins(.all, 0)
+        }
+
+        let multisigWarningRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, _ in
+            cell.contentConfiguration = UIHostingConfiguration {
+                MultisigWalletWarning()
             }
             .background { Color.clear }
             .margins(.all, 0)
@@ -305,6 +331,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, item in
             switch item {
+            case .multisigWarning(let accountId):
+                return collectionView.dequeueConfiguredReusableCell(using: multisigWarningRegistration, for: indexPath, item: accountId)
             case .banners(let accountId):
                 return collectionView.dequeueConfiguredReusableCell(using: bannersRegistration, for: indexPath, item: accountId)
             case .tab(let tab):
@@ -315,10 +343,85 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
                 return collectionView.dequeueConfiguredReusableCell(using: actionRegistration, for: indexPath, item: item)
             }
         }
+        setupTabReordering()
+    }
+
+    /// Holding a tab lifts it, and dragging it reorders the tabs
+    private func setupTabReordering() {
+        dataSource.reorderingHandlers.canReorderItem = { item in
+            if case .tab = item { return true }
+            return false
+        }
+        dataSource.reorderingHandlers.didReorder = { transaction in
+            let ids = transaction.finalSnapshot.itemIdentifiers(inSection: .tabs).compactMap { item -> AppTabId? in
+                if case .tab(let id) = item { return id }
+                return nil
+            }
+            // The collection view calls this in the middle of ending the move. The new order reaches the root
+            // containers, which apply a snapshot to this list, once the move has ended: a snapshot applied during it
+            // breaks the collection view's update
+            DispatchQueue.main.async {
+                AppTabManager.shared.reorderTabs(ids)
+            }
+        }
+        // UIKit's standard hold, 0.5 s within 10 pt, as in the tab menu
+        let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleTabReorderPress(_:)))
+        recognizer.delegate = self
+        collectionView.addGestureRecognizer(recognizer)
+    }
+
+    private func tabIndexPath(at point: CGPoint) -> IndexPath? {
+        guard let indexPath = collectionView.indexPathForItem(at: point),
+              case .tab = dataSource.itemIdentifier(for: indexPath) else {
+            return nil
+        }
+        return indexPath
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer is UILongPressGestureRecognizer, gestureRecognizer.view === collectionView else { return true }
+        return tabIndexPath(at: gestureRecognizer.location(in: collectionView)) != nil
+    }
+
+    @objc private func handleTabReorderPress(_ recognizer: UILongPressGestureRecognizer) {
+        let point = recognizer.location(in: collectionView)
+        switch recognizer.state {
+        case .began:
+            guard let indexPath = tabIndexPath(at: point),
+                  collectionView.beginInteractiveMovementForItem(at: indexPath) else {
+                return
+            }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        case .changed:
+            collectionView.updateInteractiveMovementTargetPosition(CGPoint(x: collectionView.bounds.midX, y: point.y))
+        case .ended:
+            collectionView.endInteractiveMovement()
+        default:
+            collectionView.cancelInteractiveMovement()
+        }
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        targetIndexPathForMoveOfItemFromOriginalIndexPath originalIndexPath: IndexPath,
+        atCurrentIndexPath currentIndexPath: IndexPath,
+        toProposedIndexPath proposedIndexPath: IndexPath
+    ) -> IndexPath {
+        // Tabs move only among tabs
+        guard proposedIndexPath.section != originalIndexPath.section else { return proposedIndexPath }
+        if proposedIndexPath.section < originalIndexPath.section {
+            return IndexPath(item: 0, section: originalIndexPath.section)
+        }
+        let lastItem = collectionView.numberOfItems(inSection: originalIndexPath.section) - 1
+        return IndexPath(item: lastItem, section: originalIndexPath.section)
     }
     
     private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Item> {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        if let multisigWarningAccountId {
+            snapshot.appendSections([.multisigWarning])
+            snapshot.appendItems([.multisigWarning(multisigWarningAccountId)], toSection: .multisigWarning)
+        }
         if let bannersAccountId {
             snapshot.appendSections([.banners])
             snapshot.appendItems([.banners(bannersAccountId)], toSection: .banners)
@@ -396,11 +499,17 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         )
     }
 
-    private func updateAccountSelectorHeightIfNeeded() {
+    private func updateContentLayout() {
         guard let accountSelectorHeightConstraint else { return }
+        let margins = view.directionalLayoutMargins
+        accountSelector.contentMargins = margins
+        if contentMargins != margins {
+            contentMargins = margins
+            collectionView?.collectionViewLayout.invalidateLayout()
+        }
         let width = view.bounds.width
         guard width > 0 else { return }
-        let targetHeight = HomeCardLayoutMetrics.forContainerWidth(width).itemHeight
+        let targetHeight = HomeCardLayoutMetrics.forContainerWidth(width, contentMargins: margins).itemHeight
         if abs(accountSelectorHeightConstraint.constant - targetHeight) > 0.5 {
             accountSelectorHeightConstraint.constant = targetHeight
         }
@@ -427,7 +536,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return false }
         switch item {
-        case .banners:
+        case .multisigWarning, .banners:
             break
         case .tab(let tabId):
             viewModel.onTabTap(tabId)
@@ -449,7 +558,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return true }
         return switch item {
         case .tab: false
-        case .banners, .account, .addAccount, .walletSettings: true
+        case .multisigWarning, .banners, .account, .addAccount, .walletSettings: true
         }
     }
 }

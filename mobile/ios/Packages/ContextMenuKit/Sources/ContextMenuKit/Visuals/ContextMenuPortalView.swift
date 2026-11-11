@@ -57,15 +57,13 @@ final class ContextMenuPortalView: UIView {
         )
     }
 
-    /// Draws the source at this view's own position rather than over the source, and hides the source while this
-    /// view shows it, so the replica can move away from the source without leaving the source behind
+    /// Draws the source at this view's own position rather than over the source, so this view can move away from it
     func detachFromSourcePosition() {
         ContextMenuPrivatePortalRuntime.setFlag(
             false,
             forKey: ContextMenuPrivatePortalRuntime.matchesPositionKey,
             on: self.portalContentView
         )
-        self.setSourceViewHidden(true)
     }
 
     func setSourceViewHidden(_ isHidden: Bool) {

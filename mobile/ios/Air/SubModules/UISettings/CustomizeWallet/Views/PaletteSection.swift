@@ -189,6 +189,7 @@ struct PaletteGrid: View {
                         viewModel.setColorId(color.id)
                     },
                 )
+                .accessibilityIdentifier("customize_palette_item")
             }
         }
     }
@@ -207,6 +208,7 @@ struct PaletteGrid: View {
                         Haptics.play(.lightTap)
                     },
                 )
+                .accessibilityIdentifier("customize_palette_item")
             }
         }
     }

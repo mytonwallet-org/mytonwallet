@@ -5,6 +5,8 @@ public enum Deeplink {
     case tonConnect2(requestLink: String)
     case walletConnect(requestLink: String)
     case agent
+    case agentNews(eventId: Int)
+    case agentDigest(id: String)
     case invoice(address: String, amount: BigInt?, comment: String?, binaryPayload: String?, token: String?, jetton: String?, stateInit: String?)
     case send(chain: ApiChain, address: String, amount: BigInt?, comment: String?, binaryPayload: String?, tokenSlug: String?, stateInit: String?)
     case swap(from: String?, to: String?, amountIn: Double?)
@@ -26,8 +28,9 @@ public enum Deeplink {
     case nftAddress(nftAddress: String)
     case view(network: ApiNetwork, addressOrDomainByChain: [String: String])
     case settings(section: AppSettingsSection?)
-    /// UI tests: `mtw://e2e-unlock?passcode=…`, parsed in DEBUG builds only.
-    case e2eUnlock(passcode: String)
+    /// UI tests: `mtw://e2e-unlock?passcode=…&next=…`, parsed in DEBUG builds only.
+    /// `next` is a link opened once the app is unlocked.
+    case e2eUnlock(passcode: String, next: URL?)
 }
 
 public extension Deeplink {

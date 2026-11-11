@@ -11,6 +11,7 @@ final class SVGStop: SVGElement, Stylable {
 
     private var offset = CGFloat(0)
     private var color = UIColor.black
+    private var opacity = CGFloat(1)
 
     internal func parseOffset(_ value: String) {
         if value.hasSuffix("%"), let percent = CGFloat(String(value.dropLast())) {
@@ -30,7 +31,7 @@ final class SVGStop: SVGElement, Stylable {
         guard let opacity = CGFloat(lengthString: value) else {
             return
         }
-        color = color.withAlphaComponent(opacity)
+        self.opacity = opacity
     }
 
     internal func didProcessElement(in container: SVGContainerElement?) {
@@ -38,6 +39,6 @@ final class SVGStop: SVGElement, Stylable {
             return
         }
 
-        gradient.addStop(SVGGradientStop(offset: offset, color: color))
+        gradient.addStop(SVGGradientStop(offset: offset, color: color.withAlphaComponent(color.cgColor.alpha * opacity)))
     }
 }

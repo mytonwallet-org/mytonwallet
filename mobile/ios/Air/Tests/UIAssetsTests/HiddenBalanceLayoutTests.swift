@@ -24,6 +24,41 @@ final class HiddenBalanceLayoutTests: XCTestCase, ActivityCell.Delegate {
         SettingsStore.liveValue.clean()
     }
 
+    func testAmountsStayInPlaceWhenSpoilersReserveMoreWidth() throws {
+        let frame = CGRect(x: 0, y: 0, width: 390, height: 60)
+        let rows: [UIView] = [WalletTokenContentView(frame: frame), ActivityCell(frame: frame)]
+        for row in rows {
+            let masks = descendants(of: row).compactMap { $0 as? WSensitiveData<UILabel> }
+            XCTAssertEqual(masks.count, 2)
+            let labels = try masks.map {
+                try XCTUnwrap(descendants(of: $0).compactMap { $0 as? UILabel }.first)
+            }
+            for (index, label) in labels.enumerated() {
+                label.text = index == 0 ? "0" : "$0"
+            }
+            for direction in [UISemanticContentAttribute.forceLeftToRight, .forceRightToLeft] {
+                row.semanticContentAttribute = direction
+                setHidden(false)
+                row.setNeedsLayout()
+                row.layoutIfNeeded()
+                let visibleFrames = labels.map { getTextFrame($0, in: row) }
+                for isHidden in [true, false, true] {
+                    setHidden(isHidden)
+                    row.setNeedsLayout()
+                    row.layoutIfNeeded()
+                    for (index, label) in labels.enumerated() {
+                        if isHidden {
+                            XCTAssertGreaterThan(label.bounds.width, visibleFrames[index].width)
+                        }
+                        let textFrame = getTextFrame(label, in: row)
+                        XCTAssertEqual(textFrame.minX, visibleFrames[index].minX, accuracy: 0.5)
+                        XCTAssertEqual(textFrame.maxX, visibleFrames[index].maxX, accuracy: 0.5)
+                    }
+                }
+            }
+        }
+    }
+
     func testWalletTokenSpoilersKeepNamesBadgesAndPricesClear() throws {
         let cell = WalletTokenCell(frame: CGRect(x: 0, y: 0, width: 300, height: 60))
         for hasBadge in [false, true] {
@@ -123,6 +158,10 @@ final class HiddenBalanceLayoutTests: XCTestCase, ActivityCell.Delegate {
     private func setHidden(_ hidden: Bool) {
         AppStorageHelper.isSensitiveDataHidden = hidden
         NotificationCenter.default.post(name: .updateSensitiveData, object: nil)
+    }
+
+    private func getTextFrame(_ label: UILabel, in view: UIView) -> CGRect {
+        label.convert(label.textRect(forBounds: label.bounds, limitedToNumberOfLines: 1), to: view)
     }
 
     private func descendants(of view: UIView) -> [UIView] {

@@ -73,6 +73,7 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiPriceHistoryBackfill
 
 @SuppressLint("ViewConstructor")
 class TokenChartCell(
@@ -81,6 +82,7 @@ class TokenChartCell(
     var onSelectedPeriodChanged: ((MHistoryTimePeriod) -> Unit)?,
     private var onAnalyze: (() -> Unit)?,
     private var onHeightChange: ((isExpanding: Boolean, height: Int) -> Unit)?,
+    title: String = LocaleController.getString("Price"),
     // Stable resource id for UI automation, set before containerView is anchored to the cell's id
     viewId: Int? = null
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
@@ -93,6 +95,7 @@ class TokenChartCell(
         private const val ANALYZE_BUTTON_VERTICAL_SPACING_DP = 27
         private const val ICON_SIZE_DP = 40
         private const val ICON_LABELS_SHIFT_DP = 44
+        private const val BACKFILL_ALPHA = 0.4f
     }
 
     private var percentChange: Double? = null
@@ -157,9 +160,15 @@ class TokenChartCell(
         priceChangeLabel.translationX = shift
     }
 
+    var title: String = title
+        set(value) {
+            field = value
+            titleLabel.text = value
+        }
+
     private val titleLabel: WLabel by lazy {
         val lbl = WLabel(context)
-        lbl.text = LocaleController.getString("Price")
+        lbl.text = this.title
         lbl.setStyle(14f)
         lbl
     }
@@ -356,6 +365,7 @@ class TokenChartCell(
 
     private var token: MToken? = null
     private var historyData: Array<Array<Double>>? = null
+    private var backfill: ApiPriceHistoryBackfill? = null
     private var highlightedHistoryData: Array<Array<Double>>? = null
     private var highlight: Highlight? = null
 
@@ -605,7 +615,8 @@ class TokenChartCell(
     fun configure(
         token: MToken,
         historyData: Array<Array<Double>>?,
-        activePeriod: MHistoryTimePeriod
+        activePeriod: MHistoryTimePeriod,
+        backfill: ApiPriceHistoryBackfill? = null
     ) {
         this.token = token
         if (iconTokenSlug != token.slug) {
@@ -614,6 +625,7 @@ class TokenChartCell(
         }
         this.historyData = historyData
         this.activePeriod = activePeriod
+        this.backfill = backfill
         if (!isAnimating && (!isChangingPeriod || historyData == null)) {
             setupLineChart()
         } else {
@@ -890,8 +902,16 @@ class TokenChartCell(
                 false,
                 forceCurrencyToRight = false
             )
-            priceChangeLabel.text =
-                Date(highlight.x.toLong() * 1000).formatDateAndTime(activePeriod)
+            val date = Date(highlight.x.toLong() * 1000).formatDateAndTime(activePeriod)
+            val backfill = backfill
+            priceChangeLabel.text = if (backfill != null && highlight.x < launchTimestamp()) {
+                date + " · " + LocaleController.getStringWithKeyValues(
+                    "\$underlying_stock",
+                    listOf("%symbol%" to backfill.symbol)
+                )
+            } else {
+                date
+            }
         }
         updatePriceChangeLabelColor()
     }
@@ -911,6 +931,12 @@ class TokenChartCell(
 
         highlightedHistoryData =
             DatasetHelpers.getHistoryDataInRange(this.historyData, 0f, 1f)
+        val backfillPoints = backfill?.points.orEmpty().takeIf {
+            highlightedHistoryData != null
+        }.orEmpty()
+        backfillPoints.forEach { point ->
+            entries.add(Entry(point[0].toFloat(), point[1].toFloat()))
+        }
         highlightedHistoryData?.forEach { pair ->
             val timestamp = pair[0].toFloat()
             val value = pair[1].toFloat()
@@ -924,7 +950,7 @@ class TokenChartCell(
         }
 
         val gradient = createChartFill()
-        val lineData = createLineData(entries, gradient)
+        val lineData = createLineData(entries, gradient, backfillPoints.size)
 
         fun setDataSet() {
             setChartsData(lineData)
@@ -1027,26 +1053,51 @@ class TokenChartCell(
         }
     }
 
-    private fun createChartFill() = GradientDrawable(
+    private fun createChartFill(alpha: Float = 1f) = GradientDrawable(
         GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(WColor.Tint.color.colorWithAlpha(51), Color.TRANSPARENT)
+        intArrayOf(WColor.Tint.color.colorWithAlpha((51 * alpha).roundToInt()), Color.TRANSPARENT)
     ).apply {
         setGradientType(GradientDrawable.LINEAR_GRADIENT)
     }
 
-    private fun createLineData(entries: List<Entry>, fill: GradientDrawable): LineData {
-        val dataSet = LineDataSet(entries, "")
-        dataSet.lineWidth = 2.0f
-        dataSet.color = WColor.Tint.color
-        dataSet.setDrawCircles(false)
-        dataSet.setDrawValues(false)
-        dataSet.setDrawHorizontalHighlightIndicator(false)
-        dataSet.setDrawVerticalHighlightIndicator(false)
-        dataSet.setDrawFilled(true)
-        dataSet.fillDrawable = fill
-        dataSet.mode = LineDataSet.Mode.CUBIC_BEZIER
-        return LineData(dataSet)
+    private fun createLineData(
+        entries: List<Entry>,
+        fill: GradientDrawable,
+        backfillCount: Int = 0
+    ): LineData {
+        if (backfillCount == 0) return LineData(createLineDataSet(entries, WColor.Tint.color, fill))
+        // The translucent stock line ends on the first token point, so the two lines join without a gap
+        val stockEntries = entries.subList(0, min(backfillCount + 1, entries.size))
+        val stockDataSet = createLineDataSet(
+            stockEntries,
+            WColor.Tint.color.colorWithAlpha((255 * BACKFILL_ALPHA).roundToInt()),
+            createChartFill(BACKFILL_ALPHA)
+        )
+        if (backfillCount >= entries.size) return LineData(stockDataSet)
+        val tokenDataSet = createLineDataSet(
+            entries.subList(backfillCount, entries.size),
+            WColor.Tint.color,
+            fill
+        )
+        return LineData(stockDataSet, tokenDataSet)
     }
+
+    private fun createLineDataSet(entries: List<Entry>, color: Int, fill: GradientDrawable) =
+        LineDataSet(entries, "").apply {
+            lineWidth = 2.0f
+            this.color = color
+            setDrawCircles(false)
+            setDrawValues(false)
+            setDrawHorizontalHighlightIndicator(false)
+            setDrawVerticalHighlightIndicator(false)
+            setDrawFilled(true)
+            fillDrawable = fill
+            mode = LineDataSet.Mode.CUBIC_BEZIER
+        }
+
+    /** The first token price; the backfill covers everything earlier, or the whole series when the token has no history */
+    private fun launchTimestamp() =
+        historyData?.firstOrNull()?.firstOrNull() ?: Double.POSITIVE_INFINITY
 
     private fun setChartsData(lineData: LineData) {
         collapsedChartView.data = lineData
@@ -1061,6 +1112,7 @@ class TokenChartCell(
         val fromEnd = from.lastOrNull()?.firstOrNull() ?: return null
         val toEnd = to.lastOrNull()?.firstOrNull() ?: return null
         if (toEnd <= fromEnd ||
+            backfill != null ||
             areChartsFadeOut ||
             isAnimating ||
             highlight != null ||

@@ -707,6 +707,15 @@ fun View.cancelAncestorTouches() {
     }
 }
 
+/** Opens a menu on a tap, or on a long press so the finger can slide to an item */
+fun View.setOnMenuClickListener(listener: (View) -> Unit) {
+    setOnClickListener(listener)
+    setOnLongClickListener {
+        listener(it)
+        true
+    }
+}
+
 fun View.animateHeight(newValue: Int) {
     if (measuredHeight == newValue) return
     animateHeight(measuredHeight, newValue)

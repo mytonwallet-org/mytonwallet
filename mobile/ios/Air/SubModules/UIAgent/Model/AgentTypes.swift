@@ -83,7 +83,7 @@ struct AgentMessage {
 
     enum SystemStyle {
         case dateTime(date: String, time: String)
-        /// A date line naming the day alone, as the News feed's, whose posts show their own times
+        /// A News day's capsule, naming the day alone, as the feed's posts show their own times
         case day
         /// A failure the chat shows as a caption, with its controls as links after the text
         case failure
@@ -149,6 +149,14 @@ struct AgentMessage {
         case .failure?, nil:
             false
         }
+    }
+
+    /// A News day, which shows as Telegram's date bubble
+    var isDayCapsule: Bool {
+        if case .day? = systemStyle {
+            return true
+        }
+        return false
     }
 
     var isFailureCaption: Bool {

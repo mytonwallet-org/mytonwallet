@@ -102,6 +102,7 @@ struct WalletSettingsAddButton: View {
                 }
         }
         .buttonStyle(.airSecondaryDestructive.withLegacyShadow())
+        .accessibilityIdentifier("wallets_delete_button")
         .fixedSize()
         .disabled(isDeleting || count == 0)
             .padding(.top, 16)
@@ -122,12 +123,15 @@ struct WalletSettingsAddButton: View {
             } icon: {
                 Image(systemName: "plus")
             }
+            .backportGeometryGroup()
+            .frame(maxWidth: .infinity)
+            .animation(.smooth(duration: 0.2), value: viewModel.currentFilter)
         }
         .buttonStyle(.airPrimary)
+        .accessibilityIdentifier("wallets_primary_button")
         .padding(.horizontal, 30)
         .padding(.top, 16)
         .padding(.bottom, 28)
-        .animation(.smooth(duration: 0.2), value: viewModel.currentFilter)
     }
     
     private func onAdd() {

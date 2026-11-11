@@ -13,7 +13,8 @@ import { mergeSortedActivities, sortActivities } from '../../../util/activities/
 import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { fetchJson } from '../../../util/fetch';
 import isEmptyObject from '../../../util/isEmptyObject';
-import { logDebug } from '../../../util/logs';
+import { logDebug, logDebugError } from '../../../util/logs';
+import { getChainBySlug } from '../../../util/tokens';
 import { updateTokensMetadataByAddress } from './util/metadata';
 import { parseTxComment } from './util/programParsers';
 import { fetchStoredWallet } from '../../common/accounts';
@@ -182,6 +183,7 @@ async function fetchSolTxs(
 export async function parseSolTx(
   network: ApiNetwork,
   signature: string,
+  signal?: AbortSignal,
 ): Promise<SolanaParsedTransaction | undefined> {
   const url = NETWORK_CONFIG[network].getApiUrl('/v0/transactions');
 
@@ -189,10 +191,12 @@ export async function parseSolTx(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getEnvironment().apiHeaders,
     },
     body: JSON.stringify({
       transactions: [signature],
     }),
+    signal,
   };
 
   const response = await fetchJson<SolanaParsedTransaction[]>(url, undefined, options);
@@ -680,6 +684,39 @@ export function transformSolanaTxToUnified(
   });
 }
 
-export function fetchActivityDetails() {
-  return undefined;
+export async function fetchActivityDetails(
+  accountId: string,
+  activity: ApiActivity,
+  signal?: AbortSignal,
+): Promise<ApiActivity | undefined> {
+  // Only a swap row sent from Solana waits for the fee of its transaction
+  if (
+    !activity.shouldLoadDetails
+    || activity.kind !== 'swap'
+    || getChainBySlug(activity.from) !== 'solana'
+    || !activity.externalMsgHashNorm
+  ) {
+    return undefined;
+  }
+
+  const { network } = parseAccountId(accountId);
+  let tx: SolanaParsedTransaction | undefined;
+  try {
+    tx = await parseSolTx(network, activity.externalMsgHashNorm, signal);
+  } catch (err) {
+    throwIfAborted(signal);
+    // A failed request leaves the swap row with the fee the backend reported
+    logDebugError('fetchActivityDetails', 'solana', err);
+    return undefined;
+  }
+  throwIfAborted(signal);
+  if (!tx) {
+    return undefined;
+  }
+
+  return {
+    ...activity,
+    networkFee: toDecimal(BigInt(tx.fee), SOLANA.decimals),
+    shouldLoadDetails: undefined,
+  };
 }

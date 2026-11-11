@@ -122,12 +122,22 @@ class ExploreVM(delegate: Delegate) :
         private val previousConsumerResult = previousResult?.takeIf {
             previous?.onResult === onResult
         }
-        private val recentChats = previousResult?.recentChats
+        private var recentChats = previousResult?.recentChats
             ?: if (keyword.isEmpty()) cachedRecent else emptyList()
         var result: SearchResult? = null
 
         fun publishLocalResult(localResult: SearchResult) {
             publishResult(localResult.withRecentChats(recentChats))
+        }
+
+        // The shown chats and the ones a refresh starts from both lose the thread at once, as
+        // the refresh brings the server's list only after its debounce and request
+        fun removeChat(threadId: String) {
+            recentChats = recentChats.filterNot { it.thread.id == threadId }
+            val current = result ?: return
+            val chats = current.recentChats.orEmpty()
+            if (chats.none { it.thread.id == threadId }) return
+            publishResult(current.withRecentChats(chats.filterNot { it.thread.id == threadId }))
         }
 
         fun publishResult(updated: SearchResult) {
@@ -332,8 +342,12 @@ class ExploreVM(delegate: Delegate) :
             is WalletEvent.AccountChanged,
             WalletEvent.AccountsReset -> cancelSearch()
 
-            WalletEvent.AgentThreadCreated,
-            is WalletEvent.AgentThreadDeleted -> scheduleSearchRefresh(refreshChats = true)
+            WalletEvent.AgentThreadCreated -> scheduleSearchRefresh(refreshChats = true)
+
+            is WalletEvent.AgentThreadDeleted -> {
+                activeSearchRequest?.removeChat(walletEvent.threadId)
+                scheduleSearchRefresh(refreshChats = true)
+            }
 
             WalletEvent.TokensChanged -> {
                 // Mostly price updates: rebuild the match caches only when searchable fields
