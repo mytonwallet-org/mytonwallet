@@ -16,6 +16,8 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uiassets.models.ExpiringDomainsData
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.TelegramGiftCatalog
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -48,6 +50,12 @@ class AssetsVM(
 
     private var nfts: MutableList<ApiNft>? = null
     var assetRows: List<AssetRow> = emptyList()
+        private set
+    var giftCatalog = TelegramGiftCatalog()
+        private set
+    var isGiftInventoryComplete = false
+        private set
+    var isTelegramGiftCollection = collectionMode == AssetsVC.CollectionMode.TelegramGifts
         private set
     var expiringDomainsData: ExpiringDomainsData? = null
         private set
@@ -94,6 +102,9 @@ class AssetsVM(
         nfts = null
         isViewOnlyAccount = AccountStore.accountById(accountId)?.isViewOnly == true
         assetRows = emptyList()
+        giftCatalog = TelegramGiftCatalog()
+        isGiftInventoryComplete = false
+        isTelegramGiftCollection = collectionMode == AssetsVC.CollectionMode.TelegramGifts
         expiringDomains = emptyList()
         expiringDomainsData = null
         expiringDomainsRefreshJob?.cancel()
@@ -143,14 +154,9 @@ class AssetsVM(
         }
         val accountId = synchronized(this) { showingAccountId }
         scope.launch {
-            val nftData = NftStore.nftData
-            val cachedNfts =
-                if (nftData?.accountId == accountId && nftData.cachedNfts != null) {
-                    nftData.cachedNfts
-                } else {
-                    NftStore.fetchCachedNfts(accountId)
-                }
-            val isChanged = applyCachedNfts(accountId, cachedNfts, keepOrder)
+            val inventory = NftStore.getInventorySnapshot(accountId)
+            val cachedNfts = inventory.nfts ?: NftStore.fetchCachedNfts(accountId)
+            val isChanged = applyCachedNfts(accountId, cachedNfts, keepOrder, inventory.isComplete)
 
             withContext(Dispatchers.Main) {
                 val shouldNotifyNftsShown = synchronized(this@AssetsVM) {
@@ -189,11 +195,25 @@ class AssetsVM(
     private fun applyCachedNfts(
         accountId: String,
         cachedNfts: List<ApiNft>?,
-        keepOrder: Boolean
+        keepOrder: Boolean,
+        isInventoryComplete: Boolean
     ): Boolean {
         if (accountId != showingAccountId) return false
 
         val oldNfts = nfts?.toList()
+        val oldCatalog = giftCatalog
+        val wasComplete = isGiftInventoryComplete
+        val wasGiftCollection = isTelegramGiftCollection
+        if (collectionMode == AssetsVC.CollectionMode.TelegramGifts) {
+            giftCatalog = TelegramGiftCatalog.from(cachedNfts.orEmpty()) { it.shouldHide() }
+        }
+        isGiftInventoryComplete = isInventoryComplete
+        isTelegramGiftCollection = collectionMode == AssetsVC.CollectionMode.TelegramGifts ||
+            (collectionMode is AssetsVC.CollectionMode.SingleCollection &&
+                collectionMode.collection.chain == MBlockchain.ton.name && cachedNfts.orEmpty().any {
+                    (it.chain == null || it.chain == MBlockchain.ton) && it.isTelegramGift == true &&
+                        it.collectionAddress == collectionMode.collection.address
+                })
 
         val orderedNfts = cachedNftsToSave
         if (keepOrder && interactionMode == InteractionMode.DRAG && orderedNfts != null) {
@@ -204,7 +224,8 @@ class AssetsVM(
                 ?.filter {
                     !it.shouldHide() && when (collectionMode) {
                         is AssetsVC.CollectionMode.SingleCollection ->
-                            it.collectionAddress == collectionMode.collection.address
+                            it.collectionAddress == collectionMode.collection.address &&
+                                (it.chain ?: MBlockchain.ton).name == collectionMode.collection.chain
 
                         is AssetsVC.CollectionMode.TelegramGifts ->
                             it.isTelegramGift == true
@@ -226,7 +247,8 @@ class AssetsVM(
                 ?.filter {
                     !it.shouldHide() && when (collectionMode) {
                         is AssetsVC.CollectionMode.SingleCollection ->
-                            it.collectionAddress == collectionMode.collection.address
+                            it.collectionAddress == collectionMode.collection.address &&
+                                (it.chain ?: MBlockchain.ton).name == collectionMode.collection.chain
 
                         is AssetsVC.CollectionMode.TelegramGifts ->
                             it.isTelegramGift == true
@@ -243,7 +265,8 @@ class AssetsVM(
         rebuildAssetRows()
         refreshExpiringDomainsData()
 
-        return oldNfts != nfts
+        return oldNfts != nfts || oldCatalog != giftCatalog || wasComplete != isGiftInventoryComplete ||
+            wasGiftCollection != isTelegramGiftCollection
     }
 
     private fun rebuildAssetRows() {

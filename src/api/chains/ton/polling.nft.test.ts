@@ -78,7 +78,7 @@ jest.mock('../../common/cache', () => ({
   getBackendConfigCache: jest.fn().mockResolvedValue({ isVestingEnabled: false }),
 }));
 jest.mock('../../common/addresses', () => ({
-  getNftSuperCollectionsByCollectionAddress: jest.fn(() => Promise.resolve({})),
+  getNftSuperCollectionsByCollectionAddress: jest.fn().mockResolvedValue({}),
   checkIsTrustedCollection: () => false,
   checkHasScamLink: () => false,
   getHasTrustedCollections: () => true,
@@ -131,6 +131,19 @@ const watchWallets = jest.fn<WalletWatcher, Parameters<ToncenterSocket['watchWal
 let polling: ReturnType<typeof setupNftPolling> | undefined;
 let randomSpy: jest.SpiedFunction<typeof randomModule.random>;
 
+// Legacy regression assertions inspect ownership/data events. Freshness-only events are
+// asserted separately below; they deliberately carry no replacement inventory.
+function nftDataUpdates(onUpdate: jest.Mock) {
+  const data = jest.fn();
+  for (const [update] of onUpdate.mock.calls) {
+    if (update.type === 'updateNfts') {
+      const { inventoryStatus, ...rest } = update;
+      if (inventoryStatus && rest.isFullLoading === undefined && !rest.streamedAddresses && !rest.nfts.length) continue;
+      data(rest);
+    } else data(update);
+  }
+  return data;
+}
 describe('TON NFT polling', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -154,6 +167,28 @@ describe('TON NFT polling', () => {
     jest.useRealTimers();
   });
 
+  it('silently delivers hidden Telegram gifts from partial polling without surfacing other hidden NFTs', async () => {
+    const hiddenGift = { ...BATCH_NFTS[0], isHidden: true, isTelegramGift: true };
+    const hiddenOther = { ...BATCH_NFTS[1], isHidden: true };
+    const visibleGift = { ...BATCH_NFTS[0], address: 'visible-gift', isTelegramGift: true };
+    const updates: ApiNftUpdate[] = [hiddenGift, hiddenOther, visibleGift].map((nft) => ({
+      type: 'nftReceived', accountId: ACCOUNT_ID, nftAddress: nft.address, nft,
+    }));
+    mockedGetNftUpdates.mockResolvedValue([Math.round(Date.now() / 1000), updates]);
+    const { firstFullLoadPromise, onUpdate, poll } = startPolling();
+    await firstFullLoadPromise;
+    onUpdate.mockClear();
+    poll();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(onUpdate).toHaveBeenCalledWith({
+      type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts: [hiddenGift],
+    });
+    expect(onUpdate).toHaveBeenCalledWith({
+      type: 'nftReceived', accountId: ACCOUNT_ID, nftAddress: visibleGift.address, nft: visibleGift,
+    });
+    expect(onUpdate).toHaveBeenCalledTimes(2);
+  });
+
   it('loads once on start and resolves the first-load promise after the stream finishes', async () => {
     const fullLoad = new Deferred<void>();
     mockedStreamAllAccountNfts.mockReturnValueOnce(fullLoad.promise);
@@ -172,7 +207,7 @@ describe('TON NFT polling', () => {
 
     await jest.advanceTimersByTimeAsync(2 * SEC);
     expect(onFirstFullLoad).not.toHaveBeenCalled();
-    expect(onUpdate.mock.calls).toEqual([[{
+    expect(nftDataUpdates(onUpdate).mock.calls).toEqual([[{
       type: 'updateNfts',
       accountId: ACCOUNT_ID,
       chain: 'ton',
@@ -184,7 +219,7 @@ describe('TON NFT polling', () => {
     await firstFullLoadPromise;
     expect(onFirstFullLoad).toHaveBeenCalledTimes(1);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
-    expect(onUpdate).toHaveBeenLastCalledWith({
+    expect(nftDataUpdates(onUpdate)).toHaveBeenLastCalledWith({
       type: 'updateNfts',
       accountId: ACCOUNT_ID,
       chain: 'ton',
@@ -197,6 +232,23 @@ describe('TON NFT polling', () => {
     expect(mockedGetNftUpdates).toHaveBeenCalledWith(ACCOUNT_ID, Math.round(Date.now() / 1000));
     await jest.advanceTimersByTimeAsync(2 * SEC);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])('reports freshness after a direct stream with failure=%s', async (shouldFail) => {
+    const pending = new Deferred<void>();
+    mockedStreamAllAccountNfts.mockImplementationOnce((_, { onBatch }) => {
+      onBatch(BATCH_NFTS);
+      return pending.promise;
+    });
+    const { onUpdate, firstFullLoadPromise } = startPolling();
+    await jest.advanceTimersByTimeAsync(1);
+    const statuses = () => onUpdate.mock.calls.map(([update]) => update.inventoryStatus).filter(Boolean);
+    expect(statuses()).toEqual(['loading']);
+    if (shouldFail) pending.reject(new Error('page two unavailable'));
+    else pending.resolve();
+    await firstFullLoadPromise;
+    expect(statuses()).toEqual(['loading', shouldFail ? 'error' : 'complete']);
+    if (shouldFail) expect(onUpdate.mock.calls.every(([update]) => update.streamedAddresses === undefined)).toBe(true);
   });
 
   it('resolves the first-load promise on failure without emitting a final empty NFT update', async () => {
@@ -214,7 +266,7 @@ describe('TON NFT polling', () => {
     await firstFullLoadPromise;
     expect(onFirstFullLoad).toHaveBeenCalledTimes(1);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
     expect(logDebugError).toHaveBeenCalledWith('setupNftPolling updateFull', error);
   });
 
@@ -265,7 +317,7 @@ describe('TON NFT polling', () => {
     poll();
     await jest.advanceTimersByTimeAsync(0);
     expect(mockedGetNftUpdates).toHaveBeenCalledTimes(1);
-    expect(onUpdate.mock.calls.map(([update]) => update)).toContainEqual(NFT_UPDATE);
+    expect(nftDataUpdates(onUpdate).mock.calls.map(([update]) => update)).toContainEqual(NFT_UPDATE);
 
     await jest.advanceTimersByTimeAsync(5 * MINUTE - 1);
     expect(mockedGetNftUpdates).toHaveBeenCalledTimes(2);
@@ -361,7 +413,7 @@ describe('TON NFT polling', () => {
     await jest.advanceTimersByTimeAsync(15 * MINUTE);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
     expect(mockedGetNftUpdates).toHaveBeenCalledTimes(1);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 });
 
@@ -544,7 +596,7 @@ describe('TON domain polling', () => {
   it('logs failures, preserves known data and continues on the five-minute schedule', async () => {
     start(true);
     await jest.advanceTimersByTimeAsync(0);
-    const domainUpdates = () => onUpdate.mock.calls.filter(([update]) => (
+    const domainUpdates = () => nftDataUpdates(onUpdate).mock.calls.filter(([update]) => (
       update.type === 'updateAccount' || update.type === 'updateAccountDomainData'
     ));
     expect(domainUpdates()).toHaveLength(2);
@@ -572,7 +624,7 @@ describe('TON domain polling', () => {
 
     await jest.advanceTimersByTimeAsync(15 * MINUTE);
     expectPolls(1);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 
   it('does not request TON DNS when stopped while waiting for the NFT load', async () => {
@@ -603,7 +655,7 @@ describe('TON domain polling', () => {
     domains.resolve(DOMAIN_DATA);
     await jest.advanceTimersByTimeAsync(15 * MINUTE);
     expectPolls(1);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 });
 
@@ -887,16 +939,20 @@ describe('TON NFT protocol polling', () => {
 
     await polling.firstFullLoadPromise;
 
-    expect(onUpdate).toHaveBeenCalledTimes(hasSnapshot ? 4 : 2);
+    const statuses = onUpdate.mock.calls.map(([update]) => update.inventoryStatus).filter(Boolean);
+    expect(statuses).toEqual(hasSnapshot
+      ? ['loading', 'cached', 'cached', 'loading', 'complete'] : ['loading', 'loading', 'complete']);
+
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledTimes(hasSnapshot ? 4 : 2);
     if (hasSnapshot) {
-      expect(onUpdate.mock.calls[0][0]).toMatchObject({
+      expect(nftDataUpdates(onUpdate).mock.calls[0][0]).toMatchObject({
         type: 'updateNfts', isFullLoading: true, nfts: [{ name: 'Owned NFT' }],
       });
-      expect(onUpdate.mock.calls[1][0]).toMatchObject({
+      expect(nftDataUpdates(onUpdate).mock.calls[1][0]).toMatchObject({
         type: 'updateNfts', isFullLoading: false, nfts: [{ name: 'Owned NFT' }],
       });
     }
-    expect(onUpdate.mock.calls.slice(hasSnapshot ? 2 : 0)).toEqual([
+    expect(nftDataUpdates(onUpdate).mock.calls.slice(hasSnapshot ? 2 : 0)).toEqual([
       [{ type: 'updateNfts', accountId, chain: 'ton', nfts: BATCH_NFTS, isFullLoading: true }],
       [{
         type: 'updateNfts', accountId, chain: 'ton', nfts: [], isFullLoading: false,
@@ -919,20 +975,20 @@ describe('TON NFT protocol polling', () => {
     expect(callBackendGet).toHaveBeenCalledTimes(1);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
     const directSignal = mockedStreamAllAccountNfts.mock.calls[0][1].signal!;
-    const restoredNfts: ApiNft[] = onUpdate.mock.calls[0][0].nfts;
-    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+    const restoredNfts: ApiNft[] = nftDataUpdates(onUpdate).mock.calls[0][0].nfts;
+    expect(nftDataUpdates(onUpdate)).toHaveBeenLastCalledWith(expect.objectContaining({
       type: 'updateNfts', isFullLoading: true, nfts: BATCH_NFTS,
     }));
     onUpdate.mockClear();
     await jest.advanceTimersByTimeAsync(60 * MINUTE - 1);
     expect(directSignal.aborted).toBe(false);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(1);
 
     expect(directSignal.aborted).toBe(true);
     expect(callBackendGet).toHaveBeenCalledTimes(2);
-    expect(onUpdate.mock.calls).toEqual([
+    expect(nftDataUpdates(onUpdate).mock.calls).toEqual([
       [{ type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: true }],
       [{
         type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: false,
@@ -941,12 +997,12 @@ describe('TON NFT protocol polling', () => {
     ]);
     fullLoad.resolve();
     await jest.advanceTimersByTimeAsync(0);
-    expect(onUpdate).toHaveBeenCalledTimes(2);
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledTimes(2);
     onUpdate.mockClear();
     emitWalletUpdate();
     await jest.advanceTimersByTimeAsync(3 * SEC);
     expect(callBackendGet).toHaveBeenCalledTimes(3);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -982,8 +1038,8 @@ describe('TON NFT protocol polling', () => {
     expect(callBackendGet).toHaveBeenCalledTimes(1);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
     const directSignal = mockedStreamAllAccountNfts.mock.calls[0][1].signal!;
-    const restoredNfts: ApiNft[] = onUpdate.mock.calls[0][0].nfts;
-    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+    const restoredNfts: ApiNft[] = nftDataUpdates(onUpdate).mock.calls[0][0].nfts;
+    expect(nftDataUpdates(onUpdate)).toHaveBeenLastCalledWith(expect.objectContaining({
       type: 'updateNfts', isFullLoading: true, nfts: BATCH_NFTS,
     }));
     onUpdate.mockClear();
@@ -991,13 +1047,13 @@ describe('TON NFT protocol polling', () => {
     expect(callBackendGet).toHaveBeenCalledTimes(1);
     expect(directSignal.aborted).toBe(false);
     expect(await idb.get(snapshotKey)).toBe(snapshot);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(1);
 
     expect(callBackendGet).toHaveBeenCalledTimes(2);
     expect(directSignal.aborted).toBe(true);
-    expect(onUpdate.mock.calls).toEqual([
+    expect(nftDataUpdates(onUpdate).mock.calls).toEqual([
       [{ type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: true }],
       [{
         type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: false,
@@ -1006,7 +1062,7 @@ describe('TON NFT protocol polling', () => {
     ]);
     fullLoad.resolve();
     await jest.advanceTimersByTimeAsync(0);
-    expect(onUpdate).toHaveBeenCalledTimes(2);
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledTimes(2);
     onUpdate.mockClear();
     const nextTick = (isConnected ? 5 * MINUTE : MINUTE) * 1.2;
     await jest.advanceTimersByTimeAsync(nextTick - retryDelay - 1);
@@ -1014,7 +1070,7 @@ describe('TON NFT protocol polling', () => {
     await jest.advanceTimersByTimeAsync(1);
     expect(callBackendGet).toHaveBeenCalledTimes(3);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 
   it('retries at the retry time after the clock steps back', async () => {
@@ -1047,7 +1103,7 @@ describe('TON NFT protocol polling', () => {
     polling = setupNftPolling(accountId, ADDRESS, onUpdate);
     await jest.advanceTimersByTimeAsync(0);
     const directSignal = mockedStreamAllAccountNfts.mock.calls[0][1].signal!;
-    const restoredNfts: ApiNft[] = onUpdate.mock.calls[0][0].nfts;
+    const restoredNfts: ApiNft[] = nftDataUpdates(onUpdate).mock.calls[0][0].nfts;
     onUpdate.mockClear();
 
     for (let attempt = 2; attempt <= 3; attempt++) {
@@ -1055,7 +1111,7 @@ describe('TON NFT protocol polling', () => {
       expect(callBackendGet).toHaveBeenCalledTimes(attempt);
       expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
       expect(directSignal.aborted).toBe(false);
-      expect(onUpdate).not.toHaveBeenCalled();
+      expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
     }
 
     await jest.advanceTimersByTimeAsync(5 * MINUTE);
@@ -1072,7 +1128,7 @@ describe('TON NFT protocol polling', () => {
     await jest.advanceTimersByTimeAsync(0);
 
     expect(directSignal.aborted).toBe(true);
-    expect(onUpdate.mock.calls).toEqual([
+    expect(nftDataUpdates(onUpdate).mock.calls).toEqual([
       [{ type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: true }],
       [{
         type: 'updateNfts', accountId, chain: 'ton', nfts: restoredNfts, isFullLoading: false,
@@ -1081,7 +1137,7 @@ describe('TON NFT protocol polling', () => {
     ]);
     fullLoad.resolve();
     await jest.advanceTimersByTimeAsync(5 * MINUTE);
-    expect(onUpdate).toHaveBeenCalledTimes(2);
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledTimes(2);
     expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
     expect(callBackendGet).toHaveBeenCalledTimes(5);
   });
@@ -1116,12 +1172,12 @@ describe('TON NFT protocol polling', () => {
       expect(callBackendGet).toHaveBeenCalledTimes(2);
       expect(mockedStreamAllAccountNfts).toHaveBeenCalledTimes(1);
       expect(directOptions.signal!.aborted).toBe(false);
-      expect(onUpdate).not.toHaveBeenCalled();
+      expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
 
       directOptions.onBatch(BATCH_NFTS);
       fullLoad.resolve();
       await jest.advanceTimersByTimeAsync(0);
-      expect(onUpdate.mock.calls).toEqual([
+      expect(nftDataUpdates(onUpdate).mock.calls).toEqual([
         [{ type: 'updateNfts', accountId, chain: 'ton', nfts: BATCH_NFTS, isFullLoading: true }],
         [{
           type: 'updateNfts', accountId, chain: 'ton', nfts: [], isFullLoading: false,
@@ -1174,7 +1230,7 @@ describe('TON NFT protocol polling', () => {
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(idb.get).not.toHaveBeenCalled();
     expect(idb.set).not.toHaveBeenCalled();
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
   });
 
   it('emits nftChanged only when the protocol returns a late sale change at 30 seconds', async () => {
@@ -1196,18 +1252,18 @@ describe('TON NFT protocol polling', () => {
 
     await jest.advanceTimersByTimeAsync(3 * SEC);
     expect(callBackendGet).toHaveBeenCalledTimes(2);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(5 * SEC);
     expect(callBackendGet).toHaveBeenCalledTimes(3);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(22 * SEC - 1);
     expect(callBackendGet).toHaveBeenCalledTimes(3);
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(nftDataUpdates(onUpdate)).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1);
 
     expect(callBackendGet).toHaveBeenCalledTimes(4);
-    expect(onUpdate).toHaveBeenCalledTimes(1);
-    expect(onUpdate).toHaveBeenCalledWith({
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledTimes(1);
+    expect(nftDataUpdates(onUpdate)).toHaveBeenCalledWith({
       type: 'nftChanged', accountId, chain: 'ton',
       nft: expect.objectContaining({ name: 'Owned NFT', isOnSale: true }),
     });

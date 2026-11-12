@@ -1,7 +1,7 @@
-import React, { memo, useEffect, useMemo, useRef } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
+import React, { memo, useEffect, useMemo, useRef, useState } from '../../../../lib/teact/teact';
+import { getActions, getGlobal, withGlobal } from '../../../../global';
 
-import type { ApiNft, ApiNftCollection } from '../../../../api/types';
+import type { ApiNft, ApiNftCollection, ApiUpdateNfts } from '../../../../api/types';
 import type { Theme } from '../../../../global/types';
 
 import {
@@ -18,6 +18,7 @@ import {
 } from '../../../../config';
 import { getIsNftVisible } from '../../../../global/helpers/nfts';
 import renderText from '../../../../global/helpers/renderText';
+import { buildTelegramGiftCatalog } from '../../../../global/helpers/telegramGiftCatalog';
 import {
   selectCurrentAccountId,
   selectCurrentAccountState,
@@ -41,8 +42,10 @@ import useScrolledState from '../../../../hooks/useScrolledState';
 import Spinner from '../../../ui/Spinner';
 import EmptyListPlaceholder from './EmptyListPlaceholder';
 import NftList from './NftList';
+import TelegramGiftCatalog from './TelegramGiftCatalog';
 
 import styles from './Nft.module.scss';
+import catalogStyles from './TelegramGiftCatalog.module.scss';
 
 const SLIDE_TRANSITION_DURATION_MS = 300;
 
@@ -74,6 +77,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  accountId?: string;
   orderedAddresses?: string[];
   selectedNfts?: ApiNft[];
   byAddress?: Record<string, ApiNft>;
@@ -86,11 +90,13 @@ interface StateProps {
   isMultichainAccount?: boolean;
   hasAddresses: boolean;
   isLoading?: boolean;
+  tonInventoryStatus?: ApiUpdateNfts['inventoryStatus'];
   theme: Theme;
   animationDuration: number;
 }
 
 function Nfts({
+  accountId,
   isActive,
   isWidget,
   isStretched,
@@ -108,13 +114,15 @@ function Nfts({
   isMultichainAccount,
   hasAddresses,
   isLoading,
+  tonInventoryStatus,
   theme,
   animationDuration,
 }: OwnProps & StateProps) {
-  const { fetchNftsFromCollection, clearNftsSelection } = getActions();
+  const { fetchNftsFromCollection, clearNftsSelection, openNftCollection } = getActions();
 
   const lang = useLang();
   const contentRef = useRef<HTMLDivElement>();
+  const [isListLayout, setIsListLayout] = useState(false);
   const { isPortrait, isLandscape } = useDeviceScreen();
   const realIsActive = usePrevDuringAnimationSimple(isActive, animationDuration);
   const appTheme = useAppTheme(theme);
@@ -174,6 +182,26 @@ function Nfts({
     blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden,
   ]);
 
+  const isGiftCatalog = collection?.address === TELEGRAM_GIFTS_SUPER_COLLECTION;
+  const giftCatalog = useMemo(() => buildTelegramGiftCatalog(
+    !isWidget && collection
+      ? (isGiftCatalog ? Object.values(byAddress || {}) : (nftAddresses || []).map((address) => byAddress![address]))
+      : [],
+    new Set(nftAddresses),
+  ), [nftAddresses, byAddress, isWidget, collection, isGiftCatalog]);
+  const isGiftCollection = !isGiftCatalog && Boolean(collection && giftCatalog.count);
+
+  const openGiftCollection = useLastCallback((address: string) => {
+    if (!accountId || selectCurrentAccountId(getGlobal()) !== accountId) return;
+    openNftCollection({ address, chain: 'ton' });
+  });
+
+  const changeLayout = useLastCallback((asList: boolean) => {
+    setIsListLayout(asList);
+    const host = isLandscape ? contentRef.current : contentRef.current?.closest('.app-slide-content');
+    if (host) host.scrollTop = 0;
+  });
+
   const handleNftMarketplaceClick = useLastCallback(() => {
     void openUrl(nftMarketplace.url, {
       title: nftMarketplace.title,
@@ -188,11 +216,11 @@ function Nfts({
     [isNftBuyingDisabled, isPortrait, lang],
   );
 
-  if (nftAddresses === undefined || (!isWidget && nftAddresses.length === 0 && isLoading)) {
+  if (nftAddresses === undefined || (!isWidget && !isGiftCatalog && nftAddresses.length === 0 && isLoading)) {
     return <div className={buildClassName(styles.loading, 'content-centered')}><Spinner /></div>;
   }
 
-  if (nftAddresses.length === 0) {
+  if (nftAddresses.length === 0 && !(isGiftCatalog && !isWidget)) {
     return (
       <EmptyListPlaceholder
         stickerTgsUrl={isWidget ? undefined : ANIMATED_STICKERS_PATHS.happy}
@@ -242,19 +270,46 @@ function Nfts({
       )}
       onScroll={isLandscape ? handleContentScroll : undefined}
     >
-      <NftList
-        key={collection ? `${collection.address}_${collection.chain}` : 'nft-list'}
-        isActive={realIsActive}
-        isLoading={isLoading}
-        scrollContainerSelector={scrollContainerSelector}
-        appTheme={appTheme}
-        addresses={nftAddresses}
-        dnsExpiration={dnsExpiration}
-        isViewAccount={isViewAccount}
-        isMultichainAccount={isMultichainAccount}
-        nftsByAddresses={byAddress!}
-        selectedNfts={selectedNfts}
-      />
+      {isGiftCatalog ? (
+        <TelegramGiftCatalog
+          catalog={giftCatalog}
+          inventoryStatus={tonInventoryStatus}
+          onSelectCollection={openGiftCollection}
+        />
+      ) : (
+        <>
+          {isGiftCollection && (
+            <div className={catalogStyles.toolbar}>
+              <button
+                type="button"
+                onClick={() => openGiftCollection(TELEGRAM_GIFTS_SUPER_COLLECTION)}
+              >
+                {lang('Back')} · {lang('Telegram Gifts')}
+              </button>
+              <button type="button" aria-pressed={!isListLayout} onClick={() => changeLayout(false)}>
+                {lang('Gift Grid')}
+              </button>
+              <button type="button" aria-pressed={isListLayout} onClick={() => changeLayout(true)}>
+                {lang('Gift List')}
+              </button>
+            </div>
+          )}
+          <NftList
+            key={`${collection ? `${collection.address}_${collection.chain}` : 'nft-list'}_${isListLayout}`}
+            isListLayout={isGiftCollection && isListLayout}
+            isActive={realIsActive}
+            isLoading={isLoading}
+            scrollContainerSelector={scrollContainerSelector}
+            appTheme={appTheme}
+            addresses={nftAddresses}
+            dnsExpiration={dnsExpiration}
+            isViewAccount={isViewAccount}
+            isMultichainAccount={isMultichainAccount}
+            nftsByAddresses={byAddress!}
+            selectedNfts={selectedNfts}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -268,6 +323,7 @@ export default memo(
         selectedNfts,
         dnsExpiration,
         isFullLoadingByChain,
+        inventoryStatusByChain,
       } = selectCurrentAccountState(global)?.nfts || {};
       const { isNftBuyingDisabled } = global.restrictions;
 
@@ -282,6 +338,7 @@ export default memo(
       const accountId = selectCurrentAccountId(global);
 
       return {
+        accountId,
         orderedAddresses,
         selectedNfts,
         byAddress,
@@ -294,6 +351,7 @@ export default memo(
         isMultichainAccount: accountId ? selectIsMultichainAccount(global, accountId) : undefined,
         hasAddresses: accountId ? selectHasAccountAddresses(global, accountId) : false,
         isLoading: isFullLoadingByChain ? Object.values(isFullLoadingByChain).some(Boolean) : undefined,
+        tonInventoryStatus: inventoryStatusByChain?.ton,
         theme: global.settings.theme,
         animationDuration,
       };

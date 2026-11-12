@@ -40,6 +40,7 @@ import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode.SingleCollection
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode.TelegramGifts
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.AssetCell
+import org.mytonwallet.app_air.uiassets.viewControllers.assets.cells.GiftCollectionCell
 import org.mytonwallet.app_air.uiassets.viewControllers.assetsTab.AssetsTabVC
 import org.mytonwallet.app_air.uiassets.viewControllers.icons.menuIconRes
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
@@ -96,6 +97,7 @@ import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MCollectionTabToShow
 import org.mytonwallet.app_air.walletcore.models.MMarketplace
 import org.mytonwallet.app_air.walletcore.models.NftCollection
+import org.mytonwallet.app_air.walletcore.models.TelegramGiftCatalog
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchainExplorer
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -211,6 +213,8 @@ class AssetsVC(
     companion object {
         const val NFTS_SECTION = 0
         val ASSET_CELL = WCell.Type(1)
+        val GIFT_COLLECTION_CELL = WCell.Type(2)
+        val ASSET_LIST_CELL = WCell.Type(3)
         private const val BANNER_ALPHA_VISIBLE_RANGE = 0.5f
         private const val BANNER_COLLAPSE_TRANSLATION_DP = 20
         private const val BANNER_COLLAPSE_MIN_SCALE = 0.8f
@@ -299,11 +303,18 @@ class AssetsVC(
     private val rvAdapter =
         WRecyclerViewAdapter(
             WeakReference(this),
-            arrayOf(ASSET_CELL)
+            arrayOf(ASSET_CELL, GIFT_COLLECTION_CELL, ASSET_LIST_CELL)
         ).apply {
             setHasStableIds(true)
         }
     private var displayedAssetRows: List<AssetRow> = emptyList()
+    private var wasShowingGiftCatalog = false
+    private var isListLayout = false
+    private var displayedGiftCatalog = TelegramGiftCatalog()
+    private var displayedGiftInventoryComplete = false
+    private val showsGiftCatalog: Boolean
+        get() = viewMode == ViewMode.COMPLETE && collectionMode == TelegramGifts &&
+            assetsVM.interactionMode == AssetsVM.InteractionMode.NORMAL
 
     private val emptyDataView: WEmptyIconTitleSubtitleActionView by lazy {
         val marketplace = getMarketplaceForEmptyAssets()
@@ -936,6 +947,22 @@ class AssetsVC(
             setOnClickListener {
 
                 val items = mutableListOf<WMenuPopup.Item>()
+                if (collectionMode is SingleCollection) {
+                    items.add(
+                        WMenuPopup.Item(
+                            WMenuPopup.Item.Config.Item(
+                                icon = null,
+                                title = LocaleController.getString(if (isListLayout) "Grid" else "List")
+                            )
+                        ) {
+                            val position = layoutManager.findFirstVisibleItemPosition().coerceAtLeast(0)
+                            isListLayout = !isListLayout
+                            layoutManager.spanCount = calculateNoOfColumns()
+                            syncAssetRows(forceReload = true)
+                            layoutManager.scrollToPositionWithOffset(position, recyclerView.paddingTop)
+                        }
+                    )
+                }
 
                 val network = MBlockchainNetwork.ofAccountId(assetsVM.showingAccountId)
 
@@ -1072,6 +1099,15 @@ class AssetsVC(
         val prevRows = displayedAssetRows
         val newRows = assetsVM.assetRows
         displayedAssetRows = newRows.take(itemsCountToShow)
+        displayedGiftCatalog = assetsVM.giftCatalog
+        displayedGiftInventoryComplete = assetsVM.isGiftInventoryComplete
+        val catalogChanged = showsGiftCatalog || wasShowingGiftCatalog
+        wasShowingGiftCatalog = showsGiftCatalog
+        if (catalogChanged) {
+            layoutManager.spanCount = calculateNoOfColumns()
+            rvAdapter.reloadData()
+            return
+        }
         if (forceReload) {
             rvAdapter.reloadData()
             return
@@ -1404,8 +1440,8 @@ class AssetsVC(
             updateThumbWarningBannerLayout()
             bannerAnimationUpdate(0f)
         }
-        rvAdapter.reloadData()
         assetsVM.configure(accountId)
+        syncAssetRows(forceReload = true)
         currentHeight = finalHeight
     }
 
@@ -1722,18 +1758,23 @@ class AssetsVC(
         }
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
-        NFTS_SECTION -> displayedAssetRows.size
+        NFTS_SECTION -> if (showsGiftCatalog) displayedGiftCatalog.visibleCollections.size + 1 else displayedAssetRows.size
         else -> throw IllegalStateException()
     }
 
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
         when (indexPath.section) {
-            NFTS_SECTION -> ASSET_CELL
+            NFTS_SECTION -> when {
+                showsGiftCatalog -> GIFT_COLLECTION_CELL
+                isListLayout -> ASSET_LIST_CELL
+                else -> ASSET_CELL
+            }
             else -> throw IllegalStateException()
         }
 
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
-        AssetCell(context, viewMode, showsTitle = showsCellTitle).apply {
+        if (cellType == GIFT_COLLECTION_CELL) GiftCollectionCell(context) else
+            AssetCell(context, viewMode, showsTitle = showsCellTitle, isListLayout = cellType == ASSET_LIST_CELL).apply {
             onTap = { nft ->
                 onNftTap(nft)
             }
@@ -1744,7 +1785,10 @@ class AssetsVC(
 
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? =
         when (indexPath.section) {
-            NFTS_SECTION -> displayedAssetRows[indexPath.row].nft.address
+            NFTS_SECTION -> if (showsGiftCatalog) {
+                if (indexPath.row == 0) "gift-catalog-total"
+                else "gift-collection:${displayedGiftCatalog.visibleCollections[indexPath.row - 1].collection.address}"
+            } else displayedAssetRows[indexPath.row].nft.address
             else -> throw IllegalStateException()
         }
 
@@ -1755,6 +1799,10 @@ class AssetsVC(
     ) {
         when (indexPath.section) {
             NFTS_SECTION -> {
+                if (showsGiftCatalog) {
+                    configureGiftCollectionCell(cellHolder.cell as GiftCollectionCell, indexPath.row)
+                    return
+                }
                 val cell = cellHolder.cell as AssetCell
                 val row = displayedAssetRows[indexPath.row]
                 cell.configure(
@@ -1772,9 +1820,37 @@ class AssetsVC(
         }
     }
 
+    private fun configureGiftCollectionCell(cell: GiftCollectionCell, rowIndex: Int) {
+        val catalog = displayedGiftCatalog
+        val row = catalog.visibleCollections.getOrNull(rowIndex - 1)
+        val count = row?.count ?: catalog.count
+        val hiddenCount = row?.hiddenCount ?: catalog.hiddenCount
+        val detail = if (displayedGiftInventoryComplete) {
+            LocaleController.getPlural(count, "%amount% NFTs", placeholder = "%amount%") +
+                if (hiddenCount > 0) " · ${LocaleController.getString("Hidden NFTs")}: $hiddenCount" else ""
+        } else {
+            LocaleController.getString("Gift total unavailable")
+        }
+        val accountId = assetsVM.showingAccountId
+        val onOpen: (() -> Unit)? = row?.let { item ->
+            {
+                if (assetsVM.showingAccountId == accountId && AccountStore.activeAccountId == accountId) {
+                    navigationController?.push(
+                        AssetsVC(
+                            context, accountId, ViewMode.COMPLETE,
+                            collectionMode = SingleCollection(item.collection),
+                            isShowingSingleCollection = true
+                        )
+                    )
+                }
+            }
+        }
+        cell.configure(row?.collection?.name ?: LocaleController.getString("Telegram Gifts"), detail, onOpen)
+    }
+
     var isShowingEmptyView = false
     override fun updateEmptyView() {
-        val isEmpty = assetsVM.isEmpty
+        val isEmpty = assetsVM.isEmpty && !showsGiftCatalog
         if (isEmpty != isEmptyStateVisible) {
             isEmptyStateVisible = isEmpty
             if (viewMode == ViewMode.THUMB) {
@@ -1864,11 +1940,15 @@ class AssetsVC(
 
     private var prevShowAllViewToTop = 0
     override fun nftsUpdated(isFirstLoad: Boolean) {
-        showAllView.setCounter(assetsVM.nftsCount)
-        if (assetsVM.hasLoadedNfts) {
+        val needsCompleteInventory = assetsVM.isTelegramGiftCollection
+        val count = if (collectionMode == TelegramGifts) assetsVM.giftCatalog.count else assetsVM.nftsCount
+        showAllView.setCounter(if (needsCompleteInventory && !assetsVM.isGiftInventoryComplete) null else count)
+        if (needsCompleteInventory && !assetsVM.isGiftInventoryComplete) {
+            setNavSubtitle(LocaleController.getString("Gift total unavailable"))
+        } else if (assetsVM.hasLoadedNfts) {
             setNavSubtitle(
                 LocaleController.getPlural(
-                    assetsVM.nftsCount,
+                    count,
                     "%amount% NFTs",
                     placeholder = "%amount%"
                 )
@@ -1923,7 +2003,9 @@ class AssetsVC(
         }
     }
 
-    private fun calculateNoOfColumns(): Int = if (viewMode == ViewMode.THUMB) {
+    private fun calculateNoOfColumns(): Int = if (showsGiftCatalog || isListLayout) {
+        1
+    } else if (viewMode == ViewMode.THUMB) {
         assetsVM.nftsCount.coerceIn(1, 3)
     } else {
         max(2, (view.width - 16.dp) / 182.dp)

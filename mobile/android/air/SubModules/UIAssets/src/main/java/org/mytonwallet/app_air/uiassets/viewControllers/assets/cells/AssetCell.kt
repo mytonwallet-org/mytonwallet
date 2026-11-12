@@ -55,8 +55,9 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 class AssetCell(
     context: Context,
     val viewMode: AssetsVC.ViewMode,
-    private var showsTitle: Boolean = viewMode == AssetsVC.ViewMode.COMPLETE
-) : WCell(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
+    private var showsTitle: Boolean = viewMode == AssetsVC.ViewMode.COMPLETE,
+    private val isListLayout: Boolean = false
+) : WCell(context, LayoutParams(MATCH_PARENT, if (isListLayout) 88.dp else WRAP_CONTENT)),
     WThemedView {
 
     companion object {
@@ -189,6 +190,27 @@ class AssetCell(
             endToEnd(saleBadgeView, imageView, 16f)
         }
         applyShowsTitle(showsTitle, force = true)
+        if (isListLayout) {
+            titleLabel.gravity = Gravity.START
+            subtitleLabel.gravity = Gravity.START
+            setConstraints {
+                clear(imageView.id, androidx.constraintlayout.widget.ConstraintSet.END)
+                setDimensionRatio(imageView.id, null)
+                constrainWidth(imageView.id, 64.dp)
+                constrainHeight(imageView.id, 64.dp)
+                toTop(imageView, 4f)
+                toStart(imageView)
+                clear(titleLabel.id, androidx.constraintlayout.widget.ConstraintSet.TOP)
+                constrainWidth(titleLabel.id, 0)
+                startToEnd(titleLabel, imageView, 12f)
+                toEnd(titleLabel, 40f)
+                toTop(titleLabel, 8f)
+                constrainWidth(subtitleLabel.id, 0)
+                startToEnd(subtitleLabel, imageView, 12f)
+                toEnd(subtitleLabel, 40f)
+                clear(subtitleLabel.id, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+            }
+        }
 
         setOnClickListener {
             nft?.let {

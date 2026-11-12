@@ -178,6 +178,39 @@ $gapSize: 0.5rem;
   pointer-events: none;
 }
 
+.item.itemRow {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 0 0.75rem;
+  align-items: center;
+
+  padding: 0.5rem;
+
+  .imageWrapper {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+
+    width: 4rem;
+    height: 4rem;
+    margin: 0;
+  }
+
+  .infoWrapper {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    padding-inline-end: 2rem;
+  }
+
+  .collection {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    padding-top: 0.25rem;
+  }
+}
+
 .imageWrapper,
 .warning {
   overflow: hidden;

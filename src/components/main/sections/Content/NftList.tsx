@@ -26,6 +26,7 @@ import { OVERVIEW_CELL_BODY_CLASS } from './OverviewCell';
 import styles from './Nft.module.scss';
 
 interface OwnProps {
+  isListLayout?: boolean;
   addresses: string[];
   isActive?: boolean;
   isLoading?: boolean;
@@ -60,6 +61,7 @@ const COMPACT_TWO_COLUMNS_MAX = 4;
 const LANDSCAPE_WIDE_BREAKPOINT_PX = 992;
 
 function NftList({
+  isListLayout,
   addresses,
   isActive,
   isLoading,
@@ -115,7 +117,7 @@ function NftList({
   const widgetColumns = isWidgetStretched
     ? (width >= LANDSCAPE_WIDE_BREAKPOINT_PX ? 4 : 3)
     : (addresses.length <= COMPACT_TWO_COLUMNS_MAX ? 2 : 3);
-  const nftsPerRow = isWidget
+  const nftsPerRow = isListLayout ? 1 : isWidget
     ? widgetColumns
     : isLandscape
       ? (width >= LANDSCAPE_WIDE_BREAKPOINT_PX ? 4 : 3)
@@ -167,7 +169,7 @@ function NftList({
       if (containerWidth === 0) return undefined;
 
       const nftWidth = Math.floor((containerWidth - INNER_PADDING - (nftsPerRow - 1) * COLUMNS_GAP_SIZE) / nftsPerRow);
-      const rowHeight = nftWidth + TEXT_DATA_HEIGHT;
+      const rowHeight = isListLayout ? 5 * REM : nftWidth + TEXT_DATA_HEIGHT;
       const safeViewportIndex = Math.max(0, viewportIndex);
       const visibleCount = Math.max(0, viewportNftAddresses?.length ?? 0);
       // Size to the rendered window, not the full collection. For wallets with thousands of NFTs,
@@ -219,7 +221,7 @@ function NftList({
 
     return () => observer.disconnect();
   }, [
-    addresses.length, isActive, isWidget, isLoading, nftsPerRow,
+    addresses.length, isActive, isWidget, isLoading, nftsPerRow, isListLayout,
     viewportIndex, viewportNftAddresses?.length, width,
   ]);
 
@@ -227,6 +229,7 @@ function NftList({
     <InfiniteScroll
       ref={containerRef}
       withAbsolutePositioning
+      loadMoreStrategy="scrollDirection"
       className={buildClassName(styles.list, isWidget && styles.listWidget, `nft-list-${uniqueId}`)}
       scrollContainerClosest={resolvedScrollSelector}
       items={viewportNftAddresses}
@@ -251,6 +254,7 @@ function NftList({
             withChainIcon={isMultichainAccount}
             selectedNfts={selectedNfts}
             isWidget={isWidget}
+            isListLayout={isListLayout}
             style={`--row: ${row}; --col: ${col};`}
           />
         );

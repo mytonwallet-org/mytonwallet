@@ -17,9 +17,40 @@ describe('InfiniteScroll', () => {
   afterEach(async () => {
     TeactDOM.render(undefined, root);
     await Promise.resolve();
+    // Drain the shared rendering scheduler before replacing the fake clock.
+    await jest.runOnlyPendingTimersAsync();
     root.remove();
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('loads the next slice on the first scrollbar jump without a wheel event', async () => {
+    const onLoadMore = jest.fn();
+    TeactDOM.render(
+      <InfiniteScroll
+        items={[1, 2]}
+        itemSelector=".test-item"
+        loadMoreStrategy="scrollDirection"
+        preloadBackwards={0}
+        onLoadMore={onLoadMore}
+      >
+        <div className="test-item">First</div>
+        <div className="test-item">Last</div>
+      </InfiniteScroll>,
+      root,
+    );
+    await Promise.resolve();
+    const container = root.firstElementChild as HTMLDivElement;
+    const [firstItem, lastItem] = Array.from(container.querySelectorAll<HTMLElement>('.test-item'));
+    Object.defineProperties(container, {
+      scrollTop: { configurable: true, writable: true, value: 2100 },
+      scrollHeight: { configurable: true, value: 3000 },
+      offsetHeight: { configurable: true, value: 900 },
+    });
+    mockItemGeometry(firstItem, () => 0, container);
+    mockItemGeometry(lastItem, () => 2900, container);
+    dispatchScroll(container);
+    expect(onLoadMore).toHaveBeenCalledWith({ direction: LoadMoreDirection.Backwards });
   });
 
   it('keeps the wheel direction when restoring a virtualized viewport changes scroll coordinates', async () => {

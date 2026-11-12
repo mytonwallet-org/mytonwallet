@@ -7,14 +7,17 @@ import type { NftSyncSnapshot } from '../../common/nftSync';
 import type { ApiNft, ApiUpdate, ApiUpdateNftPutUpForSale } from '../../types';
 import type { MetadataMap, NftItemsResponse, NftItemState, NftTransferState } from './toncenter/types';
 
+import { TELEGRAM_GIFTS_SUPER_COLLECTION } from '../../../config';
+import { buildTelegramGiftCatalog } from '../../../global/helpers/telegramGiftCatalog';
 import { addActionHandler, getGlobal, setGlobal } from '../../../global/index';
 import { getChainConfig } from '../../../util/chain';
 import { toBase64Address } from './util/tonCore';
+import { getNftSuperCollectionsByCollectionAddress } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
 import { createNftSync } from '../../common/nftSync';
 import { getCurrentStorage } from '../../storages';
 import { fetchNftItems, fetchNftTransfers, parseNftItem } from './toncenter/nfts';
-import { checkNftOwnership, createTonNftSync, getAccountNfts, getNftUpdates } from './nfts';
+import { checkNftOwnership, createTonNftSync, getAccountNfts, getNftUpdates, streamAllAccountNfts } from './nfts';
 import { setupNftPolling } from './polling';
 import { isActiveNonWalletContract } from './wallet';
 
@@ -90,6 +93,8 @@ const apiUpdateHandler = jest.mocked(addActionHandler).mock.calls.find(([name]) 
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedFetchNftItems.mockReset();
+  jest.mocked(getNftSuperCollectionsByCollectionAddress).mockReset().mockResolvedValue({});
   mockedIsActiveSmartContract.mockResolvedValue(false);
 });
 
@@ -123,6 +128,90 @@ function makeResponse(items: NftItemState[], metadataAddresses = items.map((i) =
 }
 
 describe('getAccountNfts', () => {
+  it('rejects a repeated full inventory page instead of treating it as progress', async () => {
+    const page = makeResponse([makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)]);
+    mockedFetchNftItems.mockResolvedValueOnce(page).mockResolvedValueOnce(page)
+      .mockResolvedValueOnce(makeResponse([]));
+
+    await expect(getAccountNfts(ACCOUNT_ID)).rejects.toThrow('Non-progressing TON NFT page');
+    expect(mockedFetchNftItems).toHaveBeenCalledTimes(2);
+  });
+
+  it('deduplicates overlapping pages while advancing by raw page length', async () => {
+    mockedFetchNftItems
+      .mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)]))
+      .mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS_2.toLowerCase()), makeItem(RAW_NFT_ADDRESS_3)]))
+      .mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS_4)]));
+    const nfts = await getAccountNfts(ACCOUNT_ID);
+    expect(nfts).toHaveLength(4);
+    expect(new Set(nfts.map((nft) => nft.address)).size).toBe(4);
+    expect(mockedFetchNftItems.mock.calls.map(([, options]) => options.offset)).toEqual([0, 2, 4]);
+  });
+
+  it.each([0, 2])(
+    'terminates an inventory at an empty page after %s items', async (count) => {
+      const items = [makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)].slice(0, count);
+      mockedFetchNftItems.mockResolvedValueOnce(makeResponse(items)).mockResolvedValueOnce(makeResponse([]));
+      expect(await getAccountNfts(ACCOUNT_ID)).toHaveLength(items.length);
+      expect(mockedFetchNftItems).toHaveBeenCalledTimes(items.length ? 2 : 1);
+    },
+  );
+
+  it('does not certify a complete inventory with an invalid raw identity', async () => {
+    mockedFetchNftItems.mockResolvedValueOnce(makeResponse([makeItem('invalid-address')]));
+    await expect(getAccountNfts(ACCOUNT_ID)).rejects.toThrow('Invalid raw TON NFT address');
+  });
+
+  it('rejects repeated full pages even when every item was filtered during parsing', async () => {
+    const page = makeResponse([
+      makeItem(RAW_NFT_ADDRESS, { collection_address: RAW_MW_CARDS_COLLECTION }),
+      makeItem(RAW_NFT_ADDRESS_2, { collection_address: RAW_MW_CARDS_COLLECTION }),
+    ], []);
+    mockedFetchNftItems.mockResolvedValueOnce(page).mockResolvedValueOnce(page);
+    await expect(getAccountNfts(ACCOUNT_ID)).rejects.toThrow('Non-progressing TON NFT page');
+    expect(mockedFetchNftItems).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows a fresh retry after a repeated page failure', async () => {
+    const page = makeResponse([makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)]);
+    mockedFetchNftItems.mockResolvedValueOnce(page).mockResolvedValueOnce(page);
+    await expect(getAccountNfts(ACCOUNT_ID)).rejects.toThrow('Non-progressing TON NFT page');
+    mockedFetchNftItems.mockResolvedValueOnce(page).mockResolvedValueOnce(makeResponse([]));
+    expect(await getAccountNfts(ACCOUNT_ID)).toHaveLength(2);
+  });
+
+  it('does not stream a response delivered after cancellation', async () => {
+    const controller = new AbortController();
+    mockedFetchNftItems.mockImplementationOnce(() => {
+      controller.abort();
+      return Promise.resolve(makeResponse([makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)]));
+    });
+    const onBatch = jest.fn();
+    await streamAllAccountNfts(ACCOUNT_ID, { signal: controller.signal, onBatch });
+    expect(onBatch).not.toHaveBeenCalled();
+    expect(mockedFetchNftItems).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not request inventory when cancelled while waiting for classification', async () => {
+    const controller = new AbortController();
+    jest.mocked(getNftSuperCollectionsByCollectionAddress).mockImplementationOnce(() => {
+      controller.abort();
+      return Promise.resolve({});
+    });
+    const onBatch = jest.fn();
+    await streamAllAccountNfts(ACCOUNT_ID, { signal: controller.signal, onBatch });
+    expect(mockedFetchNftItems).not.toHaveBeenCalled();
+    expect(onBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a repeated streaming page without emitting it again', async () => {
+    const page = makeResponse([makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)]);
+    mockedFetchNftItems.mockResolvedValueOnce(page).mockResolvedValueOnce(page);
+    const onBatch = jest.fn();
+    await expect(streamAllAccountNfts(ACCOUNT_ID, { onBatch })).rejects.toThrow('Non-progressing TON NFT page');
+    expect(onBatch).toHaveBeenCalledTimes(1);
+  });
+
   it('requests the account NFTs and parses them', async () => {
     mockedFetchNftItems.mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS)]));
 
@@ -345,6 +434,61 @@ describe('NFT sync parsing and updates', () => {
     };
   }
 
+  it('rejects unavailable classification and reclassifies an unchanged snapshot after recovery', async () => {
+    const snapshot = makeSnapshot([makeItem(RAW_NFT_ADDRESS)]);
+    syncClient.sync.mockResolvedValue({ previous: snapshot, snapshot, reset: false, changedAddresses: [] });
+    jest.mocked(getNftSuperCollectionsByCollectionAddress).mockRejectedValueOnce(new Error('Unavailable'));
+    const onUpdate = jest.fn();
+    const sync = createTonNftSync(ACCOUNT_ID, WALLET_ADDRESS, onUpdate);
+
+    await expect(sync.poll()).rejects.toThrow('Unavailable');
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(getNftSuperCollectionsByCollectionAddress).toHaveBeenCalledWith(true);
+    expect(await sync.poll()).toBe(true);
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'updateNfts', isFullLoading: false, streamedAddresses: [expect.any(String)],
+    }));
+    onUpdate.mockClear();
+    expect(await sync.poll()).toBe(true);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('reparses restored NFTs when collection classification changes without NFT changes', async () => {
+    const snapshot = makeSnapshot([makeItem(RAW_NFT_ADDRESS)]);
+    syncClient.load.mockResolvedValue(snapshot);
+    syncClient.sync.mockResolvedValue({ previous: snapshot, snapshot, reset: false, changedAddresses: [] });
+    const onUpdate = jest.fn();
+    const sync = createTonNftSync(ACCOUNT_ID, WALLET_ADDRESS, onUpdate);
+    await sync.restore();
+    onUpdate.mockClear();
+    mockedParseNftItem.mockClear();
+    const refreshedRegistry = {
+      [toBase64Address(RAW_COLLECTION_ADDRESS, true, 'mainnet')]: {
+        id: TELEGRAM_GIFTS_SUPER_COLLECTION, name: 'Telegram Gifts',
+      },
+    };
+    jest.mocked(getNftSuperCollectionsByCollectionAddress).mockResolvedValue(refreshedRegistry);
+
+    expect(await sync.poll()).toBe(true);
+    expect(mockedParseNftItem).toHaveBeenCalledWith('mainnet', expect.anything(), snapshot.metadata, refreshedRegistry);
+    expect(onUpdate).toHaveBeenCalledTimes(2);
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      isFullLoading: false, nfts: [expect.objectContaining({ isTelegramGift: true })],
+    }));
+    onUpdate.mockClear();
+    expect(await sync.poll()).toBe(true);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch or stream a supposedly complete inventory without classification', async () => {
+    jest.mocked(getNftSuperCollectionsByCollectionAddress).mockRejectedValueOnce(new Error('Unavailable'));
+    const onBatch = jest.fn();
+    await expect(streamAllAccountNfts(ACCOUNT_ID, { onBatch })).rejects.toThrow('Unavailable');
+    expect(getNftSuperCollectionsByCollectionAddress).toHaveBeenCalledWith(true);
+    expect(mockedFetchNftItems).not.toHaveBeenCalled();
+    expect(onBatch).not.toHaveBeenCalled();
+  });
+
   it('leaves Classic with identical NFT addresses and fields after direct polling or a sync snapshot', async () => {
     jest.useFakeTimers();
     let directPolling: ReturnType<typeof setupNftPolling> | undefined;
@@ -377,7 +521,9 @@ describe('NFT sync parsing and updates', () => {
 
       // Direct polling emits each Toncenter page; sync batches its snapshot by the configured limit.
       // Both sequences are applied by Classic's real update handler before their final state is compared.
-      expect(directUpdates).toHaveLength(3);
+      expect(directUpdates.filter((update) => (
+        update.type === 'updateNfts' && update.isFullLoading !== undefined
+      ))).toHaveLength(3);
       expect(syncUpdates).toHaveLength(2);
       function applyInClassic(updates: ApiUpdate[]) {
         let global = {
@@ -565,6 +711,46 @@ describe('NFT sync parsing and updates', () => {
       isOnSale: true, name: 'Fresh metadata',
     });
     expect(global.byAccountId[ACCOUNT_ID].nfts!.orderedAddresses).toEqual(positions);
+  });
+
+  it.each([false, true])('silently delivers a hidden Telegram gift (existing=%s)', async (existing) => {
+    const previous = makeSnapshot(existing ? [makeItem(RAW_NFT_ADDRESS)] : []);
+    const snapshot = makeSnapshot([makeItem(RAW_NFT_ADDRESS)]);
+    (snapshot.metadata as MetadataMap)[RAW_NFT_ADDRESS].token_info = [{ type: 'nft_items', is_scam: true }];
+    jest.mocked(getNftSuperCollectionsByCollectionAddress).mockResolvedValue({
+      [toBase64Address(RAW_COLLECTION_ADDRESS, true, 'mainnet')]: {
+        id: TELEGRAM_GIFTS_SUPER_COLLECTION, name: 'Telegram Gifts',
+      },
+    });
+    syncClient.sync.mockResolvedValueOnce({ previous, snapshot, reset: false, changedAddresses: [RAW_NFT_ADDRESS] });
+    const onUpdate = jest.fn();
+    expect(await createTonNftSync(ACCOUNT_ID, WALLET_ADDRESS, onUpdate).poll()).toBe(true);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    const hiddenGift = expect.objectContaining({ isHidden: true, isTelegramGift: true });
+    expect(onUpdate).toHaveBeenCalledWith(existing ? {
+      type: 'nftChanged', accountId: ACCOUNT_ID, chain: 'ton', nft: hiddenGift,
+    } : {
+      type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts: [hiddenGift],
+    });
+    let global = {
+      accounts: { byId: { [ACCOUNT_ID]: { title: 'Test', type: 'view', byChain: {} } } },
+      byAccountId: { [ACCOUNT_ID]: { nfts: {
+        byAddress: {}, orderedAddresses: [], inventoryStatusByChain: { ton: 'complete' },
+        isFullLoadCompleteByChain: { ton: true },
+      } } },
+      settings: { byAccountId: { [ACCOUNT_ID]: {} } },
+    } as unknown as GlobalState;
+    jest.mocked(setGlobal).mockImplementation((next) => {
+      global = next;
+      jest.mocked(getGlobal).mockReturnValue(next);
+    });
+    const actions = { checkCardNftOwnership: jest.fn(), addCollectionTab: jest.fn() };
+    apiUpdateHandler(global, actions, onUpdate.mock.calls[0][0]);
+    const state = global.byAccountId[ACCOUNT_ID].nfts!;
+    const catalog = buildTelegramGiftCatalog(Object.values(state.byAddress!), new Set());
+    expect(catalog).toMatchObject({ count: 1, hiddenCount: 1 });
+    expect(state.inventoryStatusByChain?.ton).toBe('complete');
+    expect(state.isFullLoadCompleteByChain?.ton).toBe(true);
   });
 
   it('emits received, sent and changed NFTs while suppressing a hidden incoming NFT', async () => {

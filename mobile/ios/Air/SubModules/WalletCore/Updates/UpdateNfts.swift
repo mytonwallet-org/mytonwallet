@@ -12,6 +12,7 @@ extension ApiUpdate {
         public var isFullLoading: Bool?
         /** Complete set of addresses seen during a successfully completed streaming session. */
         public var streamedAddresses: [String]?
+        public var inventoryStatus: String? = nil
     }
     
     public struct NftReceived: Equatable, Hashable, Codable, Sendable {

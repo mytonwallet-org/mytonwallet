@@ -396,6 +396,8 @@ export type ApiUpdateNfts = {
   chain: ApiChain;
   collectionAddress?: string;
   isFullLoading?: boolean;
+  /** Inventory freshness, independent of whether a cached or partial batch finished rendering. */
+  inventoryStatus?: 'loading' | 'complete' | 'cached' | 'error';
   /** Complete set of addresses seen during a streaming session. Sent with the final `isFullLoading: false` update. */
   streamedAddresses?: string[];
 };

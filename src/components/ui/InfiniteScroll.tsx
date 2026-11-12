@@ -176,7 +176,12 @@ const InfiniteScroll: FC<OwnProps> = ({
     const listItemElements = scrollContainer.querySelectorAll<HTMLDivElement>(itemSelector);
     state.listItemElements = listItemElements;
 
-    if (!prevItems?.length) return;
+    if (!prevItems?.length) {
+      // A first scrollbar jump has no wheel event or previous scroll event.
+      // Remember the mounted position so it can still trigger pagination.
+      if (shouldTrackScrollDirection) state.lastScrollTop = scrollContainer.scrollTop;
+      return;
+    }
 
     requestForcedReflow(() => {
       let newScrollTop: number | undefined;

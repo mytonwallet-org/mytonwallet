@@ -165,7 +165,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateNfts': {
-      const { chain, accountId, collectionAddress, isFullLoading, streamedAddresses } = update;
+      const { chain, accountId, collectionAddress, isFullLoading, streamedAddresses, inventoryStatus } = update;
       const nfts = buildCollectionByKey(update.nfts, 'address');
       const currentNfts = selectAccountState(global, accountId)?.nfts;
       const newOrderedAddresses = Object.keys(nfts);
@@ -189,13 +189,18 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           .filter((addr) => streamed.has(addr) || currentNfts?.byAddress?.[addr]?.chain !== chain);
       } else if (shouldAppend) {
         // Batch or collection loading - preserve existing entries (fresher websocket data), except the
-        // verification verdict, which the incoming batch recomputes from the current trusted collection list.
+        // verification and gift classification, recomputed from the current collection registries.
         // An entry stored without metadata is replaced entirely, as the incoming batch may carry the metadata.
         byAddress = { ...nfts };
         for (const [address, existingNft] of Object.entries(currentNfts?.byAddress ?? {})) {
           const incomingNft = nfts[address];
           byAddress[address] = incomingNft && !existingNft.isMetadataMissing
-            ? omitUndefined({ ...existingNft, isUnverified: incomingNft.isUnverified })
+            ? omitUndefined({
+              ...existingNft,
+              isUnverified: incomingNft.isUnverified,
+              isTelegramGift: incomingNft.isTelegramGift,
+              isOnFragment: incomingNft.isOnFragment,
+            })
             : incomingNft ?? existingNft;
         }
         orderedAddresses = unique(
@@ -216,6 +221,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           ...currentNfts,
           byAddress,
           orderedAddresses,
+          inventoryStatusByChain: inventoryStatus !== undefined ? {
+            ...currentNfts?.inventoryStatusByChain,
+            [chain]: inventoryStatus,
+          } : currentNfts?.inventoryStatusByChain,
           isLoadedByAddress: {
             ...currentNfts?.isLoadedByAddress,
             ...(shouldAppend && Boolean(collectionAddress) ? { [collectionAddress]: true } : {}),

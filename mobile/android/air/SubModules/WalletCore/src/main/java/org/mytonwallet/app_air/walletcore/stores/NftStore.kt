@@ -51,15 +51,32 @@ object NftStore : IStore {
     private val mintingAccountIds = ConcurrentHashMap.newKeySet<String>()
 
     private val fullyLoadedChainsByAccount = ConcurrentHashMap<String, MutableSet<MBlockchain>>()
+    private val inventoryStateLock = Any()
+
+    data class InventorySnapshot(val nfts: List<ApiNft>?, val isComplete: Boolean)
+
+    fun getInventorySnapshot(accountId: String): InventorySnapshot = synchronized(inventoryStateLock) {
+        val nfts = nftData?.takeIf { it.accountId == accountId }?.cachedNfts?.toList()
+        InventorySnapshot(
+            nfts,
+            nfts != null && MBlockchain.ton in getFullyLoadedChains(accountId)
+        )
+    }
 
     // A network is read in full from the final update of a full load until another one starts
     fun recordFullLoad(
         accountId: String,
         chain: MBlockchain,
-        isFullLoading: Boolean,
-        isStreamComplete: Boolean
+        isFullLoading: Boolean?,
+        isStreamComplete: Boolean,
+        inventoryStatus: String? = null
     ) {
-        if (!isFullLoading && isStreamComplete) {
+        val isComplete = when {
+            inventoryStatus != null -> inventoryStatus == "complete"
+            isFullLoading != null -> !isFullLoading && isStreamComplete
+            else -> return
+        }
+        if (isComplete) {
             fullyLoadedChainsByAccount.getOrPut(accountId) {
                 ConcurrentHashMap.newKeySet()
             }.add(chain)
@@ -124,9 +141,10 @@ object NftStore : IStore {
         private set
 
     fun loadCachedNfts(accountId: String) {
-        nftData = NftData(
-            accountId = accountId
-        )
+        synchronized(inventoryStateLock) {
+            fullyLoadedChainsByAccount.remove(accountId)
+            nftData = NftData(accountId = accountId)
+        }
         cacheExecutor.execute {
             resetWhitelistAndBlacklist()
             fetchCachedNfts(accountId)?.let { nftsArray ->
@@ -258,6 +276,8 @@ object NftStore : IStore {
         preserveExistingOnConflict: Boolean = shouldAppend,
         streamedAddresses: Set<String>? = null,
         shouldWriteNftsToCache: Boolean = true,
+        isFullLoading: Boolean? = null,
+        inventoryStatus: String? = null,
         onComplete: (() -> Unit)? = null
     ) {
         val streamPruneContext =
@@ -326,7 +346,24 @@ object NftStore : IStore {
                 onComplete?.invoke()
                 return@execute
             }
-            currentData.cachedNfts = allNfts?.toMutableList()
+            val didApply = synchronized(inventoryStateLock) {
+                if (nftData !== currentData) {
+                    false
+                } else {
+                    currentData.cachedNfts = allNfts?.toMutableList()
+                    if (chain != null) {
+                        recordFullLoad(accountId, chain, isFullLoading, streamedAddresses != null, inventoryStatus)
+                    } else if (!isReorder) {
+                        // A disk snapshot (or clearing an account) is not a completed network load.
+                        fullyLoadedChainsByAccount.remove(accountId)
+                    }
+                    true
+                }
+            }
+            if (!didApply) {
+                onComplete?.invoke()
+                return@execute
+            }
 
             if (notifyObservers) {
                 WalletCore.notifyEvent(
@@ -665,7 +702,7 @@ object NftStore : IStore {
     }
 
     private fun clearActiveNftData() {
-        nftData = null
+        synchronized(inventoryStateLock) { nftData = null }
         cacheWriteHandler.removeCallbacksAndMessages(null)
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
