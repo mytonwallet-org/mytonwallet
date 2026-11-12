@@ -23,6 +23,8 @@ final class RootStateCoordinator: WalletCoreData.EventsObserver {
     
     func transition(to rootState: AppRootState, animationDuration: Double?) {
         let rootStateName = name(for: rootState)
+        // The first root screen of the launch reveals the app from under the splash.
+        defer { LaunchSplash.play() }
         StartupTrace.beginInterval("rootState.transition.\(rootStateName)")
         StartupTrace.mark("rootState.transition.begin", details: "state=\(rootStateName)")
         if rootState == .unlock {
