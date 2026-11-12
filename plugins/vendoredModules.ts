@@ -1,5 +1,6 @@
 import path from 'path';
 import type { Plugin } from 'vite';
+import { normalizePath } from 'vite';
 
 interface ModuleWrapper {
   prologue: string;
@@ -29,9 +30,9 @@ const NOBLE_ED25519_WRAPPER: ModuleWrapper = {
  */
 export function vendoredModules(libDir: string): Plugin {
   const wrappers: Record<string, ModuleWrapper> = {
-    [path.join(libDir, 'quantize.js')]: COMMONJS_WRAPPER,
-    [path.join(libDir, 'aes-js/index.js')]: COMMONJS_WRAPPER,
-    [path.join(libDir, 'noble-ed25519/index.js')]: NOBLE_ED25519_WRAPPER,
+    [normalizePath(path.join(libDir, 'quantize.js'))]: COMMONJS_WRAPPER,
+    [normalizePath(path.join(libDir, 'aes-js/index.js'))]: COMMONJS_WRAPPER,
+    [normalizePath(path.join(libDir, 'noble-ed25519/index.js'))]: NOBLE_ED25519_WRAPPER,
   };
 
   return {
@@ -40,7 +41,9 @@ export function vendoredModules(libDir: string): Plugin {
     transform: {
       filter: { id: { include: Object.keys(wrappers) } },
       handler(code, id) {
-        const { prologue, epilogue } = wrappers[id];
+        const wrapper = wrappers[normalizePath(id)];
+        if (!wrapper) return undefined;
+        const { prologue, epilogue } = wrapper;
         // `null` keeps the incoming map, which stays valid because the original lines do not move
         // eslint-disable-next-line no-null/no-null
         return { code: `${prologue}${code}${epilogue}`, map: null };
