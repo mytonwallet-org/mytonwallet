@@ -1143,6 +1143,11 @@ $in_currency: в %currency%
 Rename Wallet: Переименовать кошелёк
 You can rename this wallet for easier identification.: Измените название кошелька, чтобы легче его находить среди остальных.
 Telegram Gifts: Подарки Telegram
+Gift Grid: Сетка
+Gift List: Список
+Gift inventory unavailable: Не удалось обновить подарки. Общее количество недоступно.
+Gift inventory cached: Показаны сохранённые подарки. Уточняем общее количество…
+Gift total unavailable: Общее количество появится после загрузки всех подарков
 Collectibles: NFT
 Bluetooth unavailable: Bluetooth недоступен
 $bluetooth_enable_guide: Включите Bluetooth в настройках устройства и разрешите приложению доступ к Bluetooth.

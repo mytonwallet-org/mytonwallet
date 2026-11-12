@@ -27,6 +27,7 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
     private let subtitleLabel = UILabel()
     private let textStack = UIStackView()
     private let contentStack = UIStackView()
+    private lazy var listImageWidthConstraint = imageContainerView.widthAnchor.constraint(equalToConstant: 64)
     private let mediaView = NftMediaView()
     private let noImagePlaceholderView = NftNoImagePlaceholderView()
     private let domainExpirationBannerView = NftDomainExpirationBannerView()
@@ -205,7 +206,11 @@ internal final class NftCell: UICollectionViewCell, ReorderableCell  {
         }
     }
 
-    func configure(nft: ApiNft?, compactMode: Bool, domainExpirationText: String?, isSelected: Bool?) {
+    func configure(nft: ApiNft?, compactMode: Bool, domainExpirationText: String?, isSelected: Bool?, isListLayout: Bool = false) {
+        listImageWidthConstraint.isActive = isListLayout
+        contentStack.axis = isListLayout ? .horizontal : .vertical
+        contentStack.alignment = isListLayout ? .center : .fill
+        contentStack.spacing = isListLayout ? 12 : 8
         nftId = nft?.id
         let cornerRadius = NftCell.getCornerRadius(compactMode: compactMode)
         let forSaleTagStyle: NftForSaleTagView.Style = compactMode ? .compact : .regular

@@ -253,7 +253,8 @@ sealed class ApiUpdate {
         val nfts: List<ApiNft>? = null,
         val collectionAddress: String? = null,
         val isFullLoading: Boolean? = null,
-        val streamedAddresses: List<String>? = null
+        val streamedAddresses: List<String>? = null,
+        val inventoryStatus: String? = null
     ) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)

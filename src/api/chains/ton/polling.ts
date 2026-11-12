@@ -320,10 +320,15 @@ export function setupNftPolling(accountId: string, address: string, onUpdate: On
 
 function setupNftSyncPolling(accountId: string, address: string, onUpdate: OnApiUpdate) {
   const { network } = parseAccountId(accountId);
+  onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [], inventoryStatus: 'loading' });
   let isStopped = false;
   let hasRestored = false;
+  let hasConfirmedInventory = false;
   const sync = createTonNftSync(accountId, address, (update) => {
-    if (!isStopped) onUpdate(update);
+    if (!isStopped) {
+      onUpdate(update.type === 'updateNfts' && !hasRestored
+        ? { ...update, inventoryStatus: 'cached' } : update);
+    }
   });
 
   let direct: ReturnType<typeof setupDirectNftPolling> | undefined;
@@ -376,6 +381,7 @@ function setupNftSyncPolling(accountId: string, address: string, onUpdate: OnApi
 
   function startDirect() {
     if (isStopped) return;
+    hasConfirmedInventory = false;
     retryAt = sync.getRetryAt();
     if (retryAt === undefined) stopSync();
     scheduleRetryPoll();
@@ -410,6 +416,10 @@ function setupNftSyncPolling(accountId: string, address: string, onUpdate: OnApi
           direct?.stop();
           direct = undefined;
         })) {
+          if (!isStopped && !hasConfirmedInventory) {
+            onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [], inventoryStatus: 'complete' });
+            hasConfirmedInventory = true;
+          }
           firstFullLoadResolve();
         } else startDirect();
       } catch (err) {
@@ -468,9 +478,15 @@ function setupDirectNftPolling(accountId: string, address: string, onUpdate: OnA
         if (!isStopped && nftResult) {
           let nftUpdates: ApiNftUpdate[];
           [nftFromSec, nftUpdates] = nftResult;
-          nftUpdates
-            .filter((update) => !(update.type === 'nftReceived' && update.nft.isHidden))
-            .forEach(onUpdate);
+          nftUpdates.forEach((update) => {
+            if (update.type === 'nftReceived' && update.nft.isHidden) {
+              if (update.nft.isTelegramGift) {
+                onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [update.nft] });
+              }
+            } else {
+              onUpdate(update);
+            }
+          });
         }
       } catch (err) {
         logDebugError('setupNftPolling updatePartial', err);
@@ -502,6 +518,7 @@ function setupDirectNftPolling(accountId: string, address: string, onUpdate: OnA
       updatePartial.cancel();
       abortController?.abort();
       abortController = new AbortController();
+      onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [], inventoryStatus: 'loading' });
 
       const streamedAddresses: string[] = [];
       let didComplete = false;
@@ -548,7 +565,11 @@ function setupDirectNftPolling(accountId: string, address: string, onUpdate: OnA
             chain: 'ton',
             isFullLoading: false,
             streamedAddresses: didComplete ? streamedAddresses : undefined,
+            inventoryStatus: didComplete ? 'complete' : undefined,
           });
+        }
+        if (!abortController.signal.aborted && didFail) {
+          onUpdate({ type: 'updateNfts', accountId, chain: 'ton', nfts: [], inventoryStatus: 'error' });
         }
         isFullLoadRunning = false;
         firstFullLoadResolve?.();

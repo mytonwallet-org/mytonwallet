@@ -1154,6 +1154,11 @@ $enclave_migration_storage_full_message: |
 
   Free up some space and open the app again. Do not reinstall the app and do not clear its data: that would erase the wallets that are still intact.
 Telegram Gifts: Telegram Gifts
+Gift Grid: Grid
+Gift List: List
+Gift inventory unavailable: Could not update gifts. The total is unavailable.
+Gift inventory cached: Saved gifts shown. Updating the total…
+Gift total unavailable: Total unavailable until all gifts are loaded
 Collectibles: Collectibles
 Bluetooth unavailable: Bluetooth unavailable
 $bluetooth_enable_guide: Turn on Bluetooth in the device settings and allow the app to access Bluetooth.

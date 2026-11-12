@@ -744,6 +744,7 @@ export interface AccountState {
     isLoadedByAddress?: Record<string, true>;
     isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
     isFullLoadCompleteByChain?: Partial<Record<ApiChain, boolean>>;
+    inventoryStatusByChain?: Partial<Record<ApiChain, 'loading' | 'complete' | 'cached' | 'error'>>;
     /** Collection address -> last loaded timestamp for cache TTL */
     collectionLoadedTimestamps?: Record<string, number>;
     /** Snapshot of MW card NFT addresses currently owned by this account */
